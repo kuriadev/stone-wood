@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
@@ -173,3 +174,7 @@ Features
 🔜 MongoDB integration
 🔜 Real GCash payment API
 🔜 Email notifications
+=======
+# stone-wood
+The purpose of this project is to design and develop a web-based system that functions as both a marketing platform and an operational tool for a private resort business. 
+>>>>>>> b680ab416f6f1a10a0cceffb4fee10a08898b731
