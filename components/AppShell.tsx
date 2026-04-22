@@ -18,6 +18,7 @@ import { Gallery } from "@/components/sections/Gallery";
 import { About } from "@/components/sections/About";
 import { BookNow } from "@/components/sections/BookNow";
 import { CustomerService } from "@/components/sections/CustomerService";
+import { ManageBooking } from "@/components/sections/CancelBooking";
 import { AdminLogin } from "@/components/sections/AdminLogin";
 import { Admin } from "@/components/sections/Admin";
 
@@ -114,6 +115,9 @@ export function AppShell() {
       )}
       {page === "Customer Service" && (
         <CustomerService onSubmitMessage={handleNewMessage} />
+      )}
+      {(page === "Manage Booking" || page === "Cancel Booking") && (
+        <ManageBooking bookings={bookings} setBookings={setBookings} />
       )}
       {page === "AdminLogin" && (
         <AdminLogin onLogin={handleLogin} onGoHome={() => goPage("Home")} />

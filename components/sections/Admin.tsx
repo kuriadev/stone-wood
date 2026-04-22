@@ -52,22 +52,26 @@ function OnsiteTab({
   updateStatus, isDark, C, cBg, cBr, mob, toast, gold,
 }: OnsiteTabProps) {
   const [osSearch, setOsSearch] = useState("");
-  const [osTab, setOsTab] = useState<"On Hold" | "Confirmed" | "Completed">("On Hold");
+  const [osTab, setOsTab] = useState<"On Hold" | "Confirmed" | "Completed" | "Cancelled">("On Hold");
   const [onsiteConfirmAction, setOnsiteConfirmAction] = useState<{
     bookingId: string;
     action: "Confirmed" | "Cancelled" | "Completed";
     guestName: string;
   } | null>(null);
 
+  const onsiteCancelled = onsiteBookings.filter(b => b.status === "Cancelled");
+
   const tabMap = {
     "On Hold":   onsitePending,
     "Confirmed": onsiteConfirmed,
     "Completed": onsiteCompleted,
+    "Cancelled": onsiteCancelled,
   };
   const tabColors: Record<string, string> = {
     "On Hold":   "#f5c518",
     "Confirmed": "#4caf50",
     "Completed": "#4a9fd4",
+    "Cancelled": "#c0392b",
   };
 
   const q = osSearch.toLowerCase().trim();
@@ -105,8 +109,14 @@ function OnsiteTab({
       </div>
 
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: mob ? 10 : 14, marginBottom: 24 }}>
-        {([["Total", onsiteBookings.length, gold], ["On Hold", onsitePending.length, "#f5c518"], ["Confirmed", onsiteConfirmed.length, "#4caf50"], ["Completed", onsiteCompleted.length, "#4a9fd4"]] as [string, number, string][]).map(([l, v, c]) => (
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(5,1fr)", gap: mob ? 10 : 14, marginBottom: 24 }}>
+        {([
+          ["Total",     onsiteBookings.length,  gold],
+          ["On Hold",   onsitePending.length,   "#f5c518"],
+          ["Confirmed", onsiteConfirmed.length, "#4caf50"],
+          ["Completed", onsiteCompleted.length, "#4a9fd4"],
+          ["Cancelled", onsiteCancelled.length, "#c0392b"],
+        ] as [string, number, string][]).map(([l, v, c]) => (
           <div key={l} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: mob ? "14px 12px" : "20px 16px", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(to right,${c}22,${c})` }} />
             <div style={{ color: C.textXS, fontSize: 9, letterSpacing: 2, marginBottom: 8 }}>{l.toUpperCase()}</div>
@@ -151,7 +161,7 @@ function OnsiteTab({
 
       {/* Status tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {(["On Hold", "Confirmed", "Completed"] as const).map((t) => {
+        {(["On Hold", "Confirmed", "Completed", "Cancelled"] as const).map((t) => {
           const active = osTab === t;
           const c = tabColors[t];
           const count = tabMap[t].length;
@@ -384,6 +394,9 @@ export function Admin({
   const [archivedMessages, setArchivedMessages] = useState<CustomerMessage[]>([]);
   const [csView, setCsView] = useState<"inbox" | "archive">("inbox");
   const [confirmArchiveMsg, setConfirmArchiveMsg] = useState<CustomerMessage | null>(null);
+  const [dashConfirm, setDashConfirm] = useState<{
+    bookingId: string; action: "Confirmed" | "Cancelled"; guestName: string;
+  } | null>(null);
 
   const tabs: AdminTab[] = ["Dashboard", "Bookings", "On-Site", "Occupancy", "Rooms", "Gallery", "Inventory", "Analytics", "Reports", "Customer Service"];
   const tabIcons: Record<AdminTab, string> = { Dashboard: "⊞", Bookings: "📋", "On-Site": "🏡", Occupancy: "📅", Rooms: "🛏", Gallery: "🖼", Inventory: "📦", Analytics: "📈", Reports: "📊", "Customer Service": "💬" };
@@ -515,7 +528,7 @@ export function Admin({
                 <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Dashboard</h2>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: mob ? 10 : 14, marginBottom: 36 }}>
-                {([["On Hold", onHold, "#f5c518", "Pending review"], ["Confirmed", confirmed, "#4caf50", "Approved"], ["Completed", completed, "#4a9fd4", "Past stays"], ["Rooms", rooms.length, gold, "Active listings"]] as [string, number, string, string][]).map(([l, v, c, sub]) => (
+                {[["On Hold", onHold, "#f5c518", "Pending review"], ["Confirmed", confirmed, "#4caf50", "Approved"], ["Completed", completed, "#4a9fd4", "Past stays"], ["Rooms", rooms.length, gold, "Active listings"]].map(([l, v, c, sub]) => (
                   <div key={l as string} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: mob ? "14px 12px" : "22px 20px", position: "relative", overflow: "hidden", boxShadow: C.shadowCard }}>
                     <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(to right,${c}22,${c})` }} />
                     <div style={{ color: isDark ? "#4a4035" : "#9a8878", fontSize: 9, letterSpacing: 2, marginBottom: 10 }}>{(l as string).toUpperCase()}</div>
@@ -546,8 +559,8 @@ export function Admin({
                           <td style={{ padding: "12px 14px" }}><span style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 9, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.2)", letterSpacing: 1 }}>ON HOLD</span></td>
                           <td style={{ padding: "12px 14px" }}>
                             <div style={{ display: "flex", gap: 6 }}>
-                              <button onClick={() => { updateStatus(b.id, "Confirmed"); toast(`Booking accepted for ${b.name}.`, "success"); }} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.2)", padding: "5px 12px", fontSize: 10, cursor: "pointer", borderRadius: 3, whiteSpace: "nowrap", letterSpacing: 1 }}>ACCEPT</button>
-                              <button onClick={() => { updateStatus(b.id, "Cancelled"); toast(`Booking rejected for ${b.name}.`, "warning"); }} style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "5px 10px", fontSize: 10, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>REJECT</button>
+                              <button onClick={() => setDashConfirm({ bookingId: b.id, action: "Confirmed", guestName: b.name })} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.2)", padding: "5px 12px", fontSize: 10, cursor: "pointer", borderRadius: 3, whiteSpace: "nowrap", letterSpacing: 1 }}>ACCEPT</button>
+                              <button onClick={() => setDashConfirm({ bookingId: b.id, action: "Cancelled", guestName: b.name })} style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "5px 10px", fontSize: 10, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>REJECT</button>
                             </div>
                           </td>
                         </tr>
@@ -624,7 +637,7 @@ export function Admin({
                 <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 8 }}>MANAGEMENT</p>
                 <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>All Bookings</h2>
               </div>
-              <BookingsTab bookings={bookings.filter(b => b.package !== "On-Site Reservation")} updateStatus={updateStatus} mob={mob} rooms={rooms} />
+              <BookingsTab bookings={bookings.filter(b => b.package !== "On-Site Reservation" || b.status === "Confirmed" || b.status === "Completed")} updateStatus={updateStatus} mob={mob} rooms={rooms} />
             </div>
           )}
 
@@ -731,68 +744,26 @@ export function Admin({
           )}
 
           {/* GALLERY */}
-          {tab==="Gallery"&&(
-          <div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}}>
-                <div>
-                  <p style={{color:C.textXS,fontSize:10,letterSpacing:3,marginBottom:8}}>MEDIA</p>
-                  <h2 style={{color:C.textH,fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:mob?22:26,fontWeight:400,margin:"0 0 4px"}}>Manage Gallery</h2>
-                  <p style={{color:C.textS,fontSize:12,margin:0}}>{galleryImgs.length} photo{galleryImgs.length!==1?"s":""} · Visible to all guests on the Gallery page</p>
-                </div>
-                <div>
-                  <input ref={galleryFileRef} type="file" accept="image/*" multiple onChange={handleGalleryUpload} style={{display:"none"}}/>
-                  <button onClick={()=>galleryFileRef.current?.click()} style={{...goldBtn,padding:"10px 20px",fontSize:10,letterSpacing:2,display:"flex",alignItems:"center",gap:8}}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    ADD PHOTOS
-                  </button>
+          {tab === "Gallery" && (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
+                <div><p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 8 }}>MEDIA</p><h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Gallery</h2></div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <input ref={galleryFileRef} type="file" accept="image/*" multiple onChange={handleGalleryUpload} style={{ display: "none" }} />
+                  <button onClick={() => galleryFileRef.current?.click()} style={{ ...goldBtn, padding: "10px 20px", fontSize: 11, letterSpacing: 2 }}>+ ADD PHOTOS</button>
                 </div>
               </div>
-              <div style={{display:"flex",gap:16,marginBottom:20,flexWrap:"wrap"}}>
-                {[["📸","Total Photos",galleryImgs.length],["✅","Publicly Visible","All"],["🖼","Layout","3-column grid"]].map(([icon,label,val])=>(
-                  <div key={label} style={{background:cBg,border:`1px solid ${cBr}`,borderRadius:6,padding:"10px 16px",display:"flex",alignItems:"center",gap:10,flex:1,minWidth:130}}>
-                    <span style={{fontSize:16}}>{icon}</span>
-                    <div></div>
-                      
-                      <p style={{color:C.textH,fontSize:13,fontWeight:500,margin:0}}>{val}</p>
+              <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(3,1fr)", gap: 12 }}>
+                {galleryImgs.map((src, i) => (
+                  <div key={i} style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: `1px solid ${cBr}` }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="" style={{ width: "100%", height: 180, objectFit: "cover", display: "block" }} />
+                    <button onClick={() => deleteGalleryImg(i)} style={{ position: "absolute", top: 8, right: 8, background: "rgba(229,85,85,0.9)", border: "none", color: "#fff", width: 28, height: 28, borderRadius: "50%", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
                   </div>
                 ))}
               </div>
-              {galleryImgs.length===0?(
-                <div style={{background:cBg,border:`2px dashed ${cBr}`,borderRadius:8,padding:"60px 20px",textAlign:"center",cursor:"pointer"}} onClick={()=>galleryFileRef.current?.click()}>
-                  <div style={{fontSize:40,marginBottom:12}}>🖼</div>
-                  <p style={{color:C.textS,fontSize:14,marginBottom:6}}>No photos yet</p>
-                  <p style={{color:C.textXS,fontSize:12,marginBottom:20}}>Click to upload your first photos to the gallery</p>
-                  <button style={{...goldBtn,padding:"10px 24px",fontSize:11}}>+ UPLOAD PHOTOS</button>
-                </div>
-              ):(
-                <>
-                  <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(3,1fr)",gap:10}}>
-                    {galleryImgs.map((src,i)=>(
-                      <div key={i} style={{position:"relative",borderRadius:8,overflow:"hidden",border:`1px solid ${cBr}`,aspectRatio:"4/3",background:isDark?"#0a0a0a":"#f0ede7",cursor:"pointer",transition:"transform .2s,box-shadow .2s"}}
-                        onMouseEnter={e=>{const overlay=e.currentTarget.querySelector(".gal-overlay") as HTMLDivElement;if(overlay) overlay.style.opacity="1";e.currentTarget.style.transform="scale(1.02)";e.currentTarget.style.boxShadow;}}
-                        onMouseLeave={e=>{const overlay=e.currentTarget.querySelector(".gal-overlay") as HTMLDivElement;if(overlay) overlay.style.opacity="0";e.currentTarget.style.transform="scale(1)";e.currentTarget.style.boxShadow="";}}>
-                        <img src={src} alt={`Gallery photo ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
-                        <div className="gal-overlay" style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.55)",opacity:0,transition:"opacity .2s",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10}}>
-                          <span style={{color:"#fff",fontSize:11,letterSpacing:2,fontWeight:700}}>PHOTO {i+1}</span>
-                          <button onClick={e=>{e.stopPropagation();deleteGalleryImg(i);}} style={{background:"rgba(229,85,85,0.85)",color:"#fff",border:"none",padding:"6px 14px",borderRadius:4,fontSize:11,cursor:"pointer",fontWeight:700,letterSpacing:1}}>✕ REMOVE</button>
-                        </div>
-                        <div style={{position:"absolute",top:6,left:6,background:"rgba(0,0,0,0.6)",color:"#fff",fontSize:9,padding:"2px 7px",borderRadius:20,letterSpacing:1}}>#{i+1}</div>
-                      </div>
-                    ))}
-                    <div onClick={()=>galleryFileRef.current?.click()} style={{borderRadius:8,border:`2px dashed ${cBr}`,aspectRatio:"4/3",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,cursor:"pointer",background:"transparent",transition:"border-color .2s,background .2s"}}
-                      onMouseEnter={e=>{e.currentTarget.style.borderColor=gold;e.currentTarget.style.background=isDark?"rgba(201,168,76,0.04)":"rgba(201,168,76,0.06)";}}
-                      onMouseLeave={e=>{e.currentTarget.style.borderColor=cBr;e.currentTarget.style.background="transparent";}}>
-                      <div style={{width:36,height:36,borderRadius:"50%",background:`${gold}22`,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={gold} strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                      </div>
-                      <span style={{color:C.textXS,fontSize:11,letterSpacing:1}}>ADD MORE</span>
-                    </div>
-                  </div>
-                  <p style={{color:C.textXS,fontSize:11,marginTop:14,textAlign:"center"}}>Hover over any photo to reveal the remove option.</p>
-                </>
-              )}
             </div>
-            )}
+          )}
 
           {/* INVENTORY */}
           {tab === "Inventory" && <InventoryTab />}
@@ -850,17 +821,16 @@ export function Admin({
 
               {/* KPI Cards */}
               <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(4,1fr)",gap:mob?10:14,marginBottom:28}}>
-                {([
-                    ["Total Revenue",fmt(bookings.filter(b=>b.status!=="Cancelled").reduce((s,b)=>s+b.total,0)),"💰","#4caf50"],
-                    ["Down Collected",fmt(bookings.filter(b=>b.status!=="Cancelled").reduce((s,b)=>s+b.downpayment,0)),"📥",gold],
-                    ["Active Bookings",bookings.filter(b=>["On Hold","Confirmed"].includes(b.status)).length,"📋","#4a9fd4"],
-                    ["Completed",bookings.filter(b=>b.status==="Completed").length,"✅","#4caf50"]
-                    ] as [string, string | number, string, string][]).map(([l,v,icon,c])=>(
-                      
+                {[
+                  ["Total Revenue",fmt(bookings.filter(b=>b.status!=="Cancelled").reduce((s,b)=>s+b.total,0)),"💰","#4caf50"],
+                  ["Down Collected",fmt(bookings.filter(b=>b.status!=="Cancelled").reduce((s,b)=>s+b.downpayment,0)),"📥",gold],
+                  ["Active Bookings",bookings.filter(b=>["On Hold","Confirmed"].includes(b.status)).length,"📋","#4a9fd4"],
+                  ["Completed",bookings.filter(b=>b.status==="Completed").length,"✅","#4caf50"]
+                ].map(([l,v,icon,c])=>(
                   <div key={l} style={{background:cBg,border:`1px solid ${cBr}`,borderRadius:10,padding:mob?"16px 12px":"22px 18px",display:"flex",alignItems:"center",gap:14,boxShadow:C.shadowCard,position:"relative",overflow:"hidden"}}>
                     <div style={{position:"absolute",top:0,left:0,bottom:0,width:3,background:`linear-gradient(to bottom,${c}66,${c})`}}/>
                     <div style={{width:42,height:42,borderRadius:10,background:`${c}14`,border:`1px solid ${c}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{icon}</div>
-                    <div><div style={{color:C.textXS,fontSize:9,letterSpacing:2,marginBottom:5}}>{l.toUpperCase()}</div><div style={{color:c,fontSize:mob?18:22,fontWeight:700,fontFamily:"'Cormorant Garamond',Georgia,serif"}}>{String(v)}</div></div>
+                    <div><div style={{color:C.textXS,fontSize:9,letterSpacing:2,marginBottom:5}}>{(l as string).toUpperCase()}</div><div style={{color: c as string, fontSize: mob ? 18 : 22, fontWeight: 700, fontFamily:"'Cormorant Garamond',Georgia,serif"}}>{String(v)}</div></div>
                   </div>
                 ))}
               </div>
@@ -986,150 +956,49 @@ export function Admin({
           )}
 
           {/* CUSTOMER SERVICE */}
-          {tab==="Customer Service"&&(
+          {tab === "Customer Service" && (
             <div>
-              {/* Header */}
-              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:28,flexWrap:"wrap",gap:12}}>
-                <div>
-                  <p style={{color:C.textXS,fontSize:10,letterSpacing:3,marginBottom:8}}>CUSTOMER SUPPORT</p>
-                  <h2 style={{color:C.textH,fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:mob?22:26,fontWeight:400,margin:"0 0 6px"}}>Customer Service</h2>
-                  <p style={{color:C.textS,fontSize:12,margin:0}}>Customer feedback, complaints, and inquiries sent from the website.</p>
+              <div style={{ marginBottom: 28 }}>
+                <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 8 }}>MESSAGES</p>
+                <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Customer Service</h2>
+              </div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+                {(["inbox", "archive"] as const).map((v) => (
+                  <button key={v} onClick={() => setCsView(v)} style={{ padding: "8px 18px", fontSize: 11, fontWeight: 700, borderRadius: 20, cursor: "pointer", background: csView === v ? `${gold}18` : "transparent", color: csView === v ? gold : C.textS, border: `1px solid ${csView === v ? gold + "55" : cBr}`, letterSpacing: 1 }}>{v.toUpperCase()} {v === "inbox" && customerMessages.length > 0 && `(${customerMessages.length})`}{v === "archive" && archivedMessages.length > 0 && `(${archivedMessages.length})`}</button>
+                ))}
+              </div>
+              {(csView === "inbox" ? customerMessages : archivedMessages).length === 0 ? (
+                <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "52px 20px", textAlign: "center", boxShadow: C.shadowCard }}>
+                  <div style={{ fontSize: 36, marginBottom: 12 }}>💬</div>
+                  <p style={{ color: C.textS, fontSize: 14 }}>{csView === "inbox" ? "No new messages." : "No archived messages."}</p>
                 </div>
-                {/* Inbox / Archive toggle */}
-                <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                  {([["inbox","💬","Inbox",customerMessages.length],["archive","🗂️","Archive",archivedMessages.length]] as const).map(([v,icon,label,count])=>(
-                    <button key={v} onClick={()=>setCsView(v)} style={{display:"flex",alignItems:"center",gap:7,padding:"8px 16px",fontSize:10,fontWeight:700,letterSpacing:1,borderRadius:6,cursor:"pointer",background:csView===v?(isDark?"rgba(201,168,76,0.12)":"rgba(201,168,76,0.1)"):"transparent",color:csView===v?gold:C.textS,border:`1px solid ${csView===v?gold:cBr}`,transition:"all .15s"}}>
-                      <span style={{fontSize:13}}>{icon}</span>
-                      {label}
-                      {typeof count==="number"&&count>0&&<span style={{background:csView===v?gold:(isDark?"#2a2218":"#e8e0d0"),color:csView===v?"#000":C.textS,fontSize:9,fontWeight:800,borderRadius:20,padding:"2px 7px",minWidth:18,textAlign:"center"}}>{count}</span>}
-                    </button>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {(csView === "inbox" ? customerMessages : archivedMessages).map((msg) => (
+                    <div key={msg.id} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "20px 22px", boxShadow: C.shadowCard }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                        <div>
+                          <div style={{ color: C.textH, fontSize: 14, fontWeight: 600 }}>{msg.name}</div>
+                          <div style={{ color: C.textXS, fontSize: 11 }}>{msg.email} · {msg.date}</div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ background: `${gold}18`, color: gold, fontSize: 9, padding: "3px 8px", borderRadius: 20, border: `1px solid ${gold}44`, letterSpacing: 1 }}>{msg.type.toUpperCase()}</span>
+                          {csView === "inbox" && <button onClick={() => setConfirmArchiveMsg(msg)} style={{ background: "transparent", border: `1px solid ${cBr}`, color: C.textXS, padding: "4px 10px", fontSize: 10, cursor: "pointer", borderRadius: 4 }}>ARCHIVE</button>}
+                        </div>
+                      </div>
+                      <p style={{ color: C.textB, fontSize: 13, lineHeight: 1.7, margin: 0 }}>{msg.message}</p>
+                    </div>
                   ))}
                 </div>
-              </div>
-
-              {/* ── INBOX VIEW ── */}
-              {csView==="inbox"&&(
-                customerMessages.length===0?(
-                  <div style={{background:cBg,border:`1px solid ${cBr}`,borderRadius:10,padding:"60px 20px",textAlign:"center",boxShadow:C.shadowCard}}>
-                    <div style={{fontSize:44,marginBottom:14}}>💬</div>
-                    <p style={{color:C.textS,fontSize:14,marginBottom:4}}>No messages yet.</p>
-                    <p style={{color:C.textXS,fontSize:12}}>Customer messages from the Contact page will appear here.</p>
-                  </div>
-                ):(
-                  <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                    {customerMessages.slice().reverse().map((msg)=>{
-                      const typeColors:Record<string,string>={Feedback:"#4a9fd4",Complaint:"#e55",Question:"#4caf50","Booking Issue":"#f5c518",Other:"#888"};
-                      const tc=typeColors[msg.type]||"#888";
-                      return(
-                        <div key={msg.id} style={{background:cBg,border:`1px solid ${cBr}`,borderRadius:10,padding:mob?"16px 14px":"22px 26px",boxShadow:C.shadowCard,position:"relative"}}>
-                          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,marginBottom:12,flexWrap:"wrap"}}>
-                            <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                              <div style={{width:34,height:34,borderRadius:"50%",background:`${tc}18`,border:`1px solid ${tc}33`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>💬</div>
-                              <div>
-                                <span style={{color:C.textH,fontSize:13,fontWeight:600,display:"block"}}>{msg.name}</span>
-                                <span style={{color:C.textXS,fontSize:10}}>📧 {msg.email}</span>
-                              </div>
-                              <span style={{background:`${tc}18`,color:tc,fontSize:9,padding:"3px 9px",borderRadius:20,border:`1px solid ${tc}33`,letterSpacing:1,fontWeight:700}}>{msg.type.toUpperCase()}</span>
-                            </div>
-                            <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-                              <span style={{color:C.textXS,fontSize:11}}>{msg.date}</span>
-                              <button
-                                onClick={()=>setConfirmArchiveMsg(msg)}
-                                title="Move to archive"
-                                style={{display:"flex",alignItems:"center",gap:5,background:"transparent",color:C.textXS,border:`1px solid ${cBr}`,padding:"5px 10px",fontSize:10,cursor:"pointer",borderRadius:5,letterSpacing:1,transition:"all .15s"}}
-                                onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(229,85,85,0.4)";e.currentTarget.style.color="#e07070";e.currentTarget.style.background="rgba(229,85,85,0.06)";}}
-                                onMouseLeave={e=>{e.currentTarget.style.borderColor=cBr;e.currentTarget.style.color=C.textXS;e.currentTarget.style.background="transparent";}}>
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                                ARCHIVE
-                              </button>
-                            </div>
-                          </div>
-                          <p style={{color:C.textB,fontSize:13,lineHeight:1.8,margin:0,padding:"13px 16px",background:isDark?"#0a0806":"#faf7f2",borderRadius:6,borderLeft:`3px solid ${tc}`}}>{msg.message}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )
               )}
-              {/* ── ARCHIVE VIEW ── */}
-              {csView==="archive"&&(
-                archivedMessages.length===0?(
-                  <div style={{background:cBg,border:`1px solid ${cBr}`,borderRadius:10,padding:"60px 20px",textAlign:"center",boxShadow:C.shadowCard}}>
-                    <div style={{fontSize:44,marginBottom:14}}>🗂️</div>
-                    <p style={{color:C.textS,fontSize:14,marginBottom:4}}>Archive is empty.</p>
-                    <p style={{color:C.textXS,fontSize:12}}>Messages you archive from the inbox will appear here.</p>
-                  </div>
-                ):(
-                  <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                    {/* Archive header info */}
-                    <div style={{background:isDark?"rgba(201,168,76,0.04)":"rgba(201,168,76,0.06)",border:`1px solid ${gold}28`,borderRadius:8,padding:"12px 16px",display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
-                      <span style={{fontSize:14}}>🗂️</span>
-                      <span style={{color:C.textS,fontSize:12}}><strong style={{color:gold}}>{archivedMessages.length}</strong> archived message{archivedMessages.length!==1?"s":""} — you can restore any message back to the inbox.</span>
-                    </div>
-                    {archivedMessages.slice().reverse().map((msg)=>{
-                      const typeColors:Record<string,string>={Feedback:"#4a9fd4",Complaint:"#e55",Question:"#4caf50","Booking Issue":"#f5c518",Other:"#888"};
-                      const tc=typeColors[msg.type]||"#888";
-                      return(
-                        <div key={msg.id} style={{background:cBg,border:`1px solid ${cBr}`,borderRadius:10,padding:mob?"16px 14px":"22px 26px",boxShadow:C.shadowCard,opacity:0.85}}>
-                          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,marginBottom:12,flexWrap:"wrap"}}>
-                            <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                              <div style={{width:34,height:34,borderRadius:"50%",background:`${tc}12`,border:`1px solid ${tc}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>🗂️</div>
-                              <div>
-                                <span style={{color:C.textH,fontSize:13,fontWeight:600,display:"block"}}>{msg.name}</span>
-                                <span style={{color:C.textXS,fontSize:10}}>📧 {msg.email}</span>
-                              </div>
-                              <span style={{background:`${tc}12`,color:tc,fontSize:9,padding:"3px 9px",borderRadius:20,border:`1px solid ${tc}22`,letterSpacing:1,fontWeight:700}}>{msg.type.toUpperCase()}</span>
-                              {msg.archivedAt&&<span style={{color:C.textXS,fontSize:9,padding:"3px 8px",borderRadius:10,background:isDark?"#1a1714":"#f0ece4",border:`1px solid ${cBr}`}}>Archived {msg.archivedAt}</span>}
-                            </div>
-                            <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-                              <span style={{color:C.textXS,fontSize:11}}>{msg.date}</span>
-                              <button
-                                onClick={()=>{
-                                  const{archivedAt,...rest}=msg;
-                                  setCustomerMessages(p=>[...p,rest]);
-                                  setArchivedMessages(p=>p.filter(m=>m.id!==msg.id));
-                                  toast(`Message from ${msg.name} restored to inbox.`,"success");
-                                }}
-                                title="Restore to inbox"
-                                style={{display:"flex",alignItems:"center",gap:5,background:"rgba(76,175,80,0.07)",color:"#4caf50",border:"1px solid rgba(76,175,80,0.25)",padding:"5px 10px",fontSize:10,cursor:"pointer",borderRadius:5,letterSpacing:1,transition:"all .15s"}}
-                                onMouseEnter={e=>{e.currentTarget.style.background="rgba(76,175,80,0.14)";}}
-                                onMouseLeave={e=>{e.currentTarget.style.background="rgba(76,175,80,0.07)";}}>
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 00-4-4H4"/></svg>
-                                RESTORE
-                              </button>
-                            </div>
-                          </div>
-                          <p style={{color:C.textB,fontSize:13,lineHeight:1.8,margin:0,padding:"13px 16px",background:isDark?"#0a0806":"#faf7f2",borderRadius:6,borderLeft:`3px solid ${isDark?"#2a2620":"#ddd8d0"}`}}>{msg.message}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )
-              )}
-
-              {/* ── CONFIRM ARCHIVE MODAL ── */}
-              {confirmArchiveMsg&&(
-                <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,padding:20}}>
-                  <div style={{background:isDark?"linear-gradient(160deg,#0e0c09,#0a0806)":"#fff",border:`1px solid ${cBr}`,borderRadius:12,padding:"32px 28px",width:"100%",maxWidth:420,boxShadow:"0 40px 100px rgba(0,0,0,0.7)"}}>
-                    <div style={{width:48,height:48,borderRadius:"50%",background:"rgba(160,130,50,0.1)",border:`1px solid ${gold}33`,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:18,fontSize:22}}>🗂️</div>
-                    <h3 style={{color:C.textH,fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:18,fontWeight:400,marginBottom:8}}>Archive this message?</h3>
-                    <p style={{color:C.textS,fontSize:13,lineHeight:1.7,marginBottom:6}}>
-                      Message from <strong style={{color:C.textH}}>{confirmArchiveMsg.name}</strong> will be moved to the archive.
-                    </p>
-                    <p style={{color:C.textXS,fontSize:12,marginBottom:22}}>You can restore it anytime from the Archive tab.</p>
-                    <div style={{background:isDark?"#0a0806":"#faf7f2",borderRadius:6,padding:"12px 14px",marginBottom:22,borderLeft:`3px solid ${(()=>{const tc:Record<string,string>={Feedback:"#4a9fd4",Complaint:"#e55",Question:"#4caf50","Booking Issue":"#f5c518",Other:"#888"};return tc[confirmArchiveMsg.type]||"#888";})()}`}}>
-                      <p style={{color:C.textS,fontSize:12,lineHeight:1.7,margin:0}}>{confirmArchiveMsg.message.length>120?confirmArchiveMsg.message.slice(0,120)+"…":confirmArchiveMsg.message}</p>
-                    </div>
-                    <div style={{borderTop:`1px solid ${cBr}`,marginBottom:18}}/>
-                    <div style={{display:"flex",gap:10}}>
-                      <button onClick={()=>setConfirmArchiveMsg(null)} style={{flex:1,background:"transparent",color:C.textS,border:`1px solid ${cBr}`,padding:"11px",fontSize:11,cursor:"pointer",borderRadius:6,letterSpacing:1}}>CANCEL</button>
-                      <button onClick={()=>{
-                        const now=new Date().toLocaleDateString("en-PH",{year:"numeric",month:"short",day:"numeric"});
-                        setArchivedMessages(p=>[...p,{...confirmArchiveMsg,archivedAt:now}]);
-                        setCustomerMessages(p=>p.filter(m=>m.id!==confirmArchiveMsg.id));
-                        toast(`Message from ${confirmArchiveMsg.name} archived.`,"info");
-                        setConfirmArchiveMsg(null);
-                      }} style={{flex:2,background:`${gold}14`,color:gold,border:`1px solid ${gold}44`,padding:"11px",fontSize:11,fontWeight:700,cursor:"pointer",borderRadius:6,letterSpacing:1}}>YES, ARCHIVE</button>
+              {confirmArchiveMsg && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }}>
+                  <div style={{ background: isDark ? "#0e0c09" : "#fff", border: `1px solid ${cBr}`, borderRadius: 12, padding: "28px 26px", width: "100%", maxWidth: 400 }}>
+                    <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, marginBottom: 12, fontWeight: 400 }}>Archive this message?</h3>
+                    <p style={{ color: C.textS, fontSize: 13, marginBottom: 22 }}>From <strong style={{ color: C.textH }}>{confirmArchiveMsg.name}</strong>: "{confirmArchiveMsg.message.slice(0, 80)}{confirmArchiveMsg.message.length > 80 ? "…" : ""}"</p>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button onClick={() => setConfirmArchiveMsg(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: 11, fontSize: 11, cursor: "pointer", borderRadius: 6 }}>CANCEL</button>
+                      <button onClick={() => archiveMessage(confirmArchiveMsg)} style={{ ...goldBtn, flex: 2 }}>ARCHIVE</button>
                     </div>
                   </div>
                 </div>
@@ -1138,6 +1007,57 @@ export function Admin({
           )}
         </div>
       </div>
+
+      {/* ── Dashboard Accept / Reject Confirm Modal (#3) ── */}
+      {dashConfirm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }} role="dialog" aria-modal="true" aria-labelledby="dash-confirm-title">
+          <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.35)" : "rgba(229,85,85,0.35)"}`, borderRadius: 14, padding: mob ? "28px 20px" : "36px 32px", width: "100%", maxWidth: 410, boxShadow: "0 40px 100px rgba(0,0,0,0.7)" }}>
+            {/* Icon */}
+            <div style={{ width: 56, height: 56, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, fontSize: 26, background: dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.1)" : "rgba(229,85,85,0.1)", border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}` }}>
+              {dashConfirm.action === "Confirmed" ? "✓" : "✕"}
+            </div>
+
+            <h3 id="dash-confirm-title" style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 10 }}>
+              {dashConfirm.action === "Confirmed" ? "Accept this booking?" : "Reject this booking?"}
+            </h3>
+            <p style={{ color: C.textS, fontSize: 13, lineHeight: 1.7, marginBottom: 18 }}>
+              {dashConfirm.action === "Confirmed"
+                ? <>You are about to <strong style={{ color: "#4caf50" }}>accept</strong> the booking for <strong style={{ color: C.textH }}>{dashConfirm.guestName}</strong>. This will confirm their reservation.</>
+                : <>You are about to <strong style={{ color: "#e55" }}>reject</strong> the booking for <strong style={{ color: C.textH }}>{dashConfirm.guestName}</strong>. This cannot be undone.</>
+              }
+            </p>
+
+            {/* Warning callout */}
+            <div style={{ background: dashConfirm.action === "Confirmed" ? (isDark ? "rgba(76,175,80,0.06)" : "rgba(76,175,80,0.05)") : (isDark ? "rgba(229,85,85,0.06)" : "rgba(229,85,85,0.04)"), border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.2)" : "rgba(229,85,85,0.15)"}`, borderRadius: 8, padding: "11px 14px", marginBottom: 22, display: "flex", gap: 8 }}>
+              <span style={{ flexShrink: 0 }}>{dashConfirm.action === "Confirmed" ? "✅" : "⚠️"}</span>
+              <span style={{ color: C.textS, fontSize: 12, lineHeight: 1.6 }}>
+                {dashConfirm.action === "Confirmed"
+                  ? "Make sure the guest's GCash payment proof has been verified before accepting."
+                  : "The guest will be notified that their booking has been declined."
+                }
+              </span>
+            </div>
+
+            <div style={{ borderTop: `1px solid ${cBr}`, marginBottom: 18 }} />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setDashConfirm(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "12px 16px", fontSize: 11, cursor: "pointer", borderRadius: 8, letterSpacing: 1 }}>
+                GO BACK
+              </button>
+              <button
+                onClick={() => {
+                  updateStatus(dashConfirm.bookingId, dashConfirm.action);
+                  if (dashConfirm.action === "Confirmed") toast(`Booking accepted for ${dashConfirm.guestName}.`, "success");
+                  else toast(`Booking rejected for ${dashConfirm.guestName}.`, "warning");
+                  setDashConfirm(null);
+                }}
+                style={{ flex: 2, padding: "12px 16px", fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 8, letterSpacing: 2, background: dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.12)" : "rgba(229,85,85,0.10)", color: dashConfirm.action === "Confirmed" ? "#4caf50" : "#e55", border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}` }}
+              >
+                {dashConfirm.action === "Confirmed" ? "YES, ACCEPT" : "YES, REJECT"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Logout Confirm */}
       {showLogoutConfirm && (

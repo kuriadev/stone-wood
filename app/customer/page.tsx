@@ -4,16 +4,16 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { T } from "@/lib/theme";
-import { Home } from "@/components/sections/Home";
+import { CustomerService } from "@/components/sections/CustomerService";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
-export default function HomePage() {
+export default function CustomerRoute() {
   const router = useRouter();
   const { isDark } = useTheme();
   const C = T(isDark);
-  const { bookings, closedDates, reviews } = useApp();
+  const { setCustomerMessages } = useApp();
 
   const nav = (p: string) => {
     const routes: Record<string, string> = {
@@ -24,20 +24,15 @@ export default function HomePage() {
       "Book Now": "/book",
       AdminLogin: "/login",
       "Customer Service": "/customer",
-      "Cancel Booking": "/cancelbooking",
     };
     router.push(routes[p] ?? "/");
   };
 
   return (
     <div style={{ background: C.bg, minHeight: "100vh" }}>
-      <Navbar page="Home" setPage={nav} />
-      <Home
-        setPage={nav}
-        onBookWithDate={(d) => router.push(`/book?date=${d}`)}
-        bookings={bookings}
-        closedDates={closedDates}
-        reviews={reviews}
+      <Navbar page="Customer Service" setPage={nav} />
+      <CustomerService
+        onSubmitMessage={(msg) => setCustomerMessages((prev) => [...prev, msg])}
       />
       <Footer setPage={nav} />
       <ThemeToggle />

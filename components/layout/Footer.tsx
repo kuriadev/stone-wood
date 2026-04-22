@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
@@ -11,6 +12,7 @@ interface FooterProps {
 }
 
 export function Footer({ setPage }: FooterProps) {
+  const router = useRouter();
   const { isDark } = useTheme();
   const C = T(isDark);
   const w = useWidth();
@@ -41,8 +43,8 @@ export function Footer({ setPage }: FooterProps) {
           maxWidth: 1100,
           margin: "0 auto",
           display: "grid",
-          gridTemplateColumns: mob ? "1fr" : "2fr 1fr 1fr",
-          gap: mob ? 32 : 56,
+          gridTemplateColumns: mob ? "1fr" : "2fr 1fr 1fr 1.4fr",
+          gap: mob ? 32 : 48,
           marginBottom: 36,
         }}
       >
@@ -104,6 +106,27 @@ export function Footer({ setPage }: FooterProps) {
           ))}
         </div>
 
+        {/* Support */}
+        <div>
+          <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 9, letterSpacing: 3, marginBottom: 16 }}>
+            SUPPORT
+          </div>
+          {[
+            { label: "Customer Service", action: () => setPage("Customer Service") },
+            { label: "Cancel Booking", action: () => router.push("/cancelbooking") },
+          ].map(({ label, action }) => (
+            <div
+              key={label}
+              onClick={action}
+              style={{ color: "#6a5e4e", fontSize: 13, marginBottom: 9, cursor: "pointer", transition: "color .2s" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = gold)}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "#6a5e4e")}
+            >
+              {label}
+            </div>
+          ))}
+        </div>
+
         {/* Contact */}
         <div>
           <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 9, letterSpacing: 3, marginBottom: 16 }}>
@@ -116,26 +139,6 @@ export function Footer({ setPage }: FooterProps) {
               </div>
             )
           )}
-          <div
-            onClick={() => setPage("Customer Service")}
-            style={{
-              marginTop: 16,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 7,
-              color: gold,
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-              borderBottom: `1px solid ${gold}44`,
-              paddingBottom: 3,
-              transition: "border-color .2s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.borderBottomColor = gold)}
-            onMouseLeave={(e) => (e.currentTarget.style.borderBottomColor = `${gold}44`)}
-          >
-            💬 Customer Service →
-          </div>
         </div>
       </div>
 

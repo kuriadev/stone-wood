@@ -47,9 +47,11 @@ export function BookNow({
   const [qrSeconds, setQrSeconds] = useState(600);
   const [qrExpired, setQrExpired] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [gcashSelected, setGcashSelected] = useState(false);
 
   // Modal states
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
+  const [showGcashWarning, setShowGcashWarning] = useState(false);
   const [showOnsiteConfirm, setShowOnsiteConfirm] = useState(false);
   const [pendingOnsiteId, setPendingOnsiteId] = useState("");
 
@@ -68,7 +70,7 @@ export function BookNow({
   // Auto-redirect to home after online booking is confirmed (step 7)
   useEffect(() => {
     if (step === 7) {
-      const t = setTimeout(() => { onGoHome?.(); }, 3000);
+      const t = setTimeout(() => { onGoHome?.(); }, 18000);
       return () => clearTimeout(t);
     }
   }, [step, onGoHome]);
@@ -217,20 +219,61 @@ export function BookNow({
             <div>
               <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, marginBottom: 6, fontWeight: 400 }}>Select Payment Method</h3>
               <p style={{ color: C.textS, fontSize: 13, marginBottom: 24 }}>We currently accept GCash for online reservations.</p>
-              <div onClick={() => setStep(3)} style={{ background: isDark ? "rgba(0,169,82,0.06)" : "rgba(0,169,82,0.05)", border: "2px solid rgba(0,169,82,0.3)", borderRadius: 10, padding: "20px 22px", cursor: "pointer", display: "flex", alignItems: "center", gap: 16, marginBottom: 16, transition: "border-color .2s" }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(0,169,82,0.6)")}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(0,169,82,0.3)")}
+
+              {/* GCash button — 3 states: unselected (dark) → hover (green highlight) → selected (solid green) */}
+              <div
+                onClick={() => {
+                  if (!gcashSelected) {
+                    setGcashSelected(true);
+                    // brief green confirmation flash then proceed
+                    setTimeout(() => setStep(3), 420);
+                  }
+                }}
+                style={{
+                  borderRadius: 10,
+                  padding: "20px 22px",
+                  cursor: gcashSelected ? "default" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 16,
+                  marginBottom: 16,
+                  transition: "background .25s, border-color .25s",
+                  background: gcashSelected
+                    ? "rgba(0,169,82,0.18)"
+                    : isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)",
+                  border: gcashSelected
+                    ? "2px solid rgba(0,169,82,0.8)"
+                    : `2px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.12)"}`,
+                }}
+                onMouseEnter={(e) => {
+                  if (gcashSelected) return;
+                  e.currentTarget.style.background = "rgba(0,169,82,0.1)";
+                  e.currentTarget.style.borderColor = "rgba(0,169,82,0.55)";
+                }}
+                onMouseLeave={(e) => {
+                  if (gcashSelected) return;
+                  e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)";
+                  e.currentTarget.style.borderColor = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.12)";
+                }}
               >
-                <div style={{ width: 44, height: 44, borderRadius: 10, background: "#00a952", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <span style={{ color: "#fff", fontSize: 20, fontWeight: 900 }}>G</span>
+                {/* GCash icon — grey when unselected, green when selected */}
+                <div style={{
+                  width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: gcashSelected ? "#00a952" : isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+                  transition: "background .25s",
+                }}>
+                  <span style={{ color: gcashSelected ? "#fff" : C.textS, fontSize: 20, fontWeight: 900 }}>G</span>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ color: C.textH, fontSize: 15, fontWeight: 600, marginBottom: 2 }}>GCash</div>
+                  <div style={{ color: gcashSelected ? "#00a952" : C.textH, fontSize: 15, fontWeight: 600, marginBottom: 2, transition: "color .25s" }}>GCash</div>
                   <div style={{ color: C.textS, fontSize: 12 }}>Scan QR code · Instant confirmation</div>
                 </div>
-                <div style={{ color: "#00a952", fontSize: 18 }}>✓</div>
+                {/* Checkmark — only visible when selected */}
+                <div style={{ color: "#00a952", fontSize: 18, opacity: gcashSelected ? 1 : 0, transition: "opacity .25s" }}>✓</div>
               </div>
-              <button onClick={() => setStep(1)} style={{ ...outBtn, width: "100%", padding: 12, borderRadius: 6, marginTop: 8 }}>← BACK</button>
+
+              <button onClick={() => { setGcashSelected(false); setStep(1); }} style={{ ...outBtn, width: "100%", padding: 12, borderRadius: 6, marginTop: 8 }}>← BACK</button>
             </div>
           )}
 
@@ -345,7 +388,13 @@ export function BookNow({
               </div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setStep(4)} style={{ ...outBtn, flex: 1, padding: "12px 10px", borderRadius: 6 }}>BACK</button>
-                <button disabled={!form.name || !form.email || form.contact.length !== 11} onClick={() => setStep(6)} style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: !form.name || !form.email || form.contact.length !== 11 ? 0.4 : 1 }}>PROCEED TO GCASH →</button>
+                <button
+                  disabled={!form.name || !form.email || form.contact.length !== 11}
+                  onClick={() => setShowGcashWarning(true)}
+                  style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: !form.name || !form.email || form.contact.length !== 11 ? 0.4 : 1 }}
+                >
+                  PROCEED TO GCASH →
+                </button>
               </div>
             </div>
           )}
@@ -420,7 +469,7 @@ export function BookNow({
                     <span style={{ color: C.textS, fontSize: 11, lineHeight: 1.7 }}>Do not close this page while paying. QR expires in <strong style={{ color: qrSeconds <= 60 ? "#e55" : gold }}>{fmtTimer(qrSeconds)}</strong>.</span>
                   </div>
                   {/* "I've completed payment" → shows confirm modal */}
-                  <button onClick={() => setShowPaymentConfirm(true)} style={{ ...goldBtn, width: "100%", padding: 14, borderRadius: 6, letterSpacing: 1.5, fontSize: 12 }}>✓ I'VE COMPLETED PAYMENT</button>
+                  <button onClick={confirmOnline} style={{ ...goldBtn, width: "100%", padding: 14, borderRadius: 6, letterSpacing: 1.5, fontSize: 12 }}>✓ I'VE COMPLETED PAYMENT</button>
                   <p style={{ color: C.textXS, fontSize: 11, textAlign: "center", marginTop: 10 }}>Tap above once your GCash payment is done.</p>
                 </div>
               </div>
@@ -490,15 +539,46 @@ export function BookNow({
                     <input type="tel" value={osForm.contact} onChange={(e) => handleOsContact(e.target.value)} maxLength={11} placeholder="09XXXXXXXXX" className="sw-input" style={{ ...inpS, paddingRight: 52 }} />
                     <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: osForm.contact.length === 11 ? "#4caf50" : osForm.contact.length > 0 ? "#f5c518" : C.textXS, fontWeight: 700, fontFamily: "monospace" }}>{osForm.contact.length}/11</span>
                   </div>
+                  {osForm.contact.length > 0 && osForm.contact.length < 11 && <p style={{ color: "#f5c518", fontSize: 11, marginTop: 4 }}>⚠ Must be 11 digits</p>}
+                  {osForm.contact.length === 11 && <p style={{ color: "#4caf50", fontSize: 11, marginTop: 4 }}>✓ Valid</p>}
                 </div>
                 <div>
-                  <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>EMAIL (OPTIONAL)</label>
-                  <input type="email" value={osForm.email} onChange={(e) => setOsF("email", e.target.value)} placeholder="your@email.com" className="sw-input" style={inpS} />
+                  <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>
+                    GMAIL ADDRESS <span style={{ color: "#e55", fontSize: 9 }}>*REQUIRED</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={osForm.email}
+                    onChange={(e) => setOsF("email", e.target.value)}
+                    placeholder="yourname@gmail.com"
+                    className="sw-input"
+                    style={{ ...inpS, borderColor: osForm.email && !osForm.email.toLowerCase().endsWith("@gmail.com") ? "rgba(229,85,85,0.6)" : undefined }}
+                  />
+                  {osForm.email && !osForm.email.toLowerCase().endsWith("@gmail.com") && (
+                    <p style={{ color: "#e55", fontSize: 11, marginTop: 4 }}>⚠ Must be a Gmail address (@gmail.com)</p>
+                  )}
+                  {osForm.email && osForm.email.toLowerCase().endsWith("@gmail.com") && (
+                    <p style={{ color: "#4caf50", fontSize: 11, marginTop: 4 }}>✓ Valid Gmail</p>
+                  )}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setStep(1)} style={{ ...outBtn, flex: 1, padding: "12px 10px", borderRadius: 6 }}>BACK</button>
-                <button disabled={!osForm.name || osForm.contact.length !== 11} onClick={() => setStep(11)} style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: !osForm.name || osForm.contact.length !== 11 ? 0.4 : 1 }}>VIEW VISIT INFORMATION</button>
+                <button
+                  disabled={
+                    !osForm.name ||
+                    osForm.contact.length !== 11 ||
+                    !osForm.email ||
+                    !osForm.email.toLowerCase().endsWith("@gmail.com")
+                  }
+                  onClick={() => setStep(11)}
+                  style={{
+                    ...goldBtn, flex: 2, borderRadius: 6,
+                    opacity: (!osForm.name || osForm.contact.length !== 11 || !osForm.email || !osForm.email.toLowerCase().endsWith("@gmail.com")) ? 0.4 : 1,
+                  }}
+                >
+                  VIEW VISIT INFORMATION
+                </button>
               </div>
             </div>
           )}
@@ -568,23 +648,68 @@ export function BookNow({
         </div>
       </div>
 
-      {/* ── MODAL: Payment Confirmation (Step 6) ── */}
-      {showPaymentConfirm && (
-        <div style={modalBackdrop}>
-          <div style={modalBox}>
-            <div style={{ width: 52, height: 52, borderRadius: "50%", background: "rgba(0,169,82,0.1)", border: "1px solid rgba(0,169,82,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, marginBottom: 18 }}>💳</div>
-            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 10 }}>Confirm Payment</h3>
-            <p style={{ color: C.textS, fontSize: 13, lineHeight: 1.7, marginBottom: 16 }}>
-              Are you sure you have completed the GCash payment of <strong style={{ color: "#00a952" }}>{fmt(down)}</strong>?
-            </p>
-            <div style={{ background: isDark ? "rgba(245,197,24,0.05)" : "rgba(245,197,24,0.06)", border: "1px solid rgba(245,197,24,0.2)", borderRadius: 8, padding: "12px 14px", marginBottom: 22, display: "flex", gap: 8 }}>
-              <span style={{ flexShrink: 0 }}>⚠️</span>
-              <span style={{ color: C.textS, fontSize: 12, lineHeight: 1.6 }}>Only confirm if you have actually completed the GCash transfer. Your booking will be set to <strong style={{ color: "#f5c518" }}>On Hold</strong> until admin verifies your payment.</span>
+      {/* ── MODAL: GCash No-Refund Warning (Step 5 → 6) ── */}
+      {showGcashWarning && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }}
+          role="dialog" aria-modal="true" aria-labelledby="gcash-warning-title"
+        >
+          <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: "1px solid rgba(76,175,80,0.3)", borderRadius: 14, padding: mob ? "28px 20px" : "36px", width: "100%", maxWidth: 420, boxShadow: "0 40px 100px rgba(0,0,0,0.7)" }}>
+            {/* Icon */}
+            <div style={{ width: 60, height: 60, borderRadius: "50%", background: "rgba(76,175,80,0.1)", border: "2px solid rgba(76,175,80,0.35)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, fontSize: 28 }}>
+              ⚠️
             </div>
+
+            <h3 id="gcash-warning-title" style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, fontWeight: 400, marginBottom: 8 }}>
+              Before You Proceed
+            </h3>
+            <p style={{ color: C.textS, fontSize: 13, lineHeight: 1.7, marginBottom: 20 }}>
+              Please read and understand the following payment policy before continuing to the GCash payment step.
+            </p>
+
+            {/* Policy box — green highlighted */}
+            <div style={{ background: "rgba(76,175,80,0.07)", border: "1.5px solid rgba(76,175,80,0.4)", borderRadius: 10, padding: "18px 20px", marginBottom: 24 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                <span style={{ fontSize: 20 }}>⚠️</span>
+                <span style={{ color: "#4caf50", fontSize: 12, fontWeight: 700, letterSpacing: 1.5 }}>PAYMENT POLICY</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span style={{ color: "#4caf50", fontSize: 14, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>❌</span>
+                  <span style={{ color: C.textH, fontSize: 14, fontWeight: 600, lineHeight: 1.5 }}>
+                    No Refunds — All payments are non-refundable once submitted.
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span style={{ color: "#4caf50", fontSize: 14, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>💰</span>
+                  <span style={{ color: C.textH, fontSize: 14, fontWeight: 600, lineHeight: 1.5 }}>
+                    50% Down Payment — Only half the total is required now. The remaining balance is due on the day of your visit.
+                  </span>
+                </div>
+                <div style={{ height: 1, background: "rgba(76,175,80,0.2)", marginTop: 4 }} />
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span style={{ color: "#4caf50", fontSize: 12, flexShrink: 0, marginTop: 2 }}>📅</span>
+                  <span style={{ color: C.textS, fontSize: 12, lineHeight: 1.6 }}>
+                    Rescheduling is subject to availability and must be discussed with the admin directly.
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <div style={{ borderTop: `1px solid ${C.border}`, marginBottom: 18 }} />
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowPaymentConfirm(false)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${C.border}`, padding: "12px 16px", fontSize: 11, cursor: "pointer", borderRadius: 8, letterSpacing: 1 }}>CANCEL</button>
-              <button onClick={confirmOnline} style={{ flex: 2, background: "rgba(0,169,82,0.12)", color: "#00a952", border: "1px solid rgba(0,169,82,0.3)", padding: "12px 16px", fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 8, letterSpacing: 2 }}>YES, I'VE PAID</button>
+              <button
+                onClick={() => setShowGcashWarning(false)}
+                style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${C.border}`, padding: "12px 16px", fontSize: 11, cursor: "pointer", borderRadius: 8, letterSpacing: 1 }}
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={() => { setShowGcashWarning(false); setStep(6); }}
+                style={{ flex: 2, background: "rgba(76,175,80,0.12)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.35)", padding: "12px 16px", fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 8, letterSpacing: 1.5 }}
+              >
+                ✓ YES, I UNDERSTAND
+              </button>
             </div>
           </div>
         </div>
@@ -616,6 +741,7 @@ export function BookNow({
 
             <div style={{ borderTop: `1px solid ${C.border}`, marginBottom: 18 }} />
             <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowOnsiteConfirm(false)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${C.border}`, padding: "12px 16px", fontSize: 11, cursor: "pointer", borderRadius: 8, letterSpacing: 1 }}>GO BACK</button>
               <button onClick={confirmOnsite} style={{ flex: 2, ...goldBtn, borderRadius: 8, fontSize: 11, letterSpacing: 2 }}>CONFIRM & GO HOME</button>
             </div>
           </div>

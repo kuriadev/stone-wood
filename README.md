@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
@@ -37,24 +36,32 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
 --- --- --- --- --- ---  --- --- --- --- --- ---  --- --- --- --- --- ---  --- --- --- --- --- --- 
+# StoneWood Private Resort
 
-StoneWood Private Resort
-Full-stack web application for StoneWood Private Resort — Angono, Rizal.
-Tech Stack (NTM)
-Frontend
-Next.js 15 (App Router)
-TypeScript
-Tailwind CSS
-React (built into Next.js)
-Backend (stubs ready, not yet implemented)
-Next.js API Routes
-MongoDB Atlas
-Mongoose ODM
-dotenv
-Deployment
-Vercel
+A full-stack web application for **StoneWood Private Resort** — Angono, Rizal, Philippines.
+
 ---
-Getting Started
+
+## Tech Stack
+
+**Frontend**
+- Next.js 15 (App Router)
+- TypeScript
+- Tailwind CSS
+- React 19
+
+**Backend** *(stubs ready, not yet wired)*
+- Next.js API Routes
+- MongoDB Atlas
+- Mongoose ODM
+
+**Deployment**
+- Vercel
+
+---
+
+## Getting Started
+
 ```bash
 # Install dependencies
 npm install
@@ -62,119 +69,183 @@ npm install
 # Run development server
 npm run dev
 ```
-Open http://localhost:3000 in your browser.
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
 ---
-Project Structure
+
+## Project Structure
+
 ```
-stonewood-resort/
-├── app/
-│   ├── layout.tsx              # Root layout
-│   ├── page.tsx                # Entry point → AppShell
-│   ├── globals.css             # Global styles + keyframe animations
-│   └── api/                   # API route stubs (backend ready)
-│       ├── auth/login/route.ts
-│       ├── bookings/route.ts
-│       ├── bookings/[id]/route.ts
-│       ├── inventory/route.ts
-│       └── reviews/route.ts
+## Project Structure
+
+stonewood/
+├── app/                            # Next.js App Router
+│   ├── about/
+│   │   └── page.tsx
+│   ├── admin/
+│   │   └── page.tsx
+│   ├── api/
+│   │   ├── auth/login/route.ts
+│   │   ├── bookings/
+│   │   │   ├── [id]/route.ts
+│   │   │   └── route.ts
+│   │   ├── inventory/route.ts
+│   │   └── reviews/route.ts
+│   ├── book/page.tsx
+│   ├── cancelbooking/page.tsx      # ✅ Added (missing in README)
+│   ├── customer/page.tsx
+│   ├── gallery/page.tsx
+│   ├── login/page.tsx
+│   ├── rooms/page.tsx
+│   ├── favicon.ico
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx
 │
 ├── components/
-│   ├── AppShell.tsx            # Main SPA shell + routing state
-│   ├── layout/                 # Navbar, Footer, ThemeToggle, Providers
-│   ├── sections/               # Full page sections
-│   │   ├── Home.tsx
-│   │   ├── RoomsPage.tsx
-│   │   ├── Gallery.tsx
-│   │   ├── About.tsx
-│   │   ├── BookNow.tsx         # Full multi-step booking flow
-│   │   ├── CustomerService.tsx
-│   │   ├── AdminLogin.tsx
-│   │   └── Admin.tsx           # Full admin dashboard
-│   ├── admin/                  # Admin sub-components
+│   ├── admin/
+│   │   ├── AnalyticsTab.tsx
 │   │   ├── BookingsTab.tsx
 │   │   ├── InventoryTab.tsx
-│   │   └── AnalyticsTab.tsx
+│   │   └── InventoryTab.module.css
 │   ├── booking/
 │   │   └── BookingDatePicker.tsx
-│   └── common/
-│       ├── Stars.tsx
-│       └── AvailabilityCalendar.tsx
+│   ├── common/
+│   │   ├── AvailabilityCalendar.tsx
+│   │   └── Stars.tsx
+│   ├── layout/
+│   │   ├── Footer.tsx
+│   │   ├── Navbar.tsx
+│   │   ├── Providers.tsx
+│   │   └── ThemeToggle.tsx
+│   ├── sections/
+│   │   ├── About.tsx
+│   │   ├── Admin.tsx
+│   │   ├── AdminLogin.tsx
+│   │   ├── BookNow.tsx
+│   │   ├── CancelBooking.tsx      # ✅ Added
+│   │   ├── CustomerService.tsx
+│   │   ├── Gallery.tsx
+│   │   ├── Home.tsx
+│   │   └── RoomsPage.tsx
+│   ├── ui/
+│   │   └── AppShell.tsx
 │
 ├── contexts/
-│   ├── ThemeContext.tsx         # Dark/Light theme
-│   └── ToastContext.tsx         # Toast notifications
+│   ├── AppContext.tsx
+│   ├── ThemeContext.tsx
+│   └── ToastContext.tsx
 │
 ├── hooks/
+│   ├── useAdmin.ts
+│   ├── useBooking.ts
 │   ├── useTheme.ts
 │   ├── useToast.ts
-│   ├── useWidth.ts
-│   ├── useBooking.ts
-│   └── useAdmin.ts
+│   └── useWidth.ts
 │
 ├── lib/
-│   ├── constants.ts            # All mock data (INIT_ROOMS, INIT_BOOKINGS, etc.)
-│   ├── theme.ts                # T() color theme generator
-│   ├── utils.ts                # fmt(), calcTotal(), fmtDate(), etc.
-│   ├── styles.ts               # goldBtn, outBtn, gold constant
-│   ├── validators.ts           # Form validation functions
-│   └── mongoose.ts             # DB connection stub (backend)
+│   ├── constants.ts
+│   ├── mongoose.ts
+│   ├── styles.ts
+│   ├── theme.ts
+│   ├── utils.ts
+│   └── validators.ts
 │
-├── models/                     # Mongoose model stubs (backend)
+├── models/
 │   ├── Booking.ts
-│   ├── Room.ts
+│   ├── Inventory.ts
 │   ├── Review.ts
-│   └── Inventory.ts
+│   └── Room.ts
 │
-└── types/
-    ├── room.ts
-    ├── booking.ts
-    ├── inventory.ts
-    ├── review.ts
-    ├── admin.ts
-    └── index.ts
+├── public/
+│
+├── types/
+│   ├── admin.ts
+│   ├── booking.ts
+│   ├── index.ts
+│   ├── inventory.ts
+│   ├── review.ts
+│   └── room.ts
+│
+├── .env.local
+├── .gitignore
+├── components.json
+├── eslint.config.mjs
+├── next.config.ts
+├── package.json
+├── postcss.config.mjs
+├── tailwind.config.ts
+└── tsconfig.json
 ```
+
 ---
-Admin Access
-URL: Click "ADMIN" in the navbar
-Username: `admin`
-Password: `stonewood2026`
+
+## Admin Access
+
+| Field    | Value            |
+|----------|------------------|
+| URL      | `/login`         |
+| Username | `admin`          |
+| Password | `stonewood2026`  |
+
 ---
-Environment Variables
-Copy `.env.local` and fill in your values:
+
+## Environment Variables
+
+Create a `.env.local` file in the root with:
+
 ```env
 MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/stonewood
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=stonewood2026
 ```
+
 ---
-Backend (Next Steps)
-The API route stubs in `app/api/` and Mongoose model stubs in `models/` are ready.  
-To activate the backend:
-Set `MONGODB_URI` in `.env.local`
-Uncomment the code in `lib/mongoose.ts`
-Uncomment the schemas in each `models/*.ts` file
-Implement the route handlers in each `app/api/*/route.ts` file
-Replace `useState` mock data in `AppShell.tsx` with `useEffect` API calls
+
+## Pages
+
+| Route       | Description                          |
+|-------------|--------------------------------------|
+| `/`         | Home — hero, rates, amenities, reviews |
+| `/rooms`    | Room listings with booking CTA       |
+| `/gallery`  | Photo gallery with lightbox          |
+| `/about`    | About Us + contact info              |
+| `/book`     | Multi-step booking flow              |
+| `/customer` | Customer service / contact form      |
+| `/login`    | Admin login                          |
+| `/admin`    | Admin dashboard (auth-guarded)       |
+
 ---
-Features
-✅ Dark / Light theme toggle
-✅ Toast notifications
-✅ Multi-step online booking flow (GCash QR mock)
-✅ On-site reservation flow
-✅ Availability calendar
-✅ Rooms page with room selection
-✅ Gallery with lightbox
-✅ About Us page
-✅ Customer Service form
-✅ Admin login (protected)
-✅ Admin dashboard — bookings, rooms, gallery, inventory, analytics, reports, customer service
-✅ Auto-reject overdue bookings
-✅ Responsive (mobile + desktop)
-🔜 MongoDB integration
-🔜 Real GCash payment API
-🔜 Email notifications
-=======
-# stone-wood
-The purpose of this project is to design and develop a web-based system that functions as both a marketing platform and an operational tool for a private resort business. 
->>>>>>> b680ab416f6f1a10a0cceffb4fee10a08898b731
+
+## API Routes
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/auth/login` | Admin login — validates credentials |
+| `GET` | `/api/bookings` | Fetch all bookings |
+| `POST` | `/api/bookings` | Create a new booking |
+| `GET` | `/api/bookings/:id` | Fetch a single booking by ID |
+| `PATCH` | `/api/bookings/:id` | Update booking status |
+| `DELETE` | `/api/bookings/:id` | Delete a booking |
+| `GET` | `/api/inventory` | Fetch all inventory items |
+| `POST` | `/api/inventory` | Add a new inventory item |
+| `GET` | `/api/reviews` | Fetch all reviews |
+| `POST` | `/api/reviews` | Submit a new review |
+
+> All routes are currently stubbed. Wire them up by connecting `lib/mongoose.ts` and implementing the handlers.
+
+---
+
+
+## Resort Info
+
+| Detail   | Value                          |
+|----------|--------------------------------|
+| Location | Angono, Rizal, Philippines     |
+| Day Tour | ₱6,000 base (up to 30 guests)  |
+| Overtime | +₱500/hr after 5PM             |
+| Rooms    | ₱2,000–₱2,500 / night          |
+| Hours    | 8:00 AM – 5:00 PM              |
+

@@ -103,22 +103,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
             >
               BOOK NOW
             </button>
-            <button
-              onClick={() => setPage("AdminLogin")}
-              style={{
-                background: "transparent",
-                color: C.textXS,
-                border: `1px solid ${C.border}`,
-                padding: "8px 15px",
-                fontSize: 11,
-                cursor: "pointer",
-                borderRadius: 6,
-                letterSpacing: 1,
-                transition: "border-color .2s,color .2s",
-              }}
-            >
-              ADMIN
-            </button>
+
           </div>
         )}
       </div>
@@ -155,21 +140,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
             >
               BOOK NOW
             </button>
-            <button
-              onClick={() => { setPage("AdminLogin"); setOpen(false); }}
-              style={{
-                background: "transparent",
-                color: C.textS,
-                border: `1px solid ${C.border}`,
-                padding: 12,
-                fontSize: 12,
-                cursor: "pointer",
-                borderRadius: 6,
-                width: "100%",
-              }}
-            >
-              ADMIN LOGIN
-            </button>
+        
           </div>
         </div>
       )}
