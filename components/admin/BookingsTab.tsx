@@ -11,7 +11,7 @@ import type { Room } from "@/types/room";
 
 interface BookingsTabProps {
   bookings: Booking[];
-  updateStatus: (id: string, status: string) => void;
+  updateStatus: (id: string, status: string, reason?: string) => void;
   mob: boolean;
   rooms: Room[];
 }
@@ -27,16 +27,16 @@ export function BookingsTab({ bookings, updateStatus, mob, rooms }: BookingsTabP
   const [viewBooking, setViewBooking] = useState<Booking | null>(null);
 
   const executeAction = () => {
-    if (!confirmAction) return;
-    updateStatus(confirmAction.bookingId, confirmAction.action);
-    if (confirmAction.action === "Cancelled") {
-      const msg = rejectionMsg.trim() || "Your booking did not meet our current availability or requirements.";
-      toast(`Rejection sent to ${confirmAction.guestEmail || confirmAction.guestName}: "${msg.slice(0, 48)}${msg.length > 48 ? "…" : ""}"`, "warning");
-    } else {
-      toast(`Booking accepted for ${confirmAction.guestName}.`, "success");
-    }
-    setRejectionMsg(""); setConfirmAction(null);
-  };
+  if (!confirmAction) return;
+  const reason = rejectionMsg.trim() || "Your booking did not meet our current availability or requirements.";
+  updateStatus(confirmAction.bookingId, confirmAction.action, confirmAction.action === "Cancelled" ? reason : undefined);
+  if (confirmAction.action === "Cancelled") {
+    toast(`Rejection sent to ${confirmAction.guestEmail || confirmAction.guestName}: "${reason.slice(0, 48)}${reason.length > 48 ? "…" : ""}"`, "warning");
+  } else {
+    toast(`Booking accepted for ${confirmAction.guestName}.`, "success");
+  }
+  setRejectionMsg(""); setConfirmAction(null);
+};
 
   // Derive payment method from package type
   const getPaymentMethod = (b: Booking) => {
@@ -264,14 +264,7 @@ export function BookingsTab({ bookings, updateStatus, mob, rooms }: BookingsTabP
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-                <div style={{ background: isDark ? "#111" : "#f7f5f0", borderRadius: 5, padding: "10px 13px" }}>
-                  <div style={{ color: C.textXS, fontSize: 9, letterSpacing: 2, marginBottom: 4 }}>PAYMENT PROOF</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 14 }}>{b.paymentProof ? "✅" : "❌"}</span>
-                    <span style={{ color: b.paymentProof ? "#4caf50" : "#e55", fontSize: 12, fontWeight: 600 }}>{b.paymentProof ? "Submitted" : "Not Yet"}</span>
-                  </div>
-                </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10, marginBottom: 20 ,  justifyContent: 'center',}}>
                 <div style={{ background: isDark ? "#111" : "#f7f5f0", borderRadius: 5, padding: "10px 13px" }}>
                   <div style={{ color: C.textXS, fontSize: 9, letterSpacing: 2, marginBottom: 4 }}>PACKAGE TYPE</div>
                   <div style={{ color: C.textH, fontSize: 12 }}>{b.package}</div>

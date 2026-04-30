@@ -37,7 +37,7 @@ interface OnsiteTabProps {
   onsitePending: Booking[];
   onsiteConfirmed: Booking[];
   onsiteCompleted: Booking[];
-  updateStatus: (id: string, status: string) => void;
+ updateStatus: (id: string, status: string, reason?: string) => void;
   isDark: boolean;
   C: ReturnType<typeof T>;
   cBg: string;
@@ -401,7 +401,27 @@ export function Admin({
   const tabs: AdminTab[] = ["Dashboard", "Bookings", "On-Site", "Occupancy", "Rooms", "Gallery", "Inventory", "Analytics", "Reports", "Customer Service"];
   const tabIcons: Record<AdminTab, string> = { Dashboard: "⊞", Bookings: "📋", "On-Site": "🏡", Occupancy: "📅", Rooms: "🛏", Gallery: "🖼", Inventory: "📦", Analytics: "📈", Reports: "📊", "Customer Service": "💬" };
 
-  const updateStatus = (id: string, status: string) => setBookings((bs) => bs.map((b) => b.id === id ? { ...b, status: status as Booking["status"] } : b));
+  const updateStatus = async (id: string, status: string, reason?: string) => {
+  setBookings((bs) => bs.map((b) => b.id === id ? { ...b, status: status as Booking["status"] } : b));
+  const booking = bookings.find((b) => b.id === id);
+  if (!booking?.email) return;
+  if (status === "Confirmed") {
+    try {
+      const res = await fetch("/api/email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking, type: "confirmed" }) });
+      const data = await res.json();
+      if (data.success) toast(`✉️ Confirmation email sent to ${booking.email}`, "success");
+      else toast(`⚠️ Booking confirmed but email failed: ${data.error}`, "warning");
+    } catch { toast("⚠️ Booking confirmed but email could not be sent.", "warning"); }
+  }
+  if (status === "Cancelled") {
+    try {
+      const res = await fetch("/api/email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking, type: "rejected", reason: reason || "" }) });
+      const data = await res.json();
+      if (data.success) toast(`✉️ Rejection email sent to ${booking.email}`, "warning");
+      else toast(`⚠️ Booking rejected but email failed: ${data.error}`, "warning");
+    } catch { toast("⚠️ Booking rejected but email could not be sent.", "warning"); }
+  }
+};
 
   // Auto-reject on-hold bookings past deadline
   useEffect(() => {
@@ -784,7 +804,7 @@ export function Admin({
                   const selYear=now.getFullYear();
                   const monthStr=String(selMonthIdx+1).padStart(2,"0");
                   const monthBookings=bookings.filter(b=>b.date&&b.date.startsWith(`${selYear}-${monthStr}`));
-                  const header=["Booking ID","Guest Name","Contact","Email","Date","Package","Guests","Overtime (hrs)","Rooms","Total (₱)","Downpayment (₱)","Status","Payment Proof","Notes"];
+                  const header=["Booking ID","Guest Name","Contact","Email","Date","Package","Guests","Overtime (hrs)","Rooms","Total (₱)","Downpayment (₱)","Status","Notes"];
                   const rows=monthBookings.map(b=>[
                     b.id,b.name,b.contact||"",b.email||"",b.date,b.package,b.guests,b.overtime||0,
                     (b.rooms||[]).map(rid=>rooms.find(r=>r.id===rid)?.name||"").filter(Boolean).join(" | ")||"None",
@@ -934,8 +954,8 @@ export function Admin({
                     const hasData=mBookings.length>0;
                     return(
                       <button key={mon} disabled={!hasData} onClick={()=>{
-                        const header=["Booking ID","Guest Name","Contact","Email","Date","Package","Guests","Overtime (hrs)","Rooms","Total (₱)","Downpayment (₱)","Status","Payment Proof","Notes"];
-                        const rows=mBookings.map(b=>[b.id,b.name,b.contact||"",b.email||"",b.date,b.package,b.guests,b.overtime||0,(b.rooms||[]).map(rid=>rooms.find(r=>r.id===rid)?.name||"").filter(Boolean).join(" | ")||"None",b.total,b.downpayment,b.status,b.paymentProof?"Yes":"No",b.notes||""]);
+                        const header=["Booking ID","Guest Name","Contact","Email","Date","Package","Guests","Overtime (hrs)","Rooms","Total (₱)","Downpayment (₱)","Status","Notes"];
+                        const rows=mBookings.map(b=>[b.id,b.name,b.contact||"",b.email||"",b.date,b.package,b.guests,b.overtime||0,(b.rooms||[]).map(rid=>rooms.find(r=>r.id===rid)?.name||"").filter(Boolean).join(" | ")||"None",b.total,b.downpayment,b.status,b.notes||""]);
                         const totalRev=mBookings.filter(b=>b.status!=="Cancelled").reduce((s,b)=>s+b.total,0);
                         const summary=[[],["SUMMARY",""],["Month",`${mon} 2026`],["Bookings",mBookings.length],["Revenue (non-cancelled)",totalRev],["Guests",mBookings.filter(b=>b.status!=="Cancelled").reduce((s,b)=>s+b.guests,0)]];
                         const csv=[header,...rows,...summary].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
@@ -1032,8 +1052,8 @@ export function Admin({
               <span style={{ flexShrink: 0 }}>{dashConfirm.action === "Confirmed" ? "✅" : "⚠️"}</span>
               <span style={{ color: C.textS, fontSize: 12, lineHeight: 1.6 }}>
                 {dashConfirm.action === "Confirmed"
-                  ? "Make sure the guest's GCash payment proof has been verified before accepting."
-                  : "The guest will be notified that their booking has been declined."
+                  ? "The guest will receive a confirmation email and their booking status will be updated to 'Confirmed'."
+                  : "The guest will receive a cancellation email and their booking status will be updated to 'Cancelled'."
                 }
               </span>
             </div>

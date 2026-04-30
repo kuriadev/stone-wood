@@ -1,4 +1,6 @@
+
 import type { Booking } from "@/types/booking";
+
 
 export function generateOTP(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous chars (0,O,1,I)

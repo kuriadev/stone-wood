@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/layout/Providers";
-import { ClientShell } from "@/components/layout/ClientShell"; // ✅ use this
+import { ClientShell } from "@/components/layout/ClientShell"; 
 
 export const metadata: Metadata = {
   title: "StoneWood Private Resort – Angono, Rizal",

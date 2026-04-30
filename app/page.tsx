@@ -36,21 +36,21 @@ const nav = (p: string) => {
     return;
   }
 
-  // 🔥 START loader
+
   loader.start();
 
-  // simulate progress feel
+
   let progress = 20;
   const interval = setInterval(() => {
     progress += Math.random() * 20;
     if (progress >= 90) clearInterval(interval);
   }, 120);
 
-  // 🔥 DELAY NAVIGATION (YouTube style)
+
   setTimeout(() => {
     loader.finish();
     router.push(target);
-  }, 500); // ← tweak this for feel
+  }, 500); 
 };
 
   return (
