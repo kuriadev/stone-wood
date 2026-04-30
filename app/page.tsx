@@ -15,22 +15,46 @@ export default function HomePage() {
   const C = T(isDark);
   const { bookings, closedDates, reviews } = useApp();
 
-  const nav = (p: string) => {
-    const routes: Record<string, string> = {
-      Home: "/",
-      Rooms: "/rooms",
-      Gallery: "/gallery",
-      "About Us": "/about",
-      "Book Now": "/book",
-      AdminLogin: "/login",
-      "Customer Service": "/customer",
-      "Cancel Booking": "/cancelbooking",
-    };
-    router.push(routes[p] ?? "/");
+const nav = (p: string) => {
+  const routes: Record<string, string> = {
+    Home: "/",
+    Rooms: "/rooms",
+    Gallery: "/gallery",
+    "About Us": "/about",
+    "Book Now": "/book",
+    AdminLogin: "/login",
+    "Customer Service": "/customer",
+    "Cancel Booking": "/cancelbooking",
   };
 
+  const target = routes[p] ?? "/";
+
+  const loader = (globalThis as any).loader?.current;
+
+  if (!loader) {
+    router.push(target);
+    return;
+  }
+
+  // 🔥 START loader
+  loader.start();
+
+  // simulate progress feel
+  let progress = 20;
+  const interval = setInterval(() => {
+    progress += Math.random() * 20;
+    if (progress >= 90) clearInterval(interval);
+  }, 120);
+
+  // 🔥 DELAY NAVIGATION (YouTube style)
+  setTimeout(() => {
+    loader.finish();
+    router.push(target);
+  }, 500); // ← tweak this for feel
+};
+
   return (
-    <div style={{ background: C.bg, minHeight: "100vh" }}>
+    <div style={{ background: "radial-gradient(circle at center, rgba(201,168,76,0.15), #0b0a07)" }}>
       <Navbar page="Home" setPage={nav} />
       <Home
         setPage={nav}

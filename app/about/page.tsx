@@ -29,7 +29,13 @@ export default function AboutRoute() {
   return (
     <div style={{ background: C.bg, minHeight: "100vh" }}>
       <Navbar page="About Us" setPage={nav} />
-      <About />
+
+      {/* ✅ FIXED */}
+      <About
+        setPage={nav}
+        onBookWithDate={(d) => router.push(`/book?date=${d}`)}
+      />
+
       <Footer setPage={nav} />
       <ThemeToggle />
     </div>
