@@ -55,12 +55,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
             letterSpacing: 4,
             fontWeight: 600,
           }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.opacity = "0.8";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.opacity = "1";
-        }}>
+        >
           STONEWOOD
         </span>
 
@@ -88,63 +83,23 @@ export function Navbar({ page, setPage }: NavbarProps) {
                 onClick={() => setPage(l)}
                 className="sw-nav-link"
                 style={{
-                cursor: "pointer",
-                color: page === l ? gold : C.textS,
-                fontSize: 11,
-                letterSpacing: 1.5,
-                fontWeight: page === l ? 600 : 400,
-                position: "relative",
-                paddingBottom: 6,
-                transition: "color .25s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = gold;
-              }}
-              onMouseLeave={(e) => {
-                if (page !== l) e.currentTarget.style.color = C.textS;
-              }}
+                  cursor: "pointer",
+                  color: page === l ? gold : C.textS,
+                  fontSize: 11,
+                  letterSpacing: 1.5,
+                  fontWeight: page === l ? 600 : 400,
+                  borderBottom: page === l ? `1px solid ${gold}` : "1px solid transparent",
+                  paddingBottom: 3,
+                  transition: "all .2s",
+                }}
               >
-                <div
-              style={{
-                position: "absolute",
-                bottom: 0,
-                left: "50%",
-                transform: "translateX(-50%)",
-                height: 1,
-                width: page === l ? "100%" : "0%",
-                background: gold,
-                transition: "width 0.3s ease",
-              }}
-            />
                 {l.toUpperCase()}
               </span>
             ))}
             <button
               className="sw-btn"
               onClick={() => setPage("Book Now")}
-              style={{
-              ...goldBtn,
-              padding: "9px 20px",
-              fontSize: 11,
-              letterSpacing: 1.5,
-              borderRadius: 8,
-              transition: "all .25s cubic-bezier(.22,1,.36,1)",
-              boxShadow: "0 4px 18px rgba(201,168,76,0.25)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "translateY(-2px)";
-              e.currentTarget.style.boxShadow = "0 8px 28px rgba(201,168,76,0.35)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow = "0 4px 18px rgba(201,168,76,0.25)";
-            }}
-            onMouseDown={(e) => {
-              e.currentTarget.style.transform = "scale(0.96)";
-            }}
-            onMouseUp={(e) => {
-              e.currentTarget.style.transform = "scale(1)";
-            }}
+              style={{ ...goldBtn, padding: "9px 20px", fontSize: 11, letterSpacing: 1.5 }}
             >
               BOOK NOW
             </button>
@@ -167,34 +122,18 @@ export function Navbar({ page, setPage }: NavbarProps) {
               key={l}
               onClick={() => { setPage(l); setOpen(false); }}
               style={{
-              padding: "14px 24px",
-              color: page === l ? gold : C.textB,
-              fontSize: 14,
-              cursor: "pointer",
-              borderLeft: page === l ? `3px solid ${gold}` : "3px solid transparent",
-              transition: "all .2s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(201,168,76,0.08)";
-              e.currentTarget.style.paddingLeft = "28px";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.paddingLeft = "24px";
-            }}
+                padding: "14px 24px",
+                color: page === l ? gold : C.textB,
+                fontSize: 14,
+                cursor: "pointer",
+                borderLeft: page === l ? `3px solid ${gold}` : "3px solid transparent",
+                transition: "all .15s",
+              }}
             >
               {l}
             </div>
           ))}
-          <div 
-            style={{         
-            background: isDark ? "#0f0e0b" : "#fdf9f4",
-            borderTop: `1px solid ${C.border}`,
-            padding: "12px 0 20px",
-            boxShadow: isDark ? "none" : "0 8px 32px rgba(80,55,10,0.08)",
-            animation: "navFadeSlide 0.35s ease",
-            
-          }}>
+          <div style={{ padding: "12px 20px 0", display: "flex", flexDirection: "column", gap: 10 }}>
             <button
               onClick={() => { setPage("Book Now"); setOpen(false); }}
               style={{ ...goldBtn, width: "100%", padding: 13 }}

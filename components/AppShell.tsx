@@ -99,7 +99,7 @@ export function AppShell() {
         <RoomsPage setPage={goPage} rooms={rooms} onAddToBooking={goBookWithRoom} />
       )}
       {page === "Gallery" && <Gallery galleryImgs={galleryImgs} />}
-      {page === "About Us" && (<About setPage={goPage} onBookWithDate={goBookWithDate} checkDate={preselectedDate}/>)}
+      {page === "About Us" && <About />}
       {page === "Book Now" && (
         <BookNow
           bookings={bookings}

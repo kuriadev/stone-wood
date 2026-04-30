@@ -37,7 +37,7 @@ interface OnsiteTabProps {
   onsitePending: Booking[];
   onsiteConfirmed: Booking[];
   onsiteCompleted: Booking[];
-  updateStatus: (id: string, status: string) => void;
+ updateStatus: (id: string, status: string, reason?: string) => void;
   isDark: boolean;
   C: ReturnType<typeof T>;
   cBg: string;
@@ -401,7 +401,27 @@ export function Admin({
   const tabs: AdminTab[] = ["Dashboard", "Bookings", "On-Site", "Occupancy", "Rooms", "Gallery", "Inventory", "Analytics", "Reports", "Customer Service"];
   const tabIcons: Record<AdminTab, string> = { Dashboard: "⊞", Bookings: "📋", "On-Site": "🏡", Occupancy: "📅", Rooms: "🛏", Gallery: "🖼", Inventory: "📦", Analytics: "📈", Reports: "📊", "Customer Service": "💬" };
 
-  const updateStatus = (id: string, status: string) => setBookings((bs) => bs.map((b) => b.id === id ? { ...b, status: status as Booking["status"] } : b));
+  const updateStatus = async (id: string, status: string, reason?: string) => {
+  setBookings((bs) => bs.map((b) => b.id === id ? { ...b, status: status as Booking["status"] } : b));
+  const booking = bookings.find((b) => b.id === id);
+  if (!booking?.email) return;
+  if (status === "Confirmed") {
+    try {
+      const res = await fetch("/api/email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking, type: "confirmed" }) });
+      const data = await res.json();
+      if (data.success) toast(`✉️ Confirmation email sent to ${booking.email}`, "success");
+      else toast(`⚠️ Booking confirmed but email failed: ${data.error}`, "warning");
+    } catch { toast("⚠️ Booking confirmed but email could not be sent.", "warning"); }
+  }
+  if (status === "Cancelled") {
+    try {
+      const res = await fetch("/api/email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking, type: "rejected", reason: reason || "" }) });
+      const data = await res.json();
+      if (data.success) toast(`✉️ Rejection email sent to ${booking.email}`, "warning");
+      else toast(`⚠️ Booking rejected but email failed: ${data.error}`, "warning");
+    } catch { toast("⚠️ Booking rejected but email could not be sent.", "warning"); }
+  }
+};
 
   // Auto-reject on-hold bookings past deadline
   useEffect(() => {
