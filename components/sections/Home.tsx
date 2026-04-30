@@ -26,7 +26,7 @@ const AMENITY_DETAILS = [
     shortDesc: "Crystal-clear pool for up to 30 guests.",
     desc: "Our private pool is exclusively yours for the entire day — no sharing, no strangers. Perfect for families, teams, and celebrations.",
     image: "https://images.unsplash.com/photo-1536745511564-a5fa6e596e7b?q=80&w=796&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    videoUrl: "https://www.youtube.com/embed/ohPMoM6YSco?autoplay=1&mute=1&loop=1&playlistsi=TZcRxeLwgVwwJF9z",
+    videoUrl: "https://www.youtube.com/embed/ohPMoM6YSco?si=TZcRxeLwgVwwJF9z",
     bullets: ["Full-day exclusive use 8AM–5PM", "Capacity up to 30 guests included", "Clean filtered water daily", "Poolside seating & loungers provided"],
   },
   {
@@ -34,7 +34,7 @@ const AMENITY_DETAILS = [
     shortDesc: "Open-air grilling stations for groups.",
     desc: "Our open-air BBQ pavilion is set up for serious group cookouts. Bring your own ingredients or hire a catering service.",
     image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&q=80",
-    videoUrl: "https://www.youtube.com/embed/PFDvHizk140?autoplay=1&mute=1&loop=1&playlistsi=i4RsnMBRrFJDqtfa",
+    videoUrl: "https://www.youtube.com/embed/PFDvHizk140?si=i4RsnMBRrFJDqtfa",
     bullets: ["Multiple gas and charcoal grill stations", "Covered dining pavilion nearby", "Long tables and benches included", "String-lit ambient evening setup"],
   },
   {
@@ -42,7 +42,7 @@ const AMENITY_DETAILS = [
     shortDesc: "Mahogany hall with regulation pool tables.",
     desc: "Enjoy a proper billiards lounge with regulation-size tables — great for friendly competition between guests.",
     image: "https://images.unsplash.com/photo-1575553939928-d03b21323afe?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    videoUrl: "https://www.youtube.com/embed/DHrHi-fd_Aw?autoplay=1&mute=1&loop=1&playlistsi=Py1YSsXaCU_pYjJD",
+    videoUrl: "https://www.youtube.com/embed/DHrHi-fd_Aw?si=Py1YSsXaCU_pYjJD",
     bullets: ["2 regulation-size billiards tables", "Cues, chalk, and racks provided", "Air-conditioned indoor space", "Available all day at no extra charge"],
   },
   {
@@ -50,7 +50,7 @@ const AMENITY_DETAILS = [
     shortDesc: "Private suite with neon ambience and pro audio.",
     desc: "Belt out your favorites in our private videoke room with full sound system, microphones, and thousands of songs.",
     image: "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=800&q=80",
-    videoUrl: "https://www.youtube.com/embed/iPy2YPjlrrY?autoplay=1&mute=1&loop=1&playlistsi=UOVAA0ge_GSamyJq",
+    videoUrl: "https://www.youtube.com/embed/iPy2YPjlrrY?si=UOVAA0ge_GSamyJq",
     bullets: ["Thousands of Filipino & English songs", "Pro audio system with sub-woofer", "Neon-lit private room", "Wireless microphones included"],
   },
   {
@@ -58,7 +58,7 @@ const AMENITY_DETAILS = [
     shortDesc: "Spacious, secure, shaded parking.",
     desc: "Worry-free parking for all your guests. Our secure on-site lot accommodates multiple vehicles.",
     image: "https://images.unsplash.com/photo-1506521781263-d8422e82f27a?w=800&q=80",
-    videoUrl: "https://www.youtube.com/embed/OBgsPn-bLeM?autoplay=1&mute=1&loop=1&playlistsi=3Tpc2XN-rEXICG6T",
+    videoUrl: "https://www.youtube.com/embed/OBgsPn-bLeM?si=3Tpc2XN-rEXICG6T",
     bullets: ["Secure on-site parking lot", "Accommodates 10+ vehicles", "Well-lit and monitored area", "Free for all guests"],
   },
   {
@@ -66,7 +66,7 @@ const AMENITY_DETAILS = [
     shortDesc: "Air-conditioned space for rest and comfort.",
     desc: "A private, fully air-conditioned room where guests can relax, cool down, or take a break between activities.",
     image: "https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=1169&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    videoUrl: "https://www.youtube.com/embed/fPMsAIld9Ss?autoplay=1&mute=1&loop=1&playlistsi=5KHW4Flc0n6bat1C",
+    videoUrl: "https://www.youtube.com/embed/fPMsAIld9Ss?si=5KHW4Flc0n6bat1C",
     bullets: ["Fully air-conditioned for maximum comfort", "Ideal for resting, naps, or small group use", "Quiet and private indoor space", "Perfect break area from outdoor activities"],
   },
 ];
@@ -147,7 +147,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, reviews }
   }, []);
 
   return (
-    <div style={{ background: "linear-gradient(160deg,rgba(7,6,4,0.75) 0%,rgba(14,11,6,0.75) 50%,rgba(8,6,3,0.85) 100%)" }}>
+    <div style={{ background: C.bg }}>
       {/* ── HERO ── */}
       <div
         style={{
@@ -160,9 +160,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, reviews }
           justifyContent: "center",
           padding: mob ? "0 24px 48px" : "0 40px 60px",
         }}
-        
       >
-        
         {/* Dark background */}
         {isDark && (
           <>

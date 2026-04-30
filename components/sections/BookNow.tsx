@@ -54,6 +54,10 @@ export function BookNow({
   const [showGcashWarning, setShowGcashWarning] = useState(false);
   const [showOnsiteConfirm, setShowOnsiteConfirm] = useState(false);
   const [pendingOnsiteId, setPendingOnsiteId] = useState("");
+  const [policyChecked, setPolicyChecked] = useState(false);
+
+  // Email validation
+  const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const setF = (k: string, v: string) => setFormState((f) => ({ ...f, [k]: v }));
   const setOsF = (k: string, v: string) => setOsFormState((f) => ({ ...f, [k]: v }));
@@ -350,12 +354,27 @@ export function BookNow({
             <div>
               <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, marginBottom: 20, fontWeight: 400 }}>Your Information</h3>
               <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 20 }}>
-                {[["FULL NAME", "name", "text"], ["EMAIL ADDRESS", "email", "email"]].map(([l, k, t]) => (
-                  <div key={k}>
-                    <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>{l}</label>
-                    <input type={t} value={form[k as keyof typeof form]} onChange={(e) => setF(k, e.target.value)} className="sw-input" style={inpS} />
-                  </div>
-                ))}
+                <div>
+                  <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>FULL NAME</label>
+                  <input type="text" value={form.name} onChange={(e) => setF("name", e.target.value)} className="sw-input" style={inpS} />
+                </div>
+                <div>
+                  <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>EMAIL ADDRESS</label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setF("email", e.target.value)}
+                    placeholder="example@email.com"
+                    className="sw-input"
+                    style={{ ...inpS, borderColor: form.email && !isValidEmail(form.email) ? "rgba(229,85,85,0.6)" : undefined }}
+                  />
+                  {form.email && !isValidEmail(form.email) && (
+                    <p style={{ color: "#e55", fontSize: 11, marginTop: 4 }}>⚠ Please enter a valid email address</p>
+                  )}
+                  {form.email && isValidEmail(form.email) && (
+                    <p style={{ color: "#4caf50", fontSize: 11, marginTop: 4 }}>✓ Valid email</p>
+                  )}
+                </div>
                 <div>
                   <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>CONTACT NUMBER</label>
                   <div style={{ position: "relative" }}>
@@ -389,9 +408,9 @@ export function BookNow({
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setStep(4)} style={{ ...outBtn, flex: 1, padding: "12px 10px", borderRadius: 6 }}>BACK</button>
                 <button
-                  disabled={!form.name || !form.email || form.contact.length !== 11}
+                  disabled={!form.name || !isValidEmail(form.email) || form.contact.length !== 11}
                   onClick={() => setShowGcashWarning(true)}
-                  style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: !form.name || !form.email || form.contact.length !== 11 ? 0.4 : 1 }}
+                  style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: !form.name || !isValidEmail(form.email) || form.contact.length !== 11 ? 0.4 : 1 }}
                 >
                   PROCEED TO GCASH →
                 </button>
@@ -696,17 +715,31 @@ export function BookNow({
               </div>
             </div>
 
+            {/* Checkbox acknowledgement */}
+            <div
+              onClick={() => setPolicyChecked((v) => !v)}
+              style={{ display: "flex", alignItems: "flex-start", gap: 12, background: policyChecked ? "rgba(76,175,80,0.06)" : isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", border: `1.5px solid ${policyChecked ? "rgba(76,175,80,0.5)" : isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 8, padding: "12px 14px", marginBottom: 18, cursor: "pointer", transition: "all .2s", userSelect: "none" }}
+            >
+              <div style={{ width: 20, height: 20, borderRadius: 4, border: `2px solid ${policyChecked ? "#4caf50" : isDark ? "#444" : "#bbb"}`, background: policyChecked ? "#4caf50" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1, transition: "all .2s" }}>
+                {policyChecked && <span style={{ color: "#fff", fontSize: 12, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+              </div>
+              <span style={{ color: C.textS, fontSize: 12, lineHeight: 1.6 }}>
+                I have read and understood the payment policy. I agree that <strong style={{ color: C.textH }}>all payments are non-refundable</strong> and that a <strong style={{ color: C.textH }}>50% down payment</strong> is required to confirm my booking.
+              </span>
+            </div>
+
             <div style={{ borderTop: `1px solid ${C.border}`, marginBottom: 18 }} />
             <div style={{ display: "flex", gap: 10 }}>
               <button
-                onClick={() => setShowGcashWarning(false)}
+                onClick={() => { setShowGcashWarning(false); setPolicyChecked(false); }}
                 style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${C.border}`, padding: "12px 16px", fontSize: 11, cursor: "pointer", borderRadius: 8, letterSpacing: 1 }}
               >
                 CANCEL
               </button>
               <button
-                onClick={() => { setShowGcashWarning(false); setStep(6); }}
-                style={{ flex: 2, background: "rgba(76,175,80,0.12)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.35)", padding: "12px 16px", fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 8, letterSpacing: 1.5 }}
+                disabled={!policyChecked}
+                onClick={() => { setShowGcashWarning(false); setPolicyChecked(false); setStep(6); }}
+                style={{ flex: 2, background: policyChecked ? "rgba(76,175,80,0.12)" : isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", color: policyChecked ? "#4caf50" : C.textXS, border: `1px solid ${policyChecked ? "rgba(76,175,80,0.35)" : isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)"}`, padding: "12px 16px", fontSize: 11, fontWeight: 700, cursor: policyChecked ? "pointer" : "not-allowed", borderRadius: 8, letterSpacing: 1.5, transition: "all .2s", opacity: policyChecked ? 1 : 0.5 }}
               >
                 ✓ YES, I UNDERSTAND
               </button>

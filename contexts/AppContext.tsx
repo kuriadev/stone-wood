@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState,useEffect, ReactNode } from "react";
 import {
   INIT_BOOKINGS,
   INIT_ROOMS,
@@ -31,7 +31,18 @@ interface AppState {
 const AppCtx = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [bookings, setBookings] = useState<Booking[]>(INIT_BOOKINGS);
+  const [bookings, setBookings] = useState<Booking[]>(() => {
+  if (typeof window === "undefined") return INIT_BOOKINGS;
+  try {
+    const saved = localStorage.getItem("sw_bookings");
+    return saved ? JSON.parse(saved) : INIT_BOOKINGS;
+  } catch {
+    return INIT_BOOKINGS;
+  }
+});
+useEffect(() => {
+  localStorage.setItem("sw_bookings", JSON.stringify(bookings));
+}, [bookings]);
   const [rooms, setRooms] = useState<Room[]>(INIT_ROOMS);
   const [galleryImgs, setGalleryImgs] = useState<string[]>(INIT_GALLERY);
   const [closedDates, setClosedDates] = useState<string[]>([]);

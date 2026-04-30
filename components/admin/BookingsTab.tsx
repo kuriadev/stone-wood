@@ -11,7 +11,7 @@ import type { Room } from "@/types/room";
 
 interface BookingsTabProps {
   bookings: Booking[];
-  updateStatus: (id: string, status: string) => void;
+  updateStatus: (id: string, status: string, reason?: string) => void;
   mob: boolean;
   rooms: Room[];
 }
@@ -27,16 +27,16 @@ export function BookingsTab({ bookings, updateStatus, mob, rooms }: BookingsTabP
   const [viewBooking, setViewBooking] = useState<Booking | null>(null);
 
   const executeAction = () => {
-    if (!confirmAction) return;
-    updateStatus(confirmAction.bookingId, confirmAction.action);
-    if (confirmAction.action === "Cancelled") {
-      const msg = rejectionMsg.trim() || "Your booking did not meet our current availability or requirements.";
-      toast(`Rejection sent to ${confirmAction.guestEmail || confirmAction.guestName}: "${msg.slice(0, 48)}${msg.length > 48 ? "…" : ""}"`, "warning");
-    } else {
-      toast(`Booking accepted for ${confirmAction.guestName}.`, "success");
-    }
-    setRejectionMsg(""); setConfirmAction(null);
-  };
+  if (!confirmAction) return;
+  const reason = rejectionMsg.trim() || "Your booking did not meet our current availability or requirements.";
+  updateStatus(confirmAction.bookingId, confirmAction.action, confirmAction.action === "Cancelled" ? reason : undefined);
+  if (confirmAction.action === "Cancelled") {
+    toast(`Rejection sent to ${confirmAction.guestEmail || confirmAction.guestName}: "${reason.slice(0, 48)}${reason.length > 48 ? "…" : ""}"`, "warning");
+  } else {
+    toast(`Booking accepted for ${confirmAction.guestName}.`, "success");
+  }
+  setRejectionMsg(""); setConfirmAction(null);
+};
 
   // Derive payment method from package type
   const getPaymentMethod = (b: Booking) => {
