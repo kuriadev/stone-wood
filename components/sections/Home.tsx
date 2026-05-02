@@ -22,7 +22,7 @@ interface HomeProps {
 
 const AMENITY_DETAILS = [
   {
-    icon: "🏊", name: "Swimming Pool",
+    name: "Swimming Pool",
     shortDesc: "Crystal-clear pool for up to 30 guests.",
     desc: "Our private pool is exclusively yours for the entire day — no sharing, no strangers. Perfect for families, teams, and celebrations.",
     image: "https://images.unsplash.com/photo-1536745511564-a5fa6e596e7b?q=80&w=796&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
@@ -30,7 +30,7 @@ const AMENITY_DETAILS = [
     bullets: ["Full-day exclusive use 8AM–5PM", "Capacity up to 30 guests included", "Clean filtered water daily", "Poolside seating & loungers provided"],
   },
   {
-    icon: "🔥", name: "BBQ / Grilling Area",
+    name: "BBQ / Grilling Area",
     shortDesc: "Open-air grilling stations for groups.",
     desc: "Our open-air BBQ pavilion is set up for serious group cookouts. Bring your own ingredients or hire a catering service.",
     image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&q=80",
@@ -38,7 +38,7 @@ const AMENITY_DETAILS = [
     bullets: ["Multiple gas and charcoal grill stations", "Covered dining pavilion nearby", "Long tables and benches included", "String-lit ambient evening setup"],
   },
   {
-    icon: "🎱", name: "Billiards",
+    name: "Billiards",
     shortDesc: "Mahogany hall with regulation pool tables.",
     desc: "Enjoy a proper billiards lounge with regulation-size tables — great for friendly competition between guests.",
     image: "https://images.unsplash.com/photo-1575553939928-d03b21323afe?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
@@ -46,7 +46,7 @@ const AMENITY_DETAILS = [
     bullets: ["2 regulation-size billiards tables", "Cues, chalk, and racks provided", "Air-conditioned indoor space", "Available all day at no extra charge"],
   },
   {
-    icon: "🎤", name: "Karaoke / Videoke",
+    name: "Karaoke / Videoke",
     shortDesc: "Private suite with neon ambience and pro audio.",
     desc: "Belt out your favorites in our private videoke room with full sound system, microphones, and thousands of songs.",
     image: "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=800&q=80",
@@ -54,7 +54,7 @@ const AMENITY_DETAILS = [
     bullets: ["Thousands of Filipino & English songs", "Pro audio system with sub-woofer", "Neon-lit private room", "Wireless microphones included"],
   },
   {
-    icon: "🚗", name: "Parking Area",
+    name: "Parking Area",
     shortDesc: "Spacious, secure, shaded parking.",
     desc: "Worry-free parking for all your guests. Our secure on-site lot accommodates multiple vehicles.",
     image: "https://images.unsplash.com/photo-1506521781263-d8422e82f27a?w=800&q=80",
@@ -62,7 +62,7 @@ const AMENITY_DETAILS = [
     bullets: ["Secure on-site parking lot", "Accommodates 10+ vehicles", "Well-lit and monitored area", "Free for all guests"],
   },
   {
-    icon: "❄️", name: "Air-Conditioned Rooms",
+    name: "Air-Conditioned Rooms",
     shortDesc: "Air-conditioned space for rest and comfort.",
     desc: "A private, fully air-conditioned room where guests can relax, cool down, or take a break between activities.",
     image: "https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=1169&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
@@ -276,16 +276,23 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, reviews }
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={gold} strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
               </div>
             </div>
-            <button className="sw-btn sw-hero-cta-glow" onClick={() => checkDate ? onBookWithDate(checkDate) : setPage("Book Now")} style={{ ...goldBtn, padding: "14px 26px", whiteSpace: "nowrap", letterSpacing: 2, fontSize: 12, borderRadius: 7 }}>
-              CHECK & BOOK
-            </button>
+
           </div>
 
           {showCal && (
             <>
               <div onClick={() => setShowCal(false)} style={{ position: "fixed", inset: 0, zIndex: 998 }} />
               <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 999 }}>
-                <AvailabilityCalendar bookings={bookings} closedDates={closedDates} onSelectDate={(ds) => { setCheckDate(ds); setShowCal(false); }} selectedDate={checkDate} />
+                <AvailabilityCalendar
+                  bookings={bookings}
+                  closedDates={closedDates}
+                  onSelectDate={(ds) => {
+                    setCheckDate(ds);
+                    onBookWithDate(ds);
+                    setShowCal(false);
+                  }}
+                  selectedDate={checkDate}
+                />
               </div>
             </>
           )}
@@ -475,7 +482,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, reviews }
               </div>
                 {/* Icon + name + desc */}
                 <div style={{ position: "absolute", bottom: 14, left: 16, right: 16 }}>
-                  <div style={{ fontSize: 18, marginBottom: 4 }}>{a.icon}</div>
+                  <div style={{ fontSize: 18, marginBottom: 4 }}></div>
                   <div style={{ color: "#fff", fontSize: 15, fontWeight: 700, marginBottom: 3 }}>{a.name}</div>
                   <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, lineHeight: 1.5 }}>{a.shortDesc}</div>
                 </div>

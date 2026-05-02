@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { gold } from "@/lib/styles";
 import type { Booking } from "@/types/booking";
 
@@ -19,17 +19,30 @@ export function AvailabilityCalendar({
 }: AvailabilityCalendarProps) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
   const [calMonth, setCalMonth] = useState(
     new Date(today.getFullYear(), today.getMonth(), 1)
   );
+
+  // FIX: Force the calendar to the current month when the component mounts.
+  // This overrides any hardcoded state or "remembered" values.
+  useEffect(() => {
+    const now = new Date();
+    setCalMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+  }, []);
+
   const bookedDates = new Set(
     bookings.filter((b) => b.status !== "Cancelled").map((b) => b.date)
   );
   const closedSet = new Set(closedDates);
   const year = calMonth.getFullYear();
   const month = calMonth.getMonth();
+  
+  // Note: These calculations (daysInMonth, firstDay) will now correctly 
+  // react to the forced current date from the useEffect above.
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDay = new Date(year, month, 1).getDay();
+  
   const toStr = (d: number) =>
     `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 

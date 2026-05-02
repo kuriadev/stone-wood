@@ -8,13 +8,16 @@ import { Home } from "@/components/sections/Home";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { useState } from "react";
 
 export default function HomePage() {
   const router = useRouter();
   const { isDark } = useTheme();
   const C = T(isDark);
   const { bookings, closedDates, reviews } = useApp();
-
+  const [selectedDate, setSelectedDate] = useState("");
+  const [page, setPage] = useState("Home");
+  
 const nav = (p: string) => {
   const routes: Record<string, string> = {
     Home: "/",

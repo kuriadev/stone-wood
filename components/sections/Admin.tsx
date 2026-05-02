@@ -366,6 +366,14 @@ function OnsiteTab({
   );
 }
 
+const SIDEBAR_GROUPS = [
+  { label: "OVERVIEW",     tabs: ["Dashboard"] },
+  { label: "RESERVATIONS", tabs: ["Bookings", "On-Site", "Occupancy"] },
+  { label: "MANAGEMENT",   tabs: ["Rooms", "Gallery", "Inventory"] },
+  { label: "INSIGHTS",     tabs: ["Analytics", "Reports"] },
+  { label: "SUPPORT",      tabs: ["Customer Service"] },
+];
+
 // ── Admin Component ───────────────────────────────────────────────────────────
 export function Admin({
   bookings, setBookings, rooms, setRooms,
@@ -387,7 +395,7 @@ export function Admin({
   const [confirmRemoveRoom, setConfirmRemoveRoom] = useState<Room | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const galleryFileRef = useRef<HTMLInputElement>(null);
-  const [calMonth, setCalMonth] = useState(new Date(2026, 2));
+  const [calMonth, setCalMonth] = useState(new Date());
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [autoRejectHours, setAutoRejectHours] = useState(48);
   const [autoRejectEnabled, setAutoRejectEnabled] = useState(true);
@@ -517,14 +525,89 @@ export function Admin({
                 <div style={{ color: isDark ? "#333" : "#bbb", fontSize: 9, letterSpacing: 3, marginLeft: 16 }}>ADMIN PANEL</div>
               </div>
             )}
-            <div style={{ padding: "16px 0", flex: 1 }}>
-              {tabs.map((t) => (
-                <div key={t} onClick={() => goTab(t)} className="sw-sidebar-item" style={sideS(t)}>
-                  <span style={{ fontSize: 13, opacity: tab === t ? 1 : 0.6 }}>{tabIcons[t]}</span>
-                  <span>{t.toUpperCase()}</span>
-                  {t === "Bookings" && onHold > 0 && <span style={{ background: gold, color: "#000", fontSize: 9, fontWeight: 800, borderRadius: 20, padding: "2px 7px", marginLeft: "auto", letterSpacing: 0 }}>{onHold}</span>}
-                  {t === "On-Site" && bookings.filter(b => b.package === "On-Site Reservation" && b.status === "On Hold").length > 0 && <span style={{ background: "#4a9fd4", color: "#fff", fontSize: 9, fontWeight: 800, borderRadius: 20, padding: "2px 7px", marginLeft: "auto", letterSpacing: 0 }}>{bookings.filter(b => b.package === "On-Site Reservation" && b.status === "On Hold").length}</span>}
-                  {t === "Customer Service" && customerMessages.length > 0 && <span style={{ background: "#4a9fd4", color: "#fff", fontSize: 9, fontWeight: 800, borderRadius: 20, padding: "2px 7px", marginLeft: "auto", letterSpacing: 0 }}>{customerMessages.length}</span>}
+            <div style={{ padding: "8px 0", flex: 1, overflowY: "auto" }}>
+              {SIDEBAR_GROUPS.map((group, gi) => (
+                <div key={group.label}>
+
+                  {/* Section label + horizontal rule */}
+                  <div style={{
+                    padding: gi === 0 ? "16px 24px 6px" : "20px 24px 6px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                  }}>
+                    <span style={{
+                      color: isDark ? "#2e2820" : "#bbb3a8",
+                      fontSize: 8,
+                      letterSpacing: 2.5,
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                      textTransform: "uppercase" as const,
+                    }}>
+                      {group.label}
+                    </span>
+                    <div style={{
+                      flex: 1,
+                      height: 1,
+                      background: isDark ? "#1c1916" : "#e8e0d4",
+                    }} />
+                  </div>
+
+                  {/* Nav items for this group */}
+                  {group.tabs.map((t) => (
+                    <div
+                      key={t}
+                      onClick={() => goTab(t as AdminTab)}
+                      className="sw-sidebar-item"
+                      style={sideS(t as AdminTab)}
+                    >
+                      <span style={{
+                        fontSize: 14,
+                        opacity: tab === t ? 1 : 0.5,
+                        transition: "opacity .15s",
+                      }}>
+                        {tabIcons[t as AdminTab]}
+                      </span>
+                      <span style={{ flex: 1 }}>{t.toUpperCase()}</span>
+
+                      {/* Bookings badge */}
+                      {t === "Bookings" && onHold > 0 && (
+                        <span style={{
+                          background: gold, color: "#000",
+                          fontSize: 9, fontWeight: 800,
+                          borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
+                        }}>
+                          {onHold}
+                        </span>
+                      )}
+
+                      {/* On-Site badge */}
+                      {t === "On-Site" && bookings.filter(
+                        b => b.package === "On-Site Reservation" && b.status === "On Hold"
+                      ).length > 0 && (
+                        <span style={{
+                          background: "#4a9fd4", color: "#fff",
+                          fontSize: 9, fontWeight: 800,
+                          borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
+                        }}>
+                          {bookings.filter(
+                            b => b.package === "On-Site Reservation" && b.status === "On Hold"
+                          ).length}
+                        </span>
+                      )}
+
+                      {/* Customer Service badge */}
+                      {t === "Customer Service" && customerMessages.length > 0 && (
+                        <span style={{
+                          background: "#4a9fd4", color: "#fff",
+                          fontSize: 9, fontWeight: 800,
+                          borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
+                        }}>
+                          {customerMessages.length}
+                        </span>
+                      )}
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
