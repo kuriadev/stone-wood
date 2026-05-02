@@ -27,7 +27,30 @@ export default function CustomerPage() {
       "Customer Service": "/customer",
       "Cancel Booking": "/cancelbooking",
     };
-    router.push(routes[p] ?? "/");
+    const target = routes[p] ?? "/";
+
+    const loader = (globalThis as any).loader?.current;
+
+    if (!loader) {
+      router.push(target);
+      return;
+    }
+
+
+    loader.start();
+
+
+    let progress = 20;
+    const interval = setInterval(() => {
+      progress += Math.random() * 20;
+      if (progress >= 90) clearInterval(interval);
+    }, 120);
+
+
+    setTimeout(() => {
+      loader.finish();
+      router.push(target);
+    }, 500); 
   };
 
   // ── This is the key connection: pushes the message into AppContext ──────────

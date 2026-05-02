@@ -25,7 +25,31 @@ export default function RoomsRoute() {
       AdminLogin: "/login",
       "Customer Service": "/customer",
     };
-    router.push(routes[p] ?? "/");
+    
+    const target = routes[p] ?? "/";
+
+    const loader = (globalThis as any).loader?.current;
+
+    if (!loader) {
+      router.push(target);
+      return;
+    }
+
+
+    loader.start();
+
+
+    let progress = 20;
+    const interval = setInterval(() => {
+      progress += Math.random() * 20;
+      if (progress >= 90) clearInterval(interval);
+    }, 120);
+
+
+    setTimeout(() => {
+      loader.finish();
+      router.push(target);
+    }, 500); 
   };
 
   return (

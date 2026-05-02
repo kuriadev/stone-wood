@@ -30,31 +30,31 @@ const nav = (p: string) => {
     "Cancel Booking": "/cancelbooking",
   };
 
-  const target = routes[p] ?? "/";
+    const target = routes[p] ?? "/";
 
-  const loader = (globalThis as any).loader?.current;
+    const loader = (globalThis as any).loader?.current;
 
-  if (!loader) {
-    router.push(target);
-    return;
-  }
-
-
-  loader.start();
+    if (!loader) {
+      router.push(target);
+      return;
+    }
 
 
-  let progress = 20;
-  const interval = setInterval(() => {
-    progress += Math.random() * 20;
-    if (progress >= 90) clearInterval(interval);
-  }, 120);
+    loader.start();
 
 
-  setTimeout(() => {
-    loader.finish();
-    router.push(target);
-  }, 500); 
-};
+    let progress = 20;
+    const interval = setInterval(() => {
+      progress += Math.random() * 20;
+      if (progress >= 90) clearInterval(interval);
+    }, 120);
+
+
+    setTimeout(() => {
+      loader.finish();
+      router.push(target);
+    }, 500); 
+  };
 
   return (
     <div style={{ background: "radial-gradient(circle at center, rgba(201,168,76,0.15), #0b0a07)" }}>
