@@ -61,17 +61,31 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
     if (!found) return;
     setBookings((prev) =>
       prev.map((b) =>
-        b.id === found.id ? { ...b, status: "Cancelled" } : b
+        b.id === found.id
+          ? {
+              ...b,
+              status: "Cancelled",
+              cancelReason,
+            }
+          : b
       )
     );
-    setFound((prev) => prev ? { ...prev, status: "Cancelled" } : null);
+    setFound((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "Cancelled",
+              cancelReason,
+            }
+          : null
+      );
     setCancelDone(true);
     setShowCancelConfirm(false);
   };
 
   const statusColor = (s: string) => {
     if (s === "Confirmed") return "#4caf50";
-    if (s === "On Hold") return "#f5c518";
+    if (s === "Paid") return "#f5c518";
     if (s === "Cancelled") return "#e55555";
     if (s === "Completed") return "#4a9fd4";
     return "#888";

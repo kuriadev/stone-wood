@@ -104,7 +104,7 @@
         id, name: form.name, contact: form.contact, email: form.email,
         date, guests, package: selRooms.length > 0 ? "Day Tour + Room" : "Day Tour",
         rooms: selRooms, overtime, total, downpayment: down,
-        status: "On Hold", paymentProof: false, notes: form.notes, createdAt: Date.now(),
+        status: "Paid", paymentProof: false, notes: form.notes, createdAt: Date.now(),
       }]);
       clearPreselected?.(); clearPreselectedDate?.();
       if (timerRef.current) clearInterval(timerRef.current);
@@ -127,7 +127,7 @@
         email: osForm.email || "—", date: osForm.date || "—",
         guests: 1, package: "On-Site Reservation", rooms: [],
         overtime: 0, total: 0, downpayment: 0,
-        status: "On Hold", paymentProof: false,
+        status: "Paid", paymentProof: false,
         notes: "On-site reservation — payment upon arrival",
         createdAt: Date.now(),
       }]);
@@ -181,10 +181,10 @@
               {labels.map((label, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center" }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: i < currentIdx ? gold : "transparent", border: i === currentIdx ? `2px solid ${gold}` : i < currentIdx ? "none" : `1px solid ${isDark ? "#2a2520" : "#d6cfc4"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: i < currentIdx ? "#000" : i === currentIdx ? gold : C.textXS, fontWeight: 700, flexShrink: 0 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: i < currentIdx ? gold : "transparent", border: i === currentIdx ? `2px solid ${gold}` : i < currentIdx ? "none" : `1px solid ${isDark ? "#2a2520" : "#d6cfc4"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: i < currentIdx ? "#000" : i === currentIdx ? gold : C.textS, fontWeight: 700, flexShrink: 0 }}>
                       {i < currentIdx ? "✓" : i + 1}
                     </div>
-                    <span style={{ color: i === currentIdx ? gold : C.textXS, fontSize: mob ? 8 : 9, letterSpacing: 1, whiteSpace: "nowrap" }}>{label.toUpperCase()}</span>
+                    <span style={{ color: i === currentIdx ? gold : C.textS, fontSize: mob ? 8 : 9, letterSpacing: 1, whiteSpace: "nowrap" }}>{label.toUpperCase()}</span>
                   </div>
                   {i < labels.length - 1 && (
                     <div style={{ width: mob ? 20 : 40, height: 1, background: i < currentIdx ? gold : isDark ? "#2a2520" : "#d6cfc4", marginTop: 0, marginBottom: 20, marginLeft: 4, marginRight: 4, flexShrink: 0 }} />
@@ -231,16 +231,21 @@
                 {/* GCash button — 3 states: unselected (dark) → hover (green highlight) → selected (solid green) */}
                 <div
                   onClick={() => {
-                    if (!gcashSelected) {
-                      setGcashSelected(true);
-                      // brief green confirmation flash then proceed
-                      setTimeout(() => setStep(3), 420);
+                    // if already selected, allow proceeding again
+                    if (gcashSelected) {
+                      setStep(3);
+                      return;
                     }
+
+                    setGcashSelected(true);
+
+                    // brief green confirmation flash then proceed
+                    setTimeout(() => setStep(3), 420);
                   }}
                   style={{
                     borderRadius: 10,
                     padding: "20px 22px",
-                    cursor: gcashSelected ? "default" : "pointer",
+                    cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
                     gap: 16,
@@ -285,47 +290,305 @@
               </div>
             )}
 
-            {/* STEP 3 – Date & Details */}
-            {step === 3 && (
-              <div>
-                <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, marginBottom: 20, fontWeight: 400 }}>Pick Your Date & Details</h3>
-                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 10 }}>SELECT DATE</label>
-                <div style={{ marginBottom: 20 }}>
-                  <BookingDatePicker bookings={bookings} closedDates={closedDates} selectedDate={date} onSelectDate={(ds) => setDate(ds)} isDark={isDark} />
-                  {date && !dateOk && <p style={{ color: "#e55", fontSize: 12, marginTop: 6 }}>⚠ This date is unavailable. Please choose another.</p>}
-                  {date && dateOk && <p style={{ color: "#4caf50", fontSize: 12, marginTop: 6 }}>✓ Date looks available — please still call ahead to confirm!</p>}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 20 }}>
-                  <div>
-                    <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>NUMBER OF GUESTS</label>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <button onClick={() => setGuests((g) => Math.max(1, g - 1))} style={{ width: 36, height: 36, borderRadius: 6, background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
-                      <span style={{ color: C.textH, fontSize: 18, fontWeight: 700, minWidth: 40, textAlign: "center" }}>{guests}</span>
-                      <button onClick={() => setGuests((g) => g + 1)} style={{ width: 36, height: 36, borderRadius: 6, background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
-                    </div>
-                    {guests > 30 && <p style={{ color: "#f5c518", fontSize: 11, marginTop: 6 }}>+{guests - 30} extra guests × ₱100 = {fmt((guests - 30) * 100)}</p>}
+           {/* STEP 3 – Date & Details */}
+              {step === 3 && (
+                <div>
+                  <h3
+                    style={{
+                      color: C.textH,
+                      fontFamily: "'Cormorant Garamond',Georgia,serif",
+                      fontSize: 22,
+                      marginBottom: 20,
+                      fontWeight: 400,
+                    }}
+                  >
+                    Pick Your Date & Details
+                  </h3>
+
+                  <label
+                    style={{
+                      color: gold,
+                      fontSize: 10,
+                      letterSpacing: 2,
+                      display: "block",
+                      marginBottom: 10,
+                    }}
+                  >
+                    SELECT DATE
+                  </label>
+
+                  <div style={{ marginBottom: 28 }}>
+                    <BookingDatePicker
+                      bookings={bookings}
+                      closedDates={closedDates}
+                      selectedDate={date}
+                      onSelectDate={(ds) => setDate(ds)}
+                      isDark={isDark}
+                    />
+
+                    {date && !dateOk && (
+                      <p style={{ color: "#e55", fontSize: 12, marginTop: 6 }}>
+                        ⚠ This date is unavailable. Please choose another.
+                      </p>
+                    )}
+
+                    {date && dateOk && (
+                      <p style={{ color: "#4caf50", fontSize: 12, marginTop: 6 }}>
+                        ✓ Date looks available — please still call ahead to confirm!
+                      </p>
+                    )}
                   </div>
-                  <div>
-                    <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>OVERTIME HOURS (after 5PM)</label>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <button onClick={() => setOvertime((o) => Math.max(0, o - 1))} style={{ width: 36, height: 36, borderRadius: 6, background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
-                      <span style={{ color: C.textH, fontSize: 18, fontWeight: 700, minWidth: 40, textAlign: "center" }}>{overtime}</span>
-                      <button onClick={() => setOvertime((o) => o + 1)} style={{ width: 36, height: 36, borderRadius: 6, background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+
+                  {/* UNIFIED DETAILS SECTION */}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: mob ? "1fr" : "1fr 1fr",
+                      gap: 14,
+                      marginBottom: 24,
+                    }}
+                  >
+                    {/* GUESTS */}
+                    <div
+                      style={{
+                        border: `1px solid ${cBr}`,
+                        borderRadius: 10,
+                        padding: "16px 18px",
+                        background: isDark
+                          ? "rgba(255,255,255,0.02)"
+                          : "rgba(0,0,0,0.02)",
+                      }}
+                    >
+                      <label
+                        style={{
+                          color: gold,
+                          fontSize: 10,
+                          letterSpacing: 2,
+                          display: "block",
+                          marginBottom: 6,
+                        }}
+                      >
+                        NUMBER OF GUESTS
+                      </label>
+
+                      <p
+                        style={{
+                          color: C.textS,
+                          fontSize: 11,
+                          marginBottom: 14,
+                          opacity: 0.75,
+                        }}
+                      >
+                        How many people will attend?
+                      </p>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                        }}
+                      >
+                        <button
+                          onClick={() => setGuests((g) => Math.max(1, g - 1))}
+                          style={{
+                            width: 42,
+                            height: 42,
+                            borderRadius: 8,
+                            background: "transparent",
+                            border: `1px solid ${cBr}`,
+                            color: C.textS,
+                            cursor: "pointer",
+                            fontSize: 18,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transition: "0.2s",
+                          }}
+                        >
+                          −
+                        </button>
+
+                        <span
+                          style={{
+                            color: C.textH,
+                            fontSize: 26,
+                            fontWeight: 700,
+                            minWidth: 100,
+                            textAlign: "center",
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          {guests}
+                        </span>
+
+                        <button
+                          onClick={() => setGuests((g) => g + 1)}
+                          style={{
+                            width: 42,
+                            height: 42,
+                            borderRadius: 8,
+                            background: "transparent",
+                            border: `1px solid ${cBr}`,
+                            color: C.textS,
+                            cursor: "pointer",
+                            fontSize: 18,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transition: "0.2s",
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      {guests > 30 && (
+                        <p style={{ color: "#f5c518", fontSize: 11, marginTop: 12 }}>
+                          +{guests - 30} extra guests × ₱100 ={" "}
+                          {fmt((guests - 30) * 100)}
+                        </p>
+                      )}
                     </div>
-                    {overtime > 0 && <p style={{ color: "#f5c518", fontSize: 11, marginTop: 6 }}>{overtime}hr OT × ₱500 = {fmt(overtime * 500)}</p>}
+
+                    {/* OVERTIME */}
+                    <div
+                      style={{
+                        border: `1px solid ${cBr}`,
+                        borderRadius: 10,
+                        padding: "16px 18px",
+                        background: isDark
+                          ? "rgba(255,255,255,0.02)"
+                          : "rgba(0,0,0,0.02)",
+                      }}
+                    >
+                      <label
+                        style={{
+                          color: gold,
+                          fontSize: 10,
+                          letterSpacing: 2,
+                          display: "block",
+                          marginBottom: 6,
+                        }}
+                      >
+                        OVERTIME HOURS
+                      </label>
+
+                      <p
+                        style={{
+                          color: C.textS,
+                          fontSize: 11,
+                          marginBottom: 14,
+                          opacity: 0.75,
+                        }}
+                      >
+                        Additional hours after 5PM
+                      </p>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                        }}
+                      >
+                        <button
+                          onClick={() => setOvertime((o) => Math.max(0, o - 1))}
+                          style={{
+                            width: 42,
+                            height: 42,
+                            borderRadius: 8,
+                            background: "transparent",
+                            border: `1px solid ${cBr}`,
+                            color: C.textS,
+                            cursor: "pointer",
+                            fontSize: 18,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transition: "0.2s",
+                          }}
+                        >
+                          −
+                        </button>
+
+                        <span
+                          style={{
+                            color: C.textH,
+                            fontSize: 26,
+                            fontWeight: 700,
+                            minWidth: 100,
+                            textAlign: "center",
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          {overtime}
+                        </span>
+
+                        <button
+                          onClick={() => setOvertime((o) => o + 1)}
+                          style={{
+                            width: 42,
+                            height: 42,
+                            borderRadius: 8,
+                            background: "transparent",
+                            border: `1px solid ${cBr}`,
+                            color: C.textS,
+                            cursor: "pointer",
+                            fontSize: 18,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transition: "0.2s",
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      {overtime > 0 && (
+                        <p style={{ color: "#f5c518", fontSize: 11, marginTop: 12 }}>
+                          {overtime}hr OT × ₱500 = {fmt(overtime * 500)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button
+                      onClick={() => setStep(2)}
+                      style={{
+                        ...outBtn,
+                        flex: 1,
+                        padding: "12px 10px",
+                        borderRadius: 6,
+                      }}
+                    >
+                      BACK
+                    </button>
+
+                    <button
+                      disabled={!date || !dateOk}
+                      onClick={() => setStep(4)}
+                      style={{
+                        ...goldBtn,
+                        flex: 2,
+                        borderRadius: 6,
+                        opacity: !date || !dateOk ? 0.4 : 1,
+                      }}
+                    >
+                      CONTINUE →
+                    </button>
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => setStep(2)} style={{ ...outBtn, flex: 1, padding: "12px 10px", borderRadius: 6 }}>BACK</button>
-                  <button disabled={!date || !dateOk} onClick={() => setStep(4)} style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: !date || !dateOk ? 0.4 : 1 }}>CONTINUE →</button>
-                </div>
-              </div>
-            )}
+              )}
 
             {/* STEP 4 – Room Selection */}
             {step === 4 && (
               <div>
-                <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, marginBottom: 6, fontWeight: 400 }}>Add a Room? <span style={{ color: C.textXS, fontSize: 14, fontWeight: 300 }}>(Optional)</span></h3>
+                <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, marginBottom: 6, fontWeight: 400 }}>Add a Room? <span style={{ color: C.textB, fontSize: 14, fontWeight: 800 }}>(Optional)</span></h3>
                 <p style={{ color: C.textS, fontSize: 13, marginBottom: 20, lineHeight: 1.7 }}>Rooms are rented separately from the pool. Optional add-on.</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
                   {rooms.map((r) => {
@@ -389,7 +652,7 @@
                   <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>CONTACT NUMBER</label>
                   <div style={{ position: "relative" }}>
                     <input type="tel" value={form.contact} onChange={(e) => handleContact(e.target.value)} maxLength={11} placeholder="09XXXXXXXXX" className="sw-input" style={{ ...inpS, paddingRight: 52 }} />
-                    <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: form.contact.length === 11 ? "#4caf50" : form.contact.length > 0 ? "#f5c518" : C.textXS, fontWeight: 700, fontFamily: "monospace" }}>{form.contact.length}/11</span>
+                    <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: form.contact.length === 11 ? "#4caf50" : form.contact.length > 0 ? "#f5c518" : C.textS, fontWeight: 700, fontFamily: "monospace" }}>{form.contact.length}/11</span>
                   </div>
                   {form.contact.length > 0 && form.contact.length < 11 && <p style={{ color: "#f5c518", fontSize: 11, marginTop: 4 }}>⚠ Must be 11 digits</p>}
                   {form.contact.length === 11 && <p style={{ color: "#4caf50", fontSize: 11, marginTop: 4 }}>✓ Valid</p>}
@@ -402,7 +665,7 @@
                 </div>
                 {/* Summary */}
                 <div style={{ background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
-                  <p style={{ color: C.textXS, fontSize: 9, letterSpacing: 2, marginBottom: 12 }}>BOOKING SUMMARY</p>
+                  <p style={{ color: C.textS, fontSize: 9, letterSpacing: 2, marginBottom: 12 }}>BOOKING SUMMARY</p>
                   {[["Date", fmtDate(date)], ["Guests", `${guests} pax${overtime > 0 ? ` · +${overtime}hr OT` : ""}`], ["Package", selRooms.length > 0 ? "Day Tour + Room" : "Day Tour"]].map(([l, v]) => (
                     <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                       <span style={{ color: C.textS, fontSize: 12 }}>{l}</span>
@@ -475,20 +738,20 @@
                       <div style={{ color: "#00a952", fontSize: 10, fontWeight: 700, letterSpacing: 2, marginBottom: 2 }}>AMOUNT DUE (50% DOWN)</div>
                       <div style={{ color: isDark ? "#fff" : "#111", fontSize: mob ? 22 : 26, fontWeight: 700, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>₱{down.toLocaleString()}</div>
                     </div>
-                    <p style={{ color: C.textXS, fontSize: 11, textAlign: "center", maxWidth: 220, lineHeight: 1.6 }}>Open your <strong style={{ color: isDark ? "#ccc" : "#333" }}>GCash app</strong> → tap <strong style={{ color: isDark ? "#ccc" : "#333" }}>Scan QR</strong> → point your camera at the code above</p>
+                    <p style={{ color: C.textS, fontSize: 11, textAlign: "center", maxWidth: 220, lineHeight: 1.6 }}>Open your <strong style={{ color: isDark ? "#ccc" : "#333" }}>GCash app</strong> → tap <strong style={{ color: isDark ? "#ccc" : "#333" }}>Scan QR</strong> → point your camera at the code above</p>
                   </div>
                   {/* Order summary */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: C.textXS, fontSize: 9, letterSpacing: 3, marginBottom: 14 }}>ORDER SUMMARY</div>
+                    <div style={{ color: C.textS, fontSize: 9, letterSpacing: 3, marginBottom: 14 }}>ORDER SUMMARY</div>
                     <div style={{ background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 16 }}>
                       {[["Ref ID", `SW-${10007 + bookings.length}`], ["Guest", form.name], ["Date", date], ["Package", selRooms.length ? "Day Tour + Room" : "Day Tour"]].map(([l, v]) => (
                         <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderBottom: `1px solid ${C.borderLight}` }}>
-                          <span style={{ color: C.textXS, fontSize: 11 }}>{l}</span>
+                          <span style={{ color: C.textS, fontSize: 11 }}>{l}</span>
                           <span style={{ color: l === "Ref ID" ? gold : C.textH, fontSize: 11, fontWeight: l === "Ref ID" ? 700 : 500, fontFamily: l === "Ref ID" ? "monospace" : "inherit" }}>{v}</span>
                         </div>
                       ))}
                       <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderBottom: `1px solid ${C.borderLight}` }}>
-                        <span style={{ color: C.textXS, fontSize: 11 }}>Guests</span>
+                        <span style={{ color: C.textS, fontSize: 11 }}>Guests</span>
                         <span style={{ color: C.textH, fontSize: 11 }}>{guests} pax{overtime > 0 ? ` · +${overtime}hr OT` : ""}</span>
                       </div>
                       <div style={{ padding: "12px 14px", background: isDark ? "#0d0c09" : "#ece6db" }}>
@@ -502,7 +765,7 @@
                     </div>
                     {/* "I've completed payment" → shows confirm modal */}
                     <button onClick={confirmOnline} style={{ ...goldBtn, width: "100%", padding: 14, borderRadius: 6, letterSpacing: 1.5, fontSize: 12 }}>✓ I'VE COMPLETED PAYMENT</button>
-                    <p style={{ color: C.textXS, fontSize: 11, textAlign: "center", marginTop: 10 }}>Tap above once your GCash payment is done.</p>
+                    <p style={{ color: C.textS, fontSize: 11, textAlign: "center", marginTop: 10 }}>Tap above once your GCash payment is done.</p>
                   </div>
                 </div>
               </div>
@@ -513,11 +776,11 @@
               <div style={{ padding: "8px 0", textAlign: "center" }}>
                 <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(0,169,82,0.1)", border: "1px solid rgba(0,169,82,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, margin: "0 auto 20px" }}>✓</div>
                 <h3 style={{ color: C.textH, fontSize: 24, fontWeight: 400, marginBottom: 10, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>Booking Submitted!</h3>
-                <p style={{ color: C.textS, fontSize: 14, marginBottom: 24 }}>Your booking is <span style={{ color: "#f5c518", fontWeight: 600 }}>On Hold</span> pending payment verification.</p>
+                <p style={{ color: C.textS, fontSize: 14, marginBottom: 24 }}>Your booking is <span style={{ color: "#f5c518", fontWeight: 600 }}>Paid</span> pending payment verification.</p>
 
                 {/* Reference ID — prominent at top */}
                 <div style={{ background: isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.06)", border: `1px solid ${gold}55`, borderRadius: 12, padding: "20px 24px", marginBottom: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                  <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, margin: 0 }}>YOUR REFERENCE ID</p>
+                  <p style={{ color: C.textS, fontSize: 10, letterSpacing: 3, margin: 0 }}>YOUR REFERENCE ID</p>
                   <p style={{ color: gold, fontFamily: "monospace", fontSize: 28, fontWeight: 700, letterSpacing: 3, margin: 0 }}>{bookingId}</p>
                   <p style={{ color: C.textS, fontSize: 12, margin: 0 }}>Save this — you'll need it for follow-ups.</p>
                 </div>
@@ -533,8 +796,8 @@
                     ))}
                   </div>
                 </div>
-                <p style={{ color: C.textXS, fontSize: 12, marginBottom: 20 }}>⚠ No refunds. Full payment of {fmt(total)} is also accepted.</p>
-                <p style={{ color: C.textXS, fontSize: 12 }}>Redirecting you to the home page…</p>
+                <p style={{ color: C.textS, fontSize: 12, marginBottom: 20 }}>⚠ No refunds. Full payment of {fmt(total)} is also accepted.</p>
+                <p style={{ color: C.textS, fontSize: 12 }}>Redirecting you to the home page…</p>
               </div>
             )}
 
@@ -569,7 +832,7 @@
                     <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>CONTACT NUMBER</label>
                     <div style={{ position: "relative" }}>
                       <input type="tel" value={osForm.contact} onChange={(e) => handleOsContact(e.target.value)} maxLength={11} placeholder="09XXXXXXXXX" className="sw-input" style={{ ...inpS, paddingRight: 52 }} />
-                      <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: osForm.contact.length === 11 ? "#4caf50" : osForm.contact.length > 0 ? "#f5c518" : C.textXS, fontWeight: 700, fontFamily: "monospace" }}>{osForm.contact.length}/11</span>
+                      <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: osForm.contact.length === 11 ? "#4caf50" : osForm.contact.length > 0 ? "#f5c518" : C.textS, fontWeight: 700, fontFamily: "monospace" }}>{osForm.contact.length}/11</span>
                     </div>
                     {osForm.contact.length > 0 && osForm.contact.length < 11 && <p style={{ color: "#f5c518", fontSize: 11, marginTop: 4 }}>⚠ Must be 11 digits</p>}
                     {osForm.contact.length === 11 && <p style={{ color: "#4caf50", fontSize: 11, marginTop: 4 }}>✓ Valid</p>}
@@ -626,19 +889,12 @@
                   <p style={{ color: C.textS, fontSize: 14, lineHeight: 1.7 }}>Please <strong style={{ color: gold }}>call ahead</strong> before visiting to confirm staff availability.</p>
                 </div>
 
-                {/* Reference ID — shown prominently BEFORE confirm button */}
-                <div style={{ background: isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.06)", border: `2px solid ${gold}66`, borderRadius: 12, padding: "18px 22px", marginBottom: 20, textAlign: "center" }}>
-                  <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 8 }}>📌 YOUR REFERENCE ID — SAVE THIS</p>
-                  <p style={{ color: gold, fontFamily: "monospace", fontSize: mob ? 22 : 28, fontWeight: 700, letterSpacing: 3, marginBottom: 6 }}>{pendingOnsiteId || `SW-${10007 + bookings.length}`}</p>
-                  <p style={{ color: C.textS, fontSize: 12, margin: 0 }}>You will need this when you arrive at the resort.</p>
-                </div>
-
                 <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 20 }}>
                   {[["📞", "Resort Landline", "(02) 8123-4567", "Call to check availability"], ["📱", "Owner / Admin", "+63 917 123 4567", "Primary contact for reservations"]].map(([icon, label, number, note]) => (
                     <div key={label} style={{ background: isDark ? "rgba(74,159,212,0.06)" : "rgba(74,159,212,0.05)", border: "1px solid rgba(74,159,212,0.2)", borderRadius: 10, padding: "16px 18px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                         <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(74,159,212,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{icon}</div>
-                        <div><div style={{ color: C.textXS, fontSize: 9, letterSpacing: 2 }}>{label.toUpperCase()}</div><div style={{ color: "#4a9fd4", fontSize: 15, fontWeight: 700 }}>{number}</div></div>
+                        <div><div style={{ color: C.textS, fontSize: 9, letterSpacing: 2 }}>{label.toUpperCase()}</div><div style={{ color: "#4a9fd4", fontSize: 15, fontWeight: 700 }}>{number}</div></div>
                       </div>
                       <p style={{ color: C.textS, fontSize: 11, margin: 0 }}>{note}</p>
                     </div>
@@ -651,17 +907,17 @@
                     <span style={{ color: C.textS, fontSize: 12, fontWeight: 600 }}>Resort Location & Details</span>
                   </div>
                   <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
-                    {[["📍", "Address", "Angono, Rizal, Philippines"], ["🕗", "Operating Hours", "8:00 AM – 5:00 PM daily"], ["💵", "Payment on Arrival", "Cash / GCash accepted at resort"], ["🗓", "Reservation Validity", "Date held for 24 hours after call confirmation"]].map(([icon, l, v]) => (
+                    {[["📍", "Address", "22 Yakal cor. Ipil St. Doña Justa Village Phase, 2nd St, Angono, Rizal"], ["🕗", "Operating Hours", "8:00 AM – 5:00 PM daily"], ["💵", "Payment on Arrival", "Cash / GCash accepted at resort"], ["🗓", "Reservation Validity", "Date held for 24 hours after call confirmation"]].map(([icon, l, v]) => (
                       <div key={l} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "8px 0", borderBottom: `1px solid ${C.borderLight}` }}>
                         <span style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>{icon}</span>
-                        <div><div style={{ color: C.textXS, fontSize: 9, letterSpacing: 2, marginBottom: 2 }}>{l.toUpperCase()}</div><div style={{ color: C.textH, fontSize: 13 }}>{v}</div></div>
+                        <div><div style={{ color: C.textS, fontSize: 9, letterSpacing: 2, marginBottom: 2 }}>{l.toUpperCase()}</div><div style={{ color: C.textH, fontSize: 13 }}>{v}</div></div>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 <div style={{ marginBottom: 20 }}>
-                  <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 12 }}>RESORT SURROUNDINGS</p>
+                  <p style={{ color: C.textS, fontSize: 10, letterSpacing: 3, marginBottom: 12 }}>RESORT SURROUNDINGS</p>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
                     {["https://images.unsplash.com/photo-1506197603052-3cc9c3a201bd?w=400&q=80", "https://images.unsplash.com/photo-1540541338287-41700207dee6?w=400&q=80", "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=400&q=80"].map((src, i) => (
                       <div key={i} style={{ borderRadius: 8, overflow: "hidden", border: `1px solid ${C.border}`, aspectRatio: "4/3" }}>
@@ -754,7 +1010,7 @@
                 <button
                   disabled={!policyChecked}
                   onClick={() => { setShowGcashWarning(false); setPolicyChecked(false); setStep(6); }}
-                  style={{ flex: 2, background: policyChecked ? "rgba(76,175,80,0.12)" : isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", color: policyChecked ? "#4caf50" : C.textXS, border: `1px solid ${policyChecked ? "rgba(76,175,80,0.35)" : isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)"}`, padding: "12px 16px", fontSize: 11, fontWeight: 700, cursor: policyChecked ? "pointer" : "not-allowed", borderRadius: 8, letterSpacing: 1.5, transition: "all .2s", opacity: policyChecked ? 1 : 0.5 }}
+                  style={{ flex: 2, background: policyChecked ? "rgba(76,175,80,0.12)" : isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", color: policyChecked ? "#4caf50" : C.textS, border: `1px solid ${policyChecked ? "rgba(76,175,80,0.35)" : isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)"}`, padding: "12px 16px", fontSize: 11, fontWeight: 700, cursor: policyChecked ? "pointer" : "not-allowed", borderRadius: 8, letterSpacing: 1.5, transition: "all .2s", opacity: policyChecked ? 1 : 0.5 }}
                 >
                   ✓ YES, I UNDERSTAND
                 </button>
@@ -772,7 +1028,7 @@
 
               {/* Reference ID shown prominently in the modal */}
               <div style={{ background: isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.06)", border: `1px solid ${gold}55`, borderRadius: 10, padding: "14px 18px", marginBottom: 16, textAlign: "center" }}>
-                <p style={{ color: C.textXS, fontSize: 9, letterSpacing: 3, marginBottom: 6 }}>YOUR REFERENCE ID</p>
+                <p style={{ color: C.textS, fontSize: 9, letterSpacing: 3, marginBottom: 6 }}>YOUR REFERENCE ID</p>
                 <p style={{ color: gold, fontFamily: "monospace", fontSize: 24, fontWeight: 700, letterSpacing: 3, marginBottom: 4 }}>{pendingOnsiteId}</p>
                 <p style={{ color: C.textS, fontSize: 11, margin: 0 }}>Screenshot or note this down — you'll need it at the resort.</p>
               </div>
@@ -789,7 +1045,6 @@
 
               <div style={{ borderTop: `1px solid ${C.border}`, marginBottom: 18 }} />
               <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => setShowOnsiteConfirm(false)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${C.border}`, padding: "12px 16px", fontSize: 11, cursor: "pointer", borderRadius: 8, letterSpacing: 1 }}>GO BACK</button>
                 <button onClick={confirmOnsite} style={{ flex: 2, ...goldBtn, borderRadius: 8, fontSize: 11, letterSpacing: 2 }}>CONFIRM & GO HOME</button>
               </div>
             </div>

@@ -487,7 +487,7 @@ export function About({
 
         <div style={{ marginBottom: 20 }}>
           <p style={{ color: C.textB }}>📞 +63 912 345 6789</p>
-          <p style={{ color: C.textB }}>✉️ hello@stonewoodresort.ph</p>
+          <p style={{ color: C.textB }}>✉️ stonewoodresort.ph@gmail.com</p>
         </div>
 
         {/* CTA BUTTON (FIXED LOGIC) */}

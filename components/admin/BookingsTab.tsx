@@ -26,6 +26,7 @@ export function BookingsTab({ bookings, updateStatus, mob, rooms }: BookingsTabP
   const [rejectionMsg, setRejectionMsg] = useState("");
   const [viewBooking, setViewBooking] = useState<Booking | null>(null);
 
+
   const executeAction = () => {
   if (!confirmAction) return;
   const reason = rejectionMsg.trim() || "Your booking did not meet our current availability or requirements.";
@@ -44,9 +45,9 @@ export function BookingsTab({ bookings, updateStatus, mob, rooms }: BookingsTabP
     return { label: "GCash", color: "#00a952", bg: "rgba(0,169,82,0.08)", border: "rgba(0,169,82,0.25)", icon: "G" };
   };
 
-  const filters = ["All", "On Hold", "Confirmed", "Completed", "Cancelled"];
+  const filters = ["All", "Paid", "Confirmed", "Completed", "Cancelled"];
   const fC: Record<string, string[]> = {
-    "On Hold":   [isDark ? "#2a2500" : "#fef9e7", "#d4a800"],
+    "Paid":      [isDark ? "#2a2500" : "#fef9e7", "#d4a800"],
     "Confirmed": [isDark ? "#1a3320" : "#edfbf0", "#2e9e4e"],
     "Completed": [isDark ? "#0f1a2a" : "#e8f4fb", "#1a6fa0"],
     "Cancelled": [isDark ? "#2a1010" : "#fdecea", "#c0392b"],
@@ -167,7 +168,7 @@ export function BookingsTab({ bookings, updateStatus, mob, rooms }: BookingsTabP
                         {b.status === "Confirmed" && (
                           <button onClick={() => { updateStatus(b.id, "Completed"); toast(`Booking marked complete for ${b.name}.`, "info"); }} style={{ background: "rgba(74,159,212,0.1)", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.25)", padding: "4px 10px", fontSize: 10, cursor: "pointer", borderRadius: 3, whiteSpace: "nowrap", letterSpacing: 1 }}>✓ COMPLETE</button>
                         )}
-                        {b.status === "On Hold" && <>
+                        {b.status === "Paid" && <>
                           <button onClick={() => setConfirmAction({ bookingId: b.id, action: "Confirmed", guestName: b.name, guestEmail: b.email })} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "4px 10px", fontSize: 10, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>ACCEPT</button>
                           <button onClick={() => { setRejectionMsg(""); setConfirmAction({ bookingId: b.id, action: "Cancelled", guestName: b.name, guestEmail: b.email }); }} style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "4px 10px", fontSize: 10, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>REJECT</button>
                         </>}
@@ -270,12 +271,38 @@ export function BookingsTab({ bookings, updateStatus, mob, rooms }: BookingsTabP
                   <div style={{ color: C.textH, fontSize: 12 }}>{b.package}</div>
                 </div>
               </div>
-              {b.notes && (
-                <div style={{ background: isDark ? "#111" : "#f7f5f0", borderRadius: 5, padding: "12px 14px", marginBottom: 20 }}>
-                  <div style={{ color: C.textXS, fontSize: 9, letterSpacing: 2, marginBottom: 6 }}>GUEST NOTES</div>
-                  <p style={{ color: C.textB, fontSize: 13, lineHeight: 1.7, margin: 0, fontStyle: "italic" }}>"{b.notes}"</p>
+              {b.status === "Cancelled" && b.cancelReason && (
+              <div
+                style={{
+                  background: isDark ? "#111" : "#f7f5f0",
+                  borderRadius: 5,
+                  padding: "12px 14px",
+                  marginBottom: 20,
+                  border: "1px solid rgba(229,85,85,0.15)",
+                }}
+              >
+                <div
+                  style={{
+                    color: "#e55",
+                    fontSize: 9,
+                    letterSpacing: 2,
+                    marginBottom: 6,
+                  }}
+                >
+                  CANCELLATION REASON
                 </div>
-              )}
+
+                <div
+                  style={{
+                    color: C.textH,
+                    fontSize: 13,
+                    fontWeight: 600,
+                  }}
+                >
+                  {b.cancelReason}
+                </div>
+              </div>
+            )}
               <button onClick={() => setViewBooking(null)} style={{ ...goldBtn, width: "100%", padding: 12 }}>CLOSE</button>
             </div>
           </div>

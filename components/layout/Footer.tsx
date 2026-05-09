@@ -132,7 +132,7 @@ export function Footer({ setPage }: FooterProps) {
           <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 9, letterSpacing: 3, marginBottom: 16 }}>
             CONTACT
           </div>
-          {["📍 Angono, Rizal", "📞 +63 912 345 6789", "✉️ hello@stonewoodresort.ph", "🕗 8AM – 5PM"].map(
+          {["📍 22 Yakal cor. Ipil St. Doña Justa Village Phase, 2nd St, Angono, Rizal", "📞 +63 912 345 6789", "✉️ stonewoodresort.ph@gmail.com", "🕗 8AM – 5PM"].map(
             (c) => (
               <div key={c} style={{ color: "#6a5e4e", fontSize: 13, marginBottom: 9 }}>
                 {c}

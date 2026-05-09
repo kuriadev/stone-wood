@@ -37,7 +37,7 @@ interface OnsiteTabProps {
   onsitePending: Booking[];
   onsiteConfirmed: Booking[];
   onsiteCompleted: Booking[];
- updateStatus: (id: string, status: string, reason?: string) => void;
+  updateStatus: (id: string, status: string, reason?: string) => void;
   isDark: boolean;
   C: ReturnType<typeof T>;
   cBg: string;
@@ -52,7 +52,7 @@ function OnsiteTab({
   updateStatus, isDark, C, cBg, cBr, mob, toast, gold,
 }: OnsiteTabProps) {
   const [osSearch, setOsSearch] = useState("");
-  const [osTab, setOsTab] = useState<"On Hold" | "Confirmed" | "Completed" | "Cancelled">("On Hold");
+  const [osTab, setOsTab] = useState<"Paid" | "Confirmed" | "Completed" | "Cancelled">("Paid");
   const [onsiteConfirmAction, setOnsiteConfirmAction] = useState<{
     bookingId: string;
     action: "Confirmed" | "Cancelled" | "Completed";
@@ -62,13 +62,13 @@ function OnsiteTab({
   const onsiteCancelled = onsiteBookings.filter(b => b.status === "Cancelled");
 
   const tabMap = {
-    "On Hold":   onsitePending,
+    "Paid":   onsitePending,
     "Confirmed": onsiteConfirmed,
     "Completed": onsiteCompleted,
     "Cancelled": onsiteCancelled,
   };
   const tabColors: Record<string, string> = {
-    "On Hold":   "#f5c518",
+    "Paid":   "#f5c518",
     "Confirmed": "#4caf50",
     "Completed": "#4a9fd4",
     "Cancelled": "#c0392b",
@@ -80,7 +80,7 @@ function OnsiteTab({
   );
 
   const sc: Record<string, string[]> = {
-    "On Hold":   [isDark ? "#2a2500" : "#fef9e7", "#d4a800"],
+    "Paid":   [isDark ? "#2a2500" : "#fef9e7", "#d4a800"],
     "Confirmed": [isDark ? "#1a3320" : "#edfbf0", "#2e9e4e"],
     "Completed": [isDark ? "#0f1a2a" : "#e8f4fb", "#1a6fa0"],
     "Cancelled": [isDark ? "#2a1010" : "#fdecea", "#c0392b"],
@@ -112,7 +112,7 @@ function OnsiteTab({
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(5,1fr)", gap: mob ? 10 : 14, marginBottom: 24 }}>
         {([
           ["Total",     onsiteBookings.length,  gold],
-          ["On Hold",   onsitePending.length,   "#f5c518"],
+          ["Paid",   onsitePending.length,   "#f5c518"],
           ["Confirmed", onsiteConfirmed.length, "#4caf50"],
           ["Completed", onsiteCompleted.length, "#4a9fd4"],
           ["Cancelled", onsiteCancelled.length, "#c0392b"],
@@ -161,7 +161,7 @@ function OnsiteTab({
 
       {/* Status tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {(["On Hold", "Confirmed", "Completed", "Cancelled"] as const).map((t) => {
+        {(["Paid", "Confirmed", "Completed", "Cancelled"] as const).map((t) => {
           const active = osTab === t;
           const c = tabColors[t];
           const count = tabMap[t].length;
@@ -217,7 +217,7 @@ function OnsiteTab({
                     </td>
                     <td style={{ padding: "12px 14px" }}>
                       <div style={{ display: "flex", gap: 6 }}>
-                        {b.status === "On Hold" && (
+                        {b.status === "Paid" && (
                           <>
                             <button
                               onClick={() => setOnsiteConfirmAction({ bookingId: b.id, action: "Confirmed", guestName: b.name })}
@@ -397,8 +397,6 @@ export function Admin({
   const galleryFileRef = useRef<HTMLInputElement>(null);
   const [calMonth, setCalMonth] = useState(new Date());
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [autoRejectHours, setAutoRejectHours] = useState(48);
-  const [autoRejectEnabled, setAutoRejectEnabled] = useState(true);
   const [archivedMessages, setArchivedMessages] = useState<CustomerMessage[]>([]);
   const [csView, setCsView] = useState<"inbox" | "archive">("inbox");
   const [confirmArchiveMsg, setConfirmArchiveMsg] = useState<CustomerMessage | null>(null);
@@ -431,27 +429,7 @@ export function Admin({
   }
 };
 
-  // Auto-reject on-hold bookings past deadline
-  useEffect(() => {
-    if (!autoRejectEnabled) return;
-    const check = () => {
-      const now = Date.now();
-      setBookings((bs) => bs.map((b) => {
-        if (b.status !== "On Hold") return b;
-        const created = b.createdAt || now;
-        if (now - created > autoRejectHours * 60 * 60 * 1000) {
-          toast(`Auto-rejected: ${b.name}'s booking exceeded the ${autoRejectHours}h payment window.`, "warning");
-          return { ...b, status: "Cancelled" };
-        }
-        return b;
-      }));
-    };
-    check();
-    const interval = setInterval(check, 60000);
-    return () => clearInterval(interval);
-  }, [autoRejectEnabled, autoRejectHours]);
-
-  const onHold = bookings.filter((b) => b.status === "On Hold").length;
+  const Paid = bookings.filter((b) => b.status === "Paid").length;
   const confirmed = bookings.filter((b) => b.status === "Confirmed").length;
   const completed = bookings.filter((b) => b.status === "Completed").length;
 
@@ -571,19 +549,19 @@ export function Admin({
                       <span style={{ flex: 1 }}>{t.toUpperCase()}</span>
 
                       {/* Bookings badge */}
-                      {t === "Bookings" && onHold > 0 && (
+                      {t === "Bookings" && Paid > 0 && (
                         <span style={{
                           background: gold, color: "#000",
                           fontSize: 9, fontWeight: 800,
                           borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
                         }}>
-                          {onHold}
+                          {Paid}
                         </span>
                       )}
 
                       {/* On-Site badge */}
                       {t === "On-Site" && bookings.filter(
-                        b => b.package === "On-Site Reservation" && b.status === "On Hold"
+                        b => b.package === "On-Site Reservation" && b.status === "Paid"
                       ).length > 0 && (
                         <span style={{
                           background: "#4a9fd4", color: "#fff",
@@ -591,7 +569,7 @@ export function Admin({
                           borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
                         }}>
                           {bookings.filter(
-                            b => b.package === "On-Site Reservation" && b.status === "On Hold"
+                            b => b.package === "On-Site Reservation" && b.status === "Paid"
                           ).length}
                         </span>
                       )}
@@ -631,7 +609,7 @@ export function Admin({
                 <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Dashboard</h2>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: mob ? 10 : 14, marginBottom: 36 }}>
-                {[["On Hold", onHold, "#f5c518", "Pending review"], ["Confirmed", confirmed, "#4caf50", "Approved"], ["Completed", completed, "#4a9fd4", "Past stays"], ["Rooms", rooms.length, gold, "Active listings"]].map(([l, v, c, sub]) => (
+                {[["Paid", Paid, "#f5c518", "Pending review"], ["Confirmed", confirmed, "#4caf50", "Approved"], ["Completed", completed, "#4a9fd4", "Past stays"], ["Rooms", rooms.length, gold, "Active listings"]].map(([l, v, c, sub]) => (
                   <div key={l as string} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: mob ? "14px 12px" : "22px 20px", position: "relative", overflow: "hidden", boxShadow: C.shadowCard }}>
                     <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(to right,${c}22,${c})` }} />
                     <div style={{ color: isDark ? "#4a4035" : "#9a8878", fontSize: 9, letterSpacing: 2, marginBottom: 10 }}>{(l as string).toUpperCase()}</div>
@@ -644,14 +622,14 @@ export function Admin({
               {/* Pending approvals */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                 <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3 }}>PENDING APPROVALS</p>
-                {onHold > 0 && <span style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 10, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.15)" }}>{onHold} awaiting</span>}
+                {Paid > 0 && <span style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 10, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.15)" }}>{Paid} awaiting</span>}
               </div>
               <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 6, overflow: "hidden" }}>
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 560 : 0 }}>
                     <thead><tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>{["ID", "Guest", "Email", "Phone", "Date", "Total", "Status", "Actions"].map((h) => <th key={h} style={{ padding: "12px 14px", color: C.textXS, fontSize: 9, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
                     <tbody>
-                      {bookings.filter((b) => b.status === "On Hold").map((b, idx) => (
+                      {bookings.filter((b) => b.status === "Paid").map((b, idx) => (
                         <tr key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#0a0906" : "#080604") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
                           <td style={{ padding: "12px 14px", color: gold, fontSize: 11, whiteSpace: "nowrap", fontFamily: "monospace" }}>{b.id}</td>
                           <td style={{ padding: "12px 14px", color: C.textH, fontSize: 12 }}>{b.name}</td>
@@ -659,7 +637,7 @@ export function Admin({
                           <td style={{ padding: "12px 14px", color: C.textS, fontSize: 11, whiteSpace: "nowrap" }}>{b.contact || "—"}</td>
                           <td style={{ padding: "12px 14px", color: C.textS, fontSize: 11, whiteSpace: "nowrap" }}>{b.date}</td>
                           <td style={{ padding: "12px 14px", color: C.textH, fontSize: 12, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</td>
-                          <td style={{ padding: "12px 14px" }}><span style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 9, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.2)", letterSpacing: 1 }}>ON HOLD</span></td>
+                          <td style={{ padding: "12px 14px" }}><span style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 9, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.2)", letterSpacing: 1 }}>Paid</span></td>
                           <td style={{ padding: "12px 14px" }}>
                             <div style={{ display: "flex", gap: 6 }}>
                               <button onClick={() => setDashConfirm({ bookingId: b.id, action: "Confirmed", guestName: b.name })} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.2)", padding: "5px 12px", fontSize: 10, cursor: "pointer", borderRadius: 3, whiteSpace: "nowrap", letterSpacing: 1 }}>ACCEPT</button>
@@ -668,7 +646,7 @@ export function Admin({
                           </td>
                         </tr>
                       ))}
-                      {onHold === 0 && <tr><td colSpan={8} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 13 }}>No pending bookings.</td></tr>}
+                      {Paid === 0 && <tr><td colSpan={8} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 13 }}>No pending bookings.</td></tr>}
                     </tbody>
                   </table>
                 </div>
@@ -747,7 +725,7 @@ export function Admin({
           {/* ON-SITE TAB */}
           {tab === "On-Site" && (() => {
             const onsiteBookings = bookings.filter(b => b.package === "On-Site Reservation");
-            const onsitePending   = onsiteBookings.filter(b => b.status === "On Hold");
+            const onsitePending   = onsiteBookings.filter(b => b.status === "Paid");
             const onsiteConfirmed = onsiteBookings.filter(b => b.status === "Confirmed");
             const onsiteCompleted = onsiteBookings.filter(b => b.status === "Completed");
 
@@ -794,18 +772,18 @@ export function Admin({
                   let bg = isDark ? "#111" : "#f0ede7", col = C.textB, border = `1px solid ${cBr}`;
                   if (isPast) { bg = isDark ? "#0c0b09" : "#f8f6f3"; col = C.textXS; }
                   else if (status === "Closed") { bg = isDark ? "#1a0a0a" : "#fff0f0"; col = "#e07070"; border = "1px solid rgba(229,85,85,0.3)"; }
-                  else if (status === "Confirmed" || status === "On Hold") { bg = isDark ? "#0f2018" : "#eafaf0"; col = "#4caf50"; border = "1px solid rgba(76,175,80,0.3)"; }
+                  else if (status === "Confirmed" || status === "Paid") { bg = isDark ? "#0f2018" : "#eafaf0"; col = "#4caf50"; border = "1px solid rgba(76,175,80,0.3)"; }
                   else if (status === "Completed") { bg = isDark ? "#0f1a2a" : "#e8f4fb"; col = "#4a9fd4"; border = "1px solid rgba(74,159,212,0.3)"; }
                   return (
                     <div key={d} onClick={() => !isPast && !(status && status !== "Closed") && toggleClosed(ds)} style={{ textAlign: "center", padding: mob ? "12px 4px" : "16px 4px", borderRadius: 6, background: bg, border, color: col, fontSize: mob ? 11 : 13, cursor: isPast ? "default" : (status && status !== "Closed") ? "default" : "pointer", userSelect: "none", transition: "all .15s", position: "relative" }}>
                       {d}
-                      {status && <div style={{ fontSize: 8, marginTop: 3, opacity: 0.8 }}>{status === "Closed" ? "CLOSED" : status === "On Hold" ? "HOLD" : status?.toUpperCase().slice(0, 4)}</div>}
+                      {status && <div style={{ fontSize: 8, marginTop: 3, opacity: 0.8 }}>{status === "Closed" ? "CLOSED" : status === "Paid" ? "HOLD" : status?.toUpperCase().slice(0, 4)}</div>}
                     </div>
                   );
                 })}
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                {[["Booked/Confirmed", "#4caf50"], ["On Hold", "#f5c518"], ["Completed", "#4a9fd4"], ["Closed", "#e07070"], ["Click to close/open", gold]].map(([l, c]) => (
+                {[["Booked/Confirmed", "#4caf50"], ["Paid", "#f5c518"], ["Completed", "#4a9fd4"], ["Closed", "#e07070"], ["Click to close/open", gold]].map(([l, c]) => (
                   <div key={l} style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: c }} /><span style={{ color: C.textS, fontSize: 11 }}>{l}</span></div>
                 ))}
               </div>
@@ -903,7 +881,7 @@ export function Admin({
                     ["Confirmed",monthBookings.filter(b=>b.status==="Confirmed").length],
                     ["Completed",monthBookings.filter(b=>b.status==="Completed").length],
                     ["Cancelled",monthBookings.filter(b=>b.status==="Cancelled").length],
-                    ["On Hold",monthBookings.filter(b=>b.status==="On Hold").length],
+                    ["Paid",monthBookings.filter(b=>b.status==="Paid").length],
                     ["Total Revenue (non-cancelled)",totalRev],
                     ["Total Downpayments Collected",totalDown],
                     ["Total Guests",monthBookings.filter(b=>b.status!=="Cancelled").reduce((s,b)=>s+b.guests,0)],
@@ -927,7 +905,7 @@ export function Admin({
                 {[
                   ["Total Revenue",fmt(bookings.filter(b=>b.status!=="Cancelled").reduce((s,b)=>s+b.total,0)),"💰","#4caf50"],
                   ["Down Collected",fmt(bookings.filter(b=>b.status!=="Cancelled").reduce((s,b)=>s+b.downpayment,0)),"📥",gold],
-                  ["Active Bookings",bookings.filter(b=>["On Hold","Confirmed"].includes(b.status)).length,"📋","#4a9fd4"],
+                  ["Active Bookings",bookings.filter(b=>["Paid","Confirmed"].includes(b.status)).length,"📋","#4a9fd4"],
                   ["Completed",bookings.filter(b=>b.status==="Completed").length,"✅","#4caf50"]
                 ].map(([l,v,icon,c])=>(
                   <div key={l} style={{background:cBg,border:`1px solid ${cBr}`,borderRadius:10,padding:mob?"16px 12px":"22px 18px",display:"flex",alignItems:"center",gap:14,boxShadow:C.shadowCard,position:"relative",overflow:"hidden"}}>
@@ -967,7 +945,7 @@ export function Admin({
               <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:16,marginBottom:20}}>
                 <div style={{background:cBg,border:`1px solid ${cBr}`,borderRadius:10,padding:"24px 20px",boxShadow:C.shadowCard}}>
                   <h3 style={{color:C.textS,fontSize:10,letterSpacing:2,marginBottom:18}}>STATUS BREAKDOWN</h3>
-                  {[["On Hold","#f5c518"],["Confirmed","#4caf50"],["Completed","#4a9fd4"],["Cancelled","#e55"]].map(([s,c])=>{
+                  {[["Paid","#f5c518"],["Confirmed","#4caf50"],["Completed","#4a9fd4"],["Cancelled","#e55"]].map(([s,c])=>{
                     const n=bookings.filter(b=>b.status===s).length;
                     const pct=bookings.length?Math.round((n/bookings.length)*100):0;
                     return(
@@ -1002,29 +980,6 @@ export function Admin({
                 </div>
               </div>
 
-              {/* Auto-Reject Settings */}
-              <div style={{background:cBg,border:`1px solid ${cBr}`,borderRadius:10,padding:"24px 20px",marginBottom:20,boxShadow:C.shadowCard}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-                  <div>
-                    <h3 style={{color:C.textS,fontSize:10,letterSpacing:2,margin:"0 0 4px"}}>AUTO-REJECT SETTINGS</h3>
-                    <p style={{color:C.textXS,fontSize:11,margin:0}}>Automatically cancel "On Hold" bookings if payment is not confirmed within the set window.</p>
-                  </div>
-                  <button onClick={()=>setAutoRejectEnabled(v=>!v)} style={{padding:"7px 16px",fontSize:10,fontWeight:700,borderRadius:20,cursor:"pointer",letterSpacing:1,background:autoRejectEnabled?"rgba(76,175,80,0.1)":"rgba(229,85,85,0.08)",color:autoRejectEnabled?"#4caf50":"#e55",border:`1px solid ${autoRejectEnabled?"rgba(76,175,80,0.3)":"rgba(229,85,85,0.25)"}`}}>
-                    {autoRejectEnabled?"● ENABLED":"○ DISABLED"}
-                  </button>
-                </div>
-                <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
-                  <label style={{color:C.textXS,fontSize:10,letterSpacing:2}}>PAYMENT WINDOW</label>
-                  <div style={{display:"flex",gap:8}}>
-                    {[12,24,48,72].map(h=>(
-                      <button key={h} onClick={()=>setAutoRejectHours(h)} style={{padding:"7px 14px",fontSize:11,fontWeight:700,borderRadius:6,cursor:"pointer",background:autoRejectHours===h?`${gold}18`:"transparent",color:autoRejectHours===h?gold:C.textS,border:`1px solid ${autoRejectHours===h?gold:cBr}`}}>
-                        {h}h
-                      </button>
-                    ))}
-                  </div>
-                  <span style={{color:C.textXS,fontSize:11}}>Current: bookings auto-cancelled after <strong style={{color:gold}}>{autoRejectHours} hours</strong> with no payment</span>
-                </div>
-              </div>
 
               {/* Export by Month */}
               <div style={{background:cBg,border:`1px solid ${cBr}`,borderRadius:10,padding:"24px 20px",boxShadow:C.shadowCard}}>

@@ -71,7 +71,7 @@ export function CustomerService({ onSubmitMessage }: CustomerServiceProps) {
         <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 12, marginBottom: 36 }}>
           {[
             ["📞", "Call Us", "+63 912 345 6789"],
-            ["✉️", "Email Us", "hello@stonewoodresort.ph"],
+            ["✉️", "Email Us", "stonewoodresort.ph@gmail.com"],
             ["🕗", "Hours", "8:00 AM – 5:00 PM"],
           ].map(([icon, label, val]) => (
             <div

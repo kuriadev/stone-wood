@@ -1,4 +1,4 @@
-export type BookingStatus = "On Hold" | "Confirmed" | "Completed" | "Cancelled";
+export type BookingStatus = "Paid" | "Confirmed" | "Completed" | "Cancelled";
 export type BookingPackage = "Day Tour" | "Day Tour + Room" | "On-Site Reservation";
 
 export interface Booking {
@@ -17,4 +17,5 @@ export interface Booking {
   paymentProof: boolean;
   notes: string;
   createdAt?: number;
+  cancelReason?: string | null;
 }

@@ -302,7 +302,7 @@ GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
 | ✅ | Admin dashboard — 10 tabs (Dashboard, Bookings, On-Site, Occupancy, Rooms, Gallery, Inventory, Analytics, Reports, Customer Service) |
 | ✅ | Email notifications on booking confirm / reject — **Nodemailer + Gmail SMTP (live)** |
 | ✅ | One-time access code (OTP) generated and emailed on confirmation |
-| ✅ | Auto-reject overdue On Hold bookings (configurable window) |
+| ✅ | Auto-reject overdue Paid bookings (configurable window) |
 | ✅ | Monthly CSV report export |
 | ✅ | Fully responsive — mobile, tablet, desktop |
 | 🔜 | MongoDB integration |

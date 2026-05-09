@@ -299,7 +299,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, reviews }
 
           {/* Amenity pills — staggered entry */}
           <div className="hero-pills" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: mob ? 8 : 12, marginTop: mob ? 24 : 32, flexWrap: "wrap" }}>
-            {[["🏊", "Private Pool"], ["🔥", "BBQ Area"], ["🎱", "Billiards"], ["🎤", "Videoke"],["❄️", "Rooms"]].map(([icon, label]) => (
+            {[[ "Private Pool"], [ "BBQ Area"], [ "Billiards"], [ "Videoke"],[ "Rooms"]].map(([label]) => (
               <div
                 key={label}
                 className="sw-hero-pill"
@@ -307,7 +307,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, reviews }
                 onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.15)"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.4)"; e.currentTarget.style.transform = "translateY(-3px)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(201,168,76,0.08)"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.22)"; e.currentTarget.style.transform = "translateY(0)"; }}
               >
-                <span style={{ fontSize: 14 }}>{icon}</span>
+                
                 <span style={{ color: "rgba(240,230,210,0.92)", fontSize: mob ? 12 : 13, letterSpacing: 0.5, fontWeight: 400 }}>{label}</span>
               </div>
             ))}
@@ -630,7 +630,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, reviews }
               </div>
             </div>
           )}
-          <p style={{ color: C.textXS, fontSize: 15, marginTop: 28 }}>All bookings require a 50% down payment. No refunds. Rescheduling subject to discussion.</p>
+          <p style={{ color: C.textS, fontSize: 15, marginTop: 28 }}>All bookings require a 50% down payment. No refunds. Rescheduling subject to discussion.</p>
         </div>
       </div>
 

@@ -143,7 +143,6 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
           </button>
 
           <div style={{ marginTop: 28, paddingTop: 22, borderTop: "1px solid #181410", textAlign: "center" }}>
-            <span style={{ color: "#3a3025", fontSize: 11, letterSpacing: 1 }}>Demo — admin · stonewood2026</span>
           </div>
         </div>
       </div>

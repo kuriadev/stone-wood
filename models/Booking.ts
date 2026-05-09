@@ -15,7 +15,7 @@
 //   overtime: { type: Number, default: 0 },
 //   total: { type: Number, required: true },
 //   downpayment: { type: Number, required: true },
-//   status: { type: String, enum: ["On Hold","Confirmed","Completed","Cancelled"], default: "On Hold" },
+//   status: { type: String, enum: ["Paid","Confirmed","Completed","Cancelled"], default: "Paid" },
 //   paymentProof: { type: Boolean, default: false },
 //   notes: { type: String, default: "" },
 //   createdAt: { type: Number, default: Date.now },
