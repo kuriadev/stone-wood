@@ -10,14 +10,14 @@ import { fmt } from "@/lib/utils";
 import { Stars } from "@/components/common/Stars";
 import { AvailabilityCalendar } from "@/components/common/AvailabilityCalendar";
 import type { Booking } from "@/types/booking";
-import type { Review } from "@/types/review";
+
 
 interface HomeProps {
   setPage: (p: string) => void;
   onBookWithDate: (d: string) => void;
   bookings: Booking[];
   closedDates: string[];
-  reviews: Review[];
+
 }
 
 const AMENITY_DETAILS = [
@@ -82,7 +82,7 @@ const MARQUEE_REVIEWS = [
   { name: "Carlo Tan", rating: 5, message: "Great value for the whole group. The videoke setup made the night so much fun." },
 ];
 
-export function Home({ setPage, onBookWithDate, bookings, closedDates, reviews }: HomeProps) {
+export function Home({ setPage, onBookWithDate, bookings, closedDates}: HomeProps) {
   const { isDark } = useTheme();
   const C = T(isDark);
   const w = useWidth();
@@ -99,9 +99,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, reviews }
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const avgRating = reviews.length
-    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
-    : "—";
+
 
   const fmtD = (ds: string) => {
     if (!ds) return "Select a date";
@@ -117,7 +115,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, reviews }
   const testimonyHeaderRef= useRef<HTMLDivElement>(null);
   const packageRefs       = useRef<(HTMLDivElement | null)[]>([]);
   const amenityRefs       = useRef<(HTMLDivElement | null)[]>([]);
-  const reviewRefs        = useRef<(HTMLDivElement | null)[]>([]);
+
 
   // ── IntersectionObserver ────────────────────────────────────────────────────
   useEffect(() => {
@@ -139,7 +137,6 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, reviews }
       testimonyHeaderRef.current,
       ...packageRefs.current,
       ...amenityRefs.current,
-      ...reviewRefs.current,
     ].filter(Boolean) as Element[];
 
     targets.forEach((el) => observer.observe(el));
@@ -642,8 +639,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, reviews }
           <p style={{ color: gold, letterSpacing: 4, fontSize: 11, marginBottom: 10 }}>TESTIMONIALS</p>
           <h2 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 26 : 38, color: C.textH, marginBottom: 8 }}>What Our Guests Say</h2>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 0 }}>
-            <Stars rating={Math.round(Number(avgRating))} size={18} />
-            <span style={{ color: gold, fontSize: 16, fontWeight: 700 }}>{avgRating}</span>
+
           </div>
         </div>
 

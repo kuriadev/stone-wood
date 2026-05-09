@@ -99,9 +99,8 @@ stonewood/
 │   │   ├── email/
 │   │   │   └── route.ts                    # POST /api/email — ACTIVE: sends confirmation/rejection emails via Nodemailer + Gmail SMTP
 │   │   ├── inventory/
-│   │   │   └── route.ts                    # GET / POST /api/inventory
-│   │   └── reviews/
-│   │       └── route.ts                    # GET / POST /api/reviews
+│   │       └── route.ts                    # GET / POST /api/inventory
+│   │   
 │   ├── book/
 │   │   ├── loading.tsx
 │   │   └── page.tsx                        # /book — supports ?room= and ?date= query params
@@ -136,7 +135,7 @@ stonewood/
 │   │   └── BookingDatePicker.tsx           # Inline date picker used in BookNow Steps 3 and 10 (on-site)
 │   ├── common/                             # Small reusable components shared across pages
 │   │   ├── AvailabilityCalendar.tsx        # Shows booked / closed / available dates
-│   │   └── Stars.tsx                       # Star rating renderer used in reviews and testimonials
+│   │   └── Stars.tsx                       # Star rating renderer used in testimonials
 │   ├── layout/                             # App-wide layout components present on every page
 │   │   ├── ClientShell.tsx                 # Client-side shell wrapper for safe hydration
 │   │   ├── Footer.tsx                      # Site footer with navigation links and contact info
@@ -158,7 +157,7 @@ stonewood/
 │   │   └── AppShell.tsx                    # Legacy SPA routing shell (kept for reference)
 │
 ├── contexts/                               # React Context — global shared state
-│   ├── AppContext.tsx                      # Master state: bookings, rooms, gallery, closedDates, reviews, customerMessages, adminAuth
+│   ├── AppContext.tsx                      # Master state: bookings, rooms, gallery, closedDates, customerMessages, adminAuth
 │   ├── ThemeContext.tsx                    # isDark toggle — persisted across sessions
 │   └── ToastContext.tsx                    # Toast notification queue (success / error / warning / info)
 │
@@ -270,8 +269,7 @@ GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
 | `POST`   | `/api/email`          | Send confirmation or rejection email via Gmail SMTP |
 | `GET`    | `/api/inventory`      | Fetch all inventory items                           |
 | `POST`   | `/api/inventory`      | Add a new inventory item                            |
-| `GET`    | `/api/reviews`        | Fetch all reviews                                   |
-| `POST`   | `/api/reviews`        | Submit a new review                                 |
+
 
 > `/api/email` is **fully wired and active** — it sends real emails via Nodemailer + Gmail SMTP. All other routes are currently stubbed. Wire them by connecting `lib/mongoose.ts` and adding the handlers.
 
@@ -302,7 +300,6 @@ GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
 | ✅ | Admin dashboard — 10 tabs (Dashboard, Bookings, On-Site, Occupancy, Rooms, Gallery, Inventory, Analytics, Reports, Customer Service) |
 | ✅ | Email notifications on booking confirm / reject — **Nodemailer + Gmail SMTP (live)** |
 | ✅ | One-time access code (OTP) generated and emailed on confirmation |
-| ✅ | Auto-reject overdue Paid bookings (configurable window) |
 | ✅ | Monthly CSV report export |
 | ✅ | Fully responsive — mobile, tablet, desktop |
 | 🔜 | MongoDB integration |

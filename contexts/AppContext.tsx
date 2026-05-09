@@ -5,11 +5,10 @@ import {
   INIT_BOOKINGS,
   INIT_ROOMS,
   INIT_GALLERY,
-  INIT_REVIEWS,
 } from "@/lib/constants";
+
 import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
-import type { Review } from "@/types/review";
 import type { CustomerMessage } from "@/types/admin";
 
 interface AppState {
@@ -21,7 +20,6 @@ interface AppState {
   setGalleryImgs: React.Dispatch<React.SetStateAction<string[]>>;
   closedDates: string[];
   setClosedDates: React.Dispatch<React.SetStateAction<string[]>>;
-  reviews: Review[];
   customerMessages: CustomerMessage[];
   setCustomerMessages: React.Dispatch<React.SetStateAction<CustomerMessage[]>>;
   adminAuth: boolean;
@@ -46,7 +44,6 @@ useEffect(() => {
   const [rooms, setRooms] = useState<Room[]>(INIT_ROOMS);
   const [galleryImgs, setGalleryImgs] = useState<string[]>(INIT_GALLERY);
   const [closedDates, setClosedDates] = useState<string[]>([]);
-  const [reviews] = useState(INIT_REVIEWS);
   const [customerMessages, setCustomerMessages] = useState<CustomerMessage[]>([]);
   const [adminAuth, setAdminAuth] = useState(false);
 
@@ -56,7 +53,6 @@ useEffect(() => {
       rooms, setRooms,
       galleryImgs, setGalleryImgs,
       closedDates, setClosedDates,
-      reviews,
       customerMessages, setCustomerMessages,
       adminAuth, setAdminAuth,
     }}>

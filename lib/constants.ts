@@ -1,7 +1,6 @@
 import type { Room } from "@/types/room";
 import type { Booking } from "@/types/booking";
 import type { InventoryItem } from "@/types/inventory";
-import type { Review } from "@/types/review";
 import type { AdminCredentials } from "@/types/admin";
 
 export const ADMIN_CREDS: AdminCredentials = {
@@ -89,12 +88,6 @@ export const INIT_GALLERY: string[] = [
   "https://images.unsplash.com/photo-1445019980597-93fa8acb246c?w=800&q=85",
 ];
 
-export const INIT_REVIEWS: Review[] = [
-  { id: 1, name: "Maria Santos", rating: 5, message: "StoneWood is our family's go-to getaway. The pool is amazing and so relaxing!", date: "2026-02-10" },
-  { id: 2, name: "Jose Reyes", rating: 5, message: "Celebrated my birthday here — unforgettable. The staff were so accommodating.", date: "2026-02-18" },
-  { id: 3, name: "Ana Cruz", rating: 4, message: "Quiet, private, and beautiful. Exactly what we needed for our team outing.", date: "2026-03-01" },
-  { id: 4, name: "Carlo Tan", rating: 5, message: "Great value for the whole group. The videoke setup made the night so much fun.", date: "2026-03-05" },
-];
 
 export const INIT_BOOKINGS: Booking[] = [
   { id: "SW-10001", name: "Maria Santos", contact: "09171234567", email: "maria@email.com", date: "2026-03-10", guests: 25, package: "Day Tour", rooms: [], overtime: 0, total: 6000, downpayment: 3000, status: "Confirmed", paymentProof: true, notes: "" },

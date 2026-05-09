@@ -4,16 +4,15 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold } from "@/lib/styles";
-import { Stars } from "@/components/common/Stars";
 import type { Booking } from "@/types/booking";
-import type { Review } from "@/types/review";
+
 
 interface AnalyticsTabProps {
   bookings: Booking[];
-  reviews: Review[];
+
 }
 
-export function AnalyticsTab({ bookings, reviews }: AnalyticsTabProps) {
+export function AnalyticsTab({ bookings}: AnalyticsTabProps) {
   const { isDark } = useTheme();
   const C = T(isDark);
   const w = useWidth();
@@ -24,7 +23,6 @@ export function AnalyticsTab({ bookings, reviews }: AnalyticsTabProps) {
   const bBM = months.map((_, mi) => { const m = String(mi + 1).padStart(2, "0"); return bookings.filter((b) => b.date && b.date.startsWith(`2026-${m}`) && b.status !== "Cancelled").length; });
   const maxG = Math.max(...gBM, 1);
   const maxB = Math.max(...bBM, 1);
-  const rDist = [5, 4, 3, 2, 1].map((star) => ({ star, count: reviews.filter((r) => r.rating === star).length }));
   const cBg = isDark ? "#0b0a08" : "#ffffff";
   const cBr = isDark ? "#1e1a14" : "#e4ddd1";
 
@@ -37,7 +35,7 @@ export function AnalyticsTab({ bookings, reviews }: AnalyticsTabProps) {
 
       {/* KPI Cards */}
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 14, marginBottom: 32 }}>
-        {[["Total Guests", bookings.filter((b) => b.status !== "Cancelled").reduce((s, b) => s + b.guests, 0), "👥", "#4caf50"], ["Total Bookings", bookings.length, "📋", gold], ["Reviews", reviews.length, "💬", "#4a9fd4"]].map(([l, v, icon, c]) => (
+        {[["Total Guests", bookings.filter((b) => b.status !== "Cancelled").reduce((s, b) => s + b.guests, 0), "👥", "#4caf50"], ["Total Bookings", bookings.length, "📋", gold]].map(([l, v, icon, c]) => (
           <div key={l as string} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "20px 16px", position: "relative", overflow: "hidden", boxShadow: C.shadowCard }}>
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(to right,${c}22,${c})` }} />
             <div style={{ fontSize: 20, marginBottom: 8 }}>{icon as string}</div>

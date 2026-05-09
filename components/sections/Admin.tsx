@@ -13,8 +13,8 @@ import { InventoryTab } from "@/components/admin/InventoryTab";
 import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
 import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
-import type { Review } from "@/types/review";
 import type { AdminTab, CustomerMessage } from "@/types/admin";
+
 
 interface AdminProps {
   bookings: Booking[];
@@ -25,7 +25,6 @@ interface AdminProps {
   setGalleryImgs: React.Dispatch<React.SetStateAction<string[]>>;
   closedDates: string[];
   setClosedDates: React.Dispatch<React.SetStateAction<string[]>>;
-  reviews: Review[];
   onLogout: () => void;
   customerMessages: CustomerMessage[];
   setCustomerMessages: React.Dispatch<React.SetStateAction<CustomerMessage[]>>;
@@ -378,7 +377,7 @@ const SIDEBAR_GROUPS = [
 export function Admin({
   bookings, setBookings, rooms, setRooms,
   galleryImgs, setGalleryImgs, closedDates, setClosedDates,
-  reviews, onLogout, customerMessages, setCustomerMessages,
+  onLogout, customerMessages, setCustomerMessages,
 }: AdminProps) {
   const { isDark } = useTheme();
   const C = T(isDark);
@@ -850,7 +849,7 @@ export function Admin({
           {tab === "Inventory" && <InventoryTab />}
 
           {/* ANALYTICS */}
-          {tab === "Analytics" && <AnalyticsTab bookings={bookings} reviews={reviews} />}
+          {tab === "Analytics" && <AnalyticsTab bookings={bookings} />}
 
           {/* REPORTS */}
           {tab==="Reports"&&(

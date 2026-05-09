@@ -16,7 +16,6 @@ export default function AdminPage() {
     setGalleryImgs,
     closedDates,
     setClosedDates,
-    reviews,
     customerMessages,
     setCustomerMessages,
     adminAuth,
@@ -43,7 +42,7 @@ export default function AdminPage() {
       setGalleryImgs={setGalleryImgs}
       closedDates={closedDates}
       setClosedDates={setClosedDates}
-      reviews={reviews}
+
       onLogout={() => {
         setAdminAuth(false);
         router.push("/");

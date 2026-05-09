@@ -14,7 +14,7 @@ export default function HomePage() {
   const router = useRouter();
   const { isDark } = useTheme();
   const C = T(isDark);
-  const { bookings, closedDates, reviews } = useApp();
+  const { bookings, closedDates} = useApp();
   const [selectedDate, setSelectedDate] = useState("");
   const [page, setPage] = useState("Home");
   
@@ -64,7 +64,7 @@ const nav = (p: string) => {
         onBookWithDate={(d) => router.push(`/book?date=${d}`)}
         bookings={bookings}
         closedDates={closedDates}
-        reviews={reviews}
+        
       />
       <Footer setPage={nav} />
       <ThemeToggle />

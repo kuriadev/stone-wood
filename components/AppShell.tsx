@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { T } from "@/lib/theme";
-import { INIT_BOOKINGS, INIT_ROOMS, INIT_GALLERY, INIT_REVIEWS } from "@/lib/constants";
+import { INIT_BOOKINGS, INIT_ROOMS, INIT_GALLERY} from "@/lib/constants";
 import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
 import type { CustomerMessage } from "@/types/admin";
@@ -31,7 +31,6 @@ export function AppShell() {
   const [rooms, setRooms] = useState<Room[]>(INIT_ROOMS);
   const [galleryImgs, setGalleryImgs] = useState<string[]>(INIT_GALLERY);
   const [closedDates, setClosedDates] = useState<string[]>([]);
-  const [reviews] = useState(INIT_REVIEWS);
   const [adminAuth, setAdminAuth] = useState(false);
   const [preselectedRoom, setPreselectedRoom] = useState<number | null>(null);
   const [preselectedDate, setPreselectedDate] = useState("");
@@ -92,7 +91,7 @@ export function AppShell() {
           onBookWithDate={goBookWithDate}
           bookings={bookings}
           closedDates={closedDates}
-          reviews={reviews}
+
         />
       )}
       {page === "Rooms" && (
@@ -132,7 +131,6 @@ export function AppShell() {
           setGalleryImgs={setGalleryImgs}
           closedDates={closedDates}
           setClosedDates={setClosedDates}
-          reviews={reviews}
           onLogout={handleLogout}
           customerMessages={customerMessages}
           setCustomerMessages={setCustomerMessages}
