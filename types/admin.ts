@@ -22,5 +22,6 @@ export interface CustomerMessage {
   type: string;
   message: string;
   date: string;
+  createdAt?: string;
   archivedAt?: string;
 }

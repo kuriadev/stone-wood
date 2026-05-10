@@ -48,6 +48,7 @@ const submit = async () => {
       month: "short",
       day: "numeric",
     }),
+    createdAt: new Date().toISOString(),
   };
   
 

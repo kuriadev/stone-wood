@@ -98,6 +98,7 @@ function OnsiteTab({
     setOnsiteConfirmAction(null);
   };
 
+
   return (
     <div>
       {/* Header */}
@@ -385,6 +386,7 @@ export function Admin({
   const w = useWidth();
   const mob = w < 768;
 
+
   const [tab, setTab] = useState<AdminTab>("Dashboard");
   const [sideOpen, setSideOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -396,9 +398,87 @@ export function Admin({
   const galleryFileRef = useRef<HTMLInputElement>(null);
   const [calMonth, setCalMonth] = useState(new Date());
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [autoArchiveEnabled, setAutoArchiveEnabled] = useState(true);
   const [archivedMessages, setArchivedMessages] = useState<CustomerMessage[]>([]);
   const [csView, setCsView] = useState<"inbox" | "archive">("inbox");
   const [confirmArchiveMsg, setConfirmArchiveMsg] = useState<CustomerMessage | null>(null);
+  useEffect(() => {
+  const loadMessages = async () => {
+    try {
+      const res = await fetch("/api/customer-service");
+
+      const data = await res.json();
+
+      setCustomerMessages(data);
+    } catch (err) {
+      console.error(err);
+    }
+    };  
+
+      loadMessages();
+
+      const interval = setInterval(loadMessages, 2000);
+
+      return () => clearInterval(interval);
+
+    }, [setCustomerMessages]);
+
+
+    useEffect(() => {
+      if (!autoArchiveEnabled) return;
+
+      const now = new Date();
+
+      setCustomerMessages((prev) => {
+        const remaining: CustomerMessage[] = [];
+        const toArchive: CustomerMessage[] = [];
+
+        prev.forEach((msg) => {
+          const msgDate = new Date(msg.createdAt || msg.date);
+
+          const diffMonths =
+            now.getMonth() - msgDate.getMonth() +
+            12 * (now.getFullYear() - msgDate.getFullYear());
+
+          if (diffMonths >= 1) {
+            toArchive.push(msg);
+          } else {
+            remaining.push(msg);
+          }
+        });
+
+        if (toArchive.length > 0) {
+          setArchivedMessages((old) => [
+            ...toArchive,
+            ...old,
+          ]);
+        }
+
+        return remaining;
+      });
+    }, [autoArchiveEnabled]);
+
+    const [replyModal, setReplyModal] = useState<any | null>(null);
+
+    const [replyMode, setReplyMode] = useState<
+      "manual" | "automated"
+    >("manual");
+
+    const [replyMessage, setReplyMessage] = useState("");
+
+    const automatedReplies = {
+      Feedback:
+        "Thank you for your feedback. We appreciate your thoughts and suggestions.",
+      Complaint:
+        "We sincerely apologize for the inconvenience. Our team will review your concern immediately.",
+      Question:
+        "Thank you for your question. Our team will respond as soon as possible.",
+      "Booking Issue":
+        "We received your booking concern and will investigate the issue shortly.",
+      Other:
+        "Thank you for contacting us. We will get back to you soon.",
+    };
+
   const [dashConfirm, setDashConfirm] = useState<{
     bookingId: string; action: "Confirmed" | "Cancelled"; guestName: string;
   } | null>(null);
@@ -458,7 +538,31 @@ export function Admin({
   const deleteRoom = (id: number) => { setRooms((rs) => rs.filter((r) => r.id !== id)); toast("Room removed.", "warning"); };
   const deleteGalleryImg = (idx: number) => { setGalleryImgs((g) => g.filter((_, i) => i !== idx)); toast("Photo removed.", "warning"); };
   const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => { Array.from(e.target.files || []).forEach((f) => { const rd = new FileReader(); rd.onload = (ev) => { setGalleryImgs((g) => [...g, ev.target?.result as string]); toast("Photo added.", "success"); }; rd.readAsDataURL(f); }); };
-  const archiveMessage = (msg: CustomerMessage) => { setCustomerMessages((p) => p.filter((m) => m.id !== msg.id)); setArchivedMessages((p) => [...p, msg]); toast("Message archived.", "info"); setConfirmArchiveMsg(null); };
+  const archiveMessage = async (msg: CustomerMessage) => {
+  try {
+    // remove from inbox
+    setCustomerMessages((prev) =>
+      prev.filter((m) => m.id !== msg.id)
+    );
+
+    // add to archive
+    setArchivedMessages((prev) => [
+      {
+        ...msg,
+        archivedAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+
+    toast("Message archived.", "info");
+
+    setConfirmArchiveMsg(null);
+  } catch (err) {
+    console.error(err);
+
+    toast("Failed to archive message.", "error");
+  }
+};
 
   const goTab = (t: AdminTab) => { setTab(t); if (mob) setSideOpen(false); };
 
@@ -1039,43 +1143,610 @@ export function Admin({
                 <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 8 }}>MESSAGES</p>
                 <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Customer Service</h2>
               </div>
-              <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+
+              {/* ARCHIVE CONFIRM MODAL */}
+              {confirmArchiveMsg && (
+                <div
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    background: "rgba(0,0,0,0.8)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 500,
+                    padding: 20,
+                  }}
+                >
+                  <div
+                    style={{
+                      background: isDark ? "#0e0c09" : "#fff",
+                      border: `1px solid ${cBr}`,
+                      borderRadius: 12,
+                      padding: "28px 26px",
+                      width: "100%",
+                      maxWidth: 400,
+                    }}
+                  >
+                    <h3
+                      style={{
+                        color: C.textH,
+                        fontFamily:
+                          "'Cormorant Garamond',Georgia,serif",
+                        fontSize: 18,
+                        marginBottom: 12,
+                        fontWeight: 400,
+                      }}
+                    >
+                      Archive this message?
+                    </h3>
+
+                    <p
+                      style={{
+                        color: C.textS,
+                        fontSize: 13,
+                        marginBottom: 22,
+                        lineHeight: 1.7,
+                      }}
+                    >
+                      From{" "}
+                      <strong style={{ color: C.textH }}>
+                        {confirmArchiveMsg.name}
+                      </strong>
+                      : "
+                      {confirmArchiveMsg.message.slice(0, 80)}
+                      {confirmArchiveMsg.message.length > 80
+                        ? "…"
+                        : ""}
+                      "
+                    </p>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 10,
+                      }}
+                    >
+                      <button
+                        onClick={() =>
+                          setConfirmArchiveMsg(null)
+                        }
+                        style={{
+                          flex: 1,
+                          background: "transparent",
+                          color: C.textS,
+                          border: `1px solid ${cBr}`,
+                          padding: 11,
+                          fontSize: 11,
+                          cursor: "pointer",
+                          borderRadius: 6,
+                        }}
+                      >
+                        CANCEL
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setArchivedMessages((prev) => [
+                            ...prev,
+                            confirmArchiveMsg,
+                          ]);
+
+                          setCustomerMessages((prev) =>
+                            prev.filter(
+                              (m) => m.id !== confirmArchiveMsg.id
+                            )
+                          );
+
+                          setConfirmArchiveMsg(null);
+
+                          toast(
+                            "Message archived.",
+                            "info"
+                          );
+                        }}
+                        style={{
+                          ...goldBtn,
+                          flex: 2,
+                        }}
+                      >
+                        ARCHIVE
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* AUTO ARCHIVE NOTICE */}
+              <div
+                style={{
+                  background: isDark
+                    ? "rgba(201,168,76,0.08)"
+                    : "rgba(201,168,76,0.06)",
+                  border: `1px solid ${gold}33`,
+                  borderRadius: 10,
+                  padding: "14px 16px",
+                  marginBottom: 18,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: mob ? "flex-start" : "center",
+                  flexDirection: mob ? "column" : "row",
+                  gap: 12,
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      color: gold,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: 1,
+                      marginBottom: 4,
+                    }}
+                  >
+                    AUTO ARCHIVE {autoArchiveEnabled ? "ENABLED" : "DISABLED"}
+                  </div>
+
+                  <p
+                    style={{
+                      color: C.textS,
+                      fontSize: 12,
+                      lineHeight: 1.7,
+                      margin: 0,
+                    }}
+                  >
+                    Inbox messages older than 1 month will automatically
+                    move to archive.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() =>
+                    setAutoArchiveEnabled((prev) => !prev)
+                  }
+                  style={{
+                    background: autoArchiveEnabled
+                      ? `${gold}18`
+                      : "transparent",
+                    color: autoArchiveEnabled ? gold : C.textS,
+                    border: `1px solid ${
+                      autoArchiveEnabled
+                        ? `${gold}55`
+                        : cBr
+                    }`,
+                    padding: "8px 14px",
+                    borderRadius: 20,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    letterSpacing: 1,
+                    minWidth: 90,
+                  }}
+                >
+                  {autoArchiveEnabled ? "ON" : "OFF"}
+                </button>
+              </div>
+
+              {/* INBOX / ARCHIVE TABS */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  marginBottom: 20,
+                }}
+              >
                 {(["inbox", "archive"] as const).map((v) => (
-                  <button key={v} onClick={() => setCsView(v)} style={{ padding: "8px 18px", fontSize: 11, fontWeight: 700, borderRadius: 20, cursor: "pointer", background: csView === v ? `${gold}18` : "transparent", color: csView === v ? gold : C.textS, border: `1px solid ${csView === v ? gold + "55" : cBr}`, letterSpacing: 1 }}>{v.toUpperCase()} {v === "inbox" && customerMessages.length > 0 && `(${customerMessages.length})`}{v === "archive" && archivedMessages.length > 0 && `(${archivedMessages.length})`}</button>
+                  <button
+                    key={v}
+                    onClick={() => setCsView(v)}
+                    style={{
+                      padding: "8px 18px",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      borderRadius: 20,
+                      cursor: "pointer",
+                      background:
+                        csView === v
+                          ? `${gold}18`
+                          : "transparent",
+                      color:
+                        csView === v
+                          ? gold
+                          : C.textS,
+                      border: `1px solid ${
+                        csView === v
+                          ? `${gold}55`
+                          : cBr
+                      }`,
+                      letterSpacing: 1,
+                    }}
+                  >
+                    {v.toUpperCase()}{" "}
+
+                    {v === "inbox" &&
+                      customerMessages.length > 0 &&
+                      `(${customerMessages.length})`}
+
+                    {v === "archive" &&
+                      archivedMessages.length > 0 &&
+                      `(${archivedMessages.length})`}
+                  </button>
                 ))}
               </div>
-              {(csView === "inbox" ? customerMessages : archivedMessages).length === 0 ? (
-                <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "52px 20px", textAlign: "center", boxShadow: C.shadowCard }}>
-                  <div style={{ fontSize: 36, marginBottom: 12 }}>💬</div>
-                  <p style={{ color: C.textS, fontSize: 14 }}>{csView === "inbox" ? "No new messages." : "No archived messages."}</p>
+
+              {/* EMPTY STATE */}
+              {(
+                csView === "inbox"
+                  ? customerMessages
+                  : archivedMessages
+              ).length === 0 ? (
+                <div
+                  style={{
+                    background: cBg,
+                    border: `1px solid ${cBr}`,
+                    borderRadius: 10,
+                    padding: "52px 20px",
+                    textAlign: "center",
+                    boxShadow: C.shadowCard,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 36,
+                      marginBottom: 12,
+                    }}
+                  >
+                    💬
+                  </div>
+
+                  <p
+                    style={{
+                      color: C.textS,
+                      fontSize: 14,
+                    }}
+                  >
+                    {csView === "inbox"
+                      ? "No new messages."
+                      : "No archived messages."}
+                  </p>
                 </div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {(csView === "inbox" ? customerMessages : archivedMessages).map((msg) => (
-                    <div key={msg.id} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "20px 22px", boxShadow: C.shadowCard }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                  }}
+                >
+                  {(
+                    csView === "inbox"
+                      ? customerMessages
+                      : archivedMessages
+                  ).map((msg) => (
+                    <div
+                      key={msg.id}
+                      style={{
+                        background: cBg,
+                        border: `1px solid ${cBr}`,
+                        borderRadius: 10,
+                        padding: "20px 22px",
+                        boxShadow: C.shadowCard,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                          marginBottom: 10,
+                        }}
+                      >
                         <div>
-                          <div style={{ color: C.textH, fontSize: 14, fontWeight: 600 }}>{msg.name}</div>
-                          <div style={{ color: C.textXS, fontSize: 11 }}>{msg.email} · {msg.date}</div>
+                          <div
+                            style={{
+                              color: C.textH,
+                              fontSize: 14,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {msg.name}
+                          </div>
+
+                          <div
+                            style={{
+                              color: C.textXS,
+                              fontSize: 11,
+                            }}
+                          >
+                            {msg.email} · {msg.date}
+                          </div>
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ background: `${gold}18`, color: gold, fontSize: 9, padding: "3px 8px", borderRadius: 20, border: `1px solid ${gold}44`, letterSpacing: 1 }}>{msg.type.toUpperCase()}</span>
-                          {csView === "inbox" && <button onClick={() => setConfirmArchiveMsg(msg)} style={{ background: "transparent", border: `1px solid ${cBr}`, color: C.textXS, padding: "4px 10px", fontSize: 10, cursor: "pointer", borderRadius: 4 }}>ARCHIVE</button>}
+
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          {/* TYPE BADGE */}
+                          <span
+                            style={{
+                              background: `${gold}18`,
+                              color: gold,
+                              fontSize: 9,
+                              padding: "3px 8px",
+                              borderRadius: 20,
+                              border: `1px solid ${gold}44`,
+                              letterSpacing: 1,
+                            }}
+                          >
+                            {msg.type.toUpperCase()}
+                          </span>
+                          {/* REPLY BUTTON */}
+                          <button
+                            onClick={() => {
+                              setReplyModal(msg);
+
+                              setReplyMode("automated");
+
+                              setReplyMessage(
+                                automatedReplies[
+                                  msg.type as keyof typeof automatedReplies
+                                ] || ""
+                              );
+                            }}
+                            style={{
+                              background: `${gold}18`,
+                              border: `1px solid ${gold}44`,
+                              color: gold,
+                              padding: "4px 10px",
+                              fontSize: 10,
+                              cursor: "pointer",
+                              borderRadius: 4,
+                            }}
+                          >
+                            REPLY
+                          </button>
+
+                          {/* ARCHIVE BUTTON */}
+                          {csView === "inbox" && (
+                            <button
+                              onClick={() =>
+                                setConfirmArchiveMsg(msg)
+                              }
+                              style={{
+                                background: "transparent",
+                                border: `1px solid ${cBr}`,
+                                color: C.textXS,
+                                padding: "4px 10px",
+                                fontSize: 10,
+                                cursor: "pointer",
+                                borderRadius: 4,
+                              }}
+                            >
+                              ARCHIVE
+                            </button>
+                          )}
                         </div>
                       </div>
-                      <p style={{ color: C.textB, fontSize: 13, lineHeight: 1.7, margin: 0 }}>{msg.message}</p>
+
+                      <p
+                        style={{
+                          color: C.textB,
+                          fontSize: 13,
+                          lineHeight: 1.7,
+                          margin: 0,
+                        }}
+                      >
+                        {msg.message}
+                      </p>
                     </div>
                   ))}
                 </div>
               )}
-              {confirmArchiveMsg && (
-                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }}>
-                  <div style={{ background: isDark ? "#0e0c09" : "#fff", border: `1px solid ${cBr}`, borderRadius: 12, padding: "28px 26px", width: "100%", maxWidth: 400 }}>
-                    <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, marginBottom: 12, fontWeight: 400 }}>Archive this message?</h3>
-                    <p style={{ color: C.textS, fontSize: 13, marginBottom: 22 }}>From <strong style={{ color: C.textH }}>{confirmArchiveMsg.name}</strong>: "{confirmArchiveMsg.message.slice(0, 80)}{confirmArchiveMsg.message.length > 80 ? "…" : ""}"</p>
-                    <div style={{ display: "flex", gap: 10 }}>
-                      <button onClick={() => setConfirmArchiveMsg(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: 11, fontSize: 11, cursor: "pointer", borderRadius: 6 }}>CANCEL</button>
-                      <button onClick={() => archiveMessage(confirmArchiveMsg)} style={{ ...goldBtn, flex: 2 }}>ARCHIVE</button>
+              {/* REPLY MODAL */}
+              {replyModal && (
+                <div
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    background: "rgba(0,0,0,0.75)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 600,
+                    padding: 20,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "100%",
+                      maxWidth: 520,
+                      background: cBg,
+                      border: `1px solid ${cBr}`,
+                      borderRadius: 14,
+                      padding: "24px",
+                      boxShadow: C.shadowCard,
+                    }}
+                  >
+                    <div style={{ marginBottom: 18 }}>
+                      <h3
+                        style={{
+                          margin: 0,
+                          color: C.textH,
+                          fontSize: 22,
+                          fontWeight: 500,
+                          fontFamily:
+                            "'Cormorant Garamond', Georgia, serif",
+                        }}
+                      >
+                        Send Response
+                      </h3>
+
+                      <p
+                        style={{
+                          color: C.textS,
+                          fontSize: 12,
+                          marginTop: 6,
+                          marginBottom: 0,
+                        }}
+                      >
+                        Replying to {replyModal.name}
+                      </p>
+                    </div>
+
+                    {/* MODE SELECT */}
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 10,
+                        marginBottom: 16,
+                      }}
+                    >
+                      {(["automated", "manual"] as const).map((type) => (
+                        <button
+                          key={type}
+                          onClick={() => {
+                            setReplyMode(type);
+
+                            if (type === "automated") {
+                              setReplyMessage(
+                                automatedReplies[
+                                  replyModal.type as keyof typeof automatedReplies
+                                ] || ""
+                              );
+                            } else {
+                              setReplyMessage("");
+                            }
+                          }}
+                          style={{
+                            padding: "8px 14px",
+                            borderRadius: 20,
+                            cursor: "pointer",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            letterSpacing: 1,
+                            background:
+                              replyMode === type
+                                ? `${gold}18`
+                                : "transparent",
+                            color:
+                              replyMode === type
+                                ? gold
+                                : C.textS,
+                            border: `1px solid ${
+                              replyMode === type
+                                ? `${gold}55`
+                                : cBr
+                            }`,
+                          }}
+                        >
+                          {type.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* EMAIL */}
+                    <div style={{ marginBottom: 14 }}>
+                      <div
+                        style={{
+                          color: C.textXS,
+                          fontSize: 10,
+                          marginBottom: 6,
+                          letterSpacing: 2,
+                        }}
+                      >
+                        CUSTOMER EMAIL
+                      </div>
+
+                      <input
+                        value={replyModal.email}
+                        disabled
+                        style={{
+                          width: "100%",
+                          padding: "12px 14px",
+                          borderRadius: 8,
+                          border: `1px solid ${cBr}`,
+                          background: "transparent",
+                          color: C.textS,
+                          fontSize: 13,
+                          outline: "none",
+                        }}
+                      />
+                    </div>
+
+                    {/* MESSAGE */}
+                    <div style={{ marginBottom: 20 }}>
+                      <div
+                        style={{
+                          color: C.textXS,
+                          fontSize: 10,
+                          marginBottom: 6,
+                          letterSpacing: 2,
+                        }}
+                      >
+                        MESSAGE
+                      </div>
+
+                      <textarea
+                        value={replyMessage}
+                        onChange={(e) =>
+                          setReplyMessage(e.target.value)
+                        }
+                        rows={6}
+                        style={{
+                          width: "100%",
+                          resize: "none",
+                          padding: "14px",
+                          borderRadius: 8,
+                          border: `1px solid ${cBr}`,
+                          background: "transparent",
+                          color: C.textB,
+                          fontSize: 13,
+                          outline: "none",
+                          lineHeight: 1.7,
+                        }}
+                      />
+                    </div>
+
+                    {/* ACTIONS */}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        gap: 10,
+                      }}
+                    >
+                      <button
+                        onClick={() => setReplyModal(null)}
+                        style={{
+                          background: "transparent",
+                          border: `1px solid ${cBr}`,
+                          color: C.textS,
+                          padding: "10px 16px",
+                          borderRadius: 6,
+                          cursor: "pointer",
+                          fontSize: 11,
+                        }}
+                      >
+                        CANCEL
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          window.location.href = `mailto:${replyModal.email}?subject=Customer Service Response&body=${encodeURIComponent(
+                            replyMessage
+                          )}`;
+
+                          setReplyModal(null);
+                        }}
+                        style={{
+                          ...goldBtn,
+                          padding: "10px 18px",
+                        }}
+                      >
+                        SEND EMAIL
+                      </button>
                     </div>
                   </div>
                 </div>
