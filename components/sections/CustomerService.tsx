@@ -32,23 +32,46 @@ export function CustomerService({ onSubmitMessage }: CustomerServiceProps) {
   const messageOk = form.message.trim().length >= 10;
   const formOk    = nameOk && emailOk && messageOk;
 
-  const submit = () => {
-    setTouched({ name: true, email: true, message: true });
-    if (!formOk) return;
-    const msg: CustomerMessage = {
-      id: Date.now(),
-      name: form.name,
-      email: form.email,
-      type: form.type,
-      message: form.message,
-      date: new Date().toLocaleDateString("en-PH", {
-        year: "numeric", month: "short", day: "numeric",
-      }),
-    };
-    onSubmitMessage(msg);
-    setSubmitted(true);
-    toast("Message sent! We'll get back to you soon.", "success");
+const submit = async () => {
+  setTouched({ name: true, email: true, message: true });
+
+  if (!formOk) return;
+
+  const msg: CustomerMessage = {
+    id: Date.now(),
+    name: form.name,
+    email: form.email,
+    type: form.type,
+    message: form.message,
+    date: new Date().toLocaleDateString("en-PH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }),
   };
+  
+
+  try {
+    const res = await fetch("/api/customer-service", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(msg),
+    });
+
+    if (!res.ok) throw new Error();
+
+    onSubmitMessage(msg);
+
+    setSubmitted(true);
+
+    toast("Message sent! We'll get back to you soon.", "success");
+
+  } catch {
+    toast("Failed to send message.", "error");
+  }
+};
 
   // ── Shared field border helper ───────────────────────────────────────────────
   const fieldBorder = (ok: boolean, isTouched: boolean) => {
