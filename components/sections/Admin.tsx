@@ -513,21 +513,25 @@ export function Admin({
                     alignItems: "center",
                     gap: 10,
                   }}>
-                    <span style={{
-                      color: isDark ? "#2e2820" : "#bbb3a8",
-                      fontSize: 8,
-                      letterSpacing: 2.5,
-                      fontWeight: 700,
-                      whiteSpace: "nowrap",
-                      textTransform: "uppercase" as const,
-                    }}>
-                      {group.label}
-                    </span>
-                    <div style={{
-                      flex: 1,
-                      height: 1,
-                      background: isDark ? "#1c1916" : "#e8e0d4",
-                    }} />
+                  <span style={{
+                    color: isDark ? "#8f6a3d" : "#b08d57",
+                    fontSize: 9,
+                    letterSpacing: 3.5,
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                    textTransform: "uppercase" as const,
+                    fontFamily: "'Inter', sans-serif",
+                  }}>
+                    {group.label}
+                  </span>
+
+                  <div style={{
+                    flex: 1,
+                    height: 1,
+                    background: isDark
+                      ? "rgba(176,141,87,0.18)"
+                      : "rgba(176,141,87,0.25)",
+                  }} />
                   </div>
 
                   {/* Nav items for this group */}
@@ -774,9 +778,25 @@ export function Admin({
                   else if (status === "Confirmed" || status === "Paid") { bg = isDark ? "#0f2018" : "#eafaf0"; col = "#4caf50"; border = "1px solid rgba(76,175,80,0.3)"; }
                   else if (status === "Completed") { bg = isDark ? "#0f1a2a" : "#e8f4fb"; col = "#4a9fd4"; border = "1px solid rgba(74,159,212,0.3)"; }
                   return (
-                    <div key={d} onClick={() => !isPast && !(status && status !== "Closed") && toggleClosed(ds)} style={{ textAlign: "center", padding: mob ? "12px 4px" : "16px 4px", borderRadius: 6, background: bg, border, color: col, fontSize: mob ? 11 : 13, cursor: isPast ? "default" : (status && status !== "Closed") ? "default" : "pointer", userSelect: "none", transition: "all .15s", position: "relative" }}>
+                    <div key={d} onClick={() => !isPast && !["Confirmed", "Paid", "Completed"].includes(status || "") && toggleClosed(ds)
+                    } style={{ 
+                      textAlign: "center", 
+                      padding: mob ? "12px 4px" : "16px 4px", 
+                      borderRadius: 6, 
+                      background: bg, border, 
+                      color: col, 
+                      fontSize: mob ? 11 : 13, 
+                      cursor:
+                        isPast
+                          ? "default"
+                          : ["Confirmed", "Paid", "Completed"].includes(status || "")
+                          ? "default"
+                          : "pointer",
+                      userSelect: "none", 
+                      transition: "all .15s", 
+                      position: "relative" }}>
                       {d}
-                      {status && <div style={{ fontSize: 8, marginTop: 3, opacity: 0.8 }}>{status === "Closed" ? "CLOSED" : status === "Paid" ? "HOLD" : status?.toUpperCase().slice(0, 4)}</div>}
+                      {status && <div style={{ fontSize: 8, marginTop: 3, opacity: 0.8 }}>{status === "Closed" ? "CLOSED" : status === "Paid" ? "PAID" : status?.toUpperCase().slice(0, 4)}</div>}
                     </div>
                   );
                 })}

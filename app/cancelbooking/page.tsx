@@ -27,8 +27,8 @@ export default function ManageBookingPage() {
     const loader = (globalThis as any).loader?.current;
 
     if (!loader) {
-      router.push(target);
-      return;
+        router.push(target);
+        return;
     }
 
 
@@ -38,13 +38,13 @@ export default function ManageBookingPage() {
     let progress = 20;
     const interval = setInterval(() => {
       progress += Math.random() * 20;
-      if (progress >= 90) clearInterval(interval);
+        if (progress >= 90) clearInterval(interval);
     }, 120);
 
 
     setTimeout(() => {
-      loader.finish();
-      router.push(target);
+        loader.finish();
+        router.push(target);
     }, 500); 
     };
 
