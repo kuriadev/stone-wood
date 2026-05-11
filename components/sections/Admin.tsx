@@ -1256,75 +1256,7 @@ export function Admin({
                   </div>
                 </div>
               )}
-              {/* AUTO ARCHIVE NOTICE */}
-              <div
-                style={{
-                  background: isDark
-                    ? "rgba(201,168,76,0.08)"
-                    : "rgba(201,168,76,0.06)",
-                  border: `1px solid ${gold}33`,
-                  borderRadius: 10,
-                  padding: "14px 16px",
-                  marginBottom: 18,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: mob ? "flex-start" : "center",
-                  flexDirection: mob ? "column" : "row",
-                  gap: 12,
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      color: gold,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      letterSpacing: 1,
-                      marginBottom: 4,
-                    }}
-                  >
-                    AUTO ARCHIVE {autoArchiveEnabled ? "ENABLED" : "DISABLED"}
-                  </div>
 
-                  <p
-                    style={{
-                      color: C.textS,
-                      fontSize: 12,
-                      lineHeight: 1.7,
-                      margin: 0,
-                    }}
-                  >
-                    Inbox messages older than 1 month will automatically
-                    move to archive.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() =>
-                    setAutoArchiveEnabled((prev) => !prev)
-                  }
-                  style={{
-                    background: autoArchiveEnabled
-                      ? `${gold}18`
-                      : "transparent",
-                    color: autoArchiveEnabled ? gold : C.textS,
-                    border: `1px solid ${
-                      autoArchiveEnabled
-                        ? `${gold}55`
-                        : cBr
-                    }`,
-                    padding: "8px 14px",
-                    borderRadius: 20,
-                    fontSize: 10,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    letterSpacing: 1,
-                    minWidth: 90,
-                  }}
-                >
-                  {autoArchiveEnabled ? "ON" : "OFF"}
-                </button>
-              </div>
 
               {/* INBOX / ARCHIVE TABS */}
               <div
