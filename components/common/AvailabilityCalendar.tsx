@@ -24,8 +24,6 @@ export function AvailabilityCalendar({
     new Date(today.getFullYear(), today.getMonth(), 1)
   );
 
-  // FIX: Force the calendar to the current month when the component mounts.
-  // This overrides any hardcoded state or "remembered" values.
   useEffect(() => {
     const now = new Date();
     setCalMonth(new Date(now.getFullYear(), now.getMonth(), 1));
@@ -37,12 +35,8 @@ export function AvailabilityCalendar({
   const closedSet = new Set(closedDates);
   const year = calMonth.getFullYear();
   const month = calMonth.getMonth();
-  
-  // Note: These calculations (daysInMonth, firstDay) will now correctly 
-  // react to the forced current date from the useEffect above.
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDay = new Date(year, month, 1).getDay();
-  
   const toStr = (d: number) =>
     `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
@@ -55,6 +49,7 @@ export function AvailabilityCalendar({
         padding: "20px 18px",
         width: "100%",
         maxWidth: 360,
+        minWidth: 300,          /* ← prevents calendar from shrinking */
         boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
       }}
     >
@@ -143,18 +138,31 @@ export function AvailabilityCalendar({
           const isClosed = closedSet.has(ds);
           const isSel = selectedDate === ds;
           const disabled = isPast || isBooked || isClosed;
-          let bg = "#1e1e1e",
-            col = "#bbb",
-            bdr = "1px solid #252525",
-            cur: string = "pointer";
-          if (isPast) { bg = "#0c0c0c"; col = "#333"; cur = "default"; }
-          if (isBooked) { bg = "#161616"; col = "#444"; cur = "not-allowed"; }
-          if (isClosed) { bg = "#1a0a0a"; col = "#553333"; cur = "not-allowed"; }
-          if (isSel) { bg = gold; col = "#000"; bdr = `1px solid ${gold}`; }
+
+          // ── Available (default): green tint ─────────────────────────────
+          let bg  = "rgba(76,175,80,0.10)";
+          let col = "#5cb85c";
+          let bdr = "1px solid rgba(76,175,80,0.22)";
+          let cur: string = "pointer";
+
+          if (isPast)   { bg = "#0c0c0c";              col = "#333";     bdr = "1px solid #1a1a1a"; cur = "not-allowed";     }
+          if (isBooked) { bg = "#161616";              col = "#444";     bdr = "1px solid #252525"; cur = "not-allowed"; }
+          if (isClosed) { bg = "#1a0a0a";              col = "#553333";  bdr = "1px solid #2a1010"; cur = "not-allowed"; }
+          if (isSel)    { bg = gold;                   col = "#000";     bdr = `1px solid ${gold}`; }
+
           return (
             <div
               key={d}
               onClick={() => !disabled && onSelectDate(ds)}
+              title={
+                isPast
+                  ? "Past date"
+                  : isBooked
+                  ? "Booked"
+                  : isClosed
+                  ? "Not available"
+                  : "Available"
+              }
               style={{
                 textAlign: "center",
                 padding: "7px 2px",
@@ -174,25 +182,24 @@ export function AvailabilityCalendar({
         })}
       </div>
 
+      {/* Legend — centered together */}
       <div
         style={{
           display: "flex",
           flexWrap: "wrap",
-          gap: 8,
+          gap: 16,
           marginTop: 14,
           justifyContent: "center",
+          alignItems: "center",
         }}
       >
         {[
-          ["Available", "#bbb"],
-          ["Booked", "#444"],
-          ["Closed", "#553333"],
-          ["Selected", gold],
+          ["Available", "#5cb85c"],
+          ["Booked",    "#444"],
+          ["Closed",    "#553333"],
         ].map(([l, c]) => (
           <div key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <div
-              style={{ width: 8, height: 8, borderRadius: "50%", background: c }}
-            />
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />
             <span style={{ color: "#666", fontSize: 10 }}>{l}</span>
           </div>
         ))}

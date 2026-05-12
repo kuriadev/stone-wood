@@ -135,18 +135,34 @@ export function BookingDatePicker({
           const isClosed = closedSet.has(ds);
           const isSel = selectedDate === ds;
           const disabled = isPast || isBooked || isClosed;
-          let bg = isDark ? "#1e1e1e" : "#f0ede7";
-          let col = isDark ? "#ccc" : "#444";
+          let bg = isDark ? "#0f2a17" : "#dff5e5";
+          let col = isDark ? "#63d471" : "#1f7a38";
           let bdr = `1px solid ${C.border}`;
           let cur: string = "pointer";
-          if (isPast) { bg = isDark ? "#0c0c0c" : "#f8f6f2"; col = C.textXS; cur = "default"; }
-          if (isBooked) { col = isDark ? "#444" : "#bbb"; cur = "not-allowed"; }
+          if (isPast) { bg = isDark ? "#0c0c0c" : "#f8f6f2"; col = C.textXS; cur = "not-allowed"; }
+          if (isBooked) {
+            bg = isDark ? "#202020" : "#e7e7e7";
+            col = isDark ? "#666" : "#aaa";
+            bdr = isDark
+              ? "1px solid #303030"
+              : "1px solid #d0d0d0";
+            cur = "not-allowed";
+          }
           if (isClosed) { bg = isDark ? "#1a0a0a" : "#fff0f0"; col = isDark ? "#553333" : "#e0a0a0"; cur = "not-allowed"; }
           if (isSel) { bg = gold; col = "#000"; bdr = `1px solid ${gold}`; }
           return (
             <div
               key={d}
               onClick={() => !disabled && onSelectDate(ds)}
+              title={
+                isPast
+                  ? "Past date"
+                  : isBooked
+                  ? "Booked"
+                  : isClosed
+                  ? "Not available"
+                  : "Available"
+              }
               style={{
                 textAlign: "center",
                 padding: "7px 2px",
@@ -176,7 +192,7 @@ export function BookingDatePicker({
         }}
       >
         {[
-          ["Available", "#4caf50"],
+          ["Available", "#5cb85c"],
           ["Booked", "#888"],
           ["Closed", "#e55"],
           ["Selected", gold],
