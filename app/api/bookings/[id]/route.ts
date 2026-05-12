@@ -26,3 +26,11 @@
 //   await Booking.findOneAndDelete({ id: params.id });
 //   return NextResponse.json({ success: true });
 // }
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "Booking route placeholder",
+  });
+}
