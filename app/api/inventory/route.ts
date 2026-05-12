@@ -18,3 +18,22 @@
 //   const item = await Inventory.create(data);
 //   return NextResponse.json(item, { status: 201 });
 // }
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    inventory: [],
+  });
+}
+
+export async function POST() {
+  return NextResponse.json(
+    {
+      success: false,
+      message: "Inventory backend not implemented yet",
+    },
+    { status: 501 }
+  );
+}
