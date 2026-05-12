@@ -18,3 +18,19 @@
 //   const booking = await Booking.create(data);
 //   return NextResponse.json(booking, { status: 201 });
 // }
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    bookings: [],
+  });
+}
+
+export async function POST() {
+  return NextResponse.json({
+    success: false,
+    message: "Booking backend not implemented yet",
+  });
+}
