@@ -145,7 +145,7 @@ export function AvailabilityCalendar({
           let bdr = "1px solid rgba(76,175,80,0.22)";
           let cur: string = "pointer";
 
-          if (isPast)   { bg = "#0c0c0c";              col = "#333";     bdr = "1px solid #1a1a1a"; cur = "not-allowed";     }
+          if (isPast)   { bg = "#0c0c0c";              col = "#333";     bdr = "1px solid #1a1a1a"; cur = "not-allowed"; }
           if (isBooked) { bg = "#161616";              col = "#444";     bdr = "1px solid #252525"; cur = "not-allowed"; }
           if (isClosed) { bg = "#1a0a0a";              col = "#553333";  bdr = "1px solid #2a1010"; cur = "not-allowed"; }
           if (isSel)    { bg = gold;                   col = "#000";     bdr = `1px solid ${gold}`; }
