@@ -561,3 +561,74 @@ img { max-width: 100%; }
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   ACCESSIBILITY
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── FOCUS VISIBILITY ──────────────────────────────────────────────
+   Keyboard users currently get no indication of where they are.
+   :focus-visible only fires for keyboard focus, so mouse users see
+   nothing change. */
+:focus-visible {
+  outline: 2px solid #c9a84c;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+/* Suppress the default ring for pointer interaction only. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ── SKIP LINK ─────────────────────────────────────────────────────
+   Parked off-screen until focused, then slides into view. */
+.sw-skip {
+  top: -60px;
+  transition: top .2s ease;
+}
+.sw-skip:focus {
+  top: 16px;
+}
+
+/* ── REDUCED MOTION ────────────────────────────────────────────────
+   Scoped deliberately. Only the looping / large-movement animations
+   are stopped, because those are what actually trigger discomfort.
+   One-shot fades, hover states and colour transitions are left
+   running, so the site still feels alive rather than dead. */
+@media (prefers-reduced-motion: reduce) {
+  .sw-marquee-track,        /* endless horizontal scroll */
+  .sw-hero-card-float,      /* 5s vertical bob */
+  .sw-hero-scroll-indicator,/* bouncing chevron */
+  .sw-hero-cta-glow,        /* pulsing button glow */
+  .sw-hero-gold-text,       /* looping gold sweep */
+  .gold-text,
+  .lux-btn::before,         /* shimmer sweep across buttons */
+  .hero-parallax {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* The IntersectionObserver adds .sw-reveal-in to fade these in.
+     Nothing above suppresses that transition, but pin them visible
+     anyway so a missed observer can never leave content invisible. */
+  .sw-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Anchor jumps land instantly instead of gliding. */
+  html {
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── SMOOTH ANCHOR SCROLL ──────────────────────────────────────────
+   Overridden above when reduced motion is requested. */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── SELECTION ─────────────────────────────────────────────────────
+   Small detail, but the default blue clashes with the palette. */
+::selection {
+  background: rgba(201, 168, 76, 0.28);
+}

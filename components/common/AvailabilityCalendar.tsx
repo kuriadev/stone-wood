@@ -17,24 +17,29 @@ export function AvailabilityCalendar({
   onSelectDate,
   selectedDate,
 }: AvailabilityCalendarProps) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const [calMonth, setCalMonth] = useState(
-    new Date(today.getFullYear(), today.getMonth(), 1)
-  );
+  // The calendar depends on the *browser's* current date. Computing that during
+  // SSR produces HTML that can disagree with what the client builds (different
+  // timezone / the day rolling over), which React reports as a hydration
+  // mismatch. So we render nothing date-dependent until after mount.
+  const [mounted, setMounted] = useState(false);
+  const [calMonth, setCalMonth] = useState<Date | null>(null);
 
   useEffect(() => {
     const now = new Date();
     setCalMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+    setMounted(true);
   }, []);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   const bookedDates = new Set(
     bookings.filter((b) => b.status !== "Cancelled").map((b) => b.date)
   );
   const closedSet = new Set(closedDates);
-  const year = calMonth.getFullYear();
-  const month = calMonth.getMonth();
+
+  const year = calMonth ? calMonth.getFullYear() : today.getFullYear();
+  const month = calMonth ? calMonth.getMonth() : today.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDay = new Date(year, month, 1).getDay();
   const toStr = (d: number) =>
@@ -62,7 +67,9 @@ export function AvailabilityCalendar({
         }}
       >
         <button
-          onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+          onClick={() =>
+            setCalMonth((m) => (m ? new Date(m.getFullYear(), m.getMonth() - 1, 1) : m))
+          }
           style={{
             background: "none",
             border: "1px solid #2a2a2a",
@@ -86,10 +93,14 @@ export function AvailabilityCalendar({
             fontFamily: "'Cormorant Garamond',Georgia,serif",
           }}
         >
-          {calMonth.toLocaleString("default", { month: "long", year: "numeric" })}
+          {mounted && calMonth
+            ? calMonth.toLocaleString("default", { month: "long", year: "numeric" })
+            : "\u00A0"}
         </span>
         <button
-          onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
+          onClick={() =>
+            setCalMonth((m) => (m ? new Date(m.getFullYear(), m.getMonth() + 1, 1) : m))
+          }
           style={{
             background: "none",
             border: "1px solid #2a2a2a",
@@ -127,10 +138,19 @@ export function AvailabilityCalendar({
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3 }}>
-        {Array.from({ length: firstDay }).map((_, i) => (
-          <div key={`e${i}`} />
-        ))}
-        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
+        {!mounted
+          ? /* Placeholder keeps the panel the same height before mount. */
+            Array.from({ length: 35 }).map((_, i) => (
+              <div key={`ph${i}`} style={{ padding: "7px 2px", fontSize: 12, visibility: "hidden" }}>
+                0
+              </div>
+            ))
+          : (
+            <>
+              {Array.from({ length: firstDay }).map((_, i) => (
+                <div key={`e${i}`} />
+              ))}
+              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
           const ds = toStr(d);
           const dayDate = new Date(year, month, d);
           const isPast = dayDate < today;
@@ -145,7 +165,7 @@ export function AvailabilityCalendar({
           let bdr = "1px solid rgba(76,175,80,0.22)";
           let cur: string = "pointer";
 
-          if (isPast)   { bg = "#0c0c0c";              col = "#333";     bdr = "1px solid #1a1a1a"; cur = "not-allowed"; }
+          if (isPast)   { bg = "#0c0c0c";              col = "#333";     bdr = "1px solid #1a1a1a"; cur = "default";     }
           if (isBooked) { bg = "#161616";              col = "#444";     bdr = "1px solid #252525"; cur = "not-allowed"; }
           if (isClosed) { bg = "#1a0a0a";              col = "#553333";  bdr = "1px solid #2a1010"; cur = "not-allowed"; }
           if (isSel)    { bg = gold;                   col = "#000";     bdr = `1px solid ${gold}`; }
@@ -154,15 +174,6 @@ export function AvailabilityCalendar({
             <div
               key={d}
               onClick={() => !disabled && onSelectDate(ds)}
-              title={
-                isPast
-                  ? "Past date"
-                  : isBooked
-                  ? "Booked"
-                  : isClosed
-                  ? "Not available"
-                  : "Available"
-              }
               style={{
                 textAlign: "center",
                 padding: "7px 2px",
@@ -180,6 +191,8 @@ export function AvailabilityCalendar({
             </div>
           );
         })}
+            </>
+          )}
       </div>
 
       {/* Legend — centered together */}
