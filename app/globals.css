@@ -602,7 +602,8 @@ img { max-width: 100%; }
   .sw-hero-gold-text,       /* looping gold sweep */
   .gold-text,
   .lux-btn::before,         /* shimmer sweep across buttons */
-  .hero-parallax {
+  .hero-parallax,
+  .sw-page {                /* per-route fade-in */
     animation: none !important;
     transition: none !important;
   }
@@ -631,4 +632,64 @@ html {
    Small detail, but the default blue clashes with the palette. */
 ::selection {
   background: rgba(201, 168, 76, 0.28);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   POINTER & PAGE MOTION
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── CURSOR DOT ────────────────────────────────────────────────────
+   A soft circle trailing the pointer. The native cursor stays visible
+   on purpose — replacing it breaks text carets and resize handles.
+   Never interactive, so pointer-events must stay off. */
+.sw-cursor-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;          /* under TopLoader (9999), over everything else */
+  opacity: 0;             /* JS fades it in on first pointer move */
+  transition: opacity .35s ease;
+  will-change: transform;
+
+  /* Glassmorphism, kept deliberately weak. backdrop-filter blurs whatever
+     sits BEHIND the dot, so this value is the single thing that decides
+     whether text underneath stays readable. At 7px small digits were
+     illegible; 2px still refracts enough to read as glass while leaving
+     content beneath it legible. Raise it and readability goes first. */
+  -webkit-backdrop-filter: blur(2px) saturate(118%);
+  backdrop-filter: blur(2px) saturate(118%);
+}
+
+/* Browsers without backdrop-filter get no glass at all, so lean on the rim
+   instead of the fill. Note this cannot use opacity OR filter: the component
+   writes both inline every frame, and inline always beats a stylesheet rule,
+   so either would simply never apply. background is untouched by the JS. */
+@supports not (backdrop-filter: blur(1px)) {
+  .sw-cursor-dot { background: transparent !important; }
+}
+
+/* Touch has no hovering pointer, so there is nothing to follow.
+   Reduced motion is deliberately NOT hidden here — the component drops the
+   trailing lag instead, so the dot stays visible and just stops easing. */
+@media (pointer: coarse) {
+  .sw-cursor-dot { display: none !important; }
+}
+
+/* ── PAGE TRANSITION ───────────────────────────────────────────────
+   Keyed on the pathname in ClientShell, so each route entrance runs
+   this once. Short and small — enough to feel continuous, not enough
+   to delay reading. */
+.sw-page {
+  animation: pageFadeIn .42s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+/* ── SCROLL ────────────────────────────────────────────────────────
+   The navbar is fixed, so anchor targets need padding or headings
+   land underneath it. */
+html {
+  scroll-padding-top: 88px;
 }
