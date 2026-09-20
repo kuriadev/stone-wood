@@ -266,7 +266,7 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
 
               <div style={{ flex: 1, minWidth: 0 }}>
                 <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, fontWeight: 500, marginBottom: 14 }}>
-                  {found.package === "Day Tour + Room" ? "Deluxe Pool Villa" : "Day Tour Package"}
+                  {found.package.includes("Room") ? "Deluxe Pool Villa" : `${found.package} Package`}
                 </h3>
                 <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 12 }}>
                   {[

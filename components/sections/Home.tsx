@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
@@ -8,13 +9,29 @@ import { gold, goldBtn } from "@/lib/styles";
 import { PACKAGES } from "@/lib/constants";
 import { fmt } from "@/lib/utils";
 import { AvailabilityCalendar } from "@/components/common/AvailabilityCalendar";
-import type { Booking } from "@/types/booking";
+import type { Booking, BookingResource, BookingTier, PackageDeepLink } from "@/types/booking";
+import type { ResortPackage } from "@/types/package";
+import type { MenuItem } from "@/types/menu";
 
 interface HomeProps {
   setPage: (p: string) => void;
   onBookWithDate: (d: string) => void;
   bookings: Booking[];
   closedDates: string[];
+  /** Admin-editable package list (see the admin Packages tab) — the single
+   *  source of truth for what's shown here and what a "BOOK PACKAGE" click
+   *  carries into Book Now. Only `active` packages are rendered. */
+  packages: ResortPackage[];
+  /** Shown in the "What's Included" section so guests can see exactly what
+   *  food is on offer before booking, instead of only finding out at
+   *  checkout. Only items marked `available` are listed. */
+  menuItems?: MenuItem[];
+  /** Deep-link a package straight into Book Now with its price, capacity
+   *  and resource/tier pre-selected — a package is a fixed, one-time
+   *  purchase, so Book Now only asks for a date and food once it arrives
+   *  this way. Falls back to a plain "Book Now" navigation when not
+   *  provided (e.g. the legacy SPA shell). */
+  onBookPackage?: (pkg: PackageDeepLink, resource: BookingResource, tier: BookingTier) => void;
 }
 
 // TODO: swap for the resort's own night/pool photography when available.
@@ -88,58 +105,21 @@ const SERVICES: { name: string; icon: React.ReactNode }[] = [
   },
 ];
 
-// Photo pools. Each package draws its gallery from these based on how many
-// rooms and pools it includes — swap these URLs for the resort's own shots.
-const ROOM_PHOTOS = [
-  { label: "Room 1 — Queen & Deck", src: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?q=80&w=1200&auto=format&fit=crop" },
-  { label: "Room 2 — Deck Suite", src: "https://images.unsplash.com/photo-1566665797739-1674de7a421a?q=80&w=1200&auto=format&fit=crop" },
-  { label: "Room 3 — Cozy Double", src: "https://images.unsplash.com/photo-1598928506311-c55ded91a20c?q=80&w=1200&auto=format&fit=crop" },
-  { label: "Room 4 — Garden Room", src: "https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=1200&auto=format&fit=crop" },
-];
-
-const POOL_PHOTOS = [
-  { label: "Main Pool", src: "https://images.unsplash.com/photo-1536745511564-a5fa6e596e7b?q=80&w=1200&auto=format&fit=crop" },
-  { label: "Second Pool", src: "https://images.unsplash.com/photo-1540541338287-41700207dee6?q=80&w=1200&auto=format&fit=crop" },
-];
-
 // Wide resort shot — used as the 4B (full resort) cover.
 const RESORT_WIDE = "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?q=80&w=1200&auto=format&fit=crop";
 
-// Gallery for a package = its rooms, then its pools.
-const pkgGallery = (rooms: number, pools: number) => [
-  ...ROOM_PHOTOS.slice(0, rooms).map((p) => ({ ...p, kind: "Room" })),
-  ...POOL_PHOTOS.slice(0, pools).map((p) => ({ ...p, kind: "Pool" })),
-];
-
+// No overnight stays — the resort only runs Day and Night tours.
 const DURATIONS = [
   { label: "Day Tour", window: "7:00 AM – 5:00 PM" },
   { label: "Night Tour", window: "7:00 PM – 12:00 AM" },
-  { label: "Overnight", window: "7:00 PM – 7:00 AM (next day)" },
 ];
 
 const ADDONS = ["Breakfast", "Lunch", "Dinner"];
 
-const PACKAGE_TIERS = [
-  { code: "1A", rooms: 1, pools: 1, status: "Shared",    cover: ROOM_PHOTOS[0].src },
-  { code: "1B", rooms: 1, pools: 2, status: "Exclusive", cover: POOL_PHOTOS[1].src },
-  { code: "2A", rooms: 2, pools: 1, status: "Shared",    cover: ROOM_PHOTOS[1].src },
-  { code: "2B", rooms: 2, pools: 2, status: "Exclusive", cover: POOL_PHOTOS[0].src },
-  { code: "3A", rooms: 3, pools: 1, status: "Shared",    cover: ROOM_PHOTOS[2].src },
-  { code: "3B", rooms: 3, pools: 2, status: "Exclusive", cover: POOL_PHOTOS[1].src },
-  { code: "4A", rooms: 4, pools: 1, status: "Shared",    cover: ROOM_PHOTOS[3].src },
-  { code: "4B", rooms: 4, pools: 2, status: "Exclusive", cover: RESORT_WIDE, note: "Full resort" },
-];
-
-// Grouped views of PACKAGE_TIERS for display. The original index rides
-// along because openPkg() and pkgCardRefs both index into PACKAGE_TIERS
-// itself — losing it here would open the wrong package on click.
-const PACKAGE_GROUPS = [
-  { label: "SHARED", status: "Shared" },
-  { label: "EXCLUSIVE", status: "Exclusive" },
-].map((g) => ({
-  ...g,
-  tiers: PACKAGE_TIERS.map((p, i) => ({ p, i })).filter(({ p }) => p.status === g.status),
-}));
+// Packages themselves now come from the admin-editable `packages` prop (see
+// types/package.ts and the admin Packages tab) — grouping them by Shared vs
+// Exclusive for display happens inside the component below, since it needs
+// that prop.
 
 const MARQUEE_REVIEWS = [
   { name: "Isabella M.", rating: 5, message: "Absolutely magical. The infinity pool at sunset is something I'll never forget. Staff treated us like family." },
@@ -152,12 +132,24 @@ const MARQUEE_REVIEWS = [
   { name: "Carlo Tan", rating: 5, message: "Great value for the whole group. The videoke setup made the night so much fun." },
 ];
 
-export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomeProps) {
+export function Home({ setPage, onBookWithDate, bookings, closedDates, packages, menuItems = [], onBookPackage }: HomeProps) {
   const { isDark } = useTheme();
   const C = T(isDark);
   const w = useWidth();
   const mob = w < 768;
   const tab = w < 1024;
+
+  // Hidden (inactive) packages never reach the customer — the same array
+  // index is reused by openPkg()/pkgCardRefs, so it's built once here off
+  // the visible list only.
+  const visiblePackages = packages.filter((p) => p.active);
+  const packageGroups = [
+    { label: "SHARED", status: "Shared" as const },
+    { label: "EXCLUSIVE", status: "Exclusive" as const },
+  ].map((g) => ({
+    ...g,
+    tiers: visiblePackages.map((p, i) => ({ p, i })).filter(({ p }) => p.status === g.status),
+  }));
 
   // ── Shared type scale ──────────────────────────────────────────────
   // Larger, higher-contrast display type that holds up in both themes.
@@ -190,6 +182,12 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
   const [pkgShown, setPkgShown] = useState(false);
   // Which photo of the expanded package's gallery is showing.
   const [photoIdx, setPhotoIdx] = useState(0);
+  // The package modal is rendered through a portal straight into
+  // document.body (see below) so it can never again be broken by an
+  // ancestor's CSS — document doesn't exist during SSR, so it only mounts
+  // once we're safely in the browser.
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => setPortalReady(true), []);
 
   const openPkg = (i: number) => {
     setActivePkg(i);
@@ -208,7 +206,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
         return;
       }
       if (activePkg === null) return;
-      const len = pkgGallery(PACKAGE_TIERS[activePkg].rooms, PACKAGE_TIERS[activePkg].pools).length;
+      const len = visiblePackages[activePkg].gallery.length;
       if (e.key === "ArrowRight") setPhotoIdx((n) => (n + 1) % len);
       if (e.key === "ArrowLeft") setPhotoIdx((n) => (n - 1 + len) % len);
     };
@@ -349,20 +347,26 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
                 ))}
               </div>
 
-              {/* Secondary paths — present, but visibly subordinate */}
-              <div style={{ display: "flex", gap: 18, marginTop: 20, flexWrap: "wrap" }}>
-                {[["Browse rooms", "Rooms"], ["Manage booking", "Cancel Booking"]].map(([label, target]) => (
+              {/* Secondary paths — real buttons now, still visually subordinate to the calendar */}
+              <div style={{ display: "flex", gap: 10, marginTop: 22, flexWrap: "wrap" }}>
+                {[["Browse Rooms", "Rooms"], ["Manage Booking", "Cancel Booking"]].map(([label, target]) => (
                   <button
                     key={target}
                     onClick={() => setPage(target)}
                     style={{
-                      background: "none", border: "none", padding: 0, cursor: "pointer",
-                      color: "rgba(238,232,220,0.72)", fontSize: 12, letterSpacing: 0.4,
-                      borderBottom: "1px solid rgba(201,168,76,0.4)", paddingBottom: 2,
-                      transition: "color .2s ease, border-color .2s ease",
+                      background: "rgba(255,255,255,0.06)",
+                      border: "1px solid rgba(201,168,76,0.4)",
+                      borderRadius: 7,
+                      padding: "10px 16px",
+                      cursor: "pointer",
+                      color: "rgba(246,241,232,0.9)",
+                      fontSize: 11.5,
+                      letterSpacing: 0.6,
+                      fontWeight: 500,
+                      transition: "background .2s ease, border-color .2s ease, color .2s ease",
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = gold; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(238,232,220,0.72)"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.4)"; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = `${gold}22`; e.currentTarget.style.borderColor = gold; e.currentTarget.style.color = "#fff"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.4)"; e.currentTarget.style.color = "rgba(246,241,232,0.9)"; }}
                   >
                     {label}
                   </button>
@@ -394,15 +398,17 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
               Choose Your Stay
             </h2>
             <p style={{ ...lede, maxWidth: 520, margin: "0 auto" }}>
-              Eight configurations across rooms and pools. Select a package to see the full details.
+              A few real ways to book — pool only, the events venue, or both together. Select a package to see the full details.
             </p>
           </div>
 
-          {/* Duration windows */}
+          {/* Duration windows — only Day/Night Tour exist (no Overnight), so
+              this is a centered 2-up row rather than a 3-column grid with an
+              empty trailing cell. */}
           <div
             ref={pkgDurationRef}
             className="sw-reveal"
-            style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 1, background: C.border, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", marginBottom: mob ? 28 : 40 }}
+            style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(2,minmax(220px,320px))", justifyContent: "center", gap: 1, background: C.border, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", marginBottom: mob ? 28 : 40, maxWidth: mob ? "100%" : 642, marginLeft: "auto", marginRight: "auto" }}
           >
             {DURATIONS.map((d) => (
               <div key={d.label} style={{ background: C.bgCard2, padding: mob ? "18px 20px" : "22px 24px", textAlign: "center" }}>
@@ -413,7 +419,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
           </div>
 
           {/* Package cards — split into shared and exclusive groups */}
-          {PACKAGE_GROUPS.map((group, gi) => (
+          {packageGroups.map((group, gi) => (
           <div key={group.label} style={{ marginTop: gi === 0 ? 0 : (mob ? 30 : 40) }}>
 
             {/* Group divider — same treatment as AVAILABLE ADD-ONS below */}
@@ -423,7 +429,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
               <div style={{ flex: 1, height: 1, background: C.border }} />
             </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : tab ? "repeat(3,1fr)" : "repeat(4,1fr)", gap: mob ? 10 : 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(auto-fit,minmax(220px,1fr))", gap: mob ? 10 : 14 }}>
             {group.tiers.map(({ p, i }, gIdx) => {
               const exclusive = p.status === "Exclusive";
               return (
@@ -476,12 +482,12 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
                       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2.5">
                         <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
                       </svg>
-                      <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 9, fontWeight: 600 }}>{p.rooms + p.pools}</span>
+                      <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 9, fontWeight: 600 }}>{p.gallery.length}</span>
                     </div>
 
-                    {/* Code over the photo */}
-                    <div style={{ position: "absolute", bottom: 8, left: 14, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 28 : 34, color: "#fff", lineHeight: 1, fontWeight: 400, textShadow: "0 2px 12px rgba(0,0,0,0.6)" }}>
-                      {p.code}
+                    {/* Title over the photo */}
+                    <div style={{ position: "absolute", bottom: 8, left: 14, right: 14, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 18 : 21, color: "#fff", lineHeight: 1.15, fontWeight: 400, textShadow: "0 2px 12px rgba(0,0,0,0.6)" }}>
+                      {p.title}
                     </div>
                   </div>
 
@@ -489,9 +495,16 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: exclusive ? `linear-gradient(to right,transparent,${gold},transparent)` : "transparent", zIndex: 2 }} />
 
                   <div style={{ padding: mob ? "14px 14px 16px" : "16px 18px 18px" }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
+                      <span style={{ color: gold, fontSize: 18, fontWeight: 700 }}>{fmt(p.price)}</span>
+                      {p.listPrice && (
+                        <span style={{ color: C.textXS, fontSize: 12, textDecoration: "line-through" }}>{fmt(p.listPrice)}</span>
+                      )}
+                    </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
-                      <div style={{ color: C.textB, fontSize: 12 }}>{p.rooms} {p.rooms === 1 ? "Room" : "Rooms"}</div>
-                      <div style={{ color: C.textB, fontSize: 12 }}>{p.pools} {p.pools === 1 ? "Pool" : "Pools"}</div>
+                      {p.includes.slice(0, 2).map((inc) => (
+                        <div key={inc} style={{ color: C.textB, fontSize: 12 }}>{inc}</div>
+                      ))}
                     </div>
 
                     <span
@@ -508,6 +521,22 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
                     >
                       {p.status.toUpperCase()}
                     </span>
+
+                    {p.listPrice && (
+                      <span style={{ display: "inline-block", marginLeft: 6, fontSize: 9, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: "rgba(76,175,80,0.12)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.4)" }}>
+                        SAVE {fmt(p.listPrice - p.price)}
+                      </span>
+                    )}
+                    {p.foodDiscountPct && (
+                      <span style={{ display: "inline-block", marginLeft: 6, fontSize: 9, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: "rgba(76,175,80,0.12)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.4)" }}>
+                        {Math.round(p.foodDiscountPct * 100)}% OFF FOOD
+                      </span>
+                    )}
+                    {p.requiresRoom && (
+                      <span style={{ display: "inline-block", marginLeft: 6, fontSize: 9, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: `${gold}18`, color: gold, border: `1px solid ${gold}44` }}>
+                        ROOM DISCOUNTED
+                      </span>
+                    )}
 
                     {p.note && (
                       <div style={{ color: C.textXS, fontSize: 10, marginTop: 8, letterSpacing: 0.5 }}>{p.note}</div>
@@ -541,11 +570,26 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
         </div>
       </div>
 
-      {/* ── Expanded package card — centred, blurred backdrop ── */}
-      {activePkg !== null && (() => {
-        const p = PACKAGE_TIERS[activePkg];
+      {/* ── Expanded package card ──
+          Rendered through a portal directly into document.body instead of
+          in place here. Previously this modal was a normal descendant of
+          the page, and it kept breaking (needing a zoom-out, or opening cut
+          off near the bottom of a short window) because SOME ancestor
+          somewhere up the tree ends up with a non-"none" computed transform
+          (page-entrance animations, hover effects, etc. all reach for
+          `transform`) — and any one of those turns into the containing
+          block for this modal's `position: fixed`, sizing and centering it
+          against that ancestor's box instead of the actual viewport. A
+          portal sidesteps the whole category of bug: this element's parent
+          in the DOM is always <body> itself, no matter what the rest of the
+          page's CSS is doing. The backdrop also now scrolls itself
+          (instead of capping the card at 90vh with an inner scroll area),
+          which is what actually keeps it usable in a short/small browser
+          window like the one that triggered this. */}
+      {activePkg !== null && portalReady && createPortal((() => {
+        const p = visiblePackages[activePkg];
         const exclusive = p.status === "Exclusive";
-        const gallery = pkgGallery(p.rooms, p.pools);
+        const gallery = p.gallery;
         const shot = gallery[Math.min(photoIdx, gallery.length - 1)];
         const step = (dir: number) => setPhotoIdx((n) => (n + dir + gallery.length) % gallery.length);
         return (
@@ -558,9 +602,11 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
               inset: 0,
               zIndex: 1000,
               display: "flex",
-              alignItems: "center",
+              alignItems: "flex-start",
               justifyContent: "center",
-              padding: mob ? 18 : 24,
+              overflowY: "auto",
+              WebkitOverflowScrolling: "touch",
+              padding: mob ? "18px" : "40px 24px",
               background: isDark ? "rgba(4,3,2,0.55)" : "rgba(20,14,6,0.45)",
               backdropFilter: `blur(${pkgShown ? 10 : 0}px)`,
               WebkitBackdropFilter: `blur(${pkgShown ? 10 : 0}px)`,
@@ -574,8 +620,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
                 position: "relative",
                 width: "100%",
                 maxWidth: 480,
-                maxHeight: "90vh",
-                overflowY: "auto",
+                margin: "auto 0",
                 background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff",
                 border: `1px solid ${exclusive ? `${gold}55` : C.border}`,
                 borderRadius: 18,
@@ -657,8 +702,8 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
                   <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
                     <div>
                       <div style={{ color: gold, fontSize: 9, letterSpacing: 3, marginBottom: 4 }}>PACKAGE</div>
-                      <div style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 42 : 50, color: "#fff", lineHeight: 1, fontWeight: 400, textShadow: "0 2px 16px rgba(0,0,0,0.6)" }}>
-                        {p.code}
+                      <div style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 26 : 30, color: "#fff", lineHeight: 1.1, fontWeight: 400, textShadow: "0 2px 16px rgba(0,0,0,0.6)" }}>
+                        {p.title}
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
@@ -708,35 +753,70 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
                 </span>
               </div>
 
-              {/* Inclusions */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: C.border, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", marginBottom: 24 }}>
-                {[
-                  ["ROOMS", `${p.rooms}`],
-                  ["POOLS", `${p.pools}`],
-                ].map(([l, v]) => (
-                  <div key={l} style={{ background: isDark ? "#0b0a07" : "#faf7f2", padding: "18px 14px", textAlign: "center" }}>
-                    <div style={{ color: C.textXS, fontSize: 9, letterSpacing: 2, marginBottom: 6 }}>{l}</div>
-                    <div style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 26, fontWeight: 400 }}>{v}</div>
-                  </div>
-                ))}
+              {/* Fixed price — a package is a one-time purchase, not a
+                  customizable reservation, so this is the whole tour/venue
+                  cost regardless of how many of the included guests show
+                  up. Food is the only thing added on top at checkout. */}
+              <div style={{ textAlign: "center", marginBottom: 20 }}>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 10 }}>
+                  <span style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 40, color: C.textH, fontWeight: 400 }}>{fmt(p.price)}</span>
+                  {p.listPrice && (
+                    <span style={{ color: C.textXS, fontSize: 16, textDecoration: "line-through" }}>{fmt(p.listPrice)}</span>
+                  )}
+                </div>
+                {p.listPrice ? (
+                  <p style={{ color: "#4caf50", fontSize: 11, letterSpacing: 0.5, marginTop: 6 }}>
+                    Bundle discount — you save {fmt(p.listPrice - p.price)}
+                  </p>
+                ) : p.requiresRoom ? (
+                  <p style={{ color: C.textXS, fontSize: 11, marginTop: 6 }}>Plus a room of your choice (discounted rate) and food, if you add any</p>
+                ) : p.foodDiscountPct ? (
+                  <p style={{ color: "#4caf50", fontSize: 11, marginTop: 6 }}>Plus {Math.round(p.foodDiscountPct * 100)}% off any food you order</p>
+                ) : (
+                  <p style={{ color: C.textXS, fontSize: 11, marginTop: 6 }}>Flat price for up to {p.capacity} guests — plus food, if you add any</p>
+                )}
               </div>
 
-              {/* Duration windows */}
-              <div style={{ marginBottom: 22 }}>
-                <p style={{ color: C.textXS, fontSize: 9, letterSpacing: 2.5, marginBottom: 12 }}>AVAILABLE DURATIONS</p>
+              <p style={{ color: C.textS, fontSize: 13, lineHeight: 1.75, textAlign: "center", marginBottom: 24 }}>{p.blurb}</p>
+
+              {/* Inclusions */}
+              <div style={{ marginBottom: 24 }}>
+                <p style={{ color: C.textXS, fontSize: 9, letterSpacing: 2.5, marginBottom: 12 }}>WHAT'S INCLUDED</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-                  {DURATIONS.map((d) => (
-                    <div key={d.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 9, borderBottom: `1px solid ${C.borderLight}` }}>
-                      <span style={{ color: C.textB, fontSize: 13 }}>{d.label}</span>
-                      <span style={{ color: gold, fontSize: 12, fontWeight: 500 }}>{d.window}</span>
+                  {p.includes.map((inc) => (
+                    <div key={inc} style={{ display: "flex", alignItems: "flex-start", gap: 8, paddingBottom: 9, borderBottom: `1px solid ${C.borderLight}` }}>
+                      <span style={{ color: gold, fontSize: 10, marginTop: 2, flexShrink: 0 }}>✓</span>
+                      <span style={{ color: C.textB, fontSize: 13, lineHeight: 1.5 }}>{inc}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
+              {/* Duration windows — a Venue-only rental isn't a pool tour, so it
+                  doesn't get the Day/Night/Overnight windows. */}
+              {p.resource !== "Venue" && (
+                <div style={{ marginBottom: 22 }}>
+                  <p style={{ color: C.textXS, fontSize: 9, letterSpacing: 2.5, marginBottom: 12 }}>AVAILABLE DURATIONS</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                    {DURATIONS.map((d) => (
+                      <div key={d.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 9, borderBottom: `1px solid ${C.borderLight}` }}>
+                        <span style={{ color: C.textB, fontSize: 13 }}>{d.label}</span>
+                        <span style={{ color: gold, fontSize: 12, fontWeight: 500 }}>{d.window}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Food */}
+              <div style={{ marginBottom: 22 }}>
+                <p style={{ color: C.textXS, fontSize: 9, letterSpacing: 2.5, marginBottom: 10 }}>FOOD</p>
+                <p style={{ color: C.textB, fontSize: 12.5, lineHeight: 1.6, margin: 0 }}>{p.foodNote}</p>
+              </div>
+
               {/* Add-ons */}
               <div style={{ marginBottom: 28 }}>
-                <p style={{ color: C.textXS, fontSize: 9, letterSpacing: 2.5, marginBottom: 12 }}>ADD-ONS</p>
+                <p style={{ color: C.textXS, fontSize: 9, letterSpacing: 2.5, marginBottom: 12 }}>MENU ADD-ONS</p>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {ADDONS.map((a) => (
                     <span key={a} style={{ background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 14px", color: C.textB, fontSize: 12 }}>
@@ -748,23 +828,34 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
 
               <button
                 className="sw-btn"
-                onClick={() => { closePkg(); setPage("Book Now"); }}
+                onClick={() => {
+                  closePkg();
+                  if (onBookPackage) {
+                    onBookPackage(
+                      { code: p.code, title: p.title, price: p.price, listPrice: p.listPrice, capacity: p.capacity, requiresRoom: p.requiresRoom, foodDiscountPct: p.foodDiscountPct },
+                      p.resource,
+                      p.status
+                    );
+                  } else {
+                    setPage("Book Now");
+                  }
+                }}
                 style={{ ...goldBtn, width: "100%", padding: "14px 20px", letterSpacing: 1.5, fontSize: 12, borderRadius: 8 }}
               >
-                BOOK PACKAGE {p.code} →
+                BOOK {p.title.toUpperCase()} →
               </button>
               </div>
             </div>
           </div>
         );
-      })()}
+      })(), document.body)}
 
       {/* ── RATES & FACILITIES (unchanged) ── */}
       <div style={{ background: isDark ? "#0a0806" : "#fdf9f4", padding: mob ? "52px 20px" : "88px 24px", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
           <div ref={ratesHeaderRef} className="sw-reveal">
             <p style={eyebrow}>What&rsquo;s Included</p>
-            <h2 className="sw-section-title" style={{ ...h2, marginBottom: 16 }}>Day Tour &amp; Room Add-ons</h2>
+            <h2 className="sw-section-title" style={{ ...h2, marginBottom: 16 }}>Tours &amp; Room Add-ons</h2>
             <p style={{ ...lede, marginBottom: 52, maxWidth: 520, margin: "0 auto 52px" }}>Base pricing before package configuration. Every reservation starts here.</p>
           </div>
 
@@ -790,6 +881,40 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
                 )}
               </div>
             ))}
+
+            {/* Food & Drinks — fills the grid's trailing cell next to Room
+                Add-on and tells guests exactly what's on the menu (pulled
+                live from the admin-managed Menu) instead of leaving food
+                a surprise until checkout. */}
+            <div className="sw-card" style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: mob ? "22px 18px" : "28px 24px", textAlign: "left", boxShadow: C.shadowCard, display: "flex", flexDirection: "column" }}>
+              <div style={{ fontSize: 30, marginBottom: 12 }}>🍽️</div>
+              <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, marginBottom: 6 }}>Food &amp; Drinks</h3>
+              <p style={{ color: C.textS, fontSize: 13, marginBottom: 14, lineHeight: 1.6 }}>Pre-order from our menu, or a Pool + Food package bundles it with a discount.</p>
+              {(() => {
+                const available = menuItems.filter((m) => m.available);
+                const categories = Array.from(new Set(available.map((m) => m.category)));
+                return categories.length === 0 ? (
+                  <p style={{ color: C.textXS, fontSize: 12, marginBottom: 16 }}>Menu coming soon.</p>
+                ) : (
+                  categories.map((cat) => {
+                    const items = available.filter((m) => m.category === cat);
+                    return (
+                      <div key={cat} style={{ marginBottom: 10 }}>
+                        <div style={{ color: gold, fontSize: 10, letterSpacing: 1.5, marginBottom: 4 }}>{cat.toUpperCase()}</div>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                          <span style={{ color: gold, fontSize: 10, marginTop: 2, flexShrink: 0 }}>✓</span>
+                          <span style={{ color: C.textS, fontSize: 12, lineHeight: 1.5 }}>{items.map((m) => m.name).join(", ")}</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                );
+              })()}
+              <button className="sw-btn" onClick={() => setPage("Menu")} style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "linear-gradient(135deg,#c9a84c,#e8c56a)", color: "#1a1000", border: "none", padding: "11px 20px", fontWeight: 700, fontSize: 11, cursor: "pointer", borderRadius: 6, letterSpacing: 1.5, boxShadow: "0 2px 12px rgba(201,168,76,0.3)", width: "100%" }}>
+                <span>🍽</span> VIEW FULL MENU
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
+              </button>
+            </div>
           </div>
 
           <p style={{ color: C.textXS, fontSize: 13, marginTop: 8, lineHeight: 1.8 }}>All bookings require a 50% down payment. No refunds. Rescheduling subject to discussion.</p>

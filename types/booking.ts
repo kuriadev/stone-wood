@@ -1,5 +1,57 @@
 export type BookingStatus = "Paid" | "Confirmed" | "Completed" | "Cancelled";
-export type BookingPackage = "Day Tour" | "Day Tour + Room" | "On-Site Reservation";
+export type BookingPackage =
+  | "Day Tour"
+  | "Day Tour + Room"
+  | "Night Tour"
+  | "Night Tour + Room"
+  | "On-Site Reservation";
+
+/** Where the reservation was made. Older records (before this field
+ *  existed) have no source and are treated as "Online". */
+export type BookingSource = "Online" | "Walk-In";
+
+/** Which physical resource(s) this booking actually uses. "Pool" is the
+ *  original tour-style booking; "Venue" is the events hall rented on its
+ *  own (no pool at all — e.g. a Zumba session); "Pool+Venue" is a full
+ *  buyout of both together. Undefined on legacy records ⇒ "Pool", since
+ *  the events venue didn't exist yet when they were created. */
+export type BookingResource = "Pool" | "Venue" | "Pool+Venue";
+
+/** "Shared" = the pool may be used by other same-day Shared bookings too;
+ *  "Exclusive" = whole-resort buyout, no other booking allowed that date.
+ *  Chosen explicitly by the guest/staff rather than only inferred from
+ *  guest count. Undefined on legacy records ⇒ derived from guest count via
+ *  getPackageTier(). Only meaningful when resource includes "Pool" — a
+ *  Venue-only booking is always exclusive to the venue by definition. */
+export type BookingTier = "Shared" | "Exclusive";
+
+export interface BookingFoodItem {
+  itemId: number;
+  name: string;
+  price: number;
+  qty: number;
+}
+
+/** Carries a Home-page package's fixed pricing into Book Now via deep link
+ *  (see app/book/page.tsx's ?pkg=... query params). A package is a
+ *  one-time, non-customizable purchase — guests, tier and resource are all
+ *  fixed by the package itself, so the only choices left in Book Now are
+ *  the date and the food/combo order. `listPrice` is only set when the
+ *  package carries a bundle discount (e.g. Pool + Events Venue), so the UI
+ *  can show the pre-discount price struck through next to the real one. */
+export interface PackageDeepLink {
+  code: string;
+  title: string;
+  price: number;
+  listPrice?: number;
+  capacity: number;
+  /** True when the guest still needs to pick ONE room in Book Now — see
+   *  ResortPackage.requiresRoom. */
+  requiresRoom?: boolean;
+  /** Extra discount (0–1) on the whole food subtotal — see
+   *  ResortPackage.foodDiscountPct. */
+  foodDiscountPct?: number;
+}
 
 export interface Booking {
   id: string;
@@ -18,4 +70,25 @@ export interface Booking {
   notes: string;
   createdAt?: number;
   cancelReason?: string | null;
+  /** "Online" (guest booked through the website) or "Walk-In" (staff
+   *  encoded it at the front desk). Undefined on legacy records ⇒ Online. */
+  source?: BookingSource;
+  /** Food & drinks ordered with this booking, if any. */
+  foodOrder?: BookingFoodItem[];
+  /** Sum of foodOrder — kept separately from `total` so receipts can show
+   *  the tour price and the food price as two line items. */
+  foodTotal?: number;
+  /** Which resource(s) this booking uses. Undefined ⇒ "Pool" (legacy). */
+  resource?: BookingResource;
+  /** Shared vs Exclusive, when resource includes "Pool". Undefined ⇒
+   *  derived from guest count. */
+  tier?: BookingTier;
+  /** True once staff has archived this reservation out of the active
+   *  Bookings list — only ever set on a "Completed" or "Cancelled" booking.
+   *  Archived bookings are hidden from the normal filters/counts but stay
+   *  in the same array so they can be restored, and so Facilities'
+   *  reservation history can still find them. */
+  archived?: boolean;
+  /** ISO timestamp of when this booking was archived. */
+  archivedAt?: string;
 }

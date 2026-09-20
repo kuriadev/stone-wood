@@ -20,6 +20,14 @@ export default function AdminPage() {
     setCustomerMessages,
     adminAuth,
     setAdminAuth,
+    menuItems,
+    setMenuItems,
+    facilities,
+    setFacilities,
+    inventory,
+    setInventory,
+    packages,
+    setPackages,
   } = useApp();
 
   // Guard: redirect to login if not authenticated
@@ -49,6 +57,14 @@ export default function AdminPage() {
       }}
       customerMessages={customerMessages}
       setCustomerMessages={setCustomerMessages}
+      menuItems={menuItems}
+      setMenuItems={setMenuItems}
+      facilities={facilities}
+      setFacilities={setFacilities}
+      inventory={inventory}
+      setInventory={setInventory}
+      packages={packages}
+      setPackages={setPackages}
     />
   );
 }

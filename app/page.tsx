@@ -9,12 +9,13 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { useState } from "react";
+import { buildPackageBookingUrl } from "@/lib/utils";
 
 export default function HomePage() {
   const router = useRouter();
   const { isDark } = useTheme();
   const C = T(isDark);
-  const { bookings, closedDates} = useApp();
+  const { bookings, closedDates, packages, menuItems } = useApp();
   const [selectedDate, setSelectedDate] = useState("");
   const [page, setPage] = useState("Home");
   
@@ -22,6 +23,8 @@ const nav = (p: string) => {
   const routes: Record<string, string> = {
     Home: "/",
     Rooms: "/rooms",
+    Packages: "/packages",
+    Menu: "/menu",
     Gallery: "/gallery",
     "About Us": "/about",
     "Book Now": "/book",
@@ -62,9 +65,11 @@ const nav = (p: string) => {
       <Home
         setPage={nav}
         onBookWithDate={(d) => router.push(`/book?date=${d}`)}
+        onBookPackage={(pkg, resource, tier) => router.push(buildPackageBookingUrl(pkg, resource, tier))}
         bookings={bookings}
         closedDates={closedDates}
-        
+        packages={packages}
+        menuItems={menuItems}
       />
       <Footer setPage={nav} />
       <ThemeToggle />

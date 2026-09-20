@@ -19,6 +19,8 @@ export default function GalleryRoute() {
     const routes: Record<string, string> = {
       Home: "/",
       Rooms: "/rooms",
+      Packages: "/packages",
+      Menu: "/menu",
       Gallery: "/gallery",
       "About Us": "/about",
       "Book Now": "/book",

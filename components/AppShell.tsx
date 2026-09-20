@@ -3,10 +3,14 @@
 import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { T } from "@/lib/theme";
-import { INIT_BOOKINGS, INIT_ROOMS, INIT_GALLERY} from "@/lib/constants";
+import { INIT_BOOKINGS, INIT_ROOMS, INIT_GALLERY, INIT_MENU, INIT_FACILITIES, INIT_INVENTORY, INIT_PACKAGES} from "@/lib/constants";
+import type { ResortPackage } from "@/types/package";
 import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
 import type { CustomerMessage } from "@/types/admin";
+import type { MenuItem } from "@/types/menu";
+import type { Facility } from "@/types/facility";
+import type { InventoryItem } from "@/types/inventory";
 
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -35,6 +39,10 @@ export function AppShell() {
   const [preselectedRoom, setPreselectedRoom] = useState<number | null>(null);
   const [preselectedDate, setPreselectedDate] = useState("");
   const [customerMessages, setCustomerMessages] = useState<CustomerMessage[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(INIT_MENU);
+  const [facilities, setFacilities] = useState<Facility[]>(INIT_FACILITIES);
+  const [inventory, setInventory] = useState<InventoryItem[]>(INIT_INVENTORY);
+  const [packages, setPackages] = useState<ResortPackage[]>(INIT_PACKAGES);
 
   const handleNewMessage = (msg: CustomerMessage) =>
     setCustomerMessages((p) => [...p, msg]);
@@ -91,7 +99,7 @@ export function AppShell() {
           onBookWithDate={goBookWithDate}
           bookings={bookings}
           closedDates={closedDates}
-
+          packages={packages}
         />
       )}
       {page === "Rooms" && (
@@ -104,6 +112,9 @@ export function AppShell() {
           bookings={bookings}
           setBookings={setBookings}
           rooms={rooms}
+          menuItems={menuItems}
+          inventory={inventory}
+          setInventory={setInventory}
           closedDates={closedDates}
           preselectedRoom={preselectedRoom}
           clearPreselected={() => setPreselectedRoom(null)}
@@ -134,6 +145,14 @@ export function AppShell() {
           onLogout={handleLogout}
           customerMessages={customerMessages}
           setCustomerMessages={setCustomerMessages}
+          menuItems={menuItems}
+          setMenuItems={setMenuItems}
+          facilities={facilities}
+          setFacilities={setFacilities}
+          inventory={inventory}
+          setInventory={setInventory}
+          packages={packages}
+          setPackages={setPackages}
         />
       )}
 

@@ -1,17 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useApp } from "@/contexts/AppContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { T } from "@/lib/theme";
-import { About } from "@/components/sections/About";
+import { PackagesPage } from "@/components/sections/PackagesPage";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { buildPackageBookingUrl } from "@/lib/utils";
 
-export default function AboutRoute() {
+export default function PackagesRoute() {
   const router = useRouter();
   const { isDark } = useTheme();
   const C = T(isDark);
+  const { packages } = useApp();
 
   const nav = (p: string) => {
     const routes: Record<string, string> = {
@@ -25,6 +28,7 @@ export default function AboutRoute() {
       AdminLogin: "/login",
       "Customer Service": "/customer",
     };
+
     const target = routes[p] ?? "/";
 
     const loader = (globalThis as any).loader?.current;
@@ -34,9 +38,7 @@ export default function AboutRoute() {
       return;
     }
 
-
     loader.start();
-
 
     let progress = 20;
     const interval = setInterval(() => {
@@ -44,23 +46,36 @@ export default function AboutRoute() {
       if (progress >= 90) clearInterval(interval);
     }, 120);
 
-
     setTimeout(() => {
       loader.finish();
       router.push(target);
-    }, 500); 
+    }, 500);
   };
 
   return (
     <div style={{ background: C.bg, minHeight: "100vh" }}>
-      <Navbar page="About Us" setPage={nav} />
-
-      {/* ✅ FIXED */}
-      <About
+      <Navbar page="Packages" setPage={nav} />
+      <PackagesPage
         setPage={nav}
-        onBookWithDate={(d) => router.push(`/book?date=${d}`)}
+        packages={packages}
+        onBookPackage={(pkg, resource, tier) =>
+          router.push(
+            buildPackageBookingUrl(
+              {
+                code: pkg.code,
+                title: pkg.title,
+                price: pkg.price,
+                listPrice: pkg.listPrice,
+                capacity: pkg.capacity,
+                requiresRoom: pkg.requiresRoom,
+                foodDiscountPct: pkg.foodDiscountPct,
+              },
+              resource,
+              tier
+            )
+          )
+        }
       />
-
       <Footer setPage={nav} />
       <ThemeToggle />
     </div>

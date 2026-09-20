@@ -1,17 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useApp } from "@/contexts/AppContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { T } from "@/lib/theme";
-import { About } from "@/components/sections/About";
+import { Menu } from "@/components/sections/Menu";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
-export default function AboutRoute() {
+export default function MenuRoute() {
   const router = useRouter();
   const { isDark } = useTheme();
   const C = T(isDark);
+  const { menuItems, inventory } = useApp();
 
   const nav = (p: string) => {
     const routes: Record<string, string> = {
@@ -34,9 +36,7 @@ export default function AboutRoute() {
       return;
     }
 
-
     loader.start();
-
 
     let progress = 20;
     const interval = setInterval(() => {
@@ -44,23 +44,16 @@ export default function AboutRoute() {
       if (progress >= 90) clearInterval(interval);
     }, 120);
 
-
     setTimeout(() => {
       loader.finish();
       router.push(target);
-    }, 500); 
+    }, 500);
   };
 
   return (
     <div style={{ background: C.bg, minHeight: "100vh" }}>
-      <Navbar page="About Us" setPage={nav} />
-
-      {/* ✅ FIXED */}
-      <About
-        setPage={nav}
-        onBookWithDate={(d) => router.push(`/book?date=${d}`)}
-      />
-
+      <Navbar page="Menu" setPage={nav} />
+      <Menu menuItems={menuItems} inventory={inventory} onBookNow={() => nav("Book Now")} />
       <Footer setPage={nav} />
       <ThemeToggle />
     </div>

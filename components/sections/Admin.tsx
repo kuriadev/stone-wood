@@ -11,9 +11,18 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { BookingsTab } from "@/components/admin/BookingsTab";
 import { InventoryTab } from "@/components/admin/InventoryTab";
 import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
-import type { Booking } from "@/types/booking";
+import { MenuTab } from "@/components/admin/MenuTab";
+import { FacilitiesTab } from "@/components/admin/FacilitiesTab";
+import { PackagesTab } from "@/components/admin/PackagesTab";
+import { calcTourBase, calcExclusiveDiscount, calcComboDiscount, calcFoodTotal, genBookingId, getPackageTier, checkBookingAvailability, isMenuItemSellable, deductRecipeStock, isRoomOpen, calcPackageFoodDiscount } from "@/lib/utils";
+import { sanitizeName, sanitizeContact, isValidName, isValidPHNumber, RESORT_MAX_CAPACITY, COMBO_DISCOUNT_PCT, ROOM_BUNDLE_DISCOUNT_PCT } from "@/lib/validators";
+import type { Booking, BookingFoodItem, BookingResource, BookingTier } from "@/types/booking";
+import type { MenuItem } from "@/types/menu";
 import type { Room } from "@/types/room";
 import type { AdminTab, CustomerMessage } from "@/types/admin";
+import type { Facility } from "@/types/facility";
+import type { InventoryItem } from "@/types/inventory";
+import type { ResortPackage } from "@/types/package";
 
 
 interface AdminProps {
@@ -28,14 +37,22 @@ interface AdminProps {
   onLogout: () => void;
   customerMessages: CustomerMessage[];
   setCustomerMessages: React.Dispatch<React.SetStateAction<CustomerMessage[]>>;
+  menuItems: MenuItem[];
+  setMenuItems: React.Dispatch<React.SetStateAction<MenuItem[]>>;
+  facilities: Facility[];
+  setFacilities: React.Dispatch<React.SetStateAction<Facility[]>>;
+  inventory: InventoryItem[];
+  setInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
+  packages: ResortPackage[];
+  setPackages: React.Dispatch<React.SetStateAction<ResortPackage[]>>;
 }
 
-// ── OnsiteTab sub-component ──────────────────────────────────────────────────
-interface OnsiteTabProps {
-  onsiteBookings: Booking[];
-  onsitePending: Booking[];
-  onsiteConfirmed: Booking[];
-  onsiteCompleted: Booking[];
+// ── WalkInTab sub-component ──────────────────────────────────────────────────
+interface WalkInTabProps {
+  walkInBookings: Booking[];
+  wiPending: Booking[];
+  wiConfirmed: Booking[];
+  wiCompleted: Booking[];
   updateStatus: (id: string, status: string, reason?: string) => void;
   isDark: boolean;
   C: ReturnType<typeof T>;
@@ -44,27 +61,162 @@ interface OnsiteTabProps {
   mob: boolean;
   toast: (msg: string, type?: "success" | "error" | "warning" | "info") => void;
   gold: string;
+  bookings: Booking[];
+  setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
+  rooms: Room[];
+  menuItems: MenuItem[];
+  setMenuItems: React.Dispatch<React.SetStateAction<MenuItem[]>>;
+  inventory: InventoryItem[];
+  setInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
+  packages: ResortPackage[];
+  facilities: Facility[];
 }
 
-function OnsiteTab({
-  onsiteBookings, onsitePending, onsiteConfirmed, onsiteCompleted,
+const todayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+function WalkInTab({
+  walkInBookings, wiPending, wiConfirmed, wiCompleted,
   updateStatus, isDark, C, cBg, cBr, mob, toast, gold,
-}: OnsiteTabProps) {
-  const [osSearch, setOsSearch] = useState("");
-  const [osTab, setOsTab] = useState<"Paid" | "Confirmed" | "Completed" | "Cancelled">("Paid");
-  const [onsiteConfirmAction, setOnsiteConfirmAction] = useState<{
+  bookings, setBookings, rooms, menuItems, setMenuItems, inventory, setInventory,
+  packages, facilities,
+}: WalkInTabProps) {
+  const [wiSearch, setWiSearch] = useState("");
+  const [wiTab, setWiTab] = useState<"Paid" | "Confirmed" | "Completed" | "Cancelled">("Paid");
+  const [wiConfirmAction, setWiConfirmAction] = useState<{
     bookingId: string;
     action: "Confirmed" | "Cancelled" | "Completed";
     guestName: string;
   } | null>(null);
 
-  const onsiteCancelled = onsiteBookings.filter(b => b.status === "Cancelled");
+  // Archive a finished/cancelled walk-in reservation the same way BookingsTab
+  // does for online ones — it moves out of this tab's lists (walkInBookings
+  // excludes archived) and into the Bookings tab's segregated Archived view,
+  // since that's the one place staff check for both sources' history.
+  const [wiConfirmArchive, setWiConfirmArchive] = useState<Booking | null>(null);
+  const archiveWiBooking = (b: Booking) => {
+    setBookings((bs) => bs.map((x) => x.id === b.id ? { ...x, archived: true, archivedAt: new Date().toISOString() } : x));
+    toast(`Reservation ${b.id} moved to archive.`, "info");
+    setWiConfirmArchive(null);
+  };
+
+  // ── New walk-in intake form ──────────────────────────────────────
+  const [showNewWalkIn, setShowNewWalkIn] = useState(false);
+  const [wf, setWf] = useState({
+    name: "", contact: "", email: "", guests: "10", overtime: "0",
+    tourType: "Day Tour" as "Day Tour" | "Night Tour",
+    rooms: [] as number[], date: todayStr(), time: "", notes: "", paymentCollected: true,
+  });
+  const [wfFoodQty, setWfFoodQty] = useState<Record<number, number>>({});
+  const setWfField = (k: string, v: unknown) => setWf((f) => ({ ...f, [k]: v }));
+  const setWfFoodItemQty = (id: number, qty: number) => setWfFoodQty((f) => ({ ...f, [id]: Math.max(0, qty) }));
+  const wfFoodOrder: BookingFoodItem[] = Object.entries(wfFoodQty)
+    .filter(([, qty]) => qty > 0)
+    .map(([itemId, qty]) => {
+      const item = menuItems.find((m) => m.id === Number(itemId));
+      return { itemId: Number(itemId), name: item?.name ?? "Item", price: item?.price ?? 0, qty };
+    });
+  const wfFoodTotal = calcFoodTotal(wfFoodOrder);
+
+  // ── Package mode — the walk-in side is still the same booking flow, just
+  // encoded by staff instead of the guest. Picking a package here fixes its
+  // price/capacity/tier exactly like a Home page package deep-link does in
+  // the online Book Now flow. ──────────────────────────────────────────────
+  const [wfMode, setWfMode] = useState<"Custom" | "Package">("Custom");
+  const [wfPkgId, setWfPkgId] = useState<number | null>(null);
+  const wfSelectedPackage = wfMode === "Package" ? packages.find((p) => p.id === wfPkgId) ?? null : null;
+  const isWfPackage = !!wfSelectedPackage;
+  const wfRequiresRoom = !!wfSelectedPackage?.requiresRoom;
+  const wfBookableRooms = rooms.filter((r) => isRoomOpen(r.id, facilities));
+  const wfShowRoomPicker = (!isWfPackage) || (isWfPackage && wfRequiresRoom);
+  const toggleWfRoom = (id: number) => {
+    if (isWfPackage && wfRequiresRoom) {
+      setWfField("rooms", wf.rooms.includes(id) ? [] : [id]);
+    } else {
+      setWfField("rooms", wf.rooms.includes(id) ? wf.rooms.filter((r) => r !== id) : [...wf.rooms, id]);
+    }
+  };
+
+  const wfPackageLabel = isWfPackage
+    ? wfSelectedPackage!.title
+    : `${wf.tourType}${wf.rooms.length > 0 ? " + Room" : ""}`;
+  const wfGuests = isWfPackage ? wfSelectedPackage!.capacity : Number(wf.guests) || 0;
+  // Same Shared-vs-Exclusive choice as the customer-facing Book Now flow:
+  // staff can override the guest-count-derived default explicitly. A package
+  // fixes its own tier — no override needed.
+  const [wfTierChoice, setWfTierChoice] = useState<BookingTier | null>(null);
+  const wfTier: BookingTier = isWfPackage ? wfSelectedPackage!.status : (wfTierChoice ?? getPackageTier(wfGuests));
+  const wfResource: BookingResource = isWfPackage ? wfSelectedPackage!.resource : "Pool";
+  // An Exclusive walk-in buyout is fixed to the resort's full capacity, same
+  // as online — the guest count field locks to it instead of staying editable.
+  useEffect(() => {
+    if (!isWfPackage && wfTier === "Exclusive" && wfGuests !== RESORT_MAX_CAPACITY) {
+      setWfField("guests", String(RESORT_MAX_CAPACITY));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wfTier, isWfPackage]);
+  const wfDateCapacity = wf.date ? checkBookingAvailability(wf.date, wfGuests, wfTier, wfResource, bookings, facilities) : { ok: true as const };
+  const wfTourBase = isWfPackage ? wfSelectedPackage!.price : calcTourBase(wfGuests, wfTier);
+  const wfExclusiveDiscount = isWfPackage ? 0 : calcExclusiveDiscount(wfTier, wfGuests);
+  const wfOvertimeFee = isWfPackage ? 0 : (Number(wf.overtime) || 0) * 500;
+  const wfSelectedRoomDetails = wf.rooms.map((rid) => rooms.find((r) => r.id === rid)).filter((r): r is Room => !!r);
+  const wfRoomsFeeRaw = wfSelectedRoomDetails.reduce((sum, r) => sum + r.price, 0);
+  const wfRoomBundleDiscount = isWfPackage && wfRequiresRoom ? Math.round(wfRoomsFeeRaw * ROOM_BUNDLE_DISCOUNT_PCT) : 0;
+  const wfRoomsFee = wfRoomsFeeRaw - wfRoomBundleDiscount;
+  const wfComboDiscount = calcComboDiscount(wfFoodOrder, menuItems);
+  const wfPackageFoodDiscount = isWfPackage ? calcPackageFoodDiscount(wfFoodOrder, wfSelectedPackage?.foodDiscountPct) : 0;
+  const wfTotal = wfTourBase - wfExclusiveDiscount + wfOvertimeFee + wfRoomsFee + wfFoodTotal - wfComboDiscount - wfPackageFoodDiscount;
+  const wfDown = wf.paymentCollected ? wfTotal : Math.ceil(wfTotal / 2);
+  const wfRoomRequirementMet = !wfRequiresRoom || wf.rooms.length > 0;
+  const wfValid = isValidName(wf.name) && isValidPHNumber(wf.contact) && wfGuests > 0 && wfDateCapacity.ok && (!isWfPackage || (!!wfSelectedPackage && wfRoomRequirementMet));
+  const openNewWalkIn = () => {
+    setWf({ name: "", contact: "", email: "", guests: "10", overtime: "0", tourType: "Day Tour", rooms: [], date: todayStr(), time: "", notes: "", paymentCollected: true });
+    setWfFoodQty({});
+    setWfTierChoice(null);
+    setWfMode("Custom");
+    setWfPkgId(null);
+    setShowNewWalkIn(true);
+  };
+  const saveWalkIn = () => {
+    const id = genBookingId(bookings.length);
+    setBookings((b) => [...b, {
+      id,
+      name: sanitizeName(wf.name),
+      contact: sanitizeContact(wf.contact),
+      email: wf.email || "—",
+      date: wf.date || todayStr(),
+      guests: wfGuests || 1,
+      package: wfPackageLabel,
+      rooms: wf.rooms,
+      overtime: Number(wf.overtime) || 0,
+      total: wfTotal,
+      downpayment: wfDown,
+      status: wf.paymentCollected ? "Confirmed" : "Paid",
+      paymentProof: wf.paymentCollected,
+      notes: wf.time ? `Arrival: ${wf.time}${wf.notes ? " — " + wf.notes : ""}` : wf.notes,
+      source: "Walk-In",
+      createdAt: Date.now(),
+      foodOrder: wfFoodOrder.length ? wfFoodOrder : undefined,
+      foodTotal: wfFoodTotal || undefined,
+      resource: wfResource,
+      tier: wfTier,
+    }]);
+    if (wfFoodOrder.length) {
+      setInventory((inv) => deductRecipeStock(wfFoodOrder, menuItems, inv));
+    }
+    toast(`Walk-in reservation ${id} encoded for ${wf.name}.`, "success");
+    setShowNewWalkIn(false);
+  };
+
+  const wiCancelled = walkInBookings.filter(b => b.status === "Cancelled");
 
   const tabMap = {
-    "Paid":   onsitePending,
-    "Confirmed": onsiteConfirmed,
-    "Completed": onsiteCompleted,
-    "Cancelled": onsiteCancelled,
+    "Paid":   wiPending,
+    "Confirmed": wiConfirmed,
+    "Completed": wiCompleted,
+    "Cancelled": wiCancelled,
   };
   const tabColors: Record<string, string> = {
     "Paid":   "#f5c518",
@@ -73,8 +225,8 @@ function OnsiteTab({
     "Cancelled": "#c0392b",
   };
 
-  const q = osSearch.toLowerCase().trim();
-  const displayRows = tabMap[osTab].filter(
+  const q = wiSearch.toLowerCase().trim();
+  const displayRows = tabMap[wiTab].filter(
     (b) => !q || b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) || b.contact.includes(q) || (b.date && b.date.includes(q))
   );
 
@@ -85,37 +237,40 @@ function OnsiteTab({
     "Cancelled": [isDark ? "#2a1010" : "#fdecea", "#c0392b"],
   };
 
-  const executeOnsiteAction = () => {
-    if (!onsiteConfirmAction) return;
-    updateStatus(onsiteConfirmAction.bookingId, onsiteConfirmAction.action);
-    if (onsiteConfirmAction.action === "Confirmed") {
-      toast(`On-site reservation confirmed for ${onsiteConfirmAction.guestName}. Payment received.`, "success");
-    } else if (onsiteConfirmAction.action === "Cancelled") {
-      toast(`On-site reservation cancelled for ${onsiteConfirmAction.guestName}.`, "warning");
+  const executeWiAction = () => {
+    if (!wiConfirmAction) return;
+    updateStatus(wiConfirmAction.bookingId, wiConfirmAction.action);
+    if (wiConfirmAction.action === "Confirmed") {
+      toast(`On-site reservation confirmed for ${wiConfirmAction.guestName}. Payment received.`, "success");
+    } else if (wiConfirmAction.action === "Cancelled") {
+      toast(`On-site reservation cancelled for ${wiConfirmAction.guestName}.`, "warning");
     } else {
-      toast(`Visit completed for ${onsiteConfirmAction.guestName}.`, "info");
+      toast(`Visit completed for ${wiConfirmAction.guestName}.`, "info");
     }
-    setOnsiteConfirmAction(null);
+    setWiConfirmAction(null);
   };
 
 
   return (
     <div>
       {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 8 }}>ON-SITE RESERVATIONS</p>
-        <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 6px" }}>On-Site Walk-In Management</h2>
-        <p style={{ color: C.textS, fontSize: 12, margin: 0 }}>Payment collected upon arrival — only confirm after payment is received in person.</p>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 28 }}>
+        <div>
+          <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 8 }}>WALK-IN RESERVATIONS</p>
+          <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 6px" }}>Walk-In Management</h2>
+          <p style={{ color: C.textS, fontSize: 12, margin: 0 }}>Encode a guest here as soon as they arrive to reserve without booking online.</p>
+        </div>
+        <button onClick={openNewWalkIn} style={{ ...goldBtn, padding: "10px 20px", fontSize: 11, letterSpacing: 2, whiteSpace: "nowrap" }}>+ NEW WALK-IN</button>
       </div>
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(5,1fr)", gap: mob ? 10 : 14, marginBottom: 24 }}>
         {([
-          ["Total",     onsiteBookings.length,  gold],
-          ["Paid",   onsitePending.length,   "#f5c518"],
-          ["Confirmed", onsiteConfirmed.length, "#4caf50"],
-          ["Completed", onsiteCompleted.length, "#4a9fd4"],
-          ["Cancelled", onsiteCancelled.length, "#c0392b"],
+          ["Total",     walkInBookings.length,  gold],
+          ["Paid",   wiPending.length,   "#f5c518"],
+          ["Confirmed", wiConfirmed.length, "#4caf50"],
+          ["Completed", wiCompleted.length, "#4a9fd4"],
+          ["Cancelled", wiCancelled.length, "#c0392b"],
         ] as [string, number, string][]).map(([l, v, c]) => (
           <div key={l} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: mob ? "14px 12px" : "20px 16px", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(to right,${c}22,${c})` }} />
@@ -129,9 +284,9 @@ function OnsiteTab({
       <div style={{ background: isDark ? "rgba(74,159,212,0.05)" : "rgba(74,159,212,0.04)", border: "1px solid rgba(74,159,212,0.2)", borderRadius: 10, padding: "14px 18px", marginBottom: 24, display: "flex", gap: 12, alignItems: "flex-start" }}>
         <span style={{ fontSize: 18, flexShrink: 0 }}>🏡</span>
         <div>
-          <p style={{ color: "#4a9fd4", fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>ON-SITE PAYMENT POLICY</p>
+          <p style={{ color: "#4a9fd4", fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>WALK-IN PAYMENT POLICY</p>
           <p style={{ color: C.textS, fontSize: 12, lineHeight: 1.7, margin: 0 }}>
-            On-site reservations are <strong style={{ color: C.textH }}>NOT confirmed</strong> until the guest physically arrives and pays at least 50% of the fee. Only press <strong style={{ color: "#4caf50" }}>ACCEPT</strong> after payment has been collected in person.
+            When you check <strong style={{ color: "#4caf50" }}>"payment collected"</strong> on the intake form, the reservation is saved as <strong style={{ color: C.textH }}>Confirmed</strong> right away. Leave it unchecked to save it as <strong style={{ color: C.textH }}>Paid</strong> (pending) and press <strong style={{ color: "#4caf50" }}>ACCEPT</strong> once payment is actually collected.
           </p>
         </div>
       </div>
@@ -144,15 +299,15 @@ function OnsiteTab({
         <label htmlFor="onsite-search" className="sr-only">Search on-site reservations</label>
         <input
           id="onsite-search"
-          value={osSearch}
-          onChange={(e) => setOsSearch(e.target.value)}
+          value={wiSearch}
+          onChange={(e) => setWiSearch(e.target.value)}
           placeholder="Search by name, ID, contact, or date…"
           className="sw-input"
           style={{ ...C.inp, paddingLeft: 36, borderRadius: 6 }}
         />
-        {osSearch && (
+        {wiSearch && (
           <button
-            onClick={() => setOsSearch("")}
+            onClick={() => setWiSearch("")}
             aria-label="Clear search"
             style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.textXS, cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 0 }}
           >✕</button>
@@ -162,13 +317,13 @@ function OnsiteTab({
       {/* Status tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {(["Paid", "Confirmed", "Completed", "Cancelled"] as const).map((t) => {
-          const active = osTab === t;
+          const active = wiTab === t;
           const c = tabColors[t];
           const count = tabMap[t].length;
           return (
             <button
               key={t}
-              onClick={() => setOsTab(t)}
+              onClick={() => setWiTab(t)}
               aria-pressed={active}
               style={{ padding: "8px 16px", fontSize: 11, fontWeight: 700, borderRadius: 20, cursor: "pointer", background: active ? `${c}18` : "transparent", color: active ? c : C.textS, border: `1px solid ${active ? c + "55" : cBr}`, letterSpacing: 1 }}
             >
@@ -193,7 +348,7 @@ function OnsiteTab({
               {displayRows.length === 0 && (
                 <tr>
                   <td colSpan={6} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 13 }}>
-                    {osSearch ? `No results for "${osSearch}".` : `No ${osTab.toLowerCase()} reservations.`}
+                    {wiSearch ? `No results for "${wiSearch}".` : `No ${wiTab.toLowerCase()} reservations.`}
                   </td>
                 </tr>
               )}
@@ -220,23 +375,26 @@ function OnsiteTab({
                         {b.status === "Paid" && (
                           <>
                             <button
-                              onClick={() => setOnsiteConfirmAction({ bookingId: b.id, action: "Confirmed", guestName: b.name })}
+                              onClick={() => setWiConfirmAction({ bookingId: b.id, action: "Confirmed", guestName: b.name })}
                               style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "5px 10px", fontSize: 10, cursor: "pointer", borderRadius: 4, letterSpacing: 1, whiteSpace: "nowrap" }}
                             >✓ ACCEPT</button>
                             <button
-                              onClick={() => setOnsiteConfirmAction({ bookingId: b.id, action: "Cancelled", guestName: b.name })}
+                              onClick={() => setWiConfirmAction({ bookingId: b.id, action: "Cancelled", guestName: b.name })}
                               style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "5px 10px", fontSize: 10, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}
                             >CANCEL</button>
                           </>
                         )}
                         {b.status === "Confirmed" && (
                           <button
-                            onClick={() => setOnsiteConfirmAction({ bookingId: b.id, action: "Completed", guestName: b.name })}
+                            onClick={() => setWiConfirmAction({ bookingId: b.id, action: "Completed", guestName: b.name })}
                             style={{ background: "rgba(74,159,212,0.1)", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.25)", padding: "5px 10px", fontSize: 10, cursor: "pointer", borderRadius: 4, letterSpacing: 1, whiteSpace: "nowrap" }}
                           >✓ COMPLETE</button>
                         )}
                         {(b.status === "Completed" || b.status === "Cancelled") && (
-                          <span style={{ color: C.textXS, fontSize: 11 }}>—</span>
+                          <button
+                            onClick={() => setWiConfirmArchive(b)}
+                            style={{ background: "rgba(150,150,150,0.08)", color: C.textS, border: `1px solid ${cBr}`, padding: "5px 10px", fontSize: 10, cursor: "pointer", borderRadius: 4, letterSpacing: 1, whiteSpace: "nowrap" }}
+                          >ARCHIVE</button>
                         )}
                       </div>
                     </td>
@@ -249,12 +407,12 @@ function OnsiteTab({
       </div>
 
       {/* How it works */}
-      <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 12 }}>HOW ON-SITE RESERVATIONS WORK</p>
+      <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 12 }}>HOW WALK-IN RESERVATIONS WORK</p>
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 12 }}>
         {([
-          ["1. Guest Reserves Online", "Guest fills out the on-site form and gets a reference ID. No payment collected yet.", "#4a9fd4"],
-          ["2. Guest Arrives at Resort", "Guest shows their reference ID and pays 50% down or full amount upon arrival.", "#f5c518"],
-          ["3. Admin Confirms Here", "Once payment is received in person, press ACCEPT to confirm in the system.", "#4caf50"],
+          ["1. Guest Arrives", "A guest shows up without an online booking and wants to reserve on the spot.", "#4a9fd4"],
+          ["2. Staff Encodes Here", "Press + NEW WALK-IN and fill in their details, tour type, and any rooms.", "#f5c518"],
+          ["3. Mark Payment Collected", "Check the box once cash/GCash is received — the reservation saves as Confirmed.", "#4caf50"],
         ] as [string, string, string][]).map(([title, desc, c]) => (
           <div key={title} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "18px 16px", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: c }} />
@@ -264,8 +422,285 @@ function OnsiteTab({
         ))}
       </div>
 
+      {/* ── New Walk-In Intake Modal ── */}
+      {showNewWalkIn && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20, overflowY: "auto" }} role="dialog" aria-modal="true" aria-labelledby="new-walkin-title">
+          <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: `1px solid ${gold}55`, borderRadius: 12, padding: "28px 26px", width: "100%", maxWidth: 480, boxShadow: "0 40px 100px rgba(0,0,0,0.7)", maxHeight: "90vh", overflowY: "auto" }}>
+            <h3 id="new-walkin-title" style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 18 }}>Encode Walk-In Reservation</h3>
+
+            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 14 }}>
+              <div style={{ gridColumn: "1/-1" }}>
+                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>GUEST NAME</label>
+                <input value={wf.name} onChange={(e) => setWfField("name", sanitizeName(e.target.value))} placeholder="Juan Dela Cruz" className="sw-input" style={{ ...C.inp, borderRadius: 6 }} />
+              </div>
+              <div>
+                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>CONTACT NUMBER</label>
+                <input value={wf.contact} onChange={(e) => setWfField("contact", sanitizeContact(e.target.value))} maxLength={11} placeholder="09XXXXXXXXX" className="sw-input" style={{ ...C.inp, borderRadius: 6 }} />
+              </div>
+              <div>
+                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>EMAIL (OPTIONAL)</label>
+                <input value={wf.email} onChange={(e) => setWfField("email", e.target.value)} placeholder="example@email.com" className="sw-input" style={{ ...C.inp, borderRadius: 6 }} />
+              </div>
+              <div>
+                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>DATE</label>
+                <input type="date" value={wf.date} onChange={(e) => setWfField("date", e.target.value)} className="sw-input" style={{ ...C.inp, borderRadius: 6 }} />
+              </div>
+              <div>
+                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>ARRIVAL TIME</label>
+                <input type="time" value={wf.time} onChange={(e) => setWfField("time", e.target.value)} className="sw-input" style={{ ...C.inp, borderRadius: 6 }} />
+              </div>
+
+              <div style={{ gridColumn: "1/-1" }}>
+                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>BOOKING TYPE</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {(["Custom", "Package"] as const).map((m) => (
+                    <button key={m} onClick={() => { setWfMode(m); if (m === "Custom") setWfPkgId(null); }} style={{ flex: 1, padding: "9px 12px", fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: "pointer", letterSpacing: 1, background: wfMode === m ? `${gold}18` : "transparent", color: wfMode === m ? gold : C.textS, border: `1px solid ${wfMode === m ? gold + "55" : cBr}` }}>
+                      {m === "Custom" ? "🛠 Custom Tour" : "🎁 Package"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {wfMode === "Package" && (
+                <div style={{ gridColumn: "1/-1" }}>
+                  <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>SELECT PACKAGE</label>
+                  {packages.filter((p) => p.active).length === 0 ? (
+                    <p style={{ color: C.textS, fontSize: 12, margin: 0 }}>No active packages — add one in the Packages tab.</p>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {packages.filter((p) => p.active).map((p) => {
+                        const sel = wfPkgId === p.id;
+                        return (
+                          <div key={p.id} onClick={() => setWfPkgId(p.id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 8, cursor: "pointer", background: sel ? `${gold}14` : "transparent", border: `1px solid ${sel ? gold + "55" : cBr}` }}>
+                            <div>
+                              <div style={{ color: C.textH, fontSize: 12, fontWeight: 600 }}>{p.title}</div>
+                              <div style={{ color: C.textS, fontSize: 10 }}>{p.status} · {p.resource} · up to {p.capacity} guests</div>
+                            </div>
+                            <span style={{ color: gold, fontWeight: 700, fontSize: 13 }}>{fmt(p.price)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {wfMode === "Custom" && (
+              <>
+              <div>
+                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>GUESTS</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={RESORT_MAX_CAPACITY}
+                  value={wf.guests}
+                  disabled={wfTier === "Exclusive"}
+                  onChange={(e) => setWfField("guests", e.target.value)}
+                  className="sw-input"
+                  style={{ ...C.inp, borderRadius: 6, opacity: wfTier === "Exclusive" ? 0.6 : 1 }}
+                />
+                {wfTier === "Exclusive" && (
+                  <p style={{ color: gold, fontSize: 10, marginTop: 4 }}>🔒 Fixed at {RESORT_MAX_CAPACITY} for an Exclusive buyout.</p>
+                )}
+              </div>
+              <div>
+                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>SHARED OR EXCLUSIVE?</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {(["Shared", "Exclusive"] as const).map((opt) => (
+                    <button key={opt} onClick={() => setWfTierChoice(opt)} style={{ flex: 1, padding: "9px 12px", fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: "pointer", letterSpacing: 1, background: wfTier === opt ? (opt === "Exclusive" ? `${gold}18` : "rgba(76,175,80,0.12)") : "transparent", color: wfTier === opt ? (opt === "Exclusive" ? gold : "#4caf50") : C.textS, border: `1px solid ${wfTier === opt ? (opt === "Exclusive" ? gold + "55" : "#4caf5055") : cBr}` }}>
+                      {opt === "Exclusive" ? "🔒 Exclusive" : "🤝 Shared"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ gridColumn: "1/-1" }}>
+                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>TOUR TYPE</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {(["Day Tour", "Night Tour"] as const).map((t) => (
+                    <button key={t} onClick={() => setWfField("tourType", t)} style={{ flex: 1, padding: "9px 12px", fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: "pointer", letterSpacing: 1, background: wf.tourType === t ? `${gold}18` : "transparent", color: wf.tourType === t ? gold : C.textS, border: `1px solid ${wf.tourType === t ? gold + "55" : cBr}` }}>
+                      {t === "Day Tour" ? "☀️ Day Tour" : "🌙 Night Tour"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              </>
+              )}
+
+              {wfShowRoomPicker && (
+              <div style={{ gridColumn: "1/-1" }}>
+                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>
+                  {wfRequiresRoom ? "CHOOSE ROOM (REQUIRED)" : "ROOM ADD-ON (OPTIONAL)"}
+                </label>
+                {wfRequiresRoom && (
+                  <p style={{ color: C.textS, fontSize: 11, marginBottom: 8 }}>Pick the one room included with this package — {Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}% off its normal rate.</p>
+                )}
+                {wfBookableRooms.length === 0 && (
+                  <p style={{ color: C.textS, fontSize: 12, margin: 0 }}>No rooms currently available — check Facilities for maintenance flags.</p>
+                )}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {wfBookableRooms.map((r) => {
+                    const sel = wf.rooms.includes(r.id);
+                    return (
+                      <button key={r.id} onClick={() => toggleWfRoom(r.id)} style={{ padding: "7px 12px", fontSize: 11, borderRadius: 6, cursor: "pointer", background: sel ? `${gold}18` : "transparent", color: sel ? gold : C.textS, border: `1px solid ${sel ? gold + "55" : cBr}` }}>
+                        {sel ? "✓ " : ""}{r.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                {wfRequiresRoom && wf.rooms.length === 0 && (
+                  <p style={{ color: "#e55", fontSize: 11, marginTop: 6 }}>⚠ Please pick a room to continue.</p>
+                )}
+              </div>
+              )}
+
+              <div style={{ gridColumn: "1/-1", background: isDark ? "rgba(201,168,76,0.06)" : "rgba(201,168,76,0.08)", border: `1px solid ${gold}44`, borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ color: C.textS, fontSize: 11, letterSpacing: 1 }}>PACKAGE</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: gold, fontWeight: 700, fontSize: 13 }}>{wfPackageLabel}</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, color: wfTier === "Exclusive" ? gold : "#4caf50", background: wfTier === "Exclusive" ? "rgba(201,168,76,0.15)" : "rgba(76,175,80,0.12)" }}>
+                    {wfTier === "Exclusive" ? "🔒 EXCLUSIVE" : "🤝 SHARED"}
+                  </span>
+                </span>
+              </div>
+              <div style={{ gridColumn: "1/-1", background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${cBr}`, borderRadius: 8, padding: "10px 14px", display: "flex", flexDirection: "column", gap: 5 }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: C.textS, fontSize: 11 }}>
+                    {isWfPackage ? `${wfPackageLabel} (package)` : wfTier === "Exclusive" ? "Exclusive buyout (flat rate)" : `Shared tour (${wfGuests} × ₱200)`}
+                  </span>
+                  <span style={{ color: C.textB, fontSize: 11 }}>{fmt(wfTourBase)}</span>
+                </div>
+                {wfExclusiveDiscount > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: "#4caf50", fontSize: 11 }}>Exclusive discount</span>
+                    <span style={{ color: "#4caf50", fontSize: 11 }}>-{fmt(wfExclusiveDiscount)}</span>
+                  </div>
+                )}
+                {wfOvertimeFee > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: C.textS, fontSize: 11 }}>Overtime</span>
+                    <span style={{ color: C.textB, fontSize: 11 }}>{fmt(wfOvertimeFee)}</span>
+                  </div>
+                )}
+                {wfRoomsFee > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: C.textS, fontSize: 11 }}>Room(s){isWfPackage ? " (bundled)" : ""}</span>
+                    <span style={{ color: C.textB, fontSize: 11 }}>{fmt(wfRoomsFee)}</span>
+                  </div>
+                )}
+                {wfRoomBundleDiscount > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: "#4caf50", fontSize: 11 }}>Room bundle discount (-{Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}%)</span>
+                    <span style={{ color: "#4caf50", fontSize: 11 }}>-{fmt(wfRoomBundleDiscount)}</span>
+                  </div>
+                )}
+                {wfFoodTotal > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: C.textS, fontSize: 11 }}>Food & Drinks</span>
+                    <span style={{ color: C.textB, fontSize: 11 }}>{fmt(wfFoodTotal)}</span>
+                  </div>
+                )}
+                {wfComboDiscount > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: "#4caf50", fontSize: 11 }}>Combo meal discount (-{Math.round(COMBO_DISCOUNT_PCT * 100)}%)</span>
+                    <span style={{ color: "#4caf50", fontSize: 11 }}>-{fmt(wfComboDiscount)}</span>
+                  </div>
+                )}
+                {wfPackageFoodDiscount > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: "#4caf50", fontSize: 11 }}>Package food discount (-{Math.round((wfSelectedPackage?.foodDiscountPct ?? 0) * 100)}%)</span>
+                    <span style={{ color: "#4caf50", fontSize: 11 }}>-{fmt(wfPackageFoodDiscount)}</span>
+                  </div>
+                )}
+                <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 4, paddingTop: 6, display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: gold, fontWeight: 700, fontSize: 12 }}>Total</span>
+                  <span style={{ color: gold, fontWeight: 700, fontSize: 12 }}>{fmt(wfTotal)}</span>
+                </div>
+              </div>
+              {wf.date && !wfDateCapacity.ok && (
+                <div style={{ gridColumn: "1/-1" }}>
+                  <p style={{ color: "#e55", fontSize: 12, margin: 0 }}>⚠ {wfDateCapacity.reason}</p>
+                </div>
+              )}
+              <div style={{ gridColumn: "1/-1" }}>
+                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>FOOD & DRINKS (OPTIONAL)</label>
+                {menuItems.length === 0 && (
+                  <p style={{ color: C.textS, fontSize: 12, margin: 0 }}>No menu items yet — add some in the Menu tab.</p>
+                )}
+                {/* Every item shows here, not just sellable ones, so staff can spot and
+                    fix a stuck "sold out" item without leaving this form. */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, overflowY: "auto" }}>
+                  {menuItems.map((m) => {
+                    const qty = wfFoodQty[m.id] || 0;
+                    const sellable = isMenuItemSellable(m, inventory);
+                    const outOfStock = m.available && !sellable;
+                    return (
+                      <div key={m.id} style={{ opacity: sellable ? 1 : 0.55, background: qty > 0 ? `${gold}14` : "transparent", border: `1px solid ${qty > 0 ? gold + "55" : cBr}`, borderRadius: 6, padding: "8px 10px", display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ color: C.textH, fontSize: 12, fontWeight: 600 }}>{m.name}</div>
+                          <div style={{ color: C.textS, fontSize: 10 }}>
+                            {fmt(m.price)} · <span style={{ opacity: 0.75 }}>{m.category}</span>
+                            {!m.available && <span style={{ color: "#e55", marginLeft: 6 }}>MARKED OUT</span>}
+                            {outOfStock && <span style={{ color: "#f5c518", marginLeft: 6 }}>NO STOCK</span>}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                          <button
+                            onClick={() => setMenuItems((p) => p.map((x) => x.id === m.id ? { ...x, available: !x.available } : x))}
+                            title={m.available ? "Mark this item out" : "Mark this item available"}
+                            style={{ padding: "3px 8px", fontSize: 9, letterSpacing: 0.5, borderRadius: 6, cursor: "pointer", background: "transparent", border: `1px solid ${cBr}`, color: C.textS }}
+                          >
+                            {m.available ? "MARK OUT" : "MARK IN"}
+                          </button>
+                          <button onClick={() => setWfFoodItemQty(m.id, qty - 1)} disabled={qty <= 0} aria-label={`Fewer ${m.name}`} style={{ width: 24, height: 24, borderRadius: 6, background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", fontSize: 13 }}>−</button>
+                          <span style={{ color: C.textH, fontSize: 12, fontWeight: 700, minWidth: 16, textAlign: "center" }}>{qty}</span>
+                          <button onClick={() => setWfFoodItemQty(m.id, qty + 1)} disabled={!sellable} aria-label={`More ${m.name}`} style={{ width: 24, height: 24, borderRadius: 6, background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: sellable ? "pointer" : "not-allowed", fontSize: 13 }}>+</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {wfFoodTotal > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, padding: "8px 10px", background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${cBr}`, borderRadius: 6 }}>
+                    <span style={{ color: C.textS, fontSize: 11 }}>Food & Drinks Subtotal</span>
+                    <span style={{ color: gold, fontWeight: 700, fontSize: 12 }}>{fmt(wfFoodTotal)}</span>
+                  </div>
+                )}
+              </div>
+              <div style={{ gridColumn: "1/-1" }}>
+                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>NOTES (OPTIONAL)</label>
+                <textarea value={wf.notes} onChange={(e) => setWfField("notes", e.target.value)} rows={2} placeholder="Special requests, etc." className="sw-input" style={{ ...C.inp, borderRadius: 6, resize: "none" }} />
+              </div>
+            </div>
+
+            <div
+              onClick={() => setWfField("paymentCollected", !wf.paymentCollected)}
+              style={{ display: "flex", alignItems: "flex-start", gap: 12, background: wf.paymentCollected ? "rgba(76,175,80,0.06)" : isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", border: `1.5px solid ${wf.paymentCollected ? "rgba(76,175,80,0.5)" : cBr}`, borderRadius: 8, padding: "12px 14px", marginBottom: 16, cursor: "pointer", userSelect: "none" }}
+            >
+              <div style={{ width: 20, height: 20, borderRadius: 4, border: `2px solid ${wf.paymentCollected ? "#4caf50" : isDark ? "#444" : "#bbb"}`, background: wf.paymentCollected ? "#4caf50" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                {wf.paymentCollected && <span style={{ color: "#fff", fontSize: 12, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+              </div>
+              <span style={{ color: C.textS, fontSize: 12, lineHeight: 1.6 }}>
+                <strong style={{ color: C.textH }}>Payment collected</strong> — {wf.paymentCollected ? `full amount (${fmt(wfTotal)}) received now, save as Confirmed.` : `not yet collected, save as Paid (pending) until the guest pays.`}
+              </span>
+            </div>
+
+            <div style={{ background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${cBr}`, borderRadius: 8, padding: "10px 14px", marginBottom: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: C.textS, fontSize: 12 }}>{wfPackageLabel} Total{wfFoodTotal > 0 ? " + Food" : ""}</span>
+                <span style={{ color: gold, fontWeight: 700, fontSize: 13 }}>{fmt(wfTotal)}</span>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowNewWalkIn(false)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 11, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>CANCEL</button>
+              <button disabled={!wfValid} onClick={saveWalkIn} style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: wfValid ? 1 : 0.4 }}>SAVE RESERVATION</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── On-Site Confirm Modal ── */}
-      {onsiteConfirmAction && (
+      {wiConfirmAction && (
         <div
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }}
           role="dialog" aria-modal="true" aria-labelledby="onsite-confirm-title"
@@ -273,8 +708,8 @@ function OnsiteTab({
           <div style={{
             background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff",
             border: `1px solid ${
-              onsiteConfirmAction.action === "Confirmed" ? "rgba(76,175,80,0.3)"
-              : onsiteConfirmAction.action === "Completed" ? "rgba(74,159,212,0.3)"
+              wiConfirmAction.action === "Confirmed" ? "rgba(76,175,80,0.3)"
+              : wiConfirmAction.action === "Completed" ? "rgba(74,159,212,0.3)"
               : "rgba(229,85,85,0.3)"
             }`,
             borderRadius: 12, padding: "32px 28px", width: "100%", maxWidth: 400, boxShadow: "0 40px 100px rgba(0,0,0,0.7)",
@@ -283,38 +718,38 @@ function OnsiteTab({
             <div style={{
               width: 52, height: 52, borderRadius: "50%", marginBottom: 18, fontSize: 24,
               display: "flex", alignItems: "center", justifyContent: "center",
-              background: onsiteConfirmAction.action === "Confirmed" ? "rgba(76,175,80,0.1)"
-                : onsiteConfirmAction.action === "Completed" ? "rgba(74,159,212,0.1)"
+              background: wiConfirmAction.action === "Confirmed" ? "rgba(76,175,80,0.1)"
+                : wiConfirmAction.action === "Completed" ? "rgba(74,159,212,0.1)"
                 : "rgba(229,85,85,0.1)",
               border: `1px solid ${
-                onsiteConfirmAction.action === "Confirmed" ? "rgba(76,175,80,0.3)"
-                : onsiteConfirmAction.action === "Completed" ? "rgba(74,159,212,0.3)"
+                wiConfirmAction.action === "Confirmed" ? "rgba(76,175,80,0.3)"
+                : wiConfirmAction.action === "Completed" ? "rgba(74,159,212,0.3)"
                 : "rgba(229,85,85,0.3)"
               }`,
             }}>
-              {onsiteConfirmAction.action === "Confirmed" ? "✓" : onsiteConfirmAction.action === "Completed" ? "🏁" : "✕"}
+              {wiConfirmAction.action === "Confirmed" ? "✓" : wiConfirmAction.action === "Completed" ? "🏁" : "✕"}
             </div>
 
             <h3 id="onsite-confirm-title" style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 10 }}>
-              {onsiteConfirmAction.action === "Confirmed" ? "Accept this on-site reservation?"
-                : onsiteConfirmAction.action === "Completed" ? "Mark visit as completed?"
+              {wiConfirmAction.action === "Confirmed" ? "Accept this on-site reservation?"
+                : wiConfirmAction.action === "Completed" ? "Mark visit as completed?"
                 : "Cancel this reservation?"}
             </h3>
 
             <p style={{ color: C.textS, fontSize: 13, lineHeight: 1.7, marginBottom: 16 }}>
-              {onsiteConfirmAction.action === "Confirmed" && (
-                <>Confirm that <strong style={{ color: C.textH }}>{onsiteConfirmAction.guestName}</strong> has arrived and payment has been collected at the resort.</>
+              {wiConfirmAction.action === "Confirmed" && (
+                <>Confirm that <strong style={{ color: C.textH }}>{wiConfirmAction.guestName}</strong> has arrived and payment has been collected at the resort.</>
               )}
-              {onsiteConfirmAction.action === "Completed" && (
-                <>Mark <strong style={{ color: C.textH }}>{onsiteConfirmAction.guestName}</strong>'s visit as completed. This records their stay in the system.</>
+              {wiConfirmAction.action === "Completed" && (
+                <>Mark <strong style={{ color: C.textH }}>{wiConfirmAction.guestName}</strong>'s visit as completed. This records their stay in the system.</>
               )}
-              {onsiteConfirmAction.action === "Cancelled" && (
-                <>Cancel the on-site reservation for <strong style={{ color: C.textH }}>{onsiteConfirmAction.guestName}</strong>. This action cannot be undone.</>
+              {wiConfirmAction.action === "Cancelled" && (
+                <>Cancel the on-site reservation for <strong style={{ color: C.textH }}>{wiConfirmAction.guestName}</strong>. This action cannot be undone.</>
               )}
             </p>
 
             {/* Warning for accept */}
-            {onsiteConfirmAction.action === "Confirmed" && (
+            {wiConfirmAction.action === "Confirmed" && (
               <div style={{ background: isDark ? "rgba(76,175,80,0.05)" : "rgba(76,175,80,0.04)", border: "1px solid rgba(76,175,80,0.2)", borderRadius: 8, padding: "10px 14px", marginBottom: 20, display: "flex", gap: 8 }}>
                 <span style={{ flexShrink: 0 }}>💵</span>
                 <span style={{ color: C.textS, fontSize: 12, lineHeight: 1.6 }}>
@@ -324,7 +759,7 @@ function OnsiteTab({
             )}
 
             {/* Warning for cancel */}
-            {onsiteConfirmAction.action === "Cancelled" && (
+            {wiConfirmAction.action === "Cancelled" && (
               <div style={{ background: "rgba(229,85,85,0.04)", border: "1px solid rgba(229,85,85,0.15)", borderRadius: 8, padding: "10px 14px", marginBottom: 20, display: "flex", gap: 8 }}>
                 <span style={{ flexShrink: 0 }}>⚠️</span>
                 <span style={{ color: C.textS, fontSize: 12, lineHeight: 1.6 }}>The guest will be notified that their reservation has been cancelled.</span>
@@ -334,30 +769,46 @@ function OnsiteTab({
             <div style={{ borderTop: `1px solid ${cBr}`, marginBottom: 18 }} />
             <div style={{ display: "flex", gap: 10 }}>
               <button
-                onClick={() => setOnsiteConfirmAction(null)}
+                onClick={() => setWiConfirmAction(null)}
                 style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 11, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}
               >GO BACK</button>
               <button
-                onClick={executeOnsiteAction}
+                onClick={executeWiAction}
                 style={{
                   flex: 2, padding: "11px 16px", fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 6, letterSpacing: 2,
-                  background: onsiteConfirmAction.action === "Confirmed" ? "rgba(76,175,80,0.12)"
-                    : onsiteConfirmAction.action === "Completed" ? "rgba(74,159,212,0.1)"
+                  background: wiConfirmAction.action === "Confirmed" ? "rgba(76,175,80,0.12)"
+                    : wiConfirmAction.action === "Completed" ? "rgba(74,159,212,0.1)"
                     : "rgba(229,85,85,0.10)",
-                  color: onsiteConfirmAction.action === "Confirmed" ? "#4caf50"
-                    : onsiteConfirmAction.action === "Completed" ? "#4a9fd4"
+                  color: wiConfirmAction.action === "Confirmed" ? "#4caf50"
+                    : wiConfirmAction.action === "Completed" ? "#4a9fd4"
                     : "#e55",
                   border: `1px solid ${
-                    onsiteConfirmAction.action === "Confirmed" ? "rgba(76,175,80,0.3)"
-                    : onsiteConfirmAction.action === "Completed" ? "rgba(74,159,212,0.3)"
+                    wiConfirmAction.action === "Confirmed" ? "rgba(76,175,80,0.3)"
+                    : wiConfirmAction.action === "Completed" ? "rgba(74,159,212,0.3)"
                     : "rgba(229,85,85,0.3)"
                   }`,
                 }}
               >
-                {onsiteConfirmAction.action === "Confirmed" ? "YES, ACCEPT & CONFIRM"
-                  : onsiteConfirmAction.action === "Completed" ? "YES, MARK COMPLETE"
+                {wiConfirmAction.action === "Confirmed" ? "YES, ACCEPT & CONFIRM"
+                  : wiConfirmAction.action === "Completed" ? "YES, MARK COMPLETE"
                   : "YES, CANCEL"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Archive Confirm Modal ── */}
+      {wiConfirmArchive && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }} role="dialog" aria-modal="true">
+          <div style={{ background: isDark ? "#0d0d0d" : "#fff", border: `1px solid ${cBr}`, borderRadius: 8, padding: "28px 26px", width: "100%", maxWidth: 400 }}>
+            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, fontWeight: 400, marginBottom: 10 }}>Archive reservation {wiConfirmArchive.id}?</h3>
+            <p style={{ color: C.textS, fontSize: 13, marginBottom: 20 }}>
+              It'll move out of Walk-In Management into the Bookings tab's Archived view, filed under <strong style={{ color: wiConfirmArchive.status === "Completed" ? "#4a9fd4" : "#e55" }}>{wiConfirmArchive.status}</strong>. You can restore it any time from there.
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setWiConfirmArchive(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "10px 16px", fontSize: 11, cursor: "pointer", borderRadius: 6 }}>CANCEL</button>
+              <button onClick={() => archiveWiBooking(wiConfirmArchive)} style={{ flex: 1, background: "rgba(150,150,150,0.1)", color: C.textH, border: `1px solid ${cBr}`, padding: "10px 16px", fontSize: 11, cursor: "pointer", borderRadius: 6, fontWeight: 700 }}>ARCHIVE</button>
             </div>
           </div>
         </div>
@@ -368,8 +819,8 @@ function OnsiteTab({
 
 const SIDEBAR_GROUPS = [
   { label: "OVERVIEW",     tabs: ["Dashboard"] },
-  { label: "RESERVATIONS", tabs: ["Bookings", "On-Site", "Occupancy"] },
-  { label: "MANAGEMENT",   tabs: ["Rooms", "Gallery", "Inventory"] },
+  { label: "RESERVATIONS", tabs: ["Bookings", "Walk-In", "Occupancy"] },
+  { label: "MANAGEMENT",   tabs: ["Rooms", "Packages", "Menu", "Facilities", "Gallery", "Inventory"] },
   { label: "INSIGHTS",     tabs: ["Analytics", "Reports"] },
   { label: "SUPPORT",      tabs: ["Customer Service"] },
 ];
@@ -379,6 +830,8 @@ export function Admin({
   bookings, setBookings, rooms, setRooms,
   galleryImgs, setGalleryImgs, closedDates, setClosedDates,
   onLogout, customerMessages, setCustomerMessages,
+  menuItems, setMenuItems, facilities, setFacilities,
+  inventory, setInventory, packages, setPackages,
 }: AdminProps) {
   const { isDark } = useTheme();
   const C = T(isDark);
@@ -483,12 +936,31 @@ export function Admin({
     bookingId: string; action: "Confirmed" | "Cancelled"; guestName: string;
   } | null>(null);
 
-  const tabs: AdminTab[] = ["Dashboard", "Bookings", "On-Site", "Occupancy", "Rooms", "Gallery", "Inventory", "Analytics", "Reports", "Customer Service"];
-  const tabIcons: Record<AdminTab, string> = { Dashboard: "⊞", Bookings: "📋", "On-Site": "🏡", Occupancy: "📅", Rooms: "🛏", Gallery: "🖼", Inventory: "📦", Analytics: "📈", Reports: "📊", "Customer Service": "💬" };
+  const tabs: AdminTab[] = ["Dashboard", "Bookings", "Walk-In", "Occupancy", "Rooms", "Packages", "Menu", "Facilities", "Gallery", "Inventory", "Analytics", "Reports", "Customer Service"];
+  const tabIcons: Record<AdminTab, string> = { Dashboard: "⊞", Bookings: "📋", "Walk-In": "🏡", Occupancy: "📅", Rooms: "🛏", Packages: "🎁", Menu: "🍽", Facilities: "🧰", Gallery: "🖼", Inventory: "📦", Analytics: "📈", Reports: "📊", "Customer Service": "💬" };
+
+  // Flags every facility a completed booking used (whole-resort amenities,
+  // plus any specific rooms it rented) as "Needs Cleaning" so the caretaker
+  // has a running checklist of what to inspect before the next guest.
+  const markFacilitiesUsed = (booking: Booking) => {
+    setFacilities((fs) => fs.map((f) => {
+      const usedAmenity = f.category === "Amenity" && /Tour/i.test(booking.package);
+      const usedRoom = f.category === "Room" && f.roomId !== undefined && booking.rooms.includes(f.roomId);
+      if (!usedAmenity && !usedRoom) return f;
+      return {
+        ...f,
+        status: "Needs Cleaning",
+        lastUsedBookingId: booking.id,
+        lastUsedGuestName: booking.name,
+        lastCheckedAt: null,
+      };
+    }));
+  };
 
   const updateStatus = async (id: string, status: string, reason?: string) => {
   setBookings((bs) => bs.map((b) => b.id === id ? { ...b, status: status as Booking["status"] } : b));
   const booking = bookings.find((b) => b.id === id);
+  if (status === "Completed" && booking) markFacilitiesUsed(booking);
   if (!booking?.email) return;
   if (status === "Confirmed") {
     try {
@@ -666,9 +1138,9 @@ export function Admin({
                         </span>
                       )}
 
-                      {/* On-Site badge */}
-                      {t === "On-Site" && bookings.filter(
-                        b => b.package === "On-Site Reservation" && b.status === "Paid"
+                      {/* Walk-In badge */}
+                      {t === "Walk-In" && bookings.filter(
+                        b => b.source === "Walk-In" && b.status === "Paid"
                       ).length > 0 && (
                         <span style={{
                           background: "#4a9fd4", color: "#fff",
@@ -676,8 +1148,19 @@ export function Admin({
                           borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
                         }}>
                           {bookings.filter(
-                            b => b.package === "On-Site Reservation" && b.status === "Paid"
+                            b => b.source === "Walk-In" && b.status === "Paid"
                           ).length}
+                        </span>
+                      )}
+
+                      {/* Facilities badge */}
+                      {t === "Facilities" && facilities.filter(f => f.status === "Needs Cleaning").length > 0 && (
+                        <span style={{
+                          background: "#e0a020", color: "#000",
+                          fontSize: 9, fontWeight: 800,
+                          borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
+                        }}>
+                          {facilities.filter(f => f.status === "Needs Cleaning").length}
                         </span>
                       )}
 
@@ -725,6 +1208,42 @@ export function Admin({
                   </div>
                 ))}
               </div>
+
+              {/* Currently ongoing bookings — today's confirmed guests, live */}
+              {(() => {
+                const todayStr = new Date().toISOString().slice(0, 10);
+                const liveBookings = bookings.filter((b) => b.date === todayStr && b.status === "Confirmed");
+                const totalInResort = liveBookings.reduce((sum, b) => sum + b.guests, 0);
+                return (
+                  <div style={{ marginBottom: 36 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+                      <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, margin: 0 }}>CURRENTLY ONGOING BOOKINGS — TODAY (LIVE)</p>
+                      <span style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", fontSize: 10, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(76,175,80,0.2)", letterSpacing: 1 }}>
+                        👥 Total people in resort: {totalInResort}
+                      </span>
+                    </div>
+                    <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 6, overflow: "hidden" }}>
+                      <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 520 : 0 }}>
+                          <thead><tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>{["Guest", "Package", "Guests Included", "Rooms", "Source"].map((h) => <th key={h} style={{ padding: "12px 14px", color: C.textXS, fontSize: 9, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+                          <tbody>
+                            {liveBookings.map((b, idx) => (
+                              <tr key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#0a0906" : "#080604") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
+                                <td style={{ padding: "12px 14px", color: C.textH, fontSize: 12, fontWeight: 600 }}>{b.name}</td>
+                                <td style={{ padding: "12px 14px", color: C.textS, fontSize: 11 }}>{b.package}</td>
+                                <td style={{ padding: "12px 14px", color: gold, fontSize: 12, fontWeight: 700 }}>👥 {b.guests}</td>
+                                <td style={{ padding: "12px 14px", color: C.textS, fontSize: 11 }}>{b.rooms.length > 0 ? b.rooms.map((rid) => rooms.find((r) => r.id === rid)?.name ?? `#${rid}`).join(", ") : "—"}</td>
+                                <td style={{ padding: "12px 14px" }}><span style={{ background: b.source === "Walk-In" ? "rgba(74,159,212,0.08)" : "rgba(201,168,76,0.1)", color: b.source === "Walk-In" ? "#4a9fd4" : gold, fontSize: 9, padding: "3px 10px", borderRadius: 20, letterSpacing: 1 }}>{b.source ?? "Online"}</span></td>
+                              </tr>
+                            ))}
+                            {liveBookings.length === 0 && <tr><td colSpan={5} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 13 }}>No confirmed guests checked in for today yet.</td></tr>}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Pending approvals */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
@@ -825,23 +1344,23 @@ export function Admin({
                 <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 8 }}>MANAGEMENT</p>
                 <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>All Bookings</h2>
               </div>
-              <BookingsTab bookings={bookings.filter(b => b.package !== "On-Site Reservation" || b.status === "Confirmed" || b.status === "Completed")} updateStatus={updateStatus} mob={mob} rooms={rooms} />
+              <BookingsTab bookings={bookings.filter(b => b.source !== "Walk-In" || b.status === "Confirmed" || b.status === "Completed" || b.archived)} setBookings={setBookings} updateStatus={updateStatus} mob={mob} rooms={rooms} />
             </div>
           )}
 
-          {/* ON-SITE TAB */}
-          {tab === "On-Site" && (() => {
-            const onsiteBookings = bookings.filter(b => b.package === "On-Site Reservation");
-            const onsitePending   = onsiteBookings.filter(b => b.status === "Paid");
-            const onsiteConfirmed = onsiteBookings.filter(b => b.status === "Confirmed");
-            const onsiteCompleted = onsiteBookings.filter(b => b.status === "Completed");
+          {/* WALK-IN TAB */}
+          {tab === "Walk-In" && (() => {
+            const walkInBookings = bookings.filter(b => b.source === "Walk-In" && !b.archived);
+            const wiPending   = walkInBookings.filter(b => b.status === "Paid");
+            const wiConfirmed = walkInBookings.filter(b => b.status === "Confirmed");
+            const wiCompleted = walkInBookings.filter(b => b.status === "Completed");
 
             return (
-              <OnsiteTab
-                onsiteBookings={onsiteBookings}
-                onsitePending={onsitePending}
-                onsiteConfirmed={onsiteConfirmed}
-                onsiteCompleted={onsiteCompleted}
+              <WalkInTab
+                walkInBookings={walkInBookings}
+                wiPending={wiPending}
+                wiConfirmed={wiConfirmed}
+                wiCompleted={wiCompleted}
                 updateStatus={updateStatus}
                 isDark={isDark}
                 C={C}
@@ -850,6 +1369,15 @@ export function Admin({
                 mob={mob}
                 toast={toast}
                 gold={gold}
+                bookings={bookings}
+                setBookings={setBookings}
+                rooms={rooms}
+                menuItems={menuItems}
+                setMenuItems={setMenuItems}
+                inventory={inventory}
+                setInventory={setInventory}
+                packages={packages}
+                facilities={facilities}
               />
             );
           })()}
@@ -969,8 +1497,17 @@ export function Admin({
             </div>
           )}
 
+          {/* PACKAGES */}
+          {tab === "Packages" && <PackagesTab packages={packages} setPackages={setPackages} mob={mob} />}
+
+          {/* MENU */}
+          {tab === "Menu" && <MenuTab menuItems={menuItems} setMenuItems={setMenuItems} inventory={inventory} mob={mob} />}
+
+          {/* FACILITIES */}
+          {tab === "Facilities" && <FacilitiesTab facilities={facilities} setFacilities={setFacilities} bookings={bookings} mob={mob} />}
+
           {/* INVENTORY */}
-          {tab === "Inventory" && <InventoryTab />}
+          {tab === "Inventory" && <InventoryTab inventory={inventory} setInventory={setInventory} />}
 
           {/* ANALYTICS */}
           {tab === "Analytics" && <AnalyticsTab bookings={bookings} />}

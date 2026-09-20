@@ -1,4 +1,4 @@
-export type InventoryCategory = "Pool & Chemicals" | "Furniture & Misc" | "Cleaning Tools";
+export type InventoryCategory = "Pool & Chemicals" | "Furniture & Misc" | "Cleaning Tools" | "Food Ingredients";
 
 export interface InventoryItem {
   id: number;

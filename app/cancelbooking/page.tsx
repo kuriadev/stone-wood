@@ -17,7 +17,7 @@ export default function ManageBookingPage() {
 
     const nav = (p: string) => {
         const routes: Record<string, string> = {
-            "Home": "/", "Rooms": "/rooms", "Gallery": "/gallery",
+            "Home": "/", "Rooms": "/rooms", "Packages": "/packages", "Menu": "/menu", "Gallery": "/gallery",
             "About Us": "/about", "Book Now": "/book",
             "AdminLogin": "/login", "Customer Service": "/customer",
             "Cancel Booking": "/cancelbooking",

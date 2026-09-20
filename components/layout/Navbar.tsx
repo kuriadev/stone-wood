@@ -11,7 +11,7 @@ interface NavbarProps {
   setPage: (p: string) => void;
 }
 
-const LINKS = ["Home", "Rooms", "Gallery", "About Us"];
+const LINKS = ["Home", "Rooms", "Packages", "Menu", "Gallery", "About Us"];
 
 export function Navbar({ page, setPage }: NavbarProps) {
   const { isDark } = useTheme();

@@ -6,9 +6,12 @@ export interface AdminCredentials {
 export type AdminTab =
   | "Dashboard"
   | "Bookings"
-  | "On-Site"
+  | "Walk-In"
   | "Occupancy"
   | "Rooms"
+  | "Packages"
+  | "Menu"
+  | "Facilities"
   | "Gallery"
   | "Inventory"
   | "Analytics"

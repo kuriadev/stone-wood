@@ -4,7 +4,8 @@ import { useState, useMemo } from "react";
 import { T } from "@/lib/theme";
 import { gold } from "@/lib/styles";
 import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS } from "@/lib/validators";
-import type { Booking } from "@/types/booking";
+import { checkBookingAvailability } from "@/lib/utils";
+import type { Booking, BookingResource, BookingTier } from "@/types/booking";
 
 interface BookingDatePickerProps {
   bookings: Booking[];
@@ -12,6 +13,13 @@ interface BookingDatePickerProps {
   selectedDate: string;
   onSelectDate: (ds: string) => void;
   isDark: boolean;
+  /** Guest count for the booking being made, so a "Shared" date with room
+   *  left is still shown as available instead of flatly "booked". */
+  guests?: number;
+  /** Which resource is being booked and at what tier — a Venue-only booking
+   *  is checked against the venue's own calendar, not the pool's. */
+  resource?: BookingResource;
+  tier?: BookingTier;
 }
 
 export function BookingDatePicker({
@@ -20,6 +28,9 @@ export function BookingDatePicker({
   selectedDate,
   onSelectDate,
   isDark,
+  guests = 1,
+  resource = "Pool",
+  tier = "Shared",
 }: BookingDatePickerProps) {
   // Bookable range: today → min(today + 3 months, 31 Dec of this year).
   // This component only mounts at step 2, after interaction, so reading the
@@ -29,10 +40,16 @@ export function BookingDatePicker({
   const [calMonth, setCalMonth] = useState(
     new Date(today.getFullYear(), today.getMonth(), 1)
   );
-  const bookedDates = useMemo(
-    () => new Set(bookings.filter((b) => b.status !== "Cancelled").map((b) => b.date)),
-    [bookings]
-  );
+  // A date is "full" for this request when checkBookingAvailability says so —
+  // not merely because some other (Shared) booking already exists on it.
+  const fullDates = useMemo(() => {
+    const candidateDates = new Set(bookings.filter((b) => b.status !== "Cancelled").map((b) => b.date));
+    const full = new Set<string>();
+    candidateDates.forEach((ds) => {
+      if (!checkBookingAvailability(ds, guests, tier, resource, bookings).ok) full.add(ds);
+    });
+    return full;
+  }, [bookings, guests, resource, tier]);
   const closedSet = useMemo(() => new Set(closedDates), [closedDates]);
   const year = calMonth.getFullYear();
   const month = calMonth.getMonth();
@@ -145,7 +162,7 @@ export function BookingDatePicker({
           const dayDate = new Date(year, month, d);
           const isPast = dayDate < today;
           const isBeyond = dayDate > maxDate;
-          const isBooked = bookedDates.has(ds);
+          const isBooked = fullDates.has(ds);
           const isClosed = closedSet.has(ds);
           const isSel = selectedDate === ds;
           const disabled = isPast || isBeyond || isBooked || isClosed;

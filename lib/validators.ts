@@ -15,10 +15,95 @@ export const NAME_MIN = 2;
 export const NAME_MAX = 60;
 export const NOTES_MAX = 200;
 
+/** The resort's actual physical ceiling — how many people can be on-site for
+ *  the pool/amenities at once, full stop. One number now drives everything
+ *  guest-count related: the max guests a single booking will accept, the
+ *  guest count an Exclusive buyout is fixed to (a buyout means the WHOLE
+ *  capacity is reserved, not however many people happen to show up), and the
+ *  running total every date's Shared bookings are capped against together.
+ *  PLACEHOLDER — tune to the venue's real headcount limit. */
+export const RESORT_MAX_CAPACITY = 30;
+
 export const GUESTS_MIN = 1;
-/** Hard ceiling for a single day-tour booking. Adjust to the venue's real
- *  limit — the ₱100/head surcharge starts above 30, not at this number. */
-export const GUESTS_MAX = 100;
+/** No single booking can ask for more guests than the resort can physically
+ *  hold. */
+export const GUESTS_MAX = RESORT_MAX_CAPACITY;
+
+/** Guest count at/below which a booking defaults to "Shared" (the resort's
+ *  pool/venue is shared with other same-day bookings) rather than
+ *  "Exclusive" (whole-resort buyout — no other booking allowed that day).
+ *  Only used as a smart DEFAULT before the guest/staff explicitly picks a
+ *  tier — see getPackageTier() in lib/utils.ts. */
+export const GUESTS_SHARED_MAX = RESORT_MAX_CAPACITY;
+
+/** Total guests allowed across all concurrent "Shared" bookings on one date
+ *  — the same physical ceiling as RESORT_MAX_CAPACITY, since Shared bookings
+ *  are just multiple parties splitting that one capacity. */
+export const RESORT_SHARED_CAPACITY = RESORT_MAX_CAPACITY;
+
+/** Flat rental fee for the events venue on its own (no pool, no per-guest
+ *  pool pricing — it's a space rental, not a tour). PLACEHOLDER — tune once
+ *  the renovated events space's real rate is set. */
+export const EVENT_VENUE_RATE = 8000;
+
+// ────────────────────────────────────────────────────────────────────
+// TOUR PRICING
+// A booking's base tour price now depends on its tier, not a flat number
+// for everyone: "Exclusive" buys out the whole resort for one flat fee
+// regardless of how many of the (fixed) 30 guests actually show up;
+// "Shared" bills per attending head, since the pool is being split with
+// other same-day bookings rather than reserved outright. Both are
+// PLACEHOLDERS — tune to the resort's real rates. They're set so an
+// Exclusive buyout (30 guests × ₱200) lands on the same ₱6,000 a full
+// Shared group would pay, which is a starting point, not a rule.
+// ────────────────────────────────────────────────────────────────────
+
+/** Flat price for an Exclusive (whole-resort) buyout, however many of the
+ *  fixed RESORT_MAX_CAPACITY guests actually attend. */
+export const EXCLUSIVE_FLAT_RATE = 6000;
+
+/** Per-guest rate for a Shared booking. */
+export const SHARED_PER_HEAD_RATE = 200;
+
+// ────────────────────────────────────────────────────────────────────
+// DISCOUNTS
+// Shown as their own line items in the price breakdown, never silently
+// folded into a total, so a guest can see exactly what earned the discount.
+// All PLACEHOLDERS — tune the percentages to whatever promotions the resort
+// actually wants to run.
+// ────────────────────────────────────────────────────────────────────
+
+/** Reward for committing to a bigger, single-party Exclusive buyout instead
+ *  of a smaller Shared slot — applied to the tour base price only (not
+ *  rooms, food, or the venue fee). */
+export const EXCLUSIVE_DISCOUNT_PCT = 0.05;
+
+/** Ordering at least one Combo-category item nudges guests toward the
+ *  bundled meals (better kitchen throughput than one-off à la carte orders)
+ *  — applied to the whole food subtotal once any Combo item is in the
+ *  order, not just the combo item itself. */
+export const COMBO_DISCOUNT_PCT = 0.10;
+
+/** Booking the Pool + Events Venue package together costs less than buying
+ *  the two buyouts separately — applied to the combined pool + venue price
+ *  for that one package. */
+export const PACKAGE_BUNDLE_DISCOUNT_PCT = 0.10;
+
+/** A room booked as part of a "Pool + Room" package costs less than renting
+ *  it on its own — applied to that one room's own price. Keeps the
+ *  incentive on both sides: the guest saves on the room, the resort still
+ *  sells the room (which would otherwise sit empty) plus the pool slot. */
+export const ROOM_BUNDLE_DISCOUNT_PCT = 0.08;
+
+/** A "Pool + Food" package's built-in perk — a discount on the guest's
+ *  WHOLE food order (not just Combo items), since the package is sold
+ *  specifically around pre-ordering food. Distinct from COMBO_DISCOUNT_PCT,
+ *  which any booking (package or not) can unlock by ordering a Combo item;
+ *  the two can stack. Keeps the incentive on both sides: guests save on
+ *  food they were already going to order, and the resort gets a
+ *  predictable, larger food order per package sold instead of guests
+ *  ordering nothing and eating off-site. */
+export const PACKAGE_FOOD_DISCOUNT_PCT = 0.08;
 
 export const OVERTIME_MIN = 0;
 /** Day tour ends 5:00 PM; 7 hours of overtime reaches midnight. */

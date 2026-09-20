@@ -79,7 +79,15 @@
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    /* Must be "none", not "translateY(0)" — any non-"none" transform value
+       (even one that computes to the identity) makes this element a new
+       containing block for descendants with position:fixed. Since .sw-page
+       uses animation-fill-mode "both", the "to" keyframe stays applied
+       forever after the fade finishes — that turned .sw-page (which wraps
+       the entire, very tall page) into the anchor for every fixed-position
+       modal on the site, centering them in the page's full height instead
+       of the viewport (visible as a modal that "needs zooming out" to see). */
+    transform: none;
   }
 }
 @keyframes shimmer {

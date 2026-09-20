@@ -76,7 +76,7 @@ export function AnalyticsTab({ bookings}: AnalyticsTabProps) {
       {/* Package Breakdown */}
         <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "24px 20px", boxShadow: C.shadowCard }}>
           <h3 style={{ color: C.textS, fontSize: 10, letterSpacing: 2, marginBottom: 20 }}>PACKAGE BREAKDOWN</h3>
-          {["Day Tour", "Day Tour + Room"].map((p) => {
+          {["Day Tour", "Day Tour + Room", "Night Tour", "Night Tour + Room"].map((p) => {
             const n = bookings.filter((b) => b.package === p).length;
             const pct = bookings.length ? Math.round((n / bookings.length) * 100) : 0;
             return (

@@ -6,18 +6,21 @@ import { useToast } from "@/contexts/ToastContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
-import { INIT_INVENTORY } from "@/lib/constants";
 import type { InventoryItem, InventoryCategory } from "@/types/inventory";
 import styles from "./InventoryTab.module.css";
 
-export function InventoryTab() {
+interface InventoryTabProps {
+  inventory: InventoryItem[];
+  setInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
+}
+
+export function InventoryTab({ inventory: items, setInventory: setItems }: InventoryTabProps) {
   const { isDark } = useTheme();
   const C = T(isDark);
   const { toast } = useToast();
   const w = useWidth();
   const mob = w < 768;
 
-  const [items, setItems] = useState<InventoryItem[]>(INIT_INVENTORY);
   const [deleted, setDeleted] = useState<InventoryItem[]>([]);
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("All");
@@ -32,12 +35,13 @@ export function InventoryTab() {
 
   const setF = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  const catOpts: InventoryCategory[] = ["Pool & Chemicals", "Furniture & Misc", "Cleaning Tools"];
+  const catOpts: InventoryCategory[] = ["Pool & Chemicals", "Furniture & Misc", "Cleaning Tools", "Food Ingredients"];
   const cats = ["All", ...catOpts];
   const catC: Record<string, string> = {
     "Pool & Chemicals": "#4a9fd4",
     "Furniture & Misc": "#c9a84c",
     "Cleaning Tools": "#9c6fde",
+    "Food Ingredients": "#4caf50",
   };
 
   // Theme-driven values kept as inline only where CSS variables can't reach
