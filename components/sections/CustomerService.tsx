@@ -6,11 +6,20 @@ import { useWidth } from "@/hooks/useWidth";
 import { useToast } from "@/contexts/ToastContext";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
+import {
+  isGmailAddress,
+  isValidName,
+  sanitizeName,
+  NAME_MAX,
+} from "@/lib/validators";
 import type { CustomerMessage } from "@/types/admin";
 
 interface CustomerServiceProps {
   onSubmitMessage: (msg: CustomerMessage) => void;
 }
+
+/** Upper bound for the enquiry body, mirrored by the textarea maxLength. */
+const MESSAGE_MAX = 1000;
 
 export function CustomerService({ onSubmitMessage }: CustomerServiceProps) {
   const { isDark } = useTheme();
@@ -27,9 +36,10 @@ export function CustomerService({ onSubmitMessage }: CustomerServiceProps) {
   const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
 
   // ── Validators ──────────────────────────────────────────────────────────────
-  const nameOk    = form.name.trim().length >= 2;
-  const emailOk   = form.email.toLowerCase().endsWith("@gmail.com") && form.email.length > 10;
-  const messageOk = form.message.trim().length >= 10;
+  const nameOk    = isValidName(form.name);
+  // Was endsWith("@gmail.com") && length > 10, which accepted "!!!!@gmail.com".
+  const emailOk   = isGmailAddress(form.email);
+  const messageOk = form.message.trim().length >= 10 && form.message.length <= MESSAGE_MAX;
   const formOk    = nameOk && emailOk && messageOk;
 
 const submit = async () => {
@@ -126,14 +136,16 @@ const submit = async () => {
               <input
                 type="text"
                 value={form.name}
-                onChange={(e) => set("name", e.target.value)}
+                onChange={(e) => set("name", sanitizeName(e.target.value))}
                 onBlur={() => touch("name")}
+                maxLength={NAME_MAX}
+                autoComplete="name"
                 placeholder="Your full name"
                 className="sw-input"
                 style={{ ...C.inp, border: fieldBorder(nameOk, touched.name) }}
               />
               {touched.name && !nameOk && (
-                <p style={{ color: "#e55", fontSize: 11, marginTop: 4 }}>⚠ Please enter your full name (at least 2 characters)</p>
+                <p style={{ color: "#e55", fontSize: 11, marginTop: 4 }}>⚠ Please enter your full name (letters only, at least 2)</p>
               )}
               {touched.name && nameOk && (
                 <p style={{ color: "#4caf50", fontSize: 11, marginTop: 4 }}>✓ Looks good</p>
@@ -150,11 +162,13 @@ const submit = async () => {
                 value={form.email}
                 onChange={(e) => set("email", e.target.value)}
                 onBlur={() => touch("email")}
+                maxLength={254}
+                autoComplete="email"
                 placeholder="yourname@gmail.com"
                 className="sw-input"
                 style={{ ...C.inp, border: fieldBorder(emailOk, touched.email) }}
               />
-              {touched.email && form.email.length > 0 && !form.email.toLowerCase().endsWith("@gmail.com") && (
+              {touched.email && form.email.length > 0 && !emailOk && (
                 <p style={{ color: "#e55", fontSize: 11, marginTop: 4 }}>⚠ Must be a Gmail address (@gmail.com)</p>
               )}
               {touched.email && form.email.length === 0 && (
@@ -189,8 +203,9 @@ const submit = async () => {
               </label>
               <textarea
                 value={form.message}
-                onChange={(e) => set("message", e.target.value)}
+                onChange={(e) => set("message", e.target.value.slice(0, MESSAGE_MAX))}
                 onBlur={() => touch("message")}
+                maxLength={MESSAGE_MAX}
                 rows={5}
                 className="sw-input"
                 style={{ ...C.inp, resize: "vertical", border: fieldBorder(messageOk, touched.message) }}
@@ -206,8 +221,8 @@ const submit = async () => {
                     <span style={{ color: "#4caf50", fontSize: 11 }}>✓ Good to go</span>
                   )}
                 </span>
-                <span style={{ color: form.message.trim().length >= 10 ? "#4caf50" : C.textXS, fontSize: 10, fontFamily: "monospace" }}>
-                  {form.message.trim().length} chars
+                <span style={{ color: form.message.length >= MESSAGE_MAX ? "#e55" : form.message.trim().length >= 10 ? "#4caf50" : C.textXS, fontSize: 10, fontFamily: "monospace" }}>
+                  {form.message.length}/{MESSAGE_MAX}
                 </span>
               </div>
             </div>

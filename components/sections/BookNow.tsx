@@ -13,9 +13,23 @@
   import {
     isValidEmail,
     isValidPHNumber,
+    isGmailAddress,
+    isValidName,
+    sanitizeName,
+    sanitizeContact,
+    sanitizeNotes,
     validateBookingForm,
-    validateOnsiteForm
-  } from "@/lib/validators"; 
+    validateOnsiteForm,
+    isWithinBookingWindow,
+    describeDateProblem,
+    clamp,
+    NAME_MAX,
+    NOTES_MAX,
+    GUESTS_MIN,
+    GUESTS_MAX,
+    OVERTIME_MIN,
+    OVERTIME_MAX,
+  } from "@/lib/validators";
 
   interface BookNowProps {
     bookings: Booking[];
@@ -68,12 +82,25 @@
 
     const bookedDates = bookings.filter((b) => b.status !== "Cancelled").map((b) => b.date);
     const closedSet = new Set(closedDates);
-    const dateOk = date && !bookedDates.includes(date) && !closedSet.has(date);
+    // isWithinBookingWindow also rejects past dates and malformed strings, so
+    // a stale preselected date (deep link, or a tab left open past midnight)
+    // cannot slip through even though the calendar would never offer it.
+    const dateOk =
+      !!date &&
+      isWithinBookingWindow(date) &&
+      !bookedDates.includes(date) &&
+      !closedSet.has(date);
     const total = calcTotal(guests, overtime, selRooms, rooms);
     const down = Math.ceil(total / 2);
     const toggleRoom = (id: number) => setSelRooms((r) => r.includes(id) ? r.filter((x) => x !== id) : [...r, id]);
-    const handleContact = (v: string) => setF("contact", v.replace(/\D/g, "").slice(0, 11));
-    const handleOsContact = (v: string) => setOsF("contact", v.replace(/\D/g, "").slice(0, 11));
+    const handleContact = (v: string) => setF("contact", sanitizeContact(v));
+    const handleOsContact = (v: string) => setOsF("contact", sanitizeContact(v));
+    // Names are filtered as they are typed, so digits and symbols never even
+    // appear in the field — the user sees the rule instead of being told off
+    // for breaking it after the fact.
+    const handleName = (v: string) => setF("name", sanitizeName(v));
+    const handleOsName = (v: string) => setOsF("name", sanitizeName(v));
+    const handleNotes = (v: string) => setF("notes", sanitizeNotes(v));
 
     // Auto-redirect to home after online booking is confirmed (step 7)
     useEffect(() => {
@@ -391,7 +418,9 @@
                         }}
                       >
                         <button
-                          onClick={() => setGuests((g) => Math.max(1, g - 1))}
+                          onClick={() => setGuests((g) => clamp(g - 1, GUESTS_MIN, GUESTS_MAX))}
+                          disabled={guests <= GUESTS_MIN}
+                          aria-label="Fewer guests"
                           style={{
                             width: 42,
                             height: 42,
@@ -424,7 +453,9 @@
                         </span>
 
                         <button
-                          onClick={() => setGuests((g) => g + 1)}
+                          onClick={() => setGuests((g) => clamp(g + 1, GUESTS_MIN, GUESTS_MAX))}
+                          disabled={guests >= GUESTS_MAX}
+                          aria-label="More guests"
                           style={{
                             width: 42,
                             height: 42,
@@ -448,6 +479,11 @@
                         <p style={{ color: "#f5c518", fontSize: 11, marginTop: 12 }}>
                           +{guests - 30} extra guests × ₱100 ={" "}
                           {fmt((guests - 30) * 100)}
+                        </p>
+                      )}
+                      {guests >= GUESTS_MAX && (
+                        <p style={{ color: "#e55", fontSize: 11, marginTop: 6 }}>
+                          Maximum {GUESTS_MAX} guests per booking — please call us for larger groups.
                         </p>
                       )}
                     </div>
@@ -495,7 +531,9 @@
                         }}
                       >
                         <button
-                          onClick={() => setOvertime((o) => Math.max(0, o - 1))}
+                          onClick={() => setOvertime((o) => clamp(o - 1, OVERTIME_MIN, OVERTIME_MAX))}
+                          disabled={overtime <= OVERTIME_MIN}
+                          aria-label="Fewer overtime hours"
                           style={{
                             width: 42,
                             height: 42,
@@ -528,7 +566,9 @@
                         </span>
 
                         <button
-                          onClick={() => setOvertime((o) => o + 1)}
+                          onClick={() => setOvertime((o) => clamp(o + 1, OVERTIME_MIN, OVERTIME_MAX))}
+                          disabled={overtime >= OVERTIME_MAX}
+                          aria-label="More overtime hours"
                           style={{
                             width: 42,
                             height: 42,
@@ -623,7 +663,33 @@
                 <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 20 }}>
                   <div>
                     <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>FULL NAME</label>
-                    <input type="text" value={form.name} onChange={(e) => setF("name", e.target.value)} className="sw-input" style={inpS} />
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type="text"
+                        value={form.name}
+                        onChange={(e) => handleName(e.target.value)}
+                        maxLength={NAME_MAX}
+                        placeholder="Juan Dela Cruz"
+                        autoComplete="name"
+                        className="sw-input"
+                        style={{
+                          ...inpS,
+                          paddingRight: 52,
+                          border: form.name && !isValidName(form.name)
+                            ? "1px solid rgba(229,85,85,0.6)"
+                            : inpS.border,
+                        }}
+                      />
+                      <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: form.name.length >= NAME_MAX ? "#e55" : C.textS, fontWeight: 700, fontFamily: "monospace" }}>
+                        {form.name.length}/{NAME_MAX}
+                      </span>
+                    </div>
+                    {form.name && !isValidName(form.name) && (
+                      <p style={{ color: "#e55", fontSize: 11, marginTop: 4 }}>⚠ Please enter your full name (letters only)</p>
+                    )}
+                    {form.name && isValidName(form.name) && (
+                      <p style={{ color: "#4caf50", fontSize: 11, marginTop: 4 }}>✓ Valid</p>
+                    )}
                   </div>
                   <div>
                     <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>EMAIL ADDRESS</label>
@@ -642,7 +708,7 @@
                       }}
                     />
                     {form.email && !isValidEmail(form.email) && (
-                      <p style={{ color: "#e55", fontSize: 11, marginTop: 4 }}>⚠ Must be a Gmail address (@gmail.com)</p>
+                      <p style={{ color: "#e55", fontSize: 11, marginTop: 4 }}>⚠ Please enter a valid email address</p>
                     )}
                     {form.email && isValidEmail(form.email) && (
                       <p style={{ color: "#4caf50", fontSize: 11, marginTop: 4 }}>✓ Valid email</p>
@@ -655,12 +721,26 @@
                     <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: form.contact.length === 11 ? "#4caf50" : form.contact.length > 0 ? "#f5c518" : C.textS, fontWeight: 700, fontFamily: "monospace" }}>{form.contact.length}/11</span>
                   </div>
                   {form.contact.length > 0 && form.contact.length < 11 && <p style={{ color: "#f5c518", fontSize: 11, marginTop: 4 }}>⚠ Must be 11 digits</p>}
-                  {form.contact.length === 11 && <p style={{ color: "#4caf50", fontSize: 11, marginTop: 4 }}>✓ Valid</p>}
+                  {form.contact.length === 11 && !isValidPHNumber(form.contact) && <p style={{ color: "#e55", fontSize: 11, marginTop: 4 }}>⚠ Must start with 09</p>}
+                  {isValidPHNumber(form.contact) && <p style={{ color: "#4caf50", fontSize: 11, marginTop: 4 }}>✓ Valid</p>}
                 </div>
                   
                   <div>
                     <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>SPECIAL NOTES (OPTIONAL)</label>
-                    <textarea value={form.notes} onChange={(e) => setF("notes", e.target.value)} rows={2} className="sw-input" style={{ ...inpS, resize: "vertical" }} />
+                    <textarea
+                      value={form.notes}
+                      onChange={(e) => handleNotes(e.target.value)}
+                      maxLength={NOTES_MAX}
+                      rows={3}
+                      placeholder="Anything we should know? (optional)"
+                      className="sw-input"
+                      style={{ ...inpS, resize: "none", minHeight: 88 }}
+                    />
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+                      <span style={{ color: form.notes.length >= NOTES_MAX ? "#e55" : C.textXS, fontSize: 10, fontFamily: "monospace" }}>
+                        {form.notes.length}/{NOTES_MAX}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 {/* Summary */}
@@ -681,12 +761,20 @@
                     <span style={{ color: "#ff9800", fontWeight: 700, fontSize: 12 }}>{fmt(down)}</span>
                   </div>
                 </div>
+                {!dateOk && (
+                  <p style={{ color: "#e55", fontSize: 12, marginBottom: 10 }}>
+                    ⚠ {describeDateProblem(date) ?? "That date is no longer available — please pick another."}
+                  </p>
+                )}
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setStep(4)} style={{ ...outBtn, flex: 1, padding: "12px 10px", borderRadius: 6 }}>BACK</button>
                   <button
-                    disabled={!!validateBookingForm(form)}
+                    // dateOk is re-checked here as well as at step 2: the guest may
+                    // have sat on this screen past midnight, or the date may have
+                    // been taken in the meantime.
+                    disabled={!!validateBookingForm(form) || !dateOk}
                     onClick={() => setShowGcashWarning(true)}
-                    style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: !form.name || !isValidEmail(form.email) || !isValidPHNumber(form.contact) ? 0.4 : 1 }}
+                    style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: validateBookingForm(form) || !dateOk ? 0.4 : 1 }}
                   >
                     PROCEED TO GCASH →
                   </button>
@@ -826,7 +914,23 @@
                 <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 20 }}>
                   <div style={{ gridColumn: "1/-1" }}>
                     <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>FULL NAME</label>
-                    <input value={osForm.name} onChange={(e) => setOsF("name", e.target.value)} placeholder="Your full name" className="sw-input" style={inpS} />
+                    <input
+                      value={osForm.name}
+                      onChange={(e) => handleOsName(e.target.value)}
+                      maxLength={NAME_MAX}
+                      placeholder="Your full name"
+                      autoComplete="name"
+                      className="sw-input"
+                      style={{
+                        ...inpS,
+                        border: osForm.name && !isValidName(osForm.name)
+                          ? "1px solid rgba(229,85,85,0.6)"
+                          : inpS.border,
+                      }}
+                    />
+                    {osForm.name && !isValidName(osForm.name) && (
+                      <p style={{ color: "#e55", fontSize: 11, marginTop: 4 }}>⚠ Please enter your full name (letters only)</p>
+                    )}
                   </div>
                   <div>
                     <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>CONTACT NUMBER</label>
@@ -835,7 +939,8 @@
                       <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: osForm.contact.length === 11 ? "#4caf50" : osForm.contact.length > 0 ? "#f5c518" : C.textS, fontWeight: 700, fontFamily: "monospace" }}>{osForm.contact.length}/11</span>
                     </div>
                     {osForm.contact.length > 0 && osForm.contact.length < 11 && <p style={{ color: "#f5c518", fontSize: 11, marginTop: 4 }}>⚠ Must be 11 digits</p>}
-                    {osForm.contact.length === 11 && <p style={{ color: "#4caf50", fontSize: 11, marginTop: 4 }}>✓ Valid</p>}
+                    {osForm.contact.length === 11 && !isValidPHNumber(osForm.contact) && <p style={{ color: "#e55", fontSize: 11, marginTop: 4 }}>⚠ Must start with 09</p>}
+                    {isValidPHNumber(osForm.contact) && <p style={{ color: "#4caf50", fontSize: 11, marginTop: 4 }}>✓ Valid</p>}
                   </div>
                   <div>
                     <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>
@@ -847,12 +952,20 @@
                       onChange={(e) => setOsF("email", e.target.value)}
                       placeholder="yourname@gmail.com"
                       className="sw-input"
-                      style={{ ...inpS, border: osForm.email && !osForm.email.toLowerCase().endsWith("@gmail.com") ? "rgba(229,85,85,0.6)" : inpS.border }}
+                      maxLength={254}
+                      style={{
+                        ...inpS,
+                        // Was "rgba(229,85,85,0.6)" with no width/style, which is
+                        // an invalid shorthand — the red border never appeared.
+                        border: osForm.email && !isGmailAddress(osForm.email)
+                          ? "1px solid rgba(229,85,85,0.6)"
+                          : inpS.border,
+                      }}
                     />
-                    {osForm.email && !osForm.email.toLowerCase().endsWith("@gmail.com") && (
-                      <p style={{ color: "#e55", fontSize: 11, marginTop: 4 }}>⚠ Must be a Gmail address (@gmail.com)</p>
+                    {osForm.email && !isGmailAddress(osForm.email) && (
+                      <p style={{ color: "#e55", fontSize: 11, marginTop: 4 }}>⚠ Must be a valid Gmail address (@gmail.com)</p>
                     )}
-                    {osForm.email && osForm.email.toLowerCase().endsWith("@gmail.com") && (
+                    {isGmailAddress(osForm.email) && (
                       <p style={{ color: "#4caf50", fontSize: 11, marginTop: 4 }}>✓ Valid Gmail</p>
                     )}
                   </div>
@@ -863,10 +976,9 @@
                     disabled={
                       !!validateOnsiteForm({
                         name: osForm.name,
-                        contact: osForm.contact
-                      }) ||
-                      !osForm.email ||
-                      !osForm.email.toLowerCase().endsWith("@gmail.com")
+                        contact: osForm.contact,
+                        email: osForm.email,
+                      })
                     }
                     onClick={() => setStep(11)}
                     style={{

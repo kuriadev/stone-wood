@@ -130,6 +130,17 @@ const PACKAGE_TIERS = [
   { code: "4B", rooms: 4, pools: 2, status: "Exclusive", cover: RESORT_WIDE, note: "Full resort" },
 ];
 
+// Grouped views of PACKAGE_TIERS for display. The original index rides
+// along because openPkg() and pkgCardRefs both index into PACKAGE_TIERS
+// itself — losing it here would open the wrong package on click.
+const PACKAGE_GROUPS = [
+  { label: "SHARED", status: "Shared" },
+  { label: "EXCLUSIVE", status: "Exclusive" },
+].map((g) => ({
+  ...g,
+  tiers: PACKAGE_TIERS.map((p, i) => ({ p, i })).filter(({ p }) => p.status === g.status),
+}));
+
 const MARQUEE_REVIEWS = [
   { name: "Isabella M.", rating: 5, message: "Absolutely magical. The infinity pool at sunset is something I'll never forget. Staff treated us like family." },
   { name: "Daniel R.", rating: 5, message: "Perfect blend of luxury and privacy. The BBQ deck made our anniversary dinner unforgettable." },
@@ -401,9 +412,19 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
             ))}
           </div>
 
-          {/* Package cards */}
+          {/* Package cards — split into shared and exclusive groups */}
+          {PACKAGE_GROUPS.map((group, gi) => (
+          <div key={group.label} style={{ marginTop: gi === 0 ? 0 : (mob ? 30 : 40) }}>
+
+            {/* Group divider — same treatment as AVAILABLE ADD-ONS below */}
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: mob ? 14 : 18 }}>
+              <div style={{ flex: 1, height: 1, background: C.border }} />
+              <span style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, whiteSpace: "nowrap" }}>{group.label}</span>
+              <div style={{ flex: 1, height: 1, background: C.border }} />
+            </div>
+
           <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : tab ? "repeat(3,1fr)" : "repeat(4,1fr)", gap: mob ? 10 : 14 }}>
-            {PACKAGE_TIERS.map((p, i) => {
+            {group.tiers.map(({ p, i }, gIdx) => {
               const exclusive = p.status === "Exclusive";
               return (
                 <div
@@ -419,7 +440,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
                     position: "relative",
                     overflow: "hidden",
                     boxShadow: C.shadowCard,
-                    transitionDelay: `${i * 50}ms`,
+                    transitionDelay: `${gIdx * 50}ms`,
                   }}
                   onMouseEnter={(e) => {
                     const img = e.currentTarget.querySelector(".sw-pkg-img") as HTMLElement;
@@ -496,6 +517,8 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates }: HomePro
               );
             })}
           </div>
+          </div>
+          ))}
 
           {/* Add-ons */}
           <div ref={pkgAddonRef} className="sw-reveal" style={{ marginTop: mob ? 28 : 40, textAlign: "center" }}>

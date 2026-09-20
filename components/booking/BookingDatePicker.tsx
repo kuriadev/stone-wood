@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { T } from "@/lib/theme";
 import { gold } from "@/lib/styles";
+import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
 
 interface BookingDatePickerProps {
@@ -20,15 +21,19 @@ export function BookingDatePicker({
   onSelectDate,
   isDark,
 }: BookingDatePickerProps) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Bookable range: today → min(today + 3 months, 31 Dec of this year).
+  // This component only mounts at step 2, after interaction, so reading the
+  // clock during render cannot produce a server/client hydration mismatch.
+  const { min: today, max: maxDate } = useMemo(() => getBookingWindow(), []);
+
   const [calMonth, setCalMonth] = useState(
     new Date(today.getFullYear(), today.getMonth(), 1)
   );
-  const bookedDates = new Set(
-    bookings.filter((b) => b.status !== "Cancelled").map((b) => b.date)
+  const bookedDates = useMemo(
+    () => new Set(bookings.filter((b) => b.status !== "Cancelled").map((b) => b.date)),
+    [bookings]
   );
-  const closedSet = new Set(closedDates);
+  const closedSet = useMemo(() => new Set(closedDates), [closedDates]);
   const year = calMonth.getFullYear();
   const month = calMonth.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -36,6 +41,36 @@ export function BookingDatePicker({
   const toStr = (d: number) =>
     `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   const C = T(isDark);
+
+  // Navigation is bounded by the same window, so the guest can never page
+  // into a month that contains no bookable dates.
+  const firstMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const lastMonth = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
+  const viewing = new Date(year, month, 1);
+  const canGoPrev = viewing > firstMonth;
+  const canGoNext = viewing < lastMonth;
+
+  const step = (delta: number) =>
+    setCalMonth((m) => {
+      const next = new Date(m.getFullYear(), m.getMonth() + delta, 1);
+      if (next < firstMonth || next > lastMonth) return m;
+      return next;
+    });
+
+  const navBtn = (enabled: boolean) => ({
+    background: "none",
+    border: `1px solid ${C.border}`,
+    color: C.textS,
+    cursor: enabled ? "pointer" : "not-allowed",
+    borderRadius: 3,
+    width: 28,
+    height: 28,
+    fontSize: 14,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: enabled ? 1 : 0.35,
+  });
 
   return (
     <div
@@ -55,22 +90,11 @@ export function BookingDatePicker({
         }}
       >
         <button
-          onClick={() =>
-            setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))
-          }
-          style={{
-            background: "none",
-            border: `1px solid ${C.border}`,
-            color: C.textS,
-            cursor: "pointer",
-            borderRadius: 3,
-            width: 28,
-            height: 28,
-            fontSize: 14,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          type="button"
+          onClick={() => step(-1)}
+          disabled={!canGoPrev}
+          aria-label="Previous month"
+          style={navBtn(canGoPrev)}
         >
           ‹
         </button>
@@ -84,22 +108,11 @@ export function BookingDatePicker({
           {calMonth.toLocaleString("default", { month: "long", year: "numeric" })}
         </span>
         <button
-          onClick={() =>
-            setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))
-          }
-          style={{
-            background: "none",
-            border: `1px solid ${C.border}`,
-            color: C.textS,
-            cursor: "pointer",
-            borderRadius: 3,
-            width: 28,
-            height: 28,
-            fontSize: 14,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          type="button"
+          onClick={() => step(1)}
+          disabled={!canGoNext}
+          aria-label="Next month"
+          style={navBtn(canGoNext)}
         >
           ›
         </button>
@@ -131,15 +144,17 @@ export function BookingDatePicker({
           const ds = toStr(d);
           const dayDate = new Date(year, month, d);
           const isPast = dayDate < today;
+          const isBeyond = dayDate > maxDate;
           const isBooked = bookedDates.has(ds);
           const isClosed = closedSet.has(ds);
           const isSel = selectedDate === ds;
-          const disabled = isPast || isBooked || isClosed;
+          const disabled = isPast || isBeyond || isBooked || isClosed;
           let bg = isDark ? "#0f2a17" : "#dff5e5";
           let col = isDark ? "#63d471" : "#1f7a38";
           let bdr = `1px solid ${C.border}`;
           let cur: string = "pointer";
           if (isPast) { bg = isDark ? "#0c0c0c" : "#f8f6f2"; col = C.textXS; cur = "not-allowed"; }
+          if (isBeyond) { bg = isDark ? "#0c0c0c" : "#f8f6f2"; col = C.textXS; cur = "not-allowed"; }
           if (isBooked) {
             bg = isDark ? "#202020" : "#e7e7e7";
             col = isDark ? "#666" : "#aaa";
@@ -151,12 +166,18 @@ export function BookingDatePicker({
           if (isClosed) { bg = isDark ? "#1a0a0a" : "#fff0f0"; col = isDark ? "#553333" : "#e0a0a0"; cur = "not-allowed"; }
           if (isSel) { bg = gold; col = "#000"; bdr = `1px solid ${gold}`; }
           return (
-            <div
+            <button
               key={d}
+              type="button"
               onClick={() => !disabled && onSelectDate(ds)}
+              disabled={disabled}
+              aria-label={`${ds}${isBooked ? " — booked" : isClosed ? " — closed" : isPast || isBeyond ? " — unavailable" : " — available"}`}
+              aria-pressed={isSel}
               title={
                 isPast
                   ? "Past date"
+                  : isBeyond
+                  ? `Bookings open up to ${BOOKING_WINDOW_MONTHS} months ahead (to ${toDateStr(maxDate)})`
                   : isBooked
                   ? "Booked"
                   : isClosed
@@ -174,10 +195,13 @@ export function BookingDatePicker({
                 cursor: cur,
                 fontWeight: isSel ? 700 : 400,
                 userSelect: "none",
+                width: "100%",
+                fontFamily: "inherit",
+                lineHeight: "inherit",
               }}
             >
               {d}
-            </div>
+            </button>
           );
         })}
       </div>

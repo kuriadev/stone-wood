@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { gold } from "@/lib/styles";
+import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
 
 interface AvailabilityCalendarProps {
@@ -30,20 +31,53 @@ export function AvailabilityCalendar({
     setMounted(true);
   }, []);
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Bookable range: today → min(today + 3 months, 31 Dec of this year).
+  // Computed once per mount so a render mid-session cannot shift it.
+  const { min: minDate, max: maxDate } = useMemo(() => getBookingWindow(), [mounted]);
 
-  const bookedDates = new Set(
-    bookings.filter((b) => b.status !== "Cancelled").map((b) => b.date)
+  const bookedDates = useMemo(
+    () => new Set(bookings.filter((b) => b.status !== "Cancelled").map((b) => b.date)),
+    [bookings]
   );
-  const closedSet = new Set(closedDates);
+  const closedSet = useMemo(() => new Set(closedDates), [closedDates]);
 
-  const year = calMonth ? calMonth.getFullYear() : today.getFullYear();
-  const month = calMonth ? calMonth.getMonth() : today.getMonth();
+  const year = calMonth ? calMonth.getFullYear() : minDate.getFullYear();
+  const month = calMonth ? calMonth.getMonth() : minDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDay = new Date(year, month, 1).getDay();
   const toStr = (d: number) =>
     `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+  // Month navigation is bounded by the same window, so the guest can never
+  // page into a month that holds no bookable dates.
+  const firstMonth = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+  const lastMonth = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
+  const viewing = new Date(year, month, 1);
+  const canGoPrev = mounted && viewing > firstMonth;
+  const canGoNext = mounted && viewing < lastMonth;
+
+  const step = (delta: number) =>
+    setCalMonth((m) => {
+      if (!m) return m;
+      const next = new Date(m.getFullYear(), m.getMonth() + delta, 1);
+      if (next < firstMonth || next > lastMonth) return m;
+      return next;
+    });
+
+  const navBtn = (enabled: boolean) => ({
+    background: "none",
+    border: "1px solid #2a2a2a",
+    color: enabled ? "#aaa" : "#3a3a3a",
+    cursor: enabled ? "pointer" : "not-allowed",
+    borderRadius: 3,
+    width: 28,
+    height: 28,
+    fontSize: 14,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: enabled ? 1 : 0.4,
+  });
 
   return (
     <div
@@ -67,22 +101,11 @@ export function AvailabilityCalendar({
         }}
       >
         <button
-          onClick={() =>
-            setCalMonth((m) => (m ? new Date(m.getFullYear(), m.getMonth() - 1, 1) : m))
-          }
-          style={{
-            background: "none",
-            border: "1px solid #2a2a2a",
-            color: "#aaa",
-            cursor: "pointer",
-            borderRadius: 3,
-            width: 28,
-            height: 28,
-            fontSize: 14,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          type="button"
+          onClick={() => step(-1)}
+          disabled={!canGoPrev}
+          aria-label="Previous month"
+          style={navBtn(canGoPrev)}
         >
           ‹
         </button>
@@ -95,25 +118,14 @@ export function AvailabilityCalendar({
         >
           {mounted && calMonth
             ? calMonth.toLocaleString("default", { month: "long", year: "numeric" })
-            : "\u00A0"}
+            : " "}
         </span>
         <button
-          onClick={() =>
-            setCalMonth((m) => (m ? new Date(m.getFullYear(), m.getMonth() + 1, 1) : m))
-          }
-          style={{
-            background: "none",
-            border: "1px solid #2a2a2a",
-            color: "#aaa",
-            cursor: "pointer",
-            borderRadius: 3,
-            width: 28,
-            height: 28,
-            fontSize: 14,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          type="button"
+          onClick={() => step(1)}
+          disabled={!canGoNext}
+          aria-label="Next month"
+          style={navBtn(canGoNext)}
         >
           ›
         </button>
@@ -153,11 +165,12 @@ export function AvailabilityCalendar({
               {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
           const ds = toStr(d);
           const dayDate = new Date(year, month, d);
-          const isPast = dayDate < today;
+          const isPast = dayDate < minDate;
+          const isBeyond = dayDate > maxDate;
           const isBooked = bookedDates.has(ds);
           const isClosed = closedSet.has(ds);
           const isSel = selectedDate === ds;
-          const disabled = isPast || isBooked || isClosed;
+          const disabled = isPast || isBeyond || isBooked || isClosed;
 
           // ── Available (default): green tint ─────────────────────────────
           let bg  = "rgba(76,175,80,0.10)";
@@ -166,14 +179,30 @@ export function AvailabilityCalendar({
           let cur: string = "pointer";
 
           if (isPast)   { bg = "#0c0c0c";              col = "#333";     bdr = "1px solid #1a1a1a"; cur = "default";     }
+          if (isBeyond) { bg = "#0c0c0c";              col = "#333";     bdr = "1px solid #1a1a1a"; cur = "not-allowed"; }
           if (isBooked) { bg = "#161616";              col = "#444";     bdr = "1px solid #252525"; cur = "not-allowed"; }
           if (isClosed) { bg = "#1a0a0a";              col = "#553333";  bdr = "1px solid #2a1010"; cur = "not-allowed"; }
           if (isSel)    { bg = gold;                   col = "#000";     bdr = `1px solid ${gold}`; }
 
           return (
-            <div
+            <button
               key={d}
+              type="button"
               onClick={() => !disabled && onSelectDate(ds)}
+              disabled={disabled}
+              aria-label={`${ds}${isBooked ? " — booked" : isClosed ? " — closed" : isPast || isBeyond ? " — unavailable" : " — available"}`}
+              aria-pressed={isSel}
+              title={
+                isPast
+                  ? "Past date"
+                  : isBeyond
+                  ? `Bookings open up to ${BOOKING_WINDOW_MONTHS} months ahead (to ${toDateStr(maxDate)})`
+                  : isBooked
+                  ? "Booked"
+                  : isClosed
+                  ? "Not available"
+                  : "Available"
+              }
               style={{
                 textAlign: "center",
                 padding: "7px 2px",
@@ -185,10 +214,13 @@ export function AvailabilityCalendar({
                 cursor: cur,
                 fontWeight: isSel ? 700 : 400,
                 userSelect: "none",
+                width: "100%",
+                fontFamily: "inherit",
+                lineHeight: "inherit",
               }}
             >
               {d}
-            </div>
+            </button>
           );
         })}
             </>

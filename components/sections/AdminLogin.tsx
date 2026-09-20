@@ -97,8 +97,10 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
             <input
               type="text"
               value={user}
-              onChange={(e) => { setUser(e.target.value); setErr(""); }}
+              onChange={(e) => { setUser(e.target.value.trim().slice(0, 64)); setErr(""); }}
               onKeyDown={(e) => e.key === "Enter" && handle()}
+              maxLength={64}
+              autoComplete="username"
               placeholder="admin"
               className="sw-input"
               style={{ ...inp, borderColor: err ? "rgba(229,85,85,0.5)" : "#201c14" }}
@@ -111,8 +113,10 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
               <input
                 type={show ? "text" : "password"}
                 value={pass}
-                onChange={(e) => { setPass(e.target.value); setErr(""); }}
+                onChange={(e) => { setPass(e.target.value.slice(0, 128)); setErr(""); }}
                 onKeyDown={(e) => e.key === "Enter" && handle()}
+                maxLength={128}
+                autoComplete="current-password"
                 placeholder="••••••••"
                 className="sw-input"
                 style={{ ...inp, paddingRight: 44, borderColor: err ? "rgba(229,85,85,0.5)" : "#201c14" }}

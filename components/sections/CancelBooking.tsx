@@ -153,7 +153,8 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
                   type="text"
                   placeholder="Enter booking reference"
                   value={refInput}
-                  onChange={(e) => setRefInput(e.target.value)}
+                  onChange={(e) => setRefInput(e.target.value.trimStart().slice(0, 32))}
+                  maxLength={32}
                   onKeyDown={(e) => e.key === "Enter" && handleFind()}
                   className="sw-input"
                   style={{ ...inpStyle, paddingRight: 36 }}
@@ -170,7 +171,9 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
                   type="email"
                   placeholder="Enter email address"
                   value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
+                  onChange={(e) => setEmailInput(e.target.value.trimStart().slice(0, 254))}
+                  maxLength={254}
+                  autoComplete="email"
                   onKeyDown={(e) => e.key === "Enter" && handleFind()}
                   className="sw-input"
                   style={{ ...inpStyle, paddingRight: 36 }}
