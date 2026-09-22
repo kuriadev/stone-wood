@@ -24,7 +24,16 @@ import type {
 } from "@/types/database";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+
+// Supabase renamed the browser-safe key: the dashboard now emits
+// NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (sb_publishable_…) where it used to
+// emit NEXT_PUBLIC_SUPABASE_ANON_KEY (a long eyJ… JWT). Both are read, newest
+// first, so a copy-paste from either era of the dashboard works instead of
+// landing in a variable nothing looks at.
+const SUPABASE_ANON_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  "";
 
 /** A leftover template placeholder is not a configuration.
  *  Without this check the values ship as non-empty strings, callers
@@ -45,7 +54,7 @@ function missing(name: string): never {
   );
 }
 
-/** Browser-safe client. Subject to the RLS policies in supabase/schema.sql.
+/** Browser-safe client. Subject to the RLS policies in supabase/migrations/.
  *  Falls back to harmless placeholders so importing this file can never
  *  break a build that has not been configured yet. */
 export const supabase: SupabaseClient = createClient(

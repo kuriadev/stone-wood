@@ -1,6 +1,6 @@
 // ── Supabase row shapes
 //
-// Hand-written to match supabase/schema.sql. If you later install the
+// Hand-written to match supabase/migrations/. If you later install the
 // Supabase CLI you can regenerate this file instead:
 //   npx supabase gen types typescript --project-id <id> > types/database.ts
 //

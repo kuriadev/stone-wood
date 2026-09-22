@@ -1,3 +1,8 @@
+-- Initial StoneWood schema.
+-- Applied automatically by the Supabase GitHub integration on merge to main.
+-- Migrations are the source of truth: to change the schema, add a NEW file
+-- here rather than editing this one, or production and this repo will drift.
+
 -- ════════════════════════════════════════════════════════════════════
 -- StoneWood Resort — Supabase schema
 -- Run this in the Supabase dashboard → SQL Editor → New query.
