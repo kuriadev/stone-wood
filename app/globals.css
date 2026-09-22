@@ -221,7 +221,7 @@
 
 /* ── GLOBAL RESET ── */
 *, *::before, *::after { box-sizing: border-box; }
-html { font-size: 16px; }
+html { font-size: 17px; }
 body {
   background: #0b0a07; /* dark luxury bg */
   font-family: 'Jost', system-ui, sans-serif;
@@ -229,7 +229,19 @@ body {
   padding: 0;
   transition: background 0.2s ease;
 }
-img { max-width: 100%; }
+/* display:block is the important half here, not max-width.
+   An <img> is display:inline by default, so it sits on the TEXT BASELINE and
+   the line box reserves room underneath it for descenders (the tail of a "y").
+   That reserved strip is a few pixels of the parent's background showing
+   through below the photo — on the room cards it sat under the gradient
+   overlay and read as a grey band, and it only vanished on hover because
+   scale(1.05) grew the image enough to cover it.
+   Blocking the image takes it out of the inline flow, so there is no baseline
+   and no gap. */
+img {
+  display: block;
+  max-width: 100%;
+}
 
 /* ── CARD HOVER EFFECTS ── */
 .sw-card { transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s ease; }
@@ -296,7 +308,12 @@ img { max-width: 100%; }
   width: max-content;
   animation: sw-marquee 45s linear infinite;
 }
+/* Pause on hover so a guest can finish reading a card. */
 .sw-marquee-track:hover { animation-play-state: paused; }
+
+/* The loop is seamless because the track holds the reviews twice and
+   translateX(-50%) is exactly one copy's width. Change one without the
+   other and the strip will visibly jump on every cycle. */
 
 /* ── SCROLL REVEAL ── */
 .sw-reveal {
@@ -304,7 +321,14 @@ img { max-width: 100%; }
   transform: translateY(28px);
   transition: opacity .65s cubic-bezier(.22,1,.36,1), transform .65s cubic-bezier(.22,1,.36,1);
 }
-.sw-reveal-in {
+/* Revealed state is keyed off a DATA ATTRIBUTE, not a second class.
+   React owns `className`, so adding one from JS makes the DOM disagree with
+   what React rendered, and hydration reports a mismatch — which is exactly
+   what happened: the layout (and its observer) hydrates before a page inside
+   its own Suspense boundary, so the class landed on nodes React had not
+   hydrated yet. React never renders data-sw-in, so there is nothing for
+   hydration to compare and the mutation is invisible to it. */
+.sw-reveal[data-sw-in] {
   opacity: 1;
   transform: translateY(0);
 }
@@ -428,6 +452,15 @@ img { max-width: 100%; }
 /* IMAGE ZOOM  */
 .lux-room-card:hover .sw-img {
   transform: scale(1.08);
+  transition: transform .6s ease;
+}
+
+/* The zoom transition for .room-img lives here rather than inline on the
+   card, because both the Rooms page and the Packages page use this class.
+   It was previously an inline style on RoomsPage only, so the Packages
+   cards got the :hover scale with no transition and snapped to full zoom
+   instantly. Defining it once keeps the two pages from drifting again. */
+.room-img {
   transition: transform .6s ease;
 }
 
@@ -602,8 +635,12 @@ img { max-width: 100%; }
    are stopped, because those are what actually trigger discomfort.
    One-shot fades, hover states and colour transitions are left
    running, so the site still feels alive rather than dead. */
+/* The testimonial marquee is deliberately NOT in the list below. Stopping it
+   leaves five of the eight testimonials permanently off-screen, so suppressing
+   it hides content rather than just stilling it. It is a slow, constant-speed
+   horizontal drift at ~53px/s with no flashing or parallax, which is the mild
+   end of what the media query targets. */
 @media (prefers-reduced-motion: reduce) {
-  .sw-marquee-track,        /* endless horizontal scroll */
   .sw-hero-card-float,      /* 5s vertical bob */
   .sw-hero-scroll-indicator,/* bouncing chevron */
   .sw-hero-cta-glow,        /* pulsing button glow */
@@ -616,7 +653,7 @@ img { max-width: 100%; }
     transition: none !important;
   }
 
-  /* The IntersectionObserver adds .sw-reveal-in to fade these in.
+  /* The IntersectionObserver sets data-sw-in to fade these in.
      Nothing above suppresses that transition, but pin them visible
      anyway so a missed observer can never leave content invisible. */
   .sw-reveal {
@@ -700,4 +737,57 @@ html {
    land underneath it. */
 html {
   scroll-padding-top: 88px;
+}
+
+/* ── SPINNER ───────────────────────────────────────────────────────
+   Used by the payment screen while the QR is minted and while waiting
+   for PayMongo to confirm the scan. */
+@keyframes sw-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── LIVE INDICATOR ────────────────────────────────────────────────
+   A solid core with a ring that expands and fades, so a panel labelled
+   LIVE actually looks like it is breathing. currentColor means it picks
+   up whatever colour the badge around it uses. */
+@keyframes sw-live-ping {
+  0%   { transform: scale(1);   opacity: 0.55; }
+  70%  { transform: scale(2.6); opacity: 0; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+.sw-live-dot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.sw-live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: currentColor;
+  animation: sw-live-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Reduced motion keeps the dot, drops the pulse — the indicator still
+   reads as present without anything moving. */
+@media (prefers-reduced-motion: reduce) {
+  .sw-live-dot::after { animation: none; opacity: 0.3; }
+}
+
+/* ── HERO PHOTO ────────────────────────────────────────────────────
+   The hero is a CSS background, so it cannot use srcset. The component
+   passes two URLs as custom properties and this picks between them, so a
+   phone downloads the 1000px crop instead of the 2400px one. */
+.sw-hero-photo {
+  background-image: var(--hero-lg);
+}
+@media (max-width: 900px) {
+  .sw-hero-photo {
+    background-image: var(--hero-sm);
+  }
 }

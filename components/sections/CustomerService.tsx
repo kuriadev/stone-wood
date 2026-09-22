@@ -93,11 +93,11 @@ const submit = async () => {
   return (
     <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "48px 20px" : "80px 24px" }}>
       <div style={{ maxWidth: 680, margin: "0 auto" }}>
-        <p style={{ color: gold, letterSpacing: 4, fontSize: 11, marginBottom: 10, textAlign: "center" }}>SUPPORT</p>
+        <p style={{ color: gold, letterSpacing: 4, fontSize: 12.5, marginBottom: 10, textAlign: "center" }}>SUPPORT</p>
         <h2 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 28 : 42, color: C.textH, textAlign: "center", marginBottom: 12 }}>
           Customer Service
         </h2>
-        <p style={{ color: C.textS, textAlign: "center", marginBottom: 36, lineHeight: 1.7, fontSize: 13 }}>
+        <p style={{ color: C.textS, textAlign: "center", marginBottom: 36, lineHeight: 1.7, fontSize: 14.5 }}>
           We'd love to hear from you. Share your feedback, ask a question, or report a concern.
         </p>
 
@@ -115,8 +115,8 @@ const submit = async () => {
               onMouseLeave={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = C.shadowCard; }}
             >
               <div style={{ fontSize: 24, marginBottom: 8 }}>{icon}</div>
-              <div style={{ color: C.textXS, fontSize: 9, letterSpacing: 2, marginBottom: 5 }}>{label.toUpperCase()}</div>
-              <div style={{ color: C.textB, fontSize: 12, fontWeight: 500 }}>{val}</div>
+              <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 5 }}>{label.toUpperCase()}</div>
+              <div style={{ color: C.textB, fontSize: 13.5, fontWeight: 500 }}>{val}</div>
             </div>
           ))}
         </div>
@@ -125,14 +125,14 @@ const submit = async () => {
           <div style={{ background: C.bgCard, border: `1px solid ${gold}44`, borderRadius: 12, padding: "52px 24px", textAlign: "center", boxShadow: C.shadow }}>
             <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg,${gold}22,${gold}11)`, border: `1px solid ${gold}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, margin: "0 auto 20px" }}>💬</div>
             <h3 style={{ color: gold, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 26, marginBottom: 10, fontWeight: 400 }}>Message Received!</h3>
-            <p style={{ color: C.textS, fontSize: 14, lineHeight: 1.8 }}>We'll respond within 24 hours.</p>
+            <p style={{ color: C.textS, fontSize: 15, lineHeight: 1.8 }}>We'll respond within 24 hours.</p>
           </div>
         ) : (
           <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "24px 18px" : "40px", boxShadow: C.shadow }}>
 
             {/* ── FULL NAME ── */}
             <div style={{ marginBottom: 16 }}>
-              <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>FULL NAME</label>
+              <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>FULL NAME</label>
               <input
                 type="text"
                 value={form.name}
@@ -145,17 +145,17 @@ const submit = async () => {
                 style={{ ...C.inp, border: fieldBorder(nameOk, touched.name) }}
               />
               {touched.name && !nameOk && (
-                <p style={{ color: "#e55", fontSize: 11, marginTop: 4 }}>⚠ Please enter your full name (letters only, at least 2)</p>
+                <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Please enter your full name (letters only, at least 2)</p>
               )}
               {touched.name && nameOk && (
-                <p style={{ color: "#4caf50", fontSize: 11, marginTop: 4 }}>✓ Looks good</p>
+                <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Looks good</p>
               )}
             </div>
 
             {/* ── EMAIL ADDRESS ── */}
             <div style={{ marginBottom: 16 }}>
-              <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>
-                EMAIL ADDRESS <span style={{ color: "#e55", fontSize: 9 }}>*Gmail only</span>
+              <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>
+                EMAIL ADDRESS <span style={{ color: "#e55", fontSize: 10.5 }}>*Gmail only</span>
               </label>
               <input
                 type="email"
@@ -169,19 +169,19 @@ const submit = async () => {
                 style={{ ...C.inp, border: fieldBorder(emailOk, touched.email) }}
               />
               {touched.email && form.email.length > 0 && !emailOk && (
-                <p style={{ color: "#e55", fontSize: 11, marginTop: 4 }}>⚠ Must be a Gmail address (@gmail.com)</p>
+                <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Must be a Gmail address (@gmail.com)</p>
               )}
               {touched.email && form.email.length === 0 && (
-                <p style={{ color: "#e55", fontSize: 11, marginTop: 4 }}>⚠ Email address is required</p>
+                <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Email address is required</p>
               )}
               {touched.email && emailOk && (
-                <p style={{ color: "#4caf50", fontSize: 11, marginTop: 4 }}>✓ Valid Gmail address</p>
+                <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Valid Gmail address</p>
               )}
             </div>
 
             {/* ── TYPE ── */}
             <div style={{ marginBottom: 16 }}>
-              <label htmlFor="customer-service-type" style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>TYPE</label>
+              <label htmlFor="customer-service-type" style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>TYPE</label>
               <select
                 id="customer-service-type"
                 title="Message type"
@@ -198,8 +198,8 @@ const submit = async () => {
 
             {/* ── MESSAGE ── */}
             <div style={{ marginBottom: 20 }}>
-              <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>
-                MESSAGE <span style={{ color: C.textXS, fontSize: 9, fontWeight: 400, letterSpacing: 0 }}>(min. 10 characters)</span>
+              <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>
+                MESSAGE <span style={{ color: C.textXS, fontSize: 10.5, fontWeight: 400, letterSpacing: 0 }}>(min. 10 characters)</span>
               </label>
               <textarea
                 value={form.message}
@@ -215,13 +215,13 @@ const submit = async () => {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
                 <span>
                   {touched.message && !messageOk && (
-                    <span style={{ color: "#e55", fontSize: 11 }}>⚠ Please write at least 10 characters</span>
+                    <span style={{ color: "#e55", fontSize: 12.5 }}>⚠ Please write at least 10 characters</span>
                   )}
                   {touched.message && messageOk && (
-                    <span style={{ color: "#4caf50", fontSize: 11 }}>✓ Good to go</span>
+                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>✓ Good to go</span>
                   )}
                 </span>
-                <span style={{ color: form.message.length >= MESSAGE_MAX ? "#e55" : form.message.trim().length >= 10 ? "#4caf50" : C.textXS, fontSize: 10, fontFamily: "monospace" }}>
+                <span style={{ color: form.message.length >= MESSAGE_MAX ? "#e55" : form.message.trim().length >= 10 ? "#4caf50" : C.textXS, fontSize: 11.5, fontFamily: "monospace" }}>
                   {form.message.length}/{MESSAGE_MAX}
                 </span>
               </div>
@@ -243,7 +243,7 @@ const submit = async () => {
 
             {/* Show summary of errors only after first submit attempt */}
             {!formOk && Object.values(touched).some(Boolean) && (
-              <p style={{ color: C.textXS, fontSize: 11, textAlign: "center", marginTop: 10 }}>
+              <p style={{ color: C.textXS, fontSize: 12.5, textAlign: "center", marginTop: 10 }}>
                 Please fill in all fields correctly before sending.
               </p>
             )}

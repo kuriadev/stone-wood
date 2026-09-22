@@ -1,15 +1,27 @@
+import { randomInt } from "crypto";
+import { escapeHtml, sanitizeHeaderValue } from "@/lib/escapeHtml";
 
 import type { Booking } from "@/types/booking";
 
 
 export function generateOTP(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous chars (0,O,1,I)
+  // randomInt, not Math.random: Math.random is a fast PRNG, not a secure one.
+  // Its internal state is recoverable from a handful of outputs, and this code
+  // is the guest's check-in credential — a predictable one lets someone claim
+  // a booking that is not theirs.
+  const pick = () => chars[randomInt(chars.length)];
   let otp = "SW-";
-  for (let i = 0; i < 4; i++) otp += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 4; i++) otp += pick();
   otp += "-";
-  for (let i = 0; i < 4; i++) otp += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 4; i++) otp += pick();
   return otp; // e.g. SW-X4K2-9MBR
 }
+
+/** Absolute base URL for links inside an email. The cancellation link was
+ *  hardcoded to http://localhost:3000, so every confirmation sent from a
+ *  deployed site carried a link that only worked on the developer's laptop. */
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/+$/, "");
 
 function fmt(n: number) {
   return `₱${Number(n).toLocaleString()}`;
@@ -26,7 +38,7 @@ function formatDate(ds: string) {
 }
 
 export function buildRejectionEmail(booking: Booking, reason: string): { subject: string; html: string } {
-  const subject = `❌ Booking Update – ${booking.id} | StoneWood Resort`;
+  const subject = `❌ Booking Update – ${sanitizeHeaderValue(booking.id, 40)} | StoneWood Resort`;
   const defaultReason = "Your booking did not meet our current availability or requirements.";
   const displayReason = reason.trim() || defaultReason;
 
@@ -60,7 +72,7 @@ export function buildRejectionEmail(booking: Booking, reason: string): { subject
             <td style="background:#ffffff;padding:36px;">
 
               <p style="margin:0 0 24px;color:#3a2e1e;font-size:16px;line-height:1.7;">
-                Dear <strong>${booking.name}</strong>,
+                Dear <strong>${escapeHtml(booking.name)}</strong>,
               </p>
               <p style="margin:0 0 28px;color:#5a4a35;font-size:14px;line-height:1.8;">
                 Thank you for choosing <strong>StoneWood Resort</strong>. Unfortunately, we were unable to confirm your reservation at this time.
@@ -71,7 +83,7 @@ export function buildRejectionEmail(booking: Booking, reason: string): { subject
                 <tr>
                   <td style="background:#faf5e8;border:1px solid #e2d5b0;border-radius:8px;padding:16px 20px;">
                     <p style="margin:0 0 4px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;">Booking Reference</p>
-                    <p style="margin:0;color:#1a1108;font-size:22px;font-family:monospace;font-weight:700;letter-spacing:2px;">${booking.id}</p>
+                    <p style="margin:0;color:#1a1108;font-size:22px;font-family:monospace;font-weight:700;letter-spacing:2px;">${escapeHtml(booking.id)}</p>
                   </td>
                 </tr>
               </table>
@@ -83,12 +95,12 @@ export function buildRejectionEmail(booking: Booking, reason: string): { subject
                   ["Full Name", booking.name],
                   ["Date of Visit", formatDate(booking.date)],
                   ["Package", booking.package],
-                  ["Number of Guests", `${booking.guests} pax`],
+                  ["Number of Guests", `${escapeHtml(booking.guests)} pax`],
                   ["Total Amount", fmt(booking.total)],
                 ].map(([label, value]) => `
                 <tr>
-                  <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#8a6d3b;font-size:12px;width:40%;">${label}</td>
-                  <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#2a1f0e;font-size:13px;font-weight:600;">${value}</td>
+                  <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#8a6d3b;font-size:12px;width:40%;">${escapeHtml(label)}</td>
+                  <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#2a1f0e;font-size:13px;font-weight:600;">${escapeHtml(value)}</td>
                 </tr>`).join("")}
               </table>
 
@@ -97,7 +109,7 @@ export function buildRejectionEmail(booking: Booking, reason: string): { subject
                 <tr>
                   <td style="background:#fff5f5;border:1px solid #f5c6c6;border-left:4px solid #e55555;border-radius:0 8px 8px 0;padding:20px;">
                     <p style="margin:0 0 8px;color:#c0392b;font-size:10px;letter-spacing:3px;text-transform:uppercase;">Reason</p>
-                    <p style="margin:0;color:#4a2828;font-size:14px;line-height:1.8;font-style:italic;">"${displayReason}"</p>
+                    <p style="margin:0;color:#4a2828;font-size:14px;line-height:1.8;font-style:italic;">"${escapeHtml(displayReason)}"</p>
                   </td>
                 </tr>
               </table>
@@ -143,7 +155,7 @@ export function buildRejectionEmail(booking: Booking, reason: string): { subject
 }
 
 export function buildReceiptEmail(booking: Booking, otp: string): { subject: string; html: string } {
-  const subject = `✅ Booking Confirmed – ${booking.id} | StoneWood Resort`;
+  const subject = `✅ Booking Confirmed – ${sanitizeHeaderValue(booking.id, 40)} | StoneWood Resort`;
 
   const extraGuests = booking.guests > 30 ? (booking.guests - 30) * 100 : 0;
   const overtimeFee = (booking.overtime || 0) * 500;
@@ -180,7 +192,7 @@ export function buildReceiptEmail(booking: Booking, otp: string): { subject: str
 
               <!-- Greeting -->
               <p style="margin:0 0 24px;color:#3a2e1e;font-size:16px;line-height:1.7;">
-                Dear <strong>${booking.name}</strong>,
+                Dear <strong>${escapeHtml(booking.name)}</strong>,
               </p>
               <p style="margin:0 0 28px;color:#5a4a35;font-size:14px;line-height:1.8;">
                 We're delighted to confirm your reservation at <strong>StoneWood Resort</strong>. Please find your booking details and one-time access code below.
@@ -191,7 +203,7 @@ export function buildReceiptEmail(booking: Booking, otp: string): { subject: str
                 <tr>
                   <td style="background:#faf5e8;border:1px solid #e2d5b0;border-radius:8px;padding:16px 20px;">
                     <p style="margin:0 0 4px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;">Booking Reference</p>
-                    <p style="margin:0;color:#1a1108;font-size:22px;font-family:monospace;font-weight:700;letter-spacing:2px;">${booking.id}</p>
+                    <p style="margin:0;color:#1a1108;font-size:22px;font-family:monospace;font-weight:700;letter-spacing:2px;">${escapeHtml(booking.id)}</p>
                   </td>
                 </tr>
               </table>
@@ -203,16 +215,16 @@ export function buildReceiptEmail(booking: Booking, otp: string): { subject: str
                   ["Full Name", booking.name],
                   ["Contact Number", booking.contact],
                   ["Email Address", booking.email],
-                  ["Number of Guests", `${booking.guests} pax`],
+                  ["Number of Guests", `${escapeHtml(booking.guests)} pax`],
                   ["Date of Visit", formatDate(booking.date)],
                   ["Package", booking.package],
-                  ...(booking.overtime ? [["Overtime", `${booking.overtime} hour(s)`]] : []),
+                  ...(booking.overtime ? [["Overtime", `${escapeHtml(booking.overtime)} hour(s)`]] : []),
                   ["Payment Method", booking.package === "On-Site Reservation" ? "On-Site (Pay on Arrival)" : "GCash (Online Payment)"],
                   
                 ].map(([label, value]) => `
                 <tr>
-                  <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#8a6d3b;font-size:12px;width:40%;">${label}</td>
-                  <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#2a1f0e;font-size:13px;font-weight:600;">${value}</td>
+                  <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#8a6d3b;font-size:12px;width:40%;">${escapeHtml(label)}</td>
+                  <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#2a1f0e;font-size:13px;font-weight:600;">${escapeHtml(value)}</td>
                 </tr>`).join("")}
               </table>
 
@@ -222,7 +234,7 @@ export function buildReceiptEmail(booking: Booking, otp: string): { subject: str
                 <tr>
                   <td style="background:#fdfaf3;border-left:3px solid #c9a84c;border-radius:0 6px 6px 0;padding:14px 16px;">
                     <p style="margin:0 0 4px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;">Your Notes</p>
-                    <p style="margin:0;color:#4a3a28;font-size:13px;line-height:1.7;font-style:italic;">"${booking.notes}"</p>
+                    <p style="margin:0;color:#4a3a28;font-size:13px;line-height:1.7;font-style:italic;">"${escapeHtml(booking.notes)}"</p>
                   </td>
                 </tr>
               </table>` : ""}
@@ -295,12 +307,11 @@ export function buildReceiptEmail(booking: Booking, otp: string): { subject: str
                   <td style="background:#fdf5f5;border:1px solid #f0d0d0;border-radius:8px;padding:20px 24px;text-align:center;">
                     <p style="margin:0 0 6px;color:#8a5a5a;font-size:11px;letter-spacing:2px;text-transform:uppercase;">Need to cancel?</p>
                     <p style="margin:0 0 16px;color:#7a5a5a;font-size:12px;line-height:1.6;">Plans changed? You can request a cancellation before your visit date.</p>
-                    <!-- TODO: Replace the href below with the actual cancellation page URL once it's ready -->
-                    <a href="http://localhost:3000/cancelbooking?booking=${booking.id}&email=${encodeURIComponent(booking.email)}"
+                    <a href="${APP_URL}/cancelbooking?booking=${encodeURIComponent(booking.id)}&amp;email=${encodeURIComponent(booking.email)}"
                       style="display:inline-block;background:#c0392b;color:#ffffff;font-size:12px;font-weight:700;letter-spacing:2px;text-decoration:none;padding:12px 28px;border-radius:6px;text-transform:uppercase;">
                       Request Cancellation
                     </a>
-                    <p style="margin:12px 0 0;color:#aaa;font-size:10px;">Booking ID: ${booking.id}</p>
+                    <p style="margin:12px 0 0;color:#aaa;font-size:10px;">Booking ID: ${escapeHtml(booking.id)}</p>
                   </td>
                 </tr>
               </table>

@@ -7,7 +7,7 @@ import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import type { InventoryItem, InventoryCategory } from "@/types/inventory";
-import styles from "./InventoryTab.module.css";
+import { Icon } from "@/components/admin/Icon";
 
 interface InventoryTabProps {
   inventory: InventoryItem[];
@@ -100,25 +100,24 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
       : idx % 2 === 0 ? "#ffffff" : "#faf7f2";
 
   return (
-    <div className={styles.wrapper}>
+    <div >
 
       {/* ── Header ── */}
-      <div className={styles.header}>
-        <p className={styles.headerLabel} style={{ color: C.textXS }}>STOCK MANAGEMENT</p>
+      <div style={{ marginBottom: 28 }}>
+        <p style={{ fontSize: 11.5, letterSpacing: 3, marginBottom: 8, color: C.textXS }}>STOCK MANAGEMENT</p>
         <h2
-          className={`${styles.headerTitle} ${mob ? styles.statValueMob : ""}`}
-          style={{ color: C.textH, fontSize: mob ? 22 : 26 }}
+          style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontWeight: "400", margin: "0 0 6px", color: C.textH, fontSize: mob ? 22 : 26 }}
         >
           Inventory
         </h2>
-        <p className={styles.headerSub} style={{ color: C.textS }}>
+        <p style={{ fontSize: 13.5, margin: "0", color: C.textS }}>
           Resort supplies, equipment, and consumables.
         </p>
       </div>
 
       {/* ── Stats ── */}
       <div
-        className={`${styles.statsGrid} ${mob ? styles.statsGridMob : styles.statsGridDesk}`}
+        style={{ display: "grid", marginBottom: 28, gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4, 1fr)", gap: mob ? 10 : 14 }}
       >
         {[
           ["Total Items",  items.length,      "#c9a84c"],
@@ -128,19 +127,16 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
         ].map(([l, v, c]) => (
           <div
             key={l as string}
-            className={`${styles.statCard} ${mob ? styles.statCardMob : styles.statCardDesk}`}
-            style={{ background: cBg, border: `1px solid ${cBr}`, boxShadow: C.shadowCard }}
+            style={{ borderRadius: 10, position: "relative", overflow: "hidden", padding: mob ? "14px 12px" : "20px 16px", background: cBg, border: `1px solid ${cBr}`, boxShadow: C.shadowCard }}
           >
             <div
-              className={styles.statBar}
-              style={{ background: `linear-gradient(to right,${c as string}22,${c as string})` }}
+              style={{ position: "absolute", top: "0", left: "0", right: "0", height: 3, background: `linear-gradient(to right,${c as string}22,${c as string})` }}
             />
-            <div className={styles.statLabel} style={{ color: C.textXS }}>
+            <div style={{ fontSize: 10.5, letterSpacing: 2, marginBottom: 8, textTransform: "uppercase", color: C.textXS }}>
               {(l as string).toUpperCase()}
             </div>
             <div
-              className={`${styles.statValue} ${mob ? styles.statValueMob : styles.statValueDesk}`}
-              style={{ color: c as string }}
+              style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontWeight: "700", lineHeight: "1", fontSize: mob ? 24 : 30, color: c as string }}
             >
               {v as number}
             </div>
@@ -149,11 +145,11 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
       </div>
 
       {/* ── Filters ── */}
-      <div className={styles.filtersRow}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         {/* Search */}
-        <div className={styles.searchWrapper}>
+        <div style={{ flex: "1", minWidth: 180, position: "relative" }}>
           <svg
-            className={styles.searchIcon}
+            style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: "0.35", pointerEvents: "none" }}
             width="14" height="14" viewBox="0 0 24 24"
             fill="none" stroke={C.textH} strokeWidth="2"
             aria-hidden="true"
@@ -165,33 +161,31 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
           <label htmlFor="inventory-search" className="sr-only">Search inventory items</label>
           <input
             id="inventory-search"
-            className={`sw-input ${styles.searchInput}`}
+            className="sw-input"
+            // paddingLeft must come AFTER the inpS spread: inpS carries the
+            // `padding` shorthand from C.inp, which would otherwise reset the
+            // left inset and let the magnifying glass sit on top of the text.
+            style={{ ...inpS, paddingLeft: 34 }}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search items..."
-            style={inpS}
           />
         </div>
 
         {/* Category filter buttons */}
-        <div className={styles.catButtons} role="group" aria-label="Filter by category">
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }} role="group" aria-label="Filter by category">
           {cats.map((c) => (
             <button
               key={c}
-              className={styles.catBtn}
+              style={{ padding: "7px 12px", fontSize: 11.5, fontWeight: "700", borderRadius: 20, cursor: "pointer", letterSpacing: 1, background: filterCat === c
+                  ? (c === "All" ? (isDark ? "#1a1a1a" : "#e8e8e8") : `${catC[c]}18`)
+                  : "transparent", color: filterCat === c
+                  ? (c === "All" ? gold : catC[c])
+                  : C.textS, border: `1px solid ${filterCat === c
+                  ? (c === "All" ? gold : catC[c] + "55")
+                  : cBr}` }}
               onClick={() => setFilterCat(c)}
               aria-pressed={filterCat === c}
-              style={{
-                background: filterCat === c
-                  ? (c === "All" ? (isDark ? "#1a1a1a" : "#e8e8e8") : `${catC[c]}18`)
-                  : "transparent",
-                color: filterCat === c
-                  ? (c === "All" ? gold : catC[c])
-                  : C.textS,
-                border: `1px solid ${filterCat === c
-                  ? (c === "All" ? gold : catC[c] + "55")
-                  : cBr}`,
-              }}
             >
               {c}
             </button>
@@ -200,9 +194,8 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
 
         {/* Add button */}
         <button
-          className={styles.addBtn}
+          style={{ flexShrink: "0", ...goldBtn }}
           onClick={openAdd}
-          style={goldBtn}
           aria-label="Add new inventory item"
         >
           + ADD ITEM
@@ -211,22 +204,21 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
         {/* Archive toggle */}
         {deleted.length > 0 && (
           <button
-            className={styles.archiveBtn}
+            style={{ padding: "9px 14px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, background: "transparent", letterSpacing: 1, flexShrink: "0", color: C.textS, border: `1px solid ${cBr}` }}
             onClick={() => setShowArchive((s) => !s)}
             aria-expanded={showArchive}
             aria-label={`${showArchive ? "Hide" : "Show"} archived items (${deleted.length})`}
-            style={{ color: C.textS, border: `1px solid ${cBr}` }}
           >
-            🗑 ARCHIVE ({deleted.length})
+            <Icon name="trash" size={12} /> ARCHIVE ({deleted.length})
           </button>
         )}
       </div>
 
       {/* ── Low-stock alert ── */}
       {lowStock > 0 && (
-        <div className={styles.lowStockAlert} role="alert">
-          <span aria-hidden="true">⚠️</span>
-          <span className={styles.lowStockText}>
+        <div style={{ background: "rgba(229, 85, 85, 0.05)", border: "1px solid rgba(229, 85, 85, 0.2)", borderRadius: 4, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }} role="alert">
+          <Icon name="alert" size={14} />
+          <span style={{ color: "#e07070", fontSize: 13.5 }}>
             <strong>{lowStock}</strong> item{lowStock > 1 ? "s are" : " is"} at or below minimum stock level.
           </span>
         </div>
@@ -234,28 +226,22 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
 
       {/* ── Inventory table ── */}
       <div
-        className={styles.tableContainer}
-        style={{
-          background: cBg,
-          border: `1px solid ${cBr}`,
-          marginBottom: showArchive && deleted.length ? 24 : 0,
-          boxShadow: C.shadowCard,
-        }}
+        style={{ borderRadius: 10, overflow: "hidden", background: cBg, border: `1px solid ${cBr}`, marginBottom: showArchive && deleted.length ? 24 : 0, boxShadow: C.shadowCard }}
       >
         {filtered.length === 0 ? (
-          <p className={styles.emptyState} style={{ color: C.textS }}>
+          <p style={{ padding: "40px 20px", textAlign: "center", fontSize: 14.5, color: C.textS }}>
             No items found{search ? ` for "${search}"` : ""}.
           </p>
         ) : (
-          <div className={styles.tableScroll}>
+          <div style={{ overflowX: "auto" }}>
             <table
-              className={`${styles.table} ${mob ? styles.tableMob : ""}`}
+              style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 520 : undefined }}
               aria-label="Inventory items"
             >
               <thead>
                 <tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
                   {["Category", "Item Name", "Qty", "Unit", "Min", "Status", "Notes", "Actions"].map((h) => (
-                    <th key={h} scope="col" className={styles.th} style={{ color: C.textXS }}>
+                    <th key={h} scope="col" style={{ padding: "11px 14px", fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap", fontWeight: "600", color: C.textXS }}>
                       {h}
                     </th>
                   ))}
@@ -271,55 +257,39 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
                       style={{ borderBottom: `1px solid ${cBr}`, background: rowBg(idx) }}
                     >
                       {/* Category */}
-                      <td className={styles.td} style={{ whiteSpace: "nowrap" }}>
+                      <td style={{ padding: "11px 14px", whiteSpace: "nowrap" }}>
                         <span
-                          className={styles.catBadge}
-                          style={{
-                            background: `${cc}18`,
-                            color: cc,
-                            border: `1px solid ${cc}44`,
-                          }}
+                          style={{ fontSize: 10.5, padding: "3px 8px", borderRadius: 20, letterSpacing: 1, fontWeight: "700", whiteSpace: "nowrap", background: `${cc}18`, color: cc, border: `1px solid ${cc}44` }}
                         >
                           {item.category.toUpperCase()}
                         </span>
                       </td>
 
                       {/* Name */}
-                      <td className={styles.td} style={{ color: C.textH, fontSize: 12, fontWeight: 500 }}>
+                      <td style={{ padding: "11px 14px", color: C.textH, fontSize: 13.5, fontWeight: 500 }}>
                         {item.name}
                       </td>
 
                       {/* Qty controls */}
-                      <td className={styles.td}>
-                        <div className={styles.qtyControls}>
+                      <td style={{ padding: "11px 14px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <button
-                            className={styles.qtyBtn}
+                            style={{ width: 22, height: 22, borderRadius: 3, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: "0", background: isDark ? "#161616" : "#eee", border: `1px solid ${cBr}`, color: C.textS }}
                             onClick={() => updateQty(item.id, -1)}
                             aria-label={`Decrease quantity of ${item.name}`}
-                            style={{
-                              background: isDark ? "#161616" : "#eee",
-                              border: `1px solid ${cBr}`,
-                              color: C.textS,
-                            }}
                           >
                             −
                           </button>
                           <span
-                            className={styles.qtyValue}
+                            style={{ fontWeight: "700", fontSize: 14.5, minWidth: 24, textAlign: "center", color: low ? "#e55" : gold }}
                             aria-label={`Current quantity: ${item.qty}`}
-                            style={{ color: low ? "#e55" : gold }}
                           >
                             {item.qty}
                           </span>
                           <button
-                            className={styles.qtyBtn}
+                            style={{ width: 22, height: 22, borderRadius: 3, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: "0", background: isDark ? "#161616" : "#eee", border: `1px solid ${cBr}`, color: C.textS }}
                             onClick={() => updateQty(item.id, 1)}
                             aria-label={`Increase quantity of ${item.name}`}
-                            style={{
-                              background: isDark ? "#161616" : "#eee",
-                              border: `1px solid ${cBr}`,
-                              color: C.textS,
-                            }}
                           >
                             +
                           </button>
@@ -327,49 +297,45 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
                       </td>
 
                       {/* Unit */}
-                      <td className={styles.td} style={{ color: C.textS, fontSize: 11 }}>
+                      <td style={{ padding: "11px 14px", color: C.textS, fontSize: 12.5 }}>
                         {item.unit}
                       </td>
 
                       {/* Min qty */}
-                      <td className={styles.td} style={{ color: C.textS, fontSize: 11 }}>
+                      <td style={{ padding: "11px 14px", color: C.textS, fontSize: 12.5 }}>
                         {item.minQty}
                       </td>
 
                       {/* Status */}
-                      <td className={styles.td}>
+                      <td style={{ padding: "11px 14px" }}>
                         {low
-                          ? <span className={styles.badgeLowStock}>LOW STOCK</span>
-                          : <span className={styles.badgeOk}>OK</span>
+                          ? <span style={{ background: "rgba(229, 85, 85, 0.08)", color: "#e55", fontSize: 10.5, padding: "3px 9px", borderRadius: 20, border: "1px solid rgba(229, 85, 85, 0.2)", letterSpacing: 1 }}>LOW STOCK</span>
+                          : <span style={{ background: "rgba(76, 175, 80, 0.08)", color: "#4caf50", fontSize: 10.5, padding: "3px 9px", borderRadius: 20, border: "1px solid rgba(76, 175, 80, 0.2)", letterSpacing: 1 }}>OK</span>
                         }
                       </td>
 
                       {/* Notes */}
-                      <td className={styles.td} style={{ color: C.textS, fontSize: 11, maxWidth: 150 }}>
+                      <td style={{ padding: "11px 14px", color: C.textS, fontSize: 12.5, maxWidth: 150 }}>
                         {item.notes || "—"}
                       </td>
 
                       {/* Actions */}
-                      <td className={styles.td}>
-                        <div className={styles.actionButtons}>
+                      <td style={{ padding: "11px 14px" }}>
+                        <div style={{ display: "flex", gap: 5 }}>
                           <button
-                            className={styles.editBtn}
+                            style={{ background: "transparent", padding: "4px 8px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, color: C.textS, border: `1px solid ${cBr}` }}
                             onClick={() => openEdit(item)}
                             aria-label={`Edit ${item.name}`}
-                            style={{
-                              color: C.textS,
-                              border: `1px solid ${cBr}`,
-                            }}
                           >
                             EDIT
                           </button>
                           <button
-                            className={styles.deleteBtn}
+                            style={{ background: "transparent", color: "rgba(229, 85, 85, 0.7)", border: "1px solid rgba(229, 85, 85, 0.2)", padding: "4px 7px", fontSize: 12.5, cursor: "pointer", borderRadius: 3 }}
                             onClick={() => setConfirmDelete(item)}
                             aria-label={`Archive ${item.name}`}
                             title={`Archive ${item.name}`}
                           >
-                            🗑
+                            <Icon name="trash" size={13} />
                           </button>
                         </div>
                       </td>
@@ -385,31 +351,28 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
       {/* ── Archive section ── */}
       {showArchive && deleted.length > 0 && (
         <div
-          className={styles.archiveContainer}
-          style={{ background: cBg, border: `1px solid ${cBr}`, boxShadow: C.shadowCard }}
+          style={{ borderRadius: 10, overflow: "hidden", background: cBg, border: `1px solid ${cBr}`, boxShadow: C.shadowCard }}
         >
           <div
-            className={styles.archiveHeader}
-            style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? "#0a0806" : "#f5f0e8" }}
+            style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${cBr}`, background: isDark ? "#0a0806" : "#f5f0e8" }}
           >
-            <span aria-hidden="true">🗑</span>
-            <span className={styles.archiveHeaderLabel} style={{ color: C.textS }}>
+            <Icon name="trash" size={16} />
+            <span style={{ fontSize: 12.5, letterSpacing: 2, fontWeight: "700", color: C.textS }}>
               DELETED ITEMS — ARCHIVE
             </span>
-            <span className={styles.archiveCount} style={{ color: C.textXS }}>
+            <span style={{ fontSize: 12.5, marginLeft: "auto", color: C.textXS }}>
               {deleted.length} item{deleted.length > 1 ? "s" : ""}
             </span>
           </div>
-          <div className={styles.tableScroll}>
+          <div style={{ overflowX: "auto" }}>
             <table
-              className={styles.table}
-              style={{ minWidth: 420 }}
+              style={{ width: "100%", borderCollapse: "collapse", minWidth: 420 }}
               aria-label="Archived inventory items"
             >
               <thead>
                 <tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
                   {["Category", "Item Name", "Qty", "Unit", "Deleted On", "Action"].map((h) => (
-                    <th key={h} scope="col" className={styles.th} style={{ color: C.textXS }}>
+                    <th key={h} scope="col" style={{ padding: "11px 14px", fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap", fontWeight: "600", color: C.textXS }}>
                       {h}
                     </th>
                   ))}
@@ -421,16 +384,16 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
                     key={item.id}
                     style={{ borderBottom: `1px solid ${cBr}`, background: rowBg(idx), opacity: 0.8 }}
                   >
-                    <td className={styles.archiveTd} style={{ color: C.textS }}>{item.category}</td>
-                    <td className={styles.archiveTdName} style={{ color: C.textS }}>{item.name}</td>
-                    <td className={styles.archiveTd} style={{ color: C.textS }}>{item.qty}</td>
-                    <td className={styles.archiveTd} style={{ color: C.textS }}>{item.unit}</td>
-                    <td className={styles.archiveTd} style={{ color: C.textXS }}>
+                    <td style={{ padding: "10px 14px", fontSize: 12.5, color: C.textS }}>{item.category}</td>
+                    <td style={{ padding: "10px 14px", fontSize: 13.5, color: C.textS }}>{item.name}</td>
+                    <td style={{ padding: "10px 14px", fontSize: 12.5, color: C.textS }}>{item.qty}</td>
+                    <td style={{ padding: "10px 14px", fontSize: 12.5, color: C.textS }}>{item.unit}</td>
+                    <td style={{ padding: "10px 14px", fontSize: 12.5, color: C.textXS }}>
                       {(item as InventoryItem & { deletedAt?: string }).deletedAt}
                     </td>
-                    <td className={styles.archiveTd}>
+                    <td style={{ padding: "10px 14px", fontSize: 12.5 }}>
                       <button
-                        className={styles.restoreBtn}
+                        style={{ background: "rgba(76, 175, 80, 0.08)", color: "#4caf50", border: "1px solid rgba(76, 175, 80, 0.25)", padding: "4px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}
                         onClick={() => restoreItem(item)}
                         aria-label={`Restore ${item.name} from archive`}
                       >
@@ -447,37 +410,31 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
 
       {/* ── Confirm Archive Modal ── */}
       {confirmDelete && (
-        <div className={styles.modalBackdrop} role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
+        <div style={{ position: "fixed", inset: "0", background: "rgba(0, 0, 0, 0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: "500", padding: 20 }} role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
           <div
-            className={`${styles.modalBox} ${styles.deleteModalBox}`}
-            style={{
-              background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff",
-              border: "1px solid rgba(229,85,85,0.25)",
-            }}
+            style={{ borderRadius: 12, width: "100%", boxShadow: "0 40px 100px rgba(0, 0, 0, 0.7)", maxWidth: 380, padding: "32px 28px", background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: "1px solid rgba(229,85,85,0.25)" }}
           >
-            <div className={styles.deleteIcon} aria-hidden="true">🗑</div>
+            <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(229, 85, 85, 0.1)", border: "1px solid rgba(229, 85, 85, 0.2)", color: "#e55", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, fontSize: 20 }} aria-hidden="true"><Icon name="trash" size={13} /></div>
             <h3
               id="delete-modal-title"
-              className={styles.modalTitle}
-              style={{ color: C.textH }}
+              style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: "400", marginBottom: 8, color: C.textH }}
             >
               Archive this item?
             </h3>
-            <p className={styles.modalBody} style={{ color: C.textS }}>
+            <p style={{ fontSize: 14.5, lineHeight: "1.7", marginBottom: 22, color: C.textS }}>
               <strong style={{ color: C.textH }}>"{confirmDelete.name}"</strong>{" "}
               will be moved to the Deleted archive. You can restore it anytime.
             </p>
-            <hr className={styles.modalDivider} style={{ borderColor: cBr }} />
-            <div className={styles.modalActions}>
+            <hr style={{ marginBottom: 18, borderColor: cBr }} />
+            <div style={{ display: "flex", gap: 10 }}>
               <button
-                className={styles.cancelBtn}
+                style={{ flex: "1", background: "transparent", padding: 11, fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1, color: C.textS, border: `1px solid ${cBr}` }}
                 onClick={() => setConfirmDelete(null)}
-                style={{ color: C.textS, border: `1px solid ${cBr}` }}
               >
                 CANCEL
               </button>
               <button
-                className={styles.archiveConfirmBtn}
+                style={{ flex: "2", background: "rgba(229, 85, 85, 0.08)", color: "#e55", border: "1px solid rgba(229, 85, 85, 0.25)", padding: 11, fontSize: 12.5, fontWeight: "700", cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}
                 onClick={executeDelete}
               >
                 YES, ARCHIVE
@@ -489,28 +446,22 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
 
       {/* ── Add / Edit Modal ── */}
       {showAddModal && (
-        <div className={styles.modalBackdropForm} role="dialog" aria-modal="true" aria-labelledby="form-modal-title">
+        <div style={{ position: "fixed", inset: "0", background: "rgba(0, 0, 0, 0.88)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: "400", padding: 16, overflowY: "auto" }} role="dialog" aria-modal="true" aria-labelledby="form-modal-title">
           <div
-            className={`${styles.modalBox} ${styles.formModalBox} ${mob ? styles.formModalBoxMob : styles.formModalBoxDesk}`}
-            style={{
-              background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff",
-              border: `1px solid ${cBr}`,
-            }}
+            style={{ borderRadius: 12, width: "100%", boxShadow: "0 40px 100px rgba(0, 0, 0, 0.7)", maxWidth: 460, padding: mob ? "24px 20px" : 32, background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: `1px solid ${cBr}` }}
           >
             <h3
               id="form-modal-title"
-              className={styles.modalTitle}
-              style={{ color: C.textH, marginBottom: 20 }}
+              style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: "400", color: C.textH, marginBottom: 20 }}
             >
               {editItem ? "Edit Item" : "Add New Item"}
             </h3>
 
             {/* Category */}
-            <div className={styles.formField}>
+            <div style={{ marginBottom: 14 }}>
               <label
                 htmlFor="item-category"
-                className={styles.formLabel}
-                style={{ color: C.textS }}
+                style={{ fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 6, color: C.textS }}
               >
                 CATEGORY
               </label>
@@ -530,11 +481,10 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
             </div>
 
             {/* Item name */}
-            <div className={styles.formField}>
+            <div style={{ marginBottom: 14 }}>
               <label
                 htmlFor="item-name"
-                className={styles.formLabel}
-                style={{ color: C.textS }}
+                style={{ fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 6, color: C.textS }}
               >
                 ITEM NAME
               </label>
@@ -550,14 +500,14 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
             </div>
 
             {/* Qty / Unit / MinQty */}
-            <div className={styles.formGrid}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
               {([
                 ["QUANTITY", "qty",    "number", "item-qty",    "0"],
                 ["UNIT",     "unit",   "text",   "item-unit",   "pcs"],
                 ["MIN QTY",  "minQty", "number", "item-minqty", "0"],
               ] as const).map(([l, k, t, id, ph]) => (
                 <div key={k}>
-                  <label htmlFor={id} className={styles.formLabel} style={{ color: C.textS }}>
+                  <label htmlFor={id} style={{ fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 6, color: C.textS }}>
                     {l}
                   </label>
                   <input
@@ -575,11 +525,10 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
             </div>
 
             {/* Notes */}
-            <div className={styles.formFieldLast}>
+            <div style={{ marginBottom: 20 }}>
               <label
                 htmlFor="item-notes"
-                className={styles.formLabel}
-                style={{ color: C.textS }}
+                style={{ fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 6, color: C.textS }}
               >
                 NOTES
               </label>
@@ -594,19 +543,17 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
             </div>
 
             {/* Actions */}
-            <div className={styles.modalActions}>
+            <div style={{ display: "flex", gap: 10 }}>
               <button
-                className={styles.formCancelBtn}
+                style={{ flex: "1", background: "transparent", padding: 11, fontSize: 12.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1, color: C.textS, border: `1px solid ${cBr}` }}
                 onClick={() => setShowAddModal(false)}
-                style={{ color: C.textS, border: `1px solid ${cBr}` }}
               >
                 CANCEL
               </button>
               <button
-                className={styles.formSaveBtn}
+                style={{ flex: "2", ...goldBtn, opacity: !form.name || !form.qty || !form.unit ? 0.4 : 1 }}
                 onClick={saveItem}
                 disabled={!form.name || !form.qty || !form.unit}
-                style={{ ...goldBtn, opacity: !form.name || !form.qty || !form.unit ? 0.4 : 1 }}
                 aria-disabled={!form.name || !form.qty || !form.unit}
               >
                 SAVE ITEM

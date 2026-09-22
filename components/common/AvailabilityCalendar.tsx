@@ -72,7 +72,7 @@ export function AvailabilityCalendar({
     borderRadius: 3,
     width: 28,
     height: 28,
-    fontSize: 14,
+    fontSize: 15,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -112,7 +112,7 @@ export function AvailabilityCalendar({
         <span
           style={{
             color: "#f0f0f0",
-            fontSize: 13,
+            fontSize: 14.5,
             fontFamily: "'Cormorant Garamond',Georgia,serif",
           }}
         >
@@ -142,7 +142,7 @@ export function AvailabilityCalendar({
         {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
           <div
             key={d}
-            style={{ textAlign: "center", fontSize: 10, color: "#666", padding: "3px 0" }}
+            style={{ textAlign: "center", fontSize: 11.5, color: "#666", padding: "3px 0" }}
           >
             {d}
           </div>
@@ -153,7 +153,7 @@ export function AvailabilityCalendar({
         {!mounted
           ? /* Placeholder keeps the panel the same height before mount. */
             Array.from({ length: 35 }).map((_, i) => (
-              <div key={`ph${i}`} style={{ padding: "7px 2px", fontSize: 12, visibility: "hidden" }}>
+              <div key={`ph${i}`} style={{ padding: "7px 2px", fontSize: 13.5, visibility: "hidden" }}>
                 0
               </div>
             ))
@@ -210,7 +210,7 @@ export function AvailabilityCalendar({
                 background: bg,
                 border: bdr,
                 color: col,
-                fontSize: 12,
+                fontSize: 13.5,
                 cursor: cur,
                 fontWeight: isSel ? 700 : 400,
                 userSelect: "none",
@@ -245,7 +245,7 @@ export function AvailabilityCalendar({
         ].map(([l, c]) => (
           <div key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />
-            <span style={{ color: "#666", fontSize: 10 }}>{l}</span>
+            <span style={{ color: "#666", fontSize: 11.5 }}>{l}</span>
           </div>
         ))}
       </div>

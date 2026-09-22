@@ -52,6 +52,9 @@ export default function AdminPage() {
       setClosedDates={setClosedDates}
 
       onLogout={() => {
+        // The session cookie is httpOnly, so clearing the React flag alone
+        // would leave a working session behind. Only the server can expire it.
+        void fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
         setAdminAuth(false);
         router.push("/");
       }}

@@ -7,6 +7,8 @@ import { gold, outBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
 import type { Room } from "@/types/room";
 import { useState } from "react";
+import { srcSetFor, SIZES } from "@/lib/img";
+import { useScrollReveal } from "@/hooks/useScrollReveal";
 
 interface RoomsPageProps {
   setPage: (p: string) => void;
@@ -15,6 +17,10 @@ interface RoomsPageProps {
 }
 
 export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
+  // Scroll reveals. Called here, not in the layout: the effect must run
+  // after THIS page has hydrated or it mutates un-hydrated DOM.
+  useScrollReveal();
+
   const { isDark } = useTheme();
   const C = T(isDark);
   const w = useWidth();
@@ -27,8 +33,10 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
     <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "52px 20px" : "88px 24px" }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         
-        {/* HEADER */}
-        <p style={{ color: gold, letterSpacing: 4, fontSize: 11, textAlign: "center" }}>
+        {/* HEADER — one reveal for the trio so they rise together
+            rather than staggering into each other. */}
+        <div className="sw-reveal">
+        <p style={{ color: gold, letterSpacing: 4, fontSize: 12.5, textAlign: "center" }}>
           ACCOMMODATIONS
         </p>
 
@@ -42,9 +50,10 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
           Rooms & Sleeping Quarters
         </h2>
 
-        <p style={{ color: C.textS, textAlign: "center", marginBottom: 48, fontSize: 13 }}>
+        <p style={{ color: C.textS, textAlign: "center", marginBottom: 48, fontSize: 14.5 }}>
           Rooms are rented separately from the pool.
         </p>
+        </div>
 
         {/* GRID */}
         <div style={{
@@ -55,7 +64,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
           {rooms.map((r) => (
             <div
               key={r.id}
-              className="lux-room-card"
+              className="lux-room-card sw-reveal"
               onClick={() => setActiveRoom(r)}
               style={{
                 background: C.bgCard,
@@ -65,18 +74,26 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
                 boxShadow: C.shadowCard,
                 cursor: "pointer",
                 transition: "all .4s cubic-bezier(.22,1,.36,1)",
+                // See PackagesPage: column layout so the button can sit at the
+                // bottom of every card regardless of description length.
+                display: "flex",
+                flexDirection: "column",
               }}
             >
               {/* IMAGE */}
               <div style={{ position: "relative", overflow: "hidden" }}>
                 <img
+                  loading="lazy" decoding="async"
                   src={r.img}
+                  srcSet={srcSetFor(r.img)}
+                  sizes={SIZES.card}
                   alt={r.name}
                   style={{
                     width: "100%",
                     height: 220,
                     objectFit: "cover",
-                    transition: "transform .6s ease",
+                    // transition now lives on .room-img in globals.css, so the
+                    // Packages cards get the same easing from the same place.
                   }}
                   className="room-img"
                 />
@@ -98,7 +115,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
                   justifyContent: "space-between",
                 }}>
                   <span style={{
-                    fontSize: 11,
+                    fontSize: 12.5,
                     background: "rgba(0,0,0,0.4)",
                     padding: "3px 8px",
                     borderRadius: 6,
@@ -110,7 +127,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
                   <span style={{
                     color: "#fff",
                     fontWeight: 700,
-                    fontFamily: "'Cormorant Garamond'",
+                    fontFamily: "'Cormorant Garamond',Georgia,serif",
                   }}>
                     {fmt(r.price)}
                   </span>
@@ -118,10 +135,10 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
               </div>
 
               {/* CONTENT */}
-              <div style={{ padding: 20 }}>
+              <div style={{ padding: 20, flex: 1, display: "flex", flexDirection: "column" }}>
                 <h3 style={{ color: C.textH, fontSize: 18 }}>{r.name}</h3>
-                <p style={{ color: gold, fontSize: 12 }}>🛏 {r.beds}</p>
-                <p style={{ color: C.textS, fontSize: 13, marginBottom: 16 }}>
+                <p style={{ color: gold, fontSize: 13.5 }}>🛏 {r.beds}</p>
+                <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 16 }}>
                   {r.desc}
                 </p>
 
@@ -137,6 +154,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
                     width: "100%",
                     padding: "11px",
                     borderRadius: 8,
+                    marginTop: "auto",
                   }}
                 >
                   ADD TO BOOKING
@@ -176,7 +194,10 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
       }}
     >
       <img
+        loading="lazy" decoding="async"
         src={activeRoom.img}
+        srcSet={srcSetFor(activeRoom.img)}
+        sizes={SIZES.modal}
         alt={activeRoom.name}
         style={{ width: "100%", height: 260, objectFit: "cover" }}
       />
@@ -191,11 +212,11 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
           {activeRoom.name}
         </h2>
 
-        <p style={{ color: gold, fontSize: 13, marginBottom: 10 }}>
+        <p style={{ color: gold, fontSize: 14.5, marginBottom: 10 }}>
           🛏 {activeRoom.beds}
         </p>
 
-        <p style={{ color: "#ccc", fontSize: 14, lineHeight: 1.7 }}>
+        <p style={{ color: "#ccc", fontSize: 15, lineHeight: 1.7 }}>
           {activeRoom.desc}
         </p>
 

@@ -6,12 +6,14 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
-import { PACKAGES } from "@/lib/constants";
+import { PACKAGES, HERO_BG } from "@/lib/constants";
 import { fmt } from "@/lib/utils";
 import { AvailabilityCalendar } from "@/components/common/AvailabilityCalendar";
 import type { Booking, BookingResource, BookingTier, PackageDeepLink } from "@/types/booking";
 import type { ResortPackage } from "@/types/package";
 import type { MenuItem } from "@/types/menu";
+import { srcSetFor, SIZES, imageAt } from "@/lib/img";
+import { useScrollReveal } from "@/hooks/useScrollReveal";
 
 interface HomeProps {
   setPage: (p: string) => void;
@@ -34,9 +36,7 @@ interface HomeProps {
   onBookPackage?: (pkg: PackageDeepLink, resource: BookingResource, tier: BookingTier) => void;
 }
 
-// TODO: swap for the resort's own night/pool photography when available.
-const HERO_BG =
-  "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?q=80&w=2400&auto=format&fit=crop";
+// HERO_BG lives in lib/constants.ts so the root layout can preload it.
 
 // Resort services — rendered as a clean line-icon row.
 const SERVICES: { name: string; icon: React.ReactNode }[] = [
@@ -133,6 +133,10 @@ const MARQUEE_REVIEWS = [
 ];
 
 export function Home({ setPage, onBookWithDate, bookings, closedDates, packages, menuItems = [], onBookPackage }: HomeProps) {
+  // Scroll reveals. Called here, not in the layout: the effect must run
+  // after THIS page has hydrated or it mutates un-hydrated DOM.
+  useScrollReveal();
+
   const { isDark } = useTheme();
   const C = T(isDark);
   const w = useWidth();
@@ -156,7 +160,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
   const serif = "'Cormorant Garamond',Georgia,serif";
   const eyebrow: React.CSSProperties = {
     color: gold,
-    fontSize: 12,
+    fontSize: 13.5,
     letterSpacing: 4.5,
     fontWeight: 500,
     textTransform: "uppercase",
@@ -173,7 +177,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
   };
   const lede: React.CSSProperties = {
     color: C.textS,
-    fontSize: mob ? 14 : 15,
+    fontSize: mob ? 15 : 16,
     lineHeight: 1.9,
     fontWeight: 300,
   };
@@ -233,33 +237,15 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
   const pkgAddonRef = useRef<HTMLDivElement>(null);
   const closingRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("sw-reveal-in");
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.12, rootMargin: "0px 0px -50px 0px" }
-    );
-    const targets = [
-      ratesHeaderRef.current,
-      amenitiesDivRef.current,
-      testimonyHeaderRef.current,
-      pkgHeaderRef.current,
-      pkgDurationRef.current,
-      pkgAddonRef.current,
-      closingRef.current,
-      ...packageRefs.current,
-      ...amenityRefs.current,
-      ...pkgCardRefs.current,
-    ].filter(Boolean) as Element[];
-    targets.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, []);
+  // Scroll reveals are handled globally by <ScrollReveal> in ClientShell,
+  // which observes anything carrying .sw-reveal on any route. The local
+  // ref-based observer that used to live here was removed for two reasons:
+  //   • it only ever covered this page, so every other page had no reveal;
+  //   • it added a CLASS, and React owns className — mutating it on nodes
+  //     that had not hydrated yet produced a hydration mismatch. The global
+  //     one sets a data attribute instead, which React does not render.
+  // Every element it used to target also carries .sw-reveal, so coverage is
+  // unchanged. The refs below are still used for scrolling and measurement.
 
   return (
     <main id="main" style={{ background: C.bg }}>
@@ -276,12 +262,21 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           padding: mob ? "40px 20px 40px" : "48px 40px 56px",
         }}
       >
-        {/* Photo background */}
+        {/* Photo background.
+            This is the LCP element, and it was requesting w=2400 on every
+            device — roughly six times the pixels a 390px phone can show.
+            The two custom properties below feed a media query in globals.css
+            (.sw-hero-photo), so a phone fetches the 1000px crop and only
+            large screens pay for the full-size one. A CSS background cannot
+            use srcset, and it cannot be lazy-loaded either — so it is
+            preloaded in layout.tsx instead, which pulls LCP earlier. */}
         <div
+          className="sw-hero-photo"
           style={{
             position: "absolute",
             inset: 0,
-            backgroundImage: `url(${HERO_BG})`,
+            ["--hero-sm" as string]: `url(${imageAt(HERO_BG, 1000)})`,
+            ["--hero-lg" as string]: `url(${HERO_BG})`,
             backgroundSize: "cover",
             backgroundPosition: "center 60%",
           }}
@@ -303,7 +298,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
             <span className="sw-hero-gold-text" style={{ fontStyle: "italic" }}>Meets the Woods</span>
           </h1>
 
-          <p className="hero-sub" style={{ color: "rgba(246,241,232,0.94)", fontSize: mob ? 15 : 18, maxWidth: 520, margin: "0 auto", lineHeight: 1.8, fontWeight: 300, textShadow: "0 1px 16px rgba(0,0,0,0.4)" }}>
+          <p className="hero-sub" style={{ color: "rgba(246,241,232,0.94)", fontSize: mob ? 16 : 18, maxWidth: 520, margin: "0 auto", lineHeight: 1.8, fontWeight: 300, textShadow: "0 1px 16px rgba(0,0,0,0.4)" }}>
             An exclusive private resort experience crafted for those who seek luxury, privacy, and nature.
           </p>
         </div>
@@ -330,47 +325,81 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
 
             {/* Left: one instruction, then supporting detail — the calendar is the action */}
             <div style={{ flex: mob ? "none" : "0 0 250px" }}>
-              <p style={{ color: gold, fontSize: 11, letterSpacing: 3, marginBottom: 12, fontWeight: 500 }}>RESERVATIONS</p>
+              <p style={{ color: gold, fontSize: 12.5, letterSpacing: 3, marginBottom: 12, fontWeight: 500 }}>RESERVATIONS</p>
               <h2 style={{ fontFamily: serif, fontSize: mob ? 26 : 30, color: "#fff", fontWeight: 400, marginBottom: 14, lineHeight: 1.18, letterSpacing: "-0.3px" }}>
                 Select a date to begin
               </h2>
-              <p style={{ color: "rgba(238,232,220,0.72)", fontSize: 13.5, lineHeight: 1.75, marginBottom: 22 }}>
+              <p style={{ color: "rgba(238,232,220,0.72)", fontSize: 15, lineHeight: 1.75, marginBottom: 22 }}>
                 Green dates are open. Choosing one takes you straight into booking.
               </p>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 7, paddingTop: 18, borderTop: "1px solid rgba(201,168,76,0.22)" }}>
                 {[["Resort hours", "7:00 AM – 5:00 PM"], ["Base rate", `${fmt(6000)} /day`]].map(([l, v]) => (
-                  <div key={l} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "rgba(238,232,220,0.6)" }}>
+                  <div key={l} style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, color: "rgba(238,232,220,0.6)" }}>
                     <span>{l}</span>
                     <span style={{ color: gold, fontWeight: 600 }}>{v}</span>
                   </div>
                 ))}
               </div>
 
-              {/* Secondary paths — real buttons now, still visually subordinate to the calendar */}
-              <div style={{ display: "flex", gap: 10, marginTop: 22, flexWrap: "wrap" }}>
-                {[["Browse Rooms", "Rooms"], ["Manage Booking", "Cancel Booking"]].map(([label, target]) => (
-                  <button
-                    key={target}
-                    onClick={() => setPage(target)}
-                    style={{
-                      background: "rgba(255,255,255,0.06)",
-                      border: "1px solid rgba(201,168,76,0.4)",
-                      borderRadius: 7,
-                      padding: "10px 16px",
-                      cursor: "pointer",
-                      color: "rgba(246,241,232,0.9)",
-                      fontSize: 11.5,
-                      letterSpacing: 0.6,
-                      fontWeight: 500,
-                      transition: "background .2s ease, border-color .2s ease, color .2s ease",
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = `${gold}22`; e.currentTarget.style.borderColor = gold; e.currentTarget.style.color = "#fff"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(201,168,76,0.4)"; e.currentTarget.style.color = "rgba(246,241,232,0.9)"; }}
-                  >
-                    {label}
-                  </button>
-                ))}
+              {/* Secondary paths — still subordinate to the calendar.
+                  Grid, not a wrapping flex row. The two labels are different
+                  lengths, so flex sized each to its text: they sat at 129px
+                  and 140px, left-clustered, stopping ~33px short of the card's
+                  right edge, and on a 320px screen the second one orphaned
+                  onto its own line. auto-fit keeps them equal and edge-to-
+                  edge — side by side when the column can hold both, stacked
+                  full-width when it cannot, with no ragged middle state. */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))",
+                  gap: 10,
+                  marginTop: 22,
+                }}
+              >
+                {([["Browse Rooms", "Rooms", true], ["Manage Booking", "Cancel Booking", false]] as const).map(([label, target, primary]) => {
+                  // The two were styled identically, so neither read as the
+                  // likelier next step. Browsing rooms is what most visitors
+                  // want; managing a booking is for the few who already have
+                  // one. Both stay outline-only so the calendar keeps the
+                  // strongest weight on the card.
+                  const rest = {
+                    background: primary ? `${gold}1f` : "transparent",
+                    borderColor: primary ? `${gold}80` : "rgba(246,241,232,0.16)",
+                    color: primary ? "#f4e8c8" : "rgba(246,241,232,0.62)",
+                  };
+                  return (
+                    <button
+                      key={target}
+                      onClick={() => setPage(target)}
+                      style={{
+                        background: rest.background,
+                        border: `1px solid ${rest.borderColor}`,
+                        color: rest.color,
+                        fontWeight: primary ? 600 : 500,
+                        borderRadius: 7,
+                        padding: "12px 14px",
+                        // Was 37px tall — under the 44px minimum for a touch
+                        // target, which is why they felt fiddly on a phone.
+                        minHeight: mob ? 44 : 40,
+                        width: "100%",
+                        cursor: "pointer",
+                        fontSize: 13,
+                        letterSpacing: 0.6,
+                        // A button does not inherit the page font on its own,
+                        // so it would otherwise fall back to the UA default
+                        // and sit differently from the text above it.
+                        fontFamily: "inherit",
+                        transition: "background .2s ease, border-color .2s ease, color .2s ease",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = `${gold}33`; e.currentTarget.style.borderColor = gold; e.currentTarget.style.color = "#fff"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = rest.background; e.currentTarget.style.borderColor = rest.borderColor; e.currentTarget.style.color = rest.color; }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -412,8 +441,8 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           >
             {DURATIONS.map((d) => (
               <div key={d.label} style={{ background: C.bgCard2, padding: mob ? "18px 20px" : "22px 24px", textAlign: "center" }}>
-                <div style={{ color: C.textXS, fontSize: 9, letterSpacing: 2.5, marginBottom: 7 }}>{d.label.toUpperCase()}</div>
-                <div style={{ color: gold, fontSize: mob ? 14 : 15, fontWeight: 500, letterSpacing: 0.3 }}>{d.window}</div>
+                <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 7 }}>{d.label.toUpperCase()}</div>
+                <div style={{ color: gold, fontSize: mob ? 15 : 16, fontWeight: 500, letterSpacing: 0.3 }}>{d.window}</div>
               </div>
             ))}
           </div>
@@ -425,7 +454,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
             {/* Group divider — same treatment as AVAILABLE ADD-ONS below */}
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: mob ? 14 : 18 }}>
               <div style={{ flex: 1, height: 1, background: C.border }} />
-              <span style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, whiteSpace: "nowrap" }}>{group.label}</span>
+              <span style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, whiteSpace: "nowrap" }}>{group.label}</span>
               <div style={{ flex: 1, height: 1, background: C.border }} />
             </div>
 
@@ -461,8 +490,11 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                   <div style={{ position: "relative", height: mob ? 104 : 128, overflow: "hidden", background: isDark ? "#14110d" : "#e8e0d4" }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
+                      loading="lazy" decoding="async"
                       className="sw-pkg-img"
                       src={p.cover}
+                      srcSet={srcSetFor(p.cover)}
+                      sizes={SIZES.card}
                       alt={`Package ${p.code}`}
                       onError={(e) => {
                         // Fall back to a known-good shot rather than an empty card.
@@ -482,7 +514,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2.5">
                         <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
                       </svg>
-                      <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 9, fontWeight: 600 }}>{p.gallery.length}</span>
+                      <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 10.5, fontWeight: 600 }}>{p.gallery.length}</span>
                     </div>
 
                     {/* Title over the photo */}
@@ -498,19 +530,19 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                     <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
                       <span style={{ color: gold, fontSize: 18, fontWeight: 700 }}>{fmt(p.price)}</span>
                       {p.listPrice && (
-                        <span style={{ color: C.textXS, fontSize: 12, textDecoration: "line-through" }}>{fmt(p.listPrice)}</span>
+                        <span style={{ color: C.textXS, fontSize: 13.5, textDecoration: "line-through" }}>{fmt(p.listPrice)}</span>
                       )}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
                       {p.includes.slice(0, 2).map((inc) => (
-                        <div key={inc} style={{ color: C.textB, fontSize: 12 }}>{inc}</div>
+                        <div key={inc} style={{ color: C.textB, fontSize: 13.5 }}>{inc}</div>
                       ))}
                     </div>
 
                     <span
                       style={{
                         display: "inline-block",
-                        fontSize: 9,
+                        fontSize: 10.5,
                         letterSpacing: 1.5,
                         padding: "3px 9px",
                         borderRadius: 20,
@@ -523,23 +555,23 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                     </span>
 
                     {p.listPrice && (
-                      <span style={{ display: "inline-block", marginLeft: 6, fontSize: 9, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: "rgba(76,175,80,0.12)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.4)" }}>
+                      <span style={{ display: "inline-block", marginLeft: 6, fontSize: 10.5, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: "rgba(76,175,80,0.12)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.4)" }}>
                         SAVE {fmt(p.listPrice - p.price)}
                       </span>
                     )}
                     {p.foodDiscountPct && (
-                      <span style={{ display: "inline-block", marginLeft: 6, fontSize: 9, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: "rgba(76,175,80,0.12)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.4)" }}>
+                      <span style={{ display: "inline-block", marginLeft: 6, fontSize: 10.5, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: "rgba(76,175,80,0.12)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.4)" }}>
                         {Math.round(p.foodDiscountPct * 100)}% OFF FOOD
                       </span>
                     )}
                     {p.requiresRoom && (
-                      <span style={{ display: "inline-block", marginLeft: 6, fontSize: 9, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: `${gold}18`, color: gold, border: `1px solid ${gold}44` }}>
+                      <span style={{ display: "inline-block", marginLeft: 6, fontSize: 10.5, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: `${gold}18`, color: gold, border: `1px solid ${gold}44` }}>
                         ROOM DISCOUNTED
                       </span>
                     )}
 
                     {p.note && (
-                      <div style={{ color: C.textXS, fontSize: 10, marginTop: 8, letterSpacing: 0.5 }}>{p.note}</div>
+                      <div style={{ color: C.textXS, fontSize: 11.5, marginTop: 8, letterSpacing: 0.5 }}>{p.note}</div>
                     )}
                   </div>
                 </div>
@@ -553,14 +585,14 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           <div ref={pkgAddonRef} className="sw-reveal" style={{ marginTop: mob ? 28 : 40, textAlign: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
               <div style={{ flex: 1, height: 1, background: C.border }} />
-              <span style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, whiteSpace: "nowrap" }}>AVAILABLE ADD-ONS</span>
+              <span style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, whiteSpace: "nowrap" }}>AVAILABLE ADD-ONS</span>
               <div style={{ flex: 1, height: 1, background: C.border }} />
             </div>
             <div style={{ display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
               {ADDONS.map((a) => (
                 <div
                   key={a}
-                  style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 24, padding: "9px 20px", color: C.textB, fontSize: 13, letterSpacing: 0.3 }}
+                  style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 24, padding: "9px 20px", color: C.textB, fontSize: 14.5, letterSpacing: 0.3 }}
                 >
                   {a}
                 </div>
@@ -637,7 +669,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                   position: "absolute", top: 14, right: 14, zIndex: 4,
                   width: 32, height: 32, borderRadius: "50%",
                   background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)",
-                  border: "none", color: "rgba(255,255,255,0.9)", cursor: "pointer", fontSize: 14,
+                  border: "none", color: "rgba(255,255,255,0.9)", cursor: "pointer", fontSize: 15,
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}
               >
@@ -670,7 +702,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                         position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
                         width: 34, height: 34, borderRadius: "50%",
                         background: "rgba(0,0,0,0.4)", backdropFilter: "blur(6px)",
-                        border: `1px solid ${gold}44`, color: gold, fontSize: 17, cursor: "pointer",
+                        border: `1px solid ${gold}44`, color: gold, fontSize: 18, cursor: "pointer",
                         display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3,
                       }}
                     >
@@ -683,7 +715,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                         position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
                         width: 34, height: 34, borderRadius: "50%",
                         background: "rgba(0,0,0,0.4)", backdropFilter: "blur(6px)",
-                        border: `1px solid ${gold}44`, color: gold, fontSize: 17, cursor: "pointer",
+                        border: `1px solid ${gold}44`, color: gold, fontSize: 18, cursor: "pointer",
                         display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3,
                       }}
                     >
@@ -693,7 +725,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                 )}
 
                 {/* Counter */}
-                <div style={{ position: "absolute", top: 16, left: 16, zIndex: 3, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)", borderRadius: 20, padding: "4px 10px", color: "rgba(255,255,255,0.8)", fontSize: 10, letterSpacing: 1.5, fontFamily: "monospace" }}>
+                <div style={{ position: "absolute", top: 16, left: 16, zIndex: 3, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)", borderRadius: 20, padding: "4px 10px", color: "rgba(255,255,255,0.8)", fontSize: 11.5, letterSpacing: 1.5, fontFamily: "monospace" }}>
                   {String(photoIdx + 1).padStart(2, "0")} / {String(gallery.length).padStart(2, "0")}
                 </div>
 
@@ -701,14 +733,14 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                 <div style={{ position: "absolute", bottom: 14, left: 20, right: 20, zIndex: 3 }}>
                   <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
                     <div>
-                      <div style={{ color: gold, fontSize: 9, letterSpacing: 3, marginBottom: 4 }}>PACKAGE</div>
+                      <div style={{ color: gold, fontSize: 10.5, letterSpacing: 3, marginBottom: 4 }}>PACKAGE</div>
                       <div style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 26 : 30, color: "#fff", lineHeight: 1.1, fontWeight: 400, textShadow: "0 2px 16px rgba(0,0,0,0.6)" }}>
                         {p.title}
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ color: gold, fontSize: 9, letterSpacing: 2, marginBottom: 3 }}>{shot.kind.toUpperCase()}</div>
-                      <div style={{ color: "rgba(255,255,255,0.9)", fontSize: 12 }}>{shot.label}</div>
+                      <div style={{ color: gold, fontSize: 10.5, letterSpacing: 2, marginBottom: 3 }}>{shot.kind.toUpperCase()}</div>
+                      <div style={{ color: "rgba(255,255,255,0.9)", fontSize: 13.5 }}>{shot.label}</div>
                     </div>
                   </div>
                 </div>
@@ -743,7 +775,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
               <div style={{ textAlign: "center", marginBottom: 24 }}>
                 <span
                   style={{
-                    display: "inline-block", fontSize: 9, letterSpacing: 2, padding: "4px 12px", borderRadius: 20,
+                    display: "inline-block", fontSize: 10.5, letterSpacing: 2, padding: "4px 12px", borderRadius: 20,
                     background: exclusive ? `${gold}18` : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"),
                     color: exclusive ? gold : C.textS,
                     border: `1px solid ${exclusive ? `${gold}44` : C.border}`,
@@ -761,32 +793,32 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 10 }}>
                   <span style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 40, color: C.textH, fontWeight: 400 }}>{fmt(p.price)}</span>
                   {p.listPrice && (
-                    <span style={{ color: C.textXS, fontSize: 16, textDecoration: "line-through" }}>{fmt(p.listPrice)}</span>
+                    <span style={{ color: C.textXS, fontSize: 17, textDecoration: "line-through" }}>{fmt(p.listPrice)}</span>
                   )}
                 </div>
                 {p.listPrice ? (
-                  <p style={{ color: "#4caf50", fontSize: 11, letterSpacing: 0.5, marginTop: 6 }}>
+                  <p style={{ color: "#4caf50", fontSize: 12.5, letterSpacing: 0.5, marginTop: 6 }}>
                     Bundle discount — you save {fmt(p.listPrice - p.price)}
                   </p>
                 ) : p.requiresRoom ? (
-                  <p style={{ color: C.textXS, fontSize: 11, marginTop: 6 }}>Plus a room of your choice (discounted rate) and food, if you add any</p>
+                  <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 6 }}>Plus a room of your choice (discounted rate) and food, if you add any</p>
                 ) : p.foodDiscountPct ? (
-                  <p style={{ color: "#4caf50", fontSize: 11, marginTop: 6 }}>Plus {Math.round(p.foodDiscountPct * 100)}% off any food you order</p>
+                  <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 6 }}>Plus {Math.round(p.foodDiscountPct * 100)}% off any food you order</p>
                 ) : (
-                  <p style={{ color: C.textXS, fontSize: 11, marginTop: 6 }}>Flat price for up to {p.capacity} guests — plus food, if you add any</p>
+                  <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 6 }}>Flat price for up to {p.capacity} guests — plus food, if you add any</p>
                 )}
               </div>
 
-              <p style={{ color: C.textS, fontSize: 13, lineHeight: 1.75, textAlign: "center", marginBottom: 24 }}>{p.blurb}</p>
+              <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.75, textAlign: "center", marginBottom: 24 }}>{p.blurb}</p>
 
               {/* Inclusions */}
               <div style={{ marginBottom: 24 }}>
-                <p style={{ color: C.textXS, fontSize: 9, letterSpacing: 2.5, marginBottom: 12 }}>WHAT'S INCLUDED</p>
+                <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 12 }}>WHAT'S INCLUDED</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
                   {p.includes.map((inc) => (
                     <div key={inc} style={{ display: "flex", alignItems: "flex-start", gap: 8, paddingBottom: 9, borderBottom: `1px solid ${C.borderLight}` }}>
-                      <span style={{ color: gold, fontSize: 10, marginTop: 2, flexShrink: 0 }}>✓</span>
-                      <span style={{ color: C.textB, fontSize: 13, lineHeight: 1.5 }}>{inc}</span>
+                      <span style={{ color: gold, fontSize: 11.5, marginTop: 2, flexShrink: 0 }}>✓</span>
+                      <span style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.5 }}>{inc}</span>
                     </div>
                   ))}
                 </div>
@@ -796,12 +828,12 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                   doesn't get the Day/Night/Overnight windows. */}
               {p.resource !== "Venue" && (
                 <div style={{ marginBottom: 22 }}>
-                  <p style={{ color: C.textXS, fontSize: 9, letterSpacing: 2.5, marginBottom: 12 }}>AVAILABLE DURATIONS</p>
+                  <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 12 }}>AVAILABLE DURATIONS</p>
                   <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
                     {DURATIONS.map((d) => (
                       <div key={d.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 9, borderBottom: `1px solid ${C.borderLight}` }}>
-                        <span style={{ color: C.textB, fontSize: 13 }}>{d.label}</span>
-                        <span style={{ color: gold, fontSize: 12, fontWeight: 500 }}>{d.window}</span>
+                        <span style={{ color: C.textB, fontSize: 14.5 }}>{d.label}</span>
+                        <span style={{ color: gold, fontSize: 13.5, fontWeight: 500 }}>{d.window}</span>
                       </div>
                     ))}
                   </div>
@@ -810,16 +842,16 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
 
               {/* Food */}
               <div style={{ marginBottom: 22 }}>
-                <p style={{ color: C.textXS, fontSize: 9, letterSpacing: 2.5, marginBottom: 10 }}>FOOD</p>
-                <p style={{ color: C.textB, fontSize: 12.5, lineHeight: 1.6, margin: 0 }}>{p.foodNote}</p>
+                <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 10 }}>FOOD</p>
+                <p style={{ color: C.textB, fontSize: 14, lineHeight: 1.6, margin: 0 }}>{p.foodNote}</p>
               </div>
 
               {/* Add-ons */}
               <div style={{ marginBottom: 28 }}>
-                <p style={{ color: C.textXS, fontSize: 9, letterSpacing: 2.5, marginBottom: 12 }}>MENU ADD-ONS</p>
+                <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 12 }}>MENU ADD-ONS</p>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {ADDONS.map((a) => (
-                    <span key={a} style={{ background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 14px", color: C.textB, fontSize: 12 }}>
+                    <span key={a} style={{ background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 14px", color: C.textB, fontSize: 13.5 }}>
                       {a}
                     </span>
                   ))}
@@ -840,7 +872,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                     setPage("Book Now");
                   }
                 }}
-                style={{ ...goldBtn, width: "100%", padding: "14px 20px", letterSpacing: 1.5, fontSize: 12, borderRadius: 8 }}
+                style={{ ...goldBtn, width: "100%", padding: "14px 20px", letterSpacing: 1.5, fontSize: 13.5, borderRadius: 8 }}
               >
                 BOOK {p.title.toUpperCase()} →
               </button>
@@ -865,16 +897,16 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                 style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: mob ? "22px 18px" : "28px 24px", textAlign: "left", boxShadow: C.shadowCard, display: "flex", flexDirection: "column", transitionDelay: `${i * 100}ms` }}>
                 <div style={{ fontSize: 30, marginBottom: 12 }}>{p.icon}</div>
                 <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, marginBottom: 6 }}>{p.label}</h3>
-                <p style={{ color: C.textS, fontSize: 13, marginBottom: 14, lineHeight: 1.6 }}>{p.desc}</p>
-                <div style={{ color: gold, fontSize: 24, fontWeight: 700, marginBottom: 16 }}>{fmt(p.base)}<span style={{ color: C.textXS, fontSize: 12 }}> /day</span></div>
+                <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 14, lineHeight: 1.6 }}>{p.desc}</p>
+                <div style={{ color: gold, fontSize: 24, fontWeight: 700, marginBottom: 16 }}>{fmt(p.base)}<span style={{ color: C.textXS, fontSize: 13.5 }}> /day</span></div>
                 {p.details.map((d) => (
                   <div key={d} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 7 }}>
-                    <span style={{ color: gold, fontSize: 10, marginTop: 2, flexShrink: 0 }}>✓</span>
-                    <span style={{ color: C.textS, fontSize: 12, lineHeight: 1.5 }}>{d}</span>
+                    <span style={{ color: gold, fontSize: 11.5, marginTop: 2, flexShrink: 0 }}>✓</span>
+                    <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5 }}>{d}</span>
                   </div>
                 ))}
                 {p.id === "room" && (
-                  <button className="sw-btn" onClick={() => setPage("Rooms")} style={{ marginTop: 20, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "linear-gradient(135deg,#c9a84c,#e8c56a)", color: "#1a1000", border: "none", padding: "11px 20px", fontWeight: 700, fontSize: 11, cursor: "pointer", borderRadius: 6, letterSpacing: 1.5, boxShadow: "0 2px 12px rgba(201,168,76,0.3)", width: "100%" }}>
+                  <button className="sw-btn" onClick={() => setPage("Rooms")} style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "linear-gradient(135deg,#c9a84c,#e8c56a)", color: "#1a1000", border: "none", padding: "11px 20px", fontWeight: 700, fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1.5, boxShadow: "0 2px 12px rgba(201,168,76,0.3)", width: "100%" }}>
                     <span>🛏</span> VIEW ROOMS
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
                   </button>
@@ -889,35 +921,35 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
             <div className="sw-card" style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: mob ? "22px 18px" : "28px 24px", textAlign: "left", boxShadow: C.shadowCard, display: "flex", flexDirection: "column" }}>
               <div style={{ fontSize: 30, marginBottom: 12 }}>🍽️</div>
               <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, marginBottom: 6 }}>Food &amp; Drinks</h3>
-              <p style={{ color: C.textS, fontSize: 13, marginBottom: 14, lineHeight: 1.6 }}>Pre-order from our menu, or a Pool + Food package bundles it with a discount.</p>
+              <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 14, lineHeight: 1.6 }}>Pre-order from our menu, or a Pool + Food package bundles it with a discount.</p>
               {(() => {
                 const available = menuItems.filter((m) => m.available);
                 const categories = Array.from(new Set(available.map((m) => m.category)));
                 return categories.length === 0 ? (
-                  <p style={{ color: C.textXS, fontSize: 12, marginBottom: 16 }}>Menu coming soon.</p>
+                  <p style={{ color: C.textXS, fontSize: 13.5, marginBottom: 16 }}>Menu coming soon.</p>
                 ) : (
                   categories.map((cat) => {
                     const items = available.filter((m) => m.category === cat);
                     return (
                       <div key={cat} style={{ marginBottom: 10 }}>
-                        <div style={{ color: gold, fontSize: 10, letterSpacing: 1.5, marginBottom: 4 }}>{cat.toUpperCase()}</div>
+                        <div style={{ color: gold, fontSize: 11.5, letterSpacing: 1.5, marginBottom: 4 }}>{cat.toUpperCase()}</div>
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                          <span style={{ color: gold, fontSize: 10, marginTop: 2, flexShrink: 0 }}>✓</span>
-                          <span style={{ color: C.textS, fontSize: 12, lineHeight: 1.5 }}>{items.map((m) => m.name).join(", ")}</span>
+                          <span style={{ color: gold, fontSize: 11.5, marginTop: 2, flexShrink: 0 }}>✓</span>
+                          <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5 }}>{items.map((m) => m.name).join(", ")}</span>
                         </div>
                       </div>
                     );
                   })
                 );
               })()}
-              <button className="sw-btn" onClick={() => setPage("Menu")} style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "linear-gradient(135deg,#c9a84c,#e8c56a)", color: "#1a1000", border: "none", padding: "11px 20px", fontWeight: 700, fontSize: 11, cursor: "pointer", borderRadius: 6, letterSpacing: 1.5, boxShadow: "0 2px 12px rgba(201,168,76,0.3)", width: "100%" }}>
+              <button className="sw-btn" onClick={() => setPage("Menu")} style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "linear-gradient(135deg,#c9a84c,#e8c56a)", color: "#1a1000", border: "none", padding: "11px 20px", fontWeight: 700, fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1.5, boxShadow: "0 2px 12px rgba(201,168,76,0.3)", width: "100%" }}>
                 <span>🍽</span> VIEW FULL MENU
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
               </button>
             </div>
           </div>
 
-          <p style={{ color: C.textXS, fontSize: 13, marginTop: 8, lineHeight: 1.8 }}>All bookings require a 50% down payment. No refunds. Rescheduling subject to discussion.</p>
+          <p style={{ color: C.textXS, fontSize: 14.5, marginTop: 8, lineHeight: 1.8 }}>All bookings require a 50% down payment. No refunds. Rescheduling subject to discussion.</p>
         </div>
       </div>
 
@@ -955,7 +987,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                 >
                   {s.icon}
                 </svg>
-                <div style={{ fontFamily: serif, fontSize: mob ? 15 : 17, color: C.textH, fontWeight: 400, lineHeight: 1.35 }}>
+                <div style={{ fontFamily: serif, fontSize: mob ? 16 : 18, color: C.textH, fontWeight: 400, lineHeight: 1.35 }}>
                   {s.name}
                 </div>
               </div>
@@ -976,8 +1008,8 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           <div className="sw-marquee-track">
             {[...MARQUEE_REVIEWS, ...MARQUEE_REVIEWS].map((r, i) => (
               <div key={i} style={{ flexShrink: 0, width: mob ? 280 : 330, marginRight: 16, background: isDark ? "#0e0c09" : "#fff", border: `1px solid ${isDark ? "rgba(201,168,76,0.1)" : "rgba(201,168,76,0.15)"}`, borderRadius: 12, padding: "26px 24px", boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.35)" : "0 4px 16px rgba(100,70,20,0.08)" }}>
-                <p style={{ color: C.textB, fontSize: 15, lineHeight: 1.85, margin: "0 0 16px", fontStyle: "italic", fontFamily: serif }}>&ldquo;{r.message}&rdquo;</p>
-                <span style={{ color: gold, fontSize: 12, fontWeight: 600, letterSpacing: 0.5 }}>— {r.name}</span>
+                <p style={{ color: C.textB, fontSize: 16, lineHeight: 1.85, margin: "0 0 16px", fontStyle: "italic", fontFamily: serif }}>&ldquo;{r.message}&rdquo;</p>
+                <span style={{ color: gold, fontSize: 13.5, fontWeight: 600, letterSpacing: 0.5 }}>— {r.name}</span>
               </div>
             ))}
           </div>
@@ -1002,13 +1034,13 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           <h2 style={{ ...h2, color: "#fff", marginBottom: 20 }}>
             The resort is yours<br />for the day
           </h2>
-          <p style={{ color: "rgba(238,232,220,0.78)", fontSize: mob ? 14 : 16, lineHeight: 1.85, fontWeight: 300, marginBottom: 34 }}>
+          <p style={{ color: "rgba(238,232,220,0.78)", fontSize: mob ? 15 : 17, lineHeight: 1.85, fontWeight: 300, marginBottom: 34 }}>
             Check an open date and reserve in a few minutes.
           </p>
           <button
             className="sw-btn"
             onClick={() => setPage("Book Now")}
-            style={{ ...goldBtn, padding: mob ? "15px 34px" : "17px 46px", fontSize: 12.5, letterSpacing: 2.5, borderRadius: 8 }}
+            style={{ ...goldBtn, padding: mob ? "15px 34px" : "17px 46px", fontSize: 14, letterSpacing: 2.5, borderRadius: 8 }}
           >
             BOOK YOUR STAY
           </button>

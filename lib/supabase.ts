@@ -16,11 +16,18 @@ import type { Room } from "@/types/room";
 import type { Booking } from "@/types/booking";
 import type { InventoryItem } from "@/types/inventory";
 import type { CustomerMessage } from "@/types/admin";
+import type { MenuItem } from "@/types/menu";
+import type { Facility } from "@/types/facility";
+import type { ResortPackage } from "@/types/package";
 import type {
   RoomRow,
   BookingRow,
   InventoryRow,
   CustomerMessageRow,
+  MenuItemRow,
+  FacilityRow,
+  PackageRow,
+  GalleryRow,
 } from "@/types/database";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -168,3 +175,102 @@ export const rowToCustomerMessage = (m: CustomerMessageRow): CustomerMessage => 
   createdAt: m.created_at,
   archivedAt: m.archived_at ?? undefined,
 });
+
+// ── Menu / facilities / packages, added with the second migration ───
+
+export const rowToMenuItem = (m: MenuItemRow): MenuItem => ({
+  id: m.id,
+  category: m.category,
+  name: m.name,
+  desc: m.description,
+  price: Number(m.price),
+  img: m.img,
+  available: m.available,
+  // The column is nullable; the UI treats "no recipe" as undefined, not [].
+  recipe: m.recipe ?? undefined,
+});
+
+export const menuItemToRow = (m: MenuItem): Omit<MenuItemRow, "id" | "created_at"> => ({
+  category: m.category,
+  name: m.name,
+  description: m.desc,
+  price: m.price,
+  img: m.img,
+  available: m.available,
+  recipe: m.recipe ?? null,
+});
+
+export const rowToFacility = (f: FacilityRow): Facility => ({
+  id: f.id,
+  category: f.category,
+  name: f.name,
+  icon: f.icon,
+  status: f.status,
+  roomId: f.room_id ?? undefined,
+  lastUsedBookingId: f.last_used_booking_id,
+  lastUsedGuestName: f.last_used_guest_name,
+  lastCheckedAt: f.last_checked_at,
+  notes: f.notes,
+  // undefined, not []: FacilitiesTab falls back to a category default
+  // checklist when these are unset, and an empty array would suppress it.
+  beforeUseChecklist: f.before_use_checklist ?? undefined,
+  afterUseChecklist: f.after_use_checklist ?? undefined,
+});
+
+export const facilityToRow = (f: Facility): Omit<FacilityRow, "id" | "created_at"> => ({
+  category: f.category,
+  name: f.name,
+  icon: f.icon,
+  status: f.status,
+  room_id: f.roomId ?? null,
+  last_used_booking_id: f.lastUsedBookingId ?? null,
+  last_used_guest_name: f.lastUsedGuestName ?? null,
+  last_checked_at: f.lastCheckedAt ?? null,
+  notes: f.notes,
+  before_use_checklist: f.beforeUseChecklist ?? null,
+  after_use_checklist: f.afterUseChecklist ?? null,
+});
+
+export const rowToPackage = (p: PackageRow): ResortPackage => ({
+  id: p.id,
+  code: p.code,
+  title: p.title,
+  resource: p.resource,
+  status: p.status,
+  price: Number(p.price),
+  listPrice: p.list_price === null ? undefined : Number(p.list_price),
+  capacity: p.capacity,
+  requiresRoom: p.requires_room || undefined,
+  foodDiscountPct: p.food_discount_pct === null ? undefined : Number(p.food_discount_pct),
+  cover: p.cover,
+  gallery: p.gallery ?? [],
+  blurb: p.blurb,
+  includes: p.includes ?? [],
+  foodNote: p.food_note,
+  note: p.note ?? undefined,
+  active: p.active,
+});
+
+export const packageToRow = (p: ResortPackage): Omit<PackageRow, "id" | "created_at"> => ({
+  code: p.code,
+  title: p.title,
+  resource: p.resource,
+  status: p.status,
+  price: p.price,
+  list_price: p.listPrice ?? null,
+  capacity: p.capacity,
+  requires_room: !!p.requiresRoom,
+  food_discount_pct: p.foodDiscountPct ?? null,
+  cover: p.cover,
+  gallery: p.gallery ?? [],
+  blurb: p.blurb,
+  includes: p.includes ?? [],
+  food_note: p.foodNote,
+  note: p.note ?? null,
+  active: p.active,
+});
+
+/** Gallery is a plain list of URLs in the UI but a table with sort order
+ *  in the DB, so ordering has to be preserved explicitly on the way out. */
+export const rowsToGalleryUrls = (rows: GalleryRow[]): string[] =>
+  [...rows].sort((a, b) => a.sort_order - b.sort_order).map((r) => r.url);

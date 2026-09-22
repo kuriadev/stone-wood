@@ -107,7 +107,7 @@ export function About({
     <div
       style={{
         letterSpacing: 4,
-        fontSize: 11,
+        fontSize: 12.5,
         color: gold,
         marginBottom: 14,
         opacity: 0.8,
@@ -119,7 +119,7 @@ export function About({
     {/* TITLE */}
 <h1
   style={{
-    fontFamily: "'Cormorant Garamond', serif",
+    fontFamily: "'Cormorant Garamond',Georgia,serif",
     fontSize: mob ? 38 : 60,
     fontWeight: 400,
     lineHeight: 1.1,
@@ -237,7 +237,7 @@ export function About({
       <section style={{ textAlign: "center", marginBottom: 80 }}>
         <h2
           style={{
-            fontFamily: "'Cormorant Garamond', serif",
+            fontFamily: "'Cormorant Garamond',Georgia,serif",
             fontSize: 32,
             color: C.textH,
             marginBottom: 40,
@@ -365,7 +365,7 @@ export function About({
 
           <h3
             style={{
-              fontSize: 16,
+              fontSize: 17,
               color: C.textH,
               letterSpacing: 0.5,
             }}
@@ -377,7 +377,7 @@ export function About({
         {/* DESC */}
         <p
           style={{
-            fontSize: 13,
+            fontSize: 14.5,
             color: C.textB,
             marginTop: 10,
           }}
@@ -399,7 +399,7 @@ export function About({
               marginTop: 14,
               paddingLeft: 18,
               color: C.textB,
-              fontSize: 13,
+              fontSize: 14.5,
               lineHeight: 1.7,
             }}
           >
@@ -411,7 +411,7 @@ export function About({
           <div
             style={{
               marginTop: 12,
-              fontSize: 11,
+              fontSize: 12.5,
               color: gold,
               letterSpacing: 1.2,
             }}
@@ -425,7 +425,7 @@ export function About({
           <div
             style={{
               marginTop: 14,
-              fontSize: 11,
+              fontSize: 12.5,
               letterSpacing: 1.2,
               color: gold,
               opacity: 0.7,
@@ -476,7 +476,7 @@ export function About({
       >
         <h3
           style={{
-            fontFamily: "'Cormorant Garamond', serif",
+            fontFamily: "'Cormorant Garamond',Georgia,serif",
             fontSize: 26,
             marginBottom: 20,
             color: C.textH,
@@ -502,7 +502,7 @@ export function About({
             ...goldBtn,
             padding: "14px 28px",
             letterSpacing: 2,
-            fontSize: 12,
+            fontSize: 13.5,
             borderRadius: 8,
           }}
         >

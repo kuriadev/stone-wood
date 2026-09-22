@@ -62,7 +62,7 @@ export function Footer({ setPage }: FooterProps) {
           >
             STONEWOOD
           </div>
-          <p style={{ color: "#6a5e4e", fontSize: 13, lineHeight: 2, maxWidth: 300 }}>
+          <p style={{ color: "#6a5e4e", fontSize: 14.5, lineHeight: 2, maxWidth: 300 }}>
             A private resort experience in Angono, Rizal. Exclusive, intimate, and unforgettable.
           </p>
           <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
@@ -78,7 +78,7 @@ export function Footer({ setPage }: FooterProps) {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 14,
+                  fontSize: 15,
                   cursor: "pointer",
                 }}
               >
@@ -90,14 +90,14 @@ export function Footer({ setPage }: FooterProps) {
 
         {/* Navigation */}
         <div>
-          <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 9, letterSpacing: 3, marginBottom: 16 }}>
+          <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 10.5, letterSpacing: 3, marginBottom: 16 }}>
             NAVIGATION
           </div>
           {[...NAV, "Book Now"].map((l) => (
             <div
               key={l}
               onClick={() => setPage(l)}
-              style={{ color: "#6a5e4e", fontSize: 13, marginBottom: 9, cursor: "pointer", transition: "color .2s" }}
+              style={{ color: "#6a5e4e", fontSize: 14.5, marginBottom: 9, cursor: "pointer", transition: "color .2s" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = gold)}
               onMouseLeave={(e) => (e.currentTarget.style.color = "#6a5e4e")}
             >
@@ -108,7 +108,7 @@ export function Footer({ setPage }: FooterProps) {
 
         {/* Support */}
         <div>
-          <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 9, letterSpacing: 3, marginBottom: 16 }}>
+          <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 10.5, letterSpacing: 3, marginBottom: 16 }}>
             SUPPORT
           </div>
           {[
@@ -118,7 +118,7 @@ export function Footer({ setPage }: FooterProps) {
             <div
               key={label}
               onClick={action}
-              style={{ color: "#6a5e4e", fontSize: 13, marginBottom: 9, cursor: "pointer", transition: "color .2s" }}
+              style={{ color: "#6a5e4e", fontSize: 14.5, marginBottom: 9, cursor: "pointer", transition: "color .2s" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = gold)}
               onMouseLeave={(e) => (e.currentTarget.style.color = "#6a5e4e")}
             >
@@ -129,12 +129,12 @@ export function Footer({ setPage }: FooterProps) {
 
         {/* Contact */}
         <div>
-          <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 9, letterSpacing: 3, marginBottom: 16 }}>
+          <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 10.5, letterSpacing: 3, marginBottom: 16 }}>
             CONTACT
           </div>
           {["📍 22 Yakal cor. Ipil St. Doña Justa Village Phase, 2nd St, Angono, Rizal", "📞 +63 912 345 6789", "✉️ stonewoodresort.ph@gmail.com", "🕗 8AM – 5PM"].map(
             (c) => (
-              <div key={c} style={{ color: "#6a5e4e", fontSize: 13, marginBottom: 9 }}>
+              <div key={c} style={{ color: "#6a5e4e", fontSize: 14.5, marginBottom: 9 }}>
                 {c}
               </div>
             )
@@ -148,7 +148,7 @@ export function Footer({ setPage }: FooterProps) {
           paddingTop: 22,
           textAlign: "center",
           color: "#4a4035",
-          fontSize: 11,
+          fontSize: 12.5,
           letterSpacing: 1,
         }}
       >

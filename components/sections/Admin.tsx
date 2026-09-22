@@ -6,6 +6,8 @@ import { useWidth } from "@/hooks/useWidth";
 import { useToast } from "@/contexts/ToastContext";
 import { T } from "@/lib/theme";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
+import { Icon, type IconName } from "@/components/admin/Icon";
+import { Panel, StatCard, BarChart, ProgressRow } from "@/components/admin/charts";
 import { fmt } from "@/lib/utils";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { BookingsTab } from "@/components/admin/BookingsTab";
@@ -16,6 +18,7 @@ import { FacilitiesTab } from "@/components/admin/FacilitiesTab";
 import { PackagesTab } from "@/components/admin/PackagesTab";
 import { calcTourBase, calcExclusiveDiscount, calcComboDiscount, calcFoodTotal, genBookingId, getPackageTier, checkBookingAvailability, isMenuItemSellable, deductRecipeStock, isRoomOpen, calcPackageFoodDiscount } from "@/lib/utils";
 import { sanitizeName, sanitizeContact, isValidName, isValidPHNumber, RESORT_MAX_CAPACITY, COMBO_DISCOUNT_PCT, ROOM_BUNDLE_DISCOUNT_PCT } from "@/lib/validators";
+import { getCurrentOccupancy } from "@/lib/occupancy";
 import type { Booking, BookingFoodItem, BookingResource, BookingTier } from "@/types/booking";
 import type { MenuItem } from "@/types/menu";
 import type { Room } from "@/types/room";
@@ -256,11 +259,11 @@ function WalkInTab({
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 28 }}>
         <div>
-          <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 8 }}>WALK-IN RESERVATIONS</p>
+          <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>WALK-IN RESERVATIONS</p>
           <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 6px" }}>Walk-In Management</h2>
-          <p style={{ color: C.textS, fontSize: 12, margin: 0 }}>Encode a guest here as soon as they arrive to reserve without booking online.</p>
+          <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>Encode a guest here as soon as they arrive to reserve without booking online.</p>
         </div>
-        <button onClick={openNewWalkIn} style={{ ...goldBtn, padding: "10px 20px", fontSize: 11, letterSpacing: 2, whiteSpace: "nowrap" }}>+ NEW WALK-IN</button>
+        <button onClick={openNewWalkIn} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2, whiteSpace: "nowrap" }}>+ NEW WALK-IN</button>
       </div>
 
       {/* Stats */}
@@ -274,7 +277,7 @@ function WalkInTab({
         ] as [string, number, string][]).map(([l, v, c]) => (
           <div key={l} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: mob ? "14px 12px" : "20px 16px", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(to right,${c}22,${c})` }} />
-            <div style={{ color: C.textXS, fontSize: 9, letterSpacing: 2, marginBottom: 8 }}>{l.toUpperCase()}</div>
+            <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 8 }}>{l.toUpperCase()}</div>
             <div style={{ color: c, fontSize: mob ? 24 : 30, fontWeight: 700, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>{v}</div>
           </div>
         ))}
@@ -282,10 +285,10 @@ function WalkInTab({
 
       {/* Policy notice */}
       <div style={{ background: isDark ? "rgba(74,159,212,0.05)" : "rgba(74,159,212,0.04)", border: "1px solid rgba(74,159,212,0.2)", borderRadius: 10, padding: "14px 18px", marginBottom: 24, display: "flex", gap: 12, alignItems: "flex-start" }}>
-        <span style={{ fontSize: 18, flexShrink: 0 }}>🏡</span>
+        <Icon name="home" size={17} />
         <div>
-          <p style={{ color: "#4a9fd4", fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>WALK-IN PAYMENT POLICY</p>
-          <p style={{ color: C.textS, fontSize: 12, lineHeight: 1.7, margin: 0 }}>
+          <p style={{ color: "#4a9fd4", fontSize: 12.5, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>WALK-IN PAYMENT POLICY</p>
+          <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: 0 }}>
             When you check <strong style={{ color: "#4caf50" }}>"payment collected"</strong> on the intake form, the reservation is saved as <strong style={{ color: C.textH }}>Confirmed</strong> right away. Leave it unchecked to save it as <strong style={{ color: C.textH }}>Paid</strong> (pending) and press <strong style={{ color: "#4caf50" }}>ACCEPT</strong> once payment is actually collected.
           </p>
         </div>
@@ -309,8 +312,8 @@ function WalkInTab({
           <button
             onClick={() => setWiSearch("")}
             aria-label="Clear search"
-            style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.textXS, cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 0 }}
-          >✕</button>
+            style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.textXS, cursor: "pointer", fontSize: 17, lineHeight: 1, padding: 0 }}
+          ><Icon name="x" size={14} /></button>
         )}
       </div>
 
@@ -325,9 +328,9 @@ function WalkInTab({
               key={t}
               onClick={() => setWiTab(t)}
               aria-pressed={active}
-              style={{ padding: "8px 16px", fontSize: 11, fontWeight: 700, borderRadius: 20, cursor: "pointer", background: active ? `${c}18` : "transparent", color: active ? c : C.textS, border: `1px solid ${active ? c + "55" : cBr}`, letterSpacing: 1 }}
+              style={{ padding: "8px 16px", fontSize: 12.5, fontWeight: 700, borderRadius: 20, cursor: "pointer", background: active ? `${c}18` : "transparent", color: active ? c : C.textS, border: `1px solid ${active ? c + "55" : cBr}`, letterSpacing: 1 }}
             >
-              {t} <span style={{ opacity: 0.7, fontSize: 10 }}>({count})</span>
+              {t} <span style={{ opacity: 0.7, fontSize: 11.5 }}>({count})</span>
             </button>
           );
         })}
@@ -340,14 +343,14 @@ function WalkInTab({
             <thead>
               <tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
                 {["Ref ID", "Guest", "Contact", "Date", "Status", "Actions"].map((h) => (
-                  <th key={h} scope="col" style={{ padding: "11px 14px", color: C.textXS, fontSize: 9, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
+                  <th key={h} scope="col" style={{ padding: "11px 14px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {displayRows.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 13 }}>
+                  <td colSpan={6} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 14.5 }}>
                     {wiSearch ? `No results for "${wiSearch}".` : `No ${wiTab.toLowerCase()} reservations.`}
                   </td>
                 </tr>
@@ -356,17 +359,17 @@ function WalkInTab({
                 const col = sc[b.status] || [isDark ? "#111" : "#eee", C.textS];
                 return (
                   <tr key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#fff" : "#faf7f2") }}>
-                    <td style={{ padding: "12px 14px", color: gold, fontSize: 11, fontFamily: "monospace", whiteSpace: "nowrap" }}>{b.id}</td>
+                    <td style={{ padding: "12px 14px", color: gold, fontSize: 12.5, fontFamily: "monospace", whiteSpace: "nowrap" }}>{b.id}</td>
                     <td style={{ padding: "12px 14px" }}>
-                      <div style={{ color: C.textH, fontSize: 12, fontWeight: 600 }}>{b.name}</div>
-                      <div style={{ color: C.textXS, fontSize: 11 }}>{b.email !== "—" ? b.email : ""}</div>
+                      <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600 }}>{b.name}</div>
+                      <div style={{ color: C.textXS, fontSize: 12.5 }}>{b.email !== "—" ? b.email : ""}</div>
                     </td>
-                    <td style={{ padding: "12px 14px", color: C.textS, fontSize: 11, whiteSpace: "nowrap" }}>{b.contact}</td>
-                    <td style={{ padding: "12px 14px", color: C.textS, fontSize: 11, whiteSpace: "nowrap" }}>
+                    <td style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.contact}</td>
+                    <td style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>
                       {b.date !== "—" ? b.date : <span style={{ color: C.textXS }}>Walk-in</span>}
                     </td>
                     <td style={{ padding: "12px 14px" }}>
-                      <span style={{ background: col[0] + "33", color: col[1], fontSize: 9, padding: "3px 9px", borderRadius: 20, border: `1px solid ${col[1]}44`, letterSpacing: 1 }}>
+                      <span style={{ background: col[0] + "33", color: col[1], fontSize: 10.5, padding: "3px 9px", borderRadius: 20, border: `1px solid ${col[1]}44`, letterSpacing: 1 }}>
                         {b.status.toUpperCase()}
                       </span>
                     </td>
@@ -376,24 +379,24 @@ function WalkInTab({
                           <>
                             <button
                               onClick={() => setWiConfirmAction({ bookingId: b.id, action: "Confirmed", guestName: b.name })}
-                              style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "5px 10px", fontSize: 10, cursor: "pointer", borderRadius: 4, letterSpacing: 1, whiteSpace: "nowrap" }}
-                            >✓ ACCEPT</button>
+                              style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "5px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1, whiteSpace: "nowrap" }}
+                            ><Icon name="check" size={13} style={{ marginRight: 5 }} />ACCEPT</button>
                             <button
                               onClick={() => setWiConfirmAction({ bookingId: b.id, action: "Cancelled", guestName: b.name })}
-                              style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "5px 10px", fontSize: 10, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}
+                              style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "5px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}
                             >CANCEL</button>
                           </>
                         )}
                         {b.status === "Confirmed" && (
                           <button
                             onClick={() => setWiConfirmAction({ bookingId: b.id, action: "Completed", guestName: b.name })}
-                            style={{ background: "rgba(74,159,212,0.1)", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.25)", padding: "5px 10px", fontSize: 10, cursor: "pointer", borderRadius: 4, letterSpacing: 1, whiteSpace: "nowrap" }}
-                          >✓ COMPLETE</button>
+                            style={{ background: "rgba(74,159,212,0.1)", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.25)", padding: "5px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1, whiteSpace: "nowrap" }}
+                          ><Icon name="check" size={13} style={{ marginRight: 5 }} />COMPLETE</button>
                         )}
                         {(b.status === "Completed" || b.status === "Cancelled") && (
                           <button
                             onClick={() => setWiConfirmArchive(b)}
-                            style={{ background: "rgba(150,150,150,0.08)", color: C.textS, border: `1px solid ${cBr}`, padding: "5px 10px", fontSize: 10, cursor: "pointer", borderRadius: 4, letterSpacing: 1, whiteSpace: "nowrap" }}
+                            style={{ background: "rgba(150,150,150,0.08)", color: C.textS, border: `1px solid ${cBr}`, padding: "5px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1, whiteSpace: "nowrap" }}
                           >ARCHIVE</button>
                         )}
                       </div>
@@ -407,7 +410,7 @@ function WalkInTab({
       </div>
 
       {/* How it works */}
-      <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 12 }}>HOW WALK-IN RESERVATIONS WORK</p>
+      <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 12 }}>HOW WALK-IN RESERVATIONS WORK</p>
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 12 }}>
         {([
           ["1. Guest Arrives", "A guest shows up without an online booking and wants to reserve on the spot.", "#4a9fd4"],
@@ -416,8 +419,8 @@ function WalkInTab({
         ] as [string, string, string][]).map(([title, desc, c]) => (
           <div key={title} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "18px 16px", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: c }} />
-            <h4 style={{ color: C.textH, fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{title}</h4>
-            <p style={{ color: C.textS, fontSize: 12, lineHeight: 1.6, margin: 0 }}>{desc}</p>
+            <h4 style={{ color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 8 }}>{title}</h4>
+            <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>{desc}</p>
           </div>
         ))}
       </div>
@@ -430,32 +433,32 @@ function WalkInTab({
 
             <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 14 }}>
               <div style={{ gridColumn: "1/-1" }}>
-                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>GUEST NAME</label>
+                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>GUEST NAME</label>
                 <input value={wf.name} onChange={(e) => setWfField("name", sanitizeName(e.target.value))} placeholder="Juan Dela Cruz" className="sw-input" style={{ ...C.inp, borderRadius: 6 }} />
               </div>
               <div>
-                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>CONTACT NUMBER</label>
+                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>CONTACT NUMBER</label>
                 <input value={wf.contact} onChange={(e) => setWfField("contact", sanitizeContact(e.target.value))} maxLength={11} placeholder="09XXXXXXXXX" className="sw-input" style={{ ...C.inp, borderRadius: 6 }} />
               </div>
               <div>
-                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>EMAIL (OPTIONAL)</label>
+                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>EMAIL (OPTIONAL)</label>
                 <input value={wf.email} onChange={(e) => setWfField("email", e.target.value)} placeholder="example@email.com" className="sw-input" style={{ ...C.inp, borderRadius: 6 }} />
               </div>
               <div>
-                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>DATE</label>
+                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>DATE</label>
                 <input type="date" value={wf.date} onChange={(e) => setWfField("date", e.target.value)} className="sw-input" style={{ ...C.inp, borderRadius: 6 }} />
               </div>
               <div>
-                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>ARRIVAL TIME</label>
+                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>ARRIVAL TIME</label>
                 <input type="time" value={wf.time} onChange={(e) => setWfField("time", e.target.value)} className="sw-input" style={{ ...C.inp, borderRadius: 6 }} />
               </div>
 
               <div style={{ gridColumn: "1/-1" }}>
-                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>BOOKING TYPE</label>
+                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>BOOKING TYPE</label>
                 <div style={{ display: "flex", gap: 8 }}>
                   {(["Custom", "Package"] as const).map((m) => (
-                    <button key={m} onClick={() => { setWfMode(m); if (m === "Custom") setWfPkgId(null); }} style={{ flex: 1, padding: "9px 12px", fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: "pointer", letterSpacing: 1, background: wfMode === m ? `${gold}18` : "transparent", color: wfMode === m ? gold : C.textS, border: `1px solid ${wfMode === m ? gold + "55" : cBr}` }}>
-                      {m === "Custom" ? "🛠 Custom Tour" : "🎁 Package"}
+                    <button key={m} onClick={() => { setWfMode(m); if (m === "Custom") setWfPkgId(null); }} style={{ flex: 1, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", letterSpacing: 1, background: wfMode === m ? `${gold}18` : "transparent", color: wfMode === m ? gold : C.textS, border: `1px solid ${wfMode === m ? gold + "55" : cBr}` }}>
+                      <><Icon name={m === "Custom" ? "toolbox" : "gift"} size={13} style={{ marginRight: 6 }} />{m === "Custom" ? "Custom Tour" : "Package"}</>
                     </button>
                   ))}
                 </div>
@@ -463,9 +466,9 @@ function WalkInTab({
 
               {wfMode === "Package" && (
                 <div style={{ gridColumn: "1/-1" }}>
-                  <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>SELECT PACKAGE</label>
+                  <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>SELECT PACKAGE</label>
                   {packages.filter((p) => p.active).length === 0 ? (
-                    <p style={{ color: C.textS, fontSize: 12, margin: 0 }}>No active packages — add one in the Packages tab.</p>
+                    <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>No active packages — add one in the Packages tab.</p>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {packages.filter((p) => p.active).map((p) => {
@@ -473,10 +476,10 @@ function WalkInTab({
                         return (
                           <div key={p.id} onClick={() => setWfPkgId(p.id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 8, cursor: "pointer", background: sel ? `${gold}14` : "transparent", border: `1px solid ${sel ? gold + "55" : cBr}` }}>
                             <div>
-                              <div style={{ color: C.textH, fontSize: 12, fontWeight: 600 }}>{p.title}</div>
-                              <div style={{ color: C.textS, fontSize: 10 }}>{p.status} · {p.resource} · up to {p.capacity} guests</div>
+                              <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600 }}>{p.title}</div>
+                              <div style={{ color: C.textS, fontSize: 11.5 }}>{p.status} · {p.resource} · up to {p.capacity} guests</div>
                             </div>
-                            <span style={{ color: gold, fontWeight: 700, fontSize: 13 }}>{fmt(p.price)}</span>
+                            <span style={{ color: gold, fontWeight: 700, fontSize: 14.5 }}>{fmt(p.price)}</span>
                           </div>
                         );
                       })}
@@ -488,7 +491,7 @@ function WalkInTab({
               {wfMode === "Custom" && (
               <>
               <div>
-                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>GUESTS</label>
+                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>GUESTS</label>
                 <input
                   type="number"
                   min={1}
@@ -500,25 +503,25 @@ function WalkInTab({
                   style={{ ...C.inp, borderRadius: 6, opacity: wfTier === "Exclusive" ? 0.6 : 1 }}
                 />
                 {wfTier === "Exclusive" && (
-                  <p style={{ color: gold, fontSize: 10, marginTop: 4 }}>🔒 Fixed at {RESORT_MAX_CAPACITY} for an Exclusive buyout.</p>
+                  <p style={{ color: gold, fontSize: 11.5, marginTop: 4 }}><Icon name="lock" size={11} style={{ marginRight: 5 }} />Fixed at {RESORT_MAX_CAPACITY} for an Exclusive buyout.</p>
                 )}
               </div>
               <div>
-                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>SHARED OR EXCLUSIVE?</label>
+                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>SHARED OR EXCLUSIVE?</label>
                 <div style={{ display: "flex", gap: 8 }}>
                   {(["Shared", "Exclusive"] as const).map((opt) => (
-                    <button key={opt} onClick={() => setWfTierChoice(opt)} style={{ flex: 1, padding: "9px 12px", fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: "pointer", letterSpacing: 1, background: wfTier === opt ? (opt === "Exclusive" ? `${gold}18` : "rgba(76,175,80,0.12)") : "transparent", color: wfTier === opt ? (opt === "Exclusive" ? gold : "#4caf50") : C.textS, border: `1px solid ${wfTier === opt ? (opt === "Exclusive" ? gold + "55" : "#4caf5055") : cBr}` }}>
-                      {opt === "Exclusive" ? "🔒 Exclusive" : "🤝 Shared"}
+                    <button key={opt} onClick={() => setWfTierChoice(opt)} style={{ flex: 1, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", letterSpacing: 1, background: wfTier === opt ? (opt === "Exclusive" ? `${gold}18` : "rgba(76,175,80,0.12)") : "transparent", color: wfTier === opt ? (opt === "Exclusive" ? gold : "#4caf50") : C.textS, border: `1px solid ${wfTier === opt ? (opt === "Exclusive" ? gold + "55" : "#4caf5055") : cBr}` }}>
+                      <><Icon name={opt === "Exclusive" ? "lock" : "users"} size={13} style={{ marginRight: 6 }} />{opt === "Exclusive" ? "Exclusive" : "Shared"}</>
                     </button>
                   ))}
                 </div>
               </div>
               <div style={{ gridColumn: "1/-1" }}>
-                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>TOUR TYPE</label>
+                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>TOUR TYPE</label>
                 <div style={{ display: "flex", gap: 8 }}>
                   {(["Day Tour", "Night Tour"] as const).map((t) => (
-                    <button key={t} onClick={() => setWfField("tourType", t)} style={{ flex: 1, padding: "9px 12px", fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: "pointer", letterSpacing: 1, background: wf.tourType === t ? `${gold}18` : "transparent", color: wf.tourType === t ? gold : C.textS, border: `1px solid ${wf.tourType === t ? gold + "55" : cBr}` }}>
-                      {t === "Day Tour" ? "☀️ Day Tour" : "🌙 Night Tour"}
+                    <button key={t} onClick={() => setWfField("tourType", t)} style={{ flex: 1, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", letterSpacing: 1, background: wf.tourType === t ? `${gold}18` : "transparent", color: wf.tourType === t ? gold : C.textS, border: `1px solid ${wf.tourType === t ? gold + "55" : cBr}` }}>
+                      <><Icon name={t === "Day Tour" ? "sun" : "moon"} size={13} style={{ marginRight: 6 }} />{t}</>
                     </button>
                   ))}
                 </div>
@@ -528,103 +531,103 @@ function WalkInTab({
 
               {wfShowRoomPicker && (
               <div style={{ gridColumn: "1/-1" }}>
-                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>
+                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>
                   {wfRequiresRoom ? "CHOOSE ROOM (REQUIRED)" : "ROOM ADD-ON (OPTIONAL)"}
                 </label>
                 {wfRequiresRoom && (
-                  <p style={{ color: C.textS, fontSize: 11, marginBottom: 8 }}>Pick the one room included with this package — {Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}% off its normal rate.</p>
+                  <p style={{ color: C.textS, fontSize: 12.5, marginBottom: 8 }}>Pick the one room included with this package — {Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}% off its normal rate.</p>
                 )}
                 {wfBookableRooms.length === 0 && (
-                  <p style={{ color: C.textS, fontSize: 12, margin: 0 }}>No rooms currently available — check Facilities for maintenance flags.</p>
+                  <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>No rooms currently available — check Facilities for maintenance flags.</p>
                 )}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {wfBookableRooms.map((r) => {
                     const sel = wf.rooms.includes(r.id);
                     return (
-                      <button key={r.id} onClick={() => toggleWfRoom(r.id)} style={{ padding: "7px 12px", fontSize: 11, borderRadius: 6, cursor: "pointer", background: sel ? `${gold}18` : "transparent", color: sel ? gold : C.textS, border: `1px solid ${sel ? gold + "55" : cBr}` }}>
-                        {sel ? "✓ " : ""}{r.name}
+                      <button key={r.id} onClick={() => toggleWfRoom(r.id)} style={{ padding: "7px 12px", fontSize: 12.5, borderRadius: 6, cursor: "pointer", background: sel ? `${gold}18` : "transparent", color: sel ? gold : C.textS, border: `1px solid ${sel ? gold + "55" : cBr}` }}>
+                        {sel ? <Icon name="check" size={12} style={{ marginRight: 5 }} /> : null}{r.name}
                       </button>
                     );
                   })}
                 </div>
                 {wfRequiresRoom && wf.rooms.length === 0 && (
-                  <p style={{ color: "#e55", fontSize: 11, marginTop: 6 }}>⚠ Please pick a room to continue.</p>
+                  <p style={{ color: "#e55", fontSize: 12.5, marginTop: 6 }}><Icon name="alert" size={12} style={{ marginRight: 5 }} />Please pick a room to continue.</p>
                 )}
               </div>
               )}
 
               <div style={{ gridColumn: "1/-1", background: isDark ? "rgba(201,168,76,0.06)" : "rgba(201,168,76,0.08)", border: `1px solid ${gold}44`, borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ color: C.textS, fontSize: 11, letterSpacing: 1 }}>PACKAGE</span>
+                <span style={{ color: C.textS, fontSize: 12.5, letterSpacing: 1 }}>PACKAGE</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ color: gold, fontWeight: 700, fontSize: 13 }}>{wfPackageLabel}</span>
-                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, color: wfTier === "Exclusive" ? gold : "#4caf50", background: wfTier === "Exclusive" ? "rgba(201,168,76,0.15)" : "rgba(76,175,80,0.12)" }}>
-                    {wfTier === "Exclusive" ? "🔒 EXCLUSIVE" : "🤝 SHARED"}
+                  <span style={{ color: gold, fontWeight: 700, fontSize: 14.5 }}>{wfPackageLabel}</span>
+                  <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, color: wfTier === "Exclusive" ? gold : "#4caf50", background: wfTier === "Exclusive" ? "rgba(201,168,76,0.15)" : "rgba(76,175,80,0.12)" }}>
+                    <><Icon name={wfTier === "Exclusive" ? "lock" : "users"} size={12} style={{ marginRight: 6 }} />{wfTier === "Exclusive" ? "EXCLUSIVE" : "SHARED"}</>
                   </span>
                 </span>
               </div>
               <div style={{ gridColumn: "1/-1", background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${cBr}`, borderRadius: 8, padding: "10px 14px", display: "flex", flexDirection: "column", gap: 5 }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: C.textS, fontSize: 11 }}>
+                  <span style={{ color: C.textS, fontSize: 12.5 }}>
                     {isWfPackage ? `${wfPackageLabel} (package)` : wfTier === "Exclusive" ? "Exclusive buyout (flat rate)" : `Shared tour (${wfGuests} × ₱200)`}
                   </span>
-                  <span style={{ color: C.textB, fontSize: 11 }}>{fmt(wfTourBase)}</span>
+                  <span style={{ color: C.textB, fontSize: 12.5 }}>{fmt(wfTourBase)}</span>
                 </div>
                 {wfExclusiveDiscount > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "#4caf50", fontSize: 11 }}>Exclusive discount</span>
-                    <span style={{ color: "#4caf50", fontSize: 11 }}>-{fmt(wfExclusiveDiscount)}</span>
+                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>Exclusive discount</span>
+                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>-{fmt(wfExclusiveDiscount)}</span>
                   </div>
                 )}
                 {wfOvertimeFee > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: C.textS, fontSize: 11 }}>Overtime</span>
-                    <span style={{ color: C.textB, fontSize: 11 }}>{fmt(wfOvertimeFee)}</span>
+                    <span style={{ color: C.textS, fontSize: 12.5 }}>Overtime</span>
+                    <span style={{ color: C.textB, fontSize: 12.5 }}>{fmt(wfOvertimeFee)}</span>
                   </div>
                 )}
                 {wfRoomsFee > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: C.textS, fontSize: 11 }}>Room(s){isWfPackage ? " (bundled)" : ""}</span>
-                    <span style={{ color: C.textB, fontSize: 11 }}>{fmt(wfRoomsFee)}</span>
+                    <span style={{ color: C.textS, fontSize: 12.5 }}>Room(s){isWfPackage ? " (bundled)" : ""}</span>
+                    <span style={{ color: C.textB, fontSize: 12.5 }}>{fmt(wfRoomsFee)}</span>
                   </div>
                 )}
                 {wfRoomBundleDiscount > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "#4caf50", fontSize: 11 }}>Room bundle discount (-{Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}%)</span>
-                    <span style={{ color: "#4caf50", fontSize: 11 }}>-{fmt(wfRoomBundleDiscount)}</span>
+                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>Room bundle discount (-{Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}%)</span>
+                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>-{fmt(wfRoomBundleDiscount)}</span>
                   </div>
                 )}
                 {wfFoodTotal > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: C.textS, fontSize: 11 }}>Food & Drinks</span>
-                    <span style={{ color: C.textB, fontSize: 11 }}>{fmt(wfFoodTotal)}</span>
+                    <span style={{ color: C.textS, fontSize: 12.5 }}>Food & Drinks</span>
+                    <span style={{ color: C.textB, fontSize: 12.5 }}>{fmt(wfFoodTotal)}</span>
                   </div>
                 )}
                 {wfComboDiscount > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "#4caf50", fontSize: 11 }}>Combo meal discount (-{Math.round(COMBO_DISCOUNT_PCT * 100)}%)</span>
-                    <span style={{ color: "#4caf50", fontSize: 11 }}>-{fmt(wfComboDiscount)}</span>
+                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>Combo meal discount (-{Math.round(COMBO_DISCOUNT_PCT * 100)}%)</span>
+                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>-{fmt(wfComboDiscount)}</span>
                   </div>
                 )}
                 {wfPackageFoodDiscount > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "#4caf50", fontSize: 11 }}>Package food discount (-{Math.round((wfSelectedPackage?.foodDiscountPct ?? 0) * 100)}%)</span>
-                    <span style={{ color: "#4caf50", fontSize: 11 }}>-{fmt(wfPackageFoodDiscount)}</span>
+                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>Package food discount (-{Math.round((wfSelectedPackage?.foodDiscountPct ?? 0) * 100)}%)</span>
+                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>-{fmt(wfPackageFoodDiscount)}</span>
                   </div>
                 )}
                 <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 4, paddingTop: 6, display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: gold, fontWeight: 700, fontSize: 12 }}>Total</span>
-                  <span style={{ color: gold, fontWeight: 700, fontSize: 12 }}>{fmt(wfTotal)}</span>
+                  <span style={{ color: gold, fontWeight: 700, fontSize: 13.5 }}>Total</span>
+                  <span style={{ color: gold, fontWeight: 700, fontSize: 13.5 }}>{fmt(wfTotal)}</span>
                 </div>
               </div>
               {wf.date && !wfDateCapacity.ok && (
                 <div style={{ gridColumn: "1/-1" }}>
-                  <p style={{ color: "#e55", fontSize: 12, margin: 0 }}>⚠ {wfDateCapacity.reason}</p>
+                  <p style={{ color: "#e55", fontSize: 13.5, margin: 0 }}><Icon name="alert" size={13} style={{ marginRight: 5 }} />{wfDateCapacity.reason}</p>
                 </div>
               )}
               <div style={{ gridColumn: "1/-1" }}>
-                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>FOOD & DRINKS (OPTIONAL)</label>
+                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>FOOD & DRINKS (OPTIONAL)</label>
                 {menuItems.length === 0 && (
-                  <p style={{ color: C.textS, fontSize: 12, margin: 0 }}>No menu items yet — add some in the Menu tab.</p>
+                  <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>No menu items yet — add some in the Menu tab.</p>
                 )}
                 {/* Every item shows here, not just sellable ones, so staff can spot and
                     fix a stuck "sold out" item without leaving this form. */}
@@ -636,8 +639,8 @@ function WalkInTab({
                     return (
                       <div key={m.id} style={{ opacity: sellable ? 1 : 0.55, background: qty > 0 ? `${gold}14` : "transparent", border: `1px solid ${qty > 0 ? gold + "55" : cBr}`, borderRadius: 6, padding: "8px 10px", display: "flex", alignItems: "center", gap: 10 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ color: C.textH, fontSize: 12, fontWeight: 600 }}>{m.name}</div>
-                          <div style={{ color: C.textS, fontSize: 10 }}>
+                          <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600 }}>{m.name}</div>
+                          <div style={{ color: C.textS, fontSize: 11.5 }}>
                             {fmt(m.price)} · <span style={{ opacity: 0.75 }}>{m.category}</span>
                             {!m.available && <span style={{ color: "#e55", marginLeft: 6 }}>MARKED OUT</span>}
                             {outOfStock && <span style={{ color: "#f5c518", marginLeft: 6 }}>NO STOCK</span>}
@@ -647,13 +650,13 @@ function WalkInTab({
                           <button
                             onClick={() => setMenuItems((p) => p.map((x) => x.id === m.id ? { ...x, available: !x.available } : x))}
                             title={m.available ? "Mark this item out" : "Mark this item available"}
-                            style={{ padding: "3px 8px", fontSize: 9, letterSpacing: 0.5, borderRadius: 6, cursor: "pointer", background: "transparent", border: `1px solid ${cBr}`, color: C.textS }}
+                            style={{ padding: "3px 8px", fontSize: 10.5, letterSpacing: 0.5, borderRadius: 6, cursor: "pointer", background: "transparent", border: `1px solid ${cBr}`, color: C.textS }}
                           >
                             {m.available ? "MARK OUT" : "MARK IN"}
                           </button>
-                          <button onClick={() => setWfFoodItemQty(m.id, qty - 1)} disabled={qty <= 0} aria-label={`Fewer ${m.name}`} style={{ width: 24, height: 24, borderRadius: 6, background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", fontSize: 13 }}>−</button>
-                          <span style={{ color: C.textH, fontSize: 12, fontWeight: 700, minWidth: 16, textAlign: "center" }}>{qty}</span>
-                          <button onClick={() => setWfFoodItemQty(m.id, qty + 1)} disabled={!sellable} aria-label={`More ${m.name}`} style={{ width: 24, height: 24, borderRadius: 6, background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: sellable ? "pointer" : "not-allowed", fontSize: 13 }}>+</button>
+                          <button onClick={() => setWfFoodItemQty(m.id, qty - 1)} disabled={qty <= 0} aria-label={`Fewer ${m.name}`} style={{ width: 24, height: 24, borderRadius: 6, background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", fontSize: 14.5 }}>−</button>
+                          <span style={{ color: C.textH, fontSize: 13.5, fontWeight: 700, minWidth: 16, textAlign: "center" }}>{qty}</span>
+                          <button onClick={() => setWfFoodItemQty(m.id, qty + 1)} disabled={!sellable} aria-label={`More ${m.name}`} style={{ width: 24, height: 24, borderRadius: 6, background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: sellable ? "pointer" : "not-allowed", fontSize: 14.5 }}>+</button>
                         </div>
                       </div>
                     );
@@ -661,13 +664,13 @@ function WalkInTab({
                 </div>
                 {wfFoodTotal > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, padding: "8px 10px", background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${cBr}`, borderRadius: 6 }}>
-                    <span style={{ color: C.textS, fontSize: 11 }}>Food & Drinks Subtotal</span>
-                    <span style={{ color: gold, fontWeight: 700, fontSize: 12 }}>{fmt(wfFoodTotal)}</span>
+                    <span style={{ color: C.textS, fontSize: 12.5 }}>Food & Drinks Subtotal</span>
+                    <span style={{ color: gold, fontWeight: 700, fontSize: 13.5 }}>{fmt(wfFoodTotal)}</span>
                   </div>
                 )}
               </div>
               <div style={{ gridColumn: "1/-1" }}>
-                <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>NOTES (OPTIONAL)</label>
+                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>NOTES (OPTIONAL)</label>
                 <textarea value={wf.notes} onChange={(e) => setWfField("notes", e.target.value)} rows={2} placeholder="Special requests, etc." className="sw-input" style={{ ...C.inp, borderRadius: 6, resize: "none" }} />
               </div>
             </div>
@@ -677,22 +680,22 @@ function WalkInTab({
               style={{ display: "flex", alignItems: "flex-start", gap: 12, background: wf.paymentCollected ? "rgba(76,175,80,0.06)" : isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", border: `1.5px solid ${wf.paymentCollected ? "rgba(76,175,80,0.5)" : cBr}`, borderRadius: 8, padding: "12px 14px", marginBottom: 16, cursor: "pointer", userSelect: "none" }}
             >
               <div style={{ width: 20, height: 20, borderRadius: 4, border: `2px solid ${wf.paymentCollected ? "#4caf50" : isDark ? "#444" : "#bbb"}`, background: wf.paymentCollected ? "#4caf50" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                {wf.paymentCollected && <span style={{ color: "#fff", fontSize: 12, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+                {wf.paymentCollected && <Icon name="check" size={12} style={{ color: "#fff" }} strokeWidth={3} />}
               </div>
-              <span style={{ color: C.textS, fontSize: 12, lineHeight: 1.6 }}>
+              <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
                 <strong style={{ color: C.textH }}>Payment collected</strong> — {wf.paymentCollected ? `full amount (${fmt(wfTotal)}) received now, save as Confirmed.` : `not yet collected, save as Paid (pending) until the guest pays.`}
               </span>
             </div>
 
             <div style={{ background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${cBr}`, borderRadius: 8, padding: "10px 14px", marginBottom: 20 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: C.textS, fontSize: 12 }}>{wfPackageLabel} Total{wfFoodTotal > 0 ? " + Food" : ""}</span>
-                <span style={{ color: gold, fontWeight: 700, fontSize: 13 }}>{fmt(wfTotal)}</span>
+                <span style={{ color: C.textS, fontSize: 13.5 }}>{wfPackageLabel} Total{wfFoodTotal > 0 ? " + Food" : ""}</span>
+                <span style={{ color: gold, fontWeight: 700, fontSize: 14.5 }}>{fmt(wfTotal)}</span>
               </div>
             </div>
 
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowNewWalkIn(false)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 11, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>CANCEL</button>
+              <button onClick={() => setShowNewWalkIn(false)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>CANCEL</button>
               <button disabled={!wfValid} onClick={saveWalkIn} style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: wfValid ? 1 : 0.4 }}>SAVE RESERVATION</button>
             </div>
           </div>
@@ -727,7 +730,7 @@ function WalkInTab({
                 : "rgba(229,85,85,0.3)"
               }`,
             }}>
-              {wiConfirmAction.action === "Confirmed" ? "✓" : wiConfirmAction.action === "Completed" ? "🏁" : "✕"}
+              <Icon name={wiConfirmAction.action === "Confirmed" ? "check" : wiConfirmAction.action === "Completed" ? "flag" : "x"} size={20} />
             </div>
 
             <h3 id="onsite-confirm-title" style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 10 }}>
@@ -736,7 +739,7 @@ function WalkInTab({
                 : "Cancel this reservation?"}
             </h3>
 
-            <p style={{ color: C.textS, fontSize: 13, lineHeight: 1.7, marginBottom: 16 }}>
+            <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7, marginBottom: 16 }}>
               {wiConfirmAction.action === "Confirmed" && (
                 <>Confirm that <strong style={{ color: C.textH }}>{wiConfirmAction.guestName}</strong> has arrived and payment has been collected at the resort.</>
               )}
@@ -751,8 +754,8 @@ function WalkInTab({
             {/* Warning for accept */}
             {wiConfirmAction.action === "Confirmed" && (
               <div style={{ background: isDark ? "rgba(76,175,80,0.05)" : "rgba(76,175,80,0.04)", border: "1px solid rgba(76,175,80,0.2)", borderRadius: 8, padding: "10px 14px", marginBottom: 20, display: "flex", gap: 8 }}>
-                <span style={{ flexShrink: 0 }}>💵</span>
-                <span style={{ color: C.textS, fontSize: 12, lineHeight: 1.6 }}>
+                <Icon name="cash" size={15} />
+                <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
                   Only confirm if payment (50% down or full amount) has been <strong style={{ color: "#4caf50" }}>physically collected</strong> at the resort.
                 </span>
               </div>
@@ -761,8 +764,8 @@ function WalkInTab({
             {/* Warning for cancel */}
             {wiConfirmAction.action === "Cancelled" && (
               <div style={{ background: "rgba(229,85,85,0.04)", border: "1px solid rgba(229,85,85,0.15)", borderRadius: 8, padding: "10px 14px", marginBottom: 20, display: "flex", gap: 8 }}>
-                <span style={{ flexShrink: 0 }}>⚠️</span>
-                <span style={{ color: C.textS, fontSize: 12, lineHeight: 1.6 }}>The guest will be notified that their reservation has been cancelled.</span>
+                <Icon name="alert" size={15} />
+                <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>The guest will be notified that their reservation has been cancelled.</span>
               </div>
             )}
 
@@ -770,12 +773,12 @@ function WalkInTab({
             <div style={{ display: "flex", gap: 10 }}>
               <button
                 onClick={() => setWiConfirmAction(null)}
-                style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 11, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}
+                style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}
               >GO BACK</button>
               <button
                 onClick={executeWiAction}
                 style={{
-                  flex: 2, padding: "11px 16px", fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 6, letterSpacing: 2,
+                  flex: 2, padding: "11px 16px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", borderRadius: 6, letterSpacing: 2,
                   background: wiConfirmAction.action === "Confirmed" ? "rgba(76,175,80,0.12)"
                     : wiConfirmAction.action === "Completed" ? "rgba(74,159,212,0.1)"
                     : "rgba(229,85,85,0.10)",
@@ -802,13 +805,13 @@ function WalkInTab({
       {wiConfirmArchive && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }} role="dialog" aria-modal="true">
           <div style={{ background: isDark ? "#0d0d0d" : "#fff", border: `1px solid ${cBr}`, borderRadius: 8, padding: "28px 26px", width: "100%", maxWidth: 400 }}>
-            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, fontWeight: 400, marginBottom: 10 }}>Archive reservation {wiConfirmArchive.id}?</h3>
-            <p style={{ color: C.textS, fontSize: 13, marginBottom: 20 }}>
+            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400, marginBottom: 10 }}>Archive reservation {wiConfirmArchive.id}?</h3>
+            <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 20 }}>
               It'll move out of Walk-In Management into the Bookings tab's Archived view, filed under <strong style={{ color: wiConfirmArchive.status === "Completed" ? "#4a9fd4" : "#e55" }}>{wiConfirmArchive.status}</strong>. You can restore it any time from there.
             </p>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setWiConfirmArchive(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "10px 16px", fontSize: 11, cursor: "pointer", borderRadius: 6 }}>CANCEL</button>
-              <button onClick={() => archiveWiBooking(wiConfirmArchive)} style={{ flex: 1, background: "rgba(150,150,150,0.1)", color: C.textH, border: `1px solid ${cBr}`, padding: "10px 16px", fontSize: 11, cursor: "pointer", borderRadius: 6, fontWeight: 700 }}>ARCHIVE</button>
+              <button onClick={() => setWiConfirmArchive(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "10px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6 }}>CANCEL</button>
+              <button onClick={() => archiveWiBooking(wiConfirmArchive)} style={{ flex: 1, background: "rgba(150,150,150,0.1)", color: C.textH, border: `1px solid ${cBr}`, padding: "10px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6, fontWeight: 700 }}>ARCHIVE</button>
             </div>
           </div>
         </div>
@@ -842,6 +845,26 @@ export function Admin({
 
   const [tab, setTab] = useState<AdminTab>("Dashboard");
   const [sideOpen, setSideOpen] = useState(false);
+
+  // ── Wall clock, kept genuinely live ─────────────────────────────────
+  // The dashboard's "TODAY (LIVE)" panel used new Date() evaluated during
+  // render, so it only changed if something else happened to re-render.
+  // Left open, it never noticed a tour ending or the day rolling over.
+  //
+  // Deliberately named `now`, not `todayStr` — a module-level todayStr()
+  // helper already exists above for WalkInTab, and shadowing it inside this
+  // component with a different type would be a trap for the next reader.
+  //
+  // 30s is fine: occupancy changes on hour boundaries, so the count is
+  // correct within half a minute of a tour starting or ending.
+  //
+  // Admin returns null until adminAuth, so this never renders on the server
+  // and cannot produce a hydration mismatch.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(t);
+  }, []);
   const [showModal, setShowModal] = useState(false);
   const [editRoom, setEditRoom] = useState<Room | null>(null);
   const [rf, setRf] = useState({ name: "", beds: "", capacity: "", price: "", desc: "", img: "" });
@@ -937,7 +960,14 @@ export function Admin({
   } | null>(null);
 
   const tabs: AdminTab[] = ["Dashboard", "Bookings", "Walk-In", "Occupancy", "Rooms", "Packages", "Menu", "Facilities", "Gallery", "Inventory", "Analytics", "Reports", "Customer Service"];
-  const tabIcons: Record<AdminTab, string> = { Dashboard: "⊞", Bookings: "📋", "Walk-In": "🏡", Occupancy: "📅", Rooms: "🛏", Packages: "🎁", Menu: "🍽", Facilities: "🧰", Gallery: "🖼", Inventory: "📦", Analytics: "📈", Reports: "📊", "Customer Service": "💬" };
+  // Icon per tab. Names resolve against the stroke set in ./Icon, so the
+  // sidebar inherits the theme instead of rendering OS colour emoji.
+  const tabIcons: Record<AdminTab, IconName> = {
+    Dashboard: "grid", Bookings: "clipboard", "Walk-In": "home",
+    Occupancy: "calendar", Rooms: "bed", Packages: "gift", Menu: "utensils",
+    Facilities: "toolbox", Gallery: "image", Inventory: "package",
+    Analytics: "trending-up", Reports: "bar-chart", "Customer Service": "message",
+  };
 
   // Flags every facility a completed booking used (whole-resort amenities,
   // plus any specific rooms it rented) as "Needs Cleaning" so the caretaker
@@ -966,17 +996,17 @@ export function Admin({
     try {
       const res = await fetch("/api/email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking, type: "confirmed" }) });
       const data = await res.json();
-      if (data.success) toast(`✉️ Confirmation email sent to ${booking.email}`, "success");
-      else toast(`⚠️ Booking confirmed but email failed: ${data.error}`, "warning");
-    } catch { toast("⚠️ Booking confirmed but email could not be sent.", "warning"); }
+      if (data.success) toast(`Confirmation email sent to ${booking.email}`, "success");
+      else toast(`Booking confirmed but email failed: ${data.error}`, "warning");
+    } catch { toast("Booking confirmed but email could not be sent.", "warning"); }
   }
   if (status === "Cancelled") {
     try {
       const res = await fetch("/api/email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking, type: "rejected", reason: reason || "" }) });
       const data = await res.json();
-      if (data.success) toast(`✉️ Rejection email sent to ${booking.email}`, "warning");
-      else toast(`⚠️ Booking rejected but email failed: ${data.error}`, "warning");
-    } catch { toast("⚠️ Booking rejected but email could not be sent.", "warning"); }
+      if (data.success) toast(`Rejection email sent to ${booking.email}`, "warning");
+      else toast(`Booking rejected but email failed: ${data.error}`, "warning");
+    } catch { toast("Booking rejected but email could not be sent.", "warning"); }
   }
 };
 
@@ -1045,7 +1075,7 @@ export function Admin({
   const cBr = isDark ? "#1a1714" : "#e4ddd1";
   const inpS: React.CSSProperties = { ...C.inp, borderRadius: 6 };
   const sideS = (t: AdminTab): React.CSSProperties => ({
-    padding: "11px 20px 11px 24px", cursor: "pointer", fontSize: 11, letterSpacing: 1.5,
+    padding: "11px 20px 11px 24px", cursor: "pointer", fontSize: 12.5, letterSpacing: 1.5,
     borderLeft: `2px solid ${tab === t ? gold : "transparent"}`,
     background: tab === t ? (isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.1)") : "transparent",
     color: tab === t ? gold : (isDark ? "#4a4035" : "#9a8878"),
@@ -1059,9 +1089,9 @@ export function Admin({
         <div style={{ background: sideBg, borderBottom: `1px solid ${sideBorder}`, padding: "0 20px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 90 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: gold }} />
-            <span style={{ color: isDark ? "#e0e0e0" : "#111", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 15, letterSpacing: 2 }}>STONEWOOD</span>
+            <span style={{ color: isDark ? "#e0e0e0" : "#111", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 16, letterSpacing: 2 }}>STONEWOOD</span>
           </div>
-          <button onClick={() => setSideOpen((o) => !o)} style={{ background: "none", border: `1px solid ${cBr}`, color: isDark ? "#888" : "#666", cursor: "pointer", padding: "6px 10px", borderRadius: 3, fontSize: 13 }}>{sideOpen ? "✕" : "☰"}</button>
+          <button onClick={() => setSideOpen((o) => !o)} style={{ background: "none", border: `1px solid ${cBr}`, color: isDark ? "#888" : "#666", cursor: "pointer", padding: "6px 10px", borderRadius: 3, fontSize: 14.5 }}>{<Icon name={sideOpen ? "x" : "menu"} size={16} />}</button>
         </div>
       )}
 
@@ -1073,9 +1103,9 @@ export function Admin({
               <div style={{ padding: "32px 24px 24px", borderBottom: `1px solid ${sideBorder}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: gold, flexShrink: 0 }} />
-                  <span style={{ color: isDark ? "#e0e0e0" : "#111", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 16, letterSpacing: 2 }}>STONEWOOD</span>
+                  <span style={{ color: isDark ? "#e0e0e0" : "#111", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, letterSpacing: 2 }}>STONEWOOD</span>
                 </div>
-                <div style={{ color: isDark ? "#333" : "#bbb", fontSize: 9, letterSpacing: 3, marginLeft: 16 }}>ADMIN PANEL</div>
+                <div style={{ color: isDark ? "#333" : "#bbb", fontSize: 10.5, letterSpacing: 3, marginLeft: 16 }}>ADMIN PANEL</div>
               </div>
             )}
             <div style={{ padding: "8px 0", flex: 1, overflowY: "auto" }}>
@@ -1091,12 +1121,12 @@ export function Admin({
                   }}>
                   <span style={{
                     color: isDark ? "#8f6a3d" : "#b08d57",
-                    fontSize: 9,
+                    fontSize: 10.5,
                     letterSpacing: 3.5,
                     fontWeight: 600,
                     whiteSpace: "nowrap",
                     textTransform: "uppercase" as const,
-                    fontFamily: "'Inter', sans-serif",
+                    fontFamily: "'Jost',system-ui,sans-serif",
                   }}>
                     {group.label}
                   </span>
@@ -1118,20 +1148,18 @@ export function Admin({
                       className="sw-sidebar-item"
                       style={sideS(t as AdminTab)}
                     >
-                      <span style={{
-                        fontSize: 14,
-                        opacity: tab === t ? 1 : 0.5,
-                        transition: "opacity .15s",
-                      }}>
-                        {tabIcons[t as AdminTab]}
-                      </span>
+                      <Icon
+                        name={tabIcons[t as AdminTab]}
+                        size={16}
+                        style={{ opacity: tab === t ? 1 : 0.55, transition: "opacity .15s" }}
+                      />
                       <span style={{ flex: 1 }}>{t.toUpperCase()}</span>
 
                       {/* Bookings badge */}
                       {t === "Bookings" && Paid > 0 && (
                         <span style={{
                           background: gold, color: "#000",
-                          fontSize: 9, fontWeight: 800,
+                          fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
                         }}>
                           {Paid}
@@ -1144,7 +1172,7 @@ export function Admin({
                       ).length > 0 && (
                         <span style={{
                           background: "#4a9fd4", color: "#fff",
-                          fontSize: 9, fontWeight: 800,
+                          fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
                         }}>
                           {bookings.filter(
@@ -1157,7 +1185,7 @@ export function Admin({
                       {t === "Facilities" && facilities.filter(f => f.status === "Needs Cleaning").length > 0 && (
                         <span style={{
                           background: "#e0a020", color: "#000",
-                          fontSize: 9, fontWeight: 800,
+                          fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
                         }}>
                           {facilities.filter(f => f.status === "Needs Cleaning").length}
@@ -1168,7 +1196,7 @@ export function Admin({
                       {t === "Customer Service" && customerMessages.length > 0 && (
                         <span style={{
                           background: "#4a9fd4", color: "#fff",
-                          fontSize: 9, fontWeight: 800,
+                          fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
                         }}>
                           {customerMessages.length}
@@ -1180,7 +1208,7 @@ export function Admin({
               ))}
             </div>
             <div style={{ padding: "16px 20px", borderTop: `1px solid ${sideBorder}` }}>
-              <button onClick={() => setShowLogoutConfirm(true)} style={{ width: "100%", background: "transparent", color: isDark ? "#444" : "#aaa", border: `1px solid ${isDark ? "#1a1a1a" : "#ddd"}`, padding: "9px 12px", fontSize: 10, cursor: "pointer", borderRadius: 4, letterSpacing: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <button onClick={() => setShowLogoutConfirm(true)} style={{ width: "100%", background: "transparent", color: isDark ? "#444" : "#aaa", border: `1px solid ${isDark ? "#1a1a1a" : "#ddd"}`, padding: "9px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
                 SIGN OUT
               </button>
@@ -1195,48 +1223,68 @@ export function Admin({
           {tab === "Dashboard" && (
             <div>
               <div style={{ marginBottom: 32 }}>
-                <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 8 }}>OVERVIEW</p>
+                <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>OVERVIEW</p>
                 <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Dashboard</h2>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: mob ? 10 : 14, marginBottom: 36 }}>
                 {[["Paid", Paid, "#f5c518", "Pending review"], ["Confirmed", confirmed, "#4caf50", "Approved"], ["Completed", completed, "#4a9fd4", "Past stays"], ["Rooms", rooms.length, gold, "Active listings"]].map(([l, v, c, sub]) => (
                   <div key={l as string} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: mob ? "14px 12px" : "22px 20px", position: "relative", overflow: "hidden", boxShadow: C.shadowCard }}>
                     <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(to right,${c}22,${c})` }} />
-                    <div style={{ color: isDark ? "#4a4035" : "#9a8878", fontSize: 9, letterSpacing: 2, marginBottom: 10 }}>{(l as string).toUpperCase()}</div>
+                    <div style={{ color: isDark ? "#4a4035" : "#9a8878", fontSize: 10.5, letterSpacing: 2, marginBottom: 10 }}>{(l as string).toUpperCase()}</div>
                     <div style={{ color: c as string, fontSize: mob ? 26 : 34, fontWeight: 700, fontFamily: "'Cormorant Garamond',Georgia,serif", lineHeight: 1, marginBottom: 6 }}>{v as number}</div>
-                    {!mob && <div style={{ color: isDark ? "#3a3025" : "#b0a090", fontSize: 11 }}>{sub as string}</div>}
+                    {!mob && <div style={{ color: isDark ? "#3a3025" : "#b0a090", fontSize: 12.5 }}>{sub as string}</div>}
                   </div>
                 ))}
               </div>
 
               {/* Currently ongoing bookings — today's confirmed guests, live */}
               {(() => {
-                const todayStr = new Date().toISOString().slice(0, 10);
-                const liveBookings = bookings.filter((b) => b.date === todayStr && b.status === "Confirmed");
-                const totalInResort = liveBookings.reduce((sum, b) => sum + b.guests, 0);
+                // Occupancy is by TIME WINDOW, not just date: a booking counts
+                // only while the clock sits inside its tour hours, so guests
+                // drop off on their own when a tour ends instead of lingering
+                // until midnight. See lib/occupancy.ts for the hours.
+                //
+                // This replaced a date-only filter that also used
+                // toISOString() — UTC, which in Manila (UTC+8) reported the
+                // PREVIOUS day from midnight until 8am.
+                const { present: liveBookings, total: totalInResort } =
+                  getCurrentOccupancy(bookings, now);
+                const anyoneIn = totalInResort > 0;
                 return (
                   <div style={{ marginBottom: 36 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-                      <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, margin: 0 }}>CURRENTLY ONGOING BOOKINGS — TODAY (LIVE)</p>
-                      <span style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", fontSize: 10, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(76,175,80,0.2)", letterSpacing: 1 }}>
-                        👥 Total people in resort: {totalInResort}
+                      <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, margin: 0 }}>CURRENTLY ONGOING BOOKINGS — TODAY (LIVE)</p>
+                      {/* Green while anyone is on site, red when the resort is
+                          empty. The dot inherits currentColor, so the state
+                          change needs only the one colour swap here. */}
+                      <span
+                        title={anyoneIn
+                          ? `${liveBookings.length} booking${liveBookings.length === 1 ? "" : "s"} currently on site`
+                          : "No tour is running right now"}
+                        style={{ background: anyoneIn ? "rgba(76,175,80,0.08)" : "rgba(229,85,85,0.07)", color: anyoneIn ? "#4caf50" : "#d9534f", fontSize: 11.5, padding: "4px 12px", borderRadius: 20, border: `1px solid ${anyoneIn ? "rgba(76,175,80,0.2)" : "rgba(229,85,85,0.2)"}`, letterSpacing: 1, display: "inline-flex", alignItems: "center", gap: 7, transition: "background .3s ease, border-color .3s ease, color .3s ease" }}
+                      >
+                        {/* Pulsing dot — the conventional "this is live" signal.
+                            The ring animates outward while the core stays solid,
+                            so it reads as a heartbeat rather than a flash. */}
+                        <span className="sw-live-dot" aria-hidden="true" />
+                        <Icon name="users" size={13} />Total people in resort: {totalInResort}
                       </span>
                     </div>
                     <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 6, overflow: "hidden" }}>
                       <div style={{ overflowX: "auto" }}>
                         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 520 : 0 }}>
-                          <thead><tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>{["Guest", "Package", "Guests Included", "Rooms", "Source"].map((h) => <th key={h} style={{ padding: "12px 14px", color: C.textXS, fontSize: 9, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+                          <thead><tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>{["Guest", "Package", "Guests Included", "Rooms", "Source"].map((h) => <th key={h} style={{ padding: "12px 14px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
                           <tbody>
                             {liveBookings.map((b, idx) => (
                               <tr key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#0a0906" : "#080604") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
-                                <td style={{ padding: "12px 14px", color: C.textH, fontSize: 12, fontWeight: 600 }}>{b.name}</td>
-                                <td style={{ padding: "12px 14px", color: C.textS, fontSize: 11 }}>{b.package}</td>
-                                <td style={{ padding: "12px 14px", color: gold, fontSize: 12, fontWeight: 700 }}>👥 {b.guests}</td>
-                                <td style={{ padding: "12px 14px", color: C.textS, fontSize: 11 }}>{b.rooms.length > 0 ? b.rooms.map((rid) => rooms.find((r) => r.id === rid)?.name ?? `#${rid}`).join(", ") : "—"}</td>
-                                <td style={{ padding: "12px 14px" }}><span style={{ background: b.source === "Walk-In" ? "rgba(74,159,212,0.08)" : "rgba(201,168,76,0.1)", color: b.source === "Walk-In" ? "#4a9fd4" : gold, fontSize: 9, padding: "3px 10px", borderRadius: 20, letterSpacing: 1 }}>{b.source ?? "Online"}</span></td>
+                                <td style={{ padding: "12px 14px", color: C.textH, fontSize: 13.5, fontWeight: 600 }}>{b.name}</td>
+                                <td style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5 }}>{b.package}</td>
+                                <td style={{ padding: "12px 14px", color: gold, fontSize: 13.5, fontWeight: 700 }}><Icon name="users" size={12} style={{ marginRight: 5 }} />{b.guests}</td>
+                                <td style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5 }}>{b.rooms.length > 0 ? b.rooms.map((rid) => rooms.find((r) => r.id === rid)?.name ?? `#${rid}`).join(", ") : "—"}</td>
+                                <td style={{ padding: "12px 14px" }}><span style={{ background: b.source === "Walk-In" ? "rgba(74,159,212,0.08)" : "rgba(201,168,76,0.1)", color: b.source === "Walk-In" ? "#4a9fd4" : gold, fontSize: 10.5, padding: "3px 10px", borderRadius: 20, letterSpacing: 1 }}>{b.source ?? "Online"}</span></td>
                               </tr>
                             ))}
-                            {liveBookings.length === 0 && <tr><td colSpan={5} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 13 }}>No confirmed guests checked in for today yet.</td></tr>}
+                            {liveBookings.length === 0 && <tr><td colSpan={5} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 14.5 }}>No confirmed guests checked in for today yet.</td></tr>}
                           </tbody>
                         </table>
                       </div>
@@ -1247,32 +1295,32 @@ export function Admin({
 
               {/* Pending approvals */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3 }}>PENDING APPROVALS</p>
-                {Paid > 0 && <span style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 10, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.15)" }}>{Paid} awaiting</span>}
+                <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3 }}>PENDING APPROVALS</p>
+                {Paid > 0 && <span style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 11.5, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.15)" }}>{Paid} awaiting</span>}
               </div>
               <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 6, overflow: "hidden" }}>
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 560 : 0 }}>
-                    <thead><tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>{["ID", "Guest", "Email", "Phone", "Date", "Total", "Status", "Actions"].map((h) => <th key={h} style={{ padding: "12px 14px", color: C.textXS, fontSize: 9, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+                    <thead><tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>{["ID", "Guest", "Email", "Phone", "Date", "Total", "Status", "Actions"].map((h) => <th key={h} style={{ padding: "12px 14px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
                     <tbody>
                       {bookings.filter((b) => b.status === "Paid").map((b, idx) => (
                         <tr key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#0a0906" : "#080604") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
-                          <td style={{ padding: "12px 14px", color: gold, fontSize: 11, whiteSpace: "nowrap", fontFamily: "monospace" }}>{b.id}</td>
-                          <td style={{ padding: "12px 14px", color: C.textH, fontSize: 12 }}>{b.name}</td>
-                          <td style={{ padding: "12px 14px", color: C.textS, fontSize: 11 }}>{b.email || "—"}</td>
-                          <td style={{ padding: "12px 14px", color: C.textS, fontSize: 11, whiteSpace: "nowrap" }}>{b.contact || "—"}</td>
-                          <td style={{ padding: "12px 14px", color: C.textS, fontSize: 11, whiteSpace: "nowrap" }}>{b.date}</td>
-                          <td style={{ padding: "12px 14px", color: C.textH, fontSize: 12, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</td>
-                          <td style={{ padding: "12px 14px" }}><span style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 9, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.2)", letterSpacing: 1 }}>Paid</span></td>
+                          <td style={{ padding: "12px 14px", color: gold, fontSize: 12.5, whiteSpace: "nowrap", fontFamily: "monospace" }}>{b.id}</td>
+                          <td style={{ padding: "12px 14px", color: C.textH, fontSize: 13.5 }}>{b.name}</td>
+                          <td style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5 }}>{b.email || "—"}</td>
+                          <td style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.contact || "—"}</td>
+                          <td style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.date}</td>
+                          <td style={{ padding: "12px 14px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</td>
+                          <td style={{ padding: "12px 14px" }}><span style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 10.5, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.2)", letterSpacing: 1 }}>Paid</span></td>
                           <td style={{ padding: "12px 14px" }}>
                             <div style={{ display: "flex", gap: 6 }}>
-                              <button onClick={() => setDashConfirm({ bookingId: b.id, action: "Confirmed", guestName: b.name })} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.2)", padding: "5px 12px", fontSize: 10, cursor: "pointer", borderRadius: 3, whiteSpace: "nowrap", letterSpacing: 1 }}>ACCEPT</button>
-                              <button onClick={() => setDashConfirm({ bookingId: b.id, action: "Cancelled", guestName: b.name })} style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "5px 10px", fontSize: 10, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>REJECT</button>
+                              <button onClick={() => setDashConfirm({ bookingId: b.id, action: "Confirmed", guestName: b.name })} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.2)", padding: "5px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, whiteSpace: "nowrap", letterSpacing: 1 }}>ACCEPT</button>
+                              <button onClick={() => setDashConfirm({ bookingId: b.id, action: "Cancelled", guestName: b.name })} style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "5px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>REJECT</button>
                             </div>
                           </td>
                         </tr>
                       ))}
-                      {Paid === 0 && <tr><td colSpan={8} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 13 }}>No pending bookings.</td></tr>}
+                      {Paid === 0 && <tr><td colSpan={8} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 14.5 }}>No pending bookings.</td></tr>}
                     </tbody>
                   </table>
                 </div>
@@ -1281,10 +1329,10 @@ export function Admin({
               {/* Availability Calendar */}
               <div style={{ marginTop: 36 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-                  <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, margin: 0 }}>AVAILABILITY OVERVIEW</p>
+                  <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, margin: 0 }}>AVAILABILITY OVERVIEW</p>
                   <div style={{ display: "flex", gap: 14 }}>
                     {[["Booked", "#4caf50"], ["Closed", "#e07070"], ["Available", isDark ? "#2a2620" : "#e8e0d4"]].map(([l, c]) => (
-                      <div key={l} style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 10, height: 10, borderRadius: 2, background: c }} /><span style={{ color: C.textXS, fontSize: 10 }}>{l}</span></div>
+                      <div key={l} style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 10, height: 10, borderRadius: 2, background: c }} /><span style={{ color: C.textXS, fontSize: 11.5 }}>{l}</span></div>
                     ))}
                   </div>
                 </div>
@@ -1303,9 +1351,9 @@ export function Admin({
                         const label = mDate.toLocaleString("default", { month: "long", year: "numeric" });
                         return (
                           <div key={mi} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "20px 18px", boxShadow: C.shadowCard }}>
-                            <p style={{ color: gold, fontSize: 11, fontFamily: "'Cormorant Garamond',Georgia,serif", letterSpacing: 2, marginBottom: 14, textAlign: "center" }}>{label}</p>
+                            <p style={{ color: gold, fontSize: 12.5, fontFamily: "'Cormorant Garamond',Georgia,serif", letterSpacing: 2, marginBottom: 14, textAlign: "center" }}>{label}</p>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, marginBottom: 4 }}>
-                              {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => <div key={d} style={{ textAlign: "center", fontSize: 9, color: C.textXS, padding: "2px 0" }}>{d}</div>)}
+                              {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => <div key={d} style={{ textAlign: "center", fontSize: 10.5, color: C.textXS, padding: "2px 0" }}>{d}</div>)}
                             </div>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3 }}>
                               {Array.from({ length: fD }).map((_, i) => <div key={`e${i}`} />)}
@@ -1321,7 +1369,7 @@ export function Admin({
                                 else if (isClosed) { bg = isDark ? "#1a0a0a" : "#fff0f0"; col = "#e07070"; dot = "#e07070"; }
                                 const booking = isBooked ? bookings.find((b) => b.date === ds && b.status !== "Cancelled") : null;
                                 return (
-                                  <div key={d} title={booking ? `${booking.name} · ${booking.guests} guests` : isClosed ? "Closed" : ""} style={{ textAlign: "center", padding: "5px 2px", borderRadius: 3, background: bg, color: col, fontSize: 11, cursor: booking || isClosed ? "pointer" : "default", userSelect: "none", position: "relative", transition: "background .1s" }}>
+                                  <div key={d} title={booking ? `${booking.name} · ${booking.guests} guests` : isClosed ? "Closed" : ""} style={{ textAlign: "center", padding: "5px 2px", borderRadius: 3, background: bg, color: col, fontSize: 12.5, cursor: booking || isClosed ? "pointer" : "default", userSelect: "none", position: "relative", transition: "background .1s" }}>
                                     {d}{dot && <div style={{ width: 3, height: 3, borderRadius: "50%", background: dot, margin: "1px auto 0" }} />}
                                   </div>
                                 );
@@ -1341,7 +1389,7 @@ export function Admin({
           {tab === "Bookings" && (
             <div>
               <div style={{ marginBottom: 28 }}>
-                <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 8 }}>MANAGEMENT</p>
+                <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>MANAGEMENT</p>
                 <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>All Bookings</h2>
               </div>
               <BookingsTab bookings={bookings.filter(b => b.source !== "Walk-In" || b.status === "Confirmed" || b.status === "Completed" || b.archived)} setBookings={setBookings} updateStatus={updateStatus} mob={mob} rooms={rooms} />
@@ -1386,17 +1434,17 @@ export function Admin({
           {tab === "Occupancy" && (
             <div>
               <div style={{ marginBottom: 28 }}>
-                <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 8 }}>CALENDAR VIEW</p>
+                <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>CALENDAR VIEW</p>
                 <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 6px" }}>Occupancy</h2>
-                <p style={{ color: C.textS, fontSize: 12, margin: 0 }}>Click a date to toggle it as closed.</p>
+                <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>Click a date to toggle it as closed.</p>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <button onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))} style={{ background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", borderRadius: 4, padding: "6px 14px", fontSize: 13 }}>‹</button>
+                <button onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))} style={{ background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", borderRadius: 4, padding: "6px 14px", fontSize: 14.5 }}>‹</button>
                 <span style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18 }}>{calMonth.toLocaleString("default", { month: "long", year: "numeric" })}</span>
-                <button onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))} style={{ background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", borderRadius: 4, padding: "6px 14px", fontSize: 13 }}>›</button>
+                <button onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))} style={{ background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", borderRadius: 4, padding: "6px 14px", fontSize: 14.5 }}>›</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: 8 }}>
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d} style={{ textAlign: "center", color: C.textXS, fontSize: 10, padding: "6px 0", letterSpacing: 1 }}>{d}</div>)}
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d} style={{ textAlign: "center", color: C.textXS, fontSize: 11.5, padding: "6px 0", letterSpacing: 1 }}>{d}</div>)}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: 24 }}>
                 {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
@@ -1417,7 +1465,7 @@ export function Admin({
                       borderRadius: 6, 
                       background: bg, border, 
                       color: col, 
-                      fontSize: mob ? 11 : 13, 
+                      fontSize: mob ? 12.5 : 14.5, 
                       cursor:
                         isPast
                           ? "default"
@@ -1428,14 +1476,14 @@ export function Admin({
                       transition: "all .15s", 
                       position: "relative" }}>
                       {d}
-                      {status && <div style={{ fontSize: 8, marginTop: 3, opacity: 0.8 }}>{status === "Closed" ? "CLOSED" : status === "Paid" ? "PAID" : status?.toUpperCase().slice(0, 4)}</div>}
+                      {status && <div style={{ fontSize: 9.5, marginTop: 3, opacity: 0.8 }}>{status === "Closed" ? "CLOSED" : status === "Paid" ? "PAID" : status?.toUpperCase().slice(0, 4)}</div>}
                     </div>
                   );
                 })}
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
                 {[["Booked/Confirmed", "#4caf50"], ["Paid", "#f5c518"], ["Completed", "#4a9fd4"], ["Closed", "#e07070"], ["Click to close/open", gold]].map(([l, c]) => (
-                  <div key={l} style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: c }} /><span style={{ color: C.textS, fontSize: 11 }}>{l}</span></div>
+                  <div key={l} style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: c }} /><span style={{ color: C.textS, fontSize: 12.5 }}>{l}</span></div>
                 ))}
               </div>
             </div>
@@ -1445,28 +1493,28 @@ export function Admin({
           {tab === "Rooms" && (
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
-                <div><p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 8 }}>ACCOMMODATIONS</p><h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Rooms</h2></div>
-                <button onClick={openAdd} style={{ ...goldBtn, padding: "10px 20px", fontSize: 11, letterSpacing: 2 }}>+ ADD ROOM</button>
+                <div><p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>ACCOMMODATIONS</p><h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Rooms</h2></div>
+                <button onClick={openAdd} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD ROOM</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fill,minmax(280px,1fr))", gap: 20 }}>
                 {rooms.map((r) => (
                   <div key={r.id} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, overflow: "hidden", boxShadow: C.shadowCard }}>
                     <div style={{ position: "relative", overflow: "hidden" }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={r.img} alt={r.name} style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }} />
+                      <img loading="lazy" decoding="async" src={r.img} alt={r.name} style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }} />
                       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top,rgba(0,0,0,0.5),transparent 60%)" }} />
                       <div style={{ position: "absolute", bottom: 10, left: 12, right: 12, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-                        <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 11, background: "rgba(0,0,0,0.4)", borderRadius: 4, padding: "2px 8px" }}>👥 Up to {r.capacity}</span>
-                        <span style={{ color: "#fff", fontSize: 15, fontWeight: 700 }}>{fmt(r.price)}<span style={{ fontSize: 9, opacity: 0.8 }}>/night</span></span>
+                        <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 12.5, background: "rgba(0,0,0,0.4)", borderRadius: 4, padding: "2px 8px" }}><Icon name="users" size={11} style={{ marginRight: 4 }} />Up to {r.capacity}</span>
+                        <span style={{ color: "#fff", fontSize: 16, fontWeight: 700 }}>{fmt(r.price)}<span style={{ fontSize: 10.5, opacity: 0.8 }}>/night</span></span>
                       </div>
                     </div>
                     <div style={{ padding: "16px 18px" }}>
-                      <h4 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 16, marginBottom: 4, fontWeight: 400 }}>{r.name}</h4>
-                      <p style={{ color: gold, fontSize: 11, marginBottom: 8 }}>🛏 {r.beds}</p>
-                      <p style={{ color: C.textS, fontSize: 12, lineHeight: 1.6, marginBottom: 14 }}>{r.desc}</p>
+                      <h4 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, marginBottom: 4, fontWeight: 400 }}>{r.name}</h4>
+                      <p style={{ color: gold, fontSize: 12.5, marginBottom: 8 }}><Icon name="bed" size={12} style={{ marginRight: 5 }} />{r.beds}</p>
+                      <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, marginBottom: 14 }}>{r.desc}</p>
                       <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={() => openEdit(r)} style={{ ...outBtn, flex: 1, padding: "8px 12px", fontSize: 10, letterSpacing: 1 }}>EDIT</button>
-                        <button onClick={() => setConfirmRemoveRoom(r)} style={{ flex: 1, background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "8px 12px", fontSize: 10, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>REMOVE</button>
+                        <button onClick={() => openEdit(r)} style={{ ...outBtn, flex: 1, padding: "8px 12px", fontSize: 11.5, letterSpacing: 1 }}>EDIT</button>
+                        <button onClick={() => setConfirmRemoveRoom(r)} style={{ flex: 1, background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "8px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>REMOVE</button>
                       </div>
                     </div>
                   </div>
@@ -1479,18 +1527,18 @@ export function Admin({
           {tab === "Gallery" && (
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
-                <div><p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 8 }}>MEDIA</p><h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Gallery</h2></div>
+                <div><p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>MEDIA</p><h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Gallery</h2></div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <input ref={galleryFileRef} type="file" accept="image/*" multiple onChange={handleGalleryUpload} style={{ display: "none" }} />
-                  <button onClick={() => galleryFileRef.current?.click()} style={{ ...goldBtn, padding: "10px 20px", fontSize: 11, letterSpacing: 2 }}>+ ADD PHOTOS</button>
+                  <button onClick={() => galleryFileRef.current?.click()} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD PHOTOS</button>
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(3,1fr)", gap: 12 }}>
                 {galleryImgs.map((src, i) => (
                   <div key={i} style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: `1px solid ${cBr}` }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={src} alt="" style={{ width: "100%", height: 180, objectFit: "cover", display: "block" }} />
-                    <button onClick={() => deleteGalleryImg(i)} style={{ position: "absolute", top: 8, right: 8, background: "rgba(229,85,85,0.9)", border: "none", color: "#fff", width: 28, height: 28, borderRadius: "50%", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                    <img loading="lazy" decoding="async" src={src} alt="" style={{ width: "100%", height: 180, objectFit: "cover", display: "block" }} />
+                    <button onClick={() => deleteGalleryImg(i)} style={{ position: "absolute", top: 8, right: 8, background: "rgba(229,85,85,0.9)", border: "none", color: "#fff", width: 28, height: 28, borderRadius: "50%", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="x" size={14} /></button>
                   </div>
                 ))}
               </div>
@@ -1516,7 +1564,7 @@ export function Admin({
           {tab==="Reports"&&(
             <div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:28,flexWrap:"wrap",gap:12}}>
-                <div><p style={{color:C.textXS,fontSize:10,letterSpacing:3,marginBottom:8}}>INSIGHTS</p><h2 style={{color:C.textH,fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:mob?22:26,fontWeight:400,margin:0}}>Reports</h2></div>
+                <div><p style={{color:C.textXS,fontSize:11.5,letterSpacing:2.5,marginBottom:8}}>INSIGHTS</p><h2 style={{color:C.textH,fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:mob?24:30,fontWeight:400,margin:0}}>Reports</h2></div>
                 <button onClick={()=>{
                   // Build CSV content for Excel
                   const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -1554,27 +1602,37 @@ export function Admin({
                   a.href=url;a.download=`StoneWood_Report_${months[selMonthIdx]}${selYear}.csv`;
                   a.click();URL.revokeObjectURL(url);
                   toast(`Report exported: ${months[selMonthIdx]} ${selYear}.csv`,"success");
-                }} style={{...goldBtn,padding:"10px 20px",fontSize:10,letterSpacing:2,display:"flex",alignItems:"center",gap:8}}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                }} style={{...goldBtn,padding:"10px 20px",fontSize:11.5,letterSpacing:2,display:"flex",alignItems:"center",gap:8}}>
+                  <Icon name="download" size={13} />
                   EXPORT THIS MONTH
                 </button>
               </div>
 
-              {/* KPI Cards */}
-              <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(4,1fr)",gap:mob?10:14,marginBottom:28}}>
-                {[
-                  ["Total Revenue",fmt(bookings.filter(b=>b.status!=="Cancelled").reduce((s,b)=>s+b.total,0)),"💰","#4caf50"],
-                  ["Down Collected",fmt(bookings.filter(b=>b.status!=="Cancelled").reduce((s,b)=>s+b.downpayment,0)),"📥",gold],
-                  ["Active Bookings",bookings.filter(b=>["Paid","Confirmed"].includes(b.status)).length,"📋","#4a9fd4"],
-                  ["Completed",bookings.filter(b=>b.status==="Completed").length,"✅","#4caf50"]
-                ].map(([l,v,icon,c])=>(
-                  <div key={l} style={{background:cBg,border:`1px solid ${cBr}`,borderRadius:10,padding:mob?"16px 12px":"22px 18px",display:"flex",alignItems:"center",gap:14,boxShadow:C.shadowCard,position:"relative",overflow:"hidden"}}>
-                    <div style={{position:"absolute",top:0,left:0,bottom:0,width:3,background:`linear-gradient(to bottom,${c}66,${c})`}}/>
-                    <div style={{width:42,height:42,borderRadius:10,background:`${c}14`,border:`1px solid ${c}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{icon}</div>
-                    <div><div style={{color:C.textXS,fontSize:9,letterSpacing:2,marginBottom:5}}>{(l as string).toUpperCase()}</div><div style={{color: c as string, fontSize: mob ? 18 : 22, fontWeight: 700, fontFamily:"'Cormorant Garamond',Georgia,serif"}}>{String(v)}</div></div>
+              {/* KPI Cards — each carries a 12-month sparkline derived from
+                  the same bookings the figure itself counts, so the number
+                  arrives with its trend rather than standing alone. */}
+              {(()=>{
+                const mo=(i:number)=>String(i+1).padStart(2,"0");
+                const per=(fn:(b:typeof bookings[number])=>number,filter:(b:typeof bookings[number])=>boolean)=>
+                  Array.from({length:12},(_,i)=>bookings.filter(b=>b.date&&b.date.startsWith(`2026-${mo(i)}`)&&filter(b)).reduce((s,b)=>s+fn(b),0));
+                const notCancelled=(b:typeof bookings[number])=>b.status!=="Cancelled";
+                return(
+                  <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(4,1fr)",gap:mob?10:14,marginBottom:18}}>
+                    <StatCard icon="cash" label="Total Revenue" color="#4caf50" mob={mob}
+                      value={fmt(bookings.filter(notCancelled).reduce((s,b)=>s+b.total,0))}
+                      series={per(b=>b.total,notCancelled)} />
+                    <StatCard icon="download" label="Down Collected" color={gold} mob={mob}
+                      value={fmt(bookings.filter(notCancelled).reduce((s,b)=>s+b.downpayment,0))}
+                      series={per(b=>b.downpayment,notCancelled)} />
+                    <StatCard icon="clipboard" label="Active Bookings" color="#4a9fd4" mob={mob}
+                      value={bookings.filter(b=>["Paid","Confirmed"].includes(b.status)).length}
+                      series={per(()=>1,b=>["Paid","Confirmed"].includes(b.status))} />
+                    <StatCard icon="check-circle" label="Completed" color="#4caf50" mob={mob}
+                      value={bookings.filter(b=>b.status==="Completed").length}
+                      series={per(()=>1,b=>b.status==="Completed")} />
                   </div>
-                ))}
-              </div>
+                );
+              })()}
 
               {/* Monthly Revenue Breakdown */}
               {(()=>{
@@ -1585,39 +1643,30 @@ export function Admin({
                   return{label:months[mi],revenue:mBookings.reduce((s,b)=>s+b.total,0),count:mBookings.length,guests:mBookings.reduce((s,b)=>s+b.guests,0)};
                 });
                 const maxRev=Math.max(...monthlyData.map(m=>m.revenue),1);
+                void maxRev; // scale is now derived inside BarChart
                 return(
-                  <div style={{background:cBg,border:`1px solid ${cBr}`,borderRadius:10,padding:"24px 20px",marginBottom:20,boxShadow:C.shadowCard}}>
-                    <h3 style={{color:C.textS,fontSize:10,letterSpacing:2,marginBottom:20}}>MONTHLY REVENUE (2026)</h3>
-                    <div style={{display:"flex",alignItems:"flex-end",gap:mob?5:10,height:150,paddingBottom:32,position:"relative"}}>
-                      {monthlyData.map((m,i)=>(
-                        <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                          {m.revenue>0&&<span style={{color:gold,fontSize:mob?7:9,fontWeight:700,textAlign:"center",whiteSpace:"nowrap"}}>₱{m.revenue>=1000?`${(m.revenue/1000).toFixed(1)}k`:m.revenue}</span>}
-                          <div style={{width:"100%",background:m.revenue>0?(isDark?"#1a1400":"#fef6d8"):isDark?"#100e0b":"#f0ece4",border:`1px solid ${m.revenue>0?gold+"66":cBr}`,borderRadius:"3px 3px 0 0",height:`${(m.revenue/maxRev)*118}px`,minHeight:m.revenue>0?4:0,transition:"height .4s cubic-bezier(.22,1,.36,1)"}}/>
-                          <span style={{color:C.textXS,fontSize:mob?7:9,position:"absolute",bottom:0}}>{m.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <Panel title="MONTHLY REVENUE (2026)" style={{marginBottom:18}}>
+                    <BarChart
+                      data={monthlyData.map(m=>({label:m.label,value:m.revenue}))}
+                      color={gold}
+                      height={210}
+                      mob={mob}
+                      formatValue={(v)=>v>=1000?`₱${(v/1000).toFixed(0)}k`:`₱${v}`}
+                    />
+                  </Panel>
                 );
               })()}
 
               {/* Booking Status Breakdown + Cancellation Rate */}
-              <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:16,marginBottom:20}}>
-                <div style={{background:cBg,border:`1px solid ${cBr}`,borderRadius:10,padding:"24px 20px",boxShadow:C.shadowCard}}>
-                  <h3 style={{color:C.textS,fontSize:10,letterSpacing:2,marginBottom:18}}>STATUS BREAKDOWN</h3>
+              <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:mob?14:18,marginBottom:18}}>
+                <Panel title="STATUS BREAKDOWN">
                   {[["Paid","#f5c518"],["Confirmed","#4caf50"],["Completed","#4a9fd4"],["Cancelled","#e55"]].map(([s,c])=>{
                     const n=bookings.filter(b=>b.status===s).length;
                     const pct=bookings.length?Math.round((n/bookings.length)*100):0;
-                    return(
-                      <div key={s} style={{marginBottom:14}}>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{color:C.textB,fontSize:12}}>{s}</span><span style={{color:c,fontWeight:700,fontSize:12}}>{n} <span style={{color:C.textXS,fontWeight:400}}>({pct}%)</span></span></div>
-                        <div style={{background:isDark?"#1a1714":"#ede8de",borderRadius:4,height:6,overflow:"hidden"}}><div style={{width:`${pct}%`,background:c,height:"100%",borderRadius:4,transition:"width .6s cubic-bezier(.22,1,.36,1)"}}/></div>
-                      </div>
-                    );
+                    return <ProgressRow key={s} label={s} value={n} pct={pct} color={c} />;
                   })}
-                </div>
-                <div style={{background:cBg,border:`1px solid ${cBr}`,borderRadius:10,padding:"24px 20px",boxShadow:C.shadowCard}}>
-                  <h3 style={{color:C.textS,fontSize:10,letterSpacing:2,marginBottom:18}}>FINANCIAL SUMMARY</h3>
+                </Panel>
+                <Panel title="FINANCIAL SUMMARY">
                   {(()=>{
                     const active=bookings.filter(b=>b.status!=="Cancelled");
                     const totalRev=active.reduce((s,b)=>s+b.total,0);
@@ -1627,24 +1676,23 @@ export function Admin({
                     const cancelRate=bookings.length?Math.round((cancelled/bookings.length)*100):0;
                     const avgBookingVal=active.length?Math.round(totalRev/active.length):0;
                     return(
-                      <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                        {[["Gross Revenue",fmt(totalRev),"#4caf50"],["Downpayments In",fmt(collected),gold],["Balance Remaining",fmt(balance),"#4a9fd4"],["Avg Booking Value",fmt(avgBookingVal),C.textH],["Cancellation Rate",`${cancelRate}%`,"#e55"]].map(([l,v,c])=>(
-                          <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${cBr}`}}>
-                            <span style={{color:C.textS,fontSize:12}}>{l}</span>
-                            <span style={{color:c,fontWeight:700,fontSize:13}}>{v}</span>
+                      <div style={{display:"flex",flexDirection:"column"}}>
+                        {[["Gross Revenue",fmt(totalRev),"#4caf50"],["Downpayments In",fmt(collected),gold],["Balance Remaining",fmt(balance),"#4a9fd4"],["Avg Booking Value",fmt(avgBookingVal),C.textH],["Cancellation Rate",`${cancelRate}%`,"#e55"]].map(([l,v,c],i,arr)=>(
+                          <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"11px 0",borderBottom:i===arr.length-1?"none":`1px solid ${cBr}`}}>
+                            <span style={{color:C.textS,fontSize:14}}>{l}</span>
+                            <span style={{color:c,fontWeight:700,fontSize:15,fontVariantNumeric:"tabular-nums"}}>{v}</span>
                           </div>
                         ))}
                       </div>
                     );
                   })()}
-                </div>
+                </Panel>
               </div>
 
 
               {/* Export by Month */}
-              <div style={{background:cBg,border:`1px solid ${cBr}`,borderRadius:10,padding:"24px 20px",boxShadow:C.shadowCard}}>
-                <h3 style={{color:C.textS,fontSize:10,letterSpacing:2,marginBottom:16}}>EXPORT MONTHLY REPORTS</h3>
-                <p style={{color:C.textXS,fontSize:11,marginBottom:16}}>Download a full booking report for any month as a CSV file (opens in Excel/Sheets).</p>
+              <Panel title="EXPORT MONTHLY REPORTS">
+                <p style={{color:C.textXS,fontSize:13,marginTop:-8,marginBottom:16,lineHeight:1.6}}>Download a full booking report for any month as a CSV file (opens in Excel/Sheets).</p>
                 <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
                   {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((mon,mi)=>{
                     const m=String(mi+1).padStart(2,"0");
@@ -1661,15 +1709,15 @@ export function Admin({
                         const url=URL.createObjectURL(blob);
                         const a=document.createElement("a");a.href=url;a.download=`StoneWood_${mon}2026.csv`;a.click();URL.revokeObjectURL(url);
                         toast(`Exported ${mon} 2026 report.`,"success");
-                      }} style={{padding:"8px 14px",fontSize:10,fontWeight:700,borderRadius:6,cursor:hasData?"pointer":"not-allowed",letterSpacing:1,background:hasData?(isDark?"rgba(201,168,76,0.08)":"rgba(201,168,76,0.1)"):(isDark?"#0e0c09":"#f5f0e8"),color:hasData?gold:C.textXS,border:`1px solid ${hasData?gold+"55":cBr}`,opacity:hasData?1:0.5,display:"flex",alignItems:"center",gap:5}}>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      }} style={{padding:"8px 14px",fontSize:12,fontWeight:600,borderRadius:8,cursor:hasData?"pointer":"not-allowed",letterSpacing:0.6,background:hasData?(isDark?"rgba(201,168,76,0.08)":"rgba(201,168,76,0.1)"):(isDark?"#0e0c09":"#f5f0e8"),color:hasData?gold:C.textXS,border:`1px solid ${hasData?gold+"55":cBr}`,opacity:hasData?1:0.5,display:"flex",alignItems:"center",gap:5}}>
+                        <Icon name="download" size={11} />
                         {mon}
-                        {hasData&&<span style={{background:`${gold}22`,borderRadius:10,padding:"1px 6px",fontSize:9}}>{mBookings.length}</span>}
+                        {hasData&&<span style={{background:`${gold}22`,borderRadius:10,padding:"1px 6px",fontSize:10.5}}>{mBookings.length}</span>}
                       </button>
                     );
                   })}
                 </div>
-              </div>
+              </Panel>
             </div>
           )}
 
@@ -1677,7 +1725,7 @@ export function Admin({
           {tab === "Customer Service" && (
             <div>
               <div style={{ marginBottom: 28 }}>
-                <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 3, marginBottom: 8 }}>MESSAGES</p>
+                <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>MESSAGES</p>
                 <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Customer Service</h2>
               </div>
 
@@ -1721,7 +1769,7 @@ export function Admin({
                     <p
                       style={{
                         color: C.textS,
-                        fontSize: 13,
+                        fontSize: 14.5,
                         marginBottom: 22,
                         lineHeight: 1.7,
                       }}
@@ -1754,7 +1802,7 @@ export function Admin({
                           color: C.textS,
                           border: `1px solid ${cBr}`,
                           padding: 11,
-                          fontSize: 11,
+                          fontSize: 12.5,
                           cursor: "pointer",
                           borderRadius: 6,
                         }}
@@ -1809,7 +1857,7 @@ export function Admin({
                     onClick={() => setCsView(v)}
                     style={{
                       padding: "8px 18px",
-                      fontSize: 11,
+                      fontSize: 12.5,
                       fontWeight: 700,
                       borderRadius: 20,
                       cursor: "pointer",
@@ -1858,19 +1906,25 @@ export function Admin({
                     boxShadow: C.shadowCard,
                   }}
                 >
+                  {/* Sized and coloured against the theme rather than left at
+                      the default text colour, so the empty state reads as one
+                      muted unit instead of a hard black mark above grey text. */}
                   <div
                     style={{
-                      fontSize: 36,
-                      marginBottom: 12,
+                      display: "flex",
+                      justifyContent: "center",
+                      marginBottom: 14,
+                      color: C.textXS,
+                      opacity: 0.6,
                     }}
                   >
-                    💬
+                    <Icon name="message" size={30} strokeWidth={1.25} />
                   </div>
 
                   <p
                     style={{
                       color: C.textS,
-                      fontSize: 14,
+                      fontSize: 15,
                     }}
                   >
                     {csView === "inbox"
@@ -1913,7 +1967,7 @@ export function Admin({
                           <div
                             style={{
                               color: C.textH,
-                              fontSize: 14,
+                              fontSize: 15,
                               fontWeight: 600,
                             }}
                           >
@@ -1923,7 +1977,7 @@ export function Admin({
                           <div
                             style={{
                               color: C.textXS,
-                              fontSize: 11,
+                              fontSize: 12.5,
                             }}
                           >
                             {msg.email} · {msg.date}
@@ -1942,7 +1996,7 @@ export function Admin({
                             style={{
                               background: `${gold}18`,
                               color: gold,
-                              fontSize: 9,
+                              fontSize: 10.5,
                               padding: "3px 8px",
                               borderRadius: 20,
                               border: `1px solid ${gold}44`,
@@ -1969,7 +2023,7 @@ export function Admin({
                               border: `1px solid ${gold}44`,
                               color: gold,
                               padding: "4px 10px",
-                              fontSize: 10,
+                              fontSize: 11.5,
                               cursor: "pointer",
                               borderRadius: 4,
                             }}
@@ -1988,7 +2042,7 @@ export function Admin({
                                 border: `1px solid ${cBr}`,
                                 color: C.textXS,
                                 padding: "4px 10px",
-                                fontSize: 10,
+                                fontSize: 11.5,
                                 cursor: "pointer",
                                 borderRadius: 4,
                               }}
@@ -2002,7 +2056,7 @@ export function Admin({
                       <p
                         style={{
                           color: C.textB,
-                          fontSize: 13,
+                          fontSize: 14.5,
                           lineHeight: 1.7,
                           margin: 0,
                         }}
@@ -2046,7 +2100,7 @@ export function Admin({
                           fontSize: 22,
                           fontWeight: 500,
                           fontFamily:
-                            "'Cormorant Garamond', Georgia, serif",
+                            "'Cormorant Garamond',Georgia,serif",
                         }}
                       >
                         Send Response
@@ -2055,7 +2109,7 @@ export function Admin({
                       <p
                         style={{
                           color: C.textS,
-                          fontSize: 12,
+                          fontSize: 13.5,
                           marginTop: 6,
                           marginBottom: 0,
                         }}
@@ -2092,7 +2146,7 @@ export function Admin({
                             padding: "8px 14px",
                             borderRadius: 20,
                             cursor: "pointer",
-                            fontSize: 11,
+                            fontSize: 12.5,
                             fontWeight: 700,
                             letterSpacing: 1,
                             background:
@@ -2120,7 +2174,7 @@ export function Admin({
                       <div
                         style={{
                           color: C.textXS,
-                          fontSize: 10,
+                          fontSize: 11.5,
                           marginBottom: 6,
                           letterSpacing: 2,
                         }}
@@ -2138,7 +2192,7 @@ export function Admin({
                           border: `1px solid ${cBr}`,
                           background: "transparent",
                           color: C.textS,
-                          fontSize: 13,
+                          fontSize: 14.5,
                           outline: "none",
                         }}
                       />
@@ -2149,7 +2203,7 @@ export function Admin({
                       <div
                         style={{
                           color: C.textXS,
-                          fontSize: 10,
+                          fontSize: 11.5,
                           marginBottom: 6,
                           letterSpacing: 2,
                         }}
@@ -2171,7 +2225,7 @@ export function Admin({
                           border: `1px solid ${cBr}`,
                           background: "transparent",
                           color: C.textB,
-                          fontSize: 13,
+                          fontSize: 14.5,
                           outline: "none",
                           lineHeight: 1.7,
                         }}
@@ -2195,7 +2249,7 @@ export function Admin({
                           padding: "10px 16px",
                           borderRadius: 6,
                           cursor: "pointer",
-                          fontSize: 11,
+                          fontSize: 12.5,
                         }}
                       >
                         CANCEL
@@ -2230,14 +2284,14 @@ export function Admin({
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }} role="dialog" aria-modal="true" aria-labelledby="dash-confirm-title">
           <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.35)" : "rgba(229,85,85,0.35)"}`, borderRadius: 14, padding: mob ? "28px 20px" : "36px 32px", width: "100%", maxWidth: 410, boxShadow: "0 40px 100px rgba(0,0,0,0.7)" }}>
             {/* Icon */}
-            <div style={{ width: 56, height: 56, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, fontSize: 26, background: dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.1)" : "rgba(229,85,85,0.1)", border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}` }}>
-              {dashConfirm.action === "Confirmed" ? "✓" : "✕"}
+            <div style={{ width: 56, height: 56, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, color: dashConfirm.action === "Confirmed" ? "#4caf50" : "#e55", background: dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.1)" : "rgba(229,85,85,0.1)", border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}` }}>
+              <Icon name={dashConfirm.action === "Confirmed" ? "check" : "x"} size={20} />
             </div>
 
             <h3 id="dash-confirm-title" style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 10 }}>
               {dashConfirm.action === "Confirmed" ? "Accept this booking?" : "Reject this booking?"}
             </h3>
-            <p style={{ color: C.textS, fontSize: 13, lineHeight: 1.7, marginBottom: 18 }}>
+            <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7, marginBottom: 18 }}>
               {dashConfirm.action === "Confirmed"
                 ? <>You are about to <strong style={{ color: "#4caf50" }}>accept</strong> the booking for <strong style={{ color: C.textH }}>{dashConfirm.guestName}</strong>. This will confirm their reservation.</>
                 : <>You are about to <strong style={{ color: "#e55" }}>reject</strong> the booking for <strong style={{ color: C.textH }}>{dashConfirm.guestName}</strong>. This cannot be undone.</>
@@ -2246,8 +2300,8 @@ export function Admin({
 
             {/* Warning callout */}
             <div style={{ background: dashConfirm.action === "Confirmed" ? (isDark ? "rgba(76,175,80,0.06)" : "rgba(76,175,80,0.05)") : (isDark ? "rgba(229,85,85,0.06)" : "rgba(229,85,85,0.04)"), border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.2)" : "rgba(229,85,85,0.15)"}`, borderRadius: 8, padding: "11px 14px", marginBottom: 22, display: "flex", gap: 8 }}>
-              <span style={{ flexShrink: 0 }}>{dashConfirm.action === "Confirmed" ? "✅" : "⚠️"}</span>
-              <span style={{ color: C.textS, fontSize: 12, lineHeight: 1.6 }}>
+              <Icon name={dashConfirm.action === "Confirmed" ? "check-circle" : "alert"} size={15} />
+              <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
                 {dashConfirm.action === "Confirmed"
                   ? "The guest will receive a confirmation email and their booking status will be updated to 'Confirmed'."
                   : "The guest will receive a cancellation email and their booking status will be updated to 'Cancelled'."
@@ -2257,7 +2311,7 @@ export function Admin({
 
             <div style={{ borderTop: `1px solid ${cBr}`, marginBottom: 18 }} />
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setDashConfirm(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "12px 16px", fontSize: 11, cursor: "pointer", borderRadius: 8, letterSpacing: 1 }}>
+              <button onClick={() => setDashConfirm(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "12px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 8, letterSpacing: 1 }}>
                 GO BACK
               </button>
               <button
@@ -2267,7 +2321,7 @@ export function Admin({
                   else toast(`Booking rejected for ${dashConfirm.guestName}.`, "warning");
                   setDashConfirm(null);
                 }}
-                style={{ flex: 2, padding: "12px 16px", fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 8, letterSpacing: 2, background: dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.12)" : "rgba(229,85,85,0.10)", color: dashConfirm.action === "Confirmed" ? "#4caf50" : "#e55", border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}` }}
+                style={{ flex: 2, padding: "12px 16px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", borderRadius: 8, letterSpacing: 2, background: dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.12)" : "rgba(229,85,85,0.10)", color: dashConfirm.action === "Confirmed" ? "#4caf50" : "#e55", border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}` }}
               >
                 {dashConfirm.action === "Confirmed" ? "YES, ACCEPT" : "YES, REJECT"}
               </button>
@@ -2280,12 +2334,12 @@ export function Admin({
       {showLogoutConfirm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, padding: 20 }}>
           <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: `1px solid ${cBr}`, borderRadius: 12, padding: "32px 28px", width: "100%", maxWidth: 380, boxShadow: "0 40px 100px rgba(0,0,0,0.7)" }}>
-            <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.2)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, fontSize: 20 }}>🔐</div>
+            <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.2)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, color: "#e55" }}><Icon name="lock" size={20} /></div>
             <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400, marginBottom: 8 }}>Sign out?</h3>
-            <p style={{ color: C.textS, fontSize: 13, lineHeight: 1.7, marginBottom: 24 }}>You will be returned to the main site.</p>
+            <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7, marginBottom: 24 }}>You will be returned to the main site.</p>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowLogoutConfirm(false)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 11, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>CANCEL</button>
-              <button onClick={() => { setShowLogoutConfirm(false); onLogout(); toast("Signed out.", "info"); }} style={{ flex: 2, background: isDark ? "rgba(255,255,255,0.04)" : "#f5f0e8", color: C.textH, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 6, letterSpacing: 2 }}>YES, SIGN OUT</button>
+              <button onClick={() => setShowLogoutConfirm(false)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>CANCEL</button>
+              <button onClick={() => { setShowLogoutConfirm(false); onLogout(); toast("Signed out.", "info"); }} style={{ flex: 2, background: isDark ? "rgba(255,255,255,0.04)" : "#f5f0e8", color: C.textH, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", borderRadius: 6, letterSpacing: 2 }}>YES, SIGN OUT</button>
             </div>
           </div>
         </div>
@@ -2295,15 +2349,15 @@ export function Admin({
       {confirmRemoveRoom && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, padding: 20 }}>
           <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: "1px solid rgba(229,85,85,0.22)", borderRadius: 12, padding: "28px 26px", width: "100%", maxWidth: 400, boxShadow: "0 40px 100px rgba(0,0,0,0.7)" }}>
-            {confirmRemoveRoom.img && <img src={confirmRemoveRoom.img} alt={confirmRemoveRoom.name} style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 8, marginBottom: 18 }} />}
-            <div style={{ width: 50, height: 50, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.2)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16, fontSize: 20 }}>🛏</div>
+            {confirmRemoveRoom.img && <img loading="lazy" decoding="async" src={confirmRemoveRoom.img} alt={confirmRemoveRoom.name} style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 8, marginBottom: 18 }} />}
+            <div style={{ width: 50, height: 50, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.2)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16, color: "#e55" }}><Icon name="bed" size={22} /></div>
             <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 8 }}>Remove this room?</h3>
-            <p style={{ color: C.textS, fontSize: 13, lineHeight: 1.7, marginBottom: 6 }}><strong style={{ color: C.textH }}>{confirmRemoveRoom.name}</strong> will be permanently removed from the system.</p>
-            <p style={{ color: "rgba(229,85,85,0.75)", fontSize: 12, marginBottom: 22 }}>⚠ This action cannot be undone.</p>
+            <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7, marginBottom: 6 }}><strong style={{ color: C.textH }}>{confirmRemoveRoom.name}</strong> will be permanently removed from the system.</p>
+            <p style={{ color: "rgba(229,85,85,0.75)", fontSize: 13.5, marginBottom: 22 }}><Icon name="alert" size={12} style={{ marginRight: 5 }} />This action cannot be undone.</p>
             <div style={{ borderTop: `1px solid ${cBr}`, marginBottom: 18 }} />
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setConfirmRemoveRoom(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 11, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>CANCEL</button>
-              <button onClick={() => { deleteRoom(confirmRemoveRoom.id); setConfirmRemoveRoom(null); }} style={{ flex: 2, background: "rgba(229,85,85,0.10)", color: "#e55", border: "1px solid rgba(229,85,85,0.25)", padding: "11px 16px", fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 6, letterSpacing: 2 }}>YES, REMOVE</button>
+              <button onClick={() => setConfirmRemoveRoom(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>CANCEL</button>
+              <button onClick={() => { deleteRoom(confirmRemoveRoom.id); setConfirmRemoveRoom(null); }} style={{ flex: 2, background: "rgba(229,85,85,0.10)", color: "#e55", border: "1px solid rgba(229,85,85,0.25)", padding: "11px 16px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", borderRadius: 6, letterSpacing: 2 }}>YES, REMOVE</button>
             </div>
           </div>
         </div>
@@ -2315,24 +2369,24 @@ export function Admin({
           <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: `1px solid ${cBr}`, borderRadius: 12, padding: mob ? "24px 20px" : "36px", width: "100%", maxWidth: 480, boxShadow: "0 40px 100px rgba(0,0,0,0.7)" }}>
             <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, fontWeight: 400, marginBottom: 22 }}>{editRoom ? "Edit Room" : "Add New Room"}</h3>
             <div style={{ marginBottom: 18 }}>
-              <label style={{ color: C.textXS, fontSize: 9, letterSpacing: 3, display: "block", marginBottom: 8 }}>ROOM IMAGE</label>
-              {imgPrev && <img src={imgPrev} alt="preview" style={{ width: "100%", height: 150, objectFit: "cover", borderRadius: 8, marginBottom: 10, border: `1px solid ${cBr}` }} />}
+              <label style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 8 }}>ROOM IMAGE</label>
+              {imgPrev && <img loading="lazy" decoding="async" src={imgPrev} alt="preview" style={{ width: "100%", height: 150, objectFit: "cover", borderRadius: 8, marginBottom: 10, border: `1px solid ${cBr}` }} />}
               <input ref={fileRef} type="file" accept="image/*" onChange={handleImg} style={{ display: "none" }} />
-              <button onClick={() => fileRef.current?.click()} style={{ ...outBtn, width: "100%", padding: 11, fontSize: 11, borderRadius: 6 }}>📁 CHOOSE IMAGE</button>
+              <button onClick={() => fileRef.current?.click()} style={{ ...outBtn, width: "100%", padding: 11, fontSize: 12.5, borderRadius: 6 }}><Icon name="folder" size={13} style={{ marginRight: 6 }} />CHOOSE IMAGE</button>
             </div>
             {[["Room Name", "name", "text"], ["Bed Configuration", "beds", "text"], ["Max Capacity", "capacity", "number"], ["Price / Night (₱)", "price", "number"]].map(([l, k, t]) => (
               <div key={k} style={{ marginBottom: 14 }}>
-                <label style={{ color: C.textXS, fontSize: 9, letterSpacing: 3, display: "block", marginBottom: 6 }}>{(l as string).toUpperCase()}</label>
+                <label style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 6 }}>{(l as string).toUpperCase()}</label>
                 <input type={t as string} value={rf[k as keyof typeof rf]} onChange={(e) => setRf((f) => ({ ...f, [k]: e.target.value }))} className="sw-input" style={inpS} />
               </div>
             ))}
             <div style={{ marginBottom: 22 }}>
-              <label style={{ color: C.textXS, fontSize: 9, letterSpacing: 3, display: "block", marginBottom: 6 }}>DESCRIPTION</label>
+              <label style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 6 }}>DESCRIPTION</label>
               <textarea value={rf.desc} onChange={(e) => setRf((f) => ({ ...f, desc: e.target.value }))} rows={3} className="sw-input" style={{ ...inpS, resize: "vertical" }} />
             </div>
             <div style={{ borderTop: `1px solid ${cBr}`, marginBottom: 18 }} />
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowModal(false)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: 12, fontSize: 11, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>CANCEL</button>
+              <button onClick={() => setShowModal(false)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: 12, fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>CANCEL</button>
               <button onClick={saveRoom} style={{ ...goldBtn, flex: 2, borderRadius: 6 }}>SAVE ROOM</button>
             </div>
           </div>

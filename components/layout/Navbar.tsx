@@ -17,7 +17,14 @@ export function Navbar({ page, setPage }: NavbarProps) {
   const { isDark } = useTheme();
   const C = T(isDark);
   const w = useWidth();
-  const mob = w < 900;
+  // 1040, not 900. The desktop bar was switched on at 900px but it does not
+  // actually fit until ~1025px of layout width, so every width from 900 to
+  // 1039 rendered a cramped bar: "ABOUT US" wrapped onto two lines, "BOOK
+  // NOW" wrapped to 50px tall, and at 900 itself the row pushed 19px past the
+  // viewport and gave the whole page a horizontal scrollbar — which is why
+  // section backgrounds appeared to stop short with bare page behind them.
+  // The hamburger now holds until the full bar genuinely fits.
+  const mob = w < 1040;
 
   // The bar starts transparent over the hero photo and solidifies on scroll,
   // so the hero reads as one uninterrupted image.
@@ -67,7 +74,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
              inline value here would outrank the :focus rule. */
           position: "absolute", left: 16, zIndex: 300,
           background: gold, color: "#1a1000", padding: "10px 18px",
-          borderRadius: 6, fontSize: 12, letterSpacing: 1.5, fontWeight: 600,
+          borderRadius: 6, fontSize: 13.5, letterSpacing: 1.5, fontWeight: 600,
           textDecoration: "none",
         }}
       >
@@ -122,7 +129,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
             </span>
             <span
               style={{
-                fontSize: 7.5,
+                fontSize: 9,
                 letterSpacing: 3.5,
                 color: overlay ? "rgba(255,255,255,0.6)" : C.textXS,
                 transition: "color .35s ease",
@@ -145,7 +152,11 @@ export function Navbar({ page, setPage }: NavbarProps) {
                     style={{
                       background: "none", border: "none", cursor: "pointer",
                       padding: "6px 0", position: "relative",
-                      fontSize: 11.5, letterSpacing: 2, fontWeight: 500,
+                      fontSize: 13, letterSpacing: 2, fontWeight: 500,
+                      // "ABOUT US" is the only two-word label, so it is the
+                      // first to break. Never let it wrap silently.
+                      whiteSpace: "nowrap",
+                      fontFamily: "inherit",
                       color: active ? linkActive : linkColor,
                       transition: "color .2s ease",
                     }}
@@ -175,7 +186,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
               <button
                 onClick={() => go("Book Now")}
                 className="sw-btn"
-                style={{ ...goldBtn, padding: "11px 24px", fontSize: 11, letterSpacing: 2, borderRadius: 7 }}
+                style={{ ...goldBtn, padding: "11px 24px", fontSize: 12.5, letterSpacing: 2, borderRadius: 7, whiteSpace: "nowrap", fontFamily: "inherit" }}
               >
                 BOOK NOW
               </button>
@@ -263,7 +274,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
             <button
               onClick={() => go("Book Now")}
               className="sw-btn"
-              style={{ ...goldBtn, marginTop: 28, padding: "15px 24px", fontSize: 12, letterSpacing: 2, borderRadius: 8 }}
+              style={{ ...goldBtn, marginTop: 28, padding: "15px 24px", fontSize: 13.5, letterSpacing: 2, borderRadius: 8 }}
             >
               BOOK NOW
             </button>
@@ -271,11 +282,11 @@ export function Navbar({ page, setPage }: NavbarProps) {
             <div style={{ marginTop: "auto", paddingTop: 24, borderTop: `1px solid ${C.borderLight}` }}>
               <button
                 onClick={() => go("Cancel Booking")}
-                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: C.textS, fontSize: 12, letterSpacing: 1 }}
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: C.textS, fontSize: 13.5, letterSpacing: 1 }}
               >
                 Manage a reservation
               </button>
-              <p style={{ color: C.textXS, fontSize: 11, marginTop: 10, lineHeight: 1.7 }}>
+              <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 10, lineHeight: 1.7 }}>
                 Angono, Rizal · 7:00 AM – 5:00 PM
               </p>
             </div>

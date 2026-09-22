@@ -1,7 +1,6 @@
 import type { Room } from "@/types/room";
 import type { Booking } from "@/types/booking";
 import type { InventoryItem } from "@/types/inventory";
-import type { AdminCredentials } from "@/types/admin";
 import type { MenuItem } from "@/types/menu";
 import type { Facility } from "@/types/facility";
 import type { ResortPackage } from "@/types/package";
@@ -14,10 +13,10 @@ import {
   PACKAGE_FOOD_DISCOUNT_PCT,
 } from "@/lib/validators";
 
-export const ADMIN_CREDS: AdminCredentials = {
-  username: "admin",
-  password: "stonewood2026",
-};
+// ADMIN_CREDS used to live here. This file is imported by client components,
+// so the password shipped inside the JavaScript bundle where anyone could read
+// it. Credentials are now ADMIN_USERNAME / ADMIN_PASSWORD in .env.local,
+// compared server-side in lib/auth.ts and never sent to the browser.
 
 export const NAV = ["Home", "Rooms", "Menu", "Gallery", "About Us"] as const;
 
@@ -298,3 +297,9 @@ export const INIT_PACKAGES: ResortPackage[] = [
     note: "Best for weddings & large events",
   },
 ];
+
+/** Home hero photograph. Lives here rather than inside Home.tsx so the root
+ *  layout can preload it — it is the LCP element, and a CSS background can
+ *  neither be lazy-loaded nor use srcset. */
+export const HERO_BG =
+  "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?q=80&w=2400&auto=format&fit=crop";

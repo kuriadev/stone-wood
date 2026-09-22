@@ -9,8 +9,10 @@
 //   *_at / *_qty       ←→  camelCase        (Postgres convention)
 // lib/supabase.ts exports mappers that translate both directions.
 
-import type { BookingStatus } from "./booking";
+import type { BookingStatus, BookingResource, BookingTier } from "./booking";
 import type { InventoryCategory } from "./inventory";
+import type { MenuCategory, MenuRecipeLine } from "./menu";
+import type { FacilityCategory, FacilityStatus } from "./facility";
 
 export interface RoomRow {
   id: number;
@@ -74,5 +76,57 @@ export interface GalleryRow {
   id: number;
   url: string;
   sort_order: number;
+  created_at: string;
+}
+
+// ── Added by 20260923090000_menu_facilities_packages.sql ────────────
+
+export interface MenuItemRow {
+  id: number;
+  category: MenuCategory;
+  name: string;
+  description: string;
+  price: number;
+  img: string;
+  available: boolean;
+  /** MenuRecipeLine[] stored as JSONB; null when the item has no recipe. */
+  recipe: MenuRecipeLine[] | null;
+  created_at: string;
+}
+
+export interface FacilityRow {
+  id: number;
+  category: FacilityCategory;
+  name: string;
+  icon: string;
+  status: FacilityStatus;
+  room_id: number | null;
+  last_used_booking_id: string | null;
+  last_used_guest_name: string | null;
+  last_checked_at: string | null;
+  notes: string;
+  before_use_checklist: string[] | null;
+  after_use_checklist: string[] | null;
+  created_at: string;
+}
+
+export interface PackageRow {
+  id: number;
+  code: string;
+  title: string;
+  resource: BookingResource;
+  status: BookingTier;
+  price: number;
+  list_price: number | null;
+  capacity: number;
+  requires_room: boolean;
+  food_discount_pct: number | null;
+  cover: string;
+  gallery: { label: string; src: string; kind: string }[];
+  blurb: string;
+  includes: string[];
+  food_note: string;
+  note: string | null;
+  active: boolean;
   created_at: string;
 }

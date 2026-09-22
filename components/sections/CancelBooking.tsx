@@ -108,12 +108,12 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 16 }}>
             <div style={{ height: 1, width: 40, background: `linear-gradient(to right, transparent, ${gold}88)` }} />
-            <p style={{ color: gold, letterSpacing: 4, fontSize: 10, margin: 0 }}>CANCEL BOOKING</p>
+            <p style={{ color: gold, letterSpacing: 4, fontSize: 11.5, margin: 0 }}>CANCEL BOOKING</p>
             <div style={{ height: 1, width: 40, background: `linear-gradient(to left, transparent, ${gold}88)` }} />
           </div>
           <h1
             style={{
-              fontFamily: "'Cormorant Garamond', Georgia, serif",
+              fontFamily: "'Cormorant Garamond',Georgia,serif",
               fontSize: mob ? 28 : 42,
               color: C.textH,
               fontWeight: 400,
@@ -124,7 +124,7 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
             Cancel{" "}
             <span style={{ color: gold, fontStyle: "italic" }}>Your Booking</span>
           </h1>
-          <p style={{ color: C.textS, fontSize: 14, lineHeight: 1.8, maxWidth: 480, margin: "0 auto" }}>
+          <p style={{ color: C.textS, fontSize: 15, lineHeight: 1.8, maxWidth: 480, margin: "0 auto" }}>
             Need to cancel your reservation? We're here to help.
             <br />
             Enter your booking details below to get started.
@@ -142,10 +142,10 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
             boxShadow: C.shadow,
           }}
         >
-          <p style={{ color: gold, fontSize: 10, letterSpacing: 3, marginBottom: 20 }}>FIND YOUR BOOKING</p>
+          <p style={{ color: gold, fontSize: 11.5, letterSpacing: 3, marginBottom: 20 }}>FIND YOUR BOOKING</p>
           <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr auto", gap: 14, alignItems: "flex-end" }}>
             <div>
-              <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>
+              <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>
                 BOOKING REFERENCE / ID
               </label>
               <div style={{ position: "relative" }}>
@@ -159,11 +159,11 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
                   className="sw-input"
                   style={{ ...inpStyle, paddingRight: 36 }}
                 />
-                <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, opacity: 0.4 }}>🔖</span>
+                <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 15, opacity: 0.4 }}>🔖</span>
               </div>
             </div>
             <div>
-              <label style={{ color: gold, fontSize: 10, letterSpacing: 2, display: "block", marginBottom: 6 }}>
+              <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>
                 EMAIL ADDRESS
               </label>
               <div style={{ position: "relative" }}>
@@ -178,7 +178,7 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
                   className="sw-input"
                   style={{ ...inpStyle, paddingRight: 36 }}
                 />
-                <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, opacity: 0.4 }}>✉️</span>
+                <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 15, opacity: 0.4 }}>✉️</span>
               </div>
             </div>
             <button
@@ -189,7 +189,7 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
                 borderRadius: 6,
                 whiteSpace: "nowrap",
                 letterSpacing: 1.5,
-                fontSize: 11,
+                fontSize: 12.5,
                 width: mob ? "100%" : "auto",
               }}
             >
@@ -197,8 +197,8 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
             </button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 14 }}>
-            <span style={{ fontSize: 11, opacity: 0.5 }}>🔒</span>
-            <span style={{ color: C.textXS, fontSize: 11 }}>Your information is secure and encrypted</span>
+            <span style={{ fontSize: 12.5, opacity: 0.5 }}>🔒</span>
+            <span style={{ color: C.textXS, fontSize: 12.5 }}>Your information is secure and encrypted</span>
           </div>
         </div>
 
@@ -219,7 +219,7 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
             <h3 style={{ color: "#e55", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 8 }}>
               Booking Not Found
             </h3>
-            <p style={{ color: C.textS, fontSize: 13, lineHeight: 1.7 }}>
+            <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>
               We couldn't find a booking matching those details. Please double-check your reference ID and email address.
             </p>
           </div>
@@ -239,8 +239,8 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
           >
             {/* Found indicator */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-              <div style={{ width: 18, height: 18, borderRadius: "50%", background: "rgba(76,175,80,0.15)", border: "1.5px solid #4caf50", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9 }}>✓</div>
-              <span style={{ color: "#4caf50", fontSize: 10, fontWeight: 700, letterSpacing: 2 }}>BOOKING FOUND</span>
+              <div style={{ width: 18, height: 18, borderRadius: "50%", background: "rgba(76,175,80,0.15)", border: "1.5px solid #4caf50", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5 }}>✓</div>
+              <span style={{ color: "#4caf50", fontSize: 11.5, fontWeight: 700, letterSpacing: 2 }}>BOOKING FOUND</span>
             </div>
 
             {/* Booking Info */}
@@ -258,6 +258,7 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
+                  loading="lazy" decoding="async"
                   src="https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=400&q=80"
                   alt="Resort"
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
@@ -276,13 +277,13 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
                     { icon: "🔖", label: "BOOKING REFERENCE", value: found.id, sub: "", isRef: true },
                   ].map(({ label, value, sub, isRef }) => (
                     <div key={label}>
-                      <div style={{ color: C.textXS, fontSize: 9, letterSpacing: 2, marginBottom: 4 }}>{label}</div>
-                      <div style={{ color: isRef ? gold : C.textH, fontSize: isRef ? 12 : 13, fontWeight: isRef ? 700 : 500, fontFamily: isRef ? "monospace" : "inherit" }}>
+                      <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 4 }}>{label}</div>
+                      <div style={{ color: isRef ? gold : C.textH, fontSize: isRef ? 13.5 : 14.5, fontWeight: isRef ? 700 : 500, fontFamily: isRef ? "monospace" : "inherit" }}>
                         {value}
                       </div>
-                      {sub && <div style={{ color: C.textS, fontSize: 11, marginTop: 2 }}>{sub}</div>}
+                      {sub && <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>{sub}</div>}
                       {isRef && (
-                        <span style={{ display: "inline-block", marginTop: 4, background: "rgba(76,175,80,0.12)", color: "#4caf50", fontSize: 9, padding: "2px 8px", borderRadius: 20, border: "1px solid rgba(76,175,80,0.3)", letterSpacing: 1 }}>
+                        <span style={{ display: "inline-block", marginTop: 4, background: "rgba(76,175,80,0.12)", color: "#4caf50", fontSize: 10.5, padding: "2px 8px", borderRadius: 20, border: "1px solid rgba(76,175,80,0.3)", letterSpacing: 1 }}>
                           {found.status.toUpperCase()}
                         </span>
                       )}
@@ -305,7 +306,7 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
               }}
             >
               <div>
-                <div style={{ color: C.textXS, fontSize: 9, letterSpacing: 2, marginBottom: 4 }}>TOTAL AMOUNT</div>
+                <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 4 }}>TOTAL AMOUNT</div>
                 <div style={{ color: gold, fontWeight: 700, fontSize: 22, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>
                   ₱{found.total.toLocaleString()}
                 </div>
@@ -325,11 +326,11 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
               boxShadow: C.shadow,
             }}
           >
-            <p style={{ color: gold, fontSize: 10, letterSpacing: 3, marginBottom: 16 }}>CANCEL YOUR BOOKING</p>
+            <p style={{ color: gold, fontSize: 11.5, letterSpacing: 3, marginBottom: 16 }}>CANCEL YOUR BOOKING</p>
 
             <div style={{ marginBottom: 20 }}>
-              <p style={{ color: C.textH, fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Help us improve (optional)</p>
-              <p style={{ color: C.textS, fontSize: 12, marginBottom: 16 }}>Let us know why you're canceling your booking.</p>
+              <p style={{ color: C.textH, fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Help us improve (optional)</p>
+              <p style={{ color: C.textS, fontSize: 13.5, marginBottom: 16 }}>Let us know why you're canceling your booking.</p>
               <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 10 }}>
                 {CANCEL_REASONS.map(({ icon, label }) => {
                   const sel = cancelReason === label;
@@ -349,8 +350,8 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
                         transition: "all .2s",
                       }}
                     >
-                      <span style={{ fontSize: 16 }}>{icon}</span>
-                      <span style={{ color: sel ? "#4caf50" : C.textS, fontSize: 12, flex: 1 }}>{label}</span>
+                      <span style={{ fontSize: 17 }}>{icon}</span>
+                      <span style={{ color: sel ? "#4caf50" : C.textS, fontSize: 13.5, flex: 1 }}>{label}</span>
                       <div
                         style={{
                           width: 16,
@@ -364,7 +365,7 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
                           justifyContent: "center",
                         }}
                       >
-                        {sel && <span style={{ color: "#fff", fontSize: 9, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+                        {sel && <span style={{ color: "#fff", fontSize: 10.5, fontWeight: 700, lineHeight: 1 }}>✓</span>}
                       </div>
                     </div>
                   );
@@ -384,8 +385,8 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
                 gap: 8,
               }}
             >
-              <span style={{ fontSize: 14, flexShrink: 0 }}>ℹ️</span>
-              <span style={{ color: gold, fontSize: 12, lineHeight: 1.6 }}>
+              <span style={{ fontSize: 15, flexShrink: 0 }}>ℹ️</span>
+              <span style={{ color: gold, fontSize: 13.5, lineHeight: 1.6 }}>
                 Free cancellation available up to 24 hours before check-in.
               </span>
             </div>
@@ -398,7 +399,7 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
                   padding: "13px 28px",
                   borderRadius: 6,
                   letterSpacing: 2,
-                  fontSize: 11,
+                  fontSize: 12.5,
                 }}
               >
                 PROCEED TO CANCEL →
@@ -425,7 +426,7 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
             <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, fontWeight: 400, marginBottom: 8 }}>
               Booking Cancelled
             </h3>
-            <p style={{ color: C.textS, fontSize: 13, lineHeight: 1.7 }}>
+            <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>
               Your booking <strong style={{ color: gold }}>{found?.id}</strong> has been successfully cancelled.
             </p>
           </div>
@@ -446,7 +447,7 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
             }}
           >
             <span style={{ fontSize: 20 }}>{found.status === "Cancelled" ? "❌" : "✅"}</span>
-            <p style={{ color: C.textS, fontSize: 13 }}>
+            <p style={{ color: C.textS, fontSize: 14.5 }}>
               This booking is already{" "}
               <strong style={{ color: statusColor(found.status) }}>{found.status}</strong> and cannot be modified.
             </p>
@@ -485,14 +486,14 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
             <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 10 }}>
               Confirm Cancellation
             </h3>
-            <p style={{ color: C.textS, fontSize: 13, lineHeight: 1.7, marginBottom: 20 }}>
+            <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7, marginBottom: 20 }}>
               Are you sure you want to cancel booking <strong style={{ color: gold }}>{found?.id}</strong>? This action cannot be undone.
             </p>
             <div style={{ borderTop: `1px solid ${C.border}`, marginBottom: 18 }} />
             <div style={{ display: "flex", gap: 10 }}>
               <button
                 onClick={() => setShowCancelConfirm(false)}
-                style={{ ...outBtn, flex: 1, padding: "12px 16px", fontSize: 11, borderRadius: 8 }}
+                style={{ ...outBtn, flex: 1, padding: "12px 16px", fontSize: 12.5, borderRadius: 8 }}
               >
                 GO BACK
               </button>
@@ -504,7 +505,7 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
                   color: "#e55",
                   border: "1px solid rgba(229,85,85,0.3)",
                   padding: "12px 16px",
-                  fontSize: 11,
+                  fontSize: 12.5,
                   fontWeight: 700,
                   cursor: "pointer",
                   borderRadius: 8,

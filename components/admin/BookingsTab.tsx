@@ -8,6 +8,7 @@ import { gold, goldBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
 import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
+import { Icon } from "@/components/admin/Icon";
 
 interface BookingsTabProps {
   bookings: Booking[];
@@ -62,12 +63,20 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
 
   // Derive payment method from booking source
   const getPaymentMethod = (b: Booking) => {
-    if (b.source === "Walk-In" || b.package === "On-Site Reservation") return { label: "Walk-In", color: "#4a9fd4", bg: "rgba(74,159,212,0.08)", border: "rgba(74,159,212,0.25)", icon: "🏡" };
+    if (b.source === "Walk-In" || b.package === "On-Site Reservation") return { label: "Walk-In", color: "#4a9fd4", bg: "rgba(74,159,212,0.08)", border: "rgba(74,159,212,0.25)", icon: "" };
     return { label: "GCash", color: "#00a952", bg: "rgba(0,169,82,0.08)", border: "rgba(0,169,82,0.25)", icon: "G" };
   };
 
   const filters = ["All", "Paid", "Confirmed", "Completed", "Cancelled"];
+  // [background, accent] per filter. The accent is used for both the label
+  // and the border, so one pair styles the whole chip.
   const fC: Record<string, string[]> = {
+    // "All" had no entry, so it fell through to a hardcoded "#1a1a1a" — a
+    // near-black pill that ignored the theme and sat oddly among the tinted
+    // ones in light mode. It now follows the same shape as the rest, in the
+    // brand gold, with a darker gold in light mode for legible contrast
+    // (4.3:1, in line with the Completed and Cancelled chips).
+    "All":       [isDark ? "#2a2205" : "#f9f1da", isDark ? "#c9a84c" : "#8c6d1c"],
     "Paid":      [isDark ? "#2a2500" : "#fef9e7", "#d4a800"],
     "Confirmed": [isDark ? "#1a3320" : "#edfbf0", "#2e9e4e"],
     "Completed": [isDark ? "#0f1a2a" : "#e8f4fb", "#1a6fa0"],
@@ -95,16 +104,16 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
           <button
             key={v}
             onClick={() => setBView(v)}
-            style={{ padding: "8px 18px", fontSize: 11, fontWeight: 700, borderRadius: 20, cursor: "pointer", letterSpacing: 1, background: bView === v ? `${gold}18` : "transparent", color: bView === v ? gold : C.textS, border: `1px solid ${bView === v ? gold + "55" : cBr}` }}
+            style={{ padding: "8px 18px", fontSize: 12.5, fontWeight: 700, borderRadius: 20, cursor: "pointer", letterSpacing: 1, background: bView === v ? `${gold}18` : "transparent", color: bView === v ? gold : C.textS, border: `1px solid ${bView === v ? gold + "55" : cBr}` }}
           >
-            {v === "active" ? "ACTIVE" : "ARCHIVED"} <span style={{ opacity: 0.7, fontSize: 10 }}>({v === "active" ? activeBookings.length : archivedBookings.length})</span>
+            {v === "active" ? "ACTIVE" : "ARCHIVED"} <span style={{ opacity: 0.7, fontSize: 11.5 }}>({v === "active" ? activeBookings.length : archivedBookings.length})</span>
           </button>
         ))}
       </div>
 
       {bView === "archived" ? (
         <div>
-          <p style={{ color: C.textS, fontSize: 12, marginBottom: 20, lineHeight: 1.6 }}>
+          <p style={{ color: C.textS, fontSize: 13.5, marginBottom: 20, lineHeight: 1.6 }}>
             Reservations moved here stay segregated by how they ended — a finished stay under <strong style={{ color: "#4a9fd4" }}>Completed</strong>, a rejected or backed-out booking under <strong style={{ color: "#e55" }}>Cancelled</strong> — so nothing gets mixed up later.
           </p>
           {([
@@ -112,31 +121,31 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
             { label: "CANCELLED (CUSTOMER BACKED OUT / REJECTED)", color: "#e55", items: archivedCancelled },
           ] as const).map((group) => (
             <div key={group.label} style={{ marginBottom: 28 }}>
-              <p style={{ color: group.color, fontSize: 10, letterSpacing: 2, marginBottom: 12 }}>{group.label} ({group.items.length})</p>
+              <p style={{ color: group.color, fontSize: 11.5, letterSpacing: 2, marginBottom: 12 }}>{group.label} ({group.items.length})</p>
               <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 6, overflow: "hidden" }}>
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
                     <thead>
                       <tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
                         {["ID", "Guest", "Date", "Package", "Total", "Archived", "Actions"].map((h) => (
-                          <th key={h} style={{ padding: "10px 12px", color: C.textXS, fontSize: 9, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
+                          <th key={h} style={{ padding: "10px 12px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {group.items.length === 0 && (
-                        <tr><td colSpan={7} style={{ padding: 20, textAlign: "center", color: C.textXS, fontSize: 12 }}>None archived yet.</td></tr>
+                        <tr><td colSpan={7} style={{ padding: 20, textAlign: "center", color: C.textXS, fontSize: 13.5 }}>None archived yet.</td></tr>
                       )}
                       {group.items.map((b, idx) => (
                         <tr key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
-                          <td style={{ padding: "10px 12px", color: gold, fontSize: 11, fontFamily: "monospace", whiteSpace: "nowrap" }}>{b.id}</td>
-                          <td style={{ padding: "10px 12px", color: C.textH, fontSize: 12 }}>{b.name}</td>
-                          <td style={{ padding: "10px 12px", color: C.textS, fontSize: 11, whiteSpace: "nowrap" }}>{b.date}</td>
-                          <td style={{ padding: "10px 12px", color: C.textS, fontSize: 11, whiteSpace: "nowrap" }}>{b.package}</td>
-                          <td style={{ padding: "10px 12px", color: C.textH, fontSize: 12, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</td>
-                          <td style={{ padding: "10px 12px", color: C.textXS, fontSize: 11, whiteSpace: "nowrap" }}>{b.archivedAt ? new Date(b.archivedAt).toLocaleDateString("en-PH") : "—"}</td>
+                          <td style={{ padding: "10px 12px", color: gold, fontSize: 12.5, fontFamily: "monospace", whiteSpace: "nowrap" }}>{b.id}</td>
+                          <td style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5 }}>{b.name}</td>
+                          <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.date}</td>
+                          <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.package}</td>
+                          <td style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</td>
+                          <td style={{ padding: "10px 12px", color: C.textXS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.archivedAt ? new Date(b.archivedAt).toLocaleDateString("en-PH") : "—"}</td>
                           <td style={{ padding: "10px 12px" }}>
-                            <button onClick={() => restoreBooking(b)} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "4px 10px", fontSize: 10, cursor: "pointer", borderRadius: 3, letterSpacing: 1, whiteSpace: "nowrap" }}>RESTORE</button>
+                            <button onClick={() => restoreBooking(b)} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, whiteSpace: "nowrap" }}>RESTORE</button>
                           </td>
                         </tr>
                       ))}
@@ -167,8 +176,8 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
           <button
             onClick={() => setSearch("")}
             aria-label="Clear search"
-            style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.textXS, cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 0 }}
-          >✕</button>
+            style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.textXS, cursor: "pointer", fontSize: 17, lineHeight: 1, padding: 0 }}
+          ><Icon name="x" size={13} /></button>
         )}
       </div>
 
@@ -180,16 +189,19 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
             <button
               key={f}
               onClick={() => setBf(f)}
-              style={{ padding: "7px 16px", fontSize: 12, fontWeight: 700, borderRadius: 20, cursor: "pointer", background: active ? (col ? col[0] : "#1a1a1a") : "transparent", color: active ? (col ? col[1] : gold) : (col ? col[1] + "cc" : C.textS), border: `1px solid ${active ? (col ? col[1] : gold) : (col ? col[1] + "44" : C.border)}` }}
+              // Falls back to theme-aware values rather than a literal, so a
+              // filter added later without a colour still follows dark/light
+              // instead of rendering as a fixed near-black pill.
+              style={{ padding: "7px 16px", fontSize: 13.5, fontWeight: 700, borderRadius: 20, cursor: "pointer", background: active ? (col ? col[0] : (isDark ? "#1c1710" : "#f2ece1")) : "transparent", color: active ? (col ? col[1] : gold) : (col ? col[1] + "cc" : C.textS), border: `1px solid ${active ? (col ? col[1] : gold) : (col ? col[1] + "44" : C.border)}` }}
             >
-              {f} <span style={{ opacity: 0.7, fontSize: 11 }}>({f === "All" ? activeBookings.length : activeBookings.filter((b) => b.status === f).length})</span>
+              {f} <span style={{ opacity: 0.7, fontSize: 12.5 }}>({f === "All" ? activeBookings.length : activeBookings.filter((b) => b.status === f).length})</span>
             </button>
           );
         })}
       </div>
 
       {search && (
-        <p style={{ color: C.textXS, fontSize: 12, marginBottom: 12 }}>
+        <p style={{ color: C.textXS, fontSize: 13.5, marginBottom: 12 }}>
           Showing {filtered.length} result{filtered.length !== 1 ? "s" : ""} for "<span style={{ color: gold }}>{search}</span>"
         </p>
       )}
@@ -201,14 +213,14 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
             <thead>
               <tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
                 {["ID", "Guest", "Email", "Phone", "Date", "Package", "Payment", "Total", "Down", "Status", "Actions"].map((h) => (
-                  <th key={h} scope="col" style={{ padding: "11px 12px", color: C.textXS, fontSize: 9, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
+                  <th key={h} scope="col" style={{ padding: "11px 12px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={11} style={{ padding: 24, textAlign: "center", color: C.textXS, fontSize: 13 }}>
+                  <td colSpan={11} style={{ padding: 24, textAlign: "center", color: C.textXS, fontSize: 14.5 }}>
                     {search ? `No bookings matching "${search}".` : `No bookings for "${bf}".`}
                   </td>
                 </tr>
@@ -218,44 +230,44 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
                 const pm = getPaymentMethod(b);
                 return (
                   <tr key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
-                    <td style={{ padding: "10px 12px", color: gold, fontSize: 11, whiteSpace: "nowrap", fontFamily: "monospace" }}>{b.id}</td>
-                    <td style={{ padding: "10px 12px", color: C.textH, fontSize: 12 }}>{b.name}</td>
-                    <td style={{ padding: "10px 12px", color: C.textS, fontSize: 11 }}>{b.email || "—"}</td>
-                    <td style={{ padding: "10px 12px", color: C.textS, fontSize: 11, whiteSpace: "nowrap" }}>{b.contact || "—"}</td>
-                    <td style={{ padding: "10px 12px", color: C.textS, fontSize: 11, whiteSpace: "nowrap" }}>{b.date}</td>
-                    <td style={{ padding: "10px 12px", color: C.textS, fontSize: 11, whiteSpace: "nowrap" }}>{b.package}</td>
+                    <td style={{ padding: "10px 12px", color: gold, fontSize: 12.5, whiteSpace: "nowrap", fontFamily: "monospace" }}>{b.id}</td>
+                    <td style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5 }}>{b.name}</td>
+                    <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5 }}>{b.email || "—"}</td>
+                    <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.contact || "—"}</td>
+                    <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.date}</td>
+                    <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.package}</td>
 
                     {/* ── Payment Method column ── */}
                     <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: pm.bg, border: `1px solid ${pm.border}`, borderRadius: 20, padding: "3px 8px" }}>
                         {pm.label === "GCash" ? (
-                          <span style={{ width: 14, height: 14, borderRadius: "50%", background: "#00a952", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 900, color: "#fff", flexShrink: 0 }}>G</span>
+                          <span style={{ width: 14, height: 14, borderRadius: "50%", background: "#00a952", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 9.5, fontWeight: 700, color: "#fff", flexShrink: 0 }}>G</span>
                         ) : (
-                          <span style={{ fontSize: 11 }}>🏡</span>
+                          <Icon name="home" size={12} />
                         )}
-                        <span style={{ color: pm.color, fontSize: 9, fontWeight: 700, letterSpacing: 1 }}>{pm.label.toUpperCase()}</span>
+                        <span style={{ color: pm.color, fontSize: 10.5, fontWeight: 700, letterSpacing: 1 }}>{pm.label.toUpperCase()}</span>
                       </div>
                     </td>
 
-                    <td style={{ padding: "10px 12px", color: C.textH, fontSize: 12, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</td>
-                    <td style={{ padding: "10px 12px", color: "#ff9800", fontSize: 12, whiteSpace: "nowrap" }}>{fmt(b.downpayment)}</td>
+                    <td style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</td>
+                    <td style={{ padding: "10px 12px", color: "#ff9800", fontSize: 13.5, whiteSpace: "nowrap" }}>{fmt(b.downpayment)}</td>
                     <td style={{ padding: "10px 12px" }}>
-                      <span style={{ background: sc[0] + "33", color: sc[1], fontSize: 9, padding: "3px 9px", borderRadius: 20, whiteSpace: "nowrap", border: `1px solid ${sc[1]}44`, letterSpacing: 1 }}>
+                      <span style={{ background: sc[0] + "33", color: sc[1], fontSize: 10.5, padding: "3px 9px", borderRadius: 20, whiteSpace: "nowrap", border: `1px solid ${sc[1]}44`, letterSpacing: 1 }}>
                         {b.status.toUpperCase()}
                       </span>
                     </td>
                     <td style={{ padding: "10px 12px" }}>
                       <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
-                        <button onClick={() => setViewBooking(b)} style={{ background: isDark ? "rgba(201,168,76,0.07)" : "rgba(201,168,76,0.12)", color: gold, border: `1px solid ${gold}44`, padding: "4px 10px", fontSize: 10, cursor: "pointer", borderRadius: 3, letterSpacing: 1, whiteSpace: "nowrap" }}>VIEW</button>
+                        <button onClick={() => setViewBooking(b)} style={{ background: isDark ? "rgba(201,168,76,0.07)" : "rgba(201,168,76,0.12)", color: gold, border: `1px solid ${gold}44`, padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, whiteSpace: "nowrap" }}>VIEW</button>
                         {b.status === "Confirmed" && (
-                          <button onClick={() => { updateStatus(b.id, "Completed"); toast(`Booking marked complete for ${b.name}.`, "info"); }} style={{ background: "rgba(74,159,212,0.1)", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.25)", padding: "4px 10px", fontSize: 10, cursor: "pointer", borderRadius: 3, whiteSpace: "nowrap", letterSpacing: 1 }}>✓ COMPLETE</button>
+                          <button onClick={() => { updateStatus(b.id, "Completed"); toast(`Booking marked complete for ${b.name}.`, "info"); }} style={{ background: "rgba(74,159,212,0.1)", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.25)", padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, whiteSpace: "nowrap", letterSpacing: 1 }}><Icon name="check" size={12} style={{ marginRight: 5 }} />COMPLETE</button>
                         )}
                         {b.status === "Paid" && <>
-                          <button onClick={() => setConfirmAction({ bookingId: b.id, action: "Confirmed", guestName: b.name, guestEmail: b.email })} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "4px 10px", fontSize: 10, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>ACCEPT</button>
-                          <button onClick={() => { setRejectionMsg(""); setConfirmAction({ bookingId: b.id, action: "Cancelled", guestName: b.name, guestEmail: b.email }); }} style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "4px 10px", fontSize: 10, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>REJECT</button>
+                          <button onClick={() => setConfirmAction({ bookingId: b.id, action: "Confirmed", guestName: b.name, guestEmail: b.email })} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>ACCEPT</button>
+                          <button onClick={() => { setRejectionMsg(""); setConfirmAction({ bookingId: b.id, action: "Cancelled", guestName: b.name, guestEmail: b.email }); }} style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>REJECT</button>
                         </>}
                         {(b.status === "Completed" || b.status === "Cancelled") && (
-                          <button onClick={() => setConfirmArchive(b)} style={{ background: "rgba(150,150,150,0.08)", color: C.textS, border: `1px solid ${cBr}`, padding: "4px 10px", fontSize: 10, cursor: "pointer", borderRadius: 3, letterSpacing: 1, whiteSpace: "nowrap" }}>ARCHIVE</button>
+                          <button onClick={() => setConfirmArchive(b)} style={{ background: "rgba(150,150,150,0.08)", color: C.textS, border: `1px solid ${cBr}`, padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, whiteSpace: "nowrap" }}>ARCHIVE</button>
                         )}
                       </div>
                     </td>
@@ -273,13 +285,13 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
       {confirmArchive && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }} role="dialog" aria-modal="true">
           <div style={{ background: isDark ? "#0d0d0d" : "#fff", border: `1px solid ${cBr}`, borderRadius: 8, padding: "28px 26px", width: "100%", maxWidth: 400 }}>
-            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, fontWeight: 400, marginBottom: 10 }}>Archive reservation {confirmArchive.id}?</h3>
-            <p style={{ color: C.textS, fontSize: 13, marginBottom: 20 }}>
+            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400, marginBottom: 10 }}>Archive reservation {confirmArchive.id}?</h3>
+            <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 20 }}>
               It'll move out of the active list into the Archived view, filed under <strong style={{ color: confirmArchive.status === "Completed" ? "#4a9fd4" : "#e55" }}>{confirmArchive.status}</strong>. You can restore it any time.
             </p>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setConfirmArchive(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "10px 16px", fontSize: 11, cursor: "pointer", borderRadius: 6 }}>CANCEL</button>
-              <button onClick={() => archiveBooking(confirmArchive)} style={{ flex: 1, background: "rgba(150,150,150,0.1)", color: C.textH, border: `1px solid ${cBr}`, padding: "10px 16px", fontSize: 11, cursor: "pointer", borderRadius: 6, fontWeight: 700 }}>ARCHIVE</button>
+              <button onClick={() => setConfirmArchive(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "10px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6 }}>CANCEL</button>
+              <button onClick={() => archiveBooking(confirmArchive)} style={{ flex: 1, background: "rgba(150,150,150,0.1)", color: C.textH, border: `1px solid ${cBr}`, padding: "10px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6, fontWeight: 700 }}>ARCHIVE</button>
             </div>
           </div>
         </div>
@@ -297,78 +309,78 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
             <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: `1px solid ${cBr}`, borderRadius: 12, padding: mob ? "24px 18px" : "32px", width: "100%", maxWidth: 520, boxShadow: "0 40px 100px rgba(0,0,0,0.7)", maxHeight: "90vh", overflowY: "auto" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
                 <div>
-                  <p style={{ color: C.textXS, fontSize: 9, letterSpacing: 2, marginBottom: 4 }}>BOOKING DETAILS</p>
+                  <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 4 }}>BOOKING DETAILS</p>
                   <h3 id="view-booking-title" style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, margin: 0 }}>{b.name}</h3>
                 </div>
-                <span style={{ color: gold, fontFamily: "monospace", fontSize: 13, fontWeight: 700 }}>{b.id}</span>
+                <span style={{ color: gold, fontFamily: "monospace", fontSize: 14.5, fontWeight: 700 }}>{b.id}</span>
               </div>
 
               {/* Guest info grid */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
                 {[["Date", b.date], ["Contact", b.contact], ["Email", b.email || "—"], ["Guests", `${b.guests} pax`]].map(([l, v]) => (
                   <div key={l} style={{ background: isDark ? "#111" : "#f7f5f0", borderRadius: 5, padding: "10px 13px" }}>
-                    <div style={{ color: C.textXS, fontSize: 9, letterSpacing: 2, marginBottom: 4 }}>{l.toUpperCase()}</div>
-                    <div style={{ color: C.textH, fontSize: 13 }}>{v}</div>
+                    <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 4 }}>{l.toUpperCase()}</div>
+                    <div style={{ color: C.textH, fontSize: 14.5 }}>{v}</div>
                   </div>
                 ))}
               </div>
 
               {/* Payment method badge in modal */}
               <div style={{ background: isDark ? "#111" : "#f7f5f0", borderRadius: 5, padding: "10px 13px", marginBottom: 20 }}>
-                <div style={{ color: C.textXS, fontSize: 9, letterSpacing: 2, marginBottom: 6 }}>PAYMENT METHOD</div>
+                <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 6 }}>PAYMENT METHOD</div>
                 <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: pm.bg, border: `1px solid ${pm.border}`, borderRadius: 20, padding: "5px 12px" }}>
                   {pm.label === "GCash" ? (
-                    <span style={{ width: 18, height: 18, borderRadius: "50%", background: "#00a952", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, color: "#fff", flexShrink: 0 }}>G</span>
+                    <span style={{ width: 18, height: 18, borderRadius: "50%", background: "#00a952", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11.5, fontWeight: 700, color: "#fff", flexShrink: 0 }}>G</span>
                   ) : (
-                    <span style={{ fontSize: 14 }}>🏡</span>
+                    <Icon name="home" size={14} />
                   )}
-                  <span style={{ color: pm.color, fontSize: 12, fontWeight: 700 }}>{pm.label === "GCash" ? "GCash (Online Payment)" : "On-Site (Pay on Arrival)"}</span>
+                  <span style={{ color: pm.color, fontSize: 13.5, fontWeight: 700 }}>{pm.label === "GCash" ? "GCash (Online Payment)" : "On-Site (Pay on Arrival)"}</span>
                 </div>
               </div>
 
               {/* Pricing breakdown */}
               <div style={{ border: `1px solid ${cBr}`, borderRadius: 8, overflow: "hidden", marginBottom: 16 }}>
                 <div style={{ background: isDark ? "#0f0e0b" : "#f5f0e8", padding: "10px 18px", borderBottom: `1px solid ${cBr}` }}>
-                  <span style={{ color: C.textS, fontSize: 11, fontWeight: 600 }}>Pricing Breakdown</span>
+                  <span style={{ color: C.textS, fontSize: 12.5, fontWeight: 600 }}>Pricing Breakdown</span>
                 </div>
                 <div style={{ padding: "14px 18px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${cBr}` }}>
-                    <div style={{ color: C.textH, fontSize: 13 }}>{b.package.startsWith("Night") ? "🌙 Night Tour" : "☀️ Day Tour"}</div>
-                    <span style={{ color: C.textH, fontSize: 13, fontWeight: 600 }}>₱6,000</span>
+                    <div style={{ color: C.textH, fontSize: 14.5, display: "flex", alignItems: "center", gap: 7 }}><Icon name={b.package.startsWith("Night") ? "moon" : "sun"} size={14} style={{ opacity: 0.6 }} />{b.package.startsWith("Night") ? "Night Tour" : "Day Tour"}</div>
+                    <span style={{ color: C.textH, fontSize: 14.5, fontWeight: 600 }}>₱6,000</span>
                   </div>
                   {(b.foodOrder || []).map((f) => (
                     <div key={f.itemId} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${cBr}` }}>
-                      <div style={{ color: C.textH, fontSize: 13 }}>🍽 {f.name} × {f.qty}</div>
-                      <span style={{ color: gold, fontSize: 13 }}>{fmt(f.qty * f.price)}</span>
+                      <div style={{ color: C.textH, fontSize: 14.5, display: "flex", alignItems: "center", gap: 7 }}><Icon name="utensils" size={14} style={{ opacity: 0.6 }} />{f.name} × {f.qty}</div>
+                      <span style={{ color: gold, fontSize: 14.5 }}>{fmt(f.qty * f.price)}</span>
                     </div>
                   ))}
                   {extraGuests > 0 && (
                     <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${cBr}` }}>
-                      <div style={{ color: C.textH, fontSize: 13 }}>👥 Extra Guests ({b.guests - 30} × ₱100)</div>
-                      <span style={{ color: "#f5c518", fontSize: 13 }}>{fmt(extraGuests)}</span>
+                      <div style={{ color: C.textH, fontSize: 14.5, display: "flex", alignItems: "center", gap: 7 }}><Icon name="users" size={14} style={{ opacity: 0.6 }} />Extra Guests ({b.guests - 30} × ₱100)</div>
+                      <span style={{ color: "#f5c518", fontSize: 14.5 }}>{fmt(extraGuests)}</span>
                     </div>
                   )}
                   {(b.overtime || 0) > 0 && (
                     <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${cBr}` }}>
-                      <div style={{ color: C.textH, fontSize: 13 }}>🕐 Overtime ({b.overtime}hr × ₱500)</div>
-                      <span style={{ color: "#ff9800", fontSize: 13 }}>{fmt(overtimeFee)}</span>
+                      <div style={{ color: C.textH, fontSize: 14.5, display: "flex", alignItems: "center", gap: 7 }}><Icon name="clock" size={14} style={{ opacity: 0.6 }} />Overtime ({b.overtime}hr × ₱500)</div>
+                      <span style={{ color: "#ff9800", fontSize: 14.5 }}>{fmt(overtimeFee)}</span>
                     </div>
                   )}
                   {bookedRooms.map((r) => (
                     <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${cBr}` }}>
                       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={r.img} alt={r.name} style={{ width: 44, height: 36, objectFit: "cover", borderRadius: 3 }} />
-                        <div style={{ color: C.textH, fontSize: 13 }}>🛏 {r.name}</div>
+                        <img loading="lazy" decoding="async" src={r.img} alt={r.name} style={{ width: 44, height: 36, objectFit: "cover", borderRadius: 3 }} />
+                        <div style={{ color: C.textH, fontSize: 14.5, display: "flex", alignItems: "center", gap: 7 }}><Icon name="bed" size={14} style={{ opacity: 0.6 }} />{r.name}</div>
                       </div>
-                      <span style={{ color: gold, fontSize: 13 }}>{fmt(r.price)}</span>
+                      <span style={{ color: gold, fontSize: 14.5 }}>{fmt(r.price)}</span>
                     </div>
                   ))}
                   <div style={{ borderTop: `2px solid ${gold}33`, marginTop: 4, paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: gold, fontWeight: 700, fontSize: 13 }}>TOTAL</span>
+                    <span style={{ color: gold, fontWeight: 700, fontSize: 14.5 }}>TOTAL</span>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ color: gold, fontWeight: 700, fontSize: 18 }}>{fmt(b.total)}</div>
-                      <div style={{ color: "#ff9800", fontSize: 12, fontWeight: 600 }}>Down: {fmt(b.downpayment)}</div>
+                      <div style={{ color: "#ff9800", fontSize: 13.5, fontWeight: 600 }}>Down: {fmt(b.downpayment)}</div>
                     </div>
                   </div>
                 </div>
@@ -376,8 +388,8 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10, marginBottom: 20 ,  justifyContent: 'center',}}>
                 <div style={{ background: isDark ? "#111" : "#f7f5f0", borderRadius: 5, padding: "10px 13px" }}>
-                  <div style={{ color: C.textXS, fontSize: 9, letterSpacing: 2, marginBottom: 4 }}>PACKAGE TYPE</div>
-                  <div style={{ color: C.textH, fontSize: 12 }}>{b.package}</div>
+                  <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 4 }}>PACKAGE TYPE</div>
+                  <div style={{ color: C.textH, fontSize: 13.5 }}>{b.package}</div>
                 </div>
               </div>
               {b.status === "Cancelled" && b.cancelReason && (
@@ -393,7 +405,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
                 <div
                   style={{
                     color: "#e55",
-                    fontSize: 9,
+                    fontSize: 10.5,
                     letterSpacing: 2,
                     marginBottom: 6,
                   }}
@@ -404,7 +416,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
                 <div
                   style={{
                     color: C.textH,
-                    fontSize: 13,
+                    fontSize: 14.5,
                     fontWeight: 600,
                   }}
                 >
@@ -422,13 +434,13 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
       {confirmAction && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }} role="dialog" aria-modal="true">
           <div style={{ background: isDark ? "#0d0d0d" : "#fff", border: `1px solid ${confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}`, borderRadius: 8, padding: "32px 28px", width: "100%", maxWidth: 420, boxShadow: "0 32px 80px rgba(0,0,0,0.6)" }}>
-            <div style={{ width: 44, height: 44, borderRadius: "50%", background: confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.1)" : "rgba(229,85,85,0.1)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, fontSize: 22 }}>
-              {confirmAction.action === "Confirmed" ? "✓" : "✕"}
+            <div style={{ width: 44, height: 44, borderRadius: "50%", background: confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.1)" : "rgba(229,85,85,0.1)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, color: confirmAction.action === "Confirmed" ? "#4caf50" : "#e55" }}>
+              <Icon name={confirmAction.action === "Confirmed" ? "check" : "x"} size={20} />
             </div>
-            <h3 style={{ color: isDark ? "#e8e8e8" : "#111", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, fontWeight: 400, marginBottom: 8 }}>
+            <h3 style={{ color: isDark ? "#e8e8e8" : "#111", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400, marginBottom: 8 }}>
               {confirmAction.action === "Confirmed" ? "Accept this booking?" : "Reject this booking?"}
             </h3>
-            <p style={{ color: isDark ? "#888" : "#666", fontSize: 13, lineHeight: 1.7, marginBottom: confirmAction.action === "Cancelled" ? 16 : 24 }}>
+            <p style={{ color: isDark ? "#888" : "#666", fontSize: 14.5, lineHeight: 1.7, marginBottom: confirmAction.action === "Cancelled" ? 16 : 24 }}>
               {confirmAction.action === "Confirmed"
                 ? <>{`Accept booking for `}<strong style={{ color: isDark ? "#ddd" : "#333" }}>{confirmAction.guestName}</strong>?</>
                 : <>{`Reject booking for `}<strong style={{ color: isDark ? "#ddd" : "#333" }}>{confirmAction.guestName}</strong>. A rejection message will be sent to the guest.</>
@@ -436,7 +448,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
             </p>
             {confirmAction.action === "Cancelled" && (
               <div style={{ marginBottom: 20 }}>
-                <label htmlFor="rejection-msg" style={{ color: isDark ? "#888" : "#666", fontSize: 9, letterSpacing: 3, display: "block", marginBottom: 8 }}>
+                <label htmlFor="rejection-msg" style={{ color: isDark ? "#888" : "#666", fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 8 }}>
                   REJECTION MESSAGE <span style={{ color: "#888", letterSpacing: 0 }}>(sent to guest)</span>
                 </label>
                 <div style={{ background: isDark ? "rgba(229,85,85,0.04)" : "rgba(229,85,85,0.03)", border: "1px solid rgba(229,85,85,0.25)", borderRadius: 5, padding: "2px 0" }}>
@@ -446,20 +458,20 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
                     onChange={(e) => setRejectionMsg(e.target.value)}
                     rows={4}
                     placeholder={`Hi ${confirmAction.guestName},\n\nWe regret to inform you that your booking has been declined.`}
-                    style={{ background: "transparent", border: "none", color: isDark ? "#e0e0e0" : "#222", fontSize: 13, lineHeight: 1.7, padding: "12px 14px", width: "100%", resize: "vertical", outline: "none", boxSizing: "border-box" }}
+                    style={{ background: "transparent", border: "none", color: isDark ? "#e0e0e0" : "#222", fontSize: 14.5, lineHeight: 1.7, padding: "12px 14px", width: "100%", resize: "vertical", outline: "none", boxSizing: "border-box" }}
                   />
                 </div>
                 {confirmAction.guestEmail && (
-                  <p style={{ color: C.textXS, fontSize: 11, marginTop: 6 }}>
-                    ✉️ Will be sent to: <span style={{ color: gold }}>{confirmAction.guestEmail}</span>
+                  <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 6 }}>
+                    Will be sent to: <span style={{ color: gold }}>{confirmAction.guestEmail}</span>
                   </p>
                 )}
               </div>
             )}
             <div style={{ borderTop: `1px solid ${isDark ? "#1e1e1e" : "#eee"}`, marginBottom: 20 }} />
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => { setConfirmAction(null); setRejectionMsg(""); }} style={{ flex: 1, background: "transparent", color: isDark ? "#777" : "#888", border: `1px solid ${isDark ? "#2a2a2a" : "#ddd"}`, padding: "11px 16px", fontSize: 11, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>GO BACK</button>
-              <button onClick={executeAction} style={{ flex: 2, background: confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.12)" : "rgba(229,85,85,0.10)", color: confirmAction.action === "Confirmed" ? "#4caf50" : "#e55", border: `1px solid ${confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}`, padding: "11px 16px", fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 4, letterSpacing: 2 }}>
+              <button onClick={() => { setConfirmAction(null); setRejectionMsg(""); }} style={{ flex: 1, background: "transparent", color: isDark ? "#777" : "#888", border: `1px solid ${isDark ? "#2a2a2a" : "#ddd"}`, padding: "11px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>GO BACK</button>
+              <button onClick={executeAction} style={{ flex: 2, background: confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.12)" : "rgba(229,85,85,0.10)", color: confirmAction.action === "Confirmed" ? "#4caf50" : "#e55", border: `1px solid ${confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}`, padding: "11px 16px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", borderRadius: 4, letterSpacing: 2 }}>
                 {confirmAction.action === "Confirmed" ? "YES, ACCEPT" : "YES, SEND & REJECT"}
               </button>
             </div>
