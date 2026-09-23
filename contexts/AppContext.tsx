@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useContext, useState, ReactNode } from "react";
-import { usePersistedState } from "@/hooks/usePersistedState";
+import { useDbCollection } from "@/hooks/useDbCollection";
+import { COLLECTIONS } from "@/lib/collections";
 import {
   INIT_BOOKINGS,
   INIT_ROOMS,
@@ -46,22 +47,27 @@ interface AppState {
 const AppCtx = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  // Every admin-editable collection is persisted the same way `bookings`
-  // always was — otherwise a change made in /admin (marking food out,
-  // closing a date, editing a room) only ever lived in that one tab's
-  // memory and vanished the moment a guest opened /book or /menu fresh.
-  const [bookings, setBookings] = usePersistedState<Booking[]>("sw_bookings", INIT_BOOKINGS);
-  const [rooms, setRooms] = usePersistedState<Room[]>("sw_rooms", INIT_ROOMS);
-  const [galleryImgs, setGalleryImgs] = usePersistedState<string[]>("sw_gallery", INIT_GALLERY);
-  const [closedDates, setClosedDates] = usePersistedState<string[]>("sw_closed_dates", []);
-  const [customerMessages, setCustomerMessages] = usePersistedState<CustomerMessage[]>("sw_customer_messages", []);
   // Not persisted on purpose — admin login should require signing in again
   // each session rather than silently staying authenticated forever.
   const [adminAuth, setAdminAuth] = useState(false);
-  const [menuItems, setMenuItems] = usePersistedState<MenuItem[]>("sw_menu_items", INIT_MENU);
-  const [facilities, setFacilities] = usePersistedState<Facility[]>("sw_facilities", INIT_FACILITIES);
-  const [inventory, setInventory] = usePersistedState<InventoryItem[]>("sw_inventory", INIT_INVENTORY);
-  const [packages, setPackages] = usePersistedState<ResortPackage[]>("sw_packages", INIT_PACKAGES);
+
+  // Every collection now reads from Supabase through the API routes, with
+  // localStorage kept only as a first-paint cache. The setters behave exactly
+  // like useState, so nothing downstream changed: useDbCollection diffs each
+  // new array against the last one the server confirmed and pushes only the
+  // difference. See lib/collections.ts for the per-collection rules.
+  //
+  // The INIT_* constants stay as the offline fallback for a browser that has
+  // never loaded the site and cannot reach the API.
+  const [bookings, setBookings] = useDbCollection<Booking>(COLLECTIONS.bookings, INIT_BOOKINGS, adminAuth);
+  const [rooms, setRooms] = useDbCollection<Room>(COLLECTIONS.rooms, INIT_ROOMS);
+  const [galleryImgs, setGalleryImgs] = useDbCollection<string>(COLLECTIONS.gallery, INIT_GALLERY);
+  const [closedDates, setClosedDates] = useDbCollection<string>(COLLECTIONS.closedDates, []);
+  const [customerMessages, setCustomerMessages] = useDbCollection<CustomerMessage>(COLLECTIONS.customerMessages, [], adminAuth);
+  const [menuItems, setMenuItems] = useDbCollection<MenuItem>(COLLECTIONS.menuItems, INIT_MENU);
+  const [facilities, setFacilities] = useDbCollection<Facility>(COLLECTIONS.facilities, INIT_FACILITIES, adminAuth);
+  const [inventory, setInventory] = useDbCollection<InventoryItem>(COLLECTIONS.inventory, INIT_INVENTORY, adminAuth);
+  const [packages, setPackages] = useDbCollection<ResortPackage>(COLLECTIONS.packages, INIT_PACKAGES);
 
   return (
     <AppCtx.Provider value={{

@@ -10,7 +10,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToInventoryItem } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
-import { sanitizeName, sanitizeNotes } from "@/lib/validators";
+import { sanitizeLabel, sanitizeNotes } from "@/lib/validators";
 import type { InventoryRow } from "@/types/database";
 import type { InventoryCategory } from "@/types/inventory";
 
@@ -29,7 +29,7 @@ function validate(body: Record<string, unknown>, partial: boolean): string | nul
     if (!CATEGORIES.includes(body.category as InventoryCategory)) return "Unknown inventory category.";
   }
   if (!partial || body.name !== undefined) {
-    const n = sanitizeName(String(body.name ?? ""));
+    const n = sanitizeLabel(String(body.name ?? ""));
     if (!n) return "An item name is required.";
   }
   for (const k of ["qty", "minQty"] as const) {
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await getSupabaseAdmin().from("inventory").insert({
       category: body.category,
-      name: sanitizeName(String(body.name)),
+      name: sanitizeLabel(String(body.name)),
       qty: Math.round(Number(body.qty)),
       unit: String(body.unit ?? "pc").slice(0, 24),
       min_qty: Math.round(Number(body.minQty ?? 0)),
@@ -95,7 +95,7 @@ export async function PATCH(req: NextRequest) {
 
     const patch: Partial<InventoryRow> = {};
     if (body.category !== undefined) patch.category = body.category;
-    if (body.name !== undefined) patch.name = sanitizeName(String(body.name));
+    if (body.name !== undefined) patch.name = sanitizeLabel(String(body.name));
     if (body.qty !== undefined) patch.qty = Math.round(Number(body.qty));
     if (body.unit !== undefined) patch.unit = String(body.unit).slice(0, 24);
     if (body.minQty !== undefined) patch.min_qty = Math.round(Number(body.minQty));

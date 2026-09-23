@@ -23,10 +23,15 @@ type Report = Record<string, string>;
 async function countOf(table: string): Promise<number | null> {
   const { count, error } = await getSupabaseAdmin()
     .from(table).select("*", { count: "exact", head: true });
-  // A missing table is not a crash here: migration 2 may not be applied yet,
-  // and the caller should be told which tables are absent rather than get a 500.
-  if (error) return null;
-  return count ?? 0;
+
+  // null means "table is not there", a number means "this many rows".
+  //
+  // Checking `error` alone is not enough: for a table PostgREST cannot find,
+  // this client came back with error null AND count null, so an earlier
+  // version of this reported three missing tables as "0 rows" — a status
+  // report that quietly lied. A missing count is treated as missing table.
+  if (error || count === null) return null;
+  return count;
 }
 
 export async function GET(req: NextRequest) {

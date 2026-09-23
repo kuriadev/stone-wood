@@ -1,40 +1,37 @@
-// ── GET  /api/customer-service  → list submitted messages   (admin only)
-// ── POST /api/customer-service  → submit a message          (public)
+// ── GET  /api/customer-service  → list messages   (admin only)
+// ── POST /api/customer-service  → submit one      (public)
 //
-// Two problems here before: GET handed every visitor's name, email address and
-// message text to anyone who typed the URL, and POST appended to an unbounded
-// module-level array with no validation, so a loop could fill the instance's
-// memory with whatever it liked.
-//
-// The store is still in memory and still resets on redeploy — that is the
-// pre-existing behaviour and moving it to Supabase is a separate change. What
-// is fixed is who can read it and what can go into it.
+// Backed by Supabase. This used to be a module-level array, which meant every
+// enquiry a guest sent was lost on the next deploy, and each serverless
+// instance held its own copy — so two admins could see two different inboxes.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { getSupabaseAdmin, rowToCustomerMessage } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { sanitizeName, sanitizeNotes, isValidEmail, NAME_MIN, NAME_MAX } from "@/lib/validators";
-import type { CustomerMessage } from "@/types/admin";
+import type { CustomerMessageRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
-/** Oldest entries are dropped past this. A bounded buffer is the difference
- *  between a full inbox and an out-of-memory crash. */
-const MAX_STORED = 500;
 const MESSAGE_MAX = 2000;
 const VALID_TYPES = ["Inquiry", "Complaint", "Feedback", "Suggestion", "Other"];
-
-let customerMessages: CustomerMessage[] = [];
 
 export async function GET(req: NextRequest) {
   const denied = requireAdmin(req);
   if (denied) return denied;
-  return NextResponse.json(customerMessages);
+  try {
+    const { data, error } = await getSupabaseAdmin()
+      .from("customer_messages").select("*").order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return NextResponse.json((data as CustomerMessageRow[]).map(rowToCustomerMessage));
+  } catch (err) {
+    console.error("[/api/customer-service GET]", err);
+    return NextResponse.json({ success: false, error: "Could not load messages." }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
-  // Public endpoint, so this is the only thing standing between the form and
-  // a script: ten submissions an hour per IP.
   const limited = rateLimit(req, { name: "customer-service", limit: 10, windowMs: 60 * 60 * 1000 });
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
@@ -43,14 +40,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Invalid request." }, { status: 400 });
   }
 
-  // Client-side validation is a convenience for honest users; it is not a
-  // control. Everything is re-checked here against the same rules.
   const name = sanitizeName(String(body.name ?? ""));
   const email = String(body.email ?? "").trim().toLowerCase();
   const message = sanitizeNotes(String(body.message ?? "")).slice(0, MESSAGE_MAX);
   const type = VALID_TYPES.includes(String(body.type)) ? String(body.type) : "Other";
 
-  // Same bounds the form enforces, so the server is not the looser of the two.
   if (name.length < NAME_MIN || name.length > NAME_MAX) {
     return NextResponse.json({ success: false, error: "A valid name is required." }, { status: 400 });
   }
@@ -61,20 +55,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "A message of at least 10 characters is required." }, { status: 400 });
   }
 
-  // The record is rebuilt from validated fields rather than spreading the
-  // request body, so a caller cannot smuggle in extra properties.
-  const entry = {
-    id: Date.now(),
-    name,
-    email,
-    type,
-    message,
-    date: new Date().toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" }),
-    createdAt: new Date().toISOString(),
-  } as CustomerMessage;
+  try {
+    // Built from validated fields rather than spreading the body, so a caller
+    // cannot smuggle in archived_at or a forged created_at.
+    const { error } = await getSupabaseAdmin().from("customer_messages").insert({
+      name, email, type, message,
+      date: new Date().toISOString().slice(0, 10),
+    });
+    if (error) throw new Error(error.message);
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[/api/customer-service POST]", err);
+    return NextResponse.json({ success: false, error: "Could not send your message." }, { status: 500 });
+  }
+}
 
-  customerMessages.unshift(entry);
-  if (customerMessages.length > MAX_STORED) customerMessages.length = MAX_STORED;
+/** PATCH /api/customer-service?id=  → archive / unarchive   (admin only) */
+export async function PATCH(req: NextRequest) {
+  const denied = requireAdmin(req);
+  if (denied) return denied;
 
-  return NextResponse.json({ success: true });
+  const id = Number(req.nextUrl.searchParams.get("id"));
+  if (!Number.isFinite(id)) {
+    return NextResponse.json({ success: false, error: "A numeric message id is required." }, { status: 400 });
+  }
+  try {
+    const body = await req.json().catch(() => ({}));
+    const archived = !!body.archived;
+    const { data, error } = await getSupabaseAdmin()
+      .from("customer_messages")
+      .update({ archived_at: archived ? new Date().toISOString() : null })
+      .eq("id", id).select().maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return NextResponse.json({ success: false, error: "Message not found." }, { status: 404 });
+    return NextResponse.json({ success: true, message: rowToCustomerMessage(data as CustomerMessageRow) });
+  } catch (err) {
+    console.error("[/api/customer-service PATCH]", err);
+    return NextResponse.json({ success: false, error: "Could not update that message." }, { status: 500 });
+  }
 }

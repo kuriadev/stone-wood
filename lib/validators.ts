@@ -226,7 +226,33 @@ export function isValidPHNumber(contact: string): boolean {
   return /^09\d{9}$/.test(contact ?? "");
 }
 
-/** Strip anything that does not belong in a person's name, and cap length. */
+/** Upper bound for a content label (dish, room, package, inventory item).
+ *  Longer than NAME_MAX because product names carry qualifiers. */
+export const LABEL_MAX = 120;
+
+/**
+ * Sanitiser for CONTENT names — menu items, rooms, packages, inventory.
+ *
+ * Deliberately NOT sanitizeName. That one strips everything but letters,
+ * spaces, apostrophes, dots and hyphens, which is right for a guest's name
+ * and destructive for a product's: it turned "Pork BBQ Skewers (5pcs)" into
+ * "Pork BBQ Skewers pcs" and "Room 1 – Queen & Deck" into "Room  Queen  Deck"
+ * on every admin save.
+ *
+ * Digits, brackets, &, +, / and dashes are all legitimate here. What is
+ * removed is control characters and angle brackets, so a label can never
+ * carry markup into a page or an email.
+ */
+export function sanitizeLabel(raw: string): string {
+  return (raw ?? "")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .replace(/[<>]/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+    .slice(0, LABEL_MAX);
+}
+
 export function sanitizeName(raw: string): string {
   return (raw ?? "")
     .replace(/[^A-Za-zÀ-ÿÑñ\s'.-]/g, "") // letters (incl. accents), space, apostrophe, dot, hyphen

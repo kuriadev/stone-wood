@@ -56,7 +56,7 @@ export default function GalleryRoute() {
   return (
     <div style={{ background: C.bg, minHeight: "100vh" }}>
       <Navbar page="Gallery" setPage={nav} />
-      <Gallery galleryImgs={galleryImgs} />
+      <Gallery galleryImgs={galleryImgs} onBookNow={() => nav("Book Now")} />
       <Footer setPage={nav} />
       <ThemeToggle />
     </div>

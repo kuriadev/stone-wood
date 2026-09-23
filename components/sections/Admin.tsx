@@ -878,26 +878,41 @@ export function Admin({
   const [archivedMessages, setArchivedMessages] = useState<CustomerMessage[]>([]);
   const [csView, setCsView] = useState<"inbox" | "archive">("inbox");
   const [confirmArchiveMsg, setConfirmArchiveMsg] = useState<CustomerMessage | null>(null);
+  // Live refresh for the Customer Service inbox.
+  //
+  // Three things were wrong here. It polled every 2 seconds (1,800 requests
+  // an hour per open tab); it fetched immediately on mount even though
+  // AppContext already loads this collection, so every admin visit fired two
+  // identical requests; and it fed res.json() straight into state without
+  // checking the response. That last one was the dangerous one: once the
+  // 8-hour session expires the route answers 401 with {success:false,...},
+  // and storing that object where an array belongs crashed the panel on the
+  // next render, which maps over it.
   useEffect(() => {
-  const loadMessages = async () => {
-    try {
-      const res = await fetch("/api/customer-service");
+    let stopped = false;
 
-      const data = await res.json();
+    const loadMessages = async () => {
+      // Nothing to refresh while the tab is in the background.
+      if (document.visibilityState === "hidden") return;
+      try {
+        const res = await fetch("/api/customer-service");
+        if (!res.ok) return; // 401 after session expiry, or a server error
+        const data = await res.json();
+        // Only an array may reach state. Anything else is an error payload.
+        if (!stopped && Array.isArray(data)) setCustomerMessages(data);
+      } catch {
+        // Offline or a dropped request: keep what is already on screen.
+      }
+    };
 
-      setCustomerMessages(data);
-    } catch (err) {
-      console.error(err);
-    }
-    };  
-
-      loadMessages();
-
-      const interval = setInterval(loadMessages, 2000);
-
-      return () => clearInterval(interval);
-
-    }, [setCustomerMessages]);
+    // No immediate call — AppContext has already loaded this collection on
+    // mount. This only keeps it fresh from here on.
+    const interval = setInterval(loadMessages, 15000);
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+    };
+  }, [setCustomerMessages]);
 
 
     useEffect(() => {
