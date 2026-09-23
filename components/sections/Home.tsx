@@ -14,6 +14,7 @@ import type { ResortPackage } from "@/types/package";
 import type { MenuItem } from "@/types/menu";
 import { srcSetFor, SIZES, imageAt } from "@/lib/img";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
+import { Icon, type IconName } from "@/components/common/Icon";
 
 interface HomeProps {
   setPage: (p: string) => void;
@@ -673,7 +674,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}
               >
-                ✕
+                <Icon name="x" size={15} />
               </button>
 
               {/* ── Gallery ── */}
@@ -817,7 +818,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                 <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
                   {p.includes.map((inc) => (
                     <div key={inc} style={{ display: "flex", alignItems: "flex-start", gap: 8, paddingBottom: 9, borderBottom: `1px solid ${C.borderLight}` }}>
-                      <span style={{ color: gold, fontSize: 11.5, marginTop: 2, flexShrink: 0 }}>✓</span>
+                      <Icon name="check" size={12} style={{ color: gold, marginTop: 3, flexShrink: 0 }} />
                       <span style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.5 }}>{inc}</span>
                     </div>
                   ))}
@@ -895,19 +896,19 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
             {PACKAGES.map((p, i) => (
               <div key={p.id} ref={(el) => { packageRefs.current[i] = el; }} className="sw-card sw-reveal"
                 style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: mob ? "22px 18px" : "28px 24px", textAlign: "left", boxShadow: C.shadowCard, display: "flex", flexDirection: "column", transitionDelay: `${i * 100}ms` }}>
-                <div style={{ fontSize: 30, marginBottom: 12 }}>{p.icon}</div>
+                <div style={{ marginBottom: 12, color: gold }}><Icon name={p.icon as IconName} size={28} strokeWidth={1.5} /></div>
                 <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, marginBottom: 6 }}>{p.label}</h3>
                 <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 14, lineHeight: 1.6 }}>{p.desc}</p>
                 <div style={{ color: gold, fontSize: 24, fontWeight: 700, marginBottom: 16 }}>{fmt(p.base)}<span style={{ color: C.textXS, fontSize: 13.5 }}> /day</span></div>
                 {p.details.map((d) => (
                   <div key={d} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 7 }}>
-                    <span style={{ color: gold, fontSize: 11.5, marginTop: 2, flexShrink: 0 }}>✓</span>
+                    <Icon name="check" size={12} style={{ color: gold, marginTop: 3, flexShrink: 0 }} />
                     <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5 }}>{d}</span>
                   </div>
                 ))}
                 {p.id === "room" && (
                   <button className="sw-btn" onClick={() => setPage("Rooms")} style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "linear-gradient(135deg,#c9a84c,#e8c56a)", color: "#1a1000", border: "none", padding: "11px 20px", fontWeight: 700, fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1.5, boxShadow: "0 2px 12px rgba(201,168,76,0.3)", width: "100%" }}>
-                    <span>🛏</span> VIEW ROOMS
+                    <Icon name="bed" size={15} /> VIEW ROOMS
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
                   </button>
                 )}
@@ -919,7 +920,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                 live from the admin-managed Menu) instead of leaving food
                 a surprise until checkout. */}
             <div className="sw-card" style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: mob ? "22px 18px" : "28px 24px", textAlign: "left", boxShadow: C.shadowCard, display: "flex", flexDirection: "column" }}>
-              <div style={{ fontSize: 30, marginBottom: 12 }}>🍽️</div>
+              <div style={{ marginBottom: 12, color: gold }}><Icon name="utensils" size={28} strokeWidth={1.5} /></div>
               <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, marginBottom: 6 }}>Food &amp; Drinks</h3>
               <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 14, lineHeight: 1.6 }}>Pre-order from our menu, or a Pool + Food package bundles it with a discount.</p>
               {(() => {
@@ -934,7 +935,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                       <div key={cat} style={{ marginBottom: 10 }}>
                         <div style={{ color: gold, fontSize: 11.5, letterSpacing: 1.5, marginBottom: 4 }}>{cat.toUpperCase()}</div>
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                          <span style={{ color: gold, fontSize: 11.5, marginTop: 2, flexShrink: 0 }}>✓</span>
+                          <Icon name="check" size={12} style={{ color: gold, marginTop: 3, flexShrink: 0 }} />
                           <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5 }}>{items.map((m) => m.name).join(", ")}</span>
                         </div>
                       </div>
@@ -943,7 +944,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                 );
               })()}
               <button className="sw-btn" onClick={() => setPage("Menu")} style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "linear-gradient(135deg,#c9a84c,#e8c56a)", color: "#1a1000", border: "none", padding: "11px 20px", fontWeight: 700, fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1.5, boxShadow: "0 2px 12px rgba(201,168,76,0.3)", width: "100%" }}>
-                <span>🍽</span> VIEW FULL MENU
+                <Icon name="utensils" size={15} /> VIEW FULL MENU
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
               </button>
             </div>

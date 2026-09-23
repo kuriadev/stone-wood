@@ -7,7 +7,7 @@ import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import type { InventoryItem, InventoryCategory } from "@/types/inventory";
-import { Icon } from "@/components/admin/Icon";
+import { Icon } from "@/components/common/Icon";
 
 interface InventoryTabProps {
   inventory: InventoryItem[];

@@ -5,7 +5,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { T } from "@/lib/theme";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { Icon } from "@/components/admin/Icon";
+import { Icon } from "@/components/common/Icon";
 import { gold, goldBtn } from "@/lib/styles";
 
 interface AdminLoginProps {

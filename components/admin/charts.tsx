@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { T } from "@/lib/theme";
-import { Icon, type IconName } from "@/components/admin/Icon";
+import { Icon, type IconName } from "@/components/common/Icon";
 
 /**
  * Presentation primitives for the Reports and Analytics pages.

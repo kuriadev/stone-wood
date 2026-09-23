@@ -7,7 +7,7 @@ import { T } from "@/lib/theme";
 import { gold, outBtn } from "@/lib/styles";
 import type { Facility, FacilityStatus } from "@/types/facility";
 import type { Booking } from "@/types/booking";
-import { Icon } from "@/components/admin/Icon";
+import { Icon, type IconName } from "@/components/common/Icon";
 import { startOfToday, toDateStr } from "@/lib/validators";
 
 interface FacilitiesTabProps {
@@ -240,7 +240,7 @@ export function FacilitiesTab({ facilities, setFacilities, bookings, mob }: Faci
                   {filteredHistoryRows.map((row, idx) => (
                     <tr key={`${row.facility.id}-${row.booking.id}`} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
                       <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{row.booking.date}</td>
-                      <td style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap" }}>{row.facility.icon} {row.facility.name}</td>
+                      <td style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap" }}><Icon name={row.facility.icon as IconName} size={13} style={{ marginRight: 6 }} />{row.facility.name}</td>
                       <td style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5 }}>
                         {row.booking.name} {row.booking.archived && <span style={{ color: C.textXS, fontSize: 10.5 }}>(archived)</span>}
                       </td>
@@ -286,7 +286,7 @@ export function FacilitiesTab({ facilities, setFacilities, bookings, mob }: Faci
               return (
                 <div key={f.id} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "14px 18px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                    <div style={{ fontSize: 24, flexShrink: 0 }}>{f.icon}</div>
+                    <div style={{ flexShrink: 0, color: gold, lineHeight: 0 }}><Icon name={f.icon as IconName} size={22} strokeWidth={1.5} /></div>
                     <div style={{ flex: 1, minWidth: 180 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
                         <span style={{ color: C.textH, fontSize: 15, fontWeight: 600 }}>{f.name}</span>
@@ -314,10 +314,10 @@ export function FacilitiesTab({ facilities, setFacilities, bookings, mob }: Faci
                     </div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       <button onClick={() => setExpandedId(expanded ? null : f.id)} style={{ background: "transparent", color: gold, border: `1px solid ${gold}44`, padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>
-                        {expanded ? "HIDE CHECKLIST ▲" : "CHECKLIST ▼"}
+                        {expanded ? "HIDE CHECKLIST" : "CHECKLIST"}<Icon name={expanded ? "chevron-up" : "chevron-down"} size={12} style={{ marginLeft: 6 }} />
                       </button>
                       <button onClick={() => setHistoryId(history ? null : f.id)} style={{ background: "transparent", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.4)", padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>
-                        {history ? "HIDE HISTORY ▲" : `HISTORY (${historyFor(f).length}) ▼`}
+                        {history ? "HIDE HISTORY" : `HISTORY (${historyFor(f).length})`}<Icon name={history ? "chevron-up" : "chevron-down"} size={12} style={{ marginLeft: 6 }} />
                       </button>
                       {f.status !== "Available" && (
                         <button onClick={() => setStatus(f.id, "Available")} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}><Icon name="check" size={12} style={{ marginRight: 5 }} />MARK CHECKED</button>

@@ -7,6 +7,7 @@ import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { srcSetFor, SIZES } from "@/lib/img";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
+import { Icon } from "@/components/common/Icon";
 
 interface GalleryProps {
   galleryImgs: string[];
@@ -522,7 +523,7 @@ export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
             aria-label="Close photo viewer"
             style={{ ...arrowStyle(mob, "right"), right: mob ? 12 : 20, top: mob ? 12 : 20, transform: "none", fontSize: 20 }}
           >
-            ✕
+            <Icon name="x" size={17} />
           </button>
 
           <div

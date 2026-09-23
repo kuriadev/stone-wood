@@ -9,6 +9,7 @@ import type { Room } from "@/types/room";
 import { useState } from "react";
 import { srcSetFor, SIZES } from "@/lib/img";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
+import { Icon } from "@/components/common/Icon";
 
 interface RoomsPageProps {
   setPage: (p: string) => void;
@@ -121,7 +122,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
                     borderRadius: 6,
                     color: "#fff",
                   }}>
-                    👥 {r.capacity} guests
+                    <Icon name="users" size={13} style={{ marginRight: 5 }} />{r.capacity} guests
                   </span>
 
                   <span style={{
@@ -137,7 +138,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
               {/* CONTENT */}
               <div style={{ padding: 20, flex: 1, display: "flex", flexDirection: "column" }}>
                 <h3 style={{ color: C.textH, fontSize: 18 }}>{r.name}</h3>
-                <p style={{ color: gold, fontSize: 13.5 }}>🛏 {r.beds}</p>
+                <p style={{ color: gold, fontSize: 13.5 }}><Icon name="bed" size={13} style={{ marginRight: 5 }} />{r.beds}</p>
                 <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 16 }}>
                   {r.desc}
                 </p>
@@ -213,7 +214,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
         </h2>
 
         <p style={{ color: gold, fontSize: 14.5, marginBottom: 10 }}>
-          🛏 {activeRoom.beds}
+          <Icon name="bed" size={13} style={{ marginRight: 5 }} />{activeRoom.beds}
         </p>
 
         <p style={{ color: "#ccc", fontSize: 15, lineHeight: 1.7 }}>

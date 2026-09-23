@@ -51,18 +51,18 @@ export const INIT_ROOMS: Room[] = [
 ];
 
 export const AMENITIES = [
-  { icon: "🏊", name: "Swimming Pool", desc: "Private pool for whole-day rental, up to 30 guests." },
-  { icon: "🔥", name: "BBQ / Grilling Area", desc: "Open-air grilling stations for group cookouts." },
-  { icon: "🎱", name: "Billiards", desc: "Full-size billiards table available for all guests." },
-  { icon: "🎤", name: "Videoke", desc: "Full videoke setup for group entertainment." },
-  { icon: "🚗", name: "Parking Area", desc: "Secure on-site parking for all guests." },
+  { icon: "pool", name: "Swimming Pool", desc: "Private pool for whole-day rental, up to 30 guests." },
+  { icon: "flame", name: "BBQ / Grilling Area", desc: "Open-air grilling stations for group cookouts." },
+  { icon: "billiards", name: "Billiards", desc: "Full-size billiards table available for all guests." },
+  { icon: "mic", name: "Videoke", desc: "Full videoke setup for group entertainment." },
+  { icon: "car", name: "Parking Area", desc: "Secure on-site parking for all guests." },
 ] as const;
 
 export const PACKAGES = [
   {
     id: "day",
     label: "Day Tour",
-    icon: "☀️",
+    icon: "sun",
     desc: "Whole-day resort use 8AM–5PM.",
     base: 6000,
     details: [
@@ -77,7 +77,7 @@ export const PACKAGES = [
     // guest/overtime rules) until real night-tour rates are set.
     id: "night",
     label: "Night Tour",
-    icon: "🌙",
+    icon: "moon",
     desc: "Whole-night resort use 6PM–12AM.",
     base: 6000,
     details: [
@@ -90,7 +90,7 @@ export const PACKAGES = [
   {
     id: "room",
     label: "Room Add-on",
-    icon: "🛏️",
+    icon: "bed",
     desc: "Add a room to your Day or Night Tour.",
     base: 2000,
     details: [
@@ -148,15 +148,15 @@ export const INIT_MENU: MenuItem[] = [
 // room in INIT_ROOMS (roomId links the two so a booking's room list can
 // flag exactly which room facilities it used).
 export const INIT_FACILITIES: Facility[] = [
-  { id: 1, category: "Amenity", name: "Swimming Pool", icon: "🏊", status: "Available", notes: "" },
-  { id: 2, category: "Amenity", name: "BBQ / Grilling Area", icon: "🔥", status: "Available", notes: "" },
-  { id: 3, category: "Amenity", name: "Billiards", icon: "🎱", status: "Available", notes: "" },
-  { id: 4, category: "Amenity", name: "Videoke", icon: "🎤", status: "Available", notes: "" },
-  { id: 5, category: "Amenity", name: "Parking Area", icon: "🚗", status: "Available", notes: "" },
-  { id: 6, category: "Amenity", name: "Events Venue", icon: "🎪", status: "Available", notes: "" },
-  { id: 101, category: "Room", name: "Room 1 – Queen & Deck", icon: "🛏", roomId: 1, status: "Available", notes: "" },
-  { id: 102, category: "Room", name: "Room 2 – Deck Suite", icon: "🛏", roomId: 2, status: "Available", notes: "" },
-  { id: 103, category: "Room", name: "Room 3 – Cozy Double", icon: "🛏", roomId: 3, status: "Available", notes: "" },
+  { id: 1, category: "Amenity", name: "Swimming Pool", icon: "pool", status: "Available", notes: "" },
+  { id: 2, category: "Amenity", name: "BBQ / Grilling Area", icon: "flame", status: "Available", notes: "" },
+  { id: 3, category: "Amenity", name: "Billiards", icon: "billiards", status: "Available", notes: "" },
+  { id: 4, category: "Amenity", name: "Videoke", icon: "mic", status: "Available", notes: "" },
+  { id: 5, category: "Amenity", name: "Parking Area", icon: "car", status: "Available", notes: "" },
+  { id: 6, category: "Amenity", name: "Events Venue", icon: "tent", status: "Available", notes: "" },
+  { id: 101, category: "Room", name: "Room 1 – Queen & Deck", icon: "bed", roomId: 1, status: "Available", notes: "" },
+  { id: 102, category: "Room", name: "Room 2 – Deck Suite", icon: "bed", roomId: 2, status: "Available", notes: "" },
+  { id: 103, category: "Room", name: "Room 3 – Cozy Double", icon: "bed", roomId: 3, status: "Available", notes: "" },
 ];
 
 export const INIT_INVENTORY: InventoryItem[] = [

@@ -65,27 +65,6 @@ export function Footer({ setPage }: FooterProps) {
           <p style={{ color: "#6a5e4e", fontSize: 14.5, lineHeight: 2, maxWidth: 300 }}>
             A private resort experience in Angono, Rizal. Exclusive, intimate, and unforgettable.
           </p>
-          <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-            {["📍", "📞", "✉️"].map((icon, i) => (
-              <div
-                key={i}
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: "50%",
-                  background: "rgba(201,168,76,0.08)",
-                  border: "1px solid rgba(201,168,76,0.15)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 15,
-                  cursor: "pointer",
-                }}
-              >
-                {icon}
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Navigation */}
@@ -132,7 +111,7 @@ export function Footer({ setPage }: FooterProps) {
           <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 10.5, letterSpacing: 3, marginBottom: 16 }}>
             CONTACT
           </div>
-          {["📍 22 Yakal cor. Ipil St. Doña Justa Village Phase, 2nd St, Angono, Rizal", "📞 +63 912 345 6789", "✉️ stonewoodresort.ph@gmail.com", "🕗 8AM – 5PM"].map(
+          {["22 Yakal cor. Ipil St. Doña Justa Village Phase, 2nd St, Angono, Rizal", "+63 912 345 6789", "stonewoodresort.ph@gmail.com", "8AM – 5PM"].map(
             (c) => (
               <div key={c} style={{ color: "#6a5e4e", fontSize: 14.5, marginBottom: 9 }}>
                 {c}

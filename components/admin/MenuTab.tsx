@@ -8,7 +8,7 @@ import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { fmt, isMenuItemSellable } from "@/lib/utils";
 import type { MenuItem, MenuCategory, MenuRecipeLine } from "@/types/menu";
 import type { InventoryItem } from "@/types/inventory";
-import { Icon } from "@/components/admin/Icon";
+import { Icon } from "@/components/common/Icon";
 
 interface MenuTabProps {
   menuItems: MenuItem[];

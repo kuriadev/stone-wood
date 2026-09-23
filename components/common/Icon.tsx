@@ -6,12 +6,14 @@ import {
   Wrench, Image as ImageIcon, Package, TrendingUp, ChartColumn, MessageSquare,
   Check, CircleCheck, X, TriangleAlert, Users, Trash, Mail, Lock, Moon, Sun,
   Clock, Link as LinkIcon, Flag, Banknote, Download, FolderOpen, Menu, Search,
+  Waves, Flame, CircleDot, Mic, Car, Tent,
+  Leaf, TreePalm, Sunrise, Phone, Star, ChevronUp, ChevronDown,
   Plus, Minus, SquarePen, Pencil, LogOut, Eye, EyeOff,
   type LucideIcon,
 } from "lucide-react";
 
 /**
- * Icon wrapper for the admin panel.
+ * Shared icon wrapper, used by the admin panel and the public site.
  *
  * Backed by Lucide. This file exists rather than importing Lucide directly at
  * every call site for two reasons:
@@ -68,6 +70,27 @@ const REGISTRY = {
   logout: LogOut,
   eye: Eye,
   "eye-off": EyeOff,
+
+  // Resort facilities. These replace the emoji that used to be stored in
+  // lib/constants.ts, so the public site and the admin panel now draw the
+  // same glyph for the same thing instead of a platform-dependent emoji.
+  pool: Waves,
+  flame: Flame,
+  billiards: CircleDot,
+  mic: Mic,
+  car: Car,
+  tent: Tent,
+
+  // Public-site glyphs.
+  leaf: Leaf,
+  // TreePalm, not PalmTree: Lucide renamed it, and pinning the
+  // translation here is the whole point of this registry.
+  palm: TreePalm,
+  sunrise: Sunrise,
+  phone: Phone,
+  star: Star,
+  "chevron-up": ChevronUp,
+  "chevron-down": ChevronDown,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof REGISTRY;
@@ -91,7 +114,16 @@ export function Icon({
   className,
   title,
 }: IconProps) {
-  const Glyph = REGISTRY[name];
+  // Fall back rather than crash. `name` can arrive from the database
+  // (facilities.icon) or from an older cached payload, and REGISTRY[name] for
+  // an unknown value is undefined — which React renders as <undefined />, a
+  // hard error that takes the whole page down. A missing glyph should be a
+  // missing glyph, not a white screen.
+  const Glyph = REGISTRY[name] ?? REGISTRY.package;
+  if (!REGISTRY[name] && process.env.NODE_ENV !== "production") {
+    console.warn(`[Icon] unknown icon name: ${String(name)}`);
+  }
+
   return (
     <Glyph
       size={size}

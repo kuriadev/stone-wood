@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { Icon, type IconName } from "@/components/common/Icon";
 
 type ToastType = "success" | "error" | "warning" | "info";
 
@@ -31,11 +32,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     warning: "#f5c518",
     info: "#4a9fd4",
   };
-  const tI: Record<ToastType, string> = {
-    success: "✓",
-    error: "✕",
-    warning: "⚠",
-    info: "ℹ",
+  // Icon names, not glyphs: a bare U+26A0 renders as a plain outline on some
+  // platforms and a full-colour emoji on others, so the same toast looked
+  // different machine to machine.
+  const tI: Record<ToastType, IconName> = {
+    success: "check-circle",
+    error: "x",
+    warning: "alert",
+    info: "alert",
   };
 
   return (
@@ -72,9 +76,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               pointerEvents: "auto",
             }}
           >
-            <span style={{ color: tC[t.type], fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
-              {tI[t.type]}
-            </span>
+            <Icon name={tI[t.type]} size={15} style={{ color: tC[t.type], flexShrink: 0 }} />
             <span style={{ color: "#e0e0e0", fontSize: 12, lineHeight: 1.5 }}>{t.msg}</span>
           </div>
         ))}

@@ -8,7 +8,7 @@ import { gold, goldBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
 import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
-import { Icon } from "@/components/admin/Icon";
+import { Icon } from "@/components/common/Icon";
 
 interface BookingsTabProps {
   bookings: Booking[];

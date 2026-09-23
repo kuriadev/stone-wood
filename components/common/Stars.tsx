@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Icon } from "@/components/common/Icon";
 
 interface StarsProps {
   rating: number;
@@ -20,13 +21,15 @@ export function Stars({ rating, interactive = false, onRate, size = 16 }: StarsP
           onMouseEnter={() => interactive && setHover(i)}
           onMouseLeave={() => interactive && setHover(0)}
           style={{
-            fontSize: size,
+            lineHeight: 0,
             cursor: interactive ? "pointer" : "default",
             color: (hover || rating) >= i ? "#f5c518" : "#555",
             transition: "color .1s",
           }}
         >
-          ★
+          {/* fill follows colour, so a lit star is solid and an unlit one
+              is the same shape in grey rather than a different glyph. */}
+          <Icon name="star" size={size} style={{ fill: "currentColor" }} />
         </span>
       ))}
     </div>

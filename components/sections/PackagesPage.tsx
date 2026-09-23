@@ -10,6 +10,7 @@ import type { BookingResource, BookingTier } from "@/types/booking";
 import { useState } from "react";
 import { srcSetFor, SIZES } from "@/lib/img";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
+import { Icon } from "@/components/common/Icon";
 
 interface PackagesPageProps {
   setPage: (p: string) => void;
@@ -87,7 +88,7 @@ export function PackagesPage({ packages, onBookPackage }: PackagesPageProps) {
                 <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top,rgba(0,0,0,0.5),transparent 60%)" }} />
                 <div style={{ position: "absolute", bottom: 12, left: 14, right: 14, display: "flex", justifyContent: "space-between" }}>
                   <span style={{ fontSize: 12.5, background: "rgba(0,0,0,0.4)", padding: "3px 8px", borderRadius: 6, color: "#fff" }}>
-                    👥 Up to {p.capacity}
+                    <Icon name="users" size={13} style={{ marginRight: 5 }} />Up to {p.capacity}
                   </span>
                   <span style={{ color: "#fff", fontWeight: 700, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>
                     {p.listPrice && <span style={{ textDecoration: "line-through", opacity: 0.6, marginRight: 6, fontSize: 13.5 }}>{fmt(p.listPrice)}</span>}

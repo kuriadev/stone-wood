@@ -6,6 +6,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
+import { Icon, type IconName } from "@/components/common/Icon";
 
 interface AboutProps {
   setPage: (p: string) => void;
@@ -257,7 +258,7 @@ export function About({
         >
           {[
             {
-              icon: "🌿",
+              icon: "leaf",
               title: "Private & Exclusive",
               desc: "Your own private resort experience.",
               details: [
@@ -267,7 +268,7 @@ export function About({
               ],
             },
             {
-              icon: "🏝️",
+              icon: "palm",
               title: "Premium Amenities",
               desc: "Everything you need in one place.",
               details: [
@@ -277,7 +278,7 @@ export function About({
               ],
             },
             {
-              icon: "🌄",
+              icon: "sunrise",
               title: "Nature Escape",
               desc: "Relax in a peaceful environment.",
               details: [
@@ -355,12 +356,13 @@ export function About({
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div
             style={{
-              fontSize: 28,
+              lineHeight: 0,
+              color: gold,
               transition: "transform .3s ease",
             }}
             className="icon-anim"
           >
-            {item.icon}
+            <Icon name={item.icon as IconName} size={26} strokeWidth={1.5} />
           </div>
 
           <h3
@@ -486,8 +488,8 @@ export function About({
         </h3>
 
         <div style={{ marginBottom: 20 }}>
-          <p style={{ color: C.textB }}>📞 +63 912 345 6789</p>
-          <p style={{ color: C.textB }}>✉️ stonewoodresort.ph@gmail.com</p>
+          <p style={{ color: C.textB }}><Icon name="phone" size={14} style={{ marginRight: 7 }} />+63 912 345 6789</p>
+          <p style={{ color: C.textB }}><Icon name="mail" size={14} style={{ marginRight: 7 }} />stonewoodresort.ph@gmail.com</p>
         </div>
 
         {/* CTA BUTTON (FIXED LOGIC) */}

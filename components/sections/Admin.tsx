@@ -6,7 +6,7 @@ import { useWidth } from "@/hooks/useWidth";
 import { useToast } from "@/contexts/ToastContext";
 import { T } from "@/lib/theme";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
-import { Icon, type IconName } from "@/components/admin/Icon";
+import { Icon, type IconName } from "@/components/common/Icon";
 import { Panel, StatCard, BarChart, ProgressRow } from "@/components/admin/charts";
 import { fmt } from "@/lib/utils";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
