@@ -35,11 +35,47 @@ export function Navbar({ page, setPage }: NavbarProps) {
   // Only the Home page has a photo hero to sit over.
   const overlay = page === "Home" && !solid;
 
+  // Mirrors `solid` so the scroll handler can read the current state without
+  // being torn down and re-subscribed on every change.
+  const solidRef = useRef(false);
+
   useEffect(() => {
-    const onScroll = () => setSolid(window.scrollY > 40);
-    onScroll();
+    // Two thresholds, not one.
+    //
+    // This used to be `setSolid(window.scrollY > 40)`. A single boundary
+    // means any scroll that comes to rest near 40px flips the state back and
+    // forth: trackpad glides, momentum settling, and — because the header is
+    // `position: sticky` and therefore in document flow — the 14px reflow
+    // that shrinking 78→64 causes all on its own. Each flip restarts the
+    // .35s height transition, which is the blinking.
+    //
+    // With a gap between the two thresholds, a few pixels of jitter cannot
+    // cross both, so the bar only changes on a deliberate scroll.
+    const ENTER = 72; // shrink only once clearly away from the top
+    const EXIT = 24;  // expand only once clearly back at the top
+
+    let frame = 0;
+    const read = () => {
+      frame = 0;
+      const y = window.scrollY;
+      const next = solidRef.current ? y > EXIT : y > ENTER;
+      if (next === solidRef.current) return; // nothing changed, no re-render
+      solidRef.current = next;
+      setSolid(next);
+    };
+
+    const onScroll = () => {
+      // One read per painted frame. `scroll` fires far more often than the
+      // screen repaints, and the old handler called setState on every event.
+      if (!frame) frame = requestAnimationFrame(read);
+    };
+
+    read();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
   }, []);
 
   // Close the drawer on Escape, and lock scroll while it's open.

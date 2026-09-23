@@ -37,6 +37,125 @@ function formatDate(ds: string) {
   }
 }
 
+/**
+ * Sent the moment a guest finishes checkout, before any admin has seen it.
+ *
+ * Deliberately NOT a confirmation. The booking is still pending until someone
+ * accepts it, and calling this "confirmed" would have guests turning up on a
+ * date that was never approved. It acknowledges receipt, gives the reference,
+ * and says plainly that a second email decides it.
+ */
+export function buildBookingReceivedEmail(booking: Booking): { subject: string; html: string } {
+  const subject = `\u{1F4E5} Booking Received \u2013 ${sanitizeHeaderValue(booking.id, 40)} | StoneWood Resort`;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Booking Received \u2013 StoneWood Resort</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f1eb;font-family:'Georgia',serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1eb;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">
+
+          <tr>
+            <td style="background:linear-gradient(135deg,#1a1108 0%,#2a1f0e 60%,#1a1108 100%);border-radius:12px 12px 0 0;padding:40px 36px;text-align:center;">
+              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:4px;text-transform:uppercase;">StoneWood Resort</p>
+              <h1 style="margin:0 0 6px;color:#f0e6cc;font-size:28px;font-weight:400;letter-spacing:1px;">Booking Received</h1>
+              <p style="margin:0;color:#c9a84c;font-size:13px;">We have your reservation \u2014 it is awaiting confirmation</p>
+              <div style="margin:20px auto 0;width:48px;height:1px;background:linear-gradient(90deg,transparent,#c9a84c,transparent);"></div>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:#ffffff;padding:36px;">
+
+              <p style="margin:0 0 24px;color:#3a2e1e;font-size:16px;line-height:1.7;">
+                Dear <strong>${escapeHtml(booking.name)}</strong>,
+              </p>
+              <p style="margin:0 0 28px;color:#5a4a35;font-size:14px;line-height:1.8;">
+                Thank you for booking with <strong>StoneWood Resort</strong>. We have received your reservation and our team is reviewing it now. Keep the reference below \u2014 you will need it to check or cancel your booking.
+              </p>
+
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                <tr>
+                  <td style="background:#faf5e8;border:1px solid #e2d5b0;border-radius:8px;padding:16px 20px;">
+                    <p style="margin:0 0 4px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;">Booking Reference</p>
+                    <p style="margin:0;color:#1a1108;font-size:22px;font-family:monospace;font-weight:700;letter-spacing:2px;">${escapeHtml(booking.id)}</p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 12px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;border-bottom:1px solid #e8e0cc;padding-bottom:8px;">Booking Summary</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                ${[
+                  ["Full Name", booking.name],
+                  ["Date of Visit", formatDate(booking.date)],
+                  ["Package", booking.package],
+                  ["Number of Guests", `${escapeHtml(booking.guests)} pax`],
+                  ["Total Amount", fmt(booking.total)],
+                  ["Downpayment", fmt(booking.downpayment)],
+                ].map(([label, value]) => `
+                <tr>
+                  <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#8a6d3b;font-size:12px;width:40%;">${escapeHtml(label)}</td>
+                  <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#2a1f0e;font-size:13px;font-weight:600;">${escapeHtml(value)}</td>
+                </tr>`).join("")}
+              </table>
+
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                <tr>
+                  <td style="background:#fffaf0;border:1px solid #e2d5b0;border-left:4px solid #c9a84c;border-radius:0 8px 8px 0;padding:20px;">
+                    <p style="margin:0 0 8px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;">What Happens Next</p>
+                    <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">Our team reviews your reservation and confirms your date.</p>
+                    <p style="margin:0;color:#4a3a28;font-size:13px;line-height:1.7;">You will get a second email with your check-in code once it is confirmed. <strong>This email is not a confirmation</strong>, so please wait for that one before travelling.</p>
+                  </td>
+                </tr>
+              </table>
+
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                <tr>
+                  <td style="background:#fdf5f5;border:1px solid #f0d0d0;border-radius:8px;padding:20px 24px;text-align:center;">
+                    <p style="margin:0 0 16px;color:#7a5a5a;font-size:12px;line-height:1.6;">Plans changed? You can request a cancellation before your visit date.</p>
+                    <a href="${APP_URL}/cancelbooking?booking=${encodeURIComponent(booking.id)}&amp;email=${encodeURIComponent(booking.email)}"
+                      style="display:inline-block;background:#c0392b;color:#ffffff;font-size:12px;font-weight:700;letter-spacing:2px;text-decoration:none;padding:12px 28px;border-radius:6px;text-transform:uppercase;">
+                      Request Cancellation
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0;color:#5a4a35;font-size:14px;line-height:1.8;">
+                We look forward to hosting you.<br/>
+                <strong style="color:#2a1f0e;">The StoneWood Resort Team</strong>
+              </p>
+
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:#1a1108;border-radius:0 0 12px 12px;padding:24px 36px;text-align:center;">
+              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:3px;text-transform:uppercase;">StoneWood Resort</p>
+              <p style="margin:0;color:#5a4a35;font-size:11px;">This is an automated notification email. Please do not reply.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
+  `.trim();
+
+  return { subject, html };
+}
+
 export function buildRejectionEmail(booking: Booking, reason: string): { subject: string; html: string } {
   const subject = `❌ Booking Update – ${sanitizeHeaderValue(booking.id, 40)} | StoneWood Resort`;
   const defaultReason = "Your booking did not meet our current availability or requirements.";

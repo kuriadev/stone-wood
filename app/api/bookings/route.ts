@@ -11,6 +11,8 @@ import { getSupabaseAdmin, rowToBooking, bookingToRow } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { isValidEmail, isValidPHNumber, sanitizeName, sanitizeNotes, NAME_MIN, NAME_MAX } from "@/lib/validators";
+import { buildBookingReceivedEmail } from "@/lib/emailTemplate";
+import { trySendMail } from "@/lib/mailer";
 import type { BookingRow } from "@/types/database";
 import type { Booking } from "@/types/booking";
 
@@ -112,7 +114,25 @@ export async function POST(req: NextRequest) {
       throw new Error(error.message);
     }
 
-    return NextResponse.json({ success: true, booking: rowToBooking(data as BookingRow) }, { status: 201 });
+    const saved = rowToBooking(data as BookingRow);
+
+    // Acknowledge the booking to the guest straight away.
+    //
+    // Sent here rather than from the browser for two reasons: this is the
+    // only place that knows the booking actually reached the database, and
+    // putting it behind a public /api/email call would hand anyone an
+    // endpoint that mails arbitrary HTML to arbitrary addresses.
+    //
+    // trySendMail never throws. The row is already committed, and a guest who
+    // has just paid must not be told their booking failed because Gmail was
+    // slow. A missed acknowledgement is recoverable; a lost reservation is not.
+    const { subject, html } = buildBookingReceivedEmail(saved);
+    const emailed = await trySendMail(
+      { to: saved.email, subject, html },
+      `booking-received ${saved.id}`
+    );
+
+    return NextResponse.json({ success: true, booking: saved, emailed }, { status: 201 });
   } catch (err) {
     console.error("[/api/bookings POST]", err);
     return NextResponse.json({ success: false, error: "Could not save the booking." }, { status: 500 });
