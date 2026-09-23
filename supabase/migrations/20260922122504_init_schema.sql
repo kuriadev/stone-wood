@@ -2,6 +2,16 @@
 -- Applied automatically by the Supabase GitHub integration on merge to main.
 -- Migrations are the source of truth: to change the schema, add a NEW file
 -- here rather than editing this one, or production and this repo will drift.
+--
+-- One later edit was made to this file, deliberately: every `create policy`
+-- is now preceded by `drop policy if exists`. Postgres has no
+-- `create policy if not exists`, so re-running this file against a database
+-- that already had the policies failed with
+--   ERROR: policy "rooms are publicly readable" for table "rooms" already
+--   exists (SQLSTATE 42710)
+-- which is exactly what the Supabase GitHub check hit. That edit changes no
+-- schema — the end state is identical — it only makes the file re-runnable,
+-- so it does not cause the drift the paragraph above warns about.
 
 -- ════════════════════════════════════════════════════════════════════
 -- StoneWood Resort — Supabase schema
@@ -108,19 +118,24 @@ alter table public.closed_dates      enable row level security;
 alter table public.gallery           enable row level security;
 
 -- Public, read-only marketing content.
+drop policy if exists "rooms are publicly readable" on public.rooms;
 create policy "rooms are publicly readable"
   on public.rooms for select using (true);
 
+drop policy if exists "gallery is publicly readable" on public.gallery;
 create policy "gallery is publicly readable"
   on public.gallery for select using (true);
 
+drop policy if exists "closed dates are publicly readable" on public.closed_dates;
 create policy "closed dates are publicly readable"
   on public.closed_dates for select using (true);
 
 -- Visitors may submit a booking or an enquiry, but never read them back.
+drop policy if exists "anyone may create a booking" on public.bookings;
 create policy "anyone may create a booking"
   on public.bookings for insert with check (true);
 
+drop policy if exists "anyone may send a message" on public.customer_messages;
 create policy "anyone may send a message"
   on public.customer_messages for insert with check (true);
 

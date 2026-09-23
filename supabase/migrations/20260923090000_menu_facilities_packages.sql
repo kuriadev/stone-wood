@@ -89,9 +89,11 @@ alter table public.packages   enable row level security;
 -- The public Menu page lists every item, available or not (it shows an
 -- "Unavailable" badge rather than hiding the dish), so the whole table is
 -- readable. Same for packages, which the Home and Packages pages render.
+drop policy if exists "menu items are publicly readable" on public.menu_items;
 create policy "menu items are publicly readable"
   on public.menu_items for select using (true);
 
+drop policy if exists "packages are publicly readable" on public.packages;
 create policy "packages are publicly readable"
   on public.packages for select using (true);
 
