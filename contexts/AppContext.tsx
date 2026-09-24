@@ -69,7 +69,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [galleryImgs, setGalleryImgs] = useDbCollection<string>(COLLECTIONS.gallery, INIT_GALLERY);
   const [closedDates, setClosedDates] = useDbCollection<string>(COLLECTIONS.closedDates, []);
   const [customerMessages, setCustomerMessages] = useDbCollection<CustomerMessage>(COLLECTIONS.customerMessages, [], adminAuth);
-  const [facilities, setFacilities] = useDbCollection<Facility>(COLLECTIONS.facilities, INIT_FACILITIES, adminAuth);
+  const [adminFacilities, setFacilities] = useDbCollection<Facility>(COLLECTIONS.facilities, INIT_FACILITIES, adminAuth);
+  // Same split as bookings above: the full facility rows are admin-only
+  // (they carry caretaker notes and the last guest's name), so a guest
+  // reads statuses from /api/availability instead. Without this their
+  // copy was INIT_FACILITIES, where everything is hardcoded "Available",
+  // and a room set to Under Maintenance was still bookable publicly.
+  const facilities = adminAuth ? adminFacilities : publicAvailability.facilities;
   const [inventory, setInventory] = useDbCollection<InventoryItem>(COLLECTIONS.inventory, INIT_INVENTORY, adminAuth);
   const [packages, setPackages] = useDbCollection<ResortPackage>(COLLECTIONS.packages, INIT_PACKAGES);
 

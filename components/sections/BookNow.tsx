@@ -14,6 +14,7 @@
   import { SLOTS, QUIET_HOURS_POLICY, TURNOVER_WINDOW } from "@/lib/resort";
   import type { Room } from "@/types/room";
   import type { Facility } from "@/types/facility";
+  import { Icon, type IconName } from "@/components/common/Icon";
   import {
     isValidEmail,
     isValidPHNumber,
@@ -524,9 +525,9 @@
                 <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 24, lineHeight: 1.7 }}>Reserve online now via GCash. 50% down payment required.</p>
                 <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr 1fr", gap: 14 }}>
                   {([
-                    { id: "Day", icon: "☀️", sub: `${SLOTS.Day.hours}.`, badge: "POPULAR" },
-                    { id: "Night", icon: "🌙", sub: `${SLOTS.Night.hours}. Quiet hours from 10 PM.`, badge: "" },
-                    { id: "WholeDay", icon: "🌗", sub: `${SLOTS.WholeDay.hours}, exclusive — Day + Night for 10% less.`, badge: "BEST VALUE" },
+                    { id: "Day", icon: "sun", sub: `${SLOTS.Day.hours}.`, badge: "POPULAR" },
+                    { id: "Night", icon: "moon", sub: `${SLOTS.Night.hours}. Quiet hours from 10 PM.`, badge: "" },
+                    { id: "WholeDay", icon: "sun-moon", sub: `${SLOTS.WholeDay.hours}, exclusive — Day + Night for 10% less.`, badge: "BEST VALUE" },
                   ] as const).map((opt) => (
                     <div key={opt.id} onClick={() => { setSlot(opt.id); if (opt.id === "WholeDay") setTierChoice("Exclusive"); setStep(3); }}
                       style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: "24px 20px", cursor: "pointer", position: "relative", transition: "border-color .2s,box-shadow .2s" }}
@@ -534,7 +535,7 @@
                       onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}
                     >
                       {opt.badge && <span style={{ position: "absolute", top: 12, right: 12, background: `${gold}22`, color: gold, fontSize: 9.5, padding: "3px 8px", borderRadius: 20, letterSpacing: 1, border: `1px solid ${gold}44` }}>{opt.badge}</span>}
-                      <div style={{ fontSize: 32, marginBottom: 12 }}>{opt.icon}</div>
+                      <div style={{ marginBottom: 12, color: gold, lineHeight: 0 }}><Icon name={opt.icon as IconName} size={30} strokeWidth={1.5} /></div>
                       <h4 style={{ color: C.textH, fontSize: 17, fontFamily: "'Cormorant Garamond',Georgia,serif", marginBottom: 6 }}>{SLOTS[opt.id].label}</h4>
                       <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>{opt.sub}</p>
                     </div>
@@ -671,7 +672,7 @@
                                   color: active ? gold : C.textS, textAlign: "left",
                                 }}
                               >
-                                <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: 0.8 }}>{sl === "Day" ? "☀️ DAY" : "🌙 NIGHT"}</div>
+                                <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: 0.8 }}><><Icon name={sl === "Day" ? "sun" : "moon"} size={13} style={{ marginRight: 5 }} />{sl === "Day" ? "DAY" : "NIGHT"}</></div>
                                 <div style={{ fontSize: 11.5, marginTop: 2, opacity: 0.8 }}>{SLOTS[sl].hours}</div>
                               </button>
                             );
@@ -829,7 +830,7 @@
                                     color: active ? (opt === "Exclusive" ? gold : "#4caf50") : C.textS,
                                   }}
                                 >
-                                  {opt === "Exclusive" ? "🔒 EXCLUSIVE" : "🤝 SHARED"}
+                                  <><Icon name={opt === "Exclusive" ? "lock" : "handshake"} size={12} style={{ marginRight: 5 }} />{opt === "Exclusive" ? "EXCLUSIVE" : "SHARED"}</>
                                   {isDefault ? " (SUGGESTED)" : ""}
                                 </button>
                               );

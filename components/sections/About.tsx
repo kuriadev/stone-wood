@@ -126,7 +126,10 @@ export function About({
     lineHeight: 1.1,
     marginBottom: 12,
     color: isDark ? "#f8f4ee" : "#1a1a1a",
-    overflow: "hidden",
+    // No overflow:hidden here. It was presumably meant to mask the 20px
+    // slide-up, but it clips horizontally too, and the italic "d" of
+    // StoneWood leans past its inline-block advance width — so the final
+    // letter was sliced off vertically at the h1's right edge.
   }}
 >
   {/* ABOUT (fade + slide) */}
@@ -145,8 +148,13 @@ export function About({
 <span
   style={{
     display: "inline-block",
-    marginLeft: "10px", 
+    marginLeft: "10px",
     fontStyle: "italic",
+    // An italic glyph's ink extends past its advance width. With
+    // background-clip:text the gradient is painted only inside this
+    // element's box, so without a little room on the right the lean of the
+    // final "d" gets no paint even once the parent stops clipping it.
+    paddingRight: "0.14em",
     background:
       "linear-gradient(120deg, #c9a84c 0%, #e8c97a 40%, #fff3c4 50%, #c9a84c 60%, #c9a84c 100%)",
     backgroundSize: "200% auto",

@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Booking } from "@/types/booking";
-import type { AvailabilitySlot } from "@/app/api/availability/route";
+import type { Facility } from "@/types/facility";
+import type { AvailabilitySlot, AvailabilityFacility } from "@/app/api/availability/route";
 
 /**
- * The real bookings, reduced to what availability needs, for guest pages.
+ * The real bookings and facility statuses, reduced to what availability
+ * needs, for guest pages.
  *
  * Guests can't load the full booking list (it's admin-only — it holds
  * names, emails and phone numbers), so the public calendars and capacity
@@ -20,13 +22,35 @@ import type { AvailabilitySlot } from "@/app/api/availability/route";
  */
 export function usePublicAvailability(enabled: boolean) {
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [facilities, setFacilities] = useState<Facility[]>([]);
 
   const refresh = useCallback(async () => {
     try {
       const res = await fetch("/api/availability", { cache: "no-store" });
       if (!res.ok) return;
-      const json = (await res.json()) as { slots?: AvailabilitySlot[] };
+      const json = (await res.json()) as {
+        slots?: AvailabilitySlot[];
+        facilities?: AvailabilityFacility[];
+      };
       if (!Array.isArray(json.slots)) return;
+
+      // Facility statuses, so a room marked Under Maintenance is unbookable
+      // from the public site too. The staff-only fields are not in the
+      // payload, so they are filled with empties to satisfy the type — the
+      // guest-side helpers only read name, status, category and roomId.
+      if (Array.isArray(json.facilities)) {
+        setFacilities(
+          json.facilities.map((f) => ({
+            id: f.id,
+            category: f.category,
+            name: f.name,
+            status: f.status,
+            icon: "",
+            roomId: f.room_id ?? undefined,
+            notes: "",
+          }))
+        );
+      }
       setBookings(
         json.slots.map((s, i) => ({
           id: `slot-${i}`,
@@ -67,5 +91,5 @@ export function usePublicAvailability(enabled: boolean) {
     };
   }, [enabled, refresh]);
 
-  return { bookings, refresh };
+  return { bookings, facilities, refresh };
 }

@@ -8,6 +8,7 @@ import {
   Clock, Link as LinkIcon, Flag, Banknote, Download, FolderOpen, Menu, Search,
   Waves, Flame, CircleDot, Mic, Car, Tent,
   Leaf, TreePalm, Sunrise, Phone, Star, ChevronUp, ChevronDown,
+  SunMoon, Handshake, Siren, Info, Circle, Bookmark,
   Plus, Minus, SquarePen, Pencil, LogOut, Eye, EyeOff,
   type LucideIcon,
 } from "lucide-react";
@@ -91,6 +92,14 @@ const REGISTRY = {
   star: Star,
   "chevron-up": ChevronUp,
   "chevron-down": ChevronDown,
+
+  // Booking-flow controls.
+  "sun-moon": SunMoon,   // Whole Day — both slots
+  handshake: Handshake,  // Shared tier
+  siren: Siren,          // emergency cancellation reason
+  info: Info,
+  circle: Circle,        // neutral "Other" option
+  bookmark: Bookmark,    // booking reference
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof REGISTRY;

@@ -14,6 +14,7 @@ import {
 } from "@/lib/validators";
 import type { CustomerMessage } from "@/types/admin";
 import { SLOTS } from "@/lib/resort";
+import { Icon, type IconName } from "@/components/common/Icon";
 
 interface CustomerServiceProps {
   onSubmitMessage: (msg: CustomerMessage) => void;
@@ -105,9 +106,9 @@ const submit = async () => {
         {/* Contact cards */}
         <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 12, marginBottom: 36 }}>
           {[
-            ["📞", "Call Us", "+63 912 345 6789"],
-            ["✉️", "Email Us", "stonewoodresort.ph@gmail.com"],
-            ["🕗", "Hours", `Day ${SLOTS.Day.hours} · Night ${SLOTS.Night.hours}`],
+            ["phone", "Call Us", "+63 912 345 6789"],
+            ["mail", "Email Us", "stonewoodresort.ph@gmail.com"],
+            ["clock", "Hours", `Day ${SLOTS.Day.hours} · Night ${SLOTS.Night.hours}`],
           ].map(([icon, label, val]) => (
             <div
               key={label}
@@ -115,7 +116,7 @@ const submit = async () => {
               onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = isDark ? "0 12px 32px rgba(0,0,0,0.45)" : "0 12px 32px rgba(100,70,10,0.12)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = C.shadowCard; }}
             >
-              <div style={{ fontSize: 24, marginBottom: 8 }}>{icon}</div>
+              <div style={{ marginBottom: 8, color: gold, lineHeight: 0 }}><Icon name={icon as IconName} size={22} strokeWidth={1.5} /></div>
               <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 5 }}>{label.toUpperCase()}</div>
               <div style={{ color: C.textB, fontSize: 13.5, fontWeight: 500 }}>{val}</div>
             </div>
@@ -124,7 +125,7 @@ const submit = async () => {
 
         {submitted ? (
           <div style={{ background: C.bgCard, border: `1px solid ${gold}44`, borderRadius: 12, padding: "52px 24px", textAlign: "center", boxShadow: C.shadow }}>
-            <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg,${gold}22,${gold}11)`, border: `1px solid ${gold}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, margin: "0 auto 20px" }}>💬</div>
+            <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg,${gold}22,${gold}11)`, border: `1px solid ${gold}44`, display: "flex", alignItems: "center", justifyContent: "center", color: gold, margin: "0 auto 20px" }}><Icon name="message" size={30} strokeWidth={1.5} /></div>
             <h3 style={{ color: gold, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 26, marginBottom: 10, fontWeight: 400 }}>Message Received!</h3>
             <p style={{ color: C.textS, fontSize: 15, lineHeight: 1.8 }}>We'll respond within 24 hours.</p>
           </div>

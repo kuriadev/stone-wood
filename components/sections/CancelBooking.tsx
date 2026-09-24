@@ -7,16 +7,17 @@ import { T } from "@/lib/theme";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { fmtDate } from "@/lib/utils";
 import type { Booking } from "@/types/booking";
+import { Icon, type IconName } from "@/components/common/Icon";
 
 interface ManageBookingProps {
   onGoHome?: () => void;
 }
 
 const CANCEL_REASONS = [
-  { icon: "🚨", label: "Emergencies" },
-  { icon: "ℹ️", label: "Panic Booking" },
-  { icon: "📅", label: "Change of Plans" },
-  { icon: "⊙", label: "Other" },
+  { icon: "siren", label: "Emergencies" },
+  { icon: "info", label: "Panic Booking" },
+  { icon: "calendar", label: "Change of Plans" },
+  { icon: "circle", label: "Other" },
 ];
 
 export function ManageBooking(_props: ManageBookingProps) {
@@ -186,7 +187,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                   className="sw-input"
                   style={{ ...inpStyle, paddingRight: 36 }}
                 />
-                <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 15, opacity: 0.4 }}>🔖</span>
+                <Icon name="bookmark" size={14} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", opacity: 0.4 }} />
               </div>
             </div>
             <div>
@@ -205,7 +206,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                   className="sw-input"
                   style={{ ...inpStyle, paddingRight: 36 }}
                 />
-                <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 15, opacity: 0.4 }}>✉️</span>
+                <Icon name="mail" size={14} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", opacity: 0.4 }} />
               </div>
             </div>
             <button
@@ -226,7 +227,7 @@ export function ManageBooking(_props: ManageBookingProps) {
             </button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 14 }}>
-            <span style={{ fontSize: 12.5, opacity: 0.5 }}>🔒</span>
+            <Icon name="lock" size={12} style={{ opacity: 0.5 }} />
             <span style={{ color: C.textXS, fontSize: 12.5 }}>Your information is secure and encrypted</span>
           </div>
         </div>
@@ -244,7 +245,7 @@ export function ManageBooking(_props: ManageBookingProps) {
               textAlign: "center",
             }}
           >
-            <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
+            <div style={{ marginBottom: 12, color: C.textXS, lineHeight: 0 }}><Icon name="search" size={30} strokeWidth={1.5} /></div>
             <h3 style={{ color: "#e55", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 8 }}>
               {errorMsg ? "Something Went Wrong" : "Booking Not Found"}
             </h3>
@@ -379,7 +380,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                         transition: "all .2s",
                       }}
                     >
-                      <span style={{ fontSize: 17 }}>{icon}</span>
+                      <Icon name={icon as IconName} size={16} style={{ color: sel ? "#4caf50" : C.textS, flexShrink: 0 }} />
                       <span style={{ color: sel ? "#4caf50" : C.textS, fontSize: 13.5, flex: 1 }}>{label}</span>
                       <div
                         style={{
