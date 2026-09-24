@@ -23,6 +23,10 @@ import type { AvailabilitySlot, AvailabilityFacility } from "@/app/api/availabil
 export function usePublicAvailability(enabled: boolean) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [facilities, setFacilities] = useState<Facility[]>([]);
+  /** True while the first fetch is in flight, so guest pages can show a
+   *  skeleton instead of rendering an empty calendar as though the resort
+   *  were free on every date. Settles on success or failure. */
+  const [loading, setLoading] = useState(enabled);
 
   const refresh = useCallback(async () => {
     try {
@@ -81,7 +85,7 @@ export function usePublicAvailability(enabled: boolean) {
 
   useEffect(() => {
     if (!enabled) return;
-    void refresh();
+    void refresh().finally(() => setLoading(false));
     const onFocus = () => void refresh();
     window.addEventListener("focus", onFocus);
     const timer = setInterval(() => void refresh(), 2 * 60 * 1000);
@@ -91,5 +95,5 @@ export function usePublicAvailability(enabled: boolean) {
     };
   }, [enabled, refresh]);
 
-  return { bookings, facilities, refresh };
+  return { bookings, facilities, refresh, loading: enabled ? loading : false };
 }

@@ -8,13 +8,14 @@ import { PackagesPage } from "@/components/sections/PackagesPage";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { CardGridSkeleton } from "@/components/common/Skeleton";
 import { buildPackageBookingUrl } from "@/lib/utils";
 
 export default function PackagesRoute() {
   const router = useRouter();
   const { isDark } = useTheme();
   const C = T(isDark);
-  const { packages } = useApp();
+  const { packages, skeleton } = useApp();
 
   const nav = (p: string) => {
     const routes: Record<string, string> = {
@@ -37,44 +38,46 @@ export default function PackagesRoute() {
       return;
     }
 
-    loader.start();
-
-    let progress = 20;
-    const interval = setInterval(() => {
-      progress += Math.random() * 20;
-      if (progress >= 90) clearInterval(interval);
-    }, 120);
-
-    setTimeout(() => {
-      loader.finish();
+      // Start the bar and navigate immediately. This used to tick a
+      // `progress` variable nothing ever read, then wait a fixed 500ms
+      // before pushing — half a second of dead time on every internal
+      // link — and it called finish() *before* navigating, so the bar
+      // completed while the next page had not begun. ClientShell now
+      // finishes it when the new route has actually rendered.
+      loader.start();
       router.push(target);
-    }, 500);
   };
 
   return (
     <div style={{ background: C.bg, minHeight: "100vh" }}>
       <Navbar page="Packages" setPage={nav} />
-      <PackagesPage
-        setPage={nav}
-        packages={packages}
-        onBookPackage={(pkg, resource, tier) =>
-          router.push(
-            buildPackageBookingUrl(
-              {
-                code: pkg.code,
-                title: pkg.title,
-                price: pkg.price,
-                listPrice: pkg.listPrice,
-                capacity: pkg.capacity,
-                requiresRoom: pkg.requiresRoom,
-                slotMode: pkg.slotMode,
-              },
-              resource,
-              tier
+      {skeleton.packages ? (
+        <div style={{ padding: "120px 24px 80px" }}>
+          <CardGridSkeleton count={6} label="Loading packages" />
+        </div>
+      ) : (
+        <PackagesPage
+          setPage={nav}
+          packages={packages}
+          onBookPackage={(pkg, resource, tier) =>
+            router.push(
+              buildPackageBookingUrl(
+                {
+                  code: pkg.code,
+                  title: pkg.title,
+                  price: pkg.price,
+                  listPrice: pkg.listPrice,
+                  capacity: pkg.capacity,
+                  requiresRoom: pkg.requiresRoom,
+                  slotMode: pkg.slotMode,
+                },
+                resource,
+                tier
+              )
             )
-          )
-        }
-      />
+          }
+        />
+      )}
       <Footer setPage={nav} />
       <ThemeToggle />
     </div>

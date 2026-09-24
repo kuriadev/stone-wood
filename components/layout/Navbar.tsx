@@ -97,8 +97,17 @@ export function Navbar({ page, setPage }: NavbarProps) {
 
   const go = (p: string) => { setOpen(false); setPage(p); };
 
-  const linkColor = overlay ? "rgba(255,255,255,0.78)" : C.textS;
-  const linkActive = overlay ? "#fff" : C.textH;
+  // `overlay` strips the bar's own background so whatever is behind shows
+  // through. The header is `position: sticky`, which keeps it in document
+  // flow, so the hero photo starts BELOW it — what actually shows through is
+  // the page background, not the photo. White text is therefore only legible
+  // while that background is dark, which is why these are tied to the theme
+  // and not to `overlay` alone. Before this, switching to light mode on the
+  // Home page left white links on a light bar.
+  const onDark = overlay && isDark;
+
+  const linkColor = onDark ? "rgba(255,255,255,0.78)" : C.textS;
+  const linkActive = onDark ? "#fff" : C.textH;
 
   return (
     <>
@@ -157,7 +166,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
                 fontFamily: "'Cormorant Garamond',Georgia,serif",
                 fontSize: mob ? 19 : 22,
                 letterSpacing: 5,
-                color: overlay ? "#fff" : C.textH,
+                color: onDark ? "#fff" : C.textH,
                 lineHeight: 1,
                 transition: "color .35s ease",
               }}
@@ -168,7 +177,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
               style={{
                 fontSize: 9,
                 letterSpacing: 3.5,
-                color: overlay ? "rgba(255,255,255,0.6)" : C.textXS,
+                color: onDark ? "rgba(255,255,255,0.6)" : C.textXS,
                 transition: "color .35s ease",
               }}
             >
@@ -241,8 +250,8 @@ export function Navbar({ page, setPage }: NavbarProps) {
                 }}
               >
                 {/* Hamburger morphs into a close mark. */}
-                <span style={{ display: "block", width: 20, height: 1.5, background: overlay ? "#fff" : C.textH, transform: open ? "translateY(3.25px) rotate(45deg)" : "none", transition: "transform .3s cubic-bezier(.22,1,.36,1)" }} />
-                <span style={{ display: "block", width: 20, height: 1.5, background: overlay ? "#fff" : C.textH, transform: open ? "translateY(-3.25px) rotate(-45deg)" : "none", transition: "transform .3s cubic-bezier(.22,1,.36,1)" }} />
+                <span style={{ display: "block", width: 20, height: 1.5, background: onDark ? "#fff" : C.textH, transform: open ? "translateY(3.25px) rotate(45deg)" : "none", transition: "transform .3s cubic-bezier(.22,1,.36,1)" }} />
+                <span style={{ display: "block", width: 20, height: 1.5, background: onDark ? "#fff" : C.textH, transform: open ? "translateY(-3.25px) rotate(-45deg)" : "none", transition: "transform .3s cubic-bezier(.22,1,.36,1)" }} />
               </button>
             )}
           </div>

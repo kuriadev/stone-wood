@@ -4,15 +4,41 @@ import { useRef, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { TopLoader, LoaderRef } from "@/components/layout/TopLoader";
 import { CursorDot } from "@/components/layout/CursorDot";
+import { useApp } from "@/contexts/AppContext";
 
 export function ClientShell({ children }: { children: React.ReactNode }) {
   const loaderRef = useRef<LoaderRef>(null);
   const pathname = usePathname();
+  const { loading } = useApp();
 
   // expose globally (for nav control)
   useEffect(() => {
     (globalThis as any).loader = loaderRef;
   }, []);
+
+  // Finish the bar when the new route has actually rendered.
+  //
+  // Each link handler calls loader.start() and pushes straight away; this
+  // effect fires once React has committed the new page, which is the real
+  // end of the navigation. Previously every handler called finish() itself
+  // *before* router.push, so the bar completed while the next page had not
+  // even begun rendering.
+  //
+  // Skipped on first mount: nothing navigated, so no bar is in flight.
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    // Wait for the data too, not just the route. These pages are client
+    // components with nothing to await on the server, so the route commits
+    // almost instantly while the collections they render are still being
+    // fetched. Finishing on the route alone would put the bar back at the
+    // old behaviour: complete before the page has anything real to show.
+    if (loading.content) return;
+    loaderRef.current?.finish();
+  }, [pathname, loading.content]);
 
   return (
     <>

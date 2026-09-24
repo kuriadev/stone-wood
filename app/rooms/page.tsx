@@ -8,12 +8,13 @@ import { RoomsPage } from "@/components/sections/RoomsPage";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { CardGridSkeleton } from "@/components/common/Skeleton";
 
 export default function RoomsRoute() {
   const router = useRouter();
   const { isDark } = useTheme();
   const C = T(isDark);
-  const { rooms } = useApp();
+  const { rooms, skeleton } = useApp();
 
   const nav = (p: string) => {
     const routes: Record<string, string> = {
@@ -37,30 +38,30 @@ export default function RoomsRoute() {
     }
 
 
-    loader.start();
-
-
-    let progress = 20;
-    const interval = setInterval(() => {
-      progress += Math.random() * 20;
-      if (progress >= 90) clearInterval(interval);
-    }, 120);
-
-
-    setTimeout(() => {
-      loader.finish();
+      // Start the bar and navigate immediately. This used to tick a
+      // `progress` variable nothing ever read, then wait a fixed 500ms
+      // before pushing — half a second of dead time on every internal
+      // link — and it called finish() *before* navigating, so the bar
+      // completed while the next page had not begun. ClientShell now
+      // finishes it when the new route has actually rendered.
+      loader.start();
       router.push(target);
-    }, 500); 
   };
 
   return (
     <div style={{ background: C.bg, minHeight: "100vh" }}>
       <Navbar page="Rooms" setPage={nav} />
-      <RoomsPage
-        setPage={nav}
-        rooms={rooms}
-        onAddToBooking={(id) => router.push(`/book?room=${id}`)}
-      />
+      {skeleton.rooms ? (
+        <div style={{ padding: "120px 24px 80px" }}>
+          <CardGridSkeleton count={6} label="Loading rooms" />
+        </div>
+      ) : (
+        <RoomsPage
+          setPage={nav}
+          rooms={rooms}
+          onAddToBooking={(id) => router.push(`/book?room=${id}`)}
+        />
+      )}
       <Footer setPage={nav} />
       <ThemeToggle />
     </div>

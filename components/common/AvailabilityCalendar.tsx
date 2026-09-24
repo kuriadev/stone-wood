@@ -36,19 +36,28 @@ export function AvailabilityCalendar({
   // Computed once per mount so a render mid-session cannot shift it.
   const { min: minDate, max: maxDate } = useMemo(() => getBookingWindow(), [mounted]);
 
-  // "Booked" means no slot is left: neither the Day nor the Night can take
-  // even a small Shared group, and the venue is taken for both. A date with
-  // only a Day group on it stays open — the Night is a separate slot.
+  // "Booked" means at least one slot on the date can no longer take even a
+  // single extra Shared guest — an Exclusive buyout (which closes the whole
+  // date) or a slot at capacity.
+  //
+  // This used to require EVERY slot to be full before greying a date, so a
+  // date whose Day was sold out still rendered plain green and fully
+  // clickable, indistinguishable from an empty one. The guest only found out
+  // after picking it and reaching the booking form.
+  //
+  // It is intentionally stricter than the booking page's own picker, which
+  // knows the slot, tier and headcount being requested and can therefore
+  // still offer the free half of a part-booked date. This calendar knows
+  // none of that yet, so it errs toward not advertising a date it cannot
+  // promise.
   const bookedDates = useMemo(() => {
     const dates = new Set(bookings.filter((b) => b.status !== "Cancelled").map((b) => b.date));
     const full = new Set<string>();
     dates.forEach((d) => {
-      const anyOpen = (["Day", "Night"] as const).some(
-        (sl) =>
-          checkBookingAvailability(d, sl, 1, "Shared", "Pool", bookings).ok ||
-          checkBookingAvailability(d, sl, 1, "Exclusive", "Venue", bookings).ok
+      const anySlotFull = (["Day", "Night"] as const).some(
+        (sl) => !checkBookingAvailability(d, sl, 1, "Shared", "Pool", bookings).ok
       );
-      if (!anyOpen) full.add(d);
+      if (anySlotFull) full.add(d);
     });
     return full;
   }, [bookings]);

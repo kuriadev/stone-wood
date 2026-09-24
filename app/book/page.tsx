@@ -79,20 +79,14 @@ export default function BookPage() {
     }
 
 
-    loader.start();
-
-
-    let progress = 20;
-    const interval = setInterval(() => {
-      progress += Math.random() * 20;
-      if (progress >= 90) clearInterval(interval);
-    }, 120);
-
-
-    setTimeout(() => {
-      loader.finish();
+      // Start the bar and navigate immediately. This used to tick a
+      // `progress` variable nothing ever read, then wait a fixed 500ms
+      // before pushing — half a second of dead time on every internal
+      // link — and it called finish() *before* navigating, so the bar
+      // completed while the next page had not begun. ClientShell now
+      // finishes it when the new route has actually rendered.
+      loader.start();
       router.push(target);
-    }, 500); 
   };
 
   return (

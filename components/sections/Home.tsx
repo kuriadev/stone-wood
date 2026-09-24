@@ -7,6 +7,7 @@ import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { PACKAGES, HERO_BG } from "@/lib/constants";
+import { CardGridSkeleton } from "@/components/common/Skeleton";
 import { SLOTS, QUIET_HOURS_POLICY } from "@/lib/resort";
 import { SHARED_PER_HEAD_RATE, EXCLUSIVE_FLAT_RATE, EXCLUSIVE_DISCOUNT_PCT } from "@/lib/validators";
 import { fmt } from "@/lib/utils";
@@ -22,6 +23,11 @@ interface HomeProps {
   onBookWithDate: (d: string) => void;
   bookings: Booking[];
   closedDates: string[];
+  /** True while that package list is still on its first fetch and nothing
+   *  real has arrived yet. The grid shows placeholders instead of the
+   *  hardcoded seed packages: a price on screen has to be one the admin
+   *  actually set, not a constant that happens to ship in the bundle. */
+  packagesLoading?: boolean;
   /** Admin-editable package list (see the admin Packages tab) — the single
    *  source of truth for what's shown here and what a "BOOK PACKAGE" click
    *  carries into Book Now. Only `active` packages are rendered. */
@@ -126,7 +132,7 @@ const MARQUEE_REVIEWS = [
   { name: "Carlo Tan", rating: 5, message: "Great value for the whole group. The videoke setup made the night so much fun." },
 ];
 
-export function Home({ setPage, onBookWithDate, bookings, closedDates, packages, onBookPackage }: HomeProps) {
+export function Home({ setPage, onBookWithDate, bookings, closedDates, packages, packagesLoading = false, onBookPackage }: HomeProps) {
   // Scroll reveals. Called here, not in the layout: the effect must run
   // after THIS page has hydrated or it mutates un-hydrated DOM.
   useScrollReveal();
@@ -450,7 +456,9 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           </div>
 
           {/* Package cards — split into shared and exclusive groups */}
-          {packageGroups.map((group, gi) => (
+          {packagesLoading ? (
+            <CardGridSkeleton count={6} label="Loading packages" />
+          ) : packageGroups.map((group, gi) => (
           <div key={group.label} style={{ marginTop: gi === 0 ? 0 : (mob ? 30 : 40) }}>
 
             {/* Group divider — same treatment as AVAILABLE ADD-ONS below */}

@@ -1,6 +1,8 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind was removed: the app never used a single utility class, and with
+   v4 the legacy @tailwind directives emitted utilities and @property rules
+   but no preflight — verified by grepping the built CSS for preflight
+   signatures (0 hits). Every reset this design relies on is written below
+   and in the component styles. */
 
 /* ── KEYFRAMES ── */
 @keyframes swIn {
@@ -223,12 +225,23 @@
 *, *::before, *::after { box-sizing: border-box; }
 html { font-size: 17px; }
 body {
-  background: #0b0a07; /* dark luxury bg */
+  /* Dark is the default so the server-rendered HTML matches the app's
+     default theme, and there is no flash before ThemeContext puts
+     sw-dark/sw-light on <html>. */
+  background: #0b0a07;
   font-family: 'Jost', system-ui, sans-serif;
   margin: 0;
   padding: 0;
   transition: background 0.2s ease;
 }
+
+/* This used to be the hardcoded value above and nothing ever changed it, so
+   the `transition` was dead and the page stayed dark under a light theme.
+   It was mostly hidden because each page paints its own wrapper over the
+   body — but not behind the Navbar, which is transparent at the top of the
+   Home page, so light mode showed a black band across the header. Also
+   visible on overscroll bounce. */
+:root.sw-light body { background: #faf7f2; }
 /* display:block is the important half here, not max-width.
    An <img> is display:inline by default, so it sits on the TEXT BASELINE and
    the line box reserves room underneath it for descenders (the tail of a "y").
@@ -243,39 +256,78 @@ img {
   max-width: 100%;
 }
 
-/* ── CARD HOVER EFFECTS ── */
-.sw-card { transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s ease; }
-.sw-dark  .sw-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(201,168,76,0.12); }
-.sw-light .sw-card:hover { transform: translateY(-4px); box-shadow: 0 16px 48px rgba(140,100,30,0.13), 0 2px 8px rgba(0,0,0,0.06); }
+/* ── SURFACE HOVER ─────────────────────────────────────────────────
+   One motion language for every raised surface, now that .sw-dark /
+   .sw-light are actually applied to <html> (see contexts/ThemeContext).
 
-/* ── BUTTON HOVER EFFECTS ── */
-.sw-btn { transition: transform .15s cubic-bezier(.22,1,.36,1), box-shadow .15s ease; }
-.sw-dark  .sw-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(201,168,76,0.4); }
-.sw-light .sw-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(160,118,30,0.35); }
-.sw-btn:active { transform: translateY(0) scale(0.98); }
+   Deliberate choices:
+     • ONE lift distance for cards (4px) and one for buttons (2px). The
+       old values were scattered — 3px, 4px, 5px, 6px — which reads as
+       accidental rather than considered when two of them sit side by side.
+     • Shadows use a negative spread, so the blur spreads beneath the card
+       instead of haloing around it. A tight, deep shadow reads as weight;
+       a wide faint one reads as glow.
+     • The gold hairline on dark is the only colour in the shadow stack.
+   ------------------------------------------------------------------ */
+
+.sw-card,
+.sw-room-card,
+.sw-amenity,
+.sw-review-card {
+  transition: transform .3s cubic-bezier(.22,1,.36,1),
+              box-shadow .3s cubic-bezier(.22,1,.36,1),
+              border-color .3s ease;
+}
+
+.sw-dark .sw-card:hover,
+.sw-dark .sw-room-card:hover,
+.sw-dark .sw-amenity:hover,
+.sw-dark .sw-review-card:hover {
+  transform: translateY(-4px);
+  /* !important because the resting shadow is an inline style on every card;
+     without it the stylesheet loses the cascade and nothing happens. */
+  box-shadow: 0 18px 44px -12px rgba(0,0,0,0.70),
+              0 0 0 1px rgba(201,168,76,0.16) !important;
+}
+
+.sw-light .sw-card:hover,
+.sw-light .sw-room-card:hover,
+.sw-light .sw-amenity:hover,
+.sw-light .sw-review-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 44px -14px rgba(90,64,20,0.30),
+              0 1px 3px rgba(0,0,0,0.04) !important;
+}
+
+/* ── BUTTON HOVER ── */
+.sw-btn {
+  transition: transform .2s cubic-bezier(.22,1,.36,1),
+              box-shadow .2s cubic-bezier(.22,1,.36,1);
+}
+.sw-dark  .sw-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 26px -8px rgba(201,168,76,0.55) !important; }
+.sw-light .sw-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 22px -8px rgba(160,118,30,0.50) !important; }
+.sw-btn:active { transform: translateY(0) scale(0.985); }
 
 /* ── NAV / LINK TRANSITIONS ── */
 .sw-link     { transition: color .15s ease; }
 .sw-nav-link { transition: color .2s ease, border-color .2s ease; }
 
 /* ── IMAGE ZOOM ── */
-.sw-img { transition: transform .4s cubic-bezier(.22,1,.36,1), opacity .2s ease; }
-.sw-img:hover { transform: scale(1.05); }
-
-/* ── AMENITY CARD HOVER ── */
-.sw-amenity { transition: transform .25s cubic-bezier(.22,1,.36,1), background .2s ease, border-color .2s ease, box-shadow .25s ease; }
-.sw-dark  .sw-amenity:hover { transform: translateY(-5px); box-shadow: 0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.15); }
-.sw-light .sw-amenity:hover { transform: translateY(-5px); box-shadow: 0 12px 36px rgba(140,100,30,0.14); }
-
-/* ── ROOM CARD HOVER ── */
-.sw-room-card { transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s ease; }
-.sw-dark  .sw-room-card:hover { transform: translateY(-6px); box-shadow: 0 20px 56px rgba(0,0,0,0.6), 0 0 0 1px rgba(201,168,76,0.12); }
-.sw-light .sw-room-card:hover { transform: translateY(-6px); box-shadow: 0 20px 56px rgba(100,70,10,0.15), 0 2px 8px rgba(0,0,0,0.05); }
+.sw-img { transition: transform .5s cubic-bezier(.22,1,.36,1), opacity .2s ease; }
+.sw-img:hover { transform: scale(1.04); }
 
 /* ── ADMIN SIDEBAR HOVER ── */
-.sw-sidebar-item { transition: background .15s, color .15s, border-color .15s, padding-left .15s; }
+.sw-sidebar-item { transition: background .18s ease, color .18s ease, border-color .18s ease, padding-left .18s cubic-bezier(.22,1,.36,1); }
 .sw-dark  .sw-sidebar-item:hover { background: rgba(201,168,76,0.06) !important; padding-left: 22px !important; }
 .sw-light .sw-sidebar-item:hover { background: rgba(201,168,76,0.08) !important; padding-left: 22px !important; }
+
+/* Note on reduced motion: these hover lifts are deliberately NOT disabled
+   for it. The preference targets large, looping or self-starting motion —
+   the marquee, the floating hero card. A 4px shift that the visitor causes
+   themselves, once, on the element under their own cursor is the feedback
+   that tells them a surface is interactive. Removing it takes away the
+   affordance and gives nothing back. The image zoom is left alone for the
+   same reason. */
 
 /* ── INPUT FOCUS ── */
 .sw-input:focus {
@@ -289,13 +341,13 @@ img {
 .sw-dark  .sw-review-card:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(0,0,0,0.4); }
 .sw-light .sw-review-card:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(100,70,10,0.1); }
 
-/* ── THEME BACKGROUND PATTERNS ── */
-.sw-light {
-  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9a84c' fill-opacity='0.022'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-}
-.sw-dark {
-  background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9a84c' fill-opacity='0.018'%3E%3Cpath d='M50 50c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10c0 5.523-4.477 10-10 10s-10-4.477-10-10 4.477-10 10-10zM10 10c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10c0 5.523-4.477 10-10 10S0 25.523 0 20s4.477-10 10-10z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-}
+/* The tiled SVG background patterns that used to live here were removed
+   with this change. They were never visible (nothing applied .sw-dark /
+   .sw-light), and switching them on now would have put a repeating dot
+   texture behind full-bleed resort photography — a dated effect that
+   fights the images rather than supporting them. The hover work above is
+   the part that was actually worth connecting. */
+
 
 
 /* ── TESTIMONIAL MARQUEE ── */
@@ -646,7 +698,6 @@ img {
   .sw-hero-cta-glow,        /* pulsing button glow */
   .sw-hero-gold-text,       /* looping gold sweep */
   .gold-text,
-  .lux-btn::before,         /* shimmer sweep across buttons */
   .hero-parallax,
   .sw-page {                /* per-route fade-in */
     animation: none !important;
@@ -656,9 +707,18 @@ img {
   /* The IntersectionObserver sets data-sw-in to fade these in.
      Nothing above suppresses that transition, but pin them visible
      anyway so a missed observer can never leave content invisible. */
-  .sw-reveal {
+  /* :not(:hover) matters. This rule exists to pin revealed content visible
+     instead of animating it in, but `transform: none !important` also beat
+     the hover lift on every card that is a reveal target — so a card would
+     change shadow on hover and refuse to move, while a plain button next to
+     it moved fine. Excluding the hovered element keeps the intent (no
+     entrance animation) without disabling the hover affordance. */
+  .sw-reveal:not(:hover) {
     opacity: 1 !important;
     transform: none !important;
+  }
+  .sw-reveal:hover {
+    opacity: 1 !important;
   }
 
   /* Anchor jumps land instantly instead of gliding. */
@@ -790,4 +850,27 @@ html {
   .sw-hero-photo {
     background-image: var(--hero-sm);
   }
+}
+
+
+/* Skeleton placeholders under reduced motion.
+   The shimmer is a gradient sweeping horizontally across each shape. Only
+   `.lux-btn::before` used to be suppressed, so a skeleton came out half
+   still and half sweeping — the button froze while the lines and images
+   kept moving. Suppress the sweep on all four and substitute a slow opacity
+   breath: no translation, but the placeholder still reads as "working" and
+   not as a page that has failed to paint. */
+@media (prefers-reduced-motion: reduce) {
+  .lux-skeleton::before,
+  .lux-line::before,
+  .lux-img::before,
+  .lux-btn::before {
+    background: rgba(255, 215, 120, 0.12);
+    animation: skeletonBreathe 2.4s ease-in-out infinite !important;
+  }
+}
+
+@keyframes skeletonBreathe {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
 }

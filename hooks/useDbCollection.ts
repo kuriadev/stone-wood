@@ -47,6 +47,20 @@ export function useDbCollection<T>(
   /** True once the server's version has been applied at least once. Until
    *  then this hook will not write anything back. */
   const liveRef = useRef(false);
+
+  /**
+   * Whether the first fetch for this collection is still in flight.
+   *
+   * Exposed so a skeleton can mean something. Before this, every page
+   * rendered the hardcoded INIT_* constants the instant it mounted and
+   * swapped them for real rows a moment later — a visitor was shown invented
+   * data presented as fact, and the route-level skeletons only ever covered
+   * the navigation, which for these client pages is near zero.
+   *
+   * Goes false when the request SETTLES, success or failure. A collection
+   * that cannot reach the API falls back to its cache and stops loading,
+   * rather than showing a skeleton for ever.
+   */
   /** The array the server currently believes in, used as the diff base. */
   const baseRef = useRef<T[]>(state);
   /** Set while applying a server response so the sync effect skips that pass. */
@@ -55,6 +69,19 @@ export function useDbCollection<T>(
   const queueRef = useRef<Promise<unknown>>(Promise.resolve());
 
   const active = enabled && (!adminOnly || enabled);
+  const [loading, setLoading] = useState(active);
+
+  /**
+   * True once `state` holds something real — the localStorage cache or the
+   * server's rows — rather than the hardcoded `initial` seed.
+   *
+   * A skeleton keyed on `loading` alone would show on every single visit,
+   * including the common one where the cache is warm and the page can paint
+   * real content immediately. Keyed on `loading && !hydrated` it appears
+   * only when there is genuinely nothing honest to show yet — one frame with
+   * a warm cache, the full fetch when there is none.
+   */
+  const [hydrated, setHydrated] = useState(false);
 
   /** False until the localStorage cache has been read. Until then the
    *  mirror effect below must not write, or its very first pass would
@@ -73,6 +100,7 @@ export function useDbCollection<T>(
         applyingRef.current = true;
         baseRef.current = parsed;
         setState(parsed);
+        setHydrated(true);
       }
     } catch {
       // Unreadable cache: keep `initial`.
@@ -85,13 +113,22 @@ export function useDbCollection<T>(
     if (!active) return;
     let cancelled = false;
 
+    setLoading(true);
     (async () => {
       const rows = await load();
-      if (cancelled || rows === null) return; // null = could not load; keep cache, stay read-only
+      if (cancelled) return;
+      if (rows === null) {
+        // Could not load: keep the cache and stay read-only, but stop
+        // claiming to be loading or the skeleton would never clear.
+        setLoading(false);
+        return;
+      }
       applyingRef.current = true;
       baseRef.current = rows;
       liveRef.current = true;
       setState(rows);
+      setHydrated(true);
+      setLoading(false);
     })();
 
     return () => { cancelled = true; };
@@ -153,5 +190,7 @@ export function useDbCollection<T>(
 
   const setter = useCallback<React.Dispatch<React.SetStateAction<T[]>>>((v) => setState(v), []);
 
-  return [state, setter] as const;
+  // A third element rather than a new shape, so every existing
+  // `const [x, setX] = useDbCollection(...)` call site keeps working.
+  return [state, setter, { loading: active ? loading : false, hydrated }] as const;
 }

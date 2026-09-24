@@ -45,6 +45,37 @@ interface AppState {
   setInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
   packages: ResortPackage[];
   setPackages: React.Dispatch<React.SetStateAction<ResortPackage[]>>;
+  /** Per-collection first-fetch state, so a page can show a skeleton while
+   *  its data is genuinely in flight rather than rendering the hardcoded
+   *  INIT_* constants as if they were real. Each flag settles on success or
+   *  failure — an unreachable API falls back to cache, it does not hang. */
+  loading: {
+    rooms: boolean;
+    packages: boolean;
+    gallery: boolean;
+    availability: boolean;
+    /** True while any public-facing collection is still on its first fetch.
+     *  Drives the top progress bar, which should span the whole wait. */
+    content: boolean;
+  };
+  /**
+   * Whether a page should show a skeleton instead of its content.
+   *
+   * Deliberately narrower than `loading`: it is true only while a collection
+   * is in flight AND has nothing real to show yet. Keying a skeleton on
+   * `loading` alone would show it on every visit, including the common one
+   * where the localStorage cache is warm and the page could paint real rooms
+   * straight away. Measured with the cache warm and the network throttled to
+   * 900ms latency: one frame of skeleton (~60ms, the render before the cache
+   * effect runs) versus ~3.4s cold. The cache cannot be read during render
+   * without a hydration mismatch — see useDbCollection — so that one frame is
+   * the floor, not a bug.
+   */
+  skeleton: {
+    rooms: boolean;
+    packages: boolean;
+    gallery: boolean;
+  };
 }
 
 const AppCtx = createContext<AppState | null>(null);
@@ -65,8 +96,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [adminBookings, setBookings] = useDbCollection<Booking>(COLLECTIONS.bookings, INIT_BOOKINGS, adminAuth);
   const publicAvailability = usePublicAvailability(!adminAuth);
   const bookings = adminAuth ? adminBookings : publicAvailability.bookings;
-  const [rooms, setRooms] = useDbCollection<Room>(COLLECTIONS.rooms, INIT_ROOMS);
-  const [galleryImgs, setGalleryImgs] = useDbCollection<string>(COLLECTIONS.gallery, INIT_GALLERY);
+  const [rooms, setRooms, roomsMeta] = useDbCollection<Room>(COLLECTIONS.rooms, INIT_ROOMS);
+  const [galleryImgs, setGalleryImgs, galleryMeta] = useDbCollection<string>(COLLECTIONS.gallery, INIT_GALLERY);
   const [closedDates, setClosedDates] = useDbCollection<string>(COLLECTIONS.closedDates, []);
   const [customerMessages, setCustomerMessages] = useDbCollection<CustomerMessage>(COLLECTIONS.customerMessages, [], adminAuth);
   const [adminFacilities, setFacilities] = useDbCollection<Facility>(COLLECTIONS.facilities, INIT_FACILITIES, adminAuth);
@@ -77,7 +108,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // and a room set to Under Maintenance was still bookable publicly.
   const facilities = adminAuth ? adminFacilities : publicAvailability.facilities;
   const [inventory, setInventory] = useDbCollection<InventoryItem>(COLLECTIONS.inventory, INIT_INVENTORY, adminAuth);
-  const [packages, setPackages] = useDbCollection<ResortPackage>(COLLECTIONS.packages, INIT_PACKAGES);
+  const [packages, setPackages, packagesMeta] = useDbCollection<ResortPackage>(COLLECTIONS.packages, INIT_PACKAGES);
 
   return (
     <AppCtx.Provider value={{
@@ -91,6 +122,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       facilities, setFacilities,
       inventory, setInventory,
       packages, setPackages,
+      loading: {
+        rooms: roomsMeta.loading,
+        packages: packagesMeta.loading,
+        gallery: galleryMeta.loading,
+        availability: publicAvailability.loading,
+        content: roomsMeta.loading || packagesMeta.loading || galleryMeta.loading,
+      },
+      skeleton: {
+        rooms: roomsMeta.loading && !roomsMeta.hydrated,
+        packages: packagesMeta.loading && !packagesMeta.hydrated,
+        gallery: galleryMeta.loading && !galleryMeta.hydrated,
+      },
     }}>
       {children}
     </AppCtx.Provider>

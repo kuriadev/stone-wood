@@ -92,14 +92,6 @@ export function bookingHeldSlots(b: Booking): Array<"Day" | "Night"> {
   return occupiedSlots(getBookingSlot(b), b.overtime ?? 0);
 }
 
-/** Does this booking hold `slot` on its own — no one else in that area?
- *  True for an Exclusive booking, and for a Day group running overtime into
- *  the evening (they have the place until they leave). */
-function holdsAlone(b: Booking, slot: "Day" | "Night"): boolean {
-  if (getBookingTier(b) === "Exclusive") return true;
-  return slot === "Night" && getBookingSlot(b) === "Day" && (b.overtime ?? 0) > 0;
-}
-
 const liveOn = (date: string, bookings: Booking[]) =>
   bookings.filter((b) => b.date === date && b.status !== "Cancelled");
 
@@ -118,11 +110,19 @@ export function getSharedPoolUsage(
 
 const SLOT_WORD: Record<"Day" | "Night", string> = { Day: "Day Tour", Night: "Night Tour" };
 
-/** Whether the pool has room for a new booking. Checked per slot: the Day
- *  and Night slots are independent, so a Day group never blocks a Night
- *  group. Within a slot, an Exclusive booking has the pool to itself, and
- *  Shared bookings stack up to RESORT_SHARED_CAPACITY guests. A request
- *  with overtime also needs the Night slot completely free. */
+/** Whether the pool has room for a new booking.
+ *
+ *  Shared bookings are checked per slot: the Day and Night are independent,
+ *  so a Shared Day group never blocks a Night group, and Shared groups stack
+ *  within a slot up to RESORT_SHARED_CAPACITY guests. A request with
+ *  overtime also needs the Night slot completely free.
+ *
+ *  Exclusive is the exception, and it is deliberately NOT per slot: it is a
+ *  whole-resort buyout of the DATE, as types/booking.ts has always defined
+ *  it. This used to be enforced per slot, so an Exclusive Day buyout left
+ *  the Night open — the calendar showed such a date as plainly available
+ *  and a second group could book over a buyout. Confirmed as the intended
+ *  rule by the owner on 2026-09-25. */
 export function checkPoolCapacity(
   date: string,
   slot: BookingSlot,
@@ -132,22 +132,57 @@ export function checkPoolCapacity(
   overtime = 0
 ): { ok: boolean; reason?: string } {
   const live = liveOn(date, bookings).filter(usesPool);
+
+  // ── Whole-date rules, before any per-slot arithmetic ────────────────
+  // An Exclusive booking anywhere on this date closes the date outright,
+  // and a new Exclusive request needs the date completely clear.
+  const heldExclusive = live.find((b) => getBookingTier(b) === "Exclusive");
+  if (heldExclusive) {
+    return {
+      ok: false,
+      reason: `The resort is booked Exclusive that date (${SLOT_WORD[occupiedSlots(getBookingSlot(heldExclusive), heldExclusive.overtime ?? 0)[0]]}) — an Exclusive booking takes the whole day.`,
+    };
+  }
+  if (tier === "Exclusive" && live.length > 0) {
+    return {
+      ok: false,
+      reason: "An Exclusive booking takes the whole date, and that date already has bookings.",
+    };
+  }
+
+  // Past this point every booking involved is Shared, in both directions:
+  // an Exclusive booking already ON the date, and an Exclusive booking being
+  // REQUESTED, have both returned above. That leaves overtime as the only
+  // thing that can still block a slot — it is what makes a Shared group
+  // occupy a slot it did not book.
   for (const s of occupiedSlots(slot, overtime)) {
     const inSlot = live.filter((b) => bookingHeldSlots(b).includes(s));
-    const needsAlone = tier === "Exclusive" || (s === "Night" && slot === "Day" && overtime > 0);
     if (inSlot.length === 0) continue;
 
-    if (inSlot.some((b) => holdsAlone(b, s))) {
-      return { ok: false, reason: `The pool is already booked Exclusive for the ${SLOT_WORD[s]} that date.` };
-    }
-    if (needsAlone) {
+    // Someone else's Day group stays past 5 PM, so the Night is not free.
+    // This used to report "the pool is already booked Exclusive for the
+    // Night Tour", which named the wrong cause: there is no Exclusive
+    // booking here, and staff reading it would go looking for one.
+    const runsLate = inSlot.find(
+      (b) => s === "Night" && getBookingSlot(b) === "Day" && (b.overtime ?? 0) > 0
+    );
+    if (runsLate) {
+      const hrs = runsLate.overtime ?? 0;
       return {
         ok: false,
-        reason: s === "Night" && slot === "Day"
-          ? "The Night Tour is booked that date — overtime isn't possible (5–7 PM is cleaning time)."
-          : `The ${SLOT_WORD[s]} already has Shared bookings that date — an Exclusive booking needs a slot with none.`,
+        reason: `The Day Tour that date runs ${hrs} ${hrs === 1 ? "hour" : "hours"} of overtime into the evening, so the Night Tour isn't free.`,
       };
     }
+
+    // The mirror case: THIS request is a Day with overtime and so needs the
+    // Night, but a Night group already has it.
+    if (s === "Night" && slot === "Day" && overtime > 0) {
+      return {
+        ok: false,
+        reason: "The Night Tour is booked that date — overtime isn't possible (5–7 PM is cleaning time).",
+      };
+    }
+
     const { used, max } = getSharedPoolUsage(date, bookings, s);
     if (used + guests > max) {
       return { ok: false, reason: `The ${SLOT_WORD[s]}'s Shared capacity is full that date (${used}/${max}).` };

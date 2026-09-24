@@ -15,7 +15,7 @@ export default function HomePage() {
   const router = useRouter();
   const { isDark } = useTheme();
   const C = T(isDark);
-  const { bookings, closedDates, packages } = useApp();
+  const { bookings, closedDates, packages, skeleton } = useApp();
   const [selectedDate, setSelectedDate] = useState("");
   const [page, setPage] = useState("Home");
   
@@ -42,24 +42,29 @@ const nav = (p: string) => {
     }
 
 
-    loader.start();
-
-
-    let progress = 20;
-    const interval = setInterval(() => {
-      progress += Math.random() * 20;
-      if (progress >= 90) clearInterval(interval);
-    }, 120);
-
-
-    setTimeout(() => {
-      loader.finish();
+      // Start the bar and navigate immediately. This used to tick a
+      // `progress` variable nothing ever read, then wait a fixed 500ms
+      // before pushing — half a second of dead time on every internal
+      // link — and it called finish() *before* navigating, so the bar
+      // completed while the next page had not begun. ClientShell now
+      // finishes it when the new route has actually rendered.
+      loader.start();
       router.push(target);
-    }, 500); 
   };
 
+  // The gold wash behind the whole home page. Its second colour stop was
+  // hardcoded to #0b0a07, so it stayed dark under a light theme — and
+  // because it spans the full page height and sits under the transparent
+  // Navbar, light mode showed a black band across the header. About.tsx
+  // already does this effect per theme; this now matches it.
   return (
-    <div style={{ background: "radial-gradient(circle at center, rgba(201,168,76,0.15), #0b0a07)" }}>
+    <div
+      style={{
+        background: isDark
+          ? `radial-gradient(circle at center, rgba(201,168,76,0.15), ${C.bg})`
+          : `radial-gradient(circle at center, rgba(201,168,76,0.18), ${C.bg})`,
+      }}
+    >
       <Navbar page="Home" setPage={nav} />
       <Home
         setPage={nav}
@@ -68,6 +73,7 @@ const nav = (p: string) => {
         bookings={bookings}
         closedDates={closedDates}
         packages={packages}
+        packagesLoading={skeleton.packages}
       />
       <Footer setPage={nav} />
       <ThemeToggle />

@@ -274,14 +274,6 @@
     const handleName = (v: string) => setF("name", sanitizeName(v));
     const handleNotes = (v: string) => setF("notes", sanitizeNotes(v));
 
-    // Auto-redirect to home after online booking is confirmed (step 7)
-    useEffect(() => {
-      if (step === 7) {
-        const t = setTimeout(() => { onGoHome?.(); }, 18000);
-        return () => clearTimeout(t);
-      }
-    }, [step, onGoHome]);
-
     // ── 1. Mint a real QR when the guest reaches step 6 ───────────────────
     // Each visit creates its own PayMongo payment intent, so every booking
     // (and every retry) gets a genuinely unique QR rather than a shared image.
@@ -1257,7 +1249,13 @@
               </div>
             )}
 
-            {/* STEP 7 – Online Done (auto-redirect, shown briefly) */}
+            {/* STEP 7 – Online Done.
+                This page stays put. It used to bounce the guest to the home
+                page on an 18s timer, which took the reference ID off screen
+                while they were still photographing it — and on a phone,
+                opening the camera backgrounds the tab, so the timer could
+                fire before they ever got the shot. They leave when they are
+                ready, via the button below or the nav. */}
             {step === 7 && (
               <div style={{ padding: "8px 0", textAlign: "center" }}>
                 <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(0,169,82,0.1)", border: "1px solid rgba(0,169,82,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, margin: "0 auto 20px" }}>✓</div>
@@ -1268,7 +1266,7 @@
                 <div style={{ background: isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.06)", border: `1px solid ${gold}55`, borderRadius: 12, padding: "20px 24px", marginBottom: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                   <p style={{ color: C.textS, fontSize: 11.5, letterSpacing: 3, margin: 0 }}>YOUR REFERENCE ID</p>
                   <p style={{ color: gold, fontFamily: "monospace", fontSize: 28, fontWeight: 700, letterSpacing: 3, margin: 0 }}>{bookingId}</p>
-                  <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>Save this — you'll need it for follow-ups.</p>
+                  <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>Screenshot this — you&apos;ll need it for follow-ups and to cancel.</p>
                 </div>
 
                 <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 20, textAlign: "left" }}>
@@ -1283,7 +1281,12 @@
                   </div>
                 </div>
                 <p style={{ color: C.textS, fontSize: 13.5, marginBottom: 20 }}>⚠ No refunds. The remaining balance of {fmt((serverQuote?.total ?? total) - (serverQuote?.down ?? down))} is paid at the resort.</p>
-                <p style={{ color: C.textS, fontSize: 13.5 }}>Redirecting you to the home page…</p>
+                <button
+                  onClick={() => onGoHome?.()}
+                  style={{ ...goldBtn, padding: "13px 32px", letterSpacing: 2, borderRadius: 6 }}
+                >
+                  BACK TO HOME
+                </button>
               </div>
             )}
 
