@@ -5,13 +5,14 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
+import { SLOTS } from "@/lib/resort";
 
 interface NavbarProps {
   page: string;
   setPage: (p: string) => void;
 }
 
-const LINKS = ["Home", "Rooms", "Packages", "Menu", "Gallery", "About Us"];
+const LINKS = ["Home", "Rooms", "Packages", "Gallery", "About Us"];
 
 export function Navbar({ page, setPage }: NavbarProps) {
   const { isDark } = useTheme();
@@ -323,7 +324,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
                 Manage a reservation
               </button>
               <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 10, lineHeight: 1.7 }}>
-                Angono, Rizal · 7:00 AM – 5:00 PM
+                Angono, Rizal · Day {SLOTS.Day.hours} · Night {SLOTS.Night.hours}
               </p>
             </div>
           </div>

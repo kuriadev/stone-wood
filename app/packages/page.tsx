@@ -21,7 +21,6 @@ export default function PackagesRoute() {
       Home: "/",
       Rooms: "/rooms",
       Packages: "/packages",
-      Menu: "/menu",
       Gallery: "/gallery",
       "About Us": "/about",
       "Book Now": "/book",
@@ -68,7 +67,7 @@ export default function PackagesRoute() {
                 listPrice: pkg.listPrice,
                 capacity: pkg.capacity,
                 requiresRoom: pkg.requiresRoom,
-                foodDiscountPct: pkg.foodDiscountPct,
+                slotMode: pkg.slotMode,
               },
               resource,
               tier

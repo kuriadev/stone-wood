@@ -15,7 +15,7 @@ export default function HomePage() {
   const router = useRouter();
   const { isDark } = useTheme();
   const C = T(isDark);
-  const { bookings, closedDates, packages, menuItems } = useApp();
+  const { bookings, closedDates, packages } = useApp();
   const [selectedDate, setSelectedDate] = useState("");
   const [page, setPage] = useState("Home");
   
@@ -24,7 +24,6 @@ const nav = (p: string) => {
     Home: "/",
     Rooms: "/rooms",
     Packages: "/packages",
-    Menu: "/menu",
     Gallery: "/gallery",
     "About Us": "/about",
     "Book Now": "/book",
@@ -69,7 +68,6 @@ const nav = (p: string) => {
         bookings={bookings}
         closedDates={closedDates}
         packages={packages}
-        menuItems={menuItems}
       />
       <Footer setPage={nav} />
       <ThemeToggle />

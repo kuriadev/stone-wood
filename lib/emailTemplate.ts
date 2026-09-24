@@ -1,5 +1,8 @@
 import { randomInt } from "crypto";
 import { escapeHtml, sanitizeHeaderValue } from "@/lib/escapeHtml";
+import { SLOTS, QUIET_HOURS_POLICY } from "@/lib/resort";
+import { getBookingSlot } from "@/lib/utils";
+import { OVERTIME_RATE } from "@/lib/validators";
 
 import type { Booking } from "@/types/booking";
 
@@ -276,9 +279,11 @@ export function buildRejectionEmail(booking: Booking, reason: string): { subject
 export function buildReceiptEmail(booking: Booking, otp: string): { subject: string; html: string } {
   const subject = `✅ Booking Confirmed – ${sanitizeHeaderValue(booking.id, 40)} | StoneWood Resort`;
 
-  const extraGuests = booking.guests > 30 ? (booking.guests - 30) * 100 : 0;
-  const overtimeFee = (booking.overtime || 0) * 500;
-  const baseFee = 6000;
+  // The booking's own stored total is the source of truth. The receipt
+  // used to print a hardcoded ₱6,000 "base rate" whatever was booked.
+  const slotInfo = SLOTS[getBookingSlot(booking)];
+  const overtimeFee = slotInfo.id === "Day" ? (booking.overtime || 0) * OVERTIME_RATE : 0;
+  const baseFee = Math.max(0, booking.total - overtimeFee);
 
   const html = `
 <!DOCTYPE html>
@@ -362,17 +367,12 @@ export function buildReceiptEmail(booking: Booking, otp: string): { subject: str
               <p style="margin:0 0 12px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;border-bottom:1px solid #e8e0cc;padding-bottom:8px;">Payment Summary</p>
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
                 <tr>
-                  <td style="padding:9px 0;color:#5a4a35;font-size:13px;">☀️ Day Tour (Base Rate)</td>
+                  <td style="padding:9px 0;color:#5a4a35;font-size:13px;">${slotInfo.id === "Night" ? "🌙" : "☀️"} ${escapeHtml(booking.package)}${(booking.rooms?.length ?? 0) > 0 ? " (rooms included)" : ""}</td>
                   <td style="padding:9px 0;color:#2a1f0e;font-size:13px;text-align:right;font-weight:600;">${fmt(baseFee)}</td>
                 </tr>
-                ${extraGuests > 0 ? `
-                <tr>
-                  <td style="padding:9px 0;color:#5a4a35;font-size:13px;border-top:1px solid #f0e8d8;">👥 Extra Guests (${booking.guests - 30} × ₱100)</td>
-                  <td style="padding:9px 0;color:#b8860b;font-size:13px;text-align:right;border-top:1px solid #f0e8d8;">${fmt(extraGuests)}</td>
-                </tr>` : ""}
                 ${overtimeFee > 0 ? `
                 <tr>
-                  <td style="padding:9px 0;color:#5a4a35;font-size:13px;border-top:1px solid #f0e8d8;">🕐 Overtime (${booking.overtime}hr × ₱500)</td>
+                  <td style="padding:9px 0;color:#5a4a35;font-size:13px;border-top:1px solid #f0e8d8;">🕐 Overtime (${booking.overtime}hr × ${fmt(OVERTIME_RATE)})</td>
                   <td style="padding:9px 0;color:#e67e22;font-size:13px;text-align:right;border-top:1px solid #f0e8d8;">${fmt(overtimeFee)}</td>
                 </tr>` : ""}
                 <tr>
@@ -408,7 +408,8 @@ export function buildReceiptEmail(booking: Booking, otp: string): { subject: str
                   <td style="background:#faf5e8;border:1px solid #e2d5b0;border-radius:8px;padding:20px;">
                     <p style="margin:0 0 12px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;">Reminders</p>
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">🪪 Bring a valid ID upon check-in.</p>
-                    <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">⏰ Check-in starts at <strong>8:00 AM</strong>. Resort closes at <strong>5:00 PM</strong>.</p>
+                    <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">⏰ Your ${slotInfo.label}: <strong>${slotInfo.start}</strong> to <strong>${slotInfo.end}</strong>.</p>
+                    <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">🔇 ${QUIET_HOURS_POLICY}</p>
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">💳 ${booking.package === "On-Site Reservation" ? "Pay the full balance on arrival." : "Please ensure your downpayment has been sent via GCash."}</p>
                     <p style="margin:0;color:#4a3a28;font-size:13px;line-height:1.7;">📞 For questions, contact us at our resort hotline.</p>
                   </td>

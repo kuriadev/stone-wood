@@ -15,7 +15,7 @@ export default function BookPage() {
   const params = useSearchParams();
   const { isDark } = useTheme();
   const C = T(isDark);
-  const { bookings, setBookings, rooms, closedDates, menuItems, inventory, setInventory, facilities } = useApp();
+  const { bookings, refreshAvailability, rooms, closedDates, facilities } = useApp();
 
   // Support ?room=1 and ?date=2026-05-10 from Rooms page / Home calendar
   const preselectedRoom = params.get("room")
@@ -36,7 +36,7 @@ export default function BookPage() {
   // Support the fuller ?pkgCode=...&pkgTitle=...&pkgPrice=...&pkgCapacity=...
   // (&pkgListPrice=... optional) set when a Home page package card is
   // clicked. A package is a fixed, one-time purchase — its presence here is
-  // what switches Book Now into "date + food only" mode (see BookNow.tsx's
+  // what switches Book Now into "date only" mode (see BookNow.tsx's
   // isPackage flag).
   const pkgCode = params.get("pkgCode");
   const pkgTitle = params.get("pkgTitle");
@@ -44,7 +44,7 @@ export default function BookPage() {
   const pkgCapacity = params.get("pkgCapacity");
   const pkgListPrice = params.get("pkgListPrice");
   const pkgRequiresRoom = params.get("pkgRequiresRoom") === "1";
-  const pkgFoodDiscountPct = params.get("pkgFoodDiscountPct");
+  const pkgSlotMode = params.get("pkgSlotMode") === "WholeDay" ? "WholeDay" : "Single";
   const initialPackage: PackageDeepLink | undefined =
     pkgCode && pkgTitle && pkgPrice && pkgCapacity
       ? {
@@ -54,7 +54,7 @@ export default function BookPage() {
           capacity: Number(pkgCapacity),
           listPrice: pkgListPrice ? Number(pkgListPrice) : undefined,
           requiresRoom: pkgRequiresRoom || undefined,
-          foodDiscountPct: pkgFoodDiscountPct ? Number(pkgFoodDiscountPct) : undefined,
+          slotMode: pkgSlotMode,
         }
       : undefined;
 
@@ -63,7 +63,6 @@ export default function BookPage() {
       Home: "/",
       Rooms: "/rooms",
       Packages: "/packages",
-      Menu: "/menu",
       Gallery: "/gallery",
       "About Us": "/about",
       "Book Now": "/book",
@@ -101,11 +100,8 @@ export default function BookPage() {
       <Navbar page="Book Now" setPage={nav} />
       <BookNow
         bookings={bookings}
-        setBookings={setBookings}
+        onBooked={() => void refreshAvailability()}
         rooms={rooms}
-        menuItems={menuItems}
-        inventory={inventory}
-        setInventory={setInventory}
         closedDates={closedDates}
         facilities={facilities}
         preselectedRoom={preselectedRoom}

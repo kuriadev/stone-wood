@@ -1,8 +1,13 @@
-// ── POST /api/payment      → create a QRPh payment, return its unique QR
+// ── POST /api/payment      → price the booking, then mint its unique QR
 // ── GET  /api/payment?id=  → poll that payment's status
 //
 // The secret key stays on this side of the wire. The browser only ever sees
 // the QR image, the expiry, and a status string.
+//
+// The browser no longer says how much to charge. It sends the booking it
+// wants (a draft), and the amount on the QR is the 50% down payment worked
+// out here from the database — so editing the total in DevTools can't buy
+// a booking for less.
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -12,12 +17,8 @@ import {
   MIN_AMOUNT_CENTAVOS,
 } from "@/lib/paymongo";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
-
-/** Upper bound on a single payment. The amount arrives from the browser, so
- *  without a ceiling a caller could mint a QR for any figure they liked
- *  against the live PayMongo account. ₱500,000 is far above any real booking
- *  here and still low enough to make abuse obvious. */
-const MAX_AMOUNT_CENTAVOS = 500_000_00;
+import { quoteBooking } from "@/lib/bookingQuote";
+import { randomBytes } from "crypto";
 
 // Talks to a third party and must never be prerendered or cached.
 export const dynamic = "force-dynamic";
@@ -30,49 +31,45 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { amount, referenceId, description } = body as {
-      amount?: number;
-      referenceId?: string;
-      description?: string;
-    };
+    const result = await quoteBooking((body as { draft?: unknown })?.draft);
+    if (!result.ok) {
+      return NextResponse.json({ success: false, error: result.error }, { status: result.status });
+    }
+    const { quote } = result;
 
-    // The amount is recomputed from the booking on the client, but it still
-    // arrives over the wire, so it gets validated here rather than trusted.
-    if (typeof amount !== "number" || !Number.isFinite(amount)) {
+    // Checked BEFORE any money moves. /api/bookings checks again after
+    // payment, since someone else could take the date in between.
+    if (!quote.available) {
       return NextResponse.json(
-        { success: false, error: "A numeric amount (in centavos) is required." },
-        { status: 400 }
+        { success: false, error: quote.unavailableReason ?? "That date is no longer available." },
+        { status: 409 }
       );
     }
-    if (amount > MAX_AMOUNT_CENTAVOS) {
-      return NextResponse.json(
-        { success: false, error: "That amount is too large to process online." },
-        { status: 400 }
-      );
-    }
+
+    const amount = quote.price.down * 100; // pesos → centavos
     if (amount < MIN_AMOUNT_CENTAVOS) {
       return NextResponse.json(
-        {
-          success: false,
-          error: `Minimum payment is ₱${MIN_AMOUNT_CENTAVOS / 100}.`,
-        },
-        { status: 400 }
-      );
-    }
-    if (!referenceId || typeof referenceId !== "string") {
-      return NextResponse.json(
-        { success: false, error: "A booking referenceId is required." },
+        { success: false, error: `Minimum payment is ₱${MIN_AMOUNT_CENTAVOS / 100}.` },
         { status: 400 }
       );
     }
 
+    // The booking reference doesn't exist yet — the database assigns it
+    // once payment lands — so the intent carries a one-off tag instead.
+    const tag = `WEB-${randomBytes(4).toString("hex").toUpperCase()}`;
     const payment = await createQrPayment({
-      amountCentavos: Math.round(amount),
-      referenceId: referenceId.slice(0, 64),
-      description: (description ?? `StoneWood booking ${referenceId}`).slice(0, 255),
+      amountCentavos: amount,
+      referenceId: tag,
+      description: `StoneWood ${quote.packageLabel} — ${quote.draft.date}`.slice(0, 255),
     });
 
-    return NextResponse.json({ success: true, payment });
+    return NextResponse.json({
+      success: true,
+      payment,
+      // What the server will hold the guest to. The page shows these, so the
+      // amount on screen is always the amount on the QR.
+      quote: { total: quote.price.total, down: quote.price.down, packageLabel: quote.packageLabel },
+    });
   } catch (err) {
     // Logged in full; returned generically. The upstream message can quote
     // PayMongo's response, which names the merchant account and the state of

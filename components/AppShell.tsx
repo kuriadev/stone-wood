@@ -3,12 +3,11 @@
 import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { T } from "@/lib/theme";
-import { INIT_BOOKINGS, INIT_ROOMS, INIT_GALLERY, INIT_MENU, INIT_FACILITIES, INIT_INVENTORY, INIT_PACKAGES} from "@/lib/constants";
+import { INIT_BOOKINGS, INIT_ROOMS, INIT_GALLERY, INIT_FACILITIES, INIT_INVENTORY, INIT_PACKAGES} from "@/lib/constants";
 import type { ResortPackage } from "@/types/package";
 import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
 import type { CustomerMessage } from "@/types/admin";
-import type { MenuItem } from "@/types/menu";
 import type { Facility } from "@/types/facility";
 import type { InventoryItem } from "@/types/inventory";
 
@@ -39,7 +38,6 @@ export function AppShell() {
   const [preselectedRoom, setPreselectedRoom] = useState<number | null>(null);
   const [preselectedDate, setPreselectedDate] = useState("");
   const [customerMessages, setCustomerMessages] = useState<CustomerMessage[]>([]);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(INIT_MENU);
   const [facilities, setFacilities] = useState<Facility[]>(INIT_FACILITIES);
   const [inventory, setInventory] = useState<InventoryItem[]>(INIT_INVENTORY);
   const [packages, setPackages] = useState<ResortPackage[]>(INIT_PACKAGES);
@@ -110,11 +108,7 @@ export function AppShell() {
       {page === "Book Now" && (
         <BookNow
           bookings={bookings}
-          setBookings={setBookings}
           rooms={rooms}
-          menuItems={menuItems}
-          inventory={inventory}
-          setInventory={setInventory}
           closedDates={closedDates}
           preselectedRoom={preselectedRoom}
           clearPreselected={() => setPreselectedRoom(null)}
@@ -127,7 +121,7 @@ export function AppShell() {
         <CustomerService onSubmitMessage={handleNewMessage} />
       )}
       {(page === "Manage Booking" || page === "Cancel Booking") && (
-        <ManageBooking bookings={bookings} setBookings={setBookings} />
+        <ManageBooking />
       )}
       {page === "AdminLogin" && (
         <AdminLogin onLogin={handleLogin} onGoHome={() => goPage("Home")} />
@@ -145,8 +139,6 @@ export function AppShell() {
           onLogout={handleLogout}
           customerMessages={customerMessages}
           setCustomerMessages={setCustomerMessages}
-          menuItems={menuItems}
-          setMenuItems={setMenuItems}
           facilities={facilities}
           setFacilities={setFacilities}
           inventory={inventory}

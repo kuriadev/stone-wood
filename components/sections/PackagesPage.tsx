@@ -100,10 +100,9 @@ export function PackagesPage({ packages, onBookPackage }: PackagesPageProps) {
                 <h3 style={{ color: C.textH, fontSize: 18 }}>{p.title}</h3>
                 <p style={{ color: gold, fontSize: 12.5, marginBottom: 6 }}>{p.status.toUpperCase()} · {p.resource}</p>
                 <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 16 }}>{p.blurb}</p>
-                {(p.requiresRoom || p.foodDiscountPct) && (
+                {p.requiresRoom && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
                     {p.requiresRoom && <span style={{ fontSize: 10.5, letterSpacing: 1, color: gold, border: `1px solid ${gold}55`, borderRadius: 20, padding: "3px 8px" }}>ROOM DISCOUNTED</span>}
-                    {p.foodDiscountPct && <span style={{ fontSize: 10.5, letterSpacing: 1, color: gold, border: `1px solid ${gold}55`, borderRadius: 20, padding: "3px 8px" }}>{Math.round(p.foodDiscountPct * 100)}% OFF FOOD</span>}
                   </div>
                 )}
                 <button
@@ -143,7 +142,6 @@ export function PackagesPage({ packages, onBookPackage }: PackagesPageProps) {
                   {activePkg.includes.map((inc, i) => <li key={i}>{inc}</li>)}
                 </ul>
               )}
-              {activePkg.foodNote && <p style={{ color: gold, fontSize: 13.5, marginBottom: 10 }}>{activePkg.foodNote}</p>}
               {activePkg.note && <p style={{ color: C.textS, fontSize: 13.5, marginBottom: 10 }}>{activePkg.note}</p>}
               <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 16 }}>
                 {activePkg.listPrice && <span style={{ textDecoration: "line-through", color: "#999", fontSize: 15 }}>{fmt(activePkg.listPrice)}</span>}

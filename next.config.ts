@@ -60,6 +60,12 @@ const nextConfig: NextConfig = {
   // known-vulnerable Next.js releases.
   poweredByHeader: false,
 
+  // The food menu was removed. Anyone with an old /menu link or bookmark
+  // lands on Packages instead of a 404.
+  async redirects() {
+    return [{ source: "/menu", destination: "/packages", permanent: false }];
+  },
+
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

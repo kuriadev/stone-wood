@@ -9,9 +9,8 @@
 //   *_at / *_qty       ←→  camelCase        (Postgres convention)
 // lib/supabase.ts exports mappers that translate both directions.
 
-import type { BookingStatus, BookingResource, BookingTier } from "./booking";
+import type { BookingStatus, BookingResource, BookingTier, BookingSource, BookingSlot, PackageSlotMode } from "./booking";
 import type { InventoryCategory } from "./inventory";
-import type { MenuCategory, MenuRecipeLine } from "./menu";
 import type { FacilityCategory, FacilityStatus } from "./facility";
 
 export interface RoomRow {
@@ -42,6 +41,19 @@ export interface BookingRow {
   notes: string;
   cancel_reason: string | null;
   created_at: string;
+  // ── Added by 20260923140000_booking_integrity.sql ──
+  source: BookingSource;
+  /** NULL on rows written before the column existed ⇒ treated as "Pool". */
+  resource: BookingResource | null;
+  /** NULL on older rows ⇒ derived from the guest count. */
+  tier: BookingTier | null;
+  archived: boolean;
+  archived_at: string | null;
+  /** The PayMongo payment intent that paid for an online booking. */
+  payment_intent_id: string | null;
+  /** Added by 20260924090000_slots_and_packages.sql. NULL on rows that
+   *  predate it; the app reads those from the package label. */
+  slot: BookingSlot | null;
 }
 
 export interface InventoryRow {
@@ -80,19 +92,8 @@ export interface GalleryRow {
 }
 
 // ── Added by 20260923090000_menu_facilities_packages.sql ────────────
-
-export interface MenuItemRow {
-  id: number;
-  category: MenuCategory;
-  name: string;
-  description: string;
-  price: number;
-  img: string;
-  available: boolean;
-  /** MenuRecipeLine[] stored as JSONB; null when the item has no recipe. */
-  recipe: MenuRecipeLine[] | null;
-  created_at: string;
-}
+// (menu_items and the food columns were dropped again by
+// 20260923130000_remove_food.sql)
 
 export interface FacilityRow {
   id: number;
@@ -120,12 +121,12 @@ export interface PackageRow {
   list_price: number | null;
   capacity: number;
   requires_room: boolean;
-  food_discount_pct: number | null;
+  /** Added by 20260924090000_slots_and_packages.sql. */
+  slot_mode: PackageSlotMode;
   cover: string;
   gallery: { label: string; src: string; kind: string }[];
   blurb: string;
   includes: string[];
-  food_note: string;
   note: string | null;
   active: boolean;
   created_at: string;

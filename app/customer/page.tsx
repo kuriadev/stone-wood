@@ -21,7 +21,7 @@ export default function CustomerPage() {
       "Home": "/",
       "Rooms": "/rooms",
       "Packages": "/packages",
-      "Menu": "/menu",
+
       "Gallery": "/gallery",
       "About Us": "/about",
       "Book Now": "/book",

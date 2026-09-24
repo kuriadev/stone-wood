@@ -10,7 +10,6 @@ export type AdminTab =
   | "Occupancy"
   | "Rooms"
   | "Packages"
-  | "Menu"
   | "Facilities"
   | "Gallery"
   | "Inventory"

@@ -13,14 +13,14 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { BookingsTab } from "@/components/admin/BookingsTab";
 import { InventoryTab } from "@/components/admin/InventoryTab";
 import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
-import { MenuTab } from "@/components/admin/MenuTab";
 import { FacilitiesTab } from "@/components/admin/FacilitiesTab";
 import { PackagesTab } from "@/components/admin/PackagesTab";
-import { calcTourBase, calcExclusiveDiscount, calcComboDiscount, calcFoodTotal, genBookingId, getPackageTier, checkBookingAvailability, isMenuItemSellable, deductRecipeStock, isRoomOpen, calcPackageFoodDiscount } from "@/lib/utils";
-import { sanitizeName, sanitizeContact, isValidName, isValidPHNumber, RESORT_MAX_CAPACITY, COMBO_DISCOUNT_PCT, ROOM_BUNDLE_DISCOUNT_PCT } from "@/lib/validators";
+import { getPackageTier, checkBookingAvailability, isRoomOpen, roomsTakenOn } from "@/lib/utils";
+import { priceBooking, bookingLabel } from "@/lib/pricing";
+import { SLOTS } from "@/lib/resort";
+import { sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail, RESORT_MAX_CAPACITY, ROOM_BUNDLE_DISCOUNT_PCT, OVERTIME_MAX, OVERTIME_RATE } from "@/lib/validators";
 import { getCurrentOccupancy } from "@/lib/occupancy";
-import type { Booking, BookingFoodItem, BookingResource, BookingTier } from "@/types/booking";
-import type { MenuItem } from "@/types/menu";
+import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 import type { Room } from "@/types/room";
 import type { AdminTab, CustomerMessage } from "@/types/admin";
 import type { Facility } from "@/types/facility";
@@ -40,8 +40,6 @@ interface AdminProps {
   onLogout: () => void;
   customerMessages: CustomerMessage[];
   setCustomerMessages: React.Dispatch<React.SetStateAction<CustomerMessage[]>>;
-  menuItems: MenuItem[];
-  setMenuItems: React.Dispatch<React.SetStateAction<MenuItem[]>>;
   facilities: Facility[];
   setFacilities: React.Dispatch<React.SetStateAction<Facility[]>>;
   inventory: InventoryItem[];
@@ -67,10 +65,6 @@ interface WalkInTabProps {
   bookings: Booking[];
   setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
   rooms: Room[];
-  menuItems: MenuItem[];
-  setMenuItems: React.Dispatch<React.SetStateAction<MenuItem[]>>;
-  inventory: InventoryItem[];
-  setInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
   packages: ResortPackage[];
   facilities: Facility[];
 }
@@ -83,7 +77,7 @@ const todayStr = () => {
 function WalkInTab({
   walkInBookings, wiPending, wiConfirmed, wiCompleted,
   updateStatus, isDark, C, cBg, cBr, mob, toast, gold,
-  bookings, setBookings, rooms, menuItems, setMenuItems, inventory, setInventory,
+  bookings, setBookings, rooms,
   packages, facilities,
 }: WalkInTabProps) {
   const [wiSearch, setWiSearch] = useState("");
@@ -109,20 +103,10 @@ function WalkInTab({
   const [showNewWalkIn, setShowNewWalkIn] = useState(false);
   const [wf, setWf] = useState({
     name: "", contact: "", email: "", guests: "10", overtime: "0",
-    tourType: "Day Tour" as "Day Tour" | "Night Tour",
+    slot: "Day" as BookingSlot,
     rooms: [] as number[], date: todayStr(), time: "", notes: "", paymentCollected: true,
   });
-  const [wfFoodQty, setWfFoodQty] = useState<Record<number, number>>({});
   const setWfField = (k: string, v: unknown) => setWf((f) => ({ ...f, [k]: v }));
-  const setWfFoodItemQty = (id: number, qty: number) => setWfFoodQty((f) => ({ ...f, [id]: Math.max(0, qty) }));
-  const wfFoodOrder: BookingFoodItem[] = Object.entries(wfFoodQty)
-    .filter(([, qty]) => qty > 0)
-    .map(([itemId, qty]) => {
-      const item = menuItems.find((m) => m.id === Number(itemId));
-      return { itemId: Number(itemId), name: item?.name ?? "Item", price: item?.price ?? 0, qty };
-    });
-  const wfFoodTotal = calcFoodTotal(wfFoodOrder);
-
   // ── Package mode — the walk-in side is still the same booking flow, just
   // encoded by staff instead of the guest. Picking a package here fixes its
   // price/capacity/tier exactly like a Home page package deep-link does in
@@ -133,6 +117,15 @@ function WalkInTab({
   const isWfPackage = !!wfSelectedPackage;
   const wfRequiresRoom = !!wfSelectedPackage?.requiresRoom;
   const wfBookableRooms = rooms.filter((r) => isRoomOpen(r.id, facilities));
+  // A room already rented to someone else that date can't be picked again.
+  // Whole Day packages fix the slot; everything else uses the one picked.
+  const wfSlot: BookingSlot = wfSelectedPackage?.slotMode === "WholeDay"
+    ? "WholeDay"
+    : isWfPackage && wf.slot === "WholeDay" ? "Day" : wf.slot;
+  // Day overtime only: max OVERTIME_MAX hrs, and only while the Night slot
+  // is free — checkBookingAvailability below treats it as holding the Night.
+  const wfOvertime = wfSlot === "Day" ? Math.min(OVERTIME_MAX, Math.max(0, Number(wf.overtime) || 0)) : 0;
+  const wfTakenRooms = roomsTakenOn(wf.date, wfSlot, bookings, wfOvertime);
   const wfShowRoomPicker = (!isWfPackage) || (isWfPackage && wfRequiresRoom);
   const toggleWfRoom = (id: number) => {
     if (isWfPackage && wfRequiresRoom) {
@@ -142,15 +135,20 @@ function WalkInTab({
     }
   };
 
-  const wfPackageLabel = isWfPackage
-    ? wfSelectedPackage!.title
-    : `${wf.tourType}${wf.rooms.length > 0 ? " + Room" : ""}`;
+  const wfPackageLabel = bookingLabel({
+    packageTitle: wfSelectedPackage?.title,
+    resource: isWfPackage ? wfSelectedPackage!.resource : "Pool",
+    slot: wfSlot,
+    hasRoom: wf.rooms.length > 0,
+  });
   const wfGuests = isWfPackage ? wfSelectedPackage!.capacity : Number(wf.guests) || 0;
   // Same Shared-vs-Exclusive choice as the customer-facing Book Now flow:
   // staff can override the guest-count-derived default explicitly. A package
   // fixes its own tier — no override needed.
   const [wfTierChoice, setWfTierChoice] = useState<BookingTier | null>(null);
-  const wfTier: BookingTier = isWfPackage ? wfSelectedPackage!.status : (wfTierChoice ?? getPackageTier(wfGuests));
+  const wfTier: BookingTier = isWfPackage
+    ? wfSelectedPackage!.status
+    : wfSlot === "WholeDay" ? "Exclusive" : (wfTierChoice ?? getPackageTier(wfGuests));
   const wfResource: BookingResource = isWfPackage ? wfSelectedPackage!.resource : "Pool";
   // An Exclusive walk-in buyout is fixed to the resort's full capacity, same
   // as online — the guest count field locks to it instead of staying editable.
@@ -160,40 +158,57 @@ function WalkInTab({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wfTier, isWfPackage]);
-  const wfDateCapacity = wf.date ? checkBookingAvailability(wf.date, wfGuests, wfTier, wfResource, bookings, facilities) : { ok: true as const };
-  const wfTourBase = isWfPackage ? wfSelectedPackage!.price : calcTourBase(wfGuests, wfTier);
-  const wfExclusiveDiscount = isWfPackage ? 0 : calcExclusiveDiscount(wfTier, wfGuests);
-  const wfOvertimeFee = isWfPackage ? 0 : (Number(wf.overtime) || 0) * 500;
+  const wfDateCapacity = wf.date
+    ? checkBookingAvailability(wf.date, wfSlot, wfGuests, wfTier, wfResource, bookings, facilities, wfOvertime)
+    : { ok: true as const };
   const wfSelectedRoomDetails = wf.rooms.map((rid) => rooms.find((r) => r.id === rid)).filter((r): r is Room => !!r);
-  const wfRoomsFeeRaw = wfSelectedRoomDetails.reduce((sum, r) => sum + r.price, 0);
-  const wfRoomBundleDiscount = isWfPackage && wfRequiresRoom ? Math.round(wfRoomsFeeRaw * ROOM_BUNDLE_DISCOUNT_PCT) : 0;
-  const wfRoomsFee = wfRoomsFeeRaw - wfRoomBundleDiscount;
-  const wfComboDiscount = calcComboDiscount(wfFoodOrder, menuItems);
-  const wfPackageFoodDiscount = isWfPackage ? calcPackageFoodDiscount(wfFoodOrder, wfSelectedPackage?.foodDiscountPct) : 0;
-  const wfTotal = wfTourBase - wfExclusiveDiscount + wfOvertimeFee + wfRoomsFee + wfFoodTotal - wfComboDiscount - wfPackageFoodDiscount;
+  // Same pricing code as Book Now and the server (lib/pricing.ts).
+  const wfPrice = priceBooking({
+    pkg: isWfPackage ? { price: wfSelectedPackage!.price, requiresRoom: wfRequiresRoom } : null,
+    resource: wfResource,
+    tier: wfTier,
+    slot: wfSlot,
+    guests: wfGuests,
+    overtime: wfOvertime,
+    roomPrices: wfSelectedRoomDetails.map((r) => r.price),
+  });
+  const wfTourBase = wfPrice.tourBase + wfPrice.exclusiveDiscount + wfPrice.bundleDiscount;
+  const wfExclusiveDiscount = wfPrice.exclusiveDiscount + wfPrice.bundleDiscount;
+  const wfOvertimeFee = wfPrice.overtimeFee;
+  const wfRoomsFee = wfPrice.roomsFeeRaw;
+  const wfRoomBundleDiscount = wfPrice.roomBundleDiscount;
+  const wfTotal = wfPrice.total;
   const wfDown = wf.paymentCollected ? wfTotal : Math.ceil(wfTotal / 2);
   const wfRoomRequirementMet = !wfRequiresRoom || wf.rooms.length > 0;
-  const wfValid = isValidName(wf.name) && isValidPHNumber(wf.contact) && wfGuests > 0 && wfDateCapacity.ok && (!isWfPackage || (!!wfSelectedPackage && wfRoomRequirementMet));
+  const wfRoomsFree = wf.rooms.every((r) => !wfTakenRooms.has(r));
+  // Email is optional for a walk-in, but one that's typed must be real —
+  // the server refuses a bad one, and the save would fail silently.
+  const wfEmailOk = !wf.email.trim() || isValidEmail(wf.email);
+  const wfValid = isValidName(wf.name) && isValidPHNumber(wf.contact) && wfEmailOk && wfGuests > 0 && wfDateCapacity.ok && wfRoomsFree && (!isWfPackage || (!!wfSelectedPackage && wfRoomRequirementMet));
   const openNewWalkIn = () => {
-    setWf({ name: "", contact: "", email: "", guests: "10", overtime: "0", tourType: "Day Tour", rooms: [], date: todayStr(), time: "", notes: "", paymentCollected: true });
-    setWfFoodQty({});
+    setWf({ name: "", contact: "", email: "", guests: "10", overtime: "0", slot: "Day", rooms: [], date: todayStr(), time: "", notes: "", paymentCollected: true });
     setWfTierChoice(null);
     setWfMode("Custom");
     setWfPkgId(null);
     setShowNewWalkIn(true);
   };
   const saveWalkIn = () => {
-    const id = genBookingId(bookings.length);
+    // Temporary until the server answers: the database assigns the real
+    // SW- reference, and the bookings sync swaps it in.
+    const id = `TMP-${Date.now()}`;
     setBookings((b) => [...b, {
       id,
       name: sanitizeName(wf.name),
       contact: sanitizeContact(wf.contact),
-      email: wf.email || "—",
+      // Blank, not "—": the server rejects a fake address, and a walk-in
+      // without email is normal.
+      email: wf.email.trim(),
       date: wf.date || todayStr(),
       guests: wfGuests || 1,
       package: wfPackageLabel,
       rooms: wf.rooms,
-      overtime: Number(wf.overtime) || 0,
+      overtime: wfOvertime,
+      slot: wfSlot,
       total: wfTotal,
       downpayment: wfDown,
       status: wf.paymentCollected ? "Confirmed" : "Paid",
@@ -201,15 +216,10 @@ function WalkInTab({
       notes: wf.time ? `Arrival: ${wf.time}${wf.notes ? " — " + wf.notes : ""}` : wf.notes,
       source: "Walk-In",
       createdAt: Date.now(),
-      foodOrder: wfFoodOrder.length ? wfFoodOrder : undefined,
-      foodTotal: wfFoodTotal || undefined,
       resource: wfResource,
       tier: wfTier,
     }]);
-    if (wfFoodOrder.length) {
-      setInventory((inv) => deductRecipeStock(wfFoodOrder, menuItems, inv));
-    }
-    toast(`Walk-in reservation ${id} encoded for ${wf.name}.`, "success");
+    toast(`Walk-in reservation encoded for ${wf.name}.`, "success");
     setShowNewWalkIn(false);
   };
 
@@ -516,17 +526,44 @@ function WalkInTab({
                   ))}
                 </div>
               </div>
-              <div style={{ gridColumn: "1/-1" }}>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>TOUR TYPE</label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {(["Day Tour", "Night Tour"] as const).map((t) => (
-                    <button key={t} onClick={() => setWfField("tourType", t)} style={{ flex: 1, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", letterSpacing: 1, background: wf.tourType === t ? `${gold}18` : "transparent", color: wf.tourType === t ? gold : C.textS, border: `1px solid ${wf.tourType === t ? gold + "55" : cBr}` }}>
-                      <><Icon name={t === "Day Tour" ? "sun" : "moon"} size={13} style={{ marginRight: 6 }} />{t}</>
-                    </button>
-                  ))}
-                </div>
-              </div>
               </>
+              )}
+
+              {/* WHEN — Day, Night or Whole Day. A Whole Day package fixes it;
+                  a single-slot package still needs Day or Night. */}
+              <div style={{ gridColumn: "1/-1" }}>
+                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>WHEN</label>
+                {wfSelectedPackage?.slotMode === "WholeDay" ? (
+                  <p style={{ color: C.textH, fontSize: 13.5, margin: 0 }}><Icon name="clock" size={13} style={{ marginRight: 6 }} />Whole Day · {SLOTS.WholeDay.hours}</p>
+                ) : (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {((isWfPackage ? ["Day", "Night"] : ["Day", "Night", "WholeDay"]) as BookingSlot[]).map((t) => (
+                      <button key={t} onClick={() => { setWfField("slot", t); if (t !== "Day") setWfField("overtime", "0"); }} style={{ flex: 1, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", letterSpacing: 1, background: wfSlot === t ? `${gold}18` : "transparent", color: wfSlot === t ? gold : C.textS, border: `1px solid ${wfSlot === t ? gold + "55" : cBr}` }}>
+                        <><Icon name={t === "Day" ? "sun" : t === "Night" ? "moon" : "clock"} size={13} style={{ marginRight: 6 }} />{SLOTS[t].label}</>
+                        <div style={{ fontSize: 10.5, fontWeight: 400, opacity: 0.75, marginTop: 2 }}>{SLOTS[t].hours}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* OVERTIME — Day only, up to OVERTIME_MAX hrs after 5 PM, and
+                  only while the Night slot is free (5–7 PM is otherwise the
+                  cleaning window). The availability check below enforces it. */}
+              {wfSlot === "Day" && (
+                <div style={{ gridColumn: "1/-1" }}>
+                  <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>OVERTIME (DAY ONLY)</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {Array.from({ length: OVERTIME_MAX + 1 }, (_, h) => h).map((h) => (
+                      <button key={h} onClick={() => setWfField("overtime", String(h))} style={{ flex: 1, padding: "8px 10px", fontSize: 12.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", background: wfOvertime === h ? `${gold}18` : "transparent", color: wfOvertime === h ? gold : C.textS, border: `1px solid ${wfOvertime === h ? gold + "55" : cBr}` }}>
+                        {h === 0 ? "None" : `+${h} hr${h > 1 ? "s" : ""} (until ${5 + h}:00 PM)`}
+                      </button>
+                    ))}
+                  </div>
+                  <p style={{ color: C.textS, fontSize: 11.5, marginTop: 6 }}>
+                    {fmt(OVERTIME_RATE)}/hr. Only possible when no Night group is booked — adding it closes the Night slot for this date.
+                  </p>
+                </div>
               )}
 
               {wfShowRoomPicker && (
@@ -543,9 +580,10 @@ function WalkInTab({
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {wfBookableRooms.map((r) => {
                     const sel = wf.rooms.includes(r.id);
+                    const taken = wfTakenRooms.has(r.id) && !sel;
                     return (
-                      <button key={r.id} onClick={() => toggleWfRoom(r.id)} style={{ padding: "7px 12px", fontSize: 12.5, borderRadius: 6, cursor: "pointer", background: sel ? `${gold}18` : "transparent", color: sel ? gold : C.textS, border: `1px solid ${sel ? gold + "55" : cBr}` }}>
-                        {sel ? <Icon name="check" size={12} style={{ marginRight: 5 }} /> : null}{r.name}
+                      <button key={r.id} disabled={taken} title={taken ? "Already booked on this date" : undefined} onClick={() => toggleWfRoom(r.id)} style={{ padding: "7px 12px", fontSize: 12.5, borderRadius: 6, cursor: taken ? "not-allowed" : "pointer", opacity: taken ? 0.4 : 1, background: sel ? `${gold}18` : "transparent", color: sel ? gold : C.textS, border: `1px solid ${sel ? gold + "55" : cBr}` }}>
+                        {sel ? <Icon name="check" size={12} style={{ marginRight: 5 }} /> : null}{r.name}{taken ? " · booked" : ""}
                       </button>
                     );
                   })}
@@ -568,25 +606,25 @@ function WalkInTab({
               <div style={{ gridColumn: "1/-1", background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${cBr}`, borderRadius: 8, padding: "10px 14px", display: "flex", flexDirection: "column", gap: 5 }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ color: C.textS, fontSize: 12.5 }}>
-                    {isWfPackage ? `${wfPackageLabel} (package)` : wfTier === "Exclusive" ? "Exclusive buyout (flat rate)" : `Shared tour (${wfGuests} × ₱200)`}
+                    {isWfPackage ? `${wfPackageLabel} (package)` : wfTier === "Exclusive" ? `Exclusive pool${wfPrice.slots === 2 ? " × 2 slots" : ""}` : `Shared pool (${wfGuests} × ₱200)`}
                   </span>
                   <span style={{ color: C.textB, fontSize: 12.5 }}>{fmt(wfTourBase)}</span>
                 </div>
                 {wfExclusiveDiscount > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>Exclusive discount</span>
+                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>{wfPrice.bundleDiscount > 0 ? "Bundle discount (-10%)" : "Exclusive discount (-5%)"}</span>
                     <span style={{ color: "#4caf50", fontSize: 12.5 }}>-{fmt(wfExclusiveDiscount)}</span>
                   </div>
                 )}
                 {wfOvertimeFee > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: C.textS, fontSize: 12.5 }}>Overtime</span>
+                    <span style={{ color: C.textS, fontSize: 12.5 }}>Overtime ({wfOvertime} hr × {fmt(OVERTIME_RATE)})</span>
                     <span style={{ color: C.textB, fontSize: 12.5 }}>{fmt(wfOvertimeFee)}</span>
                   </div>
                 )}
                 {wfRoomsFee > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: C.textS, fontSize: 12.5 }}>Room(s){isWfPackage ? " (bundled)" : ""}</span>
+                    <span style={{ color: C.textS, fontSize: 12.5 }}>Room(s){wfPrice.slots === 2 ? " × 2 slots" : ""}{isWfPackage ? " (bundled)" : ""}</span>
                     <span style={{ color: C.textB, fontSize: 12.5 }}>{fmt(wfRoomsFee)}</span>
                   </div>
                 )}
@@ -594,24 +632,6 @@ function WalkInTab({
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
                     <span style={{ color: "#4caf50", fontSize: 12.5 }}>Room bundle discount (-{Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}%)</span>
                     <span style={{ color: "#4caf50", fontSize: 12.5 }}>-{fmt(wfRoomBundleDiscount)}</span>
-                  </div>
-                )}
-                {wfFoodTotal > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: C.textS, fontSize: 12.5 }}>Food & Drinks</span>
-                    <span style={{ color: C.textB, fontSize: 12.5 }}>{fmt(wfFoodTotal)}</span>
-                  </div>
-                )}
-                {wfComboDiscount > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>Combo meal discount (-{Math.round(COMBO_DISCOUNT_PCT * 100)}%)</span>
-                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>-{fmt(wfComboDiscount)}</span>
-                  </div>
-                )}
-                {wfPackageFoodDiscount > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>Package food discount (-{Math.round((wfSelectedPackage?.foodDiscountPct ?? 0) * 100)}%)</span>
-                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>-{fmt(wfPackageFoodDiscount)}</span>
                   </div>
                 )}
                 <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 4, paddingTop: 6, display: "flex", justifyContent: "space-between" }}>
@@ -624,51 +644,6 @@ function WalkInTab({
                   <p style={{ color: "#e55", fontSize: 13.5, margin: 0 }}><Icon name="alert" size={13} style={{ marginRight: 5 }} />{wfDateCapacity.reason}</p>
                 </div>
               )}
-              <div style={{ gridColumn: "1/-1" }}>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>FOOD & DRINKS (OPTIONAL)</label>
-                {menuItems.length === 0 && (
-                  <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>No menu items yet — add some in the Menu tab.</p>
-                )}
-                {/* Every item shows here, not just sellable ones, so staff can spot and
-                    fix a stuck "sold out" item without leaving this form. */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, overflowY: "auto" }}>
-                  {menuItems.map((m) => {
-                    const qty = wfFoodQty[m.id] || 0;
-                    const sellable = isMenuItemSellable(m, inventory);
-                    const outOfStock = m.available && !sellable;
-                    return (
-                      <div key={m.id} style={{ opacity: sellable ? 1 : 0.55, background: qty > 0 ? `${gold}14` : "transparent", border: `1px solid ${qty > 0 ? gold + "55" : cBr}`, borderRadius: 6, padding: "8px 10px", display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600 }}>{m.name}</div>
-                          <div style={{ color: C.textS, fontSize: 11.5 }}>
-                            {fmt(m.price)} · <span style={{ opacity: 0.75 }}>{m.category}</span>
-                            {!m.available && <span style={{ color: "#e55", marginLeft: 6 }}>MARKED OUT</span>}
-                            {outOfStock && <span style={{ color: "#f5c518", marginLeft: 6 }}>NO STOCK</span>}
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                          <button
-                            onClick={() => setMenuItems((p) => p.map((x) => x.id === m.id ? { ...x, available: !x.available } : x))}
-                            title={m.available ? "Mark this item out" : "Mark this item available"}
-                            style={{ padding: "3px 8px", fontSize: 10.5, letterSpacing: 0.5, borderRadius: 6, cursor: "pointer", background: "transparent", border: `1px solid ${cBr}`, color: C.textS }}
-                          >
-                            {m.available ? "MARK OUT" : "MARK IN"}
-                          </button>
-                          <button onClick={() => setWfFoodItemQty(m.id, qty - 1)} disabled={qty <= 0} aria-label={`Fewer ${m.name}`} style={{ width: 24, height: 24, borderRadius: 6, background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", fontSize: 14.5 }}>−</button>
-                          <span style={{ color: C.textH, fontSize: 13.5, fontWeight: 700, minWidth: 16, textAlign: "center" }}>{qty}</span>
-                          <button onClick={() => setWfFoodItemQty(m.id, qty + 1)} disabled={!sellable} aria-label={`More ${m.name}`} style={{ width: 24, height: 24, borderRadius: 6, background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: sellable ? "pointer" : "not-allowed", fontSize: 14.5 }}>+</button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {wfFoodTotal > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, padding: "8px 10px", background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${cBr}`, borderRadius: 6 }}>
-                    <span style={{ color: C.textS, fontSize: 12.5 }}>Food & Drinks Subtotal</span>
-                    <span style={{ color: gold, fontWeight: 700, fontSize: 13.5 }}>{fmt(wfFoodTotal)}</span>
-                  </div>
-                )}
-              </div>
               <div style={{ gridColumn: "1/-1" }}>
                 <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>NOTES (OPTIONAL)</label>
                 <textarea value={wf.notes} onChange={(e) => setWfField("notes", e.target.value)} rows={2} placeholder="Special requests, etc." className="sw-input" style={{ ...C.inp, borderRadius: 6, resize: "none" }} />
@@ -689,7 +664,7 @@ function WalkInTab({
 
             <div style={{ background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${cBr}`, borderRadius: 8, padding: "10px 14px", marginBottom: 20 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: C.textS, fontSize: 13.5 }}>{wfPackageLabel} Total{wfFoodTotal > 0 ? " + Food" : ""}</span>
+                <span style={{ color: C.textS, fontSize: 13.5 }}>{wfPackageLabel} Total</span>
                 <span style={{ color: gold, fontWeight: 700, fontSize: 14.5 }}>{fmt(wfTotal)}</span>
               </div>
             </div>
@@ -823,7 +798,7 @@ function WalkInTab({
 const SIDEBAR_GROUPS = [
   { label: "OVERVIEW",     tabs: ["Dashboard"] },
   { label: "RESERVATIONS", tabs: ["Bookings", "Walk-In", "Occupancy"] },
-  { label: "MANAGEMENT",   tabs: ["Rooms", "Packages", "Menu", "Facilities", "Gallery", "Inventory"] },
+  { label: "MANAGEMENT",   tabs: ["Rooms", "Packages", "Facilities", "Gallery", "Inventory"] },
   { label: "INSIGHTS",     tabs: ["Analytics", "Reports"] },
   { label: "SUPPORT",      tabs: ["Customer Service"] },
 ];
@@ -833,7 +808,7 @@ export function Admin({
   bookings, setBookings, rooms, setRooms,
   galleryImgs, setGalleryImgs, closedDates, setClosedDates,
   onLogout, customerMessages, setCustomerMessages,
-  menuItems, setMenuItems, facilities, setFacilities,
+  facilities, setFacilities,
   inventory, setInventory, packages, setPackages,
 }: AdminProps) {
   const { isDark } = useTheme();
@@ -974,12 +949,12 @@ export function Admin({
     bookingId: string; action: "Confirmed" | "Cancelled"; guestName: string;
   } | null>(null);
 
-  const tabs: AdminTab[] = ["Dashboard", "Bookings", "Walk-In", "Occupancy", "Rooms", "Packages", "Menu", "Facilities", "Gallery", "Inventory", "Analytics", "Reports", "Customer Service"];
+  const tabs: AdminTab[] = ["Dashboard", "Bookings", "Walk-In", "Occupancy", "Rooms", "Packages", "Facilities", "Gallery", "Inventory", "Analytics", "Reports", "Customer Service"];
   // Icon per tab. Names resolve against the stroke set in ./Icon, so the
   // sidebar inherits the theme instead of rendering OS colour emoji.
   const tabIcons: Record<AdminTab, IconName> = {
     Dashboard: "grid", Bookings: "clipboard", "Walk-In": "home",
-    Occupancy: "calendar", Rooms: "bed", Packages: "gift", Menu: "utensils",
+    Occupancy: "calendar", Rooms: "bed", Packages: "gift",
     Facilities: "toolbox", Gallery: "image", Inventory: "package",
     Analytics: "trending-up", Reports: "bar-chart", "Customer Service": "message",
   };
@@ -1435,10 +1410,6 @@ export function Admin({
                 bookings={bookings}
                 setBookings={setBookings}
                 rooms={rooms}
-                menuItems={menuItems}
-                setMenuItems={setMenuItems}
-                inventory={inventory}
-                setInventory={setInventory}
                 packages={packages}
                 facilities={facilities}
               />
@@ -1520,7 +1491,7 @@ export function Admin({
                       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top,rgba(0,0,0,0.5),transparent 60%)" }} />
                       <div style={{ position: "absolute", bottom: 10, left: 12, right: 12, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
                         <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 12.5, background: "rgba(0,0,0,0.4)", borderRadius: 4, padding: "2px 8px" }}><Icon name="users" size={11} style={{ marginRight: 4 }} />Up to {r.capacity}</span>
-                        <span style={{ color: "#fff", fontSize: 16, fontWeight: 700 }}>{fmt(r.price)}<span style={{ fontSize: 10.5, opacity: 0.8 }}>/night</span></span>
+                        <span style={{ color: "#fff", fontSize: 16, fontWeight: 700 }}>{fmt(r.price)}<span style={{ fontSize: 10.5, opacity: 0.8 }}>/slot</span></span>
                       </div>
                     </div>
                     <div style={{ padding: "16px 18px" }}>
@@ -1562,9 +1533,6 @@ export function Admin({
 
           {/* PACKAGES */}
           {tab === "Packages" && <PackagesTab packages={packages} setPackages={setPackages} mob={mob} />}
-
-          {/* MENU */}
-          {tab === "Menu" && <MenuTab menuItems={menuItems} setMenuItems={setMenuItems} inventory={inventory} mob={mob} />}
 
           {/* FACILITIES */}
           {tab === "Facilities" && <FacilitiesTab facilities={facilities} setFacilities={setFacilities} bookings={bookings} mob={mob} />}
@@ -2389,7 +2357,7 @@ export function Admin({
               <input ref={fileRef} type="file" accept="image/*" onChange={handleImg} style={{ display: "none" }} />
               <button onClick={() => fileRef.current?.click()} style={{ ...outBtn, width: "100%", padding: 11, fontSize: 12.5, borderRadius: 6 }}><Icon name="folder" size={13} style={{ marginRight: 6 }} />CHOOSE IMAGE</button>
             </div>
-            {[["Room Name", "name", "text"], ["Bed Configuration", "beds", "text"], ["Max Capacity", "capacity", "number"], ["Price / Night (₱)", "price", "number"]].map(([l, k, t]) => (
+            {[["Room Name", "name", "text"], ["Bed Configuration", "beds", "text"], ["Max Capacity", "capacity", "number"], ["Price per Slot (₱)", "price", "number"]].map(([l, k, t]) => (
               <div key={k} style={{ marginBottom: 14 }}>
                 <label style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 6 }}>{(l as string).toUpperCase()}</label>
                 <input type={t as string} value={rf[k as keyof typeof rf]} onChange={(e) => setRf((f) => ({ ...f, [k]: e.target.value }))} className="sw-input" style={inpS} />

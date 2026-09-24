@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
@@ -9,8 +9,6 @@ import { fmtDate } from "@/lib/utils";
 import type { Booking } from "@/types/booking";
 
 interface ManageBookingProps {
-  bookings: Booking[];
-  setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
   onGoHome?: () => void;
 }
 
@@ -21,7 +19,7 @@ const CANCEL_REASONS = [
   { icon: "⊙", label: "Other" },
 ];
 
-export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
+export function ManageBooking(_props: ManageBookingProps) {
   const { isDark } = useTheme();
   const C = T(isDark);
   const w = useWidth();
@@ -36,20 +34,51 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [searched, setSearched] = useState(false);
 
-  const handleFind = () => {
+  // Why the last search or cancel failed, when it wasn't simply "not found"
+  // (rate limit, network), so the guest isn't told a real booking is missing.
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [looking, setLooking] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  // The "Manage booking" link in the confirmation email carries
+  // ?booking=…&email=… — fill both in so the guest only has to press Find.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const ref = q.get("booking");
+    const mail = q.get("email");
+    if (ref) setRefInput(ref.slice(0, 32));
+    if (mail) setEmailInput(mail.slice(0, 254));
+  }, []);
+
+  // Looks the booking up on the server. This used to search a list held in
+  // the browser, which for a guest never contained real bookings — so every
+  // search came back "not found".
+  const handleFind = async () => {
+    const ref = refInput.trim();
+    const mail = emailInput.trim().toLowerCase();
+    if (!ref || !mail || looking) return;
     setSearched(true);
     setCancelDone(false);
-    const match = bookings.find(
-      (b) =>
-        b.id.toLowerCase() === refInput.trim().toLowerCase() &&
-        b.email.toLowerCase() === emailInput.trim().toLowerCase()
-    );
-    if (match) {
-      setFound(match);
-      setNotFound(false);
-    } else {
+    setErrorMsg(null);
+    setLooking(true);
+    try {
+      const res = await fetch(`/api/bookings/${encodeURIComponent(ref)}?email=${encodeURIComponent(mail)}`, { cache: "no-store" });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.booking) {
+        setFound(json.booking as Booking);
+        setNotFound(false);
+      } else {
+        setFound(null);
+        setNotFound(true);
+        if (res.status !== 404) setErrorMsg(json?.error ?? "Something went wrong. Please try again.");
+      }
+    } catch {
       setFound(null);
       setNotFound(true);
+      setErrorMsg("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setLooking(false);
     }
   };
 
@@ -57,30 +86,28 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
     setShowCancelConfirm(true);
   };
 
-  const confirmCancel = () => {
-    if (!found) return;
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.id === found.id
-          ? {
-              ...b,
-              status: "Cancelled",
-              cancelReason,
-            }
-          : b
-      )
-    );
-    setFound((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: "Cancelled",
-              cancelReason,
-            }
-          : null
-      );
-    setCancelDone(true);
-    setShowCancelConfirm(false);
+  // Cancels on the server. Previously this only changed the browser's copy,
+  // so the admin never saw the cancellation and the date stayed blocked.
+  const confirmCancel = async () => {
+    if (!found || cancelling) return;
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      const res = await fetch(`/api/bookings/${encodeURIComponent(found.id)}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailInput.trim().toLowerCase(), reason: cancelReason ?? "" }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.booking) throw new Error(json?.error ?? "Could not cancel the booking.");
+      setFound(json.booking as Booking);
+      setCancelDone(true);
+      setShowCancelConfirm(false);
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : "Could not cancel the booking.");
+    } finally {
+      setCancelling(false);
+    }
   };
 
   const statusColor = (s: string) => {
@@ -155,7 +182,7 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
                   value={refInput}
                   onChange={(e) => setRefInput(e.target.value.trimStart().slice(0, 32))}
                   maxLength={32}
-                  onKeyDown={(e) => e.key === "Enter" && handleFind()}
+                  onKeyDown={(e) => e.key === "Enter" && void handleFind()}
                   className="sw-input"
                   style={{ ...inpStyle, paddingRight: 36 }}
                 />
@@ -174,7 +201,7 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
                   onChange={(e) => setEmailInput(e.target.value.trimStart().slice(0, 254))}
                   maxLength={254}
                   autoComplete="email"
-                  onKeyDown={(e) => e.key === "Enter" && handleFind()}
+                  onKeyDown={(e) => e.key === "Enter" && void handleFind()}
                   className="sw-input"
                   style={{ ...inpStyle, paddingRight: 36 }}
                 />
@@ -182,9 +209,11 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
               </div>
             </div>
             <button
-              onClick={handleFind}
+              onClick={() => void handleFind()}
+              disabled={looking}
               style={{
                 ...goldBtn,
+                opacity: looking ? 0.6 : 1,
                 padding: "12px 20px",
                 borderRadius: 6,
                 whiteSpace: "nowrap",
@@ -193,7 +222,7 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
                 width: mob ? "100%" : "auto",
               }}
             >
-              FIND BOOKING →
+              {looking ? "SEARCHING…" : "FIND BOOKING →"}
             </button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 14 }}>
@@ -217,10 +246,10 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
           >
             <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
             <h3 style={{ color: "#e55", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 8 }}>
-              Booking Not Found
+              {errorMsg ? "Something Went Wrong" : "Booking Not Found"}
             </h3>
             <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>
-              We couldn't find a booking matching those details. Please double-check your reference ID and email address.
+              {errorMsg ?? "We couldn't find a booking matching those details. Please double-check your reference ID and email address."}
             </p>
           </div>
         )}
@@ -489,6 +518,9 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
             <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7, marginBottom: 20 }}>
               Are you sure you want to cancel booking <strong style={{ color: gold }}>{found?.id}</strong>? This action cannot be undone.
             </p>
+            {cancelError && (
+              <p style={{ color: "#e55", fontSize: 13.5, lineHeight: 1.6, marginBottom: 14 }}>⚠ {cancelError}</p>
+            )}
             <div style={{ borderTop: `1px solid ${C.border}`, marginBottom: 18 }} />
             <div style={{ display: "flex", gap: 10 }}>
               <button
@@ -498,8 +530,10 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
                 GO BACK
               </button>
               <button
-                onClick={confirmCancel}
+                onClick={() => void confirmCancel()}
+                disabled={cancelling}
                 style={{
+                  opacity: cancelling ? 0.6 : 1,
                   flex: 2,
                   background: "rgba(229,85,85,0.12)",
                   color: "#e55",
@@ -512,7 +546,7 @@ export function ManageBooking({ bookings, setBookings }: ManageBookingProps) {
                   letterSpacing: 2,
                 }}
               >
-                YES, CANCEL BOOKING
+                {cancelling ? "CANCELLING…" : "YES, CANCEL BOOKING"}
               </button>
             </div>
           </div>

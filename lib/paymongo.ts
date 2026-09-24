@@ -14,7 +14,10 @@
 //
 // Amounts are in CENTAVOS: ₱100.00 === 10000. PayMongo's minimum is ₱20.00.
 
-const API = "https://api.paymongo.com/v1";
+// PAYMONGO_API_BASE exists only so the payment flow can be tested against
+// a local stand-in. Leave it unset everywhere real: the default is the
+// real PayMongo API.
+const API = process.env.PAYMONGO_API_BASE || "https://api.paymongo.com/v1";
 
 /** PayMongo's documented minimum charge, in centavos (₱20.00). */
 export const MIN_AMOUNT_CENTAVOS = 2000;
@@ -189,13 +192,16 @@ export async function cancelPayment(paymentIntentId: string): Promise<boolean> {
 /** Current status of a payment intent, read straight from PayMongo. */
 export async function getPaymentStatus(
   paymentIntentId: string
-): Promise<{ status: PaymentStatus; paidAt: number | null }> {
+): Promise<{ status: PaymentStatus; paidAt: number | null; amountCentavos: number }> {
   const res = await call<any>(`/payment_intents/${paymentIntentId}`);
   const attrs = res.data.attributes;
   const payment = attrs.payments?.[0];
 
   return {
     status: (attrs.status ?? "unknown") as PaymentStatus,
+    // What the intent was for — /api/bookings compares this with its own
+    // quote, so a booking is only stored at the price actually paid.
+    amountCentavos: Number(attrs.amount) || 0,
     paidAt: payment?.attributes?.paid_at
       ? payment.attributes.paid_at * 1000
       : null,

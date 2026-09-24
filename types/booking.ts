@@ -25,18 +25,16 @@ export type BookingResource = "Pool" | "Venue" | "Pool+Venue";
  *  Venue-only booking is always exclusive to the venue by definition. */
 export type BookingTier = "Shared" | "Exclusive";
 
-export interface BookingFoodItem {
-  itemId: number;
-  name: string;
-  price: number;
-  qty: number;
-}
+/** When a booking happens. Day 7 AM–5 PM, Night 7 PM–12 AM, Whole Day both
+ *  (see lib/resort.ts). Each slot has its own pool capacity, venue and
+ *  rooms, so a Day group and a Night group can share a date. */
+export type BookingSlot = "Day" | "Night" | "WholeDay";
 
 /** Carries a Home-page package's fixed pricing into Book Now via deep link
  *  (see app/book/page.tsx's ?pkg=... query params). A package is a
  *  one-time, non-customizable purchase — guests, tier and resource are all
  *  fixed by the package itself, so the only choices left in Book Now are
- *  the date and the food/combo order. `listPrice` is only set when the
+ *  the date (and a room, if the package includes one). `listPrice` is only set when the
  *  package carries a bundle discount (e.g. Pool + Events Venue), so the UI
  *  can show the pre-discount price struck through next to the real one. */
 export interface PackageDeepLink {
@@ -48,10 +46,13 @@ export interface PackageDeepLink {
   /** True when the guest still needs to pick ONE room in Book Now — see
    *  ResortPackage.requiresRoom. */
   requiresRoom?: boolean;
-  /** Extra discount (0–1) on the whole food subtotal — see
-   *  ResortPackage.foodDiscountPct. */
-  foodDiscountPct?: number;
+  /** "Single": guest picks Day or Night. "WholeDay": fixed to both. */
+  slotMode?: PackageSlotMode;
 }
+
+/** Whether a package is booked for one slot of the guest's choice, or is
+ *  a Whole Day package. */
+export type PackageSlotMode = "Single" | "WholeDay";
 
 export interface Booking {
   id: string;
@@ -73,11 +74,6 @@ export interface Booking {
   /** "Online" (guest booked through the website) or "Walk-In" (staff
    *  encoded it at the front desk). Undefined on legacy records ⇒ Online. */
   source?: BookingSource;
-  /** Food & drinks ordered with this booking, if any. */
-  foodOrder?: BookingFoodItem[];
-  /** Sum of foodOrder — kept separately from `total` so receipts can show
-   *  the tour price and the food price as two line items. */
-  foodTotal?: number;
   /** Which resource(s) this booking uses. Undefined ⇒ "Pool" (legacy). */
   resource?: BookingResource;
   /** Shared vs Exclusive, when resource includes "Pool". Undefined ⇒
@@ -91,4 +87,9 @@ export interface Booking {
   archived?: boolean;
   /** ISO timestamp of when this booking was archived. */
   archivedAt?: string;
+  /** PayMongo payment intent that paid the down payment (online only). */
+  paymentIntentId?: string;
+  /** Day / Night / Whole Day. Undefined on older records ⇒ read from the
+   *  package label (see getBookingSlot). */
+  slot?: BookingSlot;
 }

@@ -35,13 +35,12 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
 
   const setF = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  const catOpts: InventoryCategory[] = ["Pool & Chemicals", "Furniture & Misc", "Cleaning Tools", "Food Ingredients"];
+  const catOpts: InventoryCategory[] = ["Pool & Chemicals", "Furniture & Misc", "Cleaning Tools"];
   const cats = ["All", ...catOpts];
   const catC: Record<string, string> = {
     "Pool & Chemicals": "#4a9fd4",
     "Furniture & Misc": "#c9a84c",
     "Cleaning Tools": "#9c6fde",
-    "Food Ingredients": "#4caf50",
   };
 
   // Theme-driven values kept as inline only where CSS variables can't reach

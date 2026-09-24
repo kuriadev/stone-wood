@@ -49,7 +49,7 @@ const CHAPTERS = [
     label: "Grilling Area",
     title: "Charcoal and smoke",
     body:
-      "Lunch happens at the BBQ deck. Bring your own or pre-order from the menu so it is ready when you arrive.",
+      "Lunch happens at the BBQ deck — bring your own food and grill it right by the pool.",
     tint: "#d98a3d",
   },
   {

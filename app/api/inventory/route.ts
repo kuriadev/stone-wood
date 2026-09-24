@@ -20,7 +20,6 @@ const CATEGORIES: InventoryCategory[] = [
   "Pool & Chemicals",
   "Furniture & Misc",
   "Cleaning Tools",
-  "Food Ingredients",
 ];
 
 /** Shared shape-check for POST and PATCH. Returns an error string, or null. */
@@ -126,9 +125,8 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: false, error: "A numeric item id is required." }, { status: 400 });
   }
   try {
-    // Soft delete: the table carries deleted_at, and a menu item's recipe can
-    // still reference an ingredient that has been retired. Hard-deleting the
-    // row would leave those recipes pointing at nothing.
+    // Soft delete: the table carries deleted_at, so a retired item keeps its
+    // history instead of vanishing.
     const { data, error } = await getSupabaseAdmin()
       .from("inventory")
       .update({ deleted_at: new Date().toISOString() })

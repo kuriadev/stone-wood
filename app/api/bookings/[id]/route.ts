@@ -79,6 +79,11 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (body.paymentProof !== undefined) patch.payment_proof = !!body.paymentProof;
     if (body.cancelReason !== undefined) patch.cancel_reason = sanitizeNotes(String(body.cancelReason)).slice(0, 500) || null;
     if (body.notes !== undefined) patch.notes = sanitizeNotes(String(body.notes));
+    // Archiving used to live only in the browser and was lost on reload.
+    if (body.archived !== undefined) {
+      patch.archived = !!body.archived;
+      patch.archived_at = body.archived ? (typeof body.archivedAt === "string" ? body.archivedAt : new Date().toISOString()) : null;
+    }
 
     if (Object.keys(patch).length === 0) {
       return NextResponse.json({ success: false, error: "Nothing to update." }, { status: 400 });

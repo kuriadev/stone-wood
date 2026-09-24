@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
  * useState that mirrors itself to localStorage under `key`.
  *
  * Why this exists: AppContext used to keep everything except `bookings` in
- * plain in-memory React state. That meant an admin marking a food item
+ * plain in-memory React state. That meant an admin editing an item
  * "unavailable" (or closing a date, editing a room, etc.) only ever changed
  * that ONE browser tab's memory — reload the page, or open the customer
  * site in a second tab, and it starts over from the hardcoded defaults. A
@@ -39,7 +39,7 @@ export function usePersistedState<T>(key: string, initial: T) {
   }, [key, state]);
 
   // Cross-tab sync: when another tab (e.g. /admin) changes this key, the
-  // "storage" event fires here so an already-open /book or /menu tab picks
+  // "storage" event fires here so an already-open /book tab picks
   // up the change without needing a manual refresh.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {

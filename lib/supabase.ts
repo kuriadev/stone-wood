@@ -16,7 +16,6 @@ import type { Room } from "@/types/room";
 import type { Booking } from "@/types/booking";
 import type { InventoryItem } from "@/types/inventory";
 import type { CustomerMessage } from "@/types/admin";
-import type { MenuItem } from "@/types/menu";
 import type { Facility } from "@/types/facility";
 import type { ResortPackage } from "@/types/package";
 import type {
@@ -24,7 +23,6 @@ import type {
   BookingRow,
   InventoryRow,
   CustomerMessageRow,
-  MenuItemRow,
   FacilityRow,
   PackageRow,
   GalleryRow,
@@ -134,10 +132,17 @@ export const rowToBooking = (b: BookingRow): Booking => ({
   notes: b.notes,
   createdAt: b.created_at ? new Date(b.created_at).getTime() : undefined,
   cancelReason: b.cancel_reason,
+  source: b.source ?? "Online",
+  resource: b.resource ?? undefined,
+  tier: b.tier ?? undefined,
+  archived: b.archived || undefined,
+  archivedAt: b.archived_at ?? undefined,
+  paymentIntentId: b.payment_intent_id ?? undefined,
+  slot: b.slot ?? undefined,
 });
 
-export const bookingToRow = (b: Booking): Omit<BookingRow, "created_at"> => ({
-  id: b.id,
+/** `id` is left out: the database assigns it (see booking_ref_seq). */
+export const bookingToRow = (b: Booking): Omit<BookingRow, "created_at" | "id"> => ({
   name: b.name,
   contact: b.contact,
   email: b.email,
@@ -152,6 +157,13 @@ export const bookingToRow = (b: Booking): Omit<BookingRow, "created_at"> => ({
   payment_proof: b.paymentProof,
   notes: b.notes,
   cancel_reason: b.cancelReason ?? null,
+  source: b.source ?? "Online",
+  resource: b.resource ?? null,
+  tier: b.tier ?? null,
+  archived: !!b.archived,
+  archived_at: b.archivedAt ?? null,
+  payment_intent_id: b.paymentIntentId ?? null,
+  slot: b.slot ?? null,
 });
 
 export const rowToInventoryItem = (i: InventoryRow): InventoryItem => ({
@@ -176,29 +188,7 @@ export const rowToCustomerMessage = (m: CustomerMessageRow): CustomerMessage => 
   archivedAt: m.archived_at ?? undefined,
 });
 
-// ── Menu / facilities / packages, added with the second migration ───
-
-export const rowToMenuItem = (m: MenuItemRow): MenuItem => ({
-  id: m.id,
-  category: m.category,
-  name: m.name,
-  desc: m.description,
-  price: Number(m.price),
-  img: m.img,
-  available: m.available,
-  // The column is nullable; the UI treats "no recipe" as undefined, not [].
-  recipe: m.recipe ?? undefined,
-});
-
-export const menuItemToRow = (m: MenuItem): Omit<MenuItemRow, "id" | "created_at"> => ({
-  category: m.category,
-  name: m.name,
-  description: m.desc,
-  price: m.price,
-  img: m.img,
-  available: m.available,
-  recipe: m.recipe ?? null,
-});
+// ── Facilities / packages, added with the second migration ───
 
 export const rowToFacility = (f: FacilityRow): Facility => ({
   id: f.id,
@@ -241,12 +231,11 @@ export const rowToPackage = (p: PackageRow): ResortPackage => ({
   listPrice: p.list_price === null ? undefined : Number(p.list_price),
   capacity: p.capacity,
   requiresRoom: p.requires_room || undefined,
-  foodDiscountPct: p.food_discount_pct === null ? undefined : Number(p.food_discount_pct),
+  slotMode: p.slot_mode ?? "Single",
   cover: p.cover,
   gallery: p.gallery ?? [],
   blurb: p.blurb,
   includes: p.includes ?? [],
-  foodNote: p.food_note,
   note: p.note ?? undefined,
   active: p.active,
 });
@@ -260,12 +249,11 @@ export const packageToRow = (p: ResortPackage): Omit<PackageRow, "id" | "created
   list_price: p.listPrice ?? null,
   capacity: p.capacity,
   requires_room: !!p.requiresRoom,
-  food_discount_pct: p.foodDiscountPct ?? null,
+  slot_mode: p.slotMode ?? "Single",
   cover: p.cover,
   gallery: p.gallery ?? [],
   blurb: p.blurb,
   includes: p.includes ?? [],
-  food_note: p.foodNote,
   note: p.note ?? null,
   active: p.active,
 });

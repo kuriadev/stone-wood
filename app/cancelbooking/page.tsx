@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useApp } from "@/contexts/AppContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { T } from "@/lib/theme";
 import { ManageBooking } from "@/components/sections/CancelBooking";
@@ -13,11 +12,10 @@ export default function ManageBookingPage() {
     const router = useRouter();
     const { isDark } = useTheme();
     const C = T(isDark);
-    const { bookings, setBookings } = useApp();
 
     const nav = (p: string) => {
         const routes: Record<string, string> = {
-            "Home": "/", "Rooms": "/rooms", "Packages": "/packages", "Menu": "/menu", "Gallery": "/gallery",
+            "Home": "/", "Rooms": "/rooms", "Packages": "/packages", "Gallery": "/gallery",
             "About Us": "/about", "Book Now": "/book",
             "AdminLogin": "/login", "Customer Service": "/customer",
             "Cancel Booking": "/cancelbooking",
@@ -52,8 +50,6 @@ export default function ManageBookingPage() {
         <div style={{ background: C.bg, minHeight: "100vh" }}>
             <Navbar page="Cancel Booking" setPage={nav} />
             <ManageBooking
-                bookings={bookings}
-                setBookings={setBookings}
                 onGoHome={() => router.push("/")}
             />
             <Footer setPage={nav} />

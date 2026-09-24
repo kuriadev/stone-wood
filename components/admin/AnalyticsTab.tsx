@@ -6,6 +6,8 @@ import { T } from "@/lib/theme";
 import { gold } from "@/lib/styles";
 import type { Booking } from "@/types/booking";
 import { Panel, StatCard, BarChart, ProgressRow } from "@/components/admin/charts";
+import { getBookingSlot } from "@/lib/utils";
+import { SLOTS } from "@/lib/resort";
 
 interface AnalyticsTabProps {
   bookings: Booking[];
@@ -69,11 +71,13 @@ export function AnalyticsTab({ bookings }: AnalyticsTabProps) {
       </Panel>
 
       {/* Package Breakdown */}
-      <Panel title="PACKAGE BREAKDOWN">
-        {["Day Tour", "Day Tour + Room", "Night Tour", "Night Tour + Room"].map((p) => {
-          const n = bookings.filter((b) => b.package === p).length;
+      {/* By slot rather than by exact package name: package names change
+          (and now carry the slot in brackets), the slot doesn't. */}
+      <Panel title="BOOKINGS BY SLOT">
+        {(["Day", "Night", "WholeDay"] as const).map((sl) => {
+          const n = bookings.filter((b) => getBookingSlot(b) === sl).length;
           const pct = bookings.length ? Math.round((n / bookings.length) * 100) : 0;
-          return <ProgressRow key={p} label={p} value={n} pct={pct} color={gold} />;
+          return <ProgressRow key={sl} label={`${SLOTS[sl].label} (${SLOTS[sl].hours})`} value={n} pct={pct} color={gold} />;
         })}
       </Panel>
     </div>

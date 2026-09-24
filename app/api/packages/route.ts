@@ -8,6 +8,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToPackage } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
+import { pricingProblem } from "@/lib/pricing";
 import { sanitizeLabel, sanitizeNotes } from "@/lib/validators";
 import type { PackageRow } from "@/types/database";
 import type { BookingResource, BookingTier } from "@/types/booking";
@@ -46,12 +47,11 @@ function build(b: Record<string, unknown>) {
     list_price: b.listPrice ? Number(b.listPrice) : null,
     capacity: Math.round(capacity),
     requires_room: !!b.requiresRoom,
-    food_discount_pct: b.foodDiscountPct ? Number(b.foodDiscountPct) : null,
+    slot_mode: (b.slotMode === "WholeDay" ? "WholeDay" : "Single") as "Single" | "WholeDay",
     cover: String(b.cover ?? "").slice(0, 2_000_000),
     gallery: Array.isArray(b.gallery) ? b.gallery : [],
     blurb: sanitizeNotes(String(b.blurb ?? "")),
     includes: lines(b.includes),
-    food_note: sanitizeNotes(String(b.foodNote ?? "")),
     note: b.note ? sanitizeNotes(String(b.note)) : null,
     active: b.active !== false,
   };
@@ -65,10 +65,8 @@ function problemWith(b: Record<string, unknown>): string | null {
   if (!Number.isFinite(price) || price < 0) return "Price must be zero or more.";
   const cap = Number(b.capacity);
   if (!Number.isFinite(cap) || cap < 1) return "Capacity must be at least 1.";
-  const pct = b.foodDiscountPct;
-  if (pct !== undefined && pct !== null && pct !== "" && (Number(pct) < 0 || Number(pct) > 1)) {
-    return "Food discount must be between 0 and 1.";
-  }
+  const problem = pricingProblem(b.resource as BookingResource, b.status as BookingTier, b.slotMode === "WholeDay" ? "WholeDay" : "Day");
+  if (problem) return problem;
   return null;
 }
 

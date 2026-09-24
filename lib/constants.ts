@@ -1,24 +1,26 @@
 import type { Room } from "@/types/room";
 import type { Booking } from "@/types/booking";
 import type { InventoryItem } from "@/types/inventory";
-import type { MenuItem } from "@/types/menu";
 import type { Facility } from "@/types/facility";
 import type { ResortPackage } from "@/types/package";
 import {
   SHARED_PER_HEAD_RATE,
   EXCLUSIVE_FLAT_RATE,
+  EXCLUSIVE_DISCOUNT_PCT,
   EVENT_VENUE_RATE,
-  PACKAGE_BUNDLE_DISCOUNT_PCT,
+  OVERTIME_MAX,
+  OVERTIME_RATE,
   RESORT_MAX_CAPACITY,
-  PACKAGE_FOOD_DISCOUNT_PCT,
 } from "@/lib/validators";
+import { standardPackagePrice } from "@/lib/pricing";
+import { SLOTS, QUIET_HOURS_START } from "@/lib/resort";
 
 // ADMIN_CREDS used to live here. This file is imported by client components,
 // so the password shipped inside the JavaScript bundle where anyone could read
 // it. Credentials are now ADMIN_USERNAME / ADMIN_PASSWORD in .env.local,
 // compared server-side in lib/auth.ts and never sent to the browser.
 
-export const NAV = ["Home", "Rooms", "Menu", "Gallery", "About Us"] as const;
+export const NAV = ["Home", "Rooms", "Gallery", "About Us"] as const;
 
 export const INIT_ROOMS: Room[] = [
   {
@@ -58,48 +60,69 @@ export const AMENITIES = [
   { icon: "car", name: "Parking Area", desc: "Secure on-site parking for all guests." },
 ] as const;
 
+// The "Tours & Room Add-ons" rate cards on Home. Built from the same
+// constants the price is calculated from, so the cards can't drift from
+// what Book Now charges.
+const EXCLUSIVE_ONE_SLOT = Math.round(EXCLUSIVE_FLAT_RATE * (1 - EXCLUSIVE_DISCOUNT_PCT)); // ₱5,700
+const peso = (n: number) => `₱${n.toLocaleString()}`;
+
 export const PACKAGES = [
   {
     id: "day",
-    label: "Day Tour",
+    label: SLOTS.Day.label,
     icon: "sun",
-    desc: "Whole-day resort use 8AM–5PM.",
-    base: 6000,
+    desc: `Resort use ${SLOTS.Day.hours}.`,
+    base: SHARED_PER_HEAD_RATE,
+    unit: "/guest",
     details: [
-      "Up to 30 guests included",
-      "+₱100/extra guest beyond 30",
-      "Pool access included",
-      "Overtime: +₱500/hour after 5PM",
+      `Shared: ${peso(SHARED_PER_HEAD_RATE)} per guest`,
+      `Exclusive (up to ${RESORT_MAX_CAPACITY}): ${peso(EXCLUSIVE_ONE_SLOT)}`,
+      `Overtime on request: ${peso(OVERTIME_RATE)}/hr, up to ${OVERTIME_MAX} hrs`,
     ],
   },
   {
-    // Placeholder pricing — mirrors Day Tour exactly (same base, same
-    // guest/overtime rules) until real night-tour rates are set.
     id: "night",
-    label: "Night Tour",
+    label: SLOTS.Night.label,
     icon: "moon",
-    desc: "Whole-night resort use 6PM–12AM.",
-    base: 6000,
+    desc: `Resort use ${SLOTS.Night.hours}.`,
+    base: SHARED_PER_HEAD_RATE,
+    unit: "/guest",
     details: [
-      "Up to 30 guests included",
-      "+₱100/extra guest beyond 30",
-      "Pool access included",
-      "Overtime: +₱500/hour after 12AM",
+      `Shared: ${peso(SHARED_PER_HEAD_RATE)} per guest`,
+      `Exclusive (up to ${RESORT_MAX_CAPACITY}): ${peso(EXCLUSIVE_ONE_SLOT)}`,
+      `Quiet hours from ${QUIET_HOURS_START}`,
+    ],
+  },
+  {
+    id: "wholeday",
+    label: SLOTS.WholeDay.label,
+    icon: "clock",
+    desc: `Exclusive, ${SLOTS.WholeDay.hours}.`,
+    base: standardPackagePrice({ resource: "Pool", tier: "Exclusive", slotMode: "WholeDay", capacity: RESORT_MAX_CAPACITY }).price,
+    unit: "",
+    details: [
+      `Up to ${RESORT_MAX_CAPACITY} guests, whole resort`,
+      `Day + Night for 10% less (${peso(EXCLUSIVE_FLAT_RATE * 2)} regular)`,
+      "No turnover — stay through the evening",
     ],
   },
   {
     id: "room",
     label: "Room Add-on",
     icon: "bed",
-    desc: "Add a room to your Day or Night Tour.",
+    desc: "Add a room to any booking.",
     base: 2000,
+    unit: "/slot",
     details: [
-      "₱2,000–₱2,500 per room",
+      "₱2,000–₱2,500 per room, per slot",
       "3 room options available",
-      "Rented separately from pool",
+      "8% off when part of a package",
     ],
   },
 ] as const;
+
+/** The events venue, for pages that quote it. */
+export const VENUE_RATE_LABEL = `${peso(EVENT_VENUE_RATE)} per slot`;
 
 export const INIT_GALLERY: string[] = [
   "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=800&q=85",
@@ -121,26 +144,6 @@ export const INIT_BOOKINGS: Booking[] = [
   { id: "SW-10004", name: "Carlo Tan", contact: "09451234567", email: "carlo@email.com", date: "2026-02-15", guests: 15, package: "Day Tour", rooms: [], overtime: 0, total: 6000, downpayment: 3000, status: "Completed", paymentProof: true, notes: "", source: "Online" },
   { id: "SW-10005", name: "Lea Gomez", contact: "09561234567", email: "lea@email.com", date: "2026-03-25", guests: 30, package: "Day Tour + Room", rooms: [2], overtime: 1, total: 11000, downpayment: 5500, status: "Confirmed", paymentProof: true, notes: "", source: "Online" },
   { id: "SW-10006", name: "Ryan Dela Cruz", contact: "09671234567", email: "ryan@email.com", date: "2026-02-28", guests: 20, package: "Day Tour", rooms: [], overtime: 0, total: 6000, downpayment: 3000, status: "Completed", paymentProof: true, notes: "", source: "Online" },
-];
-
-// ── FOOD MENU ───────────────────────────────────────────────────────
-// Placeholder items/prices — swap for the resort's real menu & photos.
-export const INIT_MENU: MenuItem[] = [
-  // Recipe links: these three sell out automatically once their linked
-  // Food Ingredients (INIT_INVENTORY, ids 18-20) run out.
-  { id: 1, category: "Grilled & BBQ", name: "Pork BBQ Skewers (5pcs)", desc: "Sweet-savory marinated pork skewers, grilled to order.", price: 150, img: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=600&q=80", available: true, recipe: [{ ingredientId: 18, qtyPerOrder: 1 }] },
-  { id: 2, category: "Grilled & BBQ", name: "Grilled Liempo (1kg)", desc: "Crispy-edged grilled pork belly, good for sharing.", price: 450, img: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80", available: true, recipe: [{ ingredientId: 19, qtyPerOrder: 1 }] },
-  { id: 3, category: "Grilled & BBQ", name: "Inihaw na Bangus", desc: "Whole milkfish stuffed and grilled, served with soy-calamansi.", price: 280, img: "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=600&q=80", available: true },
-  { id: 4, category: "Rice Meals", name: "Plain Rice (cup)", desc: "Steamed white rice.", price: 25, img: "https://images.unsplash.com/photo-1516684732162-798a0062be99?w=600&q=80", available: true },
-  { id: 5, category: "Rice Meals", name: "Pancit Canton (tray)", desc: "Stir-fried noodles with vegetables and pork, good for groups.", price: 350, img: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=600&q=80", available: true, recipe: [{ ingredientId: 20, qtyPerOrder: 1 }] },
-  { id: 6, category: "Snacks", name: "Lumpiang Shanghai (10pcs)", desc: "Crispy mini pork spring rolls with sweet chili dip.", price: 180, img: "https://images.unsplash.com/photo-1548943487-a2e4e43b4853?w=600&q=80", available: true },
-  { id: 7, category: "Snacks", name: "Fresh Lumpia (order)", desc: "Vegetable spring rolls in a soft wrapper.", price: 160, img: "https://images.unsplash.com/photo-1625938144755-652e08e359b7?w=600&q=80", available: true },
-  { id: 8, category: "Drinks", name: "Iced Tea (pitcher)", desc: "House-blend iced tea, serves about 6.", price: 150, img: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", available: true },
-  { id: 9, category: "Drinks", name: "Soft Drinks (1.5L)", desc: "Coke, Sprite, or Royal — pick on arrival.", price: 100, img: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=600&q=80", available: true },
-  { id: 10, category: "Desserts", name: "Buko Pandan (tub)", desc: "Chilled young coconut and pandan gelatin dessert.", price: 200, img: "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=600&q=80", available: true },
-  // ── Bundled combos ── set meals made of the above items at a bundle price
-  { id: 11, category: "Combo", name: "Family Combo (Good for 6)", desc: "2 cups rice, 5pcs BBQ skewers, 1 tray pancit canton, 1 pitcher iced tea.", price: 680, img: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=600&q=80", available: true },
-  { id: 12, category: "Combo", name: "Barkada Grill Combo (Good for 10)", desc: "1kg grilled liempo, 10pcs lumpiang shanghai, 4 cups rice, 1.5L soft drinks.", price: 1050, img: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80", available: true },
 ];
 
 // ── FACILITIES ──────────────────────────────────────────────────────
@@ -177,22 +180,20 @@ export const INIT_INVENTORY: InventoryItem[] = [
   { id: 15, category: "Cleaning Tools", name: "Broom & Dustpan", qty: 8, unit: "sets", minQty: 4, notes: "" },
   { id: 16, category: "Cleaning Tools", name: "Trash Bags (XL)", qty: 60, unit: "pcs", minQty: 20, notes: "" },
   { id: 17, category: "Cleaning Tools", name: "Rubber Gloves", qty: 15, unit: "pairs", minQty: 8, notes: "" },
-  // Food Ingredients — linked from INIT_MENU items via MenuItem.recipe, so
-  // depleting one of these auto sells-out the dish(es) that use it.
-  { id: 18, category: "Food Ingredients", name: "Pork BBQ Skewers (prepped, 5pcs set)", qty: 30, unit: "sets", minQty: 8, notes: "For Pork BBQ Skewers" },
-  { id: 19, category: "Food Ingredients", name: "Pork Liempo (1kg slab)", qty: 15, unit: "kg", minQty: 4, notes: "For Grilled Liempo" },
-  { id: 20, category: "Food Ingredients", name: "Pancit Canton Noodles (tray portion)", qty: 20, unit: "trays", minQty: 5, notes: "For Pancit Canton" },
 ];
 
 // ── RESORT PACKAGES ─────────────────────────────────────────────────
-// Each package is a fixed, one-time purchase — Home.tsx, the Packages page
-// and the Walk-In form all read this same admin-editable list, so an edit
-// here (or in the admin Packages tab) shows up everywhere at once.
-const POOL_PACKAGE_CAPACITY = 15;
-const POOL_PACKAGE_PRICE = POOL_PACKAGE_CAPACITY * SHARED_PER_HEAD_RATE; // ₱3,000
-const VENUE_ONLY_CAPACITY = 50; // the hall's own capacity — independent of the pool's 30-guest cap
-const POOL_VENUE_LIST_PRICE = EXCLUSIVE_FLAT_RATE + EVENT_VENUE_RATE; // ₱14,000 before the bundle discount
-const POOL_VENUE_PRICE = Math.round(POOL_VENUE_LIST_PRICE * (1 - PACKAGE_BUNDLE_DISCOUNT_PCT)); // ₱12,600
+// Package = WHAT is booked; slot = WHEN. A "Single" package is booked for
+// the Day or the Night, the guest's choice; a "WholeDay" package is both.
+// Prices are not typed in: each is what lib/pricing.ts gives for that
+// setup, so a package can never cost more than building the same booking
+// by hand. The owner can still set a promo price in the Packages tab.
+//
+// These are the starting rows. /api/seed inserts them into an empty
+// table, and migration 20260924090000 puts them into an existing one.
+const POOL_CAPACITY = RESORT_MAX_CAPACITY; // 30
+const BARKADA_CAPACITY = 15;
+const VENUE_CAPACITY = 50; // the hall's own capacity, separate from the pool's
 
 const ROOM_PHOTO = "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?q=80&w=1200&auto=format&fit=crop";
 const POOL_PHOTO_1 = "https://images.unsplash.com/photo-1536745511564-a5fa6e596e7b?q=80&w=1200&auto=format&fit=crop";
@@ -200,103 +201,103 @@ const POOL_PHOTO_2 = "https://images.unsplash.com/photo-1540541338287-41700207de
 const RESORT_WIDE_PHOTO = "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?q=80&w=1200&auto=format&fit=crop";
 const VENUE_PHOTO = "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?q=80&w=1200&auto=format&fit=crop";
 
-export const INIT_PACKAGES: ResortPackage[] = [
+type PackageSeed = Omit<ResortPackage, "price" | "listPrice">;
+
+/** Fill in price (and the struck-through list price when discounted). */
+function priced(p: PackageSeed): ResortPackage {
+  const { price, listPrice } = standardPackagePrice({
+    resource: p.resource, tier: p.status, slotMode: p.slotMode, capacity: p.capacity,
+  });
+  return { ...p, price, listPrice: listPrice > price ? listPrice : undefined };
+}
+
+const DAY_OR_NIGHT = `Day (${SLOTS.Day.hours}) or Night (${SLOTS.Night.hours})`;
+
+const PACKAGE_SEEDS: PackageSeed[] = [
   {
-    id: 1,
-    code: "POOL-ROOM",
-    title: "Pool + Room Package",
-    resource: "Pool",
-    status: "Shared",
-    price: POOL_PACKAGE_PRICE,
-    capacity: POOL_PACKAGE_CAPACITY,
-    requiresRoom: true,
-    active: true,
-    cover: ROOM_PHOTO,
-    gallery: [
-      { label: "Room", src: ROOM_PHOTO, kind: "Room" },
-      { label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" },
-    ],
-    blurb: "Pool access shared with other same-day guests, plus a room to rest, change or stay over — pick your room at checkout for a discounted room rate.",
-    includes: [`Full pool access for up to ${POOL_PACKAGE_CAPACITY} guests`, "1 room of your choice (discounted rate)", "BBQ / grilling area", "Billiards & videoke", "Parking area"],
-    foodNote: "Add food & drinks from our menu at checkout — optional. Order a Combo for a discount.",
+    id: 1, code: "BARKADA-ROOM", title: "Barkada Pool + Room",
+    resource: "Pool", status: "Shared", slotMode: "Single", capacity: BARKADA_CAPACITY, requiresRoom: true,
+    active: true, cover: ROOM_PHOTO,
+    gallery: [{ label: "Room", src: ROOM_PHOTO, kind: "Room" }, { label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" }],
+    blurb: "Pool access shared with other groups, plus a room to rest and change in — pick your room at checkout at a discounted rate.",
+    includes: [`Pool access for up to ${BARKADA_CAPACITY} guests`, "1 room of your choice (8% off)", DAY_OR_NIGHT, "BBQ area, billiards & videoke", "Parking"],
+    note: "Shared pool",
   },
   {
-    id: 2,
-    code: "POOL-FOOD",
-    title: "Pool + Food Package",
-    resource: "Pool",
-    status: "Shared",
-    price: POOL_PACKAGE_PRICE,
-    capacity: POOL_PACKAGE_CAPACITY,
-    foodDiscountPct: PACKAGE_FOOD_DISCOUNT_PCT,
-    active: true,
-    cover: POOL_PHOTO_1,
-    gallery: [
-      { label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" },
-      { label: "Second Pool", src: POOL_PHOTO_2, kind: "Pool" },
-    ],
-    blurb: "Pool access shared with other same-day guests, built around pre-ordering your meal — no room, just the pool and the food, with a built-in discount on whatever you order.",
-    includes: [`Full pool access for up to ${POOL_PACKAGE_CAPACITY} guests`, `${Math.round(PACKAGE_FOOD_DISCOUNT_PCT * 100)}% off your whole food order`, "BBQ / grilling area", "Billiards & videoke", "Parking area"],
-    foodNote: `Pre-order from our menu at checkout — every item is ${Math.round(PACKAGE_FOOD_DISCOUNT_PCT * 100)}% off with this package. Order a Combo for an extra discount.`,
-    note: "No room included",
+    id: 2, code: "PRIVATE-POOL", title: "Private Pool",
+    resource: "Pool", status: "Exclusive", slotMode: "Single", capacity: POOL_CAPACITY,
+    active: true, cover: RESORT_WIDE_PHOTO,
+    gallery: [{ label: "Full Resort", src: RESORT_WIDE_PHOTO, kind: "Resort" }, { label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" }],
+    blurb: "The whole pool to your group — no other bookings in your slot.",
+    includes: [`Exclusive pool for up to ${POOL_CAPACITY} guests`, DAY_OR_NIGHT, "All resort amenities", "Parking"],
+    note: "Exclusive",
   },
   {
-    id: 3,
-    code: "POOL-EXCLUSIVE",
-    title: "Pool Exclusive Buyout",
-    resource: "Pool",
-    status: "Exclusive",
-    price: EXCLUSIVE_FLAT_RATE,
-    capacity: RESORT_MAX_CAPACITY,
-    active: true,
-    cover: RESORT_WIDE_PHOTO,
-    gallery: [
-      { label: "Full Resort", src: RESORT_WIDE_PHOTO, kind: "Resort" },
-      { label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" },
-    ],
-    blurb: "Whole-resort buyout — no other booking is allowed that date. One flat fee for up to the resort's full 30-guest capacity, however many actually attend.",
-    includes: [`Exclusive full-resort pool access for up to ${RESORT_MAX_CAPACITY} guests`, "All resort amenities", "Priority setup time"],
-    foodNote: "Add food & drinks from our menu at checkout — optional. Order a Combo for a discount.",
-    note: "Full resort",
+    id: 3, code: "PRIVATE-POOL-ROOM", title: "Private Pool + Room",
+    resource: "Pool", status: "Exclusive", slotMode: "Single", capacity: POOL_CAPACITY, requiresRoom: true,
+    active: true, cover: ROOM_PHOTO,
+    gallery: [{ label: "Room", src: ROOM_PHOTO, kind: "Room" }, { label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" }],
+    blurb: "The whole pool to your group, plus a room — pick it at checkout at a discounted rate.",
+    includes: [`Exclusive pool for up to ${POOL_CAPACITY} guests`, "1 room of your choice (8% off)", DAY_OR_NIGHT, "All resort amenities"],
+    note: "Exclusive",
   },
   {
-    id: 4,
-    code: "VENUE-ONLY",
-    title: "Events Venue Rental",
-    resource: "Venue",
-    status: "Exclusive",
-    price: EVENT_VENUE_RATE,
-    capacity: VENUE_ONLY_CAPACITY,
-    active: true,
-    cover: VENUE_PHOTO,
+    id: 4, code: "WHOLE-DAY", title: "Whole Day Buyout",
+    resource: "Pool", status: "Exclusive", slotMode: "WholeDay", capacity: POOL_CAPACITY,
+    active: true, cover: POOL_PHOTO_2,
+    gallery: [{ label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" }, { label: "Second Pool", src: POOL_PHOTO_2, kind: "Pool" }],
+    blurb: `The resort is yours from ${SLOTS.WholeDay.start} to ${SLOTS.WholeDay.end} — both the Day and Night slots, for less than booking them separately.`,
+    includes: [`Exclusive pool for up to ${POOL_CAPACITY} guests`, `${SLOTS.WholeDay.hours}`, "All resort amenities", "Parking"],
+    note: "Day + Night",
+  },
+  {
+    id: 5, code: "WHOLE-DAY-STAY", title: "Whole Day Staycation",
+    resource: "Pool", status: "Exclusive", slotMode: "WholeDay", capacity: POOL_CAPACITY, requiresRoom: true,
+    active: true, cover: ROOM_PHOTO,
+    gallery: [{ label: "Room", src: ROOM_PHOTO, kind: "Room" }, { label: "Full Resort", src: RESORT_WIDE_PHOTO, kind: "Resort" }],
+    blurb: "A full day and night with the resort to yourselves, and a room for the whole stay.",
+    includes: [`Exclusive pool for up to ${POOL_CAPACITY} guests`, "1 room for the whole day (8% off)", `${SLOTS.WholeDay.hours}`, "All resort amenities"],
+    note: "Day + Night",
+  },
+  {
+    id: 6, code: "VENUE", title: "Events Venue",
+    resource: "Venue", status: "Exclusive", slotMode: "Single", capacity: VENUE_CAPACITY,
+    active: true, cover: VENUE_PHOTO,
     gallery: [{ label: "Events Venue", src: VENUE_PHOTO, kind: "Venue" }],
-    blurb: "Rent just the events hall — no pool included. Perfect for parties, meetings, or celebrations that don't need the pool.",
-    includes: [`Exclusive use of the events venue for up to ${VENUE_ONLY_CAPACITY} guests`, "Tables & chairs setup", "Sound system access"],
-    foodNote: "No catering — combo meals or self-orders from our menu. Order a Combo for a discount.",
+    blurb: "Just the events hall — for parties, meetings and celebrations that don't need the pool.",
+    includes: [`Exclusive use of the venue for up to ${VENUE_CAPACITY} guests`, DAY_OR_NIGHT, "Tables & chairs setup", "Sound system access"],
     note: "No pool",
   },
   {
-    id: 5,
-    code: "POOL-VENUE",
-    title: "Pool + Events Venue Buyout",
-    resource: "Pool+Venue",
-    status: "Exclusive",
-    price: POOL_VENUE_PRICE,
-    listPrice: POOL_VENUE_LIST_PRICE,
-    capacity: RESORT_MAX_CAPACITY,
-    active: true,
-    cover: RESORT_WIDE_PHOTO,
-    gallery: [
-      { label: "Full Resort", src: RESORT_WIDE_PHOTO, kind: "Resort" },
-      { label: "Events Venue", src: VENUE_PHOTO, kind: "Venue" },
-      { label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" },
-    ],
-    blurb: "The full experience — exclusive pool buyout plus the events venue, both reserved just for your group, bundled for less than booking them separately.",
-    includes: [`Exclusive full-resort pool access for up to ${RESORT_MAX_CAPACITY} guests`, "Exclusive events venue", "All resort amenities"],
-    foodNote: "Pre-order food, or arrange combo meals for the venue. Order a Combo for a discount.",
-    note: "Best for weddings & large events",
+    id: 7, code: "VENUE-WHOLE-DAY", title: "Events Venue — Whole Day",
+    resource: "Venue", status: "Exclusive", slotMode: "WholeDay", capacity: VENUE_CAPACITY,
+    active: true, cover: VENUE_PHOTO,
+    gallery: [{ label: "Events Venue", src: VENUE_PHOTO, kind: "Venue" }],
+    blurb: `The events hall from ${SLOTS.WholeDay.start} to ${SLOTS.WholeDay.end} — time to set up, celebrate and pack up.`,
+    includes: [`Exclusive use of the venue for up to ${VENUE_CAPACITY} guests`, `${SLOTS.WholeDay.hours}`, "Tables & chairs setup", "Sound system access"],
+    note: "No pool",
+  },
+  {
+    id: 8, code: "PARTY", title: "Party Package",
+    resource: "Pool+Venue", status: "Exclusive", slotMode: "Single", capacity: POOL_CAPACITY,
+    active: true, cover: RESORT_WIDE_PHOTO,
+    gallery: [{ label: "Full Resort", src: RESORT_WIDE_PHOTO, kind: "Resort" }, { label: "Events Venue", src: VENUE_PHOTO, kind: "Venue" }],
+    blurb: "The private pool and the events hall together, bundled for less.",
+    includes: [`Exclusive pool for up to ${POOL_CAPACITY} guests`, "Exclusive events venue", DAY_OR_NIGHT, "All resort amenities"],
+    note: "Pool + Venue",
+  },
+  {
+    id: 9, code: "GRAND", title: "Grand Celebration",
+    resource: "Pool+Venue", status: "Exclusive", slotMode: "WholeDay", capacity: POOL_CAPACITY,
+    active: true, cover: RESORT_WIDE_PHOTO,
+    gallery: [{ label: "Full Resort", src: RESORT_WIDE_PHOTO, kind: "Resort" }, { label: "Events Venue", src: VENUE_PHOTO, kind: "Venue" }, { label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" }],
+    blurb: "Everything, all day: the private pool and the events hall from morning until midnight. Best for weddings, debuts and big celebrations.",
+    includes: [`Exclusive pool for up to ${POOL_CAPACITY} guests`, "Exclusive events venue", `${SLOTS.WholeDay.hours}`, "All resort amenities"],
+    note: "Best for big events",
   },
 ];
+
+export const INIT_PACKAGES: ResortPackage[] = PACKAGE_SEEDS.map(priced);
 
 /** Home hero photograph. Lives here rather than inside Home.tsx so the root
  *  layout can preload it — it is the LCP element, and a CSS background can

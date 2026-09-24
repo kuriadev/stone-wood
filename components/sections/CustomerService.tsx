@@ -13,6 +13,7 @@ import {
   NAME_MAX,
 } from "@/lib/validators";
 import type { CustomerMessage } from "@/types/admin";
+import { SLOTS } from "@/lib/resort";
 
 interface CustomerServiceProps {
   onSubmitMessage: (msg: CustomerMessage) => void;
@@ -106,7 +107,7 @@ const submit = async () => {
           {[
             ["📞", "Call Us", "+63 912 345 6789"],
             ["✉️", "Email Us", "stonewoodresort.ph@gmail.com"],
-            ["🕗", "Hours", "8:00 AM – 5:00 PM"],
+            ["🕗", "Hours", `Day ${SLOTS.Day.hours} · Night ${SLOTS.Night.hours}`],
           ].map(([icon, label, val]) => (
             <div
               key={label}

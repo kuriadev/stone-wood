@@ -5,7 +5,9 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
-import { fmt } from "@/lib/utils";
+import { fmt, getBookingSlot } from "@/lib/utils";
+import { SLOTS } from "@/lib/resort";
+import { OVERTIME_RATE } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
 import { Icon } from "@/components/common/Icon";
@@ -300,8 +302,11 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
       {/* ── View Booking Modal ── */}
       {viewBooking && (() => {
         const b = viewBooking;
-        const extraGuests = b.guests > 30 ? (b.guests - 30) * 100 : 0;
-        const overtimeFee = (b.overtime || 0) * 500;
+        // Everything but overtime is one line: the booking's stored total is
+        // the truth (this used to print a hardcoded ₱6,000 for every booking).
+        const bSlot = SLOTS[getBookingSlot(b)];
+        const overtimeFee = bSlot.id === "Day" ? (b.overtime || 0) * OVERTIME_RATE : 0;
+        const stayFee = Math.max(0, b.total - overtimeFee);
         const bookedRooms = rooms.filter((r) => (b.rooms || []).includes(r.id));
         const pm = getPaymentMethod(b);
         return (
@@ -345,24 +350,12 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
                 </div>
                 <div style={{ padding: "14px 18px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${cBr}` }}>
-                    <div style={{ color: C.textH, fontSize: 14.5, display: "flex", alignItems: "center", gap: 7 }}><Icon name={b.package.startsWith("Night") ? "moon" : "sun"} size={14} style={{ opacity: 0.6 }} />{b.package.startsWith("Night") ? "Night Tour" : "Day Tour"}</div>
-                    <span style={{ color: C.textH, fontSize: 14.5, fontWeight: 600 }}>₱6,000</span>
+                    <div style={{ color: C.textH, fontSize: 14.5, display: "flex", alignItems: "center", gap: 7 }}><Icon name={bSlot.id === "Night" ? "moon" : bSlot.id === "WholeDay" ? "clock" : "sun"} size={14} style={{ opacity: 0.6 }} />{b.package} <span style={{ color: C.textS, fontSize: 12.5 }}>· {bSlot.hours}{bookedRooms.length ? " · rooms included" : ""}</span></div>
+                    <span style={{ color: C.textH, fontSize: 14.5, fontWeight: 600 }}>{fmt(stayFee)}</span>
                   </div>
-                  {(b.foodOrder || []).map((f) => (
-                    <div key={f.itemId} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${cBr}` }}>
-                      <div style={{ color: C.textH, fontSize: 14.5, display: "flex", alignItems: "center", gap: 7 }}><Icon name="utensils" size={14} style={{ opacity: 0.6 }} />{f.name} × {f.qty}</div>
-                      <span style={{ color: gold, fontSize: 14.5 }}>{fmt(f.qty * f.price)}</span>
-                    </div>
-                  ))}
-                  {extraGuests > 0 && (
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${cBr}` }}>
-                      <div style={{ color: C.textH, fontSize: 14.5, display: "flex", alignItems: "center", gap: 7 }}><Icon name="users" size={14} style={{ opacity: 0.6 }} />Extra Guests ({b.guests - 30} × ₱100)</div>
-                      <span style={{ color: "#f5c518", fontSize: 14.5 }}>{fmt(extraGuests)}</span>
-                    </div>
-                  )}
                   {(b.overtime || 0) > 0 && (
                     <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${cBr}` }}>
-                      <div style={{ color: C.textH, fontSize: 14.5, display: "flex", alignItems: "center", gap: 7 }}><Icon name="clock" size={14} style={{ opacity: 0.6 }} />Overtime ({b.overtime}hr × ₱500)</div>
+                      <div style={{ color: C.textH, fontSize: 14.5, display: "flex", alignItems: "center", gap: 7 }}><Icon name="clock" size={14} style={{ opacity: 0.6 }} />Overtime ({b.overtime}hr × {fmt(OVERTIME_RATE)})</div>
                       <span style={{ color: "#ff9800", fontSize: 14.5 }}>{fmt(overtimeFee)}</span>
                     </div>
                   )}
@@ -373,7 +366,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
                         <img loading="lazy" decoding="async" src={r.img} alt={r.name} style={{ width: 44, height: 36, objectFit: "cover", borderRadius: 3 }} />
                         <div style={{ color: C.textH, fontSize: 14.5, display: "flex", alignItems: "center", gap: 7 }}><Icon name="bed" size={14} style={{ opacity: 0.6 }} />{r.name}</div>
                       </div>
-                      <span style={{ color: gold, fontSize: 14.5 }}>{fmt(r.price)}</span>
+                      <span style={{ color: C.textS, fontSize: 12.5 }}>included</span>
                     </div>
                   ))}
                   <div style={{ borderTop: `2px solid ${gold}33`, marginTop: 4, paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>

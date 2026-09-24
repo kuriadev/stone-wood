@@ -5,15 +5,15 @@
 // there is real data to move the UI over to.
 //
 // Idempotent: a table that already has rows is left alone, so running this
-// twice cannot duplicate the menu. Admin-only, because it writes.
+// twice cannot duplicate anything. Admin-only, because it writes.
 //
 // GET reports what is in each table without changing anything.
 
 import { NextResponse, type NextRequest } from "next/server";
-import { getSupabaseAdmin, roomToRow, menuItemToRow, facilityToRow, packageToRow } from "@/lib/supabase";
+import { getSupabaseAdmin, roomToRow, facilityToRow, packageToRow } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import {
-  INIT_ROOMS, INIT_MENU, INIT_FACILITIES, INIT_INVENTORY, INIT_PACKAGES, INIT_GALLERY,
+  INIT_ROOMS, INIT_FACILITIES, INIT_INVENTORY, INIT_PACKAGES, INIT_GALLERY,
 } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   const denied = requireAdmin(req);
   if (denied) return denied;
 
-  const tables = ["rooms", "bookings", "inventory", "customer_messages", "closed_dates", "gallery", "menu_items", "facilities", "packages"];
+  const tables = ["rooms", "bookings", "inventory", "customer_messages", "closed_dates", "gallery", "facilities", "packages"];
   const report: Report = {};
   for (const t of tables) {
     const c = await countOf(t);
@@ -70,7 +70,6 @@ export async function POST(req: NextRequest) {
     unit: i.unit, min_qty: i.minQty, notes: i.notes ?? "",
   })));
   await seed("gallery", INIT_GALLERY.map((url, i) => ({ url, sort_order: i })));
-  await seed("menu_items", INIT_MENU.map(menuItemToRow));
   await seed("packages", INIT_PACKAGES.map(packageToRow));
 
   // Facilities reference rooms.id, and the seeded rooms get fresh identity

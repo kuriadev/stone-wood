@@ -41,10 +41,11 @@ export const GUESTS_SHARED_MAX = RESORT_MAX_CAPACITY;
  *  are just multiple parties splitting that one capacity. */
 export const RESORT_SHARED_CAPACITY = RESORT_MAX_CAPACITY;
 
-/** Flat rental fee for the events venue on its own (no pool, no per-guest
- *  pool pricing — it's a space rental, not a tour). PLACEHOLDER — tune once
- *  the renovated events space's real rate is set. */
-export const EVENT_VENUE_RATE = 8000;
+/** Events venue, per slot (Day or Night). Lowered from ₱8,000 after
+ *  comparing Rizal resorts: party/function halls there rent for about
+ *  ₱5,000 per slot (e.g. Tyvo Resort's A/C hall, 8 hrs; Casa de Amarella's
+ *  day rate). Always exclusive — one event per slot. */
+export const EVENT_VENUE_RATE = 5000;
 
 // ────────────────────────────────────────────────────────────────────
 // TOUR PRICING
@@ -73,20 +74,20 @@ export const SHARED_PER_HEAD_RATE = 200;
 // actually wants to run.
 // ────────────────────────────────────────────────────────────────────
 
-/** Reward for committing to a bigger, single-party Exclusive buyout instead
- *  of a smaller Shared slot — applied to the tour base price only (not
- *  rooms, food, or the venue fee). */
+// Two discounts, and they never stack on the same part of the price:
+//   • 5% Exclusive — an exclusive POOL buyout for one slot (₱6,000 → ₱5,700).
+//     It exists because Exclusive competes with Shared per-head pricing;
+//     the venue has no Shared option, so it doesn't get it.
+//   • 10% Bundle — booking more than one thing together: Whole Day (two
+//     slots), or Pool + Venue. Replaces the 5%.
+// Applied everywhere by lib/pricing.ts — custom bookings, packages and
+// walk-ins alike — so a package can never cost more than the same booking
+// built by hand.
+
+/** Exclusive pool buyout, one slot. */
 export const EXCLUSIVE_DISCOUNT_PCT = 0.05;
 
-/** Ordering at least one Combo-category item nudges guests toward the
- *  bundled meals (better kitchen throughput than one-off à la carte orders)
- *  — applied to the whole food subtotal once any Combo item is in the
- *  order, not just the combo item itself. */
-export const COMBO_DISCOUNT_PCT = 0.10;
-
-/** Booking the Pool + Events Venue package together costs less than buying
- *  the two buyouts separately — applied to the combined pool + venue price
- *  for that one package. */
+/** Bundles: Whole Day, and Pool + Venue. */
 export const PACKAGE_BUNDLE_DISCOUNT_PCT = 0.10;
 
 /** A room booked as part of a "Pool + Room" package costs less than renting
@@ -95,19 +96,15 @@ export const PACKAGE_BUNDLE_DISCOUNT_PCT = 0.10;
  *  sells the room (which would otherwise sit empty) plus the pool slot. */
 export const ROOM_BUNDLE_DISCOUNT_PCT = 0.08;
 
-/** A "Pool + Food" package's built-in perk — a discount on the guest's
- *  WHOLE food order (not just Combo items), since the package is sold
- *  specifically around pre-ordering food. Distinct from COMBO_DISCOUNT_PCT,
- *  which any booking (package or not) can unlock by ordering a Combo item;
- *  the two can stack. Keeps the incentive on both sides: guests save on
- *  food they were already going to order, and the resort gets a
- *  predictable, larger food order per package sold instead of guests
- *  ordering nothing and eating off-site. */
-export const PACKAGE_FOOD_DISCOUNT_PCT = 0.08;
-
 export const OVERTIME_MIN = 0;
-/** Day tour ends 5:00 PM; 7 hours of overtime reaches midnight. */
-export const OVERTIME_MAX = 7;
+/** Day Tour overtime is admin-only and capped at 2 hours (5–7 PM): it can
+ *  only use the cleaning gap before the Night slot, and only when the
+ *  Night slot is free. Anyone wanting the evening books Whole Day instead —
+ *  selling the night as ₱500/hr overtime would undercut the Night Tour.
+ *  The Night Tour and Whole Day have no overtime. */
+export const OVERTIME_MAX = 2;
+/** Per hour of Day Tour overtime. */
+export const OVERTIME_RATE = 500;
 
 /** How far ahead a guest may reserve. */
 export const BOOKING_WINDOW_MONTHS = 3;
@@ -231,7 +228,7 @@ export function isValidPHNumber(contact: string): boolean {
 export const LABEL_MAX = 120;
 
 /**
- * Sanitiser for CONTENT names — menu items, rooms, packages, inventory.
+ * Sanitiser for CONTENT names — rooms, packages, inventory.
  *
  * Deliberately NOT sanitizeName. That one strips everything but letters,
  * spaces, apostrophes, dots and hyphens, which is right for a guest's name

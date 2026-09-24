@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { gold } from "@/lib/styles";
 import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
+import { checkBookingAvailability } from "@/lib/utils";
 
 interface AvailabilityCalendarProps {
   bookings: Booking[];
@@ -35,10 +36,22 @@ export function AvailabilityCalendar({
   // Computed once per mount so a render mid-session cannot shift it.
   const { min: minDate, max: maxDate } = useMemo(() => getBookingWindow(), [mounted]);
 
-  const bookedDates = useMemo(
-    () => new Set(bookings.filter((b) => b.status !== "Cancelled").map((b) => b.date)),
-    [bookings]
-  );
+  // "Booked" means no slot is left: neither the Day nor the Night can take
+  // even a small Shared group, and the venue is taken for both. A date with
+  // only a Day group on it stays open — the Night is a separate slot.
+  const bookedDates = useMemo(() => {
+    const dates = new Set(bookings.filter((b) => b.status !== "Cancelled").map((b) => b.date));
+    const full = new Set<string>();
+    dates.forEach((d) => {
+      const anyOpen = (["Day", "Night"] as const).some(
+        (sl) =>
+          checkBookingAvailability(d, sl, 1, "Shared", "Pool", bookings).ok ||
+          checkBookingAvailability(d, sl, 1, "Exclusive", "Venue", bookings).ok
+      );
+      if (!anyOpen) full.add(d);
+    });
+    return full;
+  }, [bookings]);
   const closedSet = useMemo(() => new Set(closedDates), [closedDates]);
 
   const year = calMonth ? calMonth.getFullYear() : minDate.getFullYear();

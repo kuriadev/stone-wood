@@ -7,11 +7,12 @@ import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { PACKAGES, HERO_BG } from "@/lib/constants";
+import { SLOTS, QUIET_HOURS_POLICY } from "@/lib/resort";
+import { SHARED_PER_HEAD_RATE, EXCLUSIVE_FLAT_RATE, EXCLUSIVE_DISCOUNT_PCT } from "@/lib/validators";
 import { fmt } from "@/lib/utils";
 import { AvailabilityCalendar } from "@/components/common/AvailabilityCalendar";
 import type { Booking, BookingResource, BookingTier, PackageDeepLink } from "@/types/booking";
 import type { ResortPackage } from "@/types/package";
-import type { MenuItem } from "@/types/menu";
 import { srcSetFor, SIZES, imageAt } from "@/lib/img";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { Icon, type IconName } from "@/components/common/Icon";
@@ -25,13 +26,9 @@ interface HomeProps {
    *  source of truth for what's shown here and what a "BOOK PACKAGE" click
    *  carries into Book Now. Only `active` packages are rendered. */
   packages: ResortPackage[];
-  /** Shown in the "What's Included" section so guests can see exactly what
-   *  food is on offer before booking, instead of only finding out at
-   *  checkout. Only items marked `available` are listed. */
-  menuItems?: MenuItem[];
   /** Deep-link a package straight into Book Now with its price, capacity
    *  and resource/tier pre-selected — a package is a fixed, one-time
-   *  purchase, so Book Now only asks for a date and food once it arrives
+   *  purchase, so Book Now only asks for a date once it arrives
    *  this way. Falls back to a plain "Book Now" navigation when not
    *  provided (e.g. the legacy SPA shell). */
   onBookPackage?: (pkg: PackageDeepLink, resource: BookingResource, tier: BookingTier) => void;
@@ -109,13 +106,9 @@ const SERVICES: { name: string; icon: React.ReactNode }[] = [
 // Wide resort shot — used as the 4B (full resort) cover.
 const RESORT_WIDE = "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?q=80&w=1200&auto=format&fit=crop";
 
-// No overnight stays — the resort only runs Day and Night tours.
-const DURATIONS = [
-  { label: "Day Tour", window: "7:00 AM – 5:00 PM" },
-  { label: "Night Tour", window: "7:00 PM – 12:00 AM" },
-];
-
-const ADDONS = ["Breakfast", "Lunch", "Dinner"];
+// Day, Night and Whole Day — times from lib/resort.ts, the one place the
+// resort's hours are set.
+const DURATIONS = [SLOTS.Day, SLOTS.Night, SLOTS.WholeDay].map((s) => ({ label: s.label, window: s.hours }));
 
 // Packages themselves now come from the admin-editable `packages` prop (see
 // types/package.ts and the admin Packages tab) — grouping them by Shared vs
@@ -133,7 +126,7 @@ const MARQUEE_REVIEWS = [
   { name: "Carlo Tan", rating: 5, message: "Great value for the whole group. The videoke setup made the night so much fun." },
 ];
 
-export function Home({ setPage, onBookWithDate, bookings, closedDates, packages, menuItems = [], onBookPackage }: HomeProps) {
+export function Home({ setPage, onBookWithDate, bookings, closedDates, packages, onBookPackage }: HomeProps) {
   // Scroll reveals. Called here, not in the layout: the effect must run
   // after THIS page has hydrated or it mutates un-hydrated DOM.
   useScrollReveal();
@@ -148,13 +141,16 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
   // index is reused by openPkg()/pkgCardRefs, so it's built once here off
   // the visible list only.
   const visiblePackages = packages.filter((p) => p.active);
-  const packageGroups = [
-    { label: "SHARED", status: "Shared" as const },
-    { label: "EXCLUSIVE", status: "Exclusive" as const },
-  ].map((g) => ({
-    ...g,
-    tiers: visiblePackages.map((p, i) => ({ p, i })).filter(({ p }) => p.status === g.status),
-  }));
+  // Grouped by what the guest is planning, not by tier: a pool visit for
+  // the day or night, a whole-day buyout, or an event with the venue.
+  const groupOf = (p: ResortPackage) =>
+    p.resource !== "Pool" ? "EVENTS & CELEBRATIONS" : p.slotMode === "WholeDay" ? "WHOLE DAY" : "DAY OR NIGHT";
+  const packageGroups = ["DAY OR NIGHT", "WHOLE DAY", "EVENTS & CELEBRATIONS"]
+    .map((label) => ({
+      label,
+      tiers: visiblePackages.map((p, i) => ({ p, i })).filter(({ p }) => groupOf(p) === label),
+    }))
+    .filter((g) => g.tiers.length > 0);
 
   // ── Shared type scale ──────────────────────────────────────────────
   // Larger, higher-contrast display type that holds up in both themes.
@@ -235,7 +231,6 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
   const pkgHeaderRef = useRef<HTMLDivElement>(null);
   const pkgDurationRef = useRef<HTMLDivElement>(null);
   const pkgCardRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const pkgAddonRef = useRef<HTMLDivElement>(null);
   const closingRef = useRef<HTMLDivElement>(null);
 
   // Scroll reveals are handled globally by <ScrollReveal> in ClientShell,
@@ -335,7 +330,15 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
               </p>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 7, paddingTop: 18, borderTop: "1px solid rgba(201,168,76,0.22)" }}>
-                {[["Resort hours", "7:00 AM – 5:00 PM"], ["Base rate", `${fmt(6000)} /day`]].map(([l, v]) => (
+                {/* Every figure here comes from the same constants Book Now
+                    charges from — this card used to show a flat ₱6,000/day,
+                    which was only the Exclusive rate. */}
+                {[
+                  ["Day Tour", SLOTS.Day.hours],
+                  ["Night Tour", SLOTS.Night.hours],
+                  ["Shared", `${fmt(SHARED_PER_HEAD_RATE)} / guest`],
+                  ["Exclusive", `from ${fmt(Math.round(EXCLUSIVE_FLAT_RATE * (1 - EXCLUSIVE_DISCOUNT_PCT)))}`],
+                ].map(([l, v]) => (
                   <div key={l} style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, color: "rgba(238,232,220,0.6)" }}>
                     <span>{l}</span>
                     <span style={{ color: gold, fontWeight: 600 }}>{v}</span>
@@ -432,13 +435,11 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
             </p>
           </div>
 
-          {/* Duration windows — only Day/Night Tour exist (no Overnight), so
-              this is a centered 2-up row rather than a 3-column grid with an
-              empty trailing cell. */}
+          {/* Duration windows — Day, Night and Whole Day. */}
           <div
             ref={pkgDurationRef}
             className="sw-reveal"
-            style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(2,minmax(220px,320px))", justifyContent: "center", gap: 1, background: C.border, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", marginBottom: mob ? 28 : 40, maxWidth: mob ? "100%" : 642, marginLeft: "auto", marginRight: "auto" }}
+            style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(200px,300px))", justifyContent: "center", gap: 1, background: C.border, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", marginBottom: mob ? 28 : 40, maxWidth: mob ? "100%" : 903, marginLeft: "auto", marginRight: "auto" }}
           >
             {DURATIONS.map((d) => (
               <div key={d.label} style={{ background: C.bgCard2, padding: mob ? "18px 20px" : "22px 24px", textAlign: "center" }}>
@@ -560,11 +561,6 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                         SAVE {fmt(p.listPrice - p.price)}
                       </span>
                     )}
-                    {p.foodDiscountPct && (
-                      <span style={{ display: "inline-block", marginLeft: 6, fontSize: 10.5, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: "rgba(76,175,80,0.12)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.4)" }}>
-                        {Math.round(p.foodDiscountPct * 100)}% OFF FOOD
-                      </span>
-                    )}
                     {p.requiresRoom && (
                       <span style={{ display: "inline-block", marginLeft: 6, fontSize: 10.5, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: `${gold}18`, color: gold, border: `1px solid ${gold}44` }}>
                         ROOM DISCOUNTED
@@ -582,24 +578,6 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           </div>
           ))}
 
-          {/* Add-ons */}
-          <div ref={pkgAddonRef} className="sw-reveal" style={{ marginTop: mob ? 28 : 40, textAlign: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
-              <div style={{ flex: 1, height: 1, background: C.border }} />
-              <span style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, whiteSpace: "nowrap" }}>AVAILABLE ADD-ONS</span>
-              <div style={{ flex: 1, height: 1, background: C.border }} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
-              {ADDONS.map((a) => (
-                <div
-                  key={a}
-                  style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 24, padding: "9px 20px", color: C.textB, fontSize: 14.5, letterSpacing: 0.3 }}
-                >
-                  {a}
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -789,7 +767,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
               {/* Fixed price — a package is a one-time purchase, not a
                   customizable reservation, so this is the whole tour/venue
                   cost regardless of how many of the included guests show
-                  up. Food is the only thing added on top at checkout. */}
+                  up. */}
               <div style={{ textAlign: "center", marginBottom: 20 }}>
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 10 }}>
                   <span style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 40, color: C.textH, fontWeight: 400 }}>{fmt(p.price)}</span>
@@ -802,11 +780,9 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                     Bundle discount — you save {fmt(p.listPrice - p.price)}
                   </p>
                 ) : p.requiresRoom ? (
-                  <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 6 }}>Plus a room of your choice (discounted rate) and food, if you add any</p>
-                ) : p.foodDiscountPct ? (
-                  <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 6 }}>Plus {Math.round(p.foodDiscountPct * 100)}% off any food you order</p>
+                  <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 6 }}>Plus a room of your choice, at a discounted rate</p>
                 ) : (
-                  <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 6 }}>Flat price for up to {p.capacity} guests — plus food, if you add any</p>
+                  <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 6 }}>Flat price for up to {p.capacity} guests</p>
                 )}
               </div>
 
@@ -825,13 +801,13 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                 </div>
               </div>
 
-              {/* Duration windows — a Venue-only rental isn't a pool tour, so it
-                  doesn't get the Day/Night/Overnight windows. */}
-              {p.resource !== "Venue" && (
+              {/* When this package can be booked: Day or Night (the guest
+                  picks), or Whole Day. */}
+              {(
                 <div style={{ marginBottom: 22 }}>
-                  <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 12 }}>AVAILABLE DURATIONS</p>
+                  <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 12 }}>{p.slotMode === "WholeDay" ? "DURATION" : "CHOOSE WHEN YOU BOOK"}</p>
                   <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-                    {DURATIONS.map((d) => (
+                    {(p.slotMode === "WholeDay" ? [SLOTS.WholeDay] : [SLOTS.Day, SLOTS.Night]).map((sl) => ({ label: sl.label, window: sl.hours })).map((d) => (
                       <div key={d.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 9, borderBottom: `1px solid ${C.borderLight}` }}>
                         <span style={{ color: C.textB, fontSize: 14.5 }}>{d.label}</span>
                         <span style={{ color: gold, fontSize: 13.5, fontWeight: 500 }}>{d.window}</span>
@@ -841,31 +817,13 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                 </div>
               )}
 
-              {/* Food */}
-              <div style={{ marginBottom: 22 }}>
-                <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 10 }}>FOOD</p>
-                <p style={{ color: C.textB, fontSize: 14, lineHeight: 1.6, margin: 0 }}>{p.foodNote}</p>
-              </div>
-
-              {/* Add-ons */}
-              <div style={{ marginBottom: 28 }}>
-                <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 12 }}>MENU ADD-ONS</p>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {ADDONS.map((a) => (
-                    <span key={a} style={{ background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 14px", color: C.textB, fontSize: 13.5 }}>
-                      {a}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
               <button
                 className="sw-btn"
                 onClick={() => {
                   closePkg();
                   if (onBookPackage) {
                     onBookPackage(
-                      { code: p.code, title: p.title, price: p.price, listPrice: p.listPrice, capacity: p.capacity, requiresRoom: p.requiresRoom, foodDiscountPct: p.foodDiscountPct },
+                      { code: p.code, title: p.title, price: p.price, listPrice: p.listPrice, capacity: p.capacity, requiresRoom: p.requiresRoom, slotMode: p.slotMode },
                       p.resource,
                       p.status
                     );
@@ -892,14 +850,14 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
             <p style={{ ...lede, marginBottom: 52, maxWidth: 520, margin: "0 auto 52px" }}>Base pricing before package configuration. Every reservation starts here.</p>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 20, marginBottom: 48, maxWidth: 900, margin: "0 auto 48px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 20, marginBottom: 48, maxWidth: 1100, margin: "0 auto 48px" }}>
             {PACKAGES.map((p, i) => (
               <div key={p.id} ref={(el) => { packageRefs.current[i] = el; }} className="sw-card sw-reveal"
                 style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: mob ? "22px 18px" : "28px 24px", textAlign: "left", boxShadow: C.shadowCard, display: "flex", flexDirection: "column", transitionDelay: `${i * 100}ms` }}>
                 <div style={{ marginBottom: 12, color: gold }}><Icon name={p.icon as IconName} size={28} strokeWidth={1.5} /></div>
                 <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, marginBottom: 6 }}>{p.label}</h3>
                 <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 14, lineHeight: 1.6 }}>{p.desc}</p>
-                <div style={{ color: gold, fontSize: 24, fontWeight: 700, marginBottom: 16 }}>{fmt(p.base)}<span style={{ color: C.textXS, fontSize: 13.5 }}> /day</span></div>
+                <div style={{ color: gold, fontSize: 24, fontWeight: 700, marginBottom: 16 }}>{p.id === "wholeday" ? "" : "from "}{fmt(p.base)}<span style={{ color: C.textXS, fontSize: 13.5 }}> {p.unit}</span></div>
                 {p.details.map((d) => (
                   <div key={d} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 7 }}>
                     <Icon name="check" size={12} style={{ color: gold, marginTop: 3, flexShrink: 0 }} />
@@ -915,42 +873,9 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
               </div>
             ))}
 
-            {/* Food & Drinks — fills the grid's trailing cell next to Room
-                Add-on and tells guests exactly what's on the menu (pulled
-                live from the admin-managed Menu) instead of leaving food
-                a surprise until checkout. */}
-            <div className="sw-card" style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: mob ? "22px 18px" : "28px 24px", textAlign: "left", boxShadow: C.shadowCard, display: "flex", flexDirection: "column" }}>
-              <div style={{ marginBottom: 12, color: gold }}><Icon name="utensils" size={28} strokeWidth={1.5} /></div>
-              <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, marginBottom: 6 }}>Food &amp; Drinks</h3>
-              <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 14, lineHeight: 1.6 }}>Pre-order from our menu, or a Pool + Food package bundles it with a discount.</p>
-              {(() => {
-                const available = menuItems.filter((m) => m.available);
-                const categories = Array.from(new Set(available.map((m) => m.category)));
-                return categories.length === 0 ? (
-                  <p style={{ color: C.textXS, fontSize: 13.5, marginBottom: 16 }}>Menu coming soon.</p>
-                ) : (
-                  categories.map((cat) => {
-                    const items = available.filter((m) => m.category === cat);
-                    return (
-                      <div key={cat} style={{ marginBottom: 10 }}>
-                        <div style={{ color: gold, fontSize: 11.5, letterSpacing: 1.5, marginBottom: 4 }}>{cat.toUpperCase()}</div>
-                        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                          <Icon name="check" size={12} style={{ color: gold, marginTop: 3, flexShrink: 0 }} />
-                          <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5 }}>{items.map((m) => m.name).join(", ")}</span>
-                        </div>
-                      </div>
-                    );
-                  })
-                );
-              })()}
-              <button className="sw-btn" onClick={() => setPage("Menu")} style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "linear-gradient(135deg,#c9a84c,#e8c56a)", color: "#1a1000", border: "none", padding: "11px 20px", fontWeight: 700, fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1.5, boxShadow: "0 2px 12px rgba(201,168,76,0.3)", width: "100%" }}>
-                <Icon name="utensils" size={15} /> VIEW FULL MENU
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
-              </button>
-            </div>
           </div>
 
-          <p style={{ color: C.textXS, fontSize: 14.5, marginTop: 8, lineHeight: 1.8 }}>All bookings require a 50% down payment. No refunds. Rescheduling subject to discussion.</p>
+          <p style={{ color: C.textXS, fontSize: 14.5, marginTop: 8, lineHeight: 1.8 }}>All bookings require a 50% down payment. No refunds. Rescheduling subject to discussion. {QUIET_HOURS_POLICY}</p>
         </div>
       </div>
 

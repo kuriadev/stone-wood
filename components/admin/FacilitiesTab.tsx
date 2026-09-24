@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { QUIET_HOURS_START } from "@/lib/resort";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { T } from "@/lib/theme";
@@ -28,12 +29,13 @@ const STATUS_COLOR: Record<FacilityStatus, string> = {
 // staff has customized its checklist — editable per-facility below.
 const DEFAULT_BEFORE: Record<string, string[]> = {
   "Swimming Pool": ["Check chlorine/pH levels", "Skim leaves & debris", "Test water clarity", "Check lifebuoys & signage are in place"],
-  "Events Venue": ["Sweep & arrange chairs/tables", "Test sound system & lights", "Check restrooms are stocked", "Confirm decor/setup matches booking"],
+  "Events Venue": ["Sweep & arrange chairs/tables", "Test sound system & lights", "Check restrooms are stocked", "Confirm decor/setup matches booking", `Night groups: remind them sound goes off at ${QUIET_HOURS_START}`],
+  Videoke: ["Test mics & speakers", `Night groups: videoke off at ${QUIET_HOURS_START} (quiet hours)`],
   Room: ["Change linens & towels", "Check A/C & lights work", "Restock toiletries & water", "Inspect for damage from prior guest"],
 };
 const DEFAULT_AFTER: Record<string, string[]> = {
   "Swimming Pool": ["Skim leaves & floating trash", "Re-check chlorine/pH levels", "Return floats & equipment to storage", "Note any damage or needed repairs"],
-  "Events Venue": ["Clear trash & leftover food", "Return chairs/tables to storage layout", "Check for damage to fixtures", "Turn off sound system & lights"],
+  "Events Venue": ["Clear trash & leftover items", "Return chairs/tables to storage layout", "Check for damage to fixtures", "Turn off sound system & lights"],
   Room: ["Strip & send linens to laundry", "Check for left-behind guest items", "Inspect for damage", "Restock for next reservation"],
 };
 
@@ -228,14 +230,14 @@ export function FacilitiesTab({ facilities, setFacilities, bookings, mob }: Faci
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
                 <thead>
                   <tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
-                    {["Date", "Facility", "Guest", "Package", "Guests", "Food Used", "Status"].map((h) => (
+                    {["Date", "Facility", "Guest", "Package", "Guests", "Status"].map((h) => (
                       <th key={h} style={{ padding: "10px 12px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {filteredHistoryRows.length === 0 && (
-                    <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: C.textXS, fontSize: 13.5 }}>No reservations match.</td></tr>
+                    <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: C.textXS, fontSize: 13.5 }}>No reservations match.</td></tr>
                   )}
                   {filteredHistoryRows.map((row, idx) => (
                     <tr key={`${row.facility.id}-${row.booking.id}`} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
@@ -246,11 +248,6 @@ export function FacilitiesTab({ facilities, setFacilities, bookings, mob }: Faci
                       </td>
                       <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{row.booking.package}</td>
                       <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5 }}>{row.booking.guests}</td>
-                      <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5 }}>
-                        {row.booking.foodOrder && row.booking.foodOrder.length > 0
-                          ? row.booking.foodOrder.map((it) => `${it.name} ×${it.qty}`).join(", ")
-                          : <span style={{ color: C.textXS, fontStyle: "italic" }}>None</span>}
-                      </td>
                       <td style={{ padding: "10px 12px", fontSize: 11.5 }}>
                         <span style={{ background: `${historyStatusColor[row.booking.status] ?? gold}18`, color: historyStatusColor[row.booking.status] ?? gold, padding: "3px 8px", borderRadius: 20, border: `1px solid ${historyStatusColor[row.booking.status] ?? gold}44`, letterSpacing: 1, whiteSpace: "nowrap" }}>{row.booking.status.toUpperCase()}</span>
                       </td>
@@ -452,7 +449,7 @@ export function FacilitiesTab({ facilities, setFacilities, bookings, mob }: Faci
                             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
                               <thead>
                                 <tr style={{ borderBottom: `1px solid ${cBr}` }}>
-                                  {["Date", "Guest", "Package", "Guests", "Food Used", "Status"].map((h) => (
+                                  {["Date", "Guest", "Package", "Guests", "Status"].map((h) => (
                                     <th key={h} style={{ padding: "6px 10px", color: C.textXS, fontSize: 10.5, letterSpacing: 1.5, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
                                   ))}
                                 </tr>
@@ -466,11 +463,6 @@ export function FacilitiesTab({ facilities, setFacilities, bookings, mob }: Faci
                                     </td>
                                     <td style={{ padding: "8px 10px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.package}</td>
                                     <td style={{ padding: "8px 10px", color: C.textS, fontSize: 12.5 }}>{b.guests}</td>
-                                    <td style={{ padding: "8px 10px", color: C.textS, fontSize: 12.5 }}>
-                                      {b.foodOrder && b.foodOrder.length > 0
-                                        ? b.foodOrder.map((it) => `${it.name} ×${it.qty}`).join(", ")
-                                        : <span style={{ color: C.textXS, fontStyle: "italic" }}>None</span>}
-                                    </td>
                                     <td style={{ padding: "8px 10px", fontSize: 11.5 }}>
                                       <span style={{ background: `${historyStatusColor[b.status] ?? gold}18`, color: historyStatusColor[b.status] ?? gold, padding: "3px 8px", borderRadius: 20, border: `1px solid ${historyStatusColor[b.status] ?? gold}44`, letterSpacing: 1, whiteSpace: "nowrap" }}>{b.status.toUpperCase()}</span>
                                     </td>

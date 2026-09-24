@@ -37,15 +37,12 @@ export function useDbCollection<T>(
 ) {
   const { key, load, sync, adminOnly } = collection;
 
-  const [state, setState] = useState<T[]>(() => {
-    if (typeof window === "undefined") return initial;
-    try {
-      const saved = localStorage.getItem(key);
-      return saved ? (JSON.parse(saved) as T[]) : initial;
-    } catch {
-      return initial;
-    }
-  });
+  // The first render must use `initial` on BOTH server and client. Reading
+  // localStorage here (as this used to) made the browser's first render
+  // differ from the server HTML whenever the cache held anything other than
+  // the INIT_* constants — a hydration error on every page that reads the
+  // collection. The cache is applied in an effect right after mount instead.
+  const [state, setState] = useState<T[]>(initial);
 
   /** True once the server's version has been applied at least once. Until
    *  then this hook will not write anything back. */
@@ -58,6 +55,30 @@ export function useDbCollection<T>(
   const queueRef = useRef<Promise<unknown>>(Promise.resolve());
 
   const active = enabled && (!adminOnly || enabled);
+
+  /** False until the localStorage cache has been read. Until then the
+   *  mirror effect below must not write, or its very first pass would
+   *  overwrite the cache with `initial` before it is ever read. */
+  const cacheReadRef = useRef(false);
+
+  // ── Apply the localStorage cache (first paint after hydration) ────
+  // Declared before the load and mirror effects so it runs first.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const parsed = JSON.parse(saved) as T[];
+        // Not a user edit: the sync effect must skip this render. The cache
+        // is also not proof of what the server holds, so liveRef stays false.
+        applyingRef.current = true;
+        baseRef.current = parsed;
+        setState(parsed);
+      }
+    } catch {
+      // Unreadable cache: keep `initial`.
+    }
+    cacheReadRef.current = true;
+  }, [key]);
 
   // ── Load ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -77,7 +98,12 @@ export function useDbCollection<T>(
   }, [active, load]);
 
   // ── Mirror to localStorage, and push changes up ───────────────────
+  const firstMirrorRef = useRef(true);
   useEffect(() => {
+    // The mount pass still holds `initial`, not the cache — skip it so the
+    // cache survives to be applied by the effect above.
+    if (firstMirrorRef.current) { firstMirrorRef.current = false; return; }
+    if (!cacheReadRef.current) return;
     try {
       localStorage.setItem(key, JSON.stringify(state));
     } catch {

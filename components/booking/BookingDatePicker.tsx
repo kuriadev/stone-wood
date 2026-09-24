@@ -5,7 +5,7 @@ import { T } from "@/lib/theme";
 import { gold } from "@/lib/styles";
 import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS } from "@/lib/validators";
 import { checkBookingAvailability } from "@/lib/utils";
-import type { Booking, BookingResource, BookingTier } from "@/types/booking";
+import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 
 interface BookingDatePickerProps {
   bookings: Booking[];
@@ -20,6 +20,9 @@ interface BookingDatePickerProps {
    *  is checked against the venue's own calendar, not the pool's. */
   resource?: BookingResource;
   tier?: BookingTier;
+  /** Day, Night or Whole Day — each slot has its own availability, so a
+   *  date whose Day is full can still be open for the Night. */
+  slot?: BookingSlot;
 }
 
 export function BookingDatePicker({
@@ -31,6 +34,7 @@ export function BookingDatePicker({
   guests = 1,
   resource = "Pool",
   tier = "Shared",
+  slot = "Day",
 }: BookingDatePickerProps) {
   // Bookable range: today → min(today + 3 months, 31 Dec of this year).
   // This component only mounts at step 2, after interaction, so reading the
@@ -46,10 +50,10 @@ export function BookingDatePicker({
     const candidateDates = new Set(bookings.filter((b) => b.status !== "Cancelled").map((b) => b.date));
     const full = new Set<string>();
     candidateDates.forEach((ds) => {
-      if (!checkBookingAvailability(ds, guests, tier, resource, bookings).ok) full.add(ds);
+      if (!checkBookingAvailability(ds, slot, guests, tier, resource, bookings).ok) full.add(ds);
     });
     return full;
-  }, [bookings, guests, resource, tier]);
+  }, [bookings, guests, resource, tier, slot]);
   const closedSet = useMemo(() => new Set(closedDates), [closedDates]);
   const year = calMonth.getFullYear();
   const month = calMonth.getMonth();

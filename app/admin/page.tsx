@@ -20,8 +20,6 @@ export default function AdminPage() {
     setCustomerMessages,
     adminAuth,
     setAdminAuth,
-    menuItems,
-    setMenuItems,
     facilities,
     setFacilities,
     inventory,
@@ -60,8 +58,6 @@ export default function AdminPage() {
       }}
       customerMessages={customerMessages}
       setCustomerMessages={setCustomerMessages}
-      menuItems={menuItems}
-      setMenuItems={setMenuItems}
       facilities={facilities}
       setFacilities={setFacilities}
       inventory={inventory}

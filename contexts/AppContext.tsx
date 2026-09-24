@@ -2,12 +2,12 @@
 
 import { createContext, useContext, useState, ReactNode } from "react";
 import { useDbCollection } from "@/hooks/useDbCollection";
+import { usePublicAvailability } from "@/hooks/usePublicAvailability";
 import { COLLECTIONS } from "@/lib/collections";
 import {
   INIT_BOOKINGS,
   INIT_ROOMS,
   INIT_GALLERY,
-  INIT_MENU,
   INIT_FACILITIES,
   INIT_INVENTORY,
   INIT_PACKAGES,
@@ -16,14 +16,19 @@ import {
 import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
 import type { CustomerMessage } from "@/types/admin";
-import type { MenuItem } from "@/types/menu";
 import type { Facility } from "@/types/facility";
 import type { InventoryItem } from "@/types/inventory";
 import type { ResortPackage } from "@/types/package";
 
 interface AppState {
+  /** Signed-in admin: every booking, editable.
+   *  Guest: the real bookings with personal details stripped, read-only —
+   *  enough for calendars and capacity checks. Guests create and cancel
+   *  bookings through the API, never through setBookings. */
   bookings: Booking[];
   setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
+  /** Reload the guest-side availability (e.g. right after booking). */
+  refreshAvailability: () => Promise<void>;
   rooms: Room[];
   setRooms: React.Dispatch<React.SetStateAction<Room[]>>;
   galleryImgs: string[];
@@ -34,8 +39,6 @@ interface AppState {
   setCustomerMessages: React.Dispatch<React.SetStateAction<CustomerMessage[]>>;
   adminAuth: boolean;
   setAdminAuth: React.Dispatch<React.SetStateAction<boolean>>;
-  menuItems: MenuItem[];
-  setMenuItems: React.Dispatch<React.SetStateAction<MenuItem[]>>;
   facilities: Facility[];
   setFacilities: React.Dispatch<React.SetStateAction<Facility[]>>;
   inventory: InventoryItem[];
@@ -59,12 +62,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   //
   // The INIT_* constants stay as the offline fallback for a browser that has
   // never loaded the site and cannot reach the API.
-  const [bookings, setBookings] = useDbCollection<Booking>(COLLECTIONS.bookings, INIT_BOOKINGS, adminAuth);
+  const [adminBookings, setBookings] = useDbCollection<Booking>(COLLECTIONS.bookings, INIT_BOOKINGS, adminAuth);
+  const publicAvailability = usePublicAvailability(!adminAuth);
+  const bookings = adminAuth ? adminBookings : publicAvailability.bookings;
   const [rooms, setRooms] = useDbCollection<Room>(COLLECTIONS.rooms, INIT_ROOMS);
   const [galleryImgs, setGalleryImgs] = useDbCollection<string>(COLLECTIONS.gallery, INIT_GALLERY);
   const [closedDates, setClosedDates] = useDbCollection<string>(COLLECTIONS.closedDates, []);
   const [customerMessages, setCustomerMessages] = useDbCollection<CustomerMessage>(COLLECTIONS.customerMessages, [], adminAuth);
-  const [menuItems, setMenuItems] = useDbCollection<MenuItem>(COLLECTIONS.menuItems, INIT_MENU);
   const [facilities, setFacilities] = useDbCollection<Facility>(COLLECTIONS.facilities, INIT_FACILITIES, adminAuth);
   const [inventory, setInventory] = useDbCollection<InventoryItem>(COLLECTIONS.inventory, INIT_INVENTORY, adminAuth);
   const [packages, setPackages] = useDbCollection<ResortPackage>(COLLECTIONS.packages, INIT_PACKAGES);
@@ -72,12 +76,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppCtx.Provider value={{
       bookings, setBookings,
+      refreshAvailability: publicAvailability.refresh,
       rooms, setRooms,
       galleryImgs, setGalleryImgs,
       closedDates, setClosedDates,
       customerMessages, setCustomerMessages,
       adminAuth, setAdminAuth,
-      menuItems, setMenuItems,
       facilities, setFacilities,
       inventory, setInventory,
       packages, setPackages,

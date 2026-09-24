@@ -7,7 +7,9 @@ import { T } from "@/lib/theme";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
 import type { ResortPackage } from "@/types/package";
-import type { BookingResource, BookingTier } from "@/types/booking";
+import type { BookingResource, BookingTier, PackageSlotMode } from "@/types/booking";
+import { pricingProblem, standardPackagePrice } from "@/lib/pricing";
+import { SLOTS } from "@/lib/resort";
 import { Icon } from "@/components/common/Icon";
 
 interface PackagesTabProps {
@@ -21,8 +23,8 @@ const STATUSES: BookingTier[] = ["Shared", "Exclusive"];
 
 const BLANK_FORM = {
   code: "", title: "", resource: "Pool" as BookingResource, status: "Shared" as BookingTier,
-  price: "", listPrice: "", capacity: "", requiresRoom: false, foodDiscountPct: "",
-  cover: "", blurb: "", includes: "", foodNote: "", note: "", active: true,
+  price: "", listPrice: "", capacity: "", requiresRoom: false, slotMode: "Single" as PackageSlotMode,
+  cover: "", blurb: "", includes: "", note: "", active: true,
 };
 
 export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
@@ -50,10 +52,9 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
     setForm({
       code: p.code, title: p.title, resource: p.resource, status: p.status,
       price: String(p.price), listPrice: p.listPrice ? String(p.listPrice) : "",
-      capacity: String(p.capacity), requiresRoom: !!p.requiresRoom,
-      foodDiscountPct: p.foodDiscountPct ? String(p.foodDiscountPct) : "",
+      capacity: String(p.capacity), requiresRoom: !!p.requiresRoom, slotMode: p.slotMode ?? "Single",
       cover: p.cover, blurb: p.blurb, includes: p.includes.join("\n"),
-      foodNote: p.foodNote, note: p.note ?? "", active: p.active,
+      note: p.note ?? "", active: p.active,
     });
     setShowModal(true);
   };
@@ -74,11 +75,10 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
       listPrice: form.listPrice ? Number(form.listPrice) : undefined,
       capacity: Number(form.capacity) || 1,
       requiresRoom: form.requiresRoom || undefined,
-      foodDiscountPct: form.foodDiscountPct ? Number(form.foodDiscountPct) : undefined,
+      slotMode: form.slotMode,
       cover: form.cover || "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&q=80",
       blurb: form.blurb,
       includes: form.includes.split("\n").map((s) => s.trim()).filter(Boolean),
-      foodNote: form.foodNote,
       note: form.note || undefined,
       active: form.active,
     };
@@ -110,7 +110,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
         <button onClick={openAdd} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD PACKAGE</button>
       </div>
 
-      {/* Same treatment as the Menu grid: 1fr auto-rows equalises row heights on
+      {/* 1fr auto-rows equalises row heights on
           multi-column layouts (not mobile, which is one card per row), and each
           card is a column whose action row is pinned to the bottom. */}
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fill,minmax(280px,1fr))", gridAutoRows: mob ? "auto" : "1fr", gap: 16 }}>
@@ -129,12 +129,12 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
               </div>
               <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5, marginBottom: 8 }}>{p.blurb}</p>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                <span style={{ fontSize: 10.5, color: gold, border: `1px solid ${gold}55`, borderRadius: 20, padding: "2px 7px" }}>{p.slotMode === "WholeDay" ? "WHOLE DAY" : "DAY OR NIGHT"}</span>
                 {p.requiresRoom && <span style={{ fontSize: 10.5, color: gold, border: `1px solid ${gold}55`, borderRadius: 20, padding: "2px 7px" }}>ROOM REQUIRED</span>}
-                {p.foodDiscountPct && <span style={{ fontSize: 10.5, color: gold, border: `1px solid ${gold}55`, borderRadius: 20, padding: "2px 7px" }}>{Math.round(p.foodDiscountPct * 100)}% FOOD OFF</span>}
                 <span style={{ fontSize: 10.5, color: C.textS, border: `1px solid ${cBr}`, borderRadius: 20, padding: "2px 7px" }}>Cap {p.capacity}</span>
               </div>
               {/* marginTop:auto — blurb length and the badge row (ROOM REQUIRED,
-                  FOOD OFF, Cap) vary per package, which left these buttons 20px
+                  Cap) vary per package, which left these buttons 20px
                   apart between neighbouring cards. */}
               <div style={{ display: "flex", gap: 8, marginTop: "auto", paddingTop: 4 }}>
                 <button onClick={() => toggleActive(p)} style={{ ...outBtn, flex: 1, padding: "7px 10px", fontSize: 11.5, letterSpacing: 1 }}>{p.active ? "HIDE" : "SHOW"}</button>
@@ -173,6 +173,13 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   </select>
                 </div>
               </div>
+              <div>
+                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>WHEN</label>
+                <select value={form.slotMode} onChange={(e) => setF("slotMode", e.target.value as PackageSlotMode)} className="sw-input" style={inpS}>
+                  <option value="Single">Day or Night — guest picks ({SLOTS.Day.hours} / {SLOTS.Night.hours})</option>
+                  <option value="WholeDay">Whole Day ({SLOTS.WholeDay.hours})</option>
+                </select>
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                 <div>
                   <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>PRICE (₱)</label>
@@ -187,6 +194,23 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   <input type="number" min={1} value={form.capacity} onChange={(e) => setF("capacity", e.target.value)} className="sw-input" style={inpS} />
                 </div>
               </div>
+              {/* What the standard rules give for this setup, so a promo
+                  price is a deliberate choice — never an accident that makes
+                  the package dearer than booking the same thing by hand. */}
+              {(() => {
+                const problem = pricingProblem(form.resource, form.status, form.slotMode === "WholeDay" ? "WholeDay" : "Day");
+                if (problem) return <p style={{ color: "#e55", fontSize: 12.5, margin: 0 }}>⚠ {problem}</p>;
+                const std = standardPackagePrice({ resource: form.resource, tier: form.status, slotMode: form.slotMode, capacity: Number(form.capacity) || 1 });
+                const price = Number(form.price);
+                return (
+                  <p style={{ color: C.textS, fontSize: 12.5, margin: 0, lineHeight: 1.6 }}>
+                    Standard price for this setup: <strong style={{ color: gold }}>{fmt(std.price)}</strong>
+                    {std.listPrice > std.price ? <> (regular {fmt(std.listPrice)})</> : null}
+                    {" "}<button type="button" onClick={() => { setF("price", String(std.price)); setF("listPrice", std.listPrice > std.price ? String(std.listPrice) : ""); }} style={{ background: "none", border: "none", color: gold, cursor: "pointer", textDecoration: "underline", fontSize: 12.5, padding: 0 }}>use it</button>
+                    {form.price !== "" && price > std.price && <span style={{ color: "#f5c518" }}> · Your price is higher than booking this without the package.</span>}
+                  </p>
+                );
+              })()}
               <div>
                 <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>PHOTO</label>
                 <input type="file" accept="image/*" onChange={handleImg} className="sw-input" style={inpS} />
@@ -204,16 +228,8 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                 <textarea value={form.includes} onChange={(e) => setF("includes", e.target.value)} rows={3} className="sw-input" style={{ ...inpS, resize: "none" }} />
               </div>
               <div>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>FOOD NOTE</label>
-                <input value={form.foodNote} onChange={(e) => setF("foodNote", e.target.value)} className="sw-input" style={inpS} />
-              </div>
-              <div>
                 <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>EXTRA NOTE (optional)</label>
                 <input value={form.note} onChange={(e) => setF("note", e.target.value)} className="sw-input" style={inpS} />
-              </div>
-              <div>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>FOOD DISCOUNT % (0–1, optional)</label>
-                <input type="number" step="0.01" min={0} max={1} value={form.foodDiscountPct} onChange={(e) => setF("foodDiscountPct", e.target.value)} placeholder="e.g. 0.08 for 8%" className="sw-input" style={inpS} />
               </div>
               <div onClick={() => setF("requiresRoom", !form.requiresRoom)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
                 <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${form.requiresRoom ? "#4caf50" : cBr}`, background: form.requiresRoom ? "#4caf50" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>

@@ -1,4 +1,4 @@
-import type { BookingResource, BookingTier } from "@/types/booking";
+import type { BookingResource, BookingTier, PackageSlotMode } from "@/types/booking";
 
 /** A resort package as the admin manages it — the CMS-editable source of
  *  truth for what Home.tsx and the Packages page display, and for what a
@@ -23,15 +23,13 @@ export interface ResortPackage {
    *  `price`, since a package can't fix a price for a room it hasn't
    *  chosen. */
   requiresRoom?: boolean;
-  /** Extra discount (0–1) this package grants on the guest's whole food
-   *  subtotal, on top of the universal Combo discount — e.g. a Pool + Food
-   *  package's built-in food perk. */
-  foodDiscountPct?: number;
+  /** "Single": the guest picks Day or Night at booking and `price` is for
+   *  one slot. "WholeDay": 7 AM–12 AM, and `price` covers both slots. */
+  slotMode: PackageSlotMode;
   cover: string;
   gallery: { label: string; src: string; kind: string }[];
   blurb: string;
   includes: string[];
-  foodNote: string;
   note?: string;
   /** Hidden from customers (Home, Packages page, Walk-In) when false, but
    *  kept around for admin reference / existing bookings. */

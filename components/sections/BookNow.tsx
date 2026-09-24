@@ -7,12 +7,12 @@
   import { useToast } from "@/contexts/ToastContext";
   import { T } from "@/lib/theme";
   import { gold, goldBtn, outBtn } from "@/lib/styles";
-  import { fmt, calcTourBase, calcExclusiveDiscount, calcComboDiscount, calcPackageFoodDiscount, hasComboItem, calcFoodTotal, genBookingId, fmtTimer, fmtDate, getPackageTier, checkBookingAvailability, getSharedPoolUsage, calcVenueFee, isMenuItemSellable, deductRecipeStock, isRoomOpen } from "@/lib/utils";
+  import { fmt, fmtTimer, fmtDate, getPackageTier, checkBookingAvailability, getSharedPoolUsage, isRoomOpen, roomsTakenOn } from "@/lib/utils";
+  import { priceBooking, bookingLabel } from "@/lib/pricing";
   import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
-  import type { Booking, BookingFoodItem, BookingResource, BookingTier, PackageDeepLink } from "@/types/booking";
+  import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
+  import { SLOTS, QUIET_HOURS_POLICY, TURNOVER_WINDOW } from "@/lib/resort";
   import type { Room } from "@/types/room";
-  import type { MenuItem } from "@/types/menu";
-  import type { InventoryItem } from "@/types/inventory";
   import type { Facility } from "@/types/facility";
   import {
     isValidEmail,
@@ -29,20 +29,22 @@
     NOTES_MAX,
     GUESTS_MIN,
     GUESTS_MAX,
-    OVERTIME_MIN,
     OVERTIME_MAX,
+    OVERTIME_RATE,
     RESORT_MAX_CAPACITY,
-    COMBO_DISCOUNT_PCT,
     ROOM_BUNDLE_DISCOUNT_PCT,
+    EVENT_VENUE_RATE,
+    SHARED_PER_HEAD_RATE,
   } from "@/lib/validators";
 
   interface BookNowProps {
+    /** Real bookings (personal details stripped) — used only to show which
+     *  dates, rooms and capacity are taken. The booking itself is created
+     *  by the server after payment, never written from here. */
     bookings: Booking[];
-    setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
+    /** Called once the booking is saved, so calendars can refresh. */
+    onBooked?: () => void;
     rooms: Room[];
-    menuItems?: MenuItem[];
-    inventory?: InventoryItem[];
-    setInventory?: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
     closedDates: string[];
     /** Used to hide/disable a room, the pool, or the events venue when
      *  staff has flagged it "Under Maintenance" in the admin Facilities
@@ -61,12 +63,12 @@
     /** Present only when arriving from a Home page package card. A package
      *  is a fixed, one-time purchase — its price and guest capacity are not
      *  negotiable, so when this is set the whole guest/room/overtime/tier
-     *  picker UI is hidden and the guest only picks a date and food. */
+     *  picker UI is hidden and the guest only picks a date. */
     initialPackage?: PackageDeepLink;
   }
 
   export function BookNow({
-    bookings, setBookings, rooms, menuItems = [], inventory = [], setInventory, closedDates,
+    bookings, onBooked, rooms, closedDates,
     facilities = [],
     preselectedRoom, clearPreselected,
     preselectedDate, clearPreselectedDate,
@@ -81,13 +83,19 @@
 
     // A package is a fixed, one-time purchase (see PackageDeepLink) — no
     // customizing guests, rooms, overtime or tier once one is chosen. Only
-    // the date and the food/combo order are left for the guest to pick.
+    // the date is left for the guest to pick.
     const isPackage = !!initialPackage;
-    const [tourType, setTourType] = useState<"Day Tour" | "Night Tour">("Day Tour");
+    // Day (7 AM–5 PM), Night (7 PM–12 AM) or Whole Day — see lib/resort.ts.
+    // A Whole Day package fixes it; a single-slot package lets the guest
+    // pick Day or Night on the date step.
+    const [slot, setSlot] = useState<BookingSlot>(initialPackage?.slotMode === "WholeDay" ? "WholeDay" : "Day");
     const [step, setStep] = useState(initialResource ? 3 : 1);
     const [date, setDate] = useState(preselectedDate || "");
     const [guests, setGuests] = useState(initialPackage?.capacity ?? 10);
-    const [overtime, setOvertime] = useState(0);
+    // Guests don't choose overtime any more: staff add it at the resort when
+    // the Night slot is free (max 2 hrs). Kept at 0 so every price and
+    // availability call below has one shape for both sides.
+    const overtime = 0;
     // Which resource is being booked (Pool / events Venue / both), and an
     // explicit Shared-vs-Exclusive override. tierChoice starts as null so the
     // guest-count-derived default still applies until they actively pick one —
@@ -96,7 +104,6 @@
     const [resource, setResource] = useState<BookingResource>(initialResource ?? "Pool");
     const [tierChoice, setTierChoice] = useState<BookingTier | null>(initialTier ?? null);
     const [selRooms, setSelRooms] = useState<number[]>(preselectedRoom ? [preselectedRoom] : []);
-    const [foodQty, setFoodQty] = useState<Record<number, number>>({});
     const [form, setFormState] = useState({ name: "", email: "", contact: "", notes: "" });
     const [bookingId, setBookingId] = useState("");
     const [qrSeconds, setQrSeconds] = useState(600);
@@ -119,6 +126,13 @@
     const [qrLoading, setQrLoading] = useState(false);
     const [qrError, setQrError] = useState<string | null>(null);
     const [paid, setPaid] = useState(false);
+    // The server's own price for this booking, returned with the QR. The
+    // payment screen shows these so the amount on screen is exactly the
+    // amount on the QR, even if something changed since the guest started.
+    const [serverQuote, setServerQuote] = useState<{ total: number; down: number } | null>(null);
+    // Saving the booking after payment: in progress, or failed with a message.
+    const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
     // Held in a ref so the teardown below can void whatever intent is live
     // without the effect having to re-run every time qrData changes.
     const activeIntentRef = useRef<string | null>(null);
@@ -141,7 +155,8 @@
     // A Venue-only booking is always exclusive to the venue by definition —
     // there's no "sharing" a rented hall. Otherwise, the guest's explicit
     // choice wins; absent that, fall back to the guest-count-derived default.
-    const tier: BookingTier = resource === "Venue" ? "Exclusive" : (tierChoice ?? getPackageTier(guests));
+    // The venue is always exclusive, and Whole Day is only sold exclusive.
+    const tier: BookingTier = resource === "Venue" || slot === "WholeDay" ? "Exclusive" : (tierChoice ?? getPackageTier(guests));
 
     // An Exclusive buyout reserves the WHOLE resort, not however many of the
     // fixed 30 guests actually attend — so the moment a guest picks
@@ -160,60 +175,88 @@
     // checkBookingAvailability checks whichever resource(s) this booking
     // actually uses — the pool's running Shared headcount, the venue's
     // single-booking calendar, or both.
-    const dateCapacity = date ? checkBookingAvailability(date, guests, tier, resource, bookings, facilities) : { ok: true };
+    const dateCapacity = date ? checkBookingAvailability(date, slot, guests, tier, resource, bookings, facilities) : { ok: true };
     const dateOk =
       !!date &&
       isWithinBookingWindow(date) &&
       dateCapacity.ok &&
       !closedSet.has(date);
-    const sharedUsage = date ? getSharedPoolUsage(date, bookings) : { used: 0, max: 0 };
+    // Whole Day is always exclusive, so the shared readout is per single slot.
+    const sharedUsage = date && slot !== "WholeDay" ? getSharedPoolUsage(date, bookings, slot) : { used: 0, max: 0 };
     // An Exclusive buyout fixes the guest count to the resort's full
     // capacity — the stepper is locked (not just defaulted) once that's
     // chosen, so it can't drift away from what the flat rate actually buys.
     const guestsLocked = !isPackage && resource !== "Venue" && tier === "Exclusive";
-    const packageLabel = isPackage
-      ? initialPackage!.title
-      : resource === "Venue"
-      ? "Event Venue Rental (Exclusive)"
-      : resource === "Pool+Venue"
-      ? `${tourType} + Event Venue (Exclusive)${selRooms.length > 0 ? " + Room" : ""}`
-      : `${tourType}${selRooms.length > 0 ? " + Room" : ""}`;
+    // Same wording the server stores on the booking (lib/pricing.ts).
+    const packageLabel = bookingLabel({
+      packageTitle: initialPackage?.title,
+      resource,
+      slot,
+      hasRoom: selRooms.length > 0,
+    });
 
-    // Tour base: a package's fixed price when arriving from one, otherwise
-    // the tier-dependent rate (flat Exclusive buyout vs per-head Shared).
-    const tourBase = isPackage ? initialPackage!.price : resource === "Venue" ? 0 : calcTourBase(guests, tier);
-    // Reward for an Exclusive buyout — never applies to a package, since a
-    // package's price is already its final, fixed price.
-    const exclusiveDiscount = isPackage || resource === "Venue" ? 0 : calcExclusiveDiscount(tier, guests);
-    const venueFee = isPackage ? 0 : calcVenueFee(resource);
-    const overtimeFee = isPackage || resource === "Venue" ? 0 : overtime * 500;
-    // A "Pool + Room" package still needs ONE room picked (see
-    // requiresRoom) — everything else about a package is fixed, but a room
-    // can't be priced before it's chosen. Bookable rooms exclude any
-    // flagged "Under Maintenance" in Facilities.
     const requiresRoom = !!initialPackage?.requiresRoom;
+    // Rooms under maintenance are hidden; rooms already rented to another
+    // guest on the chosen date are shown but can't be picked.
     const bookableRooms = rooms.filter((r) => isRoomOpen(r.id, facilities));
+    // Rooms are rented per slot, so only a clash in the same slot counts.
+    const takenRooms = date ? roomsTakenOn(date, slot, bookings) : new Set<number>();
     const showRoomPicker = (!isPackage && resource !== "Venue") || (isPackage && requiresRoom);
     const selectedRoomDetails = selRooms.map((rid) => rooms.find((r) => r.id === rid)).filter((r): r is Room => !!r);
-    const roomsFeeRaw = selectedRoomDetails.reduce((sum, r) => sum + r.price, 0);
-    // A room bundled into a package costs less than renting it standalone.
-    const roomBundleDiscount = isPackage && requiresRoom ? Math.round(roomsFeeRaw * ROOM_BUNDLE_DISCOUNT_PCT) : 0;
-    const roomsFee = roomsFeeRaw - roomBundleDiscount;
-    const foodOrder: BookingFoodItem[] = Object.entries(foodQty)
-      .filter(([, qty]) => qty > 0)
-      .map(([itemId, qty]) => {
-        const item = menuItems.find((m) => m.id === Number(itemId));
-        return { itemId: Number(itemId), name: item?.name ?? "Item", price: item?.price ?? 0, qty };
-      });
-    const foodTotal = calcFoodTotal(foodOrder);
-    // Ordering at least one Combo item discounts the whole food subtotal —
-    // works the same whether or not this booking is a package. A "Pool +
-    // Food" package additionally discounts the WHOLE food order regardless
-    // of what's in it (see PackageDeepLink.foodDiscountPct) — the two stack.
-    const comboDiscount = calcComboDiscount(foodOrder, menuItems);
-    const packageFoodDiscount = isPackage ? calcPackageFoodDiscount(foodOrder, initialPackage?.foodDiscountPct) : 0;
-    const total = tourBase - exclusiveDiscount + overtimeFee + roomsFee + venueFee + foodTotal - comboDiscount - packageFoodDiscount;
-    const down = Math.ceil(total / 2);
+    // Same function the server uses to set the QR amount (lib/pricing), so
+    // what's shown here is what gets charged. Named fields are unpacked
+    // because the breakdown below displays each line.
+    const {
+      tourBase, poolFee, venueFee, exclusiveDiscount, bundleDiscount,
+      roomsFeeRaw, roomBundleDiscount, total, down, slots: slotCount,
+    } = priceBooking({
+      pkg: isPackage ? { price: initialPackage!.price, requiresRoom } : null,
+      resource,
+      tier,
+      slot,
+      guests,
+      overtime,
+      roomPrices: selectedRoomDetails.map((r) => r.price),
+    });
+    // Everything the server needs to re-check and re-price this booking.
+    const draft = {
+      packageCode: initialPackage?.code,
+      resource, tier, slot, guests, overtime,
+      rooms: selRooms,
+      date,
+      name: form.name, email: form.email, contact: form.contact, notes: form.notes,
+    };
+    const roomsFree = selRooms.every((r) => !takenRooms.has(r));
+    // One line per part of the price, in the same order the server adds
+    // them up. Whole Day doubles the per-slot parts, and says so.
+    const perSlot = slotCount === 2 ? " × 2 slots" : "";
+    const priceLines: { label: string; amount: number; discount?: boolean; strike?: number }[] = isPackage
+      ? [
+          {
+            label: `${initialPackage!.title} — ${SLOTS[slot].label}`,
+            amount: initialPackage!.price,
+            strike: initialPackage!.listPrice,
+          },
+          ...selectedRoomDetails.map((r) => ({ label: `Room — ${r.name}${perSlot}`, amount: r.price * slotCount })),
+          ...(roomBundleDiscount > 0
+            ? [{ label: `Room package discount (-${Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}%)`, amount: roomBundleDiscount, discount: true }]
+            : []),
+        ]
+      : [
+          ...(poolFee > 0
+            ? [{
+                label: tier === "Exclusive"
+                  ? `Exclusive pool${perSlot}`
+                  : `Shared pool (${guests} × ${fmt(SHARED_PER_HEAD_RATE)}${perSlot})`,
+                amount: poolFee,
+              }]
+            : []),
+          ...(venueFee > 0 ? [{ label: `Events venue${perSlot}`, amount: venueFee }] : []),
+          ...(exclusiveDiscount > 0 ? [{ label: "Exclusive discount (-5%)", amount: exclusiveDiscount, discount: true }] : []),
+          ...(bundleDiscount > 0 ? [{ label: "Bundle discount (-10%)", amount: bundleDiscount, discount: true }] : []),
+          ...selectedRoomDetails.map((r) => ({ label: `Room — ${r.name}${perSlot}`, amount: r.price * slotCount })),
+        ];
+    void roomsFeeRaw; void tourBase;
     // A package requiring a room only ever wants ONE — picking a new one
     // replaces the selection instead of adding to it.
     const toggleRoom = (id: number) => {
@@ -223,7 +266,6 @@
         setSelRooms((r) => (r.includes(id) ? r.filter((x) => x !== id) : [...r, id]));
       }
     };
-    const setFoodItemQty = (id: number, qty: number) => setFoodQty((f) => ({ ...f, [id]: Math.max(0, qty) }));
     const handleContact = (v: string) => setF("contact", sanitizeContact(v));
     // Names are filtered as they are typed, so digits and symbols never even
     // appear in the field — the user sees the rule instead of being told off
@@ -257,17 +299,15 @@
           const res = await fetch("/api/payment", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              // PayMongo works in centavos, and `down` is in pesos.
-              amount: Math.round(down * 100),
-              referenceId: `SW-${10007 + bookings.length}`,
-              description: `StoneWood ${packageLabel} — ${date}`,
-            }),
+            // The booking itself, not an amount: the server prices it and
+            // decides what the QR charges.
+            body: JSON.stringify({ draft }),
           });
           const json = await res.json();
           if (cancelled) return;
           if (!json.success) throw new Error(json.error ?? "Could not start payment.");
           activeIntentRef.current = json.payment.paymentIntentId;
+          setServerQuote(json.quote ?? null);
           setQrData(json.payment);
         } catch (err) {
           if (!cancelled) {
@@ -375,39 +415,51 @@
         // endpoint would refuse to cancel one anyway, but clearing the ref
         // avoids a pointless round trip on the way to step 7.
         activeIntentRef.current = null;
-        const t = setTimeout(() => confirmOnline(), 1200); // let the tick land visually
+        const t = setTimeout(() => void confirmOnline(), 300); // brief beat so the tick lands; kept short so a guest who closes the tab right after paying is unlikely to beat the save
         return () => clearTimeout(t);
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [paid, step]);
 
-    // Called after payment confirm modal is accepted
-    const confirmOnline = () => {
-      const id = genBookingId(bookings.length);
-      setBookingId(id);
-      setBookings((b) => [...b, {
-        id, name: form.name, contact: form.contact, email: form.email,
-        date, guests, package: packageLabel,
-        rooms: selRooms, overtime, total, downpayment: down,
-        status: "Paid", paymentProof: false, notes: form.notes, createdAt: Date.now(),
-        source: "Online",
-        foodOrder: foodOrder.length ? foodOrder : undefined,
-        foodTotal: foodTotal || undefined,
-        resource, tier,
-      }]);
-      if (foodOrder.length) {
-        setInventory?.((inv) => deductRecipeStock(foodOrder, menuItems, inv));
+    // Save the booking on the server once PayMongo confirms payment.
+    //
+    // This used to append the booking to a local list, which for a guest
+    // never left the browser — the admin never saw it and the date stayed
+    // open. Now the server checks the payment itself and stores the booking
+    // at the price actually paid, and the database assigns the reference.
+    // Safe to retry: the same payment can only ever create one booking.
+    const confirmOnline = async () => {
+      const paymentIntentId = qrData?.paymentIntentId;
+      if (!paymentIntentId || saving) return;
+      setSaving(true);
+      setSaveError(null);
+      try {
+        const res = await fetch("/api/bookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ draft, paymentIntentId }),
+        });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.success || !json.booking?.id) {
+          throw new Error(json?.error ?? "We couldn't save your booking.");
+        }
+        setBookingId(json.booking.id);
+        onBooked?.();
+        clearPreselected?.(); clearPreselectedDate?.();
+        if (timerRef.current) clearInterval(timerRef.current);
+        setShowPaymentConfirm(false);
+        setStep(7);
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : "We couldn't save your booking.");
+      } finally {
+        setSaving(false);
       }
-      clearPreselected?.(); clearPreselectedDate?.();
-      if (timerRef.current) clearInterval(timerRef.current);
-      setShowPaymentConfirm(false);
-      setStep(7);
     };
 
     const inpS: React.CSSProperties = { ...C.inp, borderRadius: 6 };
     const cBr = isDark ? "#2a2520" : "#d6cfc4";
 
-    const stepLabels = ["Tour Type", "Details", "Rooms & Food", "Your Info", "GCash", "Done"];
+    const stepLabels = ["Tour Type", "Details", "Rooms", "Your Info", "GCash", "Done"];
     const stepIdx: Record<number, number> = { 1: 0, 3: 1, 4: 2, 5: 3, 6: 4, 7: 5 };
     const labels = stepLabels;
     const currentIdx = stepIdx[step] ?? 0;
@@ -437,8 +489,8 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={gold} strokeWidth="2" style={{ opacity: 0.7, flexShrink: 0 }}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
             <span style={{ color: C.textS, fontSize: 14.5 }}>
               {step === 1
-                ? <>Day Tour: <strong style={{ color: C.textB }}>8AM–5PM</strong> · Night Tour: <strong style={{ color: C.textB }}>6PM–12AM</strong></>
-                : <>{tourType} Hours: <strong style={{ color: C.textB }}>{tourType === "Night Tour" ? "6:00 PM – 12:00 AM" : "8:00 AM – 5:00 PM"}</strong></>
+                ? <>Day: <strong style={{ color: C.textB }}>{SLOTS.Day.hours}</strong> · Night: <strong style={{ color: C.textB }}>{SLOTS.Night.hours}</strong></>
+                : <>{SLOTS[slot].label}: <strong style={{ color: C.textB }}>{SLOTS[slot].hours}</strong></>
               }
             </span>
           </div>
@@ -468,21 +520,22 @@
             {/* STEP 1 – Tour Type */}
             {step === 1 && (
               <div>
-                <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, marginBottom: 6, fontWeight: 400 }}>Which tour would you like?</h3>
+                <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, marginBottom: 6, fontWeight: 400 }}>When would you like to come?</h3>
                 <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 24, lineHeight: 1.7 }}>Reserve online now via GCash. 50% down payment required.</p>
-                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 14 }}>
-                  {[
-                    { id: "Day Tour", icon: "☀️", title: "Day Tour", sub: "Whole-day resort use, 8:00 AM – 5:00 PM.", badge: "POPULAR" },
-                    { id: "Night Tour", icon: "🌙", title: "Night Tour", sub: "Whole-night resort use, 6:00 PM – 12:00 AM.", badge: "NEW" },
-                  ].map((opt) => (
-                    <div key={opt.id} onClick={() => { setTourType(opt.id as "Day Tour" | "Night Tour"); setStep(3); }}
+                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr 1fr", gap: 14 }}>
+                  {([
+                    { id: "Day", icon: "☀️", sub: `${SLOTS.Day.hours}.`, badge: "POPULAR" },
+                    { id: "Night", icon: "🌙", sub: `${SLOTS.Night.hours}. Quiet hours from 10 PM.`, badge: "" },
+                    { id: "WholeDay", icon: "🌗", sub: `${SLOTS.WholeDay.hours}, exclusive — Day + Night for 10% less.`, badge: "BEST VALUE" },
+                  ] as const).map((opt) => (
+                    <div key={opt.id} onClick={() => { setSlot(opt.id); if (opt.id === "WholeDay") setTierChoice("Exclusive"); setStep(3); }}
                       style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: "24px 20px", cursor: "pointer", position: "relative", transition: "border-color .2s,box-shadow .2s" }}
                       onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${gold}66`; e.currentTarget.style.boxShadow = isDark ? "0 8px 24px rgba(0,0,0,0.4)" : "0 8px 24px rgba(100,70,10,0.1)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}
                     >
                       {opt.badge && <span style={{ position: "absolute", top: 12, right: 12, background: `${gold}22`, color: gold, fontSize: 9.5, padding: "3px 8px", borderRadius: 20, letterSpacing: 1, border: `1px solid ${gold}44` }}>{opt.badge}</span>}
                       <div style={{ fontSize: 32, marginBottom: 12 }}>{opt.icon}</div>
-                      <h4 style={{ color: C.textH, fontSize: 17, fontFamily: "'Cormorant Garamond',Georgia,serif", marginBottom: 6 }}>{opt.title}</h4>
+                      <h4 style={{ color: C.textH, fontSize: 17, fontFamily: "'Cormorant Garamond',Georgia,serif", marginBottom: 6 }}>{SLOTS[opt.id].label}</h4>
                       <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>{opt.sub}</p>
                     </div>
                   ))}
@@ -512,7 +565,7 @@
                   <div style={{ flex: 1 }}>
                     <div style={{ color: C.textH, fontSize: 14.5, fontWeight: 600 }}>Also rent the Events Venue</div>
                     <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>
-                      Exclusive buyout of the events hall alongside your tour · +{fmt(calcVenueFee("Venue"))}
+                      Exclusive use of the events hall alongside your pool booking · +{fmt(EVENT_VENUE_RATE)} per slot, 10% off with an exclusive pool
                     </div>
                   </div>
                 </div>
@@ -556,6 +609,7 @@
                       guests={guests}
                       resource={resource}
                       tier={tier}
+                      slot={slot}
                     />
 
                     {date && !dateOk && (
@@ -572,7 +626,7 @@
 
                     {date && resource !== "Venue" && tier === "Shared" && (
                       <p style={{ color: C.textS, fontSize: 12.5, marginTop: 6 }}>
-                        Shared: {sharedUsage.used} of {sharedUsage.max} spots taken that day.
+                        Shared: {sharedUsage.used} of {sharedUsage.max} spots taken for this {SLOTS[slot].label}.
                       </p>
                     )}
                   </div>
@@ -595,9 +649,35 @@
                       <p style={{ color: C.textH, fontSize: 16, fontWeight: 600, marginBottom: 4 }}>{initialPackage!.title}</p>
                       <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>
                         Fixed price of <strong style={{ color: gold }}>{fmt(initialPackage!.price)}</strong> for up to{" "}
-                        <strong style={{ color: C.textH }}>{initialPackage!.capacity} guests</strong>. Guests, tier and overtime
-                        aren't customizable for a package — {requiresRoom ? "just pick your room, date and food next." : "just pick your date and food next."}
+                        <strong style={{ color: C.textH }}>{initialPackage!.capacity} guests</strong>
+                        {initialPackage!.slotMode === "WholeDay" ? <>, {SLOTS.WholeDay.hours}</> : " per slot"}.
+                        {requiresRoom ? " Pick your room next." : ""}
                       </p>
+                      {/* A single-slot package: the guest chooses when. Availability
+                          above is checked for the slot picked here. */}
+                      {initialPackage!.slotMode !== "WholeDay" && (
+                        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                          {(["Day", "Night"] as const).map((sl) => {
+                            const active = slot === sl;
+                            return (
+                              <button
+                                key={sl}
+                                type="button"
+                                onClick={() => setSlot(sl)}
+                                style={{
+                                  flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer",
+                                  border: `1px solid ${active ? gold : cBr}`,
+                                  background: active ? "rgba(201,168,76,0.15)" : "transparent",
+                                  color: active ? gold : C.textS, textAlign: "left",
+                                }}
+                              >
+                                <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: 0.8 }}>{sl === "Day" ? "☀️ DAY" : "🌙 NIGHT"}</div>
+                                <div style={{ fontSize: 11.5, marginTop: 2, opacity: 0.8 }}>{SLOTS[sl].hours}</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   ) : (
                   <div
@@ -710,7 +790,7 @@
 
                       {guestsLocked && (
                         <p style={{ color: gold, fontSize: 12.5, marginTop: 12 }}>
-                          🔒 Exclusive buyout — fixed at {RESORT_MAX_CAPACITY} guests, {fmt(tourBase - exclusiveDiscount)} flat regardless of how many actually attend.
+                          🔒 Exclusive buyout — fixed at {RESORT_MAX_CAPACITY} guests, {fmt(tourBase)} flat{slotCount === 2 ? " for the whole day" : ""} regardless of how many actually attend.
                         </p>
                       )}
                       {!guestsLocked && guests >= GUESTS_MAX && (
@@ -718,9 +798,9 @@
                           Maximum {GUESTS_MAX} guests per booking — please call us for larger groups.
                         </p>
                       )}
-                      {resource === "Venue" ? (
+                      {resource === "Venue" || slot === "WholeDay" ? (
                         <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 12, padding: "5px 10px", borderRadius: 20, background: "rgba(201,168,76,0.15)", border: `1px solid ${gold}66` }}>
-                          <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 1, color: gold }}>🔒 EXCLUSIVE — VENUE RENTAL</span>
+                          <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 1, color: gold }}>{resource === "Venue" ? "🔒 EXCLUSIVE — VENUE RENTAL" : "🔒 EXCLUSIVE — WHOLE DAY"}</span>
                         </div>
                       ) : (
                         <div style={{ marginTop: 14 }}>
@@ -757,118 +837,38 @@
                           </div>
                           <p style={{ color: C.textS, fontSize: 11.5, marginTop: 6, opacity: 0.75, lineHeight: 1.5 }}>
                             {tier === "Exclusive"
-                              ? `Whole-resort buyout, fixed at ${RESORT_MAX_CAPACITY} guests — no other booking allowed that date. Earns a discount on the tour rate.`
-                              : "Pool shared with other same-day guests — billed per attending head, up to the resort's shared capacity."}
+                              ? `Whole-pool buyout, fixed at ${RESORT_MAX_CAPACITY} guests — no other group in your ${SLOTS[slot].label}. 5% off the flat rate.`
+                              : `Pool shared with other groups in your ${SLOTS[slot].label} — billed per guest, up to ${RESORT_MAX_CAPACITY} guests in total.`}
                           </p>
                         </div>
                       )}
                     </div>
 
-                    {/* OVERTIME */}
+                    {/* TIMES & HOUSE RULES — overtime is no longer sold online.
+                        Staff add it at the resort (₱500/hr, max 2 hrs after
+                        5 PM) only when the Night slot is free, since 5–7 PM
+                        is cleaning time before the Night group. */}
                     <div
                       style={{
                         border: `1px solid ${cBr}`,
                         borderRadius: 10,
                         padding: "16px 18px",
-                        background: isDark
-                          ? "rgba(255,255,255,0.02)"
-                          : "rgba(0,0,0,0.02)",
+                        background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
                       }}
                     >
-                      <label
-                        style={{
-                          color: gold,
-                          fontSize: 11.5,
-                          letterSpacing: 2,
-                          display: "block",
-                          marginBottom: 6,
-                        }}
-                      >
-                        OVERTIME HOURS
+                      <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 8 }}>
+                        YOUR TIME
                       </label>
-
-                      <p
-                        style={{
-                          color: C.textS,
-                          fontSize: 12.5,
-                          marginBottom: 14,
-                          opacity: 0.75,
-                        }}
-                      >
-                        Additional hours after {tourType === "Night Tour" ? "12AM" : "5PM"}
+                      <p style={{ color: C.textH, fontSize: 15, fontWeight: 600, margin: "0 0 8px" }}>
+                        {SLOTS[slot].label} · {SLOTS[slot].hours}
                       </p>
-
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 12,
-                        }}
-                      >
-                        <button
-                          onClick={() => setOvertime((o) => clamp(o - 1, OVERTIME_MIN, OVERTIME_MAX))}
-                          disabled={overtime <= OVERTIME_MIN}
-                          aria-label="Fewer overtime hours"
-                          style={{
-                            width: 42,
-                            height: 42,
-                            borderRadius: 8,
-                            background: "transparent",
-                            border: `1px solid ${cBr}`,
-                            color: C.textS,
-                            cursor: "pointer",
-                            fontSize: 18,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            transition: "0.2s",
-                          }}
-                        >
-                          −
-                        </button>
-
-                        <span
-                          style={{
-                            color: C.textH,
-                            fontSize: 26,
-                            fontWeight: 700,
-                            minWidth: 100,
-                            textAlign: "center",
-                            lineHeight: 1.2,
-                          }}
-                        >
-                          {overtime}
-                        </span>
-
-                        <button
-                          onClick={() => setOvertime((o) => clamp(o + 1, OVERTIME_MIN, OVERTIME_MAX))}
-                          disabled={overtime >= OVERTIME_MAX}
-                          aria-label="More overtime hours"
-                          style={{
-                            width: 42,
-                            height: 42,
-                            borderRadius: 8,
-                            background: "transparent",
-                            border: `1px solid ${cBr}`,
-                            color: C.textS,
-                            cursor: "pointer",
-                            fontSize: 18,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            transition: "0.2s",
-                          }}
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      {overtime > 0 && (
-                        <p style={{ color: "#f5c518", fontSize: 12.5, marginTop: 12 }}>
-                          {overtime}hr OT × ₱500 = {fmt(overtime * 500)}
-                        </p>
-                      )}
+                      <p style={{ color: C.textS, fontSize: 12.5, lineHeight: 1.6, margin: 0 }}>
+                        {slot === "Day"
+                          ? `Want to stay a little later? Up to ${OVERTIME_MAX} hrs of overtime (${fmt(OVERTIME_RATE)}/hr) can be arranged at the resort when no Night group is booked — ${TURNOVER_WINDOW} is otherwise cleaning time.`
+                          : slot === "Night"
+                          ? `Ends at ${SLOTS.Night.end} sharp. ${QUIET_HOURS_POLICY}`
+                          : `The resort is yours all day and night — no turnover in between. ${QUIET_HOURS_POLICY}`}
+                      </p>
                     </div>
                   </div>
                   )}
@@ -888,7 +888,10 @@
 
                     <button
                       disabled={!date || !dateOk}
-                      onClick={() => setStep(4)}
+                      // Step 4 only holds the room picker now, so skip it when
+                      // there is no room to pick (venue-only, or a package
+                      // that doesn't include one).
+                      onClick={() => setStep(showRoomPicker ? 4 : 5)}
                       style={{
                         ...goldBtn,
                         flex: 2,
@@ -902,7 +905,7 @@
                 </div>
               )}
 
-            {/* STEP 4 – Rooms + Food & Drinks (both optional, one screen) */}
+            {/* STEP 4 – Rooms (optional add-on, or the package's required room) */}
             {step === 4 && (
               <div>
                 {showRoomPicker && (
@@ -921,14 +924,16 @@
                   )}
                   {bookableRooms.map((r) => {
                     const sel = selRooms.includes(r.id);
+                    const taken = takenRooms.has(r.id);
                     const discountedPrice = requiresRoom ? Math.round(r.price * (1 - ROOM_BUNDLE_DISCOUNT_PCT)) : r.price;
                     return (
-                      <div key={r.id} onClick={() => toggleRoom(r.id)} style={{ background: sel ? (isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.1)") : C.bgCard2, border: `1px solid ${sel ? gold : C.border}`, borderRadius: 10, padding: "16px 18px", cursor: "pointer", display: "flex", alignItems: "center", gap: 14, transition: "all .2s" }}>
+                      <div key={r.id} onClick={() => { if (!taken || sel) toggleRoom(r.id); }} aria-disabled={taken && !sel} style={{ opacity: taken && !sel ? 0.45 : 1, pointerEvents: taken && !sel ? "none" : "auto", background: sel ? (isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.1)") : C.bgCard2, border: `1px solid ${sel ? gold : C.border}`, borderRadius: 10, padding: "16px 18px", cursor: "pointer", display: "flex", alignItems: "center", gap: 14, transition: "all .2s" }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img loading="lazy" decoding="async" src={r.img} alt={r.name} style={{ width: 72, height: 56, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
                         <div style={{ flex: 1 }}>
                           <div style={{ color: C.textH, fontSize: 15, fontWeight: 600, marginBottom: 2 }}>{r.name}</div>
                           <div style={{ color: C.textS, fontSize: 13.5 }}>🛏 {r.beds} · 👥 Up to {r.capacity}</div>
+                          {taken && <div style={{ color: "#e55", fontSize: 12.5, marginTop: 2 }}>Already booked on {fmtDate(date)}</div>}
                         </div>
                         <div style={{ textAlign: "right" }}>
                           {requiresRoom && <div style={{ color: C.textXS, fontSize: 12.5, textDecoration: "line-through" }}>{fmt(r.price)}</div>}
@@ -939,72 +944,28 @@
                     );
                   })}
                 </div>
+                {!roomsFree && (
+                  <p style={{ color: "#e55", fontSize: 13.5, marginTop: -16, marginBottom: 20 }}>⚠ A room you picked is already booked on this date — please unselect it.</p>
+                )}
                 {requiresRoom && selRooms.length === 0 && (
                   <p style={{ color: "#e55", fontSize: 13.5, marginTop: -16, marginBottom: 20 }}>⚠ Please pick a room to continue.</p>
                 )}
                 </>
                 )}
 
-                <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, marginBottom: 6, fontWeight: 400 }}>Add Food & Drinks? <span style={{ color: C.textB, fontSize: 15, fontWeight: 700 }}>(Optional)</span></h3>
-                <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 8, lineHeight: 1.7 }}>
-                  {resource === "Venue"
-                    ? "No catering — combo meals or self-orders only."
-                    : "Pre-order from our menu — it'll be ready when you arrive. You can skip this and order on-site instead."}
-                </p>
-                <p style={{ color: gold, fontSize: 12.5, marginBottom: 20, lineHeight: 1.6 }}>
-                  {hasComboItem(foodOrder, menuItems)
-                    ? "✓ Combo discount applied — see the price breakdown on the next step."
-                    : "🍽 Order a Combo item to unlock a discount on your whole food order."}
-                </p>
-                {menuItems.length === 0 && (
-                  <p style={{ color: C.textS, fontSize: 13.5, marginBottom: 20 }}>No menu items yet.</p>
-                )}
-                {/* Every item is listed, sellable or not, so a guest can see WHY
-                    something isn't orderable (marked out by staff, or out of an
-                    ingredient) instead of it silently disappearing. */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24, maxHeight: 380, overflowY: "auto" }}>
-                  {menuItems.map((m) => {
-                    const qty = foodQty[m.id] || 0;
-                    const sellable = isMenuItemSellable(m, inventory);
-                    return (
-                      <div key={m.id} style={{ opacity: sellable ? 1 : 0.55, background: qty > 0 ? (isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.1)") : C.bgCard2, border: `1px solid ${qty > 0 ? gold : C.border}`, borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img loading="lazy" decoding="async" src={m.img} alt={m.name} style={{ width: 56, height: 44, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ color: C.textH, fontSize: 14.5, fontWeight: 600 }}>{m.name}</div>
-                          <div style={{ color: C.textS, fontSize: 12.5 }}>
-                            {fmt(m.price)} · <span style={{ opacity: 0.75 }}>{m.category}</span>
-                            {!sellable && <span style={{ color: "#e55", marginLeft: 6, fontWeight: 600 }}>UNAVAILABLE</span>}
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                          <button onClick={() => setFoodItemQty(m.id, qty - 1)} disabled={qty <= 0} aria-label={`Fewer ${m.name}`} style={{ width: 28, height: 28, borderRadius: 6, background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", fontSize: 15 }}>−</button>
-                          <span style={{ color: C.textH, fontSize: 14.5, fontWeight: 700, minWidth: 18, textAlign: "center" }}>{qty}</span>
-                          <button onClick={() => setFoodItemQty(m.id, qty + 1)} disabled={!sellable} aria-label={`More ${m.name}`} style={{ width: 28, height: 28, borderRadius: 6, background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: sellable ? "pointer" : "not-allowed", fontSize: 15 }}>+</button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
                 {venueFee > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 12 }}>
                     <span style={{ color: C.textS, fontSize: 13.5 }}>Event Venue Rental</span>
                     <span style={{ color: gold, fontWeight: 700, fontSize: 14.5 }}>{fmt(venueFee)}</span>
                   </div>
                 )}
-                {foodTotal > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 20 }}>
-                    <span style={{ color: C.textS, fontSize: 13.5 }}>Food & Drinks Subtotal</span>
-                    <span style={{ color: gold, fontWeight: 700, fontSize: 14.5 }}>{fmt(foodTotal)}</span>
-                  </div>
-                )}
 
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setStep(3)} style={{ ...outBtn, flex: 1, padding: "12px 10px", borderRadius: 6 }}>BACK</button>
                   <button
-                    disabled={requiresRoom && selRooms.length === 0}
+                    disabled={(requiresRoom && selRooms.length === 0) || !roomsFree}
                     onClick={() => setStep(5)}
-                    style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: requiresRoom && selRooms.length === 0 ? 0.4 : 1 }}
+                    style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: (requiresRoom && selRooms.length === 0) || !roomsFree ? 0.4 : 1 }}
                   >
                     CONTINUE →
                   </button>
@@ -1113,91 +1074,17 @@
 
                   <p style={{ color: C.textS, fontSize: 10.5, letterSpacing: 2, marginTop: 16, marginBottom: 10 }}>PRICE BREAKDOWN</p>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {isPackage ? (
-                      <>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                          <span style={{ color: C.textS, fontSize: 13.5 }}>
-                            {initialPackage!.title} (package{initialPackage!.listPrice ? ", bundle discount included" : ""})
-                          </span>
-                          <span style={{ color: C.textB, fontSize: 13.5 }}>
-                            {initialPackage!.listPrice && (
-                              <span style={{ textDecoration: "line-through", color: C.textS, marginRight: 6 }}>{fmt(initialPackage!.listPrice)}</span>
-                            )}
-                            {fmt(initialPackage!.price)}
-                          </span>
-                        </div>
-                        {selectedRoomDetails.map((r) => (
-                          <div key={r.id} style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: C.textS, fontSize: 13.5 }}>Room — {r.name} (bundled)</span>
-                            <span style={{ color: C.textB, fontSize: 13.5 }}>
-                              {requiresRoom && (
-                                <span style={{ textDecoration: "line-through", color: C.textS, marginRight: 6 }}>{fmt(r.price)}</span>
-                              )}
-                              {fmt(roomsFee)}
-                            </span>
-                          </div>
-                        ))}
-                        {roomBundleDiscount > 0 && (
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: "#4caf50", fontSize: 13.5 }}>Room bundle discount (-{Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}%)</span>
-                            <span style={{ color: "#4caf50", fontSize: 13.5 }}>-{fmt(roomBundleDiscount)}</span>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        {resource !== "Venue" && (
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: C.textS, fontSize: 13.5 }}>
-                              {tier === "Exclusive" ? "Exclusive buyout (flat rate)" : `Shared tour (${guests} × ${fmt(200)})`}
-                            </span>
-                            <span style={{ color: C.textB, fontSize: 13.5 }}>{fmt(tourBase)}</span>
-                          </div>
-                        )}
-                        {exclusiveDiscount > 0 && (
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: "#4caf50", fontSize: 13.5 }}>Exclusive discount (-{Math.round((exclusiveDiscount / tourBase) * 100)}%)</span>
-                            <span style={{ color: "#4caf50", fontSize: 13.5 }}>-{fmt(exclusiveDiscount)}</span>
-                          </div>
-                        )}
-                        {overtimeFee > 0 && (
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: C.textS, fontSize: 13.5 }}>Overtime ({overtime}hr × {fmt(500)})</span>
-                            <span style={{ color: C.textB, fontSize: 13.5 }}>{fmt(overtimeFee)}</span>
-                          </div>
-                        )}
-                        {selectedRoomDetails.map((r) => (
-                          <div key={r.id} style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: C.textS, fontSize: 13.5 }}>Room — {r.name}</span>
-                            <span style={{ color: C.textB, fontSize: 13.5 }}>{fmt(r.price)}</span>
-                          </div>
-                        ))}
-                        {venueFee > 0 && (
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: C.textS, fontSize: 13.5 }}>Event venue rental</span>
-                            <span style={{ color: C.textB, fontSize: 13.5 }}>{fmt(venueFee)}</span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                    {foodOrder.map((f) => (
-                      <div key={f.itemId} style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: C.textS, fontSize: 13.5 }}>{f.name} × {f.qty}</span>
-                        <span style={{ color: C.textB, fontSize: 13.5 }}>{fmt(f.price * f.qty)}</span>
+                    {priceLines.map((l) => (
+                      <div key={l.label} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                        <span style={{ color: l.discount ? "#4caf50" : C.textS, fontSize: 13.5 }}>{l.label}</span>
+                        <span style={{ color: l.discount ? "#4caf50" : C.textB, fontSize: 13.5, whiteSpace: "nowrap" }}>
+                          {l.strike !== undefined && (
+                            <span style={{ textDecoration: "line-through", color: C.textS, marginRight: 6 }}>{fmt(l.strike)}</span>
+                          )}
+                          {l.discount ? "-" : ""}{fmt(l.amount)}
+                        </span>
                       </div>
                     ))}
-                    {comboDiscount > 0 && (
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "#4caf50", fontSize: 13.5 }}>Combo meal discount (-{Math.round(COMBO_DISCOUNT_PCT * 100)}%)</span>
-                        <span style={{ color: "#4caf50", fontSize: 13.5 }}>-{fmt(comboDiscount)}</span>
-                      </div>
-                    )}
-                    {packageFoodDiscount > 0 && (
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "#4caf50", fontSize: 13.5 }}>Package food discount (-{Math.round((initialPackage?.foodDiscountPct ?? 0) * 100)}%)</span>
-                        <span style={{ color: "#4caf50", fontSize: 13.5 }}>-{fmt(packageFoodDiscount)}</span>
-                      </div>
-                    )}
                   </div>
 
                   <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 12, paddingTop: 10, display: "flex", justifyContent: "space-between" }}>
@@ -1219,14 +1106,14 @@
                   </p>
                 )}
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => setStep(4)} style={{ ...outBtn, flex: 1, padding: "12px 10px", borderRadius: 6 }}>BACK</button>
+                  <button onClick={() => setStep(showRoomPicker ? 4 : 3)} style={{ ...outBtn, flex: 1, padding: "12px 10px", borderRadius: 6 }}>BACK</button>
                   <button
                     // dateOk is re-checked here as well as at step 2: the guest may
                     // have sat on this screen past midnight, or the date may have
                     // been taken in the meantime.
-                    disabled={!!validateBookingForm(form) || !dateOk}
+                    disabled={!!validateBookingForm(form) || !dateOk || !roomsFree}
                     onClick={() => setShowGcashWarning(true)}
-                    style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: validateBookingForm(form) || !dateOk ? 0.4 : 1 }}
+                    style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: validateBookingForm(form) || !dateOk || !roomsFree ? 0.4 : 1 }}
                   >
                     PROCEED TO GCASH →
                   </button>
@@ -1290,7 +1177,7 @@
                     </div>
                     <div style={{ background: isDark ? "rgba(0,169,82,0.08)" : "rgba(0,169,82,0.06)", border: "1px solid rgba(0,169,82,0.2)", borderRadius: 8, padding: "8px 16px", textAlign: "center" }}>
                       <div style={{ color: "#00a952", fontSize: 11.5, fontWeight: 700, letterSpacing: 2, marginBottom: 2 }}>AMOUNT DUE (50% DOWN)</div>
-                      <div style={{ color: isDark ? "#fff" : "#111", fontSize: mob ? 22 : 26, fontWeight: 700, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>₱{down.toLocaleString()}</div>
+                      <div style={{ color: isDark ? "#fff" : "#111", fontSize: mob ? 22 : 26, fontWeight: 700, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>₱{(serverQuote?.down ?? down).toLocaleString()}</div>
                     </div>
                     <p style={{ color: C.textS, fontSize: 12.5, textAlign: "center", maxWidth: 220, lineHeight: 1.6 }}>Open your <strong style={{ color: isDark ? "#ccc" : "#333" }}>GCash app</strong> → tap <strong style={{ color: isDark ? "#ccc" : "#333" }}>Scan QR</strong> → point your camera at the code above</p>
                   </div>
@@ -1298,25 +1185,19 @@
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ color: C.textS, fontSize: 10.5, letterSpacing: 3, marginBottom: 14 }}>ORDER SUMMARY</div>
                     <div style={{ background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 16 }}>
-                      {[["Ref ID", `SW-${10007 + bookings.length}`], ["Guest", form.name], ["Date", date], ["Package", packageLabel]].map(([l, v]) => (
+                      {[["Ref ID", "Issued after payment"], ["Guest", form.name], ["Date", date], ["Package", packageLabel]].map(([l, v]) => (
                         <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderBottom: `1px solid ${C.borderLight}` }}>
                           <span style={{ color: C.textS, fontSize: 12.5 }}>{l}</span>
-                          <span style={{ color: l === "Ref ID" ? gold : C.textH, fontSize: 12.5, fontWeight: l === "Ref ID" ? 700 : 500, fontFamily: l === "Ref ID" ? "monospace" : "inherit" }}>{v}</span>
+                          <span style={{ color: l === "Ref ID" ? C.textS : C.textH, fontSize: 12.5, fontWeight: 500, fontStyle: l === "Ref ID" ? "italic" : "normal" }}>{v}</span>
                         </div>
                       ))}
                       <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderBottom: `1px solid ${C.borderLight}` }}>
                         <span style={{ color: C.textS, fontSize: 12.5 }}>Guests</span>
                         <span style={{ color: C.textH, fontSize: 12.5 }}>{guests} pax{overtime > 0 ? ` · +${overtime}hr OT` : ""}</span>
                       </div>
-                      {foodTotal > 0 && (
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderBottom: `1px solid ${C.borderLight}` }}>
-                          <span style={{ color: C.textS, fontSize: 12.5 }}>Food & Drinks</span>
-                          <span style={{ color: C.textH, fontSize: 12.5 }}>{fmt(foodTotal)}</span>
-                        </div>
-                      )}
                       <div style={{ padding: "12px 14px", background: isDark ? "#0d0c09" : "#ece6db" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ color: C.textS, fontSize: 12.5 }}>Full Total</span><span style={{ color: C.textH, fontSize: 12.5, fontWeight: 600 }}>{fmt(total)}</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#00a952", fontSize: 13.5, fontWeight: 700 }}>50% Down Due Now</span><span style={{ color: "#00a952", fontSize: 15, fontWeight: 700 }}>{fmt(down)}</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ color: C.textS, fontSize: 12.5 }}>Full Total</span><span style={{ color: C.textH, fontSize: 12.5, fontWeight: 600 }}>{fmt(serverQuote?.total ?? total)}</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#00a952", fontSize: 13.5, fontWeight: 700 }}>50% Down Due Now</span><span style={{ color: "#00a952", fontSize: 15, fontWeight: 700 }}>{fmt(serverQuote?.down ?? down)}</span></div>
                       </div>
                     </div>
                     <div style={{ background: "rgba(229,85,85,0.05)", border: "1px solid rgba(229,85,85,0.15)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 8, alignItems: "flex-start" }}>
@@ -1331,9 +1212,20 @@
                     {paid ? (
                       <div style={{ background: "rgba(0,169,82,0.10)", border: "1px solid rgba(0,169,82,0.35)", borderRadius: 8, padding: "14px 16px", display: "flex", alignItems: "center", gap: 10 }}>
                         <span style={{ fontSize: 18 }}>✅</span>
-                        <div>
+                        <div style={{ flex: 1 }}>
                           <div style={{ color: "#00a952", fontSize: 14.5, fontWeight: 700 }}>Payment received</div>
-                          <div style={{ color: C.textS, fontSize: 12.5 }}>Confirming your booking…</div>
+                          {!saveError && <div style={{ color: C.textS, fontSize: 12.5 }}>Saving your booking…</div>}
+                          {saveError && (
+                            <>
+                              <div style={{ color: "#e55", fontSize: 12.5, lineHeight: 1.6, margin: "4px 0 8px" }}>
+                                {saveError} Your payment is safe — retrying can't charge you twice.
+                                If this keeps failing, contact us and quote payment ref <span style={{ fontFamily: "monospace" }}>{qrData?.paymentIntentId}</span>.
+                              </div>
+                              <button onClick={() => void confirmOnline()} disabled={saving} style={{ background: "#00a952", color: "#fff", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, cursor: saving ? "wait" : "pointer", letterSpacing: 1, opacity: saving ? 0.6 : 1 }}>
+                                {saving ? "SAVING…" : "RETRY SAVING"}
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -1369,7 +1261,7 @@
               <div style={{ padding: "8px 0", textAlign: "center" }}>
                 <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(0,169,82,0.1)", border: "1px solid rgba(0,169,82,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, margin: "0 auto 20px" }}>✓</div>
                 <h3 style={{ color: C.textH, fontSize: 24, fontWeight: 400, marginBottom: 10, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>Booking Submitted!</h3>
-                <p style={{ color: C.textS, fontSize: 15, marginBottom: 24 }}>Your booking is <span style={{ color: "#f5c518", fontWeight: 600 }}>Paid</span> pending payment verification.</p>
+                <p style={{ color: C.textS, fontSize: 15, marginBottom: 24 }}>Your down payment of <strong style={{ color: C.textH }}>{fmt(serverQuote?.down ?? down)}</strong> was received. Status: <span style={{ color: "#f5c518", fontWeight: 600 }}>Paid</span> — awaiting the resort's confirmation.</p>
 
                 {/* Reference ID — prominent at top */}
                 <div style={{ background: isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.06)", border: `1px solid ${gold}55`, borderRadius: 12, padding: "20px 24px", marginBottom: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
@@ -1381,7 +1273,7 @@
                 <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 20, textAlign: "left" }}>
                   <div style={{ background: isDark ? "#0f0e0b" : "#f5f0e8", padding: "10px 18px", borderBottom: `1px solid ${C.border}` }}><span style={{ color: C.textS, fontSize: 13.5, fontWeight: 600 }}>What Happens Next</span></div>
                   <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
-                    {[["1", "Send your GCash screenshot to our contact number."], ["2", "Admin will verify and confirm within 24 hours."], ["3", "You'll receive confirmation once approved."]].map(([n, txt]) => (
+                    {[["1", "Your GCash payment was verified automatically — no screenshot needed."], ["2", "The resort reviews and confirms your reservation within 24 hours."], ["3", `A confirmation email is sent to ${form.email} once approved.`]].map(([n, txt]) => (
                       <div key={n} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                         <div style={{ width: 20, height: 20, borderRadius: "50%", background: `${gold}22`, border: `1px solid ${gold}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11.5, color: gold, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{n}</div>
                         <span style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.6 }}>{txt}</span>
@@ -1389,7 +1281,7 @@
                     ))}
                   </div>
                 </div>
-                <p style={{ color: C.textS, fontSize: 13.5, marginBottom: 20 }}>⚠ No refunds. Full payment of {fmt(total)} is also accepted.</p>
+                <p style={{ color: C.textS, fontSize: 13.5, marginBottom: 20 }}>⚠ No refunds. The remaining balance of {fmt((serverQuote?.total ?? total) - (serverQuote?.down ?? down))} is paid at the resort.</p>
                 <p style={{ color: C.textS, fontSize: 13.5 }}>Redirecting you to the home page…</p>
               </div>
             )}
@@ -1446,6 +1338,12 @@
                     <span style={{ color: "#4caf50", fontSize: 13.5, flexShrink: 0, marginTop: 2 }}>📅</span>
                     <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
                       Rescheduling is subject to availability and must be discussed with the admin directly.
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <span style={{ color: "#4caf50", fontSize: 13.5, flexShrink: 0, marginTop: 2 }}>🔇</span>
+                    <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
+                      {QUIET_HOURS_POLICY} The resort is in a residential village.
                     </span>
                   </div>
                 </div>
