@@ -6,6 +6,10 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { T } from "@/lib/theme";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { Icon } from "@/components/common/Icon";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { gold, goldBtn } from "@/lib/styles";
 
 interface AdminLoginProps {
@@ -19,7 +23,6 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
   const [show, setShow] = useState(false);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
-  const [focused, setFocused] = useState<"user" | "pass" | null>(null);
   const { toast } = useToast();
   const { isDark } = useTheme();
   const C = T(isDark);
@@ -62,21 +65,19 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
   const cardBorder = isDark ? "#1c1811" : "#e6dfd2";
   const labelCol = isDark ? "#6a5e4a" : "#9b8f7a";
 
-  const field = (active: boolean, invalid: boolean): React.CSSProperties => ({
+  // Only the parts shadcn's Input does not already own. The focus ring and
+  // the invalid state come from the component now (focus-visible:ring and
+  // aria-invalid), which is why the `focused` state that fed the old
+  // `field(active, invalid)` helper is gone.
+  const fieldBase: React.CSSProperties = {
     background: isDark ? "#0a0907" : "#fbf9f5",
     color: C.textH,
-    // One border that shifts, rather than a ring stacked on top — keeps the
-    // field from growing by a pixel when focused.
-    border: `1px solid ${invalid ? "rgba(229,85,85,0.55)" : active ? `${gold}88` : cardBorder}`,
-    boxShadow: active && !invalid ? `0 0 0 3px ${gold}1a` : "none",
     padding: "12px 14px",
     fontSize: 14.5,
     borderRadius: 8,
     width: "100%",
-    boxSizing: "border-box",
-    outline: "none",
-    transition: "border-color .18s ease, box-shadow .18s ease",
-  });
+    height: "auto",
+  };
 
   const labelStyle: React.CSSProperties = {
     color: labelCol,
@@ -118,17 +119,17 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
       <div style={{ position: "relative", width: "100%", maxWidth: 380, zIndex: 1 }}>
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <button
+          <Button
+            variant="ghost"
             onClick={onGoHome}
             aria-label="Back to the StoneWood home page"
-            style={{ display: "inline-flex", alignItems: "center", gap: 12, marginBottom: 12, cursor: "pointer", background: "none", border: "none", padding: 0, transition: "opacity .2s" }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = ".7")}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+            className="h-auto gap-3 p-0 hover:bg-transparent hover:opacity-70"
+            style={{ display: "inline-flex", alignItems: "center", marginBottom: 12, transition: "opacity .2s" }}
           >
             <div style={{ width: 24, height: 1, background: `${gold}66` }} />
             <span style={{ color: gold, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 24, letterSpacing: 5, fontWeight: 600 }}>STONEWOOD</span>
             <div style={{ width: 24, height: 1, background: `${gold}66` }} />
-          </button>
+          </Button>
           <p style={{ color: labelCol, fontSize: 10.5, letterSpacing: 5, margin: 0 }}>ADMIN PORTAL</p>
         </div>
 
@@ -169,71 +170,70 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
           <p style={{ color: C.textS, fontSize: 14, margin: "0 0 28px", lineHeight: 1.6 }}>Enter your credentials to continue.</p>
 
           <div style={{ marginBottom: 18 }}>
-            <label htmlFor="admin-username" style={labelStyle}>USERNAME</label>
-            <input
+            <Label htmlFor="admin-username" style={labelStyle}>USERNAME</Label>
+            <Input
               id="admin-username"
               type="text"
               value={user}
               onChange={(e) => { setUser(e.target.value.trim().slice(0, 64)); setErr(""); }}
               onKeyDown={(e) => { if (e.key === "Enter") void handle(); }}
-              onFocus={() => setFocused("user")}
-              onBlur={() => setFocused(null)}
               maxLength={64}
               autoComplete="username"
               placeholder="admin"
               aria-invalid={!!err}
-              style={field(focused === "user", !!err)}
+              style={fieldBase}
             />
           </div>
 
           <div style={{ marginBottom: 26 }}>
-            <label htmlFor="admin-password" style={labelStyle}>PASSWORD</label>
+            <Label htmlFor="admin-password" style={labelStyle}>PASSWORD</Label>
             <div style={{ position: "relative" }}>
-              <input
+              <Input
                 id="admin-password"
                 type={show ? "text" : "password"}
                 value={pass}
                 onChange={(e) => { setPass(e.target.value.slice(0, 128)); setErr(""); }}
                 onKeyDown={(e) => { if (e.key === "Enter") void handle(); }}
-                onFocus={() => setFocused("pass")}
-                onBlur={() => setFocused(null)}
                 maxLength={128}
                 autoComplete="current-password"
                 placeholder="••••••••"
                 aria-invalid={!!err}
-                style={{ ...field(focused === "pass", !!err), paddingRight: 44 }}
+                style={{ ...fieldBase, paddingRight: 44 }}
               />
               {/* Was a bare ● / ○ glyph, which reads as a bullet rather than a
                   control. A real eye icon, and it now says what it does. */}
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setShow((s) => !s)}
                 aria-label={show ? "Hide password" : "Show password"}
                 title={show ? "Hide password" : "Show password"}
-                style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: labelCol, cursor: "pointer", padding: 8, lineHeight: 0, borderRadius: 6, transition: "color .2s" }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = gold)}
-                onMouseLeave={(e) => (e.currentTarget.style.color = labelCol)}
+                className="absolute top-1/2 right-1.5 size-8 -translate-y-1/2 hover:text-primary"
+                style={{ color: labelCol }}
               >
                 <Icon name={show ? "eye-off" : "eye"} size={16} />
-              </button>
+              </Button>
             </div>
           </div>
 
           {err && (
-            <div
-              role="alert"
-              style={{ background: "rgba(229,85,85,0.07)", border: "1px solid rgba(229,85,85,0.22)", borderRadius: 8, padding: "10px 13px", marginBottom: 18, color: "#e07070", fontSize: 13, display: "flex", alignItems: "center", gap: 9 }}
+            <Alert
+              variant="destructive"
+              style={{ background: "rgba(229,85,85,0.07)", border: "1px solid rgba(229,85,85,0.22)", borderRadius: 8, marginBottom: 18, color: "#e07070", fontSize: 13 }}
             >
-              <Icon name="alert" size={14} />{err}
-            </div>
+              <Icon name="alert" size={14} />
+              <AlertDescription style={{ color: "#e07070", fontSize: 13 }}>{err}</AlertDescription>
+            </Alert>
           )}
 
-          <button
+          <Button
             onClick={() => void handle()}
             disabled={loading || !user || !pass}
             style={{
               ...goldBtn,
               width: "100%",
+              height: "auto",
               padding: 14,
               opacity: !user || !pass ? 0.35 : 1,
               fontSize: 12,
@@ -253,7 +253,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
               />
             )}
             {loading ? "SIGNING IN…" : "SIGN IN"}
-          </button>
+          </Button>
         </div>
 
       </div>

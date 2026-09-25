@@ -4,6 +4,19 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cancelBookingLookup, type CancelBookingLookup } from "@/lib/schemas";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
@@ -190,48 +203,48 @@ export function ManageBooking(_props: ManageBookingProps) {
           <p style={{ color: gold, fontSize: 11.5, letterSpacing: 3, marginBottom: 20 }}>FIND YOUR BOOKING</p>
           <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr auto", gap: 14, alignItems: "flex-end" }}>
             <div>
-              <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>
+              <Label htmlFor="cb-reference" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">
                 BOOKING REFERENCE / ID
-              </label>
+              </Label>
               <div style={{ position: "relative" }}>
-                <input
+                <Input
+                  id="cb-reference"
                   type="text"
                   placeholder="Enter booking reference"
                   {...reg("reference")}
                   maxLength={32}
                   onKeyDown={(e) => e.key === "Enter" && void handleFind()}
-                  className="sw-input"
-                  style={{ ...inpStyle, paddingRight: 36 }}
+                  className="pr-9"
                 />
                 <Icon name="bookmark" size={14} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", opacity: 0.4 }} />
               </div>
             </div>
             <div>
-              <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>
+              <Label htmlFor="cb-email" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">
                 EMAIL ADDRESS
-              </label>
+              </Label>
               <div style={{ position: "relative" }}>
-                <input
+                <Input
+                  id="cb-email"
                   type="email"
                   placeholder="Enter email address"
                   {...reg("email")}
                   maxLength={254}
                   autoComplete="email"
                   onKeyDown={(e) => e.key === "Enter" && void handleFind()}
-                  className="sw-input"
-                  style={{ ...inpStyle, paddingRight: 36 }}
+                  className="pr-9"
                 />
                 <Icon name="mail" size={14} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", opacity: 0.4 }} />
               </div>
             </div>
-            <button
+            <Button
               type="button"
               onClick={() => void handleFind()}
               disabled={looking}
               style={{
                 ...goldBtn,
-                opacity: looking ? 0.6 : 1,
                 padding: "12px 20px",
+                height: "auto",
                 borderRadius: 6,
                 whiteSpace: "nowrap",
                 letterSpacing: 1.5,
@@ -240,7 +253,7 @@ export function ManageBooking(_props: ManageBookingProps) {
               }}
             >
               {looking ? "SEARCHING…" : "FIND BOOKING →"}
-            </button>
+            </Button>
             {/* Pressing Find with an empty box used to do nothing at all —
                 the handler returned early and said nothing, which reads as a
                 broken button. The schema already knows why it refused. */}
@@ -446,18 +459,19 @@ export function ManageBooking(_props: ManageBookingProps) {
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button
+              <Button
                 onClick={handleProceedCancel}
                 style={{
                   ...goldBtn,
                   padding: "13px 28px",
+                  height: "auto",
                   borderRadius: 6,
                   letterSpacing: 2,
                   fontSize: 12.5,
                 }}
               >
                 PROCEED TO CANCEL →
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -509,74 +523,53 @@ export function ManageBooking(_props: ManageBookingProps) {
         )}
       </div>
 
-      {/* Confirm Cancel Modal */}
-      {showCancelConfirm && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.82)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 500,
-            padding: 20,
-          }}
-        >
-          <div
-            style={{
-              background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff",
-              border: "1px solid rgba(229,85,85,0.3)",
-              borderRadius: 14,
-              padding: mob ? "28px 20px" : "36px",
-              width: "100%",
-              maxWidth: 420,
-              boxShadow: "0 40px 100px rgba(0,0,0,0.7)",
-            }}
-          >
-            <div style={{ width: 52, height: 52, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, marginBottom: 18 }}>
-              ⚠️
-            </div>
-            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 10 }}>
-              Confirm Cancellation
-            </h3>
-            <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7, marginBottom: 20 }}>
-              Are you sure you want to cancel booking <strong style={{ color: gold }}>{found?.id}</strong>? This action cannot be undone.
-            </p>
-            {cancelError && (
-              <p style={{ color: "#e55", fontSize: 13.5, lineHeight: 1.6, marginBottom: 14 }}>⚠ {cancelError}</p>
-            )}
-            <div style={{ borderTop: `1px solid ${C.border}`, marginBottom: 18 }} />
-            <div style={{ display: "flex", gap: 10 }}>
-              <button
-                onClick={() => setShowCancelConfirm(false)}
-                style={{ ...outBtn, flex: 1, padding: "12px 16px", fontSize: 12.5, borderRadius: 8 }}
-              >
-                GO BACK
-              </button>
-              <button
-                onClick={() => void confirmCancel()}
-                disabled={cancelling}
-                style={{
-                  opacity: cancelling ? 0.6 : 1,
-                  flex: 2,
-                  background: "rgba(229,85,85,0.12)",
-                  color: "#e55",
-                  border: "1px solid rgba(229,85,85,0.3)",
-                  padding: "12px 16px",
-                  fontSize: 12.5,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  borderRadius: 8,
-                  letterSpacing: 2,
-                }}
-              >
-                {cancelling ? "CANCELLING…" : "YES, CANCEL BOOKING"}
-              </button>
-            </div>
+      {/* Confirm Cancel — an AlertDialog, not a Dialog: cancelling a booking
+          is destructive and cannot be undone, so it deliberately has no close
+          button and no click-outside dismissal. The guest has to choose. */}
+      <AlertDialog open={showCancelConfirm} onOpenChange={(open) => { if (!open) setShowCancelConfirm(false); }}>
+        <AlertDialogContent>
+          <div style={{ width: 52, height: 52, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>
+            ⚠️
           </div>
-        </div>
-      )}
+          <AlertDialogHeader>
+            <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400 }}>
+              Confirm Cancellation
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>
+              Are you sure you want to cancel booking <strong style={{ color: gold }}>{found?.id}</strong>? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {cancelError && (
+            <p style={{ color: "#e55", fontSize: 13.5, lineHeight: 1.6 }}>⚠ {cancelError}</p>
+          )}
+          <Separator />
+          <AlertDialogFooter>
+            <AlertDialogCancel style={{ ...outBtn, padding: "12px 16px", height: "auto", fontSize: 12.5, borderRadius: 8 }}>
+              GO BACK
+            </AlertDialogCancel>
+            {/* Not an AlertDialogAction: that closes the dialog on click, which
+                would tear down the panel before confirmCancel() has answered
+                and leave `cancelError` with nowhere to show. */}
+            <Button
+              onClick={() => void confirmCancel()}
+              disabled={cancelling}
+              style={{
+                background: "rgba(229,85,85,0.12)",
+                color: "#e55",
+                border: "1px solid rgba(229,85,85,0.3)",
+                padding: "12px 16px",
+                height: "auto",
+                fontSize: 12.5,
+                fontWeight: 700,
+                borderRadius: 8,
+                letterSpacing: 2,
+              }}
+            >
+              {cancelling ? "CANCELLING…" : "YES, CANCEL BOOKING"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
