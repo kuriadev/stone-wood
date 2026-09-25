@@ -8,6 +8,29 @@ import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import type { InventoryItem, InventoryCategory } from "@/types/inventory";
 import { Icon } from "@/components/common/Icon";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Separator } from "@/components/ui/separator";
 
 interface InventoryTabProps {
   inventory: InventoryItem[];
@@ -157,10 +180,9 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           {/* Accessible label for search input */}
-          <label htmlFor="inventory-search" className="sr-only">Search inventory items</label>
-          <input
+          <Label htmlFor="inventory-search" className="sr-only">Search inventory items</Label>
+          <Input
             id="inventory-search"
-            className="sw-input"
             // paddingLeft must come AFTER the inpS spread: inpS carries the
             // `padding` shorthand from C.inp, which would otherwise reset the
             // left inset and let the magnifying glass sit on top of the text.
@@ -410,160 +432,129 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
         </div>
       )}
 
-      {/* ── Confirm Archive Modal ── */}
-      {confirmDelete && (
-        <div style={{ position: "fixed", inset: "0", background: "rgba(0, 0, 0, 0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: "500", padding: 20 }} role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
-          <div
-            style={{ borderRadius: 12, width: "100%", boxShadow: "0 40px 100px rgba(0, 0, 0, 0.7)", maxWidth: 380, padding: "32px 28px", background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: "1px solid rgba(229,85,85,0.25)" }}
-          >
-            <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(229, 85, 85, 0.1)", border: "1px solid rgba(229, 85, 85, 0.2)", color: "#e55", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, fontSize: 20 }} aria-hidden="true"><Icon name="trash" size={13} /></div>
-            <h3
-              id="delete-modal-title"
-              style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: "400", marginBottom: 8, color: C.textH }}
-            >
+      {/* ── Confirm Archive ── an AlertDialog: archiving is a decision the
+          admin has to make explicitly, so there is no close button and the
+          backdrop does not dismiss it. */}
+      <AlertDialog open={!!confirmDelete} onOpenChange={(open) => { if (!open) setConfirmDelete(null); }}>
+        <AlertDialogContent>
+          <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(229, 85, 85, 0.1)", border: "1px solid rgba(229, 85, 85, 0.2)", color: "#e55", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }} aria-hidden="true"><Icon name="trash" size={13} /></div>
+          <AlertDialogHeader>
+            <AlertDialogTitle style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400, color: C.textH }}>
               Archive this item?
-            </h3>
-            <p style={{ fontSize: 14.5, lineHeight: "1.7", marginBottom: 22, color: C.textS }}>
-              <strong style={{ color: C.textH }}>"{confirmDelete.name}"</strong>{" "}
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ fontSize: 14.5, lineHeight: 1.7, color: C.textS }}>
+              <strong style={{ color: C.textH }}>&quot;{confirmDelete?.name}&quot;</strong>{" "}
               will be moved to the Deleted archive. You can restore it anytime.
-            </p>
-            <hr style={{ marginBottom: 18, borderColor: cBr }} />
-            <div style={{ display: "flex", gap: 10 }}>
-              <button
-                style={{ flex: "1", background: "transparent", padding: 11, fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1, color: C.textS, border: `1px solid ${cBr}` }}
-                onClick={() => setConfirmDelete(null)}
-              >
-                CANCEL
-              </button>
-              <button
-                style={{ flex: "2", background: "rgba(229, 85, 85, 0.08)", color: "#e55", border: "1px solid rgba(229, 85, 85, 0.25)", padding: 11, fontSize: 12.5, fontWeight: "700", cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}
-                onClick={executeDelete}
-              >
-                YES, ARCHIVE
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Add / Edit Modal ── */}
-      {showAddModal && (
-        <div style={{ position: "fixed", inset: "0", background: "rgba(0, 0, 0, 0.88)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: "400", padding: 16, overflowY: "auto" }} role="dialog" aria-modal="true" aria-labelledby="form-modal-title">
-          <div
-            style={{ borderRadius: 12, width: "100%", boxShadow: "0 40px 100px rgba(0, 0, 0, 0.7)", maxWidth: 460, padding: mob ? "24px 20px" : 32, background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: `1px solid ${cBr}` }}
-          >
-            <h3
-              id="form-modal-title"
-              style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: "400", color: C.textH, marginBottom: 20 }}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Separator />
+          <AlertDialogFooter>
+            <AlertDialogCancel style={{ padding: 11, height: "auto", fontSize: 12.5, borderRadius: 6, letterSpacing: 1, color: C.textS, borderColor: cBr }}>
+              CANCEL
+            </AlertDialogCancel>
+            <AlertDialogAction
+              style={{ background: "rgba(229, 85, 85, 0.08)", color: "#e55", border: "1px solid rgba(229, 85, 85, 0.25)", padding: 11, height: "auto", fontSize: 12.5, fontWeight: 700, borderRadius: 6, letterSpacing: 1 }}
+              onClick={executeDelete}
             >
-              {editItem ? "Edit Item" : "Add New Item"}
-            </h3>
+              YES, ARCHIVE
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
+      {/* ── Add / Edit ── landscape: category and name share the top row and
+          the three number fields sit in one band beneath them, rather than six
+          controls stacked in a 460px column. */}
+      <Dialog open={showAddModal} onOpenChange={(open) => { if (!open) setShowAddModal(false); }}>
+        <DialogContent className="sm:max-w-[min(42rem,calc(100%-2rem))]">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400, color: C.textH }}>
+              {editItem ? "Edit Item" : "Add New Item"}
+            </DialogTitle>
+            <DialogDescription>
+              {editItem ? "Update the stock record for this item." : "Add a new item to the inventory."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 sm:grid-cols-2">
             {/* Category */}
-            <div style={{ marginBottom: 14 }}>
-              <label
-                htmlFor="item-category"
-                style={{ fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 6, color: C.textS }}
-              >
-                CATEGORY
-              </label>
-              <select
+            <div className="[&_[data-slot=native-select-wrapper]]:w-full">
+              <Label htmlFor="item-category" className="mb-1.5 block text-[10.5px] tracking-[3px] text-muted-foreground">CATEGORY</Label>
+              <NativeSelect
                 id="item-category"
-                className="sw-input"
                 value={form.category}
                 onChange={(e) => setF("category", e.target.value)}
-                style={inpS}
                 aria-label="Item category"
                 title="Select item category"
               >
                 {catOpts.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
 
             {/* Item name */}
-            <div style={{ marginBottom: 14 }}>
-              <label
-                htmlFor="item-name"
-                style={{ fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 6, color: C.textS }}
-              >
-                ITEM NAME
-              </label>
-              <input
+            <div>
+              <Label htmlFor="item-name" className="mb-1.5 block text-[10.5px] tracking-[3px] text-muted-foreground">ITEM NAME</Label>
+              <Input
                 id="item-name"
-                className="sw-input"
                 value={form.name}
                 onChange={(e) => setF("name", e.target.value)}
                 placeholder="e.g. Chlorine Tablets"
-                style={inpS}
                 aria-required="true"
               />
             </div>
 
             {/* Qty / Unit / MinQty */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+            <div className="grid grid-cols-3 gap-3 sm:col-span-2">
               {([
                 ["QUANTITY", "qty",    "number", "item-qty",    "0"],
                 ["UNIT",     "unit",   "text",   "item-unit",   "pcs"],
                 ["MIN QTY",  "minQty", "number", "item-minqty", "0"],
               ] as const).map(([l, k, t, id, ph]) => (
                 <div key={k}>
-                  <label htmlFor={id} style={{ fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 6, color: C.textS }}>
-                    {l}
-                  </label>
-                  <input
+                  <Label htmlFor={id} className="mb-1.5 block text-[10.5px] tracking-[3px] text-muted-foreground">{l}</Label>
+                  <Input
                     id={id}
                     type={t}
-                    className="sw-input"
                     value={form[k as keyof typeof form]}
                     onChange={(e) => setF(k, e.target.value)}
                     placeholder={ph}
-                    style={inpS}
-                    // aria-required={k !== "notes"}
                   />
                 </div>
               ))}
             </div>
 
             {/* Notes */}
-            <div style={{ marginBottom: 20 }}>
-              <label
-                htmlFor="item-notes"
-                style={{ fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 6, color: C.textS }}
-              >
-                NOTES
-              </label>
-              <input
+            <div className="sm:col-span-2">
+              <Label htmlFor="item-notes" className="mb-1.5 block text-[10.5px] tracking-[3px] text-muted-foreground">NOTES</Label>
+              <Input
                 id="item-notes"
-                className="sw-input"
                 value={form.notes}
                 onChange={(e) => setF("notes", e.target.value)}
                 placeholder="Optional notes"
-                style={inpS}
               />
             </div>
-
-            {/* Actions */}
-            <div style={{ display: "flex", gap: 10 }}>
-              <button
-                style={{ flex: "1", background: "transparent", padding: 11, fontSize: 12.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1, color: C.textS, border: `1px solid ${cBr}` }}
-                onClick={() => setShowAddModal(false)}
-              >
-                CANCEL
-              </button>
-              <button
-                style={{ flex: "2", ...goldBtn, opacity: !form.name || !form.qty || !form.unit ? 0.4 : 1 }}
-                onClick={saveItem}
-                disabled={!form.name || !form.qty || !form.unit}
-                aria-disabled={!form.name || !form.qty || !form.unit}
-              >
-                SAVE ITEM
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              style={{ padding: 11, height: "auto", fontSize: 12.5, borderRadius: 4, letterSpacing: 1, color: C.textS, borderColor: cBr }}
+              onClick={() => setShowAddModal(false)}
+            >
+              CANCEL
+            </Button>
+            <Button
+              style={{ ...goldBtn, height: "auto" }}
+              onClick={saveItem}
+              disabled={!form.name || !form.qty || !form.unit}
+            >
+              SAVE ITEM
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
