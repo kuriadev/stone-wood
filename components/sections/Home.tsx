@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
@@ -12,6 +11,7 @@ import { SLOTS, QUIET_HOURS_POLICY } from "@/lib/resort";
 import { SHARED_PER_HEAD_RATE, EXCLUSIVE_FLAT_RATE, EXCLUSIVE_DISCOUNT_PCT } from "@/lib/validators";
 import { fmt } from "@/lib/utils";
 import { AvailabilityCalendar } from "@/components/common/AvailabilityCalendar";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import type { Booking, BookingResource, BookingTier, PackageDeepLink } from "@/types/booking";
 import type { ResortPackage } from "@/types/package";
 import { srcSetFor, SIZES, imageAt } from "@/lib/img";
@@ -184,33 +184,23 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
     fontWeight: 300,
   };
   const [activePkg, setActivePkg] = useState<number | null>(null);
-  // Drives the open transition — set one frame after mount so the card animates in.
-  const [pkgShown, setPkgShown] = useState(false);
   // Which photo of the expanded package's gallery is showing.
   const [photoIdx, setPhotoIdx] = useState(0);
-  // The package modal is rendered through a portal straight into
-  // document.body (see below) so it can never again be broken by an
-  // ancestor's CSS — document doesn't exist during SSR, so it only mounts
-  // once we're safely in the browser.
-  const [portalReady, setPortalReady] = useState(false);
-  useEffect(() => setPortalReady(true), []);
 
   const openPkg = (i: number) => {
     setActivePkg(i);
     setPhotoIdx(0);
-    requestAnimationFrame(() => setPkgShown(true));
   };
-  const closePkg = () => {
-    setPkgShown(false);
-    setTimeout(() => setActivePkg(null), 220);
-  };
+  // Closing is immediate: the dialog animates itself out off `data-state`, so
+  // the old "hide, then unmount 220ms later" pair would only postpone the
+  // exit animation rather than produce one.
+  const closePkg = () => setActivePkg(null);
 
+  // Arrow keys page through the gallery. Escape is deliberately NOT handled
+  // here any more — the dialog closes itself on Escape, and doing both ran
+  // closePkg twice for one keypress.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (activePkg !== null) closePkg();
-        return;
-      }
       if (activePkg === null) return;
       const len = visiblePackages[activePkg].gallery.length;
       if (e.key === "ArrowRight") setPhotoIdx((n) => (n + 1) % len);
@@ -218,14 +208,6 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activePkg]);
-
-  // Lock page scroll while a package card is expanded.
-  useEffect(() => {
-    if (activePkg === null) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
   }, [activePkg]);
 
   const ratesHeaderRef = useRef<HTMLDivElement>(null);
@@ -601,249 +583,224 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           (instead of capping the card at 90vh with an inner scroll area),
           which is what actually keeps it usable in a short/small browser
           window like the one that triggered this. */}
-      {activePkg !== null && portalReady && createPortal((() => {
-        const p = visiblePackages[activePkg];
-        const exclusive = p.status === "Exclusive";
-        const gallery = p.gallery;
-        const shot = gallery[Math.min(photoIdx, gallery.length - 1)];
-        const step = (dir: number) => setPhotoIdx((n) => (n + dir + gallery.length) % gallery.length);
-        return (
-          <div
-            onClick={closePkg}
-            role="dialog"
-            aria-modal="true"
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 1000,
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "center",
-              overflowY: "auto",
-              WebkitOverflowScrolling: "touch",
-              padding: mob ? "18px" : "40px 24px",
-              background: isDark ? "rgba(4,3,2,0.55)" : "rgba(20,14,6,0.45)",
-              backdropFilter: `blur(${pkgShown ? 10 : 0}px)`,
-              WebkitBackdropFilter: `blur(${pkgShown ? 10 : 0}px)`,
-              opacity: pkgShown ? 1 : 0,
-              transition: "opacity .22s ease, backdrop-filter .22s ease",
-            }}
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                position: "relative",
-                width: "100%",
-                maxWidth: 480,
-                margin: "auto 0",
-                background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff",
-                border: `1px solid ${exclusive ? `${gold}55` : C.border}`,
-                borderRadius: 18,
-                boxShadow: "0 40px 100px rgba(0,0,0,0.6)",
-                transform: pkgShown ? "scale(1) translateY(0)" : "scale(0.94) translateY(12px)",
-                opacity: pkgShown ? 1 : 0,
-                transition: "transform .28s cubic-bezier(.22,1,.36,1), opacity .22s ease",
-              }}
-            >
-              <button
-                onClick={closePkg}
-                aria-label="Close package details"
-                style={{
-                  position: "absolute", top: 14, right: 14, zIndex: 4,
-                  width: 32, height: 32, borderRadius: "50%",
-                  background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)",
-                  border: "none", color: "rgba(255,255,255,0.9)", cursor: "pointer", fontSize: 15,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}
-              >
-                <Icon name="x" size={15} />
-              </button>
+      {/* Package detail, as a LANDSCAPE dialog: the gallery on the left and
+          everything the guest actually decides on -- price, inclusions, which
+          slot, the book button -- on the right, so both halves are on screen
+          at once instead of the portrait card that scrolled for most of its
+          height.
 
-              {/* ── Gallery ── */}
-              <div style={{ position: "relative", height: mob ? 230 : 280, overflow: "hidden", background: "#0a0806" }}>
-                {gallery.map((g, gi) => (
-                  <div
-                    key={g.label}
-                    style={{
-                      position: "absolute", inset: 0,
-                      backgroundImage: `url(${g.src})`,
-                      backgroundSize: "cover", backgroundPosition: "center",
-                      opacity: gi === photoIdx ? 1 : 0,
-                      transition: "opacity .35s ease",
-                    }}
-                  />
-                ))}
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top,rgba(0,0,0,0.85) 0%,rgba(0,0,0,0.2) 55%,rgba(0,0,0,0.3) 100%)" }} />
-
-                {/* Prev / next */}
-                {gallery.length > 1 && (
-                  <>
-                    <button
-                      onClick={() => step(-1)}
-                      aria-label="Previous photo"
-                      style={{
-                        position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
-                        width: 34, height: 34, borderRadius: "50%",
-                        background: "rgba(0,0,0,0.4)", backdropFilter: "blur(6px)",
-                        border: `1px solid ${gold}44`, color: gold, fontSize: 18, cursor: "pointer",
-                        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3,
-                      }}
-                    >
-                      ‹
-                    </button>
-                    <button
-                      onClick={() => step(1)}
-                      aria-label="Next photo"
-                      style={{
-                        position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-                        width: 34, height: 34, borderRadius: "50%",
-                        background: "rgba(0,0,0,0.4)", backdropFilter: "blur(6px)",
-                        border: `1px solid ${gold}44`, color: gold, fontSize: 18, cursor: "pointer",
-                        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3,
-                      }}
-                    >
-                      ›
-                    </button>
-                  </>
-                )}
-
-                {/* Counter */}
-                <div style={{ position: "absolute", top: 16, left: 16, zIndex: 3, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)", borderRadius: 20, padding: "4px 10px", color: "rgba(255,255,255,0.8)", fontSize: 11.5, letterSpacing: 1.5, fontFamily: "monospace" }}>
-                  {String(photoIdx + 1).padStart(2, "0")} / {String(gallery.length).padStart(2, "0")}
-                </div>
-
-                {/* Code + current photo label */}
-                <div style={{ position: "absolute", bottom: 14, left: 20, right: 20, zIndex: 3 }}>
-                  <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
-                    <div>
-                      <div style={{ color: gold, fontSize: 10.5, letterSpacing: 3, marginBottom: 4 }}>PACKAGE</div>
-                      <div style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 26 : 30, color: "#fff", lineHeight: 1.1, fontWeight: 400, textShadow: "0 2px 16px rgba(0,0,0,0.6)" }}>
-                        {p.title}
-                      </div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ color: gold, fontSize: 10.5, letterSpacing: 2, marginBottom: 3 }}>{shot.kind.toUpperCase()}</div>
-                      <div style={{ color: "rgba(255,255,255,0.9)", fontSize: 13.5 }}>{shot.label}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Thumbnail strip */}
-              {gallery.length > 1 && (
-                <div style={{ display: "flex", gap: 6, padding: mob ? "12px 20px 0" : "14px 32px 0", overflowX: "auto" }}>
-                  {gallery.map((g, gi) => (
-                    <button
-                      key={g.label}
-                      onClick={() => setPhotoIdx(gi)}
-                      aria-label={`View ${g.label}`}
-                      style={{
-                        flexShrink: 0,
-                        width: 52, height: 40, borderRadius: 6,
-                        backgroundImage: `url(${g.src})`,
-                        backgroundSize: "cover", backgroundPosition: "center",
-                        border: `2px solid ${gi === photoIdx ? gold : "transparent"}`,
-                        opacity: gi === photoIdx ? 1 : 0.5,
-                        cursor: "pointer", padding: 0,
-                        transition: "opacity .2s, border-color .2s",
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <div style={{ padding: mob ? "22px 24px 30px" : "26px 36px 36px" }}>
-
-              {/* Status */}
-              <div style={{ textAlign: "center", marginBottom: 24 }}>
-                <span
-                  style={{
-                    display: "inline-block", fontSize: 10.5, letterSpacing: 2, padding: "4px 12px", borderRadius: 20,
-                    background: exclusive ? `${gold}18` : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"),
-                    color: exclusive ? gold : C.textS,
-                    border: `1px solid ${exclusive ? `${gold}44` : C.border}`,
-                  }}
-                >
-                  {p.status.toUpperCase()}{p.note ? ` · ${p.note.toUpperCase()}` : ""}
-                </span>
-              </div>
-
-              {/* Fixed price — a package is a one-time purchase, not a
-                  customizable reservation, so this is the whole tour/venue
-                  cost regardless of how many of the included guests show
-                  up. */}
-              <div style={{ textAlign: "center", marginBottom: 20 }}>
-                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 10 }}>
-                  <span style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 40, color: C.textH, fontWeight: 400 }}>{fmt(p.price)}</span>
-                  {p.listPrice && (
-                    <span style={{ color: C.textXS, fontSize: 17, textDecoration: "line-through" }}>{fmt(p.listPrice)}</span>
-                  )}
-                </div>
-                {p.listPrice ? (
-                  <p style={{ color: "#4caf50", fontSize: 12.5, letterSpacing: 0.5, marginTop: 6 }}>
-                    Bundle discount — you save {fmt(p.listPrice - p.price)}
-                  </p>
-                ) : p.requiresRoom ? (
-                  <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 6 }}>Plus a room of your choice, at a discounted rate</p>
-                ) : (
-                  <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 6 }}>Flat price for up to {p.capacity} guests</p>
-                )}
-              </div>
-
-              <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.75, textAlign: "center", marginBottom: 24 }}>{p.blurb}</p>
-
-              {/* Inclusions */}
-              <div style={{ marginBottom: 24 }}>
-                <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 12 }}>WHAT'S INCLUDED</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-                  {p.includes.map((inc) => (
-                    <div key={inc} style={{ display: "flex", alignItems: "flex-start", gap: 8, paddingBottom: 9, borderBottom: `1px solid ${C.borderLight}` }}>
-                      <Icon name="check" size={12} style={{ color: gold, marginTop: 3, flexShrink: 0 }} />
-                      <span style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.5 }}>{inc}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* When this package can be booked: Day or Night (the guest
-                  picks), or Whole Day. */}
-              {(
-                <div style={{ marginBottom: 22 }}>
-                  <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 12 }}>{p.slotMode === "WholeDay" ? "DURATION" : "CHOOSE WHEN YOU BOOK"}</p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-                    {(p.slotMode === "WholeDay" ? [SLOTS.WholeDay] : [SLOTS.Day, SLOTS.Night]).map((sl) => ({ label: sl.label, window: sl.hours })).map((d) => (
-                      <div key={d.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 9, borderBottom: `1px solid ${C.borderLight}` }}>
-                        <span style={{ color: C.textB, fontSize: 14.5 }}>{d.label}</span>
-                        <span style={{ color: gold, fontSize: 13.5, fontWeight: 500 }}>{d.window}</span>
-                      </div>
+          Radix portals this itself, which is the job createPortal was doing
+          here: any ancestor with a transform other than "none" becomes the
+          containing block for a position:fixed child, which would size the
+          modal against that box rather than the viewport. */}
+      <Dialog open={activePkg !== null} onOpenChange={(open) => { if (!open) closePkg(); }}>
+        {/* `min(...)` rather than a bare max-w-5xl: the sm: variant would else
+            override the base max-w-[calc(100%-2rem)] gutter, and between about
+            640px and 1024px the dialog went edge to edge with its rounded
+            corners clipped off against the viewport. */}
+        <DialogContent className="max-h-[92vh] gap-0 overflow-hidden p-0 sm:max-w-[min(64rem,calc(100%-2rem))]">
+          {activePkg !== null && (() => {
+            const p = visiblePackages[activePkg];
+            const exclusive = p.status === "Exclusive";
+            const gallery = p.gallery;
+            const shot = gallery[Math.min(photoIdx, gallery.length - 1)];
+            const step = (dir: number) => setPhotoIdx((n) => (n + dir + gallery.length) % gallery.length);
+            return (
+              <div className="grid max-h-[92vh] md:grid-cols-2">
+                <div className="relative flex flex-col overflow-hidden bg-black/20">
+                  {/* ── Gallery ── */}
+                  <div style={{ position: "relative", flex: 1, minHeight: mob ? 230 : 280, overflow: "hidden", background: "#0a0806" }}>
+                    {gallery.map((g, gi) => (
+                      <div
+                        key={g.label}
+                        style={{
+                          position: "absolute", inset: 0,
+                          backgroundImage: `url(${g.src})`,
+                          backgroundSize: "cover", backgroundPosition: "center",
+                          opacity: gi === photoIdx ? 1 : 0,
+                          transition: "opacity .35s ease",
+                        }}
+                      />
                     ))}
+                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top,rgba(0,0,0,0.85) 0%,rgba(0,0,0,0.2) 55%,rgba(0,0,0,0.3) 100%)" }} />
+
+                    {/* Prev / next */}
+                    {gallery.length > 1 && (
+                      <>
+                        <button
+                          onClick={() => step(-1)}
+                          aria-label="Previous photo"
+                          style={{
+                            position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
+                            width: 34, height: 34, borderRadius: "50%",
+                            background: "rgba(0,0,0,0.4)", backdropFilter: "blur(6px)",
+                            border: `1px solid ${gold}44`, color: gold, fontSize: 18, cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3,
+                          }}
+                        >
+                          ‹
+                        </button>
+                        <button
+                          onClick={() => step(1)}
+                          aria-label="Next photo"
+                          style={{
+                            position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+                            width: 34, height: 34, borderRadius: "50%",
+                            background: "rgba(0,0,0,0.4)", backdropFilter: "blur(6px)",
+                            border: `1px solid ${gold}44`, color: gold, fontSize: 18, cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3,
+                          }}
+                        >
+                          ›
+                        </button>
+                      </>
+                    )}
+
+                    {/* Counter */}
+                    <div style={{ position: "absolute", top: 16, left: 16, zIndex: 3, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)", borderRadius: 20, padding: "4px 10px", color: "rgba(255,255,255,0.8)", fontSize: 11.5, letterSpacing: 1.5, fontFamily: "monospace" }}>
+                      {String(photoIdx + 1).padStart(2, "0")} / {String(gallery.length).padStart(2, "0")}
+                    </div>
+
+                    {/* Code + current photo label */}
+                    <div style={{ position: "absolute", bottom: 14, left: 20, right: 20, zIndex: 3 }}>
+                      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
+                        <div>
+                          <div style={{ color: gold, fontSize: 10.5, letterSpacing: 3, marginBottom: 4 }}>PACKAGE</div>
+                          <DialogTitle asChild>
+                            <div style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 26 : 30, color: "#fff", lineHeight: 1.1, fontWeight: 400, textShadow: "0 2px 16px rgba(0,0,0,0.6)" }}>
+                              {p.title}
+                            </div>
+                          </DialogTitle>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ color: gold, fontSize: 10.5, letterSpacing: 2, marginBottom: 3 }}>{shot.kind.toUpperCase()}</div>
+                          <div style={{ color: "rgba(255,255,255,0.9)", fontSize: 13.5 }}>{shot.label}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Thumbnail strip */}
+                  {gallery.length > 1 && (
+                    <div style={{ display: "flex", gap: 6, padding: mob ? "12px 20px 0" : "14px 32px 0", overflowX: "auto" }}>
+                      {gallery.map((g, gi) => (
+                        <button
+                          key={g.label}
+                          onClick={() => setPhotoIdx(gi)}
+                          aria-label={`View ${g.label}`}
+                          style={{
+                            flexShrink: 0,
+                            width: 52, height: 40, borderRadius: 6,
+                            backgroundImage: `url(${g.src})`,
+                            backgroundSize: "cover", backgroundPosition: "center",
+                            border: `2px solid ${gi === photoIdx ? gold : "transparent"}`,
+                            opacity: gi === photoIdx ? 1 : 0.5,
+                            cursor: "pointer", padding: 0,
+                            transition: "opacity .2s, border-color .2s",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                </div>
+                <div className="overflow-y-auto max-h-[92vh]">
+                  <div style={{ padding: mob ? "22px 24px 30px" : "26px 36px 36px" }}>
+
+                  {/* Status */}
+                  <div style={{ textAlign: "center", marginBottom: 24 }}>
+                    <span
+                      style={{
+                        display: "inline-block", fontSize: 10.5, letterSpacing: 2, padding: "4px 12px", borderRadius: 20,
+                        background: exclusive ? `${gold}18` : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"),
+                        color: exclusive ? gold : C.textS,
+                        border: `1px solid ${exclusive ? `${gold}44` : C.border}`,
+                      }}
+                    >
+                      {p.status.toUpperCase()}{p.note ? ` · ${p.note.toUpperCase()}` : ""}
+                    </span>
+                  </div>
+
+                  {/* Fixed price — a package is a one-time purchase, not a
+                      customizable reservation, so this is the whole tour/venue
+                      cost regardless of how many of the included guests show
+                      up. */}
+                  <div style={{ textAlign: "center", marginBottom: 20 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 10 }}>
+                      <span style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 40, color: C.textH, fontWeight: 400 }}>{fmt(p.price)}</span>
+                      {p.listPrice && (
+                        <span style={{ color: C.textXS, fontSize: 17, textDecoration: "line-through" }}>{fmt(p.listPrice)}</span>
+                      )}
+                    </div>
+                    {p.listPrice ? (
+                      <p style={{ color: "#4caf50", fontSize: 12.5, letterSpacing: 0.5, marginTop: 6 }}>
+                        Bundle discount — you save {fmt(p.listPrice - p.price)}
+                      </p>
+                    ) : p.requiresRoom ? (
+                      <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 6 }}>Plus a room of your choice, at a discounted rate</p>
+                    ) : (
+                      <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 6 }}>Flat price for up to {p.capacity} guests</p>
+                    )}
+                  </div>
+
+                  <DialogDescription asChild>
+                    <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.75, textAlign: "center", marginBottom: 24 }}>{p.blurb}</p>
+                  </DialogDescription>
+
+                  {/* Inclusions */}
+                  <div style={{ marginBottom: 24 }}>
+                    <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 12 }}>WHAT'S INCLUDED</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                      {p.includes.map((inc) => (
+                        <div key={inc} style={{ display: "flex", alignItems: "flex-start", gap: 8, paddingBottom: 9, borderBottom: `1px solid ${C.borderLight}` }}>
+                          <Icon name="check" size={12} style={{ color: gold, marginTop: 3, flexShrink: 0 }} />
+                          <span style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.5 }}>{inc}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* When this package can be booked: Day or Night (the guest
+                      picks), or Whole Day. */}
+                  {(
+                    <div style={{ marginBottom: 22 }}>
+                      <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 12 }}>{p.slotMode === "WholeDay" ? "DURATION" : "CHOOSE WHEN YOU BOOK"}</p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                        {(p.slotMode === "WholeDay" ? [SLOTS.WholeDay] : [SLOTS.Day, SLOTS.Night]).map((sl) => ({ label: sl.label, window: sl.hours })).map((d) => (
+                          <div key={d.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 9, borderBottom: `1px solid ${C.borderLight}` }}>
+                            <span style={{ color: C.textB, fontSize: 14.5 }}>{d.label}</span>
+                            <span style={{ color: gold, fontSize: 13.5, fontWeight: 500 }}>{d.window}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    className="sw-btn"
+                    onClick={() => {
+                      closePkg();
+                      if (onBookPackage) {
+                        onBookPackage(
+                          { code: p.code, title: p.title, price: p.price, listPrice: p.listPrice, capacity: p.capacity, requiresRoom: p.requiresRoom, slotMode: p.slotMode },
+                          p.resource,
+                          p.status
+                        );
+                      } else {
+                        setPage("Book Now");
+                      }
+                    }}
+                    style={{ ...goldBtn, width: "100%", padding: "14px 20px", letterSpacing: 1.5, fontSize: 13.5, borderRadius: 8 }}
+                  >
+                    BOOK {p.title.toUpperCase()} →
+                  </button>
                   </div>
                 </div>
-              )}
-
-              <button
-                className="sw-btn"
-                onClick={() => {
-                  closePkg();
-                  if (onBookPackage) {
-                    onBookPackage(
-                      { code: p.code, title: p.title, price: p.price, listPrice: p.listPrice, capacity: p.capacity, requiresRoom: p.requiresRoom, slotMode: p.slotMode },
-                      p.resource,
-                      p.status
-                    );
-                  } else {
-                    setPage("Book Now");
-                  }
-                }}
-                style={{ ...goldBtn, width: "100%", padding: "14px 20px", letterSpacing: 1.5, fontSize: 13.5, borderRadius: 8 }}
-              >
-                BOOK {p.title.toUpperCase()} →
-              </button>
               </div>
-            </div>
-          </div>
-        );
-      })(), document.body)}
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* ── RATES & FACILITIES (unchanged) ── */}
       <div style={{ background: isDark ? "#0a0806" : "#fdf9f4", padding: mob ? "52px 20px" : "88px 24px", borderBottom: `1px solid ${C.border}` }}>

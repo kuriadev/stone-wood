@@ -113,6 +113,23 @@
   }
 
   [data-slot] button,
+  button[data-slot],
+  [data-slot] input,
+  [data-slot] select,
+  [data-slot] textarea {
+    /* Preflight zeroes every UA border and shadcn is written assuming that;
+       we skip preflight, so form controls kept the UA's `2px outset`. On a
+       dark panel that bevel reads as a pale box -- it is what made the
+       dialog's close button look like a white square. Only these elements
+       carry a UA border, so this is the whole of what preflight did that
+       shadcn actually depends on. Anything setting a border via a utility
+       (`border`, as Button/Input variants do) still wins: utilities outrank
+       base. */
+    border-width: 0;
+    border-style: solid;
+  }
+
+  [data-slot] button,
   button[data-slot] {
     background-color: transparent;
     background-image: none;
