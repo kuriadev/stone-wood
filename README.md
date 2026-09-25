@@ -11,14 +11,14 @@ Guests browse rooms and packages, check live availability, and book online with 
 ```
 Framework    Next.js 16.2.6 (App Router, Route Handlers, Turbopack) · React 19.2.6 · TypeScript 5.9.3
 Database     Supabase — PostgreSQL + Row Level Security           @supabase/supabase-js 2.116.0
-UI kit       shadcn/ui on Radix — 17 components in components/ui/ radix-ui 1.6.7
+UI kit       shadcn/ui on Radix — 24 components in components/ui/ radix-ui 1.6.7
 Styling      Tailwind CSS 4.3.3 — utilities only, NO preflight    + app/globals.css + legacy inline styles
              cva 0.7.1 · clsx 2.1.1 · tailwind-merge 3.7.0 · tw-animate-css 1.4.0 · cn() in lib/cn.ts
 Icons        lucide-react 1.47.0                                  behind components/common/Icon.tsx
 Animation    motion 13.4.3 (Framer Motion, renamed)               behind components/common/Reveal.tsx
 Dates        dayjs 1.11.23                                        behind lib/dayjs.ts
 Validation   zod 4.6.5                                            lib/schemas.ts, on top of lib/validators.ts
-Forms        react-hook-form 7.88.0 + @hookform/resolvers 5.9.1    partial — 2 of 5 forms migrated
+Forms        react-hook-form 7.88.0 + @hookform/resolvers 5.9.1    Customer Service + Cancel Booking
 Toasts       sonner 2.0.8                                         repointed to the app's ThemeContext
 Charts       @mui/x-charts 9.14.0 (+ @mui/material, @emotion/*)    behind components/admin/charts.tsx
 Email        nodemailer 8.0.5 over Gmail SMTP
@@ -33,6 +33,16 @@ Migration in progress: the UI is moving from inline `style={{}}` to Tailwind +
 shadcn. Both exist side by side for now. Read [Tailwind and shadcn](#tailwind-and-shadcn)
 before touching styles — the preflight and layering decisions there are not
 preferences, they are load-bearing.
+
+**Every form control in the app is shadcn.** The only native ones left are the
+two hidden `type="file"` inputs behind the "Choose image" buttons in
+`Admin.tsx` — shadcn has no file input and those are `display:none` triggers,
+so they stay native on purpose. Buttons are still mixed: **124** native
+`<button>` elements remain, mostly nav items, calendar day cells and table row
+actions.
+
+Detail-heavy forms and modals are **landscape**, not portrait — see
+[Landscape dialogs](#landscape-dialogs).
 
 ## Read this first if you last worked on this repo a while ago
 
@@ -302,6 +312,70 @@ shadcn v4 component carries.
 It must stay **in `@layer base`**. Unlayered CSS outranks every layered rule,
 so an unlayered version of that block overrode Tailwind's own utilities and
 made every button transparent and black.
+
+Three rules from preflight are reapplied. Each was added only after a bug that
+traced back to its absence:
+
+| Rule | What broke without it |
+|---|---|
+| `color: var(--foreground)` on buttons | ghost/outline variants came out UA black on near-black panels |
+| `border-width: 0; border-style: solid` | form controls kept the UA's `2px outset`, so the dialog close button rendered as a pale box |
+| `font: inherit` | `<textarea>` kept the UA's **monospace** default, so message boxes used a different typeface from every other field |
+
+The selector list must match **both** a control nested inside a `data-slot`
+element *and* a control that carries `data-slot` itself (`input[data-slot]`).
+It originally only had the descendant form, which silently missed every shadcn
+field on the page.
+
+If you add a rule here, verify its blast radius rather than eyeballing it. The
+method used for both fixes above: walk all nine public pages with CDP, record
+`borderTop`/`background`/`color`/`font` for every `button, input, select,
+textarea`, apply the change, and diff. The border fix moved exactly 1 of 201
+controls; the font fix moved exactly 4. Anything wider than you expected means
+the selector is too broad.
+
+### Landscape dialogs
+
+Detail-heavy forms open as landscape dialogs rather than tall portrait cards,
+so the whole form is visible at once. The pattern:
+
+```tsx
+<Dialog open={...} onOpenChange={(open) => { if (!open) close(); }}>
+  <DialogContent className="sm:max-w-[min(48rem,calc(100%-2rem))]">
+    <div className="grid gap-4 sm:grid-cols-2">
+      ...fields, with the long one on `sm:col-span-2`
+```
+
+Two things to copy:
+
+- **`min(<cap>, calc(100% - 2rem))`, not a bare `sm:max-w-3xl`.** The `sm:`
+  variant overrides shadcn's base `max-w-[calc(100%-2rem)]` gutter, so between
+  roughly 640px and the cap the dialog goes edge to edge with its rounded
+  corners clipped off against the viewport.
+- **Let Radix own the plumbing.** Every one of these replaced a hand-rolled
+  portal that also did its own focus trap, Escape handler, body-scroll lock and
+  open/close animation. Radix does all four. Leaving the hand-rolled versions
+  in place causes real bugs — a duplicate Escape handler fired the close path
+  twice per keypress, and a `setTimeout` unmount delay only postponed Radix's
+  own exit animation.
+
+`Dialog` vs `AlertDialog`: use **AlertDialog** when the action is destructive
+or otherwise needs an explicit decision (cancel a booking, archive an item,
+reject a reservation). It has no close button and the backdrop does not
+dismiss it. One caveat: `AlertDialogAction` closes the panel on click, so if
+the handler is async and can fail, use a plain `Button` instead — otherwise
+the panel unmounts before the error has anywhere to render.
+
+### Accessibility notes that came out of the migration
+
+- Radix warns when a dialog has no title or description. Rather than adding
+  `sr-only` duplicates, promote the element that already says it with
+  `asChild` — e.g. the package title over the photo on the home page is the
+  `DialogTitle`, so the dialog's accessible name is the package name.
+- A `<label>` with no control is an orphan, and shadcn's `Label` is the same
+  element, so converting it changes nothing. Three of these in `BookNow.tsx`
+  headed a *group* of controls (a date picker, a guest stepper); they are now
+  `<p>` with `role="group"` + `aria-labelledby` on the container.
 
 ### The theme bridge
 
