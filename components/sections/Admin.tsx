@@ -29,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -336,14 +337,13 @@ function WalkInTab({
         <svg style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", opacity: 0.35 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.textH} strokeWidth="2">
           <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
-        <label htmlFor="onsite-search" className="sr-only">Search on-site reservations</label>
-        <input
+        <Label htmlFor="onsite-search" className="sr-only">Search on-site reservations</Label>
+        <Input
           id="onsite-search"
           value={wiSearch}
           onChange={(e) => setWiSearch(e.target.value)}
           placeholder="Search by name, ID, contact, or date…"
-          className="sw-input"
-          style={{ ...C.inp, paddingLeft: 36, borderRadius: 6 }}
+          style={{ ...C.inp, paddingLeft: 36, borderRadius: 6, height: "auto" }}
         />
         {wiSearch && (
           <button
@@ -540,16 +540,16 @@ function WalkInTab({
               {wfMode === "Custom" && (
               <>
               <div>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">GUESTS</Label>
-                <input
+                <Label htmlFor="walkin-guests" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">GUESTS</Label>
+                <Input
+                  id="walkin-guests"
                   type="number"
                   min={1}
                   max={RESORT_MAX_CAPACITY}
                   value={wf.guests}
                   disabled={wfTier === "Exclusive"}
                   onChange={(e) => setWfField("guests", e.target.value)}
-                  className="sw-input"
-                  style={{ ...C.inp, borderRadius: 6, opacity: wfTier === "Exclusive" ? 0.6 : 1 }}
+                  style={{ ...C.inp, borderRadius: 6, height: "auto", opacity: wfTier === "Exclusive" ? 0.6 : 1 }}
                 />
                 {wfTier === "Exclusive" && (
                   <p style={{ color: gold, fontSize: 11.5, marginTop: 4 }}><Icon name="lock" size={11} style={{ marginRight: 5 }} />Fixed at {RESORT_MAX_CAPACITY} for an Exclusive buyout.</p>
@@ -2241,8 +2241,10 @@ export function Admin({
 
                     {/* EMAIL */}
                     <div style={{ marginBottom: 14 }}>
-                      <div
+                      <Label
+                        htmlFor="reply-email"
                         style={{
+                          display: "block",
                           color: C.textXS,
                           fontSize: 11.5,
                           marginBottom: 6,
@@ -2250,28 +2252,30 @@ export function Admin({
                         }}
                       >
                         CUSTOMER EMAIL
-                      </div>
+                      </Label>
 
-                      <input
+                      <Input
+                        id="reply-email"
                         value={replyModal.email}
                         disabled
                         style={{
-                          width: "100%",
                           padding: "12px 14px",
+                          height: "auto",
                           borderRadius: 8,
                           border: `1px solid ${cBr}`,
                           background: "transparent",
                           color: C.textS,
                           fontSize: 14.5,
-                          outline: "none",
                         }}
                       />
                     </div>
 
                     {/* MESSAGE */}
                     <div style={{ marginBottom: 20 }}>
-                      <div
+                      <Label
+                        htmlFor="reply-message"
                         style={{
+                          display: "block",
                           color: C.textXS,
                           fontSize: 11.5,
                           marginBottom: 6,
@@ -2279,17 +2283,18 @@ export function Admin({
                         }}
                       >
                         MESSAGE
-                      </div>
+                      </Label>
 
-                      <textarea
+                      <Textarea
+                        id="reply-message"
                         value={replyMessage}
                         onChange={(e) =>
                           setReplyMessage(e.target.value)
                         }
                         rows={6}
                         style={{
-                          width: "100%",
                           resize: "none",
+                          height: "auto",
                           padding: "14px",
                           borderRadius: 8,
                           border: `1px solid ${cBr}`,
@@ -2433,35 +2438,65 @@ export function Admin({
         </div>
       )}
 
-      {/* Add/Edit Room Modal */}
-      {showModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, padding: 16, overflowY: "auto" }}>
-          <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: `1px solid ${cBr}`, borderRadius: 12, padding: mob ? "24px 20px" : "36px", width: "100%", maxWidth: 480, boxShadow: "0 40px 100px rgba(0,0,0,0.7)" }}>
-            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, fontWeight: 400, marginBottom: 22 }}>{editRoom ? "Edit Room" : "Add New Room"}</h3>
-            <div style={{ marginBottom: 18 }}>
-              <label style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 8 }}>ROOM IMAGE</label>
+      {/* Add/Edit Room — landscape: the image preview and its picker sit in
+          their own column beside the fields, instead of pushing four inputs
+          and a description below the fold of a 480px portrait card. */}
+      <Dialog open={showModal} onOpenChange={(open) => { if (!open) setShowModal(false); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[min(48rem,calc(100%-2rem))]">
+          <DialogHeader>
+            <DialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, fontWeight: 400 }}>
+              {editRoom ? "Edit Room" : "Add New Room"}
+            </DialogTitle>
+            <DialogDescription>
+              {editRoom ? "Update this room's photo, capacity and rate." : "Add a room guests can book alongside a tour."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+            {/* Image */}
+            <div>
+              <Label htmlFor="room-image-btn" style={{ display: "block", color: C.textXS, fontSize: 10.5, letterSpacing: 3, marginBottom: 8 }}>ROOM IMAGE</Label>
               {imgPrev && <img loading="lazy" decoding="async" src={imgPrev} alt="preview" style={{ width: "100%", height: 150, objectFit: "cover", borderRadius: 8, marginBottom: 10, border: `1px solid ${cBr}` }} />}
               <input ref={fileRef} type="file" accept="image/*" onChange={handleImg} style={{ display: "none" }} />
-              <button onClick={() => fileRef.current?.click()} style={{ ...outBtn, width: "100%", padding: 11, fontSize: 12.5, borderRadius: 6 }}><Icon name="folder" size={13} style={{ marginRight: 6 }} />CHOOSE IMAGE</button>
+              <Button id="room-image-btn" variant="outline" onClick={() => fileRef.current?.click()} style={{ ...outBtn, width: "100%", padding: 11, height: "auto", fontSize: 12.5, borderRadius: 6 }}>
+                <Icon name="folder" size={13} style={{ marginRight: 6 }} />CHOOSE IMAGE
+              </Button>
             </div>
-            {[["Room Name", "name", "text"], ["Bed Configuration", "beds", "text"], ["Max Capacity", "capacity", "number"], ["Price per Slot (₱)", "price", "number"]].map(([l, k, t]) => (
-              <div key={k} style={{ marginBottom: 14 }}>
-                <label style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 6 }}>{(l as string).toUpperCase()}</label>
-                <input type={t as string} value={rf[k as keyof typeof rf]} onChange={(e) => setRf((f) => ({ ...f, [k]: e.target.value }))} className="sw-input" style={inpS} />
+
+            {/* Fields */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[["Room Name", "name", "text"], ["Bed Configuration", "beds", "text"], ["Max Capacity", "capacity", "number"], ["Price per Slot (₱)", "price", "number"]].map(([l, k, t]) => (
+                <div key={k}>
+                  <Label htmlFor={`room-${k}`} style={{ display: "block", color: C.textXS, fontSize: 10.5, letterSpacing: 3, marginBottom: 6 }}>{(l as string).toUpperCase()}</Label>
+                  <Input
+                    id={`room-${k}`}
+                    type={t as string}
+                    value={rf[k as keyof typeof rf]}
+                    onChange={(e) => setRf((f) => ({ ...f, [k]: e.target.value }))}
+                    style={{ ...inpS, height: "auto" }}
+                  />
+                </div>
+              ))}
+              <div className="sm:col-span-2">
+                <Label htmlFor="room-desc" style={{ display: "block", color: C.textXS, fontSize: 10.5, letterSpacing: 3, marginBottom: 6 }}>DESCRIPTION</Label>
+                <Textarea
+                  id="room-desc"
+                  value={rf.desc}
+                  onChange={(e) => setRf((f) => ({ ...f, desc: e.target.value }))}
+                  rows={3}
+                  style={{ ...inpS, resize: "vertical", height: "auto" }}
+                />
               </div>
-            ))}
-            <div style={{ marginBottom: 22 }}>
-              <label style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 6 }}>DESCRIPTION</label>
-              <textarea value={rf.desc} onChange={(e) => setRf((f) => ({ ...f, desc: e.target.value }))} rows={3} className="sw-input" style={{ ...inpS, resize: "vertical" }} />
-            </div>
-            <div style={{ borderTop: `1px solid ${cBr}`, marginBottom: 18 }} />
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowModal(false)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: 12, fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>CANCEL</button>
-              <button onClick={saveRoom} style={{ ...goldBtn, flex: 2, borderRadius: 6 }}>SAVE ROOM</button>
             </div>
           </div>
-        </div>
-      )}
+
+          <Separator />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowModal(false)} style={{ color: C.textS, borderColor: cBr, padding: 12, height: "auto", fontSize: 12.5, borderRadius: 6, letterSpacing: 1 }}>CANCEL</Button>
+            <Button onClick={saveRoom} style={{ ...goldBtn, borderRadius: 6, height: "auto" }}>SAVE ROOM</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ThemeToggle />
     </div>

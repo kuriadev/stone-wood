@@ -576,7 +576,8 @@
                     Pick Your Date & Details
                   </h3>
 
-                  <label
+                  <p
+                    id="booknow-date-label"
                     style={{
                       color: gold,
                       fontSize: 11.5,
@@ -586,9 +587,9 @@
                     }}
                   >
                     SELECT DATE
-                  </label>
+                  </p>
 
-                  <div style={{ marginBottom: 28 }}>
+                  <div style={{ marginBottom: 28 }} role="group" aria-labelledby="booknow-date-label">
                     <BookingDatePicker
                       bookings={bookings}
                       closedDates={closedDates}
@@ -688,7 +689,8 @@
                           : "rgba(0,0,0,0.02)",
                       }}
                     >
-                      <label
+                      <p
+                        id="booknow-guests-label"
                         style={{
                           color: gold,
                           fontSize: 11.5,
@@ -698,7 +700,7 @@
                         }}
                       >
                         NUMBER OF GUESTS
-                      </label>
+                      </p>
 
                       <p
                         style={{
@@ -712,6 +714,8 @@
                       </p>
 
                       <div
+                        role="group"
+                        aria-labelledby="booknow-guests-label"
                         style={{
                           display: "flex",
                           alignItems: "center",
@@ -855,9 +859,9 @@
                         background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
                       }}
                     >
-                      <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 8 }}>
+                      <p style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 8 }}>
                         YOUR TIME
-                      </label>
+                      </p>
                       <p style={{ color: C.textH, fontSize: 15, fontWeight: 600, margin: "0 0 8px" }}>
                         {SLOTS[slot].label} · {SLOTS[slot].hours}
                       </p>
