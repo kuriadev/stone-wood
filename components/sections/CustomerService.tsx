@@ -4,6 +4,11 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { customerServiceForm, type CustomerServiceForm } from "@/lib/schemas";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { useToast } from "@/contexts/ToastContext";
@@ -120,7 +125,7 @@ const submit = handleSubmit(async (values) => {
 
   return (
     <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "48px 20px" : "80px 24px" }}>
-      <div style={{ maxWidth: 680, margin: "0 auto" }}>
+      <div style={{ maxWidth: 940, margin: "0 auto" }}>
         <p style={{ color: gold, letterSpacing: 4, fontSize: 12.5, marginBottom: 10, textAlign: "center" }}>SUPPORT</p>
         <h2 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 28 : 42, color: C.textH, textAlign: "center", marginBottom: 12 }}>
           Customer Service
@@ -157,126 +162,130 @@ const submit = handleSubmit(async (values) => {
           </div>
         ) : (
           <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "24px 18px" : "40px", boxShadow: C.shadow }}>
+            {/* Landscape from md: name, email and type share one row and the
+                message spans the full width beneath them. The form was four
+                stacked fields in a 680px column, which made a four-field
+                contact form as tall as the page. */}
+            <div className="grid gap-5 md:grid-cols-3">
 
-            {/* ── FULL NAME ── */}
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>FULL NAME</label>
-              <input
-                type="text"
-                {...nameField}
-                onChange={(e) => {
-                  // Filter as they type, then hand the cleaned value to RHF.
-                  e.target.value = sanitizeName(e.target.value);
-                  void nameField.onChange(e);
-                }}
-                maxLength={NAME_MAX}
-                autoComplete="name"
-                placeholder="Your full name"
-                className="sw-input"
-                style={{ ...C.inp, border: fieldBorder(nameOk, touched.name) }}
-              />
-              {touched.name && !nameOk && (
-                <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Please enter your full name (letters only, at least 2)</p>
-              )}
-              {touched.name && nameOk && (
-                <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Looks good</p>
-              )}
-            </div>
+              {/* ── FULL NAME ── */}
+              <div>
+                <Label htmlFor="cs-name" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">FULL NAME</Label>
+                <Input
+                  id="cs-name"
+                  type="text"
+                  {...nameField}
+                  onChange={(e) => {
+                    // Filter as they type, then hand the cleaned value to RHF.
+                    e.target.value = sanitizeName(e.target.value);
+                    void nameField.onChange(e);
+                  }}
+                  maxLength={NAME_MAX}
+                  autoComplete="name"
+                  placeholder="Your full name"
+                  aria-invalid={touched.name && !nameOk}
+                />
+                {touched.name && !nameOk && (
+                  <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Please enter your full name (letters only, at least 2)</p>
+                )}
+                {touched.name && nameOk && (
+                  <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Looks good</p>
+                )}
+              </div>
 
-            {/* ── EMAIL ADDRESS ── */}
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>
-                EMAIL ADDRESS <span style={{ color: "#e55", fontSize: 10.5 }}>*Gmail only</span>
-              </label>
-              <input
-                type="email"
-                {...register("email")}
-                maxLength={254}
-                autoComplete="email"
-                placeholder="yourname@gmail.com"
-                className="sw-input"
-                style={{ ...C.inp, border: fieldBorder(emailOk, touched.email) }}
-              />
-              {touched.email && form.email.length > 0 && !emailOk && (
-                <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Must be a Gmail address (@gmail.com)</p>
-              )}
-              {touched.email && form.email.length === 0 && (
-                <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Email address is required</p>
-              )}
-              {touched.email && emailOk && (
-                <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Valid Gmail address</p>
-              )}
-            </div>
+              {/* ── EMAIL ADDRESS ── */}
+              <div>
+                <Label htmlFor="cs-email" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">
+                  EMAIL ADDRESS <span style={{ color: "#e55", fontSize: 10.5 }}>*Gmail only</span>
+                </Label>
+                <Input
+                  id="cs-email"
+                  type="email"
+                  {...register("email")}
+                  maxLength={254}
+                  autoComplete="email"
+                  placeholder="yourname@gmail.com"
+                  aria-invalid={touched.email && !emailOk}
+                />
+                {touched.email && form.email.length > 0 && !emailOk && (
+                  <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Must be a Gmail address (@gmail.com)</p>
+                )}
+                {touched.email && form.email.length === 0 && (
+                  <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Email address is required</p>
+                )}
+                {touched.email && emailOk && (
+                  <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Valid Gmail address</p>
+                )}
+              </div>
 
-            {/* ── TYPE ── */}
-            <div style={{ marginBottom: 16 }}>
-              <label htmlFor="customer-service-type" style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>TYPE</label>
-              <select
-                id="customer-service-type"
-                title="Message type"
-                {...register("type")}
-                className="sw-input"
-                style={C.inp}
-              >
-                {["Feedback", "Complaint", "Question", "Booking Issue", "Other"].map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
-            </div>
+              {/* ── TYPE ──
+                  NativeSelect's wrapper is w-fit, so without this the control
+                  would shrink to its longest option and break the grid row. */}
+              <div className="[&_[data-slot=native-select-wrapper]]:w-full">
+                <Label htmlFor="customer-service-type" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">TYPE</Label>
+                <NativeSelect
+                  id="customer-service-type"
+                  title="Message type"
+                  {...register("type")}
+                >
+                  {["Feedback", "Complaint", "Question", "Booking Issue", "Other"].map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
+                </NativeSelect>
+              </div>
 
-            {/* ── MESSAGE ── */}
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>
-                MESSAGE <span style={{ color: C.textXS, fontSize: 10.5, fontWeight: 400, letterSpacing: 0 }}>(min. 10 characters)</span>
-              </label>
-              <textarea
-                {...messageField}
-                maxLength={MESSAGE_MAX}
-                onChange={(e) => {
-                  e.target.value = e.target.value.slice(0, MESSAGE_MAX);
-                  void messageField.onChange(e);
-                }}
-                rows={5}
-                className="sw-input"
-                style={{ ...C.inp, resize: "vertical", border: fieldBorder(messageOk, touched.message) }}
-                placeholder="Tell us how we can help..."
-              />
-              {/* Character counter */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                <span>
-                  {touched.message && !messageOk && (
-                    <span style={{ color: "#e55", fontSize: 12.5 }}>⚠ Please write at least 10 characters</span>
-                  )}
-                  {touched.message && messageOk && (
-                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>✓ Good to go</span>
-                  )}
-                </span>
-                <span style={{ color: form.message.length >= MESSAGE_MAX ? "#e55" : form.message.trim().length >= 10 ? "#4caf50" : C.textXS, fontSize: 11.5, fontFamily: "monospace" }}>
-                  {form.message.length}/{MESSAGE_MAX}
-                </span>
+              {/* ── MESSAGE ── */}
+              <div className="md:col-span-3">
+                <Label htmlFor="cs-message" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">
+                  MESSAGE <span style={{ color: C.textXS, fontSize: 10.5, fontWeight: 400, letterSpacing: 0 }}>(min. 10 characters)</span>
+                </Label>
+                <Textarea
+                  id="cs-message"
+                  {...messageField}
+                  maxLength={MESSAGE_MAX}
+                  onChange={(e) => {
+                    e.target.value = e.target.value.slice(0, MESSAGE_MAX);
+                    void messageField.onChange(e);
+                  }}
+                  rows={5}
+                  className="resize-y"
+                  aria-invalid={touched.message && !messageOk}
+                  placeholder="Tell us how we can help..."
+                />
+                {/* Character counter */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                  <span>
+                    {touched.message && !messageOk && (
+                      <span style={{ color: "#e55", fontSize: 12.5 }}>⚠ Please write at least 10 characters</span>
+                    )}
+                    {touched.message && messageOk && (
+                      <span style={{ color: "#4caf50", fontSize: 12.5 }}>✓ Good to go</span>
+                    )}
+                  </span>
+                  <span style={{ color: form.message.length >= MESSAGE_MAX ? "#e55" : form.message.trim().length >= 10 ? "#4caf50" : C.textXS, fontSize: 11.5, fontFamily: "monospace" }}>
+                    {form.message.length}/{MESSAGE_MAX}
+                  </span>
+                </div>
+              </div>
+
+              {/* ── SUBMIT ── */}
+              <div className="md:col-span-3">
+                <Button
+                  onClick={submit}
+                  disabled={!formOk || isSubmitting}
+                  style={{ ...goldBtn, width: "100%", padding: 13, height: "auto" }}
+                >
+                  SEND MESSAGE
+                </Button>
+
+                {/* Show summary of errors only after first submit attempt */}
+                {!formOk && Object.values(touched).some(Boolean) && (
+                  <p style={{ color: C.textXS, fontSize: 12.5, textAlign: "center", marginTop: 10 }}>
+                    Please fill in all fields correctly before sending.
+                  </p>
+                )}
               </div>
             </div>
-
-            {/* ── SUBMIT ── */}
-            <button
-              onClick={submit}
-              style={{
-                ...goldBtn,
-                width: "100%",
-                padding: 13,
-                opacity: formOk && !isSubmitting ? 1 : 0.4,
-                cursor: formOk && !isSubmitting ? "pointer" : "not-allowed",
-              }}
-            >
-              SEND MESSAGE
-            </button>
-
-            {/* Show summary of errors only after first submit attempt */}
-            {!formOk && Object.values(touched).some(Boolean) && (
-              <p style={{ color: C.textXS, fontSize: 12.5, textAlign: "center", marginTop: 10 }}>
-                Please fill in all fields correctly before sending.
-              </p>
-            )}
           </div>
         )}
       </div>

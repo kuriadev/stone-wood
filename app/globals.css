@@ -115,8 +115,11 @@
   [data-slot] button,
   button[data-slot],
   [data-slot] input,
+  input[data-slot],
   [data-slot] select,
-  [data-slot] textarea {
+  select[data-slot],
+  [data-slot] textarea,
+  textarea[data-slot] {
     /* Preflight zeroes every UA border and shadcn is written assuming that;
        we skip preflight, so form controls kept the UA's `2px outset`. On a
        dark panel that bevel reads as a pale box -- it is what made the
@@ -127,6 +130,15 @@
        base. */
     border-width: 0;
     border-style: solid;
+
+    /* Same reason: preflight's `font: inherit` on form controls. Without it a
+       <textarea> keeps the UA's monospace default, so the message box on the
+       customer service form rendered in a different typeface from every other
+       field. Size still comes from the utility (`text-sm`), which outranks
+       base -- this only carries the family and style down. */
+    font: inherit;
+    font-size: inherit;
+    letter-spacing: inherit;
   }
 
   [data-slot] button,
