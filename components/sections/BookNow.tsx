@@ -48,6 +48,8 @@
   } from "@/components/ui/dialog";
   import { Label } from "@/components/ui/label";
   import { Separator } from "@/components/ui/separator";
+  import { Input } from "@/components/ui/input";
+  import { Textarea } from "@/components/ui/textarea";
 
   interface BookNowProps {
     /** Real bookings (personal details stripped) — used only to show which
@@ -974,25 +976,23 @@
             {step === 5 && (
               <div>
                 <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, marginBottom: 20, fontWeight: 400 }}>Your Information</h3>
-                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 20 }}>
+                {/* Notes spans the pair above it, so the three short fields
+                    stay side by side and the free-text box gets the full
+                    width it actually needs. */}
+                <div className="mb-5 grid gap-4 md:grid-cols-2">
                   <div>
-                    <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>FULL NAME</label>
+                    <Label htmlFor="bn-name" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">FULL NAME</Label>
                     <div style={{ position: "relative" }}>
-                      <input
+                      <Input
+                        id="bn-name"
                         type="text"
                         value={form.name}
                         onChange={(e) => handleName(e.target.value)}
                         maxLength={NAME_MAX}
                         placeholder="Juan Dela Cruz"
                         autoComplete="name"
-                        className="sw-input"
-                        style={{
-                          ...inpS,
-                          paddingRight: 52,
-                          border: form.name && !isValidName(form.name)
-                            ? "1px solid rgba(229,85,85,0.6)"
-                            : inpS.border,
-                        }}
+                        aria-invalid={Boolean(form.name) && !isValidName(form.name)}
+                        className="pr-14"
                       />
                       <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 11.5, color: form.name.length >= NAME_MAX ? "#e55" : C.textS, fontWeight: 700, fontFamily: "monospace" }}>
                         {form.name.length}/{NAME_MAX}
@@ -1005,21 +1005,17 @@
                       <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Valid</p>
                     )}
                   </div>
+
                   <div>
-                    <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>EMAIL ADDRESS</label>
-                    <input
+                    <Label htmlFor="bn-email" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">EMAIL ADDRESS</Label>
+                    <Input
+                      id="bn-email"
                       type="email"
                       value={form.email}
                       onChange={(e) => setF("email", e.target.value)}
                       placeholder="example@email.com"
-                      className="sw-input"
-                      style={{
-                        ...inpS,
-                        border:
-                          form.email && !isValidEmail(form.email)
-                            ? "1px solid rgba(229,85,85,0.6)" 
-                            : inpS.border 
-                      }}
+                      autoComplete="email"
+                      aria-invalid={Boolean(form.email) && !isValidEmail(form.email)}
                     />
                     {form.email && !isValidEmail(form.email) && (
                       <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Please enter a valid email address</p>
@@ -1028,27 +1024,38 @@
                       <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Valid email</p>
                     )}
                   </div>
-                <div>
-                  <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>CONTACT NUMBER</label>
-                  <div style={{ position: "relative" }}>
-                    <input type="tel" value={form.contact} onChange={(e) => handleContact(e.target.value)} maxLength={11} placeholder="09XXXXXXXXX" className="sw-input" style={{ ...inpS, paddingRight: 52 }} />
-                    <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 11.5, color: form.contact.length === 11 ? "#4caf50" : form.contact.length > 0 ? "#f5c518" : C.textS, fontWeight: 700, fontFamily: "monospace" }}>{form.contact.length}/11</span>
-                  </div>
-                  {form.contact.length > 0 && form.contact.length < 11 && <p style={{ color: "#f5c518", fontSize: 12.5, marginTop: 4 }}>⚠ Must be 11 digits</p>}
-                  {form.contact.length === 11 && !isValidPHNumber(form.contact) && <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Must start with 09</p>}
-                  {isValidPHNumber(form.contact) && <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Valid</p>}
-                </div>
-                  
+
                   <div>
-                    <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>SPECIAL NOTES (OPTIONAL)</label>
-                    <textarea
+                    <Label htmlFor="bn-contact" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">CONTACT NUMBER</Label>
+                    <div style={{ position: "relative" }}>
+                      <Input
+                        id="bn-contact"
+                        type="tel"
+                        value={form.contact}
+                        onChange={(e) => handleContact(e.target.value)}
+                        maxLength={11}
+                        placeholder="09XXXXXXXXX"
+                        autoComplete="tel"
+                        aria-invalid={form.contact.length === 11 && !isValidPHNumber(form.contact)}
+                        className="pr-14"
+                      />
+                      <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 11.5, color: form.contact.length === 11 ? "#4caf50" : form.contact.length > 0 ? "#f5c518" : C.textS, fontWeight: 700, fontFamily: "monospace" }}>{form.contact.length}/11</span>
+                    </div>
+                    {form.contact.length > 0 && form.contact.length < 11 && <p style={{ color: "#f5c518", fontSize: 12.5, marginTop: 4 }}>⚠ Must be 11 digits</p>}
+                    {form.contact.length === 11 && !isValidPHNumber(form.contact) && <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Must start with 09</p>}
+                    {isValidPHNumber(form.contact) && <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Valid</p>}
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <Label htmlFor="bn-notes" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">SPECIAL NOTES (OPTIONAL)</Label>
+                    <Textarea
+                      id="bn-notes"
                       value={form.notes}
                       onChange={(e) => handleNotes(e.target.value)}
                       maxLength={NOTES_MAX}
                       rows={3}
                       placeholder="Anything we should know? (optional)"
-                      className="sw-input"
-                      style={{ ...inpS, resize: "none", minHeight: 88 }}
+                      className="min-h-[88px] resize-none"
                     />
                     <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
                       <span style={{ color: form.notes.length >= NOTES_MAX ? "#e55" : C.textXS, fontSize: 11.5, fontFamily: "monospace" }}>
