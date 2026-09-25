@@ -1,318 +1,263 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
---- --- --- --- --- ---  --- --- --- --- --- ---  --- --- --- --- --- ---  --- --- --- --- --- --- 
 # StoneWood Private Resort
 
-A full-stack web application for **StoneWood Private Resort** — Angono, Rizal, Philippines.
+Booking and resort-management web app for **StoneWood Private Resort** — Angono, Rizal, Philippines.
+
+Guests browse rooms and packages, check live availability, and book online with a GCash-scannable QR down payment. Staff run the resort from an admin dashboard: reservations, walk-ins, live occupancy, rooms, packages, facilities, gallery, inventory, analytics, customer messages, and a maintenance switch that can close the public site.
 
 ---
 
-## Tech Stack
+## Read this first if you last worked on this repo a while ago
 
-**Frontend**
-- Next.js 15 (App Router)
-- TypeScript
-- Tailwind CSS
-- React 19
+Several things changed that will break your mental model of the codebase. Skimming this section will save you an hour of confusion.
 
-**Backend**
-- Next.js API Routes
-- MongoDB Atlas *(stub — not yet wired)*
-- Mongoose ODM *(stub — not yet wired)*
-- Nodemailer + Gmail SMTP *(active — confirmation and rejection emails working)*
+### The database is Supabase now, not MongoDB
 
-**Deployment**
-- Vercel
+`models/`, `lib/mongoose.ts` and every Mongoose schema are **gone**. All data lives in Supabase (PostgreSQL) and is reached through the API routes in `app/api/`. If you still have `MONGODB_URI` in your `.env.local`, it does nothing.
+
+### Admin credentials are server-side now
+
+They used to live in `ADMIN_CREDS` in `lib/constants.ts`, which meant **they shipped in the browser bundle**. Login now posts to `/api/auth/login`, which compares against `ADMIN_USERNAME` / `ADMIN_PASSWORD` on the server and sets an HMAC-signed, `httpOnly` session cookie (`lib/auth.ts`, 8-hour TTL). Treat any password that was in the old bundle as burned.
+
+### Tailwind is uninstalled
+
+No `tailwind.config`, no PostCSS plugins, no CSS modules. Styling is `app/globals.css` plus inline `style={{}}` objects, with colours from `T(isDark)` in `lib/theme.ts` and the gold accent from `lib/styles.ts`. Adding a `className="flex gap-4"` will silently do nothing.
+
+### Hooks and components were renamed or deleted
+
+Gone: `useAdmin`, `useBooking`, `useReveal`, `useTheme`, `useToast`, `PageTransition.tsx`, `Stars.tsx`, `AppShell.tsx`, `types/index.ts`, `InventoryTab.module.css`. Use `useTheme()` from `contexts/ThemeContext`, `useToast()` from `contexts/ToastContext`, and import types from their specific file (`types/booking.ts`, not `types/index.ts`).
+
+### Icons come from one registry
+
+All icons are `lucide-react`, used through `components/common/Icon.tsx` (`<Icon name="calendar" />`). It falls back to a default glyph for unknown names, because some icon names come from the database and `<undefined />` crashes React. Don't import from `lucide-react` directly.
+
+### Two booking rules that are easy to get backwards
+
+- **Exclusive is a whole-DATE buyout.** An Exclusive pool booking blocks both the Day and the Night slot. Shared bookings stay per-slot — a Shared Day group never blocks the Night, and Shared groups stack to `RESORT_SHARED_CAPACITY` (30) within a slot.
+- **Rooms are day-use, not overnight.** A room is an add-on to a tour slot; the guest leaves when the slot ends, and the 5–7 PM gap is room turnover. `Booking` has a single `date` and no checkout date, so an overnight stay has nowhere to be recorded.
+
+Both rules live in `checkPoolCapacity` / `lib/occupancy.ts`, and both files carry a comment explaining why — read those before changing either.
+
+### Maintenance mode exists
+
+Admin → **SITE → Maintenance** closes the public site behind a full-screen notice over a blurred homepage. `/login` and `/admin` are never gated, and a signed-in admin is never gated, so you cannot lock yourself out.
 
 ---
 
-## Getting Started
+## Tech stack
+
+Six runtime dependencies, seven dev dependencies. Nothing else is installed, and that is deliberate — see *Not used* below before reaching for a library.
+
+### Runtime
+
+| Package | Version | What it does here |
+| --- | --- | --- |
+| `next` | 16.2.6 | App Router, Route Handlers, Turbopack dev/build |
+| `react` / `react-dom` | 19.2.6 | UI |
+| `@supabase/supabase-js` | 2.116.0 | PostgreSQL access from the API routes |
+| `nodemailer` | 8.0.5 | confirmation / rejection email over Gmail SMTP |
+| `lucide-react` | 1.47.0 | every icon, via `components/common/Icon.tsx` |
+
+### Dev
+
+| Package | Version |
+| --- | --- |
+| `typescript` | 5.9.3 (strict) |
+| `eslint` + `eslint-config-next` | 9.39.4 / 15.3.1 |
+| `@types/node`, `@types/react`, `@types/react-dom`, `@types/nodemailer` | — |
+
+Built and tested on **Node 24 / npm 11**. There is no `engines` field, so anything Next 16 supports (Node 18.18+) should work.
+
+### Services
+
+| Service | Used for |
+| --- | --- |
+| **Supabase** | PostgreSQL, Row Level Security, SQL editor for migrations |
+| **PayMongo** | QRPh payment intents for the 50% down payment |
+| **Gmail SMTP** | outbound mail, via an app password |
+| **Google Maps** | embedded map on `/about` (plain iframe, no API key) |
+| **Vercel** | hosting, CI on push |
+
+### Written by hand, not installed
+
+These are things a newcomer would reasonably expect to be dependencies. They aren't:
+
+| Concern | How it's done here |
+| --- | --- |
+| Styling | `app/globals.css` + inline `style={{}}`; colours from `T(isDark)` in `lib/theme.ts` |
+| State management | React Context — `contexts/AppContext.tsx`, no Redux/Zustand/Jotai |
+| Data fetching | `hooks/useDbCollection.ts` + `lib/collections.ts`, no React Query/SWR |
+| Auth | `lib/auth.ts` — Node `crypto`, HMAC-signed `httpOnly` cookie, no NextAuth |
+| Forms / validation | `lib/validators.ts`, no react-hook-form/Zod |
+| Payments | direct REST to PayMongo in `lib/paymongo.ts`, no SDK |
+| Charts | `components/admin/charts.tsx`, hand-drawn, no chart library |
+| Animation | CSS keyframes in `globals.css`, no Framer Motion |
+| Dates | native `Date` + `lib/validators.ts` helpers, no date-fns/dayjs |
+
+### Not used — do not add without discussing
+
+- **Tailwind CSS** — was installed, now removed. `className="flex gap-4"` does nothing.
+- **MongoDB / Mongoose** — replaced by Supabase. `models/` and `lib/mongoose.ts` are deleted.
+- **CSS Modules** — none remain.
+- **A UI kit** (MUI, shadcn, Chakra) — the visual language is bespoke.
+
+**Why QRPh and not GCash:** PayMongo's `gcash` method is a redirect flow and is inactive on this account's business type. `qrph` returns a unique QR per payment intent, which the booking screen displays — and the GCash app scans it, since QRPh is the Philippine national QR standard. See the comment at the top of `lib/paymongo.ts`.
+
+---
+
+## Getting started
 
 ```bash
-# Install dependencies
 npm install
-
-# Run development server
-npm run dev
+npm run dev          # http://localhost:3000
 ```
 
-> **Note:** Nodemailer is used for email notifications. Make sure `nodemailer` is in your `package.json` dependencies. If not: `npm install nodemailer`
+You also need a `.env.local`. It is gitignored and there is **no `.env.example`** — ask the project owner for values, and never commit real keys. **This repository is public.**
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=   # sb_publishable_… (newer projects)
+SUPABASE_SERVICE_ROLE_KEY=          # server only — bypasses RLS entirely
 
----
+# Admin login
+ADMIN_USERNAME=
+ADMIN_PASSWORD=
+SESSION_SECRET=                     # must be at least 32 characters or login returns 503
 
-## Project Structure
+# Email (Gmail app password, not your account password)
+GMAIL_USER=
+GMAIL_APP_PASSWORD=
 
-```
-stonewood/
-├── app/                                    # Next.js App Router — every folder = a URL route
-│   ├── about/
-│   │   ├── loading.tsx                     # Skeleton loader shown while page loads
-│   │   └── page.tsx                        # /about
-│   ├── admin/
-│   │   ├── loading.tsx
-│   │   └── page.tsx                        # /admin — redirects to /login if not authenticated
-│   ├── api/                                # Server-side API Route Handlers (Node.js only)
-│   │   ├── auth/
-│   │   │   └── login/
-│   │   │       └── route.ts                # POST /api/auth/login
-│   │   ├── bookings/
-│   │   │   ├── [id]/
-│   │   │   │   └── route.ts                # GET / PATCH / DELETE /api/bookings/:id
-│   │   │   └── route.ts                    # GET / POST /api/bookings
-│   │   ├── email/
-│   │   │   └── route.ts                    # POST /api/email — ACTIVE: sends confirmation/rejection emails via Nodemailer + Gmail SMTP
-│   │   ├── inventory/
-│   │       └── route.ts                    # GET / POST /api/inventory
-│   │   
-│   ├── book/
-│   │   ├── loading.tsx
-│   │   └── page.tsx                        # /book — supports ?room= and ?date= query params
-│   ├── cancelbooking/
-│   │   ├── loading.tsx
-│   │   └── page.tsx                        # /cancelbooking — find booking by ID + email, then cancel
-│   ├── customer/
-│   │   ├── loading.tsx
-│   │   └── page.tsx                        # /customer — wired to AppContext so messages appear in Admin
-│   ├── gallery/
-│   │   ├── loading.tsx
-│   │   └── page.tsx                        # /gallery
-│   ├── login/
-│   │   ├── loading.tsx
-│   │   └── page.tsx                        # /login — admin login form
-│   ├── rooms/
-│   │   ├── loading.tsx
-│   │   └── page.tsx                        # /rooms
-│   ├── favicon.ico
-│   ├── globals.css                         # Global styles: keyframes, scroll-reveal, marquee, card hovers, hero animations
-│   ├── layout.tsx                          # Root layout — Google Fonts, wraps all pages in Providers
-│   ├── loading.tsx                         # Root-level skeleton loader
-│   └── page.tsx                            # / home route
-│
-├── components/
-│   ├── admin/                              # Heavy sub-tabs rendered inside Admin.tsx
-│   │   ├── AnalyticsTab.tsx                # Charts, booking stats, guest totals
-│   │   ├── BookingsTab.tsx                 # Full bookings table with search, filter, and status actions
-│   │   ├── InventoryTab.tsx                # Inventory management UI
-│   │   └── InventoryTab.module.css         # Scoped CSS Module styles for InventoryTab
-│   ├── booking/
-│   │   └── BookingDatePicker.tsx           # Inline date picker used in BookNow Steps 3 and 10 (on-site)
-│   ├── common/                             # Small reusable components shared across pages
-│   │   ├── AvailabilityCalendar.tsx        # Shows booked / closed / available dates
-│   │   └── Stars.tsx                       # Star rating renderer used in testimonials
-│   ├── layout/                             # App-wide layout components present on every page
-│   │   ├── ClientShell.tsx                 # Client-side shell wrapper for safe hydration
-│   │   ├── Footer.tsx                      # Site footer with navigation links and contact info
-│   │   ├── Navbar.tsx                      # Top navigation bar with active page highlighting
-│   │   ├── PageTransition.tsx              # Animated transition wrapper between route changes
-│   │   ├── Providers.tsx                   # Wraps app in ThemeProvider + ToastProvider + AppProvider
-│   │   ├── ThemeToggle.tsx                 # Floating dark/light mode toggle button
-│   │   └── TopLoader.tsx                   # Thin progress bar shown at the top during navigation
-│   ├── sections/                           # Full-page content components, one per route
-│   │   ├── About.tsx                       # Cinematic hero, floating orbs, expandable Why Choose cards, Google Maps embed
-│   │   ├── Admin.tsx                       # Full admin dashboard — grouped sidebar, 10 tabs, all modals
-│   │   ├── AdminLogin.tsx                  # Login form validated against ADMIN_CREDS in constants.ts
-│   │   ├── BookNow.tsx                     # 7-step online booking + 2-step on-site reservation flow
-│   │   ├── CancelBooking.tsx               # Find booking by ID + email, cancel reason picker, confirm modal
-│   │   ├── CustomerService.tsx             # Contact form with Gmail validation, min-length checks, char counter
-│   │   ├── Gallery.tsx                     # Photo grid with lightbox, prev/next arrows, image counter
-│   │   ├── Home.tsx                        # Hero, rates, amenity bento grid + video modal, infinite marquee reviews
-│   │   ├── RoomsPage.tsx                   # Room cards with hover zoom and click-to-open detail modal
-│   │   └── AppShell.tsx                    # Legacy SPA routing shell (kept for reference)
-│
-├── contexts/                               # React Context — global shared state
-│   ├── AppContext.tsx                      # Master state: bookings, rooms, gallery, closedDates, customerMessages, adminAuth
-│   ├── ThemeContext.tsx                    # isDark toggle — persisted across sessions
-│   └── ToastContext.tsx                    # Toast notification queue (success / error / warning / info)
-│
-├── hooks/                                  # Custom React hooks
-│   ├── useAdmin.ts                         # Admin authentication helpers
-│   ├── useBooking.ts                       # Booking form state and calculation helpers
-│   ├── useReveal.ts                        # IntersectionObserver scroll-reveal — returns { ref, visible }
-│   ├── useTheme.ts                         # Shorthand for useContext(ThemeContext)
-│   ├── useToast.ts                         # Shorthand for useContext(ToastContext)
-│   └── useWidth.ts                         # Window width — used for mobile/tablet/desktop breakpoints
-│
-├── lib/                                    # Pure utility modules — no React, no side effects
-│   ├── constants.ts                        # INIT_ROOMS, INIT_BOOKINGS, PACKAGES, AMENITIES, ADMIN_CREDS, NAV links
-│   ├── emailTemplate.ts                    # buildReceiptEmail(), buildRejectionEmail(), generateOTP() — HTML email builders used by /api/email
-│   ├── mongoose.ts                         # MongoDB connection singleton (stub — ready to wire up)
-│   ├── styles.ts                           # Shared style constants: gold (#c9a84c), goldBtn, outBtn
-│   ├── theme.ts                            # T(isDark) — returns full color token object based on current theme
-│   ├── utils.ts                            # fmt(), calcTotal(), genBookingId(), fmtTimer(), fmtDate()
-│   └── validators.ts                       # isValidEmail(), isValidPHNumber(), validateBookingForm(), validateOnsiteForm()
-│
-├── models/                                 # Mongoose schema stubs — ready to connect to MongoDB Atlas
-│   ├── Booking.ts
-│   ├── Inventory.ts
-│   ├── Review.ts
-│   └── Room.ts
-│
-├── public/                                 # Static assets served at root URL (images, icons)
-│
-├── types/                                  # TypeScript type definitions — single source of truth
-│   ├── admin.ts                            # AdminTab union type, CustomerMessage interface
-│   ├── booking.ts                          # Booking interface (id, name, date, guests, status, paymentProof, etc.)
-│   ├── index.ts                            # Re-exports all types from one import point
-│   ├── inventory.ts                        # InventoryItem interface
-│   ├── review.ts                           # Review interface (id, name, rating, message, date)
-│   └── room.ts                             # Room interface (id, name, beds, capacity, price, img, desc)
-│
-├── .env.local                              # Secret environment variables (never committed)
-├── .gitignore
-├── .hintrc
-├── AGENTS.md                               # AI agent context and instructions
-├── CLAUDE.md                               # Claude-specific project notes
-├── components.json                         # shadcn/ui configuration
-├── eslint.config.mjs
-├── next-env.d.ts
-├── next.config.ts
-├── package-lock.json
-├── package.json
-├── postcss.config.mjs
-├── README.md
-├── tailwind.config.ts
-└── tsconfig.json
+# Payments
+PAYMONGO_SECRET_KEY=
+PAYMONGO_API_BASE=                  # optional, defaults to PayMongo production
+
+# Misc
+NEXT_PUBLIC_APP_URL=                # used in emails for absolute links
 ```
 
----
+`lib/supabase.ts` reads `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` first and falls back to `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the older `eyJ…` JWT some projects still issue), so either works — you don't need both.
 
-## Admin Access
+If the app starts but login fails and the calendar is empty, your `.env.local` is missing or incomplete — the server logs say exactly which variable is unset.
 
-| Field    | Value            |
-|----------|------------------|
-| URL      | `/login`         |
-| Username | `admin`          |
-| Password | `stonewood2026`  |
+### Database migrations
 
----
+SQL lives in `supabase/migrations/`, applied **by hand** in the Supabase SQL editor — there is no migration runner wired up. Run them in filename order:
 
-## Environment Variables
-
-Create a `.env.local` file in the project root:
-
-```env
-MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/stonewood
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=stonewood2026
-GMAIL_USER=your.email@gmail.com
-GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
+```
+20260922122504_init_schema.sql
+20260923090000_menu_facilities_packages.sql
+20260923130000_remove_food.sql
+20260923140000_booking_integrity.sql
+20260924090000_slots_and_packages.sql
+20260925120000_site_settings.sql       # maintenance mode
 ```
 
-> `GMAIL_USER` and `GMAIL_APP_PASSWORD` are required for email notifications. Generate an App Password from your Google Account → Security → 2-Step Verification → App Passwords.
+They are written to be safely re-runnable (`create table if not exists`, `drop policy if exists` before each `create policy`). All six are applied to the shared project as of this writing.
 
 ---
 
-## Pages
+## How data flows
 
-| Route            | Description                                             |
-|------------------|---------------------------------------------------------|
-| `/`              | Home — hero, rates, amenity bento grid, reviews marquee |
-| `/rooms`         | Room listings with hover zoom and booking CTA           |
-| `/gallery`       | Photo gallery with lightbox and prev/next navigation    |
-| `/about`         | About Us — story, Why Choose cards, Google Maps         |
-| `/book`          | Multi-step booking flow (online GCash + on-site)        |
-| `/cancelbooking` | Cancel a reservation by reference ID + email            |
-| `/customer`      | Customer service contact form                           |
-| `/login`         | Admin login page                                        |
-| `/admin`         | Admin dashboard — auth-guarded, 10 tabs                 |
+Everything reads and writes through `app/api/*`, never from the browser to Supabase directly.
 
----
+- **`contexts/AppContext.tsx`** is the single client-side store — rooms, packages, gallery, bookings, facilities, inventory, closed dates, customer messages, maintenance state.
+- **`hooks/useDbCollection.ts`** backs most of those. It keeps the old `[state, setState]` shape, so the ~35 call sites that do `setX(p => [...p, y])` did not change. It diffs the previous array against the next one and issues the right POST/PATCH/DELETE via `lib/collections.ts`. `localStorage` is a first-paint cache only.
+- **Guests never load the admin collections.** `bookings` and `facilities` are admin-only; signed-out visitors get a trimmed, read-only view from `/api/availability` (`hooks/usePublicAvailability.ts`), which deliberately omits staff notes and past guests' names.
+- **Writes are blocked until a load has succeeded**, so a failed fetch can't leave the seed constants in state and then diff-delete every real row.
 
-## API Routes
+### Security notes
 
-| Method   | Endpoint              | Description                                         |
-|----------|-----------------------|-----------------------------------------------------|
-| `POST`   | `/api/auth/login`     | Validate admin credentials                          |
-| `GET`    | `/api/bookings`       | Fetch all bookings                                  |
-| `POST`   | `/api/bookings`       | Create a new booking                                |
-| `GET`    | `/api/bookings/:id`   | Fetch a single booking by ID                        |
-| `PATCH`  | `/api/bookings/:id`   | Update booking status                               |
-| `DELETE` | `/api/bookings/:id`   | Delete a booking                                    |
-| `POST`   | `/api/email`          | Send confirmation or rejection email via Gmail SMTP |
-| `GET`    | `/api/inventory`      | Fetch all inventory items                           |
-| `POST`   | `/api/inventory`      | Add a new inventory item                            |
-
-
-> `/api/email` is **fully wired and active** — it sends real emails via Nodemailer + Gmail SMTP. All other routes are currently stubbed. Wire them by connecting `lib/mongoose.ts` and adding the handlers.
+- `SUPABASE_SERVICE_ROLE_KEY` **bypasses RLS completely**. Server-side only — never import it into a client component, never prefix it with `NEXT_PUBLIC_`.
+- Admin-only routes call `requireAdmin(req)` from `lib/auth.ts`. `/api/seed` is guarded too.
+- `lib/rateLimit.ts` is a fixed-window in-memory limiter. It is **per serverless instance**, so it slows abuse but is not a hard global cap.
+- Guest-supplied strings are escaped before going into emails (`lib/escapeHtml.ts`, including CR/LF stripping for mail-header injection).
 
 ---
 
-## Features
+## Project structure
 
-| Status | Feature |
-|--------|---------|
-| ✅ | Dark / Light theme toggle |
-| ✅ | Toast notification system (success, error, warning, info) |
-| ✅ | Top loading bar during navigation |
-| ✅ | Skeleton loading screens on all pages |
-| ✅ | Page transition animations between routes |
-| ✅ | Scroll-reveal animations on homepage sections |
-| ✅ | Infinite marquee testimonials |
-| ✅ | Amenity bento grid with clickable video modal |
-| ✅ | Multi-step online booking with GCash QR mock |
-| ✅ | GCash payment policy modal with checkbox acknowledgement |
-| ✅ | On-site reservation flow with reference ID |
-| ✅ | Availability calendar (booked / closed / available) |
-| ✅ | Cancel booking by reference ID + email |
-| ✅ | Room listings with hover zoom and detail modal |
-| ✅ | Photo gallery with lightbox and prev/next navigation |
-| ✅ | Customer service form with Gmail + length validation |
-| ✅ | Admin login with auth guard |
-| ✅ | Admin grouped sidebar with section labels |
-| ✅ | Admin dashboard — 10 tabs (Dashboard, Bookings, On-Site, Occupancy, Rooms, Gallery, Inventory, Analytics, Reports, Customer Service) |
-| ✅ | Email notifications on booking confirm / reject — **Nodemailer + Gmail SMTP (live)** |
-| ✅ | One-time access code (OTP) generated and emailed on confirmation |
-| ✅ | Monthly CSV report export |
-| ✅ | Fully responsive — mobile, tablet, desktop |
-| 🔜 | MongoDB integration |
-| 🔜 | Real GCash payment API |
+```
+app/
+  api/                       18 route handlers (see below)
+  about  admin  book  cancelbooking  customer  gallery  login  packages  rooms
+  globals.css                all global CSS — keyframes, hovers, skeletons, reveal
+  layout.tsx  page.tsx  loading.tsx
+
+components/
+  admin/       AnalyticsTab  BookingsTab  FacilitiesTab  InventoryTab
+               MaintenanceTab  PackagesTab  charts
+  booking/     BookingDatePicker          slot-aware date picker for /book
+  common/      AvailabilityCalendar  Icon  Skeleton
+  layout/      ClientShell  CursorDot  Footer  MaintenanceGate  Navbar
+               Providers  ThemeToggle  TopLoader
+  sections/    About  Admin  AdminLogin  BookNow  CancelBooking
+               CustomerService  Gallery  Home  PackagesPage  RoomsPage
+
+contexts/      AppContext  ThemeContext  ToastContext
+hooks/         useDbCollection  useMaintenance  usePublicAvailability
+               useScrollReveal  useWidth
+
+lib/
+  auth.ts            HMAC session cookie, timing-safe credential check
+  bookingQuote.ts    server-side price + availability quote (source of truth)
+  collections.ts     how each collection loads and syncs
+  occupancy.ts       who is physically on site right now
+  paymongo.ts        QRPh payment intents
+  pricing.ts         priceBooking(), bookingLabel()
+  resort.ts          SLOTS, hours, capacity — change hours HERE only
+  supabase.ts        row <-> app-type mapping, admin client
+  utils.ts           availability checks, formatting, booking helpers
+  validators.ts      input validation + capacity constants
+  constants.ts  emailTemplate.ts  escapeHtml.ts  img.ts  mailer.ts
+  rateLimit.ts  styles.ts  theme.ts
+
+types/         admin  booking  database  facility  inventory  maintenance  package  room
+supabase/migrations/   SQL, applied by hand
+design-plans/          UI change plans (see below)
+```
+
+### API routes
+
+| Route | Access | Purpose |
+| --- | --- | --- |
+| `/api/auth/login`, `/api/auth/logout` | public / session | admin session cookie |
+| `/api/availability` | public | trimmed bookings + facilities for guest calendars |
+| `/api/bookings`, `/api/bookings/[id]`, `/api/bookings/[id]/cancel` | admin / mixed | reservations |
+| `/api/rooms`, `/api/packages`, `/api/gallery`, `/api/closed-dates` | public read, admin write | marketing content |
+| `/api/facilities`, `/api/inventory` | admin | operations |
+| `/api/customer-service`, `/api/customer-reply` | public create, admin read | guest messages |
+| `/api/payment` | public | PayMongo QRPh intent |
+| `/api/email` | internal | confirmation / rejection mail |
+| `/api/maintenance` | public read, admin write | maintenance switch |
+| `/api/seed` | admin | seed data |
 
 ---
 
-## Resort Info
+## Things that will bite you
 
-| Detail   | Value                         |
-|----------|-------------------------------|
-| Location | Angono, Rizal, Philippines    |
-| Day Tour | ₱6,000 base (up to 30 guests) |
-| Overtime | +₱500/hr after 5PM            |
-| Rooms    | ₱2,000–₱2,500 / night         |
-| Hours    | 8:00 AM – 5:00 PM             |
+- **Vercel bakes env vars at build time.** Changing a variable in the dashboard does nothing until you redeploy.
+- **Migrations are manual.** Pulling a branch that adds one and not running it gives confusing 500s. `/api/maintenance` is the friendly exception — it names the missing migration in its error.
+- **`app/globals.css` cascade.** Inline styles beat stylesheet rules, so several hover rules use `!important` on purpose. The `prefers-reduced-motion` block intentionally suppresses only decorative motion.
+- **`prefers-reduced-motion`** is on for at least one machine on this team, and headless Chrome defaults to `reduce`. If an animation "doesn't work" for you but does for someone else, check that first.
+- **Seed constants are not real data.** `INIT_ROOMS` and friends are first-paint placeholders. Pages show a skeleton until the real fetch settles rather than presenting them as fact.
+- **The repo is public.** No keys, no guest data, no screenshots containing either.
+
+---
+
+## `design-plans/`
+
+UI changes are written up before they are applied, one file per change: the evidence, the single correction, what to preserve, and the exact commands to verify it. They record why a change was made and which alternatives were rejected, which is more useful than the diff alone. Existing plans cover the booking tier control's selected state and two hero-card layout fixes.
+
+> One plan, `about-cards-no-layout-shift.md`, is **superseded** — the "Why Choose" cards are no longer expandable, so the layout shift it fixed can no longer happen. Delete it or mark it if you touch that section.
+
+---
+
+## Scripts
+
+```bash
+npm run dev      # dev server (Turbopack)
+npm run build    # production build
+npm run start    # serve the production build
+npm run lint     # eslint
+```
