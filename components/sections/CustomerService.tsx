@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { customerServiceForm, type CustomerServiceForm } from "@/lib/schemas";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { useToast } from "@/contexts/ToastContext";
@@ -30,31 +33,54 @@ export function CustomerService({ onSubmitMessage }: CustomerServiceProps) {
   const w = useWidth();
   const mob = w < 768;
 
-  const [form, setForm] = useState({ name: "", email: "", type: "Feedback", message: "" });
   const [submitted, setSubmitted] = useState(false);
-  const [touched, setTouched] = useState({ name: false, email: false, message: false });
 
-  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
+  // react-hook-form owns the field state and runs `customerServiceForm`
+  // (lib/schemas.ts) as its resolver, so the browser and the API validate
+  // against one definition. `mode: "onBlur"` reproduces what the hand-rolled
+  // `touched` map did: nothing is flagged until the guest leaves the field.
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { touchedFields, isSubmitting },
+  } = useForm<CustomerServiceForm>({
+    resolver: zodResolver(customerServiceForm),
+    mode: "onBlur",
+    defaultValues: { name: "", email: "", type: "Feedback", message: "" },
+  });
+
+  // Watched values keep the per-field hints below working unchanged — they
+  // read `form.x` exactly as before, so only the plumbing moved.
+  const form = watch();
+  const touched = {
+    name: Boolean(touchedFields.name),
+    email: Boolean(touchedFields.email),
+    message: Boolean(touchedFields.message),
+  };
 
   // ── Validators ──────────────────────────────────────────────────────────────
-  const nameOk    = isValidName(form.name);
+  // Still derived here rather than read from formState.errors: the hints
+  // distinguish "valid" from "invalid" from "empty", which a single error
+  // string cannot express.
+  const nameOk    = isValidName(form.name ?? "");
   // Was endsWith("@gmail.com") && length > 10, which accepted "!!!!@gmail.com".
-  const emailOk   = isGmailAddress(form.email);
-  const messageOk = form.message.trim().length >= 10 && form.message.length <= MESSAGE_MAX;
+  const emailOk   = isGmailAddress(form.email ?? "");
+  const messageOk = (form.message ?? "").trim().length >= 10 && (form.message ?? "").length <= MESSAGE_MAX;
   const formOk    = nameOk && emailOk && messageOk;
 
-const submit = async () => {
-  setTouched({ name: true, email: true, message: true });
+  // Live sanitisation as the guest types: the field silently refuses digits
+  // and symbols instead of accepting them and complaining afterwards.
+  const nameField = register("name");
+  const messageField = register("message");
 
-  if (!formOk) return;
-
+const submit = handleSubmit(async (values) => {
   const msg: CustomerMessage = {
     id: Date.now(),
-    name: form.name,
-    email: form.email,
-    type: form.type,
-    message: form.message,
+    name: values.name,
+    email: values.email,
+    type: values.type,
+    message: values.message,
     date: new Date().toLocaleDateString("en-PH", {
       year: "numeric",
       month: "short",
@@ -84,7 +110,7 @@ const submit = async () => {
   } catch {
     toast("Failed to send message.", "error");
   }
-};
+});
 
   // ── Shared field border helper ───────────────────────────────────────────────
   const fieldBorder = (ok: boolean, isTouched: boolean) => {
@@ -137,9 +163,12 @@ const submit = async () => {
               <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>FULL NAME</label>
               <input
                 type="text"
-                value={form.name}
-                onChange={(e) => set("name", sanitizeName(e.target.value))}
-                onBlur={() => touch("name")}
+                {...nameField}
+                onChange={(e) => {
+                  // Filter as they type, then hand the cleaned value to RHF.
+                  e.target.value = sanitizeName(e.target.value);
+                  void nameField.onChange(e);
+                }}
                 maxLength={NAME_MAX}
                 autoComplete="name"
                 placeholder="Your full name"
@@ -161,9 +190,7 @@ const submit = async () => {
               </label>
               <input
                 type="email"
-                value={form.email}
-                onChange={(e) => set("email", e.target.value)}
-                onBlur={() => touch("email")}
+                {...register("email")}
                 maxLength={254}
                 autoComplete="email"
                 placeholder="yourname@gmail.com"
@@ -187,8 +214,7 @@ const submit = async () => {
               <select
                 id="customer-service-type"
                 title="Message type"
-                value={form.type}
-                onChange={(e) => set("type", e.target.value)}
+                {...register("type")}
                 className="sw-input"
                 style={C.inp}
               >
@@ -204,10 +230,12 @@ const submit = async () => {
                 MESSAGE <span style={{ color: C.textXS, fontSize: 10.5, fontWeight: 400, letterSpacing: 0 }}>(min. 10 characters)</span>
               </label>
               <textarea
-                value={form.message}
-                onChange={(e) => set("message", e.target.value.slice(0, MESSAGE_MAX))}
-                onBlur={() => touch("message")}
+                {...messageField}
                 maxLength={MESSAGE_MAX}
+                onChange={(e) => {
+                  e.target.value = e.target.value.slice(0, MESSAGE_MAX);
+                  void messageField.onChange(e);
+                }}
                 rows={5}
                 className="sw-input"
                 style={{ ...C.inp, resize: "vertical", border: fieldBorder(messageOk, touched.message) }}
@@ -236,8 +264,8 @@ const submit = async () => {
                 ...goldBtn,
                 width: "100%",
                 padding: 13,
-                opacity: formOk ? 1 : 0.4,
-                cursor: formOk ? "pointer" : "not-allowed",
+                opacity: formOk && !isSubmitting ? 1 : 0.4,
+                cursor: formOk && !isSubmitting ? "pointer" : "not-allowed",
               }}
             >
               SEND MESSAGE

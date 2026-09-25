@@ -35,6 +35,7 @@ import {
   sanitizeName,
   sanitizeNotes,
 } from "@/lib/validators";
+import { isGmailAddress } from "@/lib/validators";
 import { isMaintenanceReason } from "@/types/maintenance";
 
 // ── Primitives ───────────────────────────────────────────────────────
@@ -112,6 +113,67 @@ export const customerMessageInput = z.object({
     .transform((v) => v.trim())
     .pipe(z.string().min(1, "A message is required.")),
 });
+
+/**
+ * The public Customer Service form.
+ *
+ * Stricter than `customerMessageInput` in two ways, both carried over from
+ * what the form already enforced rather than invented here:
+ *   • the address must be on gmail.com, not merely a valid address
+ *   • the message needs at least 10 characters, so "hi" is not a support
+ *     ticket
+ * `CUSTOMER_MESSAGE_MAX` matches the textarea's own cap, so the field and
+ * the schema cannot disagree about the limit.
+ */
+export const CUSTOMER_MESSAGE_MIN = 10;
+export const CUSTOMER_MESSAGE_MAX = 1000;
+
+export const customerServiceForm = z.object({
+  name: guestName,
+  email: z
+    .string({ message: "A Gmail address is required." })
+    .transform((v) => v.trim())
+    .refine(isGmailAddress, "Please enter a valid Gmail address."),
+  // No .default() here: the form supplies it via defaultValues, and a
+  // defaulted field makes the schema's input type optional while its
+  // output stays required, which react-hook-form's resolver rejects.
+  type: z.string().min(1),
+  message: z
+    .string({ message: "A message is required." })
+    .max(CUSTOMER_MESSAGE_MAX)
+    .refine(
+      (v) => v.trim().length >= CUSTOMER_MESSAGE_MIN,
+      `Please write at least ${CUSTOMER_MESSAGE_MIN} characters.`,
+    ),
+});
+
+export type CustomerServiceForm = z.infer<typeof customerServiceForm>;
+
+/**
+ * The Cancel Booking lookup.
+ *
+ * Deliberately only requires both fields to be non-empty — the same rule the
+ * form already applied. No pattern on the reference (walk-ins and legacy
+ * rows need not match today's "SW-#####" shape, and rejecting a real one
+ * client-side would lock a guest out of cancelling) and no email format
+ * check (the server matches the address against the stored booking, which is
+ * the only authority on whether it is the right one).
+ *
+ * What it does add is normalisation: the trim and lower-casing the component
+ * used to do by hand at two separate call sites now happen once, here.
+ */
+export const cancelBookingLookup = z.object({
+  reference: z
+    .string({ message: "Enter your booking reference." })
+    .transform((v) => v.trim())
+    .pipe(z.string().min(1, "Enter your booking reference.")),
+  email: z
+    .string({ message: "Enter the email you booked with." })
+    .transform((v) => v.trim().toLowerCase())
+    .pipe(z.string().min(1, "Enter the email you booked with.")),
+});
+
+export type CancelBookingLookup = z.infer<typeof cancelBookingLookup>;
 
 export type CloseDateInput = z.infer<typeof closeDateInput>;
 export type MaintenanceInput = z.infer<typeof maintenanceInput>;

@@ -6,6 +6,27 @@ Guests browse rooms and packages, check live availability, and book online with 
 
 ---
 
+## Stack at a glance
+
+```
+Framework    Next.js 16.2.6 (App Router, Route Handlers, Turbopack) · React 19.2.6 · TypeScript 5.9.3
+Database     Supabase — PostgreSQL + Row Level Security          @supabase/supabase-js 2.116.0
+Styling      hand-written: app/globals.css + inline style={{}}   no Tailwind, no CSS modules, no UI kit
+Icons        lucide-react 1.47.0                                 behind components/common/Icon.tsx
+Animation    motion 13.4.3 (Framer Motion, renamed)              behind components/common/Reveal.tsx
+Dates        dayjs 1.11.23                                       behind lib/dayjs.ts
+Validation   zod 4.6.5                                           lib/schemas.ts, on top of lib/validators.ts
+Forms        react-hook-form 7.88.0 + @hookform/resolvers 5.9.1   partial — 2 of 5 forms migrated
+Charts       @mui/x-charts 9.14.0 (+ @mui/material, @emotion/*)   behind components/admin/charts.tsx
+Email        nodemailer 8.0.5 over Gmail SMTP
+Payments     PayMongo QRPh via direct REST — no SDK
+Hosting      Vercel
+```
+
+Fifteen runtime dependencies, seven dev. Each one sits behind a single wrapper, so
+replacing any of them touches one file. Full detail, including what is deliberately
+**not** installed, is in [Tech stack](#tech-stack) below.
+
 ## Read this first if you last worked on this repo a while ago
 
 Several things changed that will break your mental model of the codebase. Skimming this section will save you an hour of confusion.
@@ -51,7 +72,7 @@ Admin → **SITE → Maintenance** closes the public site behind a full-screen n
 
 ## Tech stack
 
-Thirteen runtime dependencies, seven dev dependencies. The list is short on purpose — check *Written by hand* and *Not used* below before reaching for another library.
+Fifteen runtime dependencies, seven dev dependencies. The list is short on purpose — check *Written by hand* and *Not used* below before reaching for another library.
 
 ### Runtime
 
@@ -64,6 +85,7 @@ Thirteen runtime dependencies, seven dev dependencies. The list is short on purp
 | `lucide-react` | 1.47.0 | every icon, via `components/common/Icon.tsx` |
 | `motion` | 13.4.3 | all animation. **This is Framer Motion** — it was renamed; import from `motion/react`, not `framer-motion`. Scroll reveals go through `components/common/Reveal.tsx`; reduced motion is handled by `<MotionConfig reducedMotion="user">` in Providers, never by branching on `useReducedMotion()` in a component (that is an SSR/hydration bug) |
 | `dayjs` | 1.11.23 | all wall-clock date parsing, formatting and arithmetic, via `lib/dayjs.ts` (strict `customParseFormat`). Instants — `archivedAt`, `lastCheckedAt` — stay on `toISOString()`, where UTC is correct |
+| `react-hook-form` + `@hookform/resolvers` | 7.88.0 / 5.9.1 | form state and submission, with `zodResolver` running the schemas from `lib/schemas.ts`. **Migrating form by form** — `CustomerService` and the `CancelBooking` lookup are done; `AdminLogin` (left for NextAuth), `BookNow` and the Admin walk-in form are still on `useState` |
 | `zod` | 4.6.5 | request validation, via `lib/schemas.ts`. Built **on top of** `lib/validators.ts` rather than restating its rules — the predicates there stay the single source of truth, Zod supplies shape, coercion and messages |
 | `@mui/x-charts` | 9.14.0 | the bar charts and sparklines in Reports and Analytics, behind the existing `BarChart` / `Sparkline` wrappers in `components/admin/charts.tsx`. Themed by `components/admin/ChartTheme.tsx`, which bridges MUI to `lib/theme.ts` — a chart dropped in unthemed renders Material blue on light grey |
 | `@mui/material` + `@emotion/react` + `@emotion/styled` | 9.4.0 / 11.14.x | peer dependencies of `@mui/x-charts`. **Charts only** — not the app's UI kit |

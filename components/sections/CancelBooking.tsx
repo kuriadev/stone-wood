@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { cancelBookingLookup, type CancelBookingLookup } from "@/lib/schemas";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
@@ -26,8 +29,24 @@ export function ManageBooking(_props: ManageBookingProps) {
   const w = useWidth();
   const mob = w < 768;
 
-  const [refInput, setRefInput] = useState("");
-  const [emailInput, setEmailInput] = useState("");
+  // The lookup is the only real form on this page — everything below it
+  // (reason, confirm modal) is flow state, not fields. The schema requires
+  // both values and normalises them; the component no longer trims or
+  // lower-cases by hand at two separate call sites.
+  const {
+    register: reg,
+    handleSubmit: submitLookup,
+    watch: watchLookup,
+    setValue: setLookupValue,
+    formState: { errors: lookupErrors },
+  } = useForm<CancelBookingLookup>({
+    resolver: zodResolver(cancelBookingLookup),
+    mode: "onSubmit",
+    defaultValues: { reference: "", email: "" },
+  });
+
+  const refInput = watchLookup("reference");
+  const emailInput = watchLookup("email");
   const [found, setFound] = useState<Booking | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [cancelReason, setCancelReason] = useState<string | null>(null);
@@ -48,17 +67,15 @@ export function ManageBooking(_props: ManageBookingProps) {
     const q = new URLSearchParams(window.location.search);
     const ref = q.get("booking");
     const mail = q.get("email");
-    if (ref) setRefInput(ref.slice(0, 32));
-    if (mail) setEmailInput(mail.slice(0, 254));
-  }, []);
+    if (ref) setLookupValue("reference", ref.slice(0, 32));
+    if (mail) setLookupValue("email", mail.slice(0, 254));
+  }, [setLookupValue]);
 
   // Looks the booking up on the server. This used to search a list held in
   // the browser, which for a guest never contained real bookings — so every
   // search came back "not found".
-  const handleFind = async () => {
-    const ref = refInput.trim();
-    const mail = emailInput.trim().toLowerCase();
-    if (!ref || !mail || looking) return;
+  const handleFind = submitLookup(async ({ reference: ref, email: mail }) => {
+    if (looking) return;
     setSearched(true);
     setCancelDone(false);
     setErrorMsg(null);
@@ -81,7 +98,7 @@ export function ManageBooking(_props: ManageBookingProps) {
     } finally {
       setLooking(false);
     }
-  };
+  });
 
   const handleProceedCancel = () => {
     setShowCancelConfirm(true);
@@ -97,7 +114,7 @@ export function ManageBooking(_props: ManageBookingProps) {
       const res = await fetch(`/api/bookings/${encodeURIComponent(found.id)}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailInput.trim().toLowerCase(), reason: cancelReason ?? "" }),
+        body: JSON.stringify({ email: (emailInput ?? "").trim().toLowerCase(), reason: cancelReason ?? "" }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.booking) throw new Error(json?.error ?? "Could not cancel the booking.");
@@ -180,8 +197,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                 <input
                   type="text"
                   placeholder="Enter booking reference"
-                  value={refInput}
-                  onChange={(e) => setRefInput(e.target.value.trimStart().slice(0, 32))}
+                  {...reg("reference")}
                   maxLength={32}
                   onKeyDown={(e) => e.key === "Enter" && void handleFind()}
                   className="sw-input"
@@ -198,8 +214,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                 <input
                   type="email"
                   placeholder="Enter email address"
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value.trimStart().slice(0, 254))}
+                  {...reg("email")}
                   maxLength={254}
                   autoComplete="email"
                   onKeyDown={(e) => e.key === "Enter" && void handleFind()}
@@ -210,6 +225,7 @@ export function ManageBooking(_props: ManageBookingProps) {
               </div>
             </div>
             <button
+              type="button"
               onClick={() => void handleFind()}
               disabled={looking}
               style={{
@@ -225,6 +241,14 @@ export function ManageBooking(_props: ManageBookingProps) {
             >
               {looking ? "SEARCHING…" : "FIND BOOKING →"}
             </button>
+            {/* Pressing Find with an empty box used to do nothing at all —
+                the handler returned early and said nothing, which reads as a
+                broken button. The schema already knows why it refused. */}
+            {(lookupErrors.reference || lookupErrors.email) && (
+              <p style={{ color: "#e55", fontSize: 12.5, marginTop: 8, width: "100%" }}>
+                {lookupErrors.reference?.message ?? lookupErrors.email?.message}
+              </p>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 14 }}>
             <Icon name="lock" size={12} style={{ opacity: 0.5 }} />
