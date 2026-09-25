@@ -5,6 +5,7 @@ import { getBookingSlot } from "@/lib/utils";
 import { OVERTIME_RATE } from "@/lib/validators";
 
 import type { Booking } from "@/types/booking";
+import { dayjs, DATE_FMT } from "@/lib/dayjs";
 
 
 export function generateOTP(): string {
@@ -31,13 +32,13 @@ function fmt(n: number) {
 }
 
 function formatDate(ds: string) {
-  try {
-    return new Date(ds + "T00:00:00").toLocaleDateString("en-PH", {
-      weekday: "long", year: "numeric", month: "long", day: "numeric",
-    });
-  } catch {
-    return ds;
-  }
+  // Explicit format rather than toLocaleDateString("en-PH"): a mail template
+  // is rendered on whatever host the server runs on, whose ICU data decides
+  // what that locale produces. An explicit pattern gives every guest the same
+  // wording. Strict parsing also means a malformed date falls back to the raw
+  // string instead of rendering a rolled-over, wrong day.
+  const d = dayjs(ds, DATE_FMT, true);
+  return d.isValid() ? d.format("dddd, MMMM D, YYYY") : ds;
 }
 
 /**

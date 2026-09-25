@@ -8,7 +8,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
-import { sanitizeNotes } from "@/lib/validators";
+import { maintenanceInput, parseInput } from "@/lib/schemas";
 import {
   MAINTENANCE_DEFAULT,
   isMaintenanceReason,
@@ -58,31 +58,23 @@ export async function PATCH(req: NextRequest) {
   if (denied) return denied;
 
   try {
-    const b = await req.json().catch(() => ({}));
-
-    if (typeof b.active !== "boolean") {
-      return NextResponse.json(
-        { success: false, error: "`active` must be true or false." },
-        { status: 400 },
-      );
+    // One schema covers the shape, the enum and the length cap. The database
+    // column keeps its own CHECK on `maintenance_reason`, so a bad value is
+    // still refused twice.
+    const parsed = parseInput(maintenanceInput, await req.json().catch(() => ({})));
+    if (!parsed.ok) {
+      return NextResponse.json({ success: false, error: parsed.error }, { status: 400 });
     }
-    // Only ever one of the three known codes reaches the database. The
-    // column has the same constraint, so a bad value is refused twice.
-    if (!isMaintenanceReason(b.reason)) {
-      return NextResponse.json(
-        { success: false, error: "`reason` must be one of the three maintenance reasons." },
-        { status: 400 },
-      );
-    }
+    const b = parsed.data;
 
     const { data, error } = await getSupabaseAdmin()
       .from("site_settings")
       .update({
         maintenance_active: b.active,
         maintenance_reason: b.reason,
-        // Admin-authored, but it renders on a public page, so it is stripped
-        // the same way guest notes are.
-        maintenance_message: sanitizeNotes(String(b.message ?? "")).slice(0, 200),
+        // Admin-authored, but it renders on a public page, so the schema
+        // sanitises it the same way guest notes are.
+        maintenance_message: b.message,
         updated_at: new Date().toISOString(),
       })
       .eq("id", 1)

@@ -1,6 +1,7 @@
 import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
 import { occupiedSlots } from "@/lib/resort";
 import type { Facility } from "@/types/facility";
+import { dayjs, DATE_FMT } from "@/lib/dayjs";
 import {
   GUESTS_SHARED_MAX,
   RESORT_SHARED_CAPACITY,
@@ -40,11 +41,18 @@ export function fmtTimer(s: number): string {
 /** Format a date string YYYY-MM-DD → "January 1, 2026" */
 export function fmtDate(ds: string): string {
   if (!ds) return "Select a date";
-  const [y, m, d] = ds.split("-");
-  return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString(
-    "en-PH",
-    { month: "long", day: "numeric", year: "numeric" }
-  );
+  // Strict parse, then an explicit format. The old version did neither:
+  // it fed the parts straight to `new Date` and formatted with
+  // toLocaleDateString("en-PH"). That had two problems.
+  //
+  //   • An impossible date was rolled over and shown as a REAL one —
+  //     "2024-02-30" rendered as "March 1, 2024". A guest would have been
+  //     told the wrong day.
+  //   • Locale formatting depends on the host's ICU data, so the server
+  //     and the browser can disagree and React reports a hydration
+  //     mismatch. An explicit format string cannot drift.
+  const d = dayjs(ds, DATE_FMT, true);
+  return d.isValid() ? d.format("MMMM D, YYYY") : "Select a date";
 }
 
 /** "Shared" (pool shared with other same-day bookings) vs "Exclusive"

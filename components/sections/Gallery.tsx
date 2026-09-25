@@ -6,8 +6,8 @@ import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { srcSetFor, SIZES } from "@/lib/img";
-import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { Icon } from "@/components/common/Icon";
+import { Reveal } from "@/components/common/Reveal";
 
 interface GalleryProps {
   galleryImgs: string[];
@@ -94,7 +94,6 @@ function sliceEvenly<T>(items: T[], buckets: number): T[][] {
 export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
   // Scroll reveals. Called here, not in the layout: the effect must run
   // after THIS page has hydrated or it mutates un-hydrated DOM.
-  useScrollReveal();
 
   const { isDark } = useTheme();
   const C = T(isDark);
@@ -346,7 +345,7 @@ export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
                   }}
                 />
 
-                <div className="sw-reveal" style={{ position: "relative", maxWidth: 620, marginBottom: mob ? 22 : 30 }}>
+                <Reveal style={{ position: "relative", maxWidth: 620, marginBottom: mob ? 22 : 30 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
                     <span
                       style={{
@@ -379,10 +378,10 @@ export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
                     {c.title}
                   </h2>
                   <p style={{ color: C.textS, fontSize: mob ? 14.5 : 16, lineHeight: 1.8, margin: 0 }}>{c.body}</p>
-                </div>
+                </Reveal>
 
                 {lead && (
-                  <div className="sw-reveal" style={{ display: "grid", gridTemplateColumns: extras.length && !mob ? "1.7fr 1fr" : "1fr", gap: mob ? 10 : 14 }}>
+                  <Reveal style={{ display: "grid", gridTemplateColumns: extras.length && !mob ? "1.7fr 1fr" : "1fr", gap: mob ? 10 : 14 }}>
                     <GalleryFrame
                       src={lead}
                       alt={`${c.title} — ${c.label} at StoneWood, ${c.time}`}
@@ -419,7 +418,7 @@ export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
                         ))}
                       </div>
                     )}
-                  </div>
+                  </Reveal>
                 )}
               </section>
             );
@@ -427,7 +426,7 @@ export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
 
           {/* ── Closing: every photo, so nothing is buried in the story ── */}
           <section style={{ paddingTop: mob ? 60 : 104 }}>
-            <div className="sw-reveal" style={{ textAlign: "center", marginBottom: mob ? 24 : 32 }}>
+            <Reveal style={{ textAlign: "center", marginBottom: mob ? 24 : 32 }}>
               <p style={{ color: gold, letterSpacing: 4, fontSize: 11.5, margin: "0 0 10px" }}>THE FULL SET</p>
               <h2 style={{ fontFamily: serif, fontSize: mob ? 24 : 32, color: C.textH, fontWeight: 400, margin: "0 0 8px" }}>
                 Every photo, all at once
@@ -435,9 +434,8 @@ export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
               <p style={{ color: C.textS, fontSize: 14.5, margin: 0 }}>
                 {galleryImgs.length} photo{galleryImgs.length === 1 ? "" : "s"} · tap any one to view full size
               </p>
-            </div>
-            <div
-              className="sw-reveal"
+            </Reveal>
+            <Reveal
               style={{
                 display: "grid",
                 gridTemplateColumns: mob ? "1fr 1fr" : tab ? "repeat(3,1fr)" : "repeat(4,1fr)",
@@ -455,9 +453,9 @@ export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
                   onOpen={open}
                 />
               ))}
-            </div>
+            </Reveal>
 
-            <div className="sw-reveal" style={{ textAlign: "center", marginTop: mob ? 44 : 64 }}>
+            <Reveal style={{ textAlign: "center", marginTop: mob ? 44 : 64 }}>
               <p style={{ color: C.textS, fontSize: mob ? 15 : 16.5, lineHeight: 1.8, maxWidth: 460, margin: "0 auto 22px" }}>
                 That is one day. Pick a date and it is yours.
               </p>
@@ -468,7 +466,7 @@ export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
               >
                 CHECK AVAILABILITY →
               </button>
-            </div>
+            </Reveal>
           </section>
         </div>
       </div>

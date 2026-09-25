@@ -50,11 +50,15 @@ export function AnalyticsTab({ bookings }: AnalyticsTabProps) {
         />
       </div>
 
-      {/* Monthly Guest Chart */}
+      {/* Monthly Guest Chart.
+          Guests are green and bookings are gold across this whole tab — the
+          same pairing the Total Guests / Total Bookings cards above already
+          used. These two charts had it the other way round, so the colour
+          meant one thing in the cards and the opposite directly beneath. */}
       <Panel title="MONTHLY GUEST LOG (2026)" style={{ marginBottom: 18 }}>
         <BarChart
           data={months.map((label, i) => ({ label, value: gBM[i] }))}
-          color={gold}
+          color="#4caf50"
           height={200}
           mob={mob}
         />
@@ -64,7 +68,7 @@ export function AnalyticsTab({ bookings }: AnalyticsTabProps) {
       <Panel title="MONTHLY BOOKINGS (2026)" style={{ marginBottom: 18 }}>
         <BarChart
           data={months.map((label, i) => ({ label, value: bBM[i] }))}
-          color="#4caf50"
+          color={gold}
           height={180}
           mob={mob}
         />

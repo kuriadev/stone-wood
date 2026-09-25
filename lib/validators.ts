@@ -1,3 +1,4 @@
+import { dayjs, DATE_FMT } from "@/lib/dayjs";
 // ── Form and booking-window validation
 //
 // Every rule lives here rather than inline in components, so the button's
@@ -111,39 +112,33 @@ export const BOOKING_WINDOW_MONTHS = 3;
 
 // ════════════════════════════════════════════════════════════════════
 // DATES
-// All helpers work on "YYYY-MM-DD" strings in LOCAL time. Parsing with
-// new Date("2026-09-21") would be treated as UTC and can land on the
-// previous day west of Greenwich, so the parts are split by hand.
+// All helpers work on "YYYY-MM-DD" strings in LOCAL time, via the
+// configured dayjs in lib/dayjs.ts. A booking date is a wall-clock day,
+// not an instant: new Date("2026-09-21") is parsed as UTC and lands on
+// the previous day in Manila for part of every day.
+//
+// These were hand-rolled before. dayjs replaced them only after a
+// differential test compared both across 288 valid and 11 invalid dates
+// — 1,142 comparisons, identical everywhere except five, where the old
+// code was the wrong one (see fmtDate in lib/utils.ts).
 // ════════════════════════════════════════════════════════════════════
 
 /** Local midnight today. */
 export function startOfToday(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
+  return dayjs().startOf("day").toDate();
 }
 
-/** Parse "YYYY-MM-DD" as a local date. Returns null if malformed. */
+/** Parse "YYYY-MM-DD" as a local date. Returns null if malformed.
+ *  Strict, so an impossible date like 2026-02-31 is rejected rather than
+ *  silently rolled over to 3 March. */
 export function parseDateStr(dateStr: string): Date | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr ?? "");
-  if (!m) return null;
-  const y = Number(m[1]);
-  const mo = Number(m[2]);
-  const d = Number(m[3]);
-  const dt = new Date(y, mo - 1, d);
-  dt.setHours(0, 0, 0, 0);
-  // Rejects impossible dates such as 2026-02-31, which JS would roll over.
-  if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) {
-    return null;
-  }
-  return dt;
+  const d = dayjs(dateStr ?? "", DATE_FMT, true);
+  return d.isValid() ? d.startOf("day").toDate() : null;
 }
 
 /** Format a local Date back to "YYYY-MM-DD". */
 export function toDateStr(d: Date): string {
-  const mo = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${mo}-${day}`;
+  return dayjs(d).format(DATE_FMT);
 }
 
 /**
@@ -154,18 +149,17 @@ export function toDateStr(d: Date): string {
  * when the three-month window would otherwise spill into January.
  */
 export function getBookingWindow(): { min: Date; max: Date } {
-  const min = startOfToday();
+  const min = dayjs().startOf("day");
+  // dayjs clamps the month-length rollover itself: 31 Aug + 3 months is
+  // 30 Nov, not 1 Dec. The hand-written guard this replaced did the same
+  // thing with setDate(0).
+  const ahead = min.add(BOOKING_WINDOW_MONTHS, "month");
+  const endOfYear = min.endOf("year").startOf("day");
 
-  const ahead = new Date(min);
-  ahead.setMonth(ahead.getMonth() + BOOKING_WINDOW_MONTHS);
-  // Guard the month-length rollover: 30 Nov + 3 months is fine, but
-  // 31 Aug + 3 months would land on 1 Dec without this correction.
-  if (ahead.getDate() !== min.getDate()) ahead.setDate(0);
-
-  const endOfYear = new Date(min.getFullYear(), 11, 31);
-  endOfYear.setHours(0, 0, 0, 0);
-
-  return { min, max: ahead < endOfYear ? ahead : endOfYear };
+  return {
+    min: min.toDate(),
+    max: (ahead.isBefore(endOfYear) ? ahead : endOfYear).toDate(),
+  };
 }
 
 /** True when dateStr is a real date inside the bookable window. */

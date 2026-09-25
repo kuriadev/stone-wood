@@ -216,7 +216,10 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
       {/* ── Low-stock alert ── */}
       {lowStock > 0 && (
         <div style={{ background: "rgba(229, 85, 85, 0.05)", border: "1px solid rgba(229, 85, 85, 0.2)", borderRadius: 4, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }} role="alert">
-          <Icon name="alert" size={14} />
+          {/* Tinted to the panel's accent: Lucide uses currentColor and this
+              banner sets none, so the icon would take the page's near-black
+              text colour and vanish in dark mode. */}
+          <Icon name="alert" size={14} style={{ color: "#e07070", flexShrink: 0 }} />
           <span style={{ color: "#e07070", fontSize: 13.5 }}>
             <strong>{lowStock}</strong> item{lowStock > 1 ? "s are" : " is"} at or below minimum stock level.
           </span>

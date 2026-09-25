@@ -7,7 +7,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
-import { sanitizeNotes, parseDateStr } from "@/lib/validators";
+import { parseDateStr } from "@/lib/validators";
+import { closeDateInput, parseInput } from "@/lib/schemas";
 import type { ClosedDateRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -29,17 +30,15 @@ export async function POST(req: NextRequest) {
   const denied = requireAdmin(req);
   if (denied) return denied;
   try {
-    const b = await req.json().catch(() => ({}));
-    const date = String(b.date ?? "").trim();
-    // parseDateStr rejects a well-formed but impossible date like 2026-02-31,
-    // which a bare regex would wave through.
-    if (!isDateStr(date)) {
-      return NextResponse.json({ success: false, error: "A valid YYYY-MM-DD date is required." }, { status: 400 });
+    const parsed = parseInput(closeDateInput, await req.json().catch(() => ({})));
+    if (!parsed.ok) {
+      return NextResponse.json({ success: false, error: parsed.error }, { status: 400 });
     }
+    const { date, reason } = parsed.data;
 
     const { error } = await getSupabaseAdmin()
       .from("closed_dates")
-      .upsert({ date, reason: sanitizeNotes(String(b.reason ?? "")).slice(0, 200) }, { onConflict: "date" });
+      .upsert({ date, reason }, { onConflict: "date" });
 
     if (error) throw new Error(error.message);
     return NextResponse.json({ success: true });

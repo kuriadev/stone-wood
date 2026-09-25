@@ -368,22 +368,8 @@ img {
    other and the strip will visibly jump on every cycle. */
 
 /* ── SCROLL REVEAL ── */
-.sw-reveal {
-  opacity: 0;
-  transform: translateY(28px);
-  transition: opacity .65s cubic-bezier(.22,1,.36,1), transform .65s cubic-bezier(.22,1,.36,1);
-}
-/* Revealed state is keyed off a DATA ATTRIBUTE, not a second class.
-   React owns `className`, so adding one from JS makes the DOM disagree with
-   what React rendered, and hydration reports a mismatch — which is exactly
-   what happened: the layout (and its observer) hydrates before a page inside
-   its own Suspense boundary, so the class landed on nodes React had not
-   hydrated yet. React never renders data-sw-in, so there is nothing for
-   hydration to compare and the mutation is invisible to it. */
-.sw-reveal[data-sw-in] {
-  opacity: 1;
-  transform: translateY(0);
-}
+/* .sw-reveal and its data-sw-in state used to live here. Scroll reveals
+   are now per-element via Motion — see components/common/Reveal.tsx. */
 
 /* ── RESPONSIVE FONT OVERRIDES ── */
 @media (max-width: 480px) {
@@ -713,13 +699,7 @@ img {
      change shadow on hover and refuse to move, while a plain button next to
      it moved fine. Excluding the hovered element keeps the intent (no
      entrance animation) without disabling the hover affordance. */
-  .sw-reveal:not(:hover) {
-    opacity: 1 !important;
-    transform: none !important;
-  }
-  .sw-reveal:hover {
-    opacity: 1 !important;
-  }
+
 
   /* Anchor jumps land instantly instead of gliding. */
   html {

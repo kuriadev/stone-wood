@@ -4,6 +4,9 @@ import type { ReactNode } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { T } from "@/lib/theme";
 import { Icon, type IconName } from "@/components/common/Icon";
+import { BarChart as MuiBarChart } from "@mui/x-charts/BarChart";
+import { SparkLineChart } from "@mui/x-charts/SparkLineChart";
+import { ChartTheme } from "@/components/admin/ChartTheme";
 
 /**
  * Presentation primitives for the Reports and Analytics pages.
@@ -104,33 +107,22 @@ export function Sparkline({
   width?: number;
   height?: number;
 }) {
+  // Two points minimum, or there is no line to draw.
   const pts = data.length >= 2 ? data : [0, 0];
-  const max = Math.max(...pts, 1);
-  const min = Math.min(...pts, 0);
-  const span = max - min || 1;
-  const stepX = width / (pts.length - 1);
-
-  const coords = pts.map((v, i) => {
-    const x = i * stepX;
-    const y = height - ((v - min) / span) * (height - 4) - 2;
-    return [x, y] as const;
-  });
-
-  const line = coords.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  const area = `${line} L${width},${height} L0,${height} Z`;
-  const id = `spark-${color.replace(/[^a-z0-9]/gi, "")}-${pts.length}`;
 
   return (
-    <svg width={width} height={height} aria-hidden="true" style={{ display: "block", flexShrink: 0 }}>
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.28" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={area} fill={`url(#${id})`} />
-      <path d={line} fill="none" stroke={color} strokeWidth="1.75" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
+    <ChartTheme>
+      <SparkLineChart
+        data={pts}
+        width={width}
+        height={height}
+        color={color}
+        area
+        showHighlight={false}
+        showTooltip={false}
+        margin={{ top: 2, bottom: 2, left: 0, right: 0 }}
+      />
+    </ChartTheme>
   );
 }
 
@@ -238,105 +230,46 @@ export function BarChart({
   const { isDark } = useTheme();
   const C = T(isDark);
   const s = surface(isDark);
-
-  const rawMax = Math.max(...data.map((d) => d.value), 0);
-  // Round the top of the scale up to something readable so the ticks are
-  // whole numbers rather than arbitrary fractions of the tallest bar.
-  const niceMax = (() => {
-    if (rawMax <= 0) return 1;
-    const mag = Math.pow(10, Math.floor(Math.log10(rawMax)));
-    return Math.ceil(rawMax / mag) * mag;
-  })();
-
-  const ticks = [1, 0.75, 0.5, 0.25, 0];
-  const plot = height - 26; // leave room for the month labels
   const fmt = formatValue ?? ((v: number) => String(v));
-  const axisW = mob ? 30 : 44;
 
+  // The signature is unchanged on purpose: three call sites pass
+  // {label,value} pairs and a colour, and none of them had to change when
+  // the hand-drawn SVG underneath became MUI X. The y-axis rounding, tick
+  // maths and bar geometry that used to live here are the library's job now.
   return (
-    <div style={{ display: "flex", gap: 8 }}>
-      {/* y-axis */}
-      <div
-        style={{
-          width: axisW,
-          height: plot,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          flexShrink: 0,
+    <ChartTheme>
+      <MuiBarChart
+        height={height}
+        series={[
+          {
+            data: data.map((d) => d.value),
+            color,
+            valueFormatter: (v) => fmt(Number(v ?? 0)),
+          },
+        ]}
+        xAxis={[
+          {
+            data: data.map((d) => d.label),
+            scaleType: "band",
+            tickLabelStyle: { fill: C.textXS, fontSize: mob ? 9.5 : 11 },
+          },
+        ]}
+        yAxis={[
+          {
+            valueFormatter: (v: number) => fmt(v),
+            tickLabelStyle: { fill: C.textXS, fontSize: mob ? 9.5 : 11 },
+          },
+        ]}
+        grid={{ horizontal: true }}
+        margin={{ top: 10, right: 8, bottom: 4, left: 4 }}
+        sx={{
+          // Axis lines and gridlines follow the panel's own palette rather
+          // than Material's greys.
+          "& .MuiChartsAxis-line, & .MuiChartsAxis-tick": { stroke: s.border },
+          "& .MuiChartsGrid-line": { stroke: s.grid },
         }}
-      >
-        {ticks.map((t) => (
-          <span key={t} style={{ color: C.textXS, fontSize: mob ? 9.5 : 10.5, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
-            {fmt(Math.round(niceMax * t))}
-          </span>
-        ))}
-      </div>
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ position: "relative", height: plot }}>
-          {/* gridlines, aligned to the ticks above */}
-          {ticks.map((t) => (
-            <div
-              key={t}
-              style={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                top: `${(1 - t) * 100}%`,
-                borderTop: `1px ${t === 0 ? "solid" : "dashed"} ${s.grid}`,
-              }}
-            />
-          ))}
-
-          {/* bars */}
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", gap: mob ? 3 : 7 }}>
-            {data.map((d, i) => {
-              const h = niceMax > 0 ? (d.value / niceMax) * plot : 0;
-              return (
-                <div
-                  key={i}
-                  title={`${d.label}: ${fmt(d.value)}`}
-                  style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%", minWidth: 0 }}
-                >
-                  <div
-                    style={{
-                      width: "100%",
-                      height: Math.max(0, h),
-                      minHeight: d.value > 0 ? 3 : 0,
-                      background: d.value > 0 ? color : "transparent",
-                      opacity: d.value > 0 ? 0.9 : 0,
-                      borderRadius: "5px 5px 2px 2px",
-                      transition: "height .45s cubic-bezier(.22,1,.36,1)",
-                    }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* x labels */}
-        <div style={{ display: "flex", gap: mob ? 3 : 7, marginTop: 8 }}>
-          {data.map((d, i) => (
-            <span
-              key={i}
-              style={{
-                flex: 1,
-                textAlign: "center",
-                color: C.textXS,
-                fontSize: mob ? 9.5 : 11,
-                minWidth: 0,
-                overflow: "hidden",
-              }}
-            >
-              {d.label}
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
+      />
+    </ChartTheme>
   );
 }
 

@@ -15,8 +15,8 @@ import { AvailabilityCalendar } from "@/components/common/AvailabilityCalendar";
 import type { Booking, BookingResource, BookingTier, PackageDeepLink } from "@/types/booking";
 import type { ResortPackage } from "@/types/package";
 import { srcSetFor, SIZES, imageAt } from "@/lib/img";
-import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { Icon, type IconName } from "@/components/common/Icon";
+import { Reveal } from "@/components/common/Reveal";
 
 interface HomeProps {
   setPage: (p: string) => void;
@@ -135,7 +135,6 @@ const MARQUEE_REVIEWS = [
 export function Home({ setPage, onBookWithDate, bookings, closedDates, packages, packagesLoading = false, onBookPackage }: HomeProps) {
   // Scroll reveals. Called here, not in the layout: the effect must run
   // after THIS page has hydrated or it mutates un-hydrated DOM.
-  useScrollReveal();
 
   const { isDark } = useTheme();
   const C = T(isDark);
@@ -239,15 +238,11 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
   const pkgCardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const closingRef = useRef<HTMLDivElement>(null);
 
-  // Scroll reveals are handled globally by <ScrollReveal> in ClientShell,
-  // which observes anything carrying .sw-reveal on any route. The local
-  // ref-based observer that used to live here was removed for two reasons:
-  //   • it only ever covered this page, so every other page had no reveal;
-  //   • it added a CLASS, and React owns className — mutating it on nodes
-  //     that had not hydrated yet produced a hydration mismatch. The global
-  //     one sets a data attribute instead, which React does not render.
-  // Every element it used to target also carries .sw-reveal, so coverage is
-  // unchanged. The refs below are still used for scrolling and measurement.
+  // Scroll reveals are per-element now: each block that fades in is a
+  // <Reveal> (components/common/Reveal.tsx), which owns its own viewport
+  // trigger through Motion. The global IntersectionObserver that used to do
+  // this, and the data-attribute it set to dodge hydration mismatches, are
+  // both gone.
 
   return (
     <main id="main" style={{ background: C.bg }}>
@@ -435,7 +430,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
       <div style={{ background: isDark ? "#080604" : "#f7f2ea", padding: mob ? "52px 20px" : "88px 24px", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
-          <div ref={pkgHeaderRef} className="sw-reveal" style={{ textAlign: "center", marginBottom: mob ? 32 : 44 }}>
+          <Reveal style={{ textAlign: "center", marginBottom: mob ? 32 : 44 }}>
             <p style={eyebrow}>Packages</p>
             <h2 className="sw-section-title" style={{ ...h2, marginBottom: 16 }}>
               Choose Your Stay
@@ -443,12 +438,10 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
             <p style={{ ...lede, maxWidth: 520, margin: "0 auto" }}>
               A few real ways to book — pool only, the events venue, or both together. Select a package to see the full details.
             </p>
-          </div>
+          </Reveal>
 
           {/* Duration windows — Day, Night and Whole Day. */}
-          <div
-            ref={pkgDurationRef}
-            className="sw-reveal"
+          <Reveal
             style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(200px,300px))", justifyContent: "center", gap: 1, background: C.border, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", marginBottom: mob ? 28 : 40, maxWidth: mob ? "100%" : 903, marginLeft: "auto", marginRight: "auto" }}
           >
             {DURATIONS.map((d) => (
@@ -457,7 +450,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                 <div style={{ color: gold, fontSize: mob ? 15 : 16, fontWeight: 500, letterSpacing: 0.3 }}>{d.window}</div>
               </div>
             ))}
-          </div>
+          </Reveal>
 
           {/* Package cards — split into shared and exclusive groups */}
           {packagesLoading ? (
@@ -476,10 +469,9 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
             {group.tiers.map(({ p, i }, gIdx) => {
               const exclusive = p.status === "Exclusive";
               return (
-                <div
+                <Reveal
                   key={p.code}
-                  ref={(el) => { pkgCardRefs.current[i] = el; }}
-                  className="sw-card sw-reveal"
+                  className="sw-card"
                   onClick={() => openPkg(i)}
                   style={{
                     background: C.bgCard2,
@@ -583,7 +575,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                       <div style={{ color: C.textXS, fontSize: 11.5, marginTop: 8, letterSpacing: 0.5 }}>{p.note}</div>
                     )}
                   </div>
-                </div>
+                </Reveal>
               );
             })}
           </div>
@@ -856,15 +848,15 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
       {/* ── RATES & FACILITIES (unchanged) ── */}
       <div style={{ background: isDark ? "#0a0806" : "#fdf9f4", padding: mob ? "52px 20px" : "88px 24px", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
-          <div ref={ratesHeaderRef} className="sw-reveal">
+          <Reveal>
             <p style={eyebrow}>What&rsquo;s Included</p>
             <h2 className="sw-section-title" style={{ ...h2, marginBottom: 16 }}>Tours &amp; Room Add-ons</h2>
             <p style={{ ...lede, marginBottom: 52, maxWidth: 520, margin: "0 auto 52px" }}>Base pricing before package configuration. Every reservation starts here.</p>
-          </div>
+          </Reveal>
 
           <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 20, marginBottom: 48, maxWidth: 1100, margin: "0 auto 48px" }}>
             {PACKAGES.map((p, i) => (
-              <div key={p.id} ref={(el) => { packageRefs.current[i] = el; }} className="sw-card sw-reveal"
+              <Reveal key={p.id} className="sw-card"
                 style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: mob ? "22px 18px" : "28px 24px", textAlign: "left", boxShadow: C.shadowCard, display: "flex", flexDirection: "column", transitionDelay: `${i * 100}ms` }}>
                 <div style={{ marginBottom: 12, color: gold }}><Icon name={p.icon as IconName} size={28} strokeWidth={1.5} /></div>
                 <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, marginBottom: 6 }}>{p.label}</h3>
@@ -882,7 +874,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
                   </button>
                 )}
-              </div>
+              </Reveal>
             ))}
 
           </div>
@@ -895,14 +887,12 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
       <div style={{ background: isDark ? "#0b0907" : "#ffffff", padding: mob ? "60px 20px" : "104px 24px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
-          <div ref={amenitiesDivRef} className="sw-reveal" style={{ textAlign: "center", marginBottom: mob ? 44 : 64 }}>
+          <Reveal style={{ textAlign: "center", marginBottom: mob ? 44 : 64 }}>
             <p style={eyebrow}>Our Services</p>
             <h2 style={h2}>Resort Facilities</h2>
-          </div>
+          </Reveal>
 
-          <div
-            ref={(el) => { amenityRefs.current[0] = el; }}
-            className="sw-reveal"
+          <Reveal
             style={{
               display: "grid",
               gridTemplateColumns: mob ? "repeat(2,1fr)" : tab ? "repeat(3,1fr)" : "repeat(6,1fr)",
@@ -930,16 +920,16 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                 </div>
               </div>
             ))}
-          </div>
+          </Reveal>
         </div>
       </div>
 
       {/* ── TESTIMONIALS — infinite marquee (unchanged) ── */}
       <div style={{ background: isDark ? "#080604" : "#f5f0e8", padding: mob ? "52px 0" : "88px 0", overflow: "hidden" }}>
-        <div ref={testimonyHeaderRef} className="sw-reveal" style={{ textAlign: "center", marginBottom: mob ? 44 : 60, padding: "0 20px" }}>
+        <Reveal style={{ textAlign: "center", marginBottom: mob ? 44 : 60, padding: "0 20px" }}>
           <p style={eyebrow}>Testimonials</p>
           <h2 style={h2}>What Our Guests Say</h2>
-        </div>
+        </Reveal>
         <div style={{ position: "relative" }}>
           <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to right,${isDark ? "#080604" : "#f5f0e8"},transparent)`, zIndex: 2, pointerEvents: "none" }} />
           <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to left,${isDark ? "#080604" : "#f5f0e8"},transparent)`, zIndex: 2, pointerEvents: "none" }} />
@@ -967,7 +957,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(6,5,3,0.82),rgba(6,5,3,0.9))" }} />
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(to right,transparent,${gold}66,transparent)` }} />
 
-        <div ref={closingRef} className="sw-reveal" style={{ position: "relative", zIndex: 2, maxWidth: 620, margin: "0 auto" }}>
+        <Reveal style={{ position: "relative", zIndex: 2, maxWidth: 620, margin: "0 auto" }}>
           <p style={{ ...eyebrow, marginBottom: 18 }}>Angono, Rizal</p>
           <h2 style={{ ...h2, color: "#fff", marginBottom: 20 }}>
             The resort is yours<br />for the day
@@ -982,7 +972,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           >
             BOOK YOUR STAY
           </button>
-        </div>
+        </Reveal>
       </div>
     </main>
   );

@@ -8,8 +8,8 @@ import { fmt } from "@/lib/utils";
 import type { Room } from "@/types/room";
 import { useState } from "react";
 import { srcSetFor, SIZES } from "@/lib/img";
-import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { Icon } from "@/components/common/Icon";
+import { Reveal } from "@/components/common/Reveal";
 
 interface RoomsPageProps {
   setPage: (p: string) => void;
@@ -20,7 +20,6 @@ interface RoomsPageProps {
 export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
   // Scroll reveals. Called here, not in the layout: the effect must run
   // after THIS page has hydrated or it mutates un-hydrated DOM.
-  useScrollReveal();
 
   const { isDark } = useTheme();
   const C = T(isDark);
@@ -36,7 +35,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
         
         {/* HEADER — one reveal for the trio so they rise together
             rather than staggering into each other. */}
-        <div className="sw-reveal">
+        <Reveal>
         <p style={{ color: gold, letterSpacing: 4, fontSize: 12.5, textAlign: "center" }}>
           ACCOMMODATIONS
         </p>
@@ -54,7 +53,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
         <p style={{ color: C.textS, textAlign: "center", marginBottom: 48, fontSize: 14.5 }}>
           Rooms are rented separately from the pool.
         </p>
-        </div>
+        </Reveal>
 
         {/* GRID */}
         <div style={{
@@ -63,9 +62,9 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
           gap: 28,
         }}>
           {rooms.map((r) => (
-            <div
+            <Reveal
               key={r.id}
-              className="lux-room-card sw-reveal"
+              className="lux-room-card"
               onClick={() => setActiveRoom(r)}
               style={{
                 background: C.bgCard,
@@ -161,7 +160,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
                   ADD TO BOOKING
                 </button>
               </div>
-            </div>
+            </Reveal>
           ))}
         </div>
       </div>

@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Database snapshots taken before migrations. These contain real guest
+# names, emails and phone numbers — never commit them. The repo is public.
+backups/

@@ -296,7 +296,11 @@ function WalkInTab({
 
       {/* Policy notice */}
       <div style={{ background: isDark ? "rgba(74,159,212,0.05)" : "rgba(74,159,212,0.04)", border: "1px solid rgba(74,159,212,0.2)", borderRadius: 10, padding: "14px 18px", marginBottom: 24, display: "flex", gap: 12, alignItems: "flex-start" }}>
-        <Icon name="home" size={17} />
+        {/* Lucide draws with currentColor, and these tinted notice panels set
+            no colour of their own, so the icon fell back to the page's text
+            colour — near-black, invisible against the dark admin. Tint it to
+            the panel's own accent, which is also its border and heading colour. */}
+        <Icon name="home" size={17} style={{ color: "#4a9fd4", flexShrink: 0 }} />
         <div>
           <p style={{ color: "#4a9fd4", fontSize: 12.5, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>WALK-IN PAYMENT POLICY</p>
           <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: 0 }}>
@@ -730,7 +734,7 @@ function WalkInTab({
             {/* Warning for accept */}
             {wiConfirmAction.action === "Confirmed" && (
               <div style={{ background: isDark ? "rgba(76,175,80,0.05)" : "rgba(76,175,80,0.04)", border: "1px solid rgba(76,175,80,0.2)", borderRadius: 8, padding: "10px 14px", marginBottom: 20, display: "flex", gap: 8 }}>
-                <Icon name="cash" size={15} />
+                <Icon name="cash" size={15} style={{ color: "#4caf50", flexShrink: 0 }} />
                 <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
                   Only confirm if payment (50% down or full amount) has been <strong style={{ color: "#4caf50" }}>physically collected</strong> at the resort.
                 </span>
@@ -740,7 +744,7 @@ function WalkInTab({
             {/* Warning for cancel */}
             {wiConfirmAction.action === "Cancelled" && (
               <div style={{ background: "rgba(229,85,85,0.04)", border: "1px solid rgba(229,85,85,0.15)", borderRadius: 8, padding: "10px 14px", marginBottom: 20, display: "flex", gap: 8 }}>
-                <Icon name="alert" size={15} />
+                <Icon name="alert" size={15} style={{ color: "#e55", flexShrink: 0 }} />
                 <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>The guest will be notified that their reservation has been cancelled.</span>
               </div>
             )}
@@ -1679,11 +1683,15 @@ export function Admin({
                 });
                 const maxRev=Math.max(...monthlyData.map(m=>m.revenue),1);
                 void maxRev; // scale is now derived inside BarChart
+                // Green, matching the Total Revenue card above it. Gold is this
+                // tab's colour for down payments (Down Collected), so a gold
+                // revenue bar made the same colour mean two different amounts
+                // on one screen.
                 return(
                   <Panel title="MONTHLY REVENUE (2026)" style={{marginBottom:18}}>
                     <BarChart
                       data={monthlyData.map(m=>({label:m.label,value:m.revenue}))}
-                      color={gold}
+                      color="#4caf50"
                       height={210}
                       mob={mob}
                       formatValue={(v)=>v>=1000?`₱${(v/1000).toFixed(0)}k`:`₱${v}`}

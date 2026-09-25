@@ -9,8 +9,8 @@ import type { ResortPackage } from "@/types/package";
 import type { BookingResource, BookingTier } from "@/types/booking";
 import { useState } from "react";
 import { srcSetFor, SIZES } from "@/lib/img";
-import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { Icon } from "@/components/common/Icon";
+import { Reveal } from "@/components/common/Reveal";
 
 interface PackagesPageProps {
   setPage: (p: string) => void;
@@ -21,7 +21,6 @@ interface PackagesPageProps {
 export function PackagesPage({ packages, onBookPackage }: PackagesPageProps) {
   // Scroll reveals. Called here, not in the layout: the effect must run
   // after THIS page has hydrated or it mutates un-hydrated DOM.
-  useScrollReveal();
 
   const { isDark } = useTheme();
   const C = T(isDark);
@@ -37,7 +36,7 @@ export function PackagesPage({ packages, onBookPackage }: PackagesPageProps) {
     <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "52px 20px" : "88px 24px" }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         {/* HEADER — one reveal for the trio so they rise together. */}
-        <div className="sw-reveal">
+        <Reveal>
         <p style={{ color: gold, letterSpacing: 4, fontSize: 12.5, textAlign: "center" }}>
           RESORT PACKAGES
         </p>
@@ -53,7 +52,7 @@ export function PackagesPage({ packages, onBookPackage }: PackagesPageProps) {
         <p style={{ color: C.textS, textAlign: "center", marginBottom: 48, fontSize: 14.5 }}>
           Fixed-price bundles — pick one, pay once, and skip building a booking piece by piece.
         </p>
-        </div>
+        </Reveal>
 
         {/* GRID */}
         <div style={{
@@ -62,9 +61,9 @@ export function PackagesPage({ packages, onBookPackage }: PackagesPageProps) {
           gap: 28,
         }}>
           {visible.map((p) => (
-            <div
+            <Reveal
               key={p.id}
-              className="lux-room-card sw-reveal"
+              className="lux-room-card"
               onClick={() => setActivePkg(p)}
               style={{
                 background: C.bgCard,
@@ -113,7 +112,7 @@ export function PackagesPage({ packages, onBookPackage }: PackagesPageProps) {
                   BOOK PACKAGE
                 </button>
               </div>
-            </div>
+            </Reveal>
           ))}
           {visible.length === 0 && (
             <p style={{ color: C.textXS, fontSize: 14.5, gridColumn: "1/-1", textAlign: "center", padding: "32px 0" }}>No packages available right now.</p>

@@ -24,7 +24,7 @@ No `tailwind.config`, no PostCSS plugins, no CSS modules. Styling is `app/global
 
 ### Hooks and components were renamed or deleted
 
-Gone: `useAdmin`, `useBooking`, `useReveal`, `useTheme`, `useToast`, `PageTransition.tsx`, `Stars.tsx`, `AppShell.tsx`, `types/index.ts`, `InventoryTab.module.css`. Use `useTheme()` from `contexts/ThemeContext`, `useToast()` from `contexts/ToastContext`, and import types from their specific file (`types/booking.ts`, not `types/index.ts`).
+Gone: `useAdmin`, `useBooking`, `useReveal`, `useScrollReveal`, `useTheme`, `useToast`, `PageTransition.tsx`, `Stars.tsx`, `AppShell.tsx`, `types/index.ts`, `InventoryTab.module.css`. Use `useTheme()` from `contexts/ThemeContext`, `useToast()` from `contexts/ToastContext`, and import types from their specific file (`types/booking.ts`, not `types/index.ts`).
 
 ### Icons come from one registry
 
@@ -37,6 +37,12 @@ All icons are `lucide-react`, used through `components/common/Icon.tsx` (`<Icon 
 
 Both rules live in `checkPoolCapacity` / `lib/occupancy.ts`, and both files carry a comment explaining why — read those before changing either.
 
+### The "Why Choose" cards on /about are static
+
+They used to expand on tap. They no longer do — the details are always
+visible and the cards respond only to hover, so nothing below them (the map)
+can shift when a visitor interacts with them.
+
 ### Maintenance mode exists
 
 Admin → **SITE → Maintenance** closes the public site behind a full-screen notice over a blurred homepage. `/login` and `/admin` are never gated, and a signed-in admin is never gated, so you cannot lock yourself out.
@@ -45,7 +51,7 @@ Admin → **SITE → Maintenance** closes the public site behind a full-screen n
 
 ## Tech stack
 
-Six runtime dependencies, seven dev dependencies. Nothing else is installed, and that is deliberate — see *Not used* below before reaching for a library.
+Thirteen runtime dependencies, seven dev dependencies. The list is short on purpose — check *Written by hand* and *Not used* below before reaching for another library.
 
 ### Runtime
 
@@ -56,6 +62,11 @@ Six runtime dependencies, seven dev dependencies. Nothing else is installed, and
 | `@supabase/supabase-js` | 2.116.0 | PostgreSQL access from the API routes |
 | `nodemailer` | 8.0.5 | confirmation / rejection email over Gmail SMTP |
 | `lucide-react` | 1.47.0 | every icon, via `components/common/Icon.tsx` |
+| `motion` | 13.4.3 | all animation. **This is Framer Motion** — it was renamed; import from `motion/react`, not `framer-motion`. Scroll reveals go through `components/common/Reveal.tsx`; reduced motion is handled by `<MotionConfig reducedMotion="user">` in Providers, never by branching on `useReducedMotion()` in a component (that is an SSR/hydration bug) |
+| `dayjs` | 1.11.23 | all wall-clock date parsing, formatting and arithmetic, via `lib/dayjs.ts` (strict `customParseFormat`). Instants — `archivedAt`, `lastCheckedAt` — stay on `toISOString()`, where UTC is correct |
+| `zod` | 4.6.5 | request validation, via `lib/schemas.ts`. Built **on top of** `lib/validators.ts` rather than restating its rules — the predicates there stay the single source of truth, Zod supplies shape, coercion and messages |
+| `@mui/x-charts` | 9.14.0 | the bar charts and sparklines in Reports and Analytics, behind the existing `BarChart` / `Sparkline` wrappers in `components/admin/charts.tsx`. Themed by `components/admin/ChartTheme.tsx`, which bridges MUI to `lib/theme.ts` — a chart dropped in unthemed renders Material blue on light grey |
+| `@mui/material` + `@emotion/react` + `@emotion/styled` | 9.4.0 / 11.14.x | peer dependencies of `@mui/x-charts`. **Charts only** — not the app's UI kit |
 
 ### Dev
 
@@ -87,18 +98,15 @@ These are things a newcomer would reasonably expect to be dependencies. They are
 | State management | React Context — `contexts/AppContext.tsx`, no Redux/Zustand/Jotai |
 | Data fetching | `hooks/useDbCollection.ts` + `lib/collections.ts`, no React Query/SWR |
 | Auth | `lib/auth.ts` — Node `crypto`, HMAC-signed `httpOnly` cookie, no NextAuth |
-| Forms / validation | `lib/validators.ts`, no react-hook-form/Zod |
 | Payments | direct REST to PayMongo in `lib/paymongo.ts`, no SDK |
-| Charts | `components/admin/charts.tsx`, hand-drawn, no chart library |
-| Animation | CSS keyframes in `globals.css`, no Framer Motion |
-| Dates | native `Date` + `lib/validators.ts` helpers, no date-fns/dayjs |
 
 ### Not used — do not add without discussing
 
 - **Tailwind CSS** — was installed, now removed. `className="flex gap-4"` does nothing.
 - **MongoDB / Mongoose** — replaced by Supabase. `models/` and `lib/mongoose.ts` are deleted.
 - **CSS Modules** — none remain.
-- **A UI kit** (MUI, shadcn, Chakra) — the visual language is bespoke.
+- **MUI as a UI kit.** `@mui/material` is installed only because `@mui/x-charts` requires it. Do not build buttons, inputs or layout with it — the visual language is bespoke and lives in `lib/theme.ts` + `lib/styles.ts`.
+- **`framer-motion`** (the old package name). Use `motion` and import from `motion/react`; installing both would ship two copies.
 
 **Why QRPh and not GCash:** PayMongo's `gcash` method is a redirect flow and is inactive on this account's business type. `qrph` returns a unique QR per payment intent, which the booking screen displays — and the GCash app scans it, since QRPh is the Philippine national QR standard. See the comment at the top of `lib/paymongo.ts`.
 
@@ -181,27 +189,27 @@ Everything reads and writes through `app/api/*`, never from the browser to Supab
 app/
   api/                       18 route handlers (see below)
   about  admin  book  cancelbooking  customer  gallery  login  packages  rooms
-  globals.css                all global CSS — keyframes, hovers, skeletons, reveal
+  globals.css                all global CSS — keyframes, hovers, skeletons
   layout.tsx  page.tsx  loading.tsx
 
 components/
-  admin/       AnalyticsTab  BookingsTab  FacilitiesTab  InventoryTab
-               MaintenanceTab  PackagesTab  charts
+  admin/       AnalyticsTab  BookingsTab  ChartTheme  FacilitiesTab
+               InventoryTab  MaintenanceTab  PackagesTab  charts
   booking/     BookingDatePicker          slot-aware date picker for /book
-  common/      AvailabilityCalendar  Icon  Skeleton
+  common/      AvailabilityCalendar  Icon  Reveal  Skeleton
   layout/      ClientShell  CursorDot  Footer  MaintenanceGate  Navbar
                Providers  ThemeToggle  TopLoader
   sections/    About  Admin  AdminLogin  BookNow  CancelBooking
                CustomerService  Gallery  Home  PackagesPage  RoomsPage
 
 contexts/      AppContext  ThemeContext  ToastContext
-hooks/         useDbCollection  useMaintenance  usePublicAvailability
-               useScrollReveal  useWidth
+hooks/         useDbCollection  useMaintenance  usePublicAvailability  useWidth
 
 lib/
   auth.ts            HMAC session cookie, timing-safe credential check
   bookingQuote.ts    server-side price + availability quote (source of truth)
   collections.ts     how each collection loads and syncs
+  dayjs.ts           the one configured dayjs — import from here, not "dayjs"
   occupancy.ts       who is physically on site right now
   paymongo.ts        QRPh payment intents
   pricing.ts         priceBooking(), bookingLabel()
@@ -233,6 +241,59 @@ design-plans/          UI change plans (see below)
 | `/api/seed` | admin | seed data |
 
 ---
+
+## Conventions worth knowing
+
+### Icons inherit their colour
+
+`lucide-react` draws with `currentColor`, so an `<Icon>` takes the colour of
+whatever encloses it. The tinted notice panels (walk-in payment policy, the
+accept/cancel confirmations, the low-stock alert) set no colour of their own,
+so their icons fell back to the page's near-black text and were invisible in
+dark mode. Each now carries its panel's accent explicitly:
+
+```tsx
+<Icon name="home" size={17} style={{ color: "#4a9fd4", flexShrink: 0 }} />
+```
+
+If you add an icon to a coloured panel, tint it to that panel's accent — the
+same colour as its border and heading.
+
+### Chart and status colours mean something
+
+Across Analytics and Reports the palette is consistent, so the same colour
+never stands for two different quantities on one screen:
+
+| colour | meaning |
+| --- | --- |
+| green `#4caf50` | guests, and revenue (Total Revenue, Monthly Revenue, Gross Revenue) |
+| gold `#c9a84c` | bookings, and down payments (Down Collected, Downpayments In) |
+| blue `#4a9fd4` | active / in-progress, and informational notices |
+| red `#e55` | cancelled, errors, blocking problems |
+| amber `#f5c518` | incomplete or awaiting action (a partial phone number, Paid-not-yet-confirmed) |
+
+Charts take their colour as a prop, so keep the pairing when adding one.
+
+### Comments in and around JSX
+
+Two different syntaxes, and picking the wrong one fails in two different ways:
+
+```tsx
+return (
+  <div>
+    {/* correct inside JSX children */}
+    <Icon … />
+  </div>
+);
+
+// correct inside a JS expression, e.g. just above a `return(`
+return (<Panel …>);
+```
+
+A `//` line placed among JSX children is **not a comment** — it renders as
+visible text, and both TypeScript and `next build` accept it silently. A
+`{/* */}` inside a plain JS expression is a syntax error, which at least
+fails loudly. Both have happened here.
 
 ## Things that will bite you
 
