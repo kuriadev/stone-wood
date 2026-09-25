@@ -11,6 +11,12 @@ import type { BookingResource, BookingTier, PackageSlotMode } from "@/types/book
 import { pricingProblem, standardPackagePrice } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
 import { Icon } from "@/components/common/Icon";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
 
 interface PackagesTabProps {
   packages: ResortPackage[];
@@ -150,48 +156,60 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
       </div>
 
       {/* Add/Edit Modal */}
-      {showModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20, overflowY: "auto" }} role="dialog" aria-modal="true">
-          <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: `1px solid ${cBr}`, borderRadius: 12, padding: "28px 26px", width: "100%", maxWidth: 480, boxShadow: "0 40px 100px rgba(0,0,0,0.7)", maxHeight: "90vh", overflowY: "auto" }}>
-            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 18 }}>{editPkg ? "Edit Package" : "Add Package"}</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+      {/* Edit / add package. The most detail-dense form in the admin, so it is
+          LANDSCAPE: a wide dialog with a two-column grid instead of the single
+          scrolling column it used to be. Long fields (blurb, includes, photo)
+          span both columns. */}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontWeight: 400, fontSize: 22 }}>
+              {editPkg ? "Edit Package" : "Add Package"}
+            </DialogTitle>
+            <DialogDescription>
+              Shown on the public Packages page and offered as deep links from Home.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 sm:grid-cols-2 [&>div:has(textarea)]:sm:col-span-2 [&>div:has(input[type=file])]:sm:col-span-2">
+
               <div>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>TITLE</label>
-                <input value={form.title} onChange={(e) => setF("title", e.target.value)} placeholder="Pool + Room Package" className="sw-input" style={inpS} />
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">TITLE</Label>
+                <Input value={form.title} onChange={(e) => setF("title", e.target.value)} placeholder="Pool + Room Package" className="sw-input" style={inpS} />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <div>
-                  <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>RESOURCE</label>
-                  <select value={form.resource} onChange={(e) => setF("resource", e.target.value as BookingResource)} className="sw-input" style={inpS}>
+                  <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">RESOURCE</Label>
+                  <NativeSelect value={form.resource} onChange={(e) => setF("resource", e.target.value as BookingResource)} className="sw-input" style={inpS}>
                     {RESOURCES.map((r) => <option key={r} value={r}>{r}</option>)}
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div>
-                  <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>TIER</label>
-                  <select value={form.status} onChange={(e) => setF("status", e.target.value as BookingTier)} className="sw-input" style={inpS}>
+                  <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">TIER</Label>
+                  <NativeSelect value={form.status} onChange={(e) => setF("status", e.target.value as BookingTier)} className="sw-input" style={inpS}>
                     {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                  </NativeSelect>
                 </div>
               </div>
               <div>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>WHEN</label>
-                <select value={form.slotMode} onChange={(e) => setF("slotMode", e.target.value as PackageSlotMode)} className="sw-input" style={inpS}>
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">WHEN</Label>
+                <NativeSelect value={form.slotMode} onChange={(e) => setF("slotMode", e.target.value as PackageSlotMode)} className="sw-input" style={inpS}>
                   <option value="Single">Day or Night — guest picks ({SLOTS.Day.hours} / {SLOTS.Night.hours})</option>
                   <option value="WholeDay">Whole Day ({SLOTS.WholeDay.hours})</option>
-                </select>
+                </NativeSelect>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                 <div>
-                  <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>PRICE (₱)</label>
-                  <input type="number" min={0} value={form.price} onChange={(e) => setF("price", e.target.value)} className="sw-input" style={inpS} />
+                  <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">PRICE (₱)</Label>
+                  <Input type="number" min={0} value={form.price} onChange={(e) => setF("price", e.target.value)} className="sw-input" style={inpS} />
                 </div>
                 <div>
-                  <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>LIST PRICE</label>
-                  <input type="number" min={0} value={form.listPrice} onChange={(e) => setF("listPrice", e.target.value)} placeholder="optional" className="sw-input" style={inpS} />
+                  <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">LIST PRICE</Label>
+                  <Input type="number" min={0} value={form.listPrice} onChange={(e) => setF("listPrice", e.target.value)} placeholder="optional" className="sw-input" style={inpS} />
                 </div>
                 <div>
-                  <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>CAPACITY</label>
-                  <input type="number" min={1} value={form.capacity} onChange={(e) => setF("capacity", e.target.value)} className="sw-input" style={inpS} />
+                  <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">CAPACITY</Label>
+                  <Input type="number" min={1} value={form.capacity} onChange={(e) => setF("capacity", e.target.value)} className="sw-input" style={inpS} />
                 </div>
               </div>
               {/* What the standard rules give for this setup, so a promo
@@ -212,24 +230,24 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                 );
               })()}
               <div>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>PHOTO</label>
-                <input type="file" accept="image/*" onChange={handleImg} className="sw-input" style={inpS} />
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">PHOTO</Label>
+                <Input type="file" accept="image/*" onChange={handleImg} className="sw-input" style={inpS} />
                 {form.cover && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img loading="lazy" decoding="async" src={form.cover} alt="" style={{ width: "100%", height: 100, objectFit: "cover", borderRadius: 6, marginTop: 8 }} />
                 )}
               </div>
               <div>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>BLURB</label>
-                <textarea value={form.blurb} onChange={(e) => setF("blurb", e.target.value)} rows={2} className="sw-input" style={{ ...inpS, resize: "none" }} />
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">BLURB</Label>
+                <Textarea value={form.blurb} onChange={(e) => setF("blurb", e.target.value)} rows={2} className="sw-input" style={{ ...inpS, resize: "none" }} />
               </div>
               <div>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>INCLUDES (one per line)</label>
-                <textarea value={form.includes} onChange={(e) => setF("includes", e.target.value)} rows={3} className="sw-input" style={{ ...inpS, resize: "none" }} />
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">INCLUDES (one per line)</Label>
+                <Textarea value={form.includes} onChange={(e) => setF("includes", e.target.value)} rows={3} className="sw-input" style={{ ...inpS, resize: "none" }} />
               </div>
               <div>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>EXTRA NOTE (optional)</label>
-                <input value={form.note} onChange={(e) => setF("note", e.target.value)} className="sw-input" style={inpS} />
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">EXTRA NOTE (optional)</Label>
+                <Input value={form.note} onChange={(e) => setF("note", e.target.value)} className="sw-input" style={inpS} />
               </div>
               <div onClick={() => setF("requiresRoom", !form.requiresRoom)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
                 <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${form.requiresRoom ? "#4caf50" : cBr}`, background: form.requiresRoom ? "#4caf50" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -244,13 +262,16 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                 <span style={{ color: C.textS, fontSize: 13.5 }}>Visible on the public Packages & Home pages</span>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowModal(false)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>CANCEL</button>
-              <button disabled={!form.title.trim() || !form.price} onClick={savePkg} style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: !form.title.trim() || !form.price ? 0.4 : 1 }}>SAVE</button>
-            </div>
-          </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
+            <Button disabled={!form.title.trim() || !form.price} onClick={savePkg}>
+              {editPkg ? "Save changes" : "Add package"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Delete Confirm */}
       {confirmDelete && (
