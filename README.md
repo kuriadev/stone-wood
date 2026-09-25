@@ -10,22 +10,29 @@ Guests browse rooms and packages, check live availability, and book online with 
 
 ```
 Framework    Next.js 16.2.6 (App Router, Route Handlers, Turbopack) · React 19.2.6 · TypeScript 5.9.3
-Database     Supabase — PostgreSQL + Row Level Security          @supabase/supabase-js 2.116.0
-Styling      hand-written: app/globals.css + inline style={{}}   no Tailwind, no CSS modules, no UI kit
-Icons        lucide-react 1.47.0                                 behind components/common/Icon.tsx
-Animation    motion 13.4.3 (Framer Motion, renamed)              behind components/common/Reveal.tsx
-Dates        dayjs 1.11.23                                       behind lib/dayjs.ts
-Validation   zod 4.6.5                                           lib/schemas.ts, on top of lib/validators.ts
-Forms        react-hook-form 7.88.0 + @hookform/resolvers 5.9.1   partial — 2 of 5 forms migrated
-Charts       @mui/x-charts 9.14.0 (+ @mui/material, @emotion/*)   behind components/admin/charts.tsx
+Database     Supabase — PostgreSQL + Row Level Security           @supabase/supabase-js 2.116.0
+UI kit       shadcn/ui on Radix — 17 components in components/ui/ radix-ui 1.6.7
+Styling      Tailwind CSS 4.3.3 — utilities only, NO preflight    + app/globals.css + legacy inline styles
+             cva 0.7.1 · clsx 2.1.1 · tailwind-merge 3.7.0 · tw-animate-css 1.4.0 · cn() in lib/cn.ts
+Icons        lucide-react 1.47.0                                  behind components/common/Icon.tsx
+Animation    motion 13.4.3 (Framer Motion, renamed)               behind components/common/Reveal.tsx
+Dates        dayjs 1.11.23                                        behind lib/dayjs.ts
+Validation   zod 4.6.5                                            lib/schemas.ts, on top of lib/validators.ts
+Forms        react-hook-form 7.88.0 + @hookform/resolvers 5.9.1    partial — 2 of 5 forms migrated
+Toasts       sonner 2.0.8                                         repointed to the app's ThemeContext
+Charts       @mui/x-charts 9.14.0 (+ @mui/material, @emotion/*)    behind components/admin/charts.tsx
 Email        nodemailer 8.0.5 over Gmail SMTP
 Payments     PayMongo QRPh via direct REST — no SDK
 Hosting      Vercel
 ```
 
-Fifteen runtime dependencies, seven dev. Each one sits behind a single wrapper, so
-replacing any of them touches one file. Full detail, including what is deliberately
-**not** installed, is in [Tech stack](#tech-stack) below.
+**21 runtime dependencies, 9 dev.** shadcn components are *copied source* in
+`components/ui/`, not a dependency — you own and edit them.
+
+Migration in progress: the UI is moving from inline `style={{}}` to Tailwind +
+shadcn. Both exist side by side for now. Read [Tailwind and shadcn](#tailwind-and-shadcn)
+before touching styles — the preflight and layering decisions there are not
+preferences, they are load-bearing.
 
 ## Read this first if you last worked on this repo a while ago
 
@@ -72,7 +79,7 @@ Admin → **SITE → Maintenance** closes the public site behind a full-screen n
 
 ## Tech stack
 
-Fifteen runtime dependencies, seven dev dependencies. The list is short on purpose — check *Written by hand* and *Not used* below before reaching for another library.
+Twenty-one runtime dependencies, nine dev. The list is short on purpose — check *Written by hand* and *Not used* below before reaching for another library.
 
 ### Runtime
 
@@ -86,6 +93,10 @@ Fifteen runtime dependencies, seven dev dependencies. The list is short on purpo
 | `motion` | 13.4.3 | all animation. **This is Framer Motion** — it was renamed; import from `motion/react`, not `framer-motion`. Scroll reveals go through `components/common/Reveal.tsx`; reduced motion is handled by `<MotionConfig reducedMotion="user">` in Providers, never by branching on `useReducedMotion()` in a component (that is an SSR/hydration bug) |
 | `dayjs` | 1.11.23 | all wall-clock date parsing, formatting and arithmetic, via `lib/dayjs.ts` (strict `customParseFormat`). Instants — `archivedAt`, `lastCheckedAt` — stay on `toISOString()`, where UTC is correct |
 | `react-hook-form` + `@hookform/resolvers` | 7.88.0 / 5.9.1 | form state and submission, with `zodResolver` running the schemas from `lib/schemas.ts`. **Migrating form by form** — `CustomerService` and the `CancelBooking` lookup are done; `AdminLogin` (left for NextAuth), `BookNow` and the Admin walk-in form are still on `useState` |
+| `tailwindcss` + `@tailwindcss/postcss` (dev) | 4.3.3 | utilities only — preflight is deliberately excluded |
+| `radix-ui` | 1.6.7 | the primitives under shadcn's interactive components |
+| `class-variance-authority` · `clsx` · `tailwind-merge` · `tw-animate-css` | — | shadcn's styling runtime; `cn()` lives in `lib/cn.ts` |
+| `sonner` | 2.0.8 | toasts, repointed from `next-themes` to this app's `ThemeContext` |
 | `zod` | 4.6.5 | request validation, via `lib/schemas.ts`. Built **on top of** `lib/validators.ts` rather than restating its rules — the predicates there stay the single source of truth, Zod supplies shape, coercion and messages |
 | `@mui/x-charts` | 9.14.0 | the bar charts and sparklines in Reports and Analytics, behind the existing `BarChart` / `Sparkline` wrappers in `components/admin/charts.tsx`. Themed by `components/admin/ChartTheme.tsx`, which bridges MUI to `lib/theme.ts` — a chart dropped in unthemed renders Material blue on light grey |
 | `@mui/material` + `@emotion/react` + `@emotion/styled` | 9.4.0 / 11.14.x | peer dependencies of `@mui/x-charts`. **Charts only** — not the app's UI kit |
@@ -124,10 +135,10 @@ These are things a newcomer would reasonably expect to be dependencies. They are
 
 ### Not used — do not add without discussing
 
-- **Tailwind CSS** — was installed, now removed. `className="flex gap-4"` does nothing.
+- ~~Tailwind CSS~~ — **re-adopted** for the shadcn/ui migration. See *Tailwind and shadcn* below before using it.
 - **MongoDB / Mongoose** — replaced by Supabase. `models/` and `lib/mongoose.ts` are deleted.
 - **CSS Modules** — none remain.
-- **MUI as a UI kit.** `@mui/material` is installed only because `@mui/x-charts` requires it. Do not build buttons, inputs or layout with it — the visual language is bespoke and lives in `lib/theme.ts` + `lib/styles.ts`.
+- **MUI as a UI kit.** `@mui/material` is installed only because `@mui/x-charts` requires it. Charts only — shadcn/ui is the UI kit.
 - **`framer-motion`** (the old package name). Use `motion` and import from `motion/react`; installing both would ship two copies.
 
 **Why QRPh and not GCash:** PayMongo's `gcash` method is a redirect flow and is inactive on this account's business type. `qrph` returns a unique QR per payment intent, which the booking screen displays — and the GCash app scans it, since QRPh is the Philippine national QR standard. See the comment at the top of `lib/paymongo.ts`.
@@ -263,6 +274,47 @@ design-plans/          UI change plans (see below)
 | `/api/seed` | admin | seed data |
 
 ---
+
+## Tailwind and shadcn
+
+Both were added for the UI migration. Two things about the setup are
+non-obvious and easy to undo by accident.
+
+### Preflight is deliberately OFF
+
+`app/globals.css` imports Tailwind's layers individually and **skips
+`preflight.css`**, Tailwind's global reset. This is not a preference. Measured
+against a captured baseline of 9 pages in both themes, enabling preflight
+changed **130 computed styles**: `h3` dropped from 700 to 400 weight, heading
+margins collapsed, buttons jumped from 13px to 17px, and the home page lost
+80px of height. The 900 lines of CSS and ~1,600 inline styles here were
+written against browser defaults.
+
+Utilities still work everywhere — only the reset is absent.
+
+### shadcn gets its reset back, scoped
+
+shadcn components are written assuming preflight. Without it they render
+dark-on-dark text and grey "ghost" buttons. So the few rules they depend on
+are reapplied in `@layer base`, scoped to the `data-slot` attribute every
+shadcn v4 component carries.
+
+It must stay **in `@layer base`**. Unlayered CSS outranks every layered rule,
+so an unlayered version of that block overrode Tailwind's own utilities and
+made every button transparent and black.
+
+### The theme bridge
+
+shadcn reads `--background`, `--primary` and friends; this app's colours come
+from `T(isDark)` in `lib/theme.ts`, and the theme is signalled by
+`sw-dark`/`sw-light` on `<html>`. `globals.css` maps one onto the other and
+redefines the dark variant as `&:is(.sw-dark *)`. **If a colour changes in
+`lib/theme.ts`, change it there too** — that duplication is the cost of two
+styling systems.
+
+`cn()` lives in `lib/cn.ts`, not the usual `lib/utils`, because `lib/utils.ts`
+already holds ~300 lines of booking logic. The shadcn CLI writes
+`from "cn"` into generated files; fix it to `@/lib/cn` after each `add`.
 
 ## Conventions worth knowing
 

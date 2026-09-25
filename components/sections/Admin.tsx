@@ -16,6 +16,15 @@ import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
 import { FacilitiesTab } from "@/components/admin/FacilitiesTab";
 import { PackagesTab } from "@/components/admin/PackagesTab";
 import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { getPackageTier, checkBookingAvailability, isRoomOpen, roomsTakenOn } from "@/lib/utils";
 import { priceBooking, bookingLabel } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
@@ -441,12 +450,24 @@ function WalkInTab({
       </div>
 
       {/* ── New Walk-In Intake Modal ── */}
-      {showNewWalkIn && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20, overflowY: "auto" }} role="dialog" aria-modal="true" aria-labelledby="new-walkin-title">
-          <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: `1px solid ${gold}55`, borderRadius: 12, padding: "28px 26px", width: "100%", maxWidth: 480, boxShadow: "0 40px 100px rgba(0,0,0,0.7)", maxHeight: "90vh", overflowY: "auto" }}>
-            <h3 id="new-walkin-title" style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 18 }}>Encode Walk-In Reservation</h3>
+      {/* Walk-in intake. The hand-rolled fixed overlay this replaced had no
+          focus trap, no ESC handling and no scroll lock — Radix provides all
+          three. Laid out LANDSCAPE: staff encode these at a desk, so the form
+          is wide (max-w-5xl) and runs three columns instead of a narrow
+          480px column that forced constant scrolling. */}
+      <Dialog open={showNewWalkIn} onOpenChange={setShowNewWalkIn}>
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontWeight: 400, fontSize: 22 }}>
+              Encode Walk-In Reservation
+            </DialogTitle>
+            <DialogDescription>
+              Record a guest who arrived without booking online.
+            </DialogDescription>
+          </DialogHeader>
 
-            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 14 }}>
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, minmax(0, 1fr))", gap: 14, marginBottom: 14 }}>
               <div style={{ gridColumn: "1/-1" }}>
                 <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>GUEST NAME</label>
                 <input value={wf.name} onChange={(e) => setWfField("name", sanitizeName(e.target.value))} placeholder="Juan Dela Cruz" className="sw-input" style={{ ...C.inp, borderRadius: 6 }} />
@@ -674,13 +695,18 @@ function WalkInTab({
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowNewWalkIn(false)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>CANCEL</button>
-              <button disabled={!wfValid} onClick={saveWalkIn} style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: wfValid ? 1 : 0.4 }}>SAVE RESERVATION</button>
-            </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewWalkIn(false)}>
+              Cancel
+            </Button>
+            <Button disabled={!wfValid} onClick={saveWalkIn}>
+              Save reservation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── On-Site Confirm Modal ── */}
       {wiConfirmAction && (

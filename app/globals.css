@@ -1,3 +1,162 @@
+/* Tailwind WITHOUT preflight.
+ *
+ * `@import "tailwindcss"` pulls theme + preflight + utilities. Preflight is
+ * Tailwind's global reset, and here it is not harmless: measured against a
+ * captured baseline of 9 pages in both themes, importing it changed 130
+ * computed styles — h3 dropped from 700 to 400 weight, heading margins
+ * collapsed, buttons jumped 13px to 17px, and the home page lost 80px of
+ * height. This app's 900 lines of CSS and ~1,600 inline styles were written
+ * against browser defaults, not against Tailwind's reset.
+ *
+ * So the layers are imported individually and preflight is left out. shadcn
+ * components still get every utility class they need; what they do not get
+ * is a reset rewriting the rest of the site underneath them.
+ */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "tw-animate-css";
+
+/* ════════════════════════════════════════════════════════════════════
+   SHADCN / TAILWIND BRIDGE
+
+   shadcn components read CSS variables (--background, --primary, …).
+   This app's colours live in `lib/theme.ts` as a JS object returned by
+   T(isDark), and the theme is signalled by `sw-dark` / `sw-light` on
+   <html> (see contexts/ThemeContext.tsx).
+
+   Both facts are reconciled here, once:
+     • the variables below are the SAME hex values T() returns, so a
+       shadcn component and a hand-styled one agree on every colour;
+     • the dark variant is redefined to follow `.sw-dark`, because this
+       app has never used Tailwind's default `.dark` class.
+
+   If a colour changes in lib/theme.ts it must change here too. That is
+   the cost of two styling systems; keeping the values literal and
+   adjacent is the cheapest honest way to pay it.
+   ════════════════════════════════════════════════════════════════════ */
+
+@custom-variant dark (&:is(.sw-dark *));
+
+:root {
+  --radius: 0.625rem;
+
+  /* light — mirrors T(false) */
+  --background: #faf7f2;
+  --foreground: #1a1614;
+  --card: #ffffff;
+  --card-foreground: #1a1614;
+  --popover: #ffffff;
+  --popover-foreground: #1a1614;
+  --primary: #c9a84c;            /* gold, from lib/styles.ts */
+  --primary-foreground: #1a1000;
+  --secondary: #f5f0e8;
+  --secondary-foreground: #3d3229;
+  --muted: #f5f0e8;
+  --muted-foreground: #6b5d4f;
+  --accent: #f5f0e8;
+  --accent-foreground: #3d3229;
+  --destructive: #e55;
+  --border: #e4ddd1;
+  --input: #d6cfc4;
+  --ring: #c9a84c;
+}
+
+.sw-dark {
+  /* dark — mirrors T(true) */
+  --background: #0c0b09;
+  --foreground: #f2ede6;
+  --card: #131210;
+  --card-foreground: #f2ede6;
+  --popover: #131210;
+  --popover-foreground: #f2ede6;
+  --primary: #c9a84c;
+  --primary-foreground: #1a1000;
+  --secondary: #0f0e0b;
+  --secondary-foreground: #c4b99a;
+  --muted: #0f0e0b;
+  --muted-foreground: #7a6e5e;
+  --accent: #0f0e0b;
+  --accent-foreground: #c4b99a;
+  --destructive: #e55;
+  --border: #242018;
+  --input: #2e2820;
+  --ring: #c9a84c;
+}
+
+/* ── Preflight, scoped to shadcn components only ──────────────────────
+   Dropping Tailwind's global reset protected the existing site (see the
+   note at the top of this file), but shadcn components are written
+   ASSUMING that reset: they expect buttons to be transparent with
+   inherited colour, borders to default to the theme, and text to inherit
+   --foreground rather than the UA's black.
+   Without it the spike rendered dark-on-dark text and a grey "ghost"
+   button. So the handful of preflight rules those components rely on are
+   reapplied here, scoped to the `data-slot` attribute every shadcn v4
+   component carries — and to nothing else on the page. */
+@layer base {
+  /* In `base`, deliberately. Unlayered CSS outranks every layered rule, so
+     an unlayered version of this reset beat Tailwind's own utilities — the
+     spike came back with every button transparent and black, because this
+     block was overriding `bg-primary`. Inside `base` the declared layer
+     order (theme, base, components, utilities) puts utilities last, which
+     is where component styling belongs. */
+  [data-slot] {
+    color: var(--foreground);
+    border-color: var(--border);
+  }
+
+  [data-slot] *,
+  [data-slot] *::before,
+  [data-slot] *::after {
+    border-color: var(--border);
+  }
+
+  [data-slot] button,
+  button[data-slot] {
+    background-color: transparent;
+    background-image: none;
+    /* The theme's text colour, not `inherit`. Inheriting walked all the way
+       up to <body>, whose colour this app never sets, so variants without a
+       colour of their own (ghost, outline) came out UA black on a near-black
+       panel. Variants that DO set one use a utility, which outranks base. */
+    color: var(--foreground);
+    font: inherit;
+    letter-spacing: inherit;
+  }
+
+  [data-slot] h1, [data-slot] h2, [data-slot] h3,
+  [data-slot] h4, [data-slot] p {
+    color: inherit;
+    margin: 0;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
 /* Tailwind was removed: the app never used a single utility class, and with
    v4 the legacy @tailwind directives emitted utilities and @property rules
    but no preflight — verified by grepping the built CSS for preflight
