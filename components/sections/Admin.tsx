@@ -16,7 +16,20 @@ import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
 import { FacilitiesTab } from "@/components/admin/FacilitiesTab";
 import { PackagesTab } from "@/components/admin/PackagesTab";
 import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -469,28 +482,28 @@ function WalkInTab({
           <div>
             <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, minmax(0, 1fr))", gap: 14, marginBottom: 14 }}>
               <div style={{ gridColumn: "1/-1" }}>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>GUEST NAME</label>
-                <input value={wf.name} onChange={(e) => setWfField("name", sanitizeName(e.target.value))} placeholder="Juan Dela Cruz" className="sw-input" style={{ ...C.inp, borderRadius: 6 }} />
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">GUEST NAME</Label>
+                <Input value={wf.name} onChange={(e) => setWfField("name", sanitizeName(e.target.value))} placeholder="Juan Dela Cruz" />
               </div>
               <div>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>CONTACT NUMBER</label>
-                <input value={wf.contact} onChange={(e) => setWfField("contact", sanitizeContact(e.target.value))} maxLength={11} placeholder="09XXXXXXXXX" className="sw-input" style={{ ...C.inp, borderRadius: 6 }} />
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">CONTACT NUMBER</Label>
+                <Input value={wf.contact} onChange={(e) => setWfField("contact", sanitizeContact(e.target.value))} maxLength={11} placeholder="09XXXXXXXXX" />
               </div>
               <div>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>EMAIL (OPTIONAL)</label>
-                <input value={wf.email} onChange={(e) => setWfField("email", e.target.value)} placeholder="example@email.com" className="sw-input" style={{ ...C.inp, borderRadius: 6 }} />
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">EMAIL (OPTIONAL)</Label>
+                <Input value={wf.email} onChange={(e) => setWfField("email", e.target.value)} placeholder="example@email.com" />
               </div>
               <div>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>DATE</label>
-                <input type="date" value={wf.date} onChange={(e) => setWfField("date", e.target.value)} className="sw-input" style={{ ...C.inp, borderRadius: 6 }} />
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">DATE</Label>
+                <Input type="date" value={wf.date} onChange={(e) => setWfField("date", e.target.value)} />
               </div>
               <div>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>ARRIVAL TIME</label>
-                <input type="time" value={wf.time} onChange={(e) => setWfField("time", e.target.value)} className="sw-input" style={{ ...C.inp, borderRadius: 6 }} />
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">ARRIVAL TIME</Label>
+                <Input type="time" value={wf.time} onChange={(e) => setWfField("time", e.target.value)} />
               </div>
 
               <div style={{ gridColumn: "1/-1" }}>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>BOOKING TYPE</label>
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">BOOKING TYPE</Label>
                 <div style={{ display: "flex", gap: 8 }}>
                   {(["Custom", "Package"] as const).map((m) => (
                     <button key={m} onClick={() => { setWfMode(m); if (m === "Custom") setWfPkgId(null); }} style={{ flex: 1, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", letterSpacing: 1, background: wfMode === m ? `${gold}18` : "transparent", color: wfMode === m ? gold : C.textS, border: `1px solid ${wfMode === m ? gold + "55" : cBr}` }}>
@@ -502,7 +515,7 @@ function WalkInTab({
 
               {wfMode === "Package" && (
                 <div style={{ gridColumn: "1/-1" }}>
-                  <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>SELECT PACKAGE</label>
+                  <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">SELECT PACKAGE</Label>
                   {packages.filter((p) => p.active).length === 0 ? (
                     <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>No active packages — add one in the Packages tab.</p>
                   ) : (
@@ -527,7 +540,7 @@ function WalkInTab({
               {wfMode === "Custom" && (
               <>
               <div>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>GUESTS</label>
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">GUESTS</Label>
                 <input
                   type="number"
                   min={1}
@@ -543,7 +556,7 @@ function WalkInTab({
                 )}
               </div>
               <div>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>SHARED OR EXCLUSIVE?</label>
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">SHARED OR EXCLUSIVE?</Label>
                 <div style={{ display: "flex", gap: 8 }}>
                   {(["Shared", "Exclusive"] as const).map((opt) => (
                     <button key={opt} onClick={() => setWfTierChoice(opt)} style={{ flex: 1, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", letterSpacing: 1, background: wfTier === opt ? (opt === "Exclusive" ? `${gold}18` : "rgba(76,175,80,0.12)") : "transparent", color: wfTier === opt ? (opt === "Exclusive" ? gold : "#4caf50") : C.textS, border: `1px solid ${wfTier === opt ? (opt === "Exclusive" ? gold + "55" : "#4caf5055") : cBr}` }}>
@@ -558,7 +571,7 @@ function WalkInTab({
               {/* WHEN — Day, Night or Whole Day. A Whole Day package fixes it;
                   a single-slot package still needs Day or Night. */}
               <div style={{ gridColumn: "1/-1" }}>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>WHEN</label>
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">WHEN</Label>
                 {wfSelectedPackage?.slotMode === "WholeDay" ? (
                   <p style={{ color: C.textH, fontSize: 13.5, margin: 0 }}><Icon name="clock" size={13} style={{ marginRight: 6 }} />Whole Day · {SLOTS.WholeDay.hours}</p>
                 ) : (
@@ -578,7 +591,7 @@ function WalkInTab({
                   cleaning window). The availability check below enforces it. */}
               {wfSlot === "Day" && (
                 <div style={{ gridColumn: "1/-1" }}>
-                  <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>OVERTIME (DAY ONLY)</label>
+                  <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">OVERTIME (DAY ONLY)</Label>
                   <div style={{ display: "flex", gap: 8 }}>
                     {Array.from({ length: OVERTIME_MAX + 1 }, (_, h) => h).map((h) => (
                       <button key={h} onClick={() => setWfField("overtime", String(h))} style={{ flex: 1, padding: "8px 10px", fontSize: 12.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", background: wfOvertime === h ? `${gold}18` : "transparent", color: wfOvertime === h ? gold : C.textS, border: `1px solid ${wfOvertime === h ? gold + "55" : cBr}` }}>
@@ -594,9 +607,9 @@ function WalkInTab({
 
               {wfShowRoomPicker && (
               <div style={{ gridColumn: "1/-1" }}>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">
                   {wfRequiresRoom ? "CHOOSE ROOM (REQUIRED)" : "ROOM ADD-ON (OPTIONAL)"}
-                </label>
+                </Label>
                 {wfRequiresRoom && (
                   <p style={{ color: C.textS, fontSize: 12.5, marginBottom: 8 }}>Pick the one room included with this package — {Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}% off its normal rate.</p>
                 )}
@@ -671,8 +684,8 @@ function WalkInTab({
                 </div>
               )}
               <div style={{ gridColumn: "1/-1" }}>
-                <label style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 6 }}>NOTES (OPTIONAL)</label>
-                <textarea value={wf.notes} onChange={(e) => setWfField("notes", e.target.value)} rows={2} placeholder="Special requests, etc." className="sw-input" style={{ ...C.inp, borderRadius: 6, resize: "none" }} />
+                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">NOTES (OPTIONAL)</Label>
+                <Textarea value={wf.notes} onChange={(e) => setWfField("notes", e.target.value)} rows={2} placeholder="Special requests, etc." className="resize-none" />
               </div>
             </div>
 
@@ -709,20 +722,33 @@ function WalkInTab({
       </Dialog>
 
       {/* ── On-Site Confirm Modal ── */}
-      {wiConfirmAction && (
-        <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }}
-          role="dialog" aria-modal="true" aria-labelledby="onsite-confirm-title"
-        >
-          <div style={{
-            background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff",
-            border: `1px solid ${
-              wiConfirmAction.action === "Confirmed" ? "rgba(76,175,80,0.3)"
-              : wiConfirmAction.action === "Completed" ? "rgba(74,159,212,0.3)"
-              : "rgba(229,85,85,0.3)"
-            }`,
-            borderRadius: 12, padding: "32px 28px", width: "100%", maxWidth: 400, boxShadow: "0 40px 100px rgba(0,0,0,0.7)",
-          }}>
+      {/* Confirmation of an irreversible walk-in action. AlertDialog rather
+          than Dialog: it is a decision, so it traps focus on the choice and
+          will not dismiss on an outside click the way a plain dialog does.
+          The warning panels and summary rows below are unchanged. */}
+      <AlertDialog open={!!wiConfirmAction} onOpenChange={(open) => { if (!open) setWiConfirmAction(null); }}>
+        <AlertDialogContent>
+          {wiConfirmAction && (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontWeight: 400, fontSize: 20 }}>
+                  {wiConfirmAction.action === "Confirmed" ? "Accept this on-site reservation?"
+                : wiConfirmAction.action === "Completed" ? "Mark visit as completed?"
+                : "Cancel this reservation?"}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {wiConfirmAction.action === "Confirmed" && (
+                <>Confirm that <strong style={{ color: C.textH }}>{wiConfirmAction.guestName}</strong> has arrived and payment has been collected at the resort.</>
+              )}
+              {wiConfirmAction.action === "Completed" && (
+                <>Mark <strong style={{ color: C.textH }}>{wiConfirmAction.guestName}</strong>'s visit as completed. This records their stay in the system.</>
+              )}
+              {wiConfirmAction.action === "Cancelled" && (
+                <>Cancel the on-site reservation for <strong style={{ color: C.textH }}>{wiConfirmAction.guestName}</strong>. This action cannot be undone.</>
+              )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+
             {/* Icon */}
             <div style={{
               width: 52, height: 52, borderRadius: "50%", marginBottom: 18, fontSize: 24,
@@ -739,23 +765,9 @@ function WalkInTab({
               <Icon name={wiConfirmAction.action === "Confirmed" ? "check" : wiConfirmAction.action === "Completed" ? "flag" : "x"} size={20} />
             </div>
 
-            <h3 id="onsite-confirm-title" style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 10 }}>
-              {wiConfirmAction.action === "Confirmed" ? "Accept this on-site reservation?"
-                : wiConfirmAction.action === "Completed" ? "Mark visit as completed?"
-                : "Cancel this reservation?"}
-            </h3>
+            
 
-            <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7, marginBottom: 16 }}>
-              {wiConfirmAction.action === "Confirmed" && (
-                <>Confirm that <strong style={{ color: C.textH }}>{wiConfirmAction.guestName}</strong> has arrived and payment has been collected at the resort.</>
-              )}
-              {wiConfirmAction.action === "Completed" && (
-                <>Mark <strong style={{ color: C.textH }}>{wiConfirmAction.guestName}</strong>'s visit as completed. This records their stay in the system.</>
-              )}
-              {wiConfirmAction.action === "Cancelled" && (
-                <>Cancel the on-site reservation for <strong style={{ color: C.textH }}>{wiConfirmAction.guestName}</strong>. This action cannot be undone.</>
-              )}
-            </p>
+            
 
             {/* Warning for accept */}
             {wiConfirmAction.action === "Confirmed" && (
@@ -775,37 +787,26 @@ function WalkInTab({
               </div>
             )}
 
-            <div style={{ borderTop: `1px solid ${cBr}`, marginBottom: 18 }} />
-            <div style={{ display: "flex", gap: 10 }}>
-              <button
-                onClick={() => setWiConfirmAction(null)}
-                style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}
-              >GO BACK</button>
-              <button
-                onClick={executeWiAction}
-                style={{
-                  flex: 2, padding: "11px 16px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", borderRadius: 6, letterSpacing: 2,
-                  background: wiConfirmAction.action === "Confirmed" ? "rgba(76,175,80,0.12)"
-                    : wiConfirmAction.action === "Completed" ? "rgba(74,159,212,0.1)"
-                    : "rgba(229,85,85,0.10)",
-                  color: wiConfirmAction.action === "Confirmed" ? "#4caf50"
-                    : wiConfirmAction.action === "Completed" ? "#4a9fd4"
-                    : "#e55",
-                  border: `1px solid ${
-                    wiConfirmAction.action === "Confirmed" ? "rgba(76,175,80,0.3)"
-                    : wiConfirmAction.action === "Completed" ? "rgba(74,159,212,0.3)"
-                    : "rgba(229,85,85,0.3)"
-                  }`,
-                }}
-              >
-                {wiConfirmAction.action === "Confirmed" ? "YES, ACCEPT & CONFIRM"
-                  : wiConfirmAction.action === "Completed" ? "YES, MARK COMPLETE"
-                  : "YES, CANCEL"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
+              <AlertDialogFooter>
+                <AlertDialogCancel>Go back</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={executeWiAction}
+                  className={
+                    wiConfirmAction.action === "Cancelled"
+                      ? "bg-destructive text-white hover:bg-destructive/90"
+                      : undefined
+                  }
+                >
+                  {wiConfirmAction.action === "Confirmed" ? "Yes, accept & confirm"
+                    : wiConfirmAction.action === "Completed" ? "Yes, mark complete"
+                    : "Yes, cancel booking"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ── Archive Confirm Modal ── */}
       {wiConfirmArchive && (
