@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
@@ -23,7 +22,6 @@ export function About({
   const C = T(isDark);
   const w = useWidth();
   const mob = w < 768;
-  const [activeWhy, setActiveWhy] = useState<number | null>(null);
 
 
   return (
@@ -259,6 +257,10 @@ export function About({
           style={{
             display: "grid",
             gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)",
+            // No reservation and no alignment override here any more: the
+            // cards no longer expand, so the row height is constant and
+            // nothing below this grid can be pushed. Default stretch keeps
+            // the three cards the same height as each other.
             gap: 26,
             maxWidth: 1100,
             margin: "0 auto",
@@ -296,21 +298,14 @@ export function About({
               ],
             },
           ].map((item, i) => {
-            const isActive = activeWhy === i;
-
             return (
               <div
         key={item.title}
-        onClick={() => setActiveWhy(isActive ? null : i)}
         onMouseEnter={(e) => {
-          if (isActive) return;
-
           e.currentTarget.style.transform = "translateY(-8px) scale(1.025)";
           e.currentTarget.style.boxShadow = "0 25px 50px rgba(0,0,0,0.25)";
         }}
         onMouseLeave={(e) => {
-          if (isActive) return;
-
           e.currentTarget.style.transform = "translateY(0) scale(1)";
           e.currentTarget.style.boxShadow = "none";
         }}
@@ -318,14 +313,14 @@ export function About({
           padding: mob ? "26px 22px" : "30px 26px",
           borderRadius: 16,
           background: C.bgCard,
-          border: `1px solid ${isActive ? gold : C.border}`,
+          border: `1px solid ${C.border}`,
           textAlign: "left",
-          cursor: "pointer",
+          // The cards are not interactive any more — they only respond to
+          // hover. A pointer cursor would promise a click that does nothing.
+          cursor: "default",
           transition: "all .35s cubic-bezier(.2,.8,.2,1)",
-          transform: isActive ? "scale(1.04)" : "scale(1)",
-          boxShadow: isActive
-            ? `0 20px 40px rgba(0,0,0,0.25)`
-            : "none",
+          transform: "scale(1)",
+          boxShadow: "none",
           position: "relative",
           overflow: "hidden",
         }}
@@ -346,19 +341,6 @@ export function About({
           }}
           className="hover-sweep"
         />
-
-        {/* ACTIVE GLOW */}
-        {isActive && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background:
-                "radial-gradient(circle at top left, rgba(201,168,76,0.18), transparent 60%)",
-              pointerEvents: "none",
-            }}
-          />
-        )}
 
         {/* HEADER */}
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -395,15 +377,11 @@ export function About({
           {item.desc}
         </p>
 
-        {/* EXPAND */}
-        <div
-          style={{
-            maxHeight: isActive ? 200 : 0,
-            overflow: "hidden",
-            transition: "all .4s ease",
-            opacity: isActive ? 1 : 0,
-          }}
-        >
+        {/* DETAILS — always shown. These used to sit behind a tap-to-expand
+            toggle; the cards are now static, so the full list is visible at
+            rest and nothing about the page moves when a visitor mouses over
+            them. */}
+        <div>
           <ul
             style={{
               marginTop: 14,
@@ -417,33 +395,7 @@ export function About({
               <li key={d}>{d}</li>
             ))}
           </ul>
-
-          <div
-            style={{
-              marginTop: 12,
-              fontSize: 12.5,
-              color: gold,
-              letterSpacing: 1.2,
-            }}
-          >
-            TAP AGAIN TO CLOSE
-          </div>
         </div>
-
-        {/* CTA */}
-        {!isActive && (
-          <div
-            style={{
-              marginTop: 14,
-              fontSize: 12.5,
-              letterSpacing: 1.2,
-              color: gold,
-              opacity: 0.7,
-            }}
-          >
-            TAP TO EXPAND →
-          </div>
-        )}
 
         {/* HOVER CSS */}
         <style>{`

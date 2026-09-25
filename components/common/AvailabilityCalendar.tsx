@@ -108,9 +108,23 @@ export function AvailabilityCalendar({
         border: "1px solid #2a2a2a",
         borderRadius: 8,
         padding: "20px 18px",
+        // Width is the layout's business, not the calendar's. This used to
+        // clamp itself to a 300-360px band while also declaring width:100%,
+        // so it could not use the column Home's hero card gives it: 360px
+        // inside a 548px column left 94px dead on each side at every desktop
+        // width, and the 300px floor made it overflow its own column by 3px
+        // at 390px — the "prevents calendar from shrinking" comment was
+        // describing exactly what stopped it being responsive.
+        // BookingDatePicker, the calendar for this same task on /book, has
+        // never carried a clamp; this now matches it.
         width: "100%",
-        maxWidth: 360,
-        minWidth: 300,          /* ← prevents calendar from shrinking */
+        // Fill the row, then hand the extra height to the day grid below.
+        // Without the flex column the panel would simply get taller with its
+        // content pinned to the top, which moves the empty space inside the
+        // panel instead of removing it.
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
         boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
       }}
     >
@@ -171,7 +185,10 @@ export function AvailabilityCalendar({
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3 }}>
+      {/* flex:1 takes whatever height the panel has spare and gridAutoRows
+          shares it evenly between the week rows, so reclaimed space makes
+          the cells roomier rather than leaving a gap under the calendar. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: "1fr", gap: 3, flex: 1 }}>
         {!mounted
           ? /* Placeholder keeps the panel the same height before mount. */
             Array.from({ length: 35 }).map((_, i) => (

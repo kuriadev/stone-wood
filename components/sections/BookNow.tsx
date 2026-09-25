@@ -817,9 +817,19 @@
                                     fontSize: 11.5,
                                     fontWeight: 700,
                                     letterSpacing: 0.8,
-                                    border: `1px solid ${active ? (opt === "Exclusive" ? gold : "#4caf50") : cBr}`,
-                                    background: active ? (opt === "Exclusive" ? "rgba(201,168,76,0.15)" : "rgba(76,175,80,0.12)") : "transparent",
-                                    color: active ? (opt === "Exclusive" ? gold : "#4caf50") : C.textS,
+                                    // Selected is gold, for both options. This used to fork
+                                    // on the option — gold for Exclusive, #4caf50 for Shared —
+                                    // so "chosen" had two encodings in one control and could
+                                    // not be learned. It now matches the Day/Night control
+                                    // above (see the sibling segmented control in step 1) and
+                                    // the selected date in BookingDatePicker, which is also
+                                    // gold. It additionally returns #4caf50 to the single
+                                    // meaning it carries everywhere else in this file:
+                                    // validation success ("Valid", "Valid email") and
+                                    // availability — never selection.
+                                    border: `1px solid ${active ? gold : cBr}`,
+                                    background: active ? "rgba(201,168,76,0.15)" : "transparent",
+                                    color: active ? gold : C.textS,
                                   }}
                                 >
                                   <><Icon name={opt === "Exclusive" ? "lock" : "handshake"} size={12} style={{ marginRight: 5 }} />{opt === "Exclusive" ? "EXCLUSIVE" : "SHARED"}</>

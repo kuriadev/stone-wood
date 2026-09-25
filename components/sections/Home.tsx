@@ -323,7 +323,11 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
             boxShadow: "0 32px 80px rgba(0,0,0,0.55)",
           }}
         >
-          <div style={{ display: "flex", flexDirection: mob ? "column" : "row", gap: mob ? 20 : 32, alignItems: mob ? "stretch" : "flex-start" }}>
+          {/* alignItems is "stretch" on both branches. It used to be
+              "flex-start" on desktop, so the calendar column took only its
+              content height while the left column ran 93px taller — that
+              gap was empty card. Stretching lets the calendar use it. */}
+          <div style={{ display: "flex", flexDirection: mob ? "column" : "row", gap: mob ? 20 : 32, alignItems: "stretch" }}>
 
             {/* Left: one instruction, then supporting detail — the calendar is the action */}
             <div style={{ flex: mob ? "none" : "0 0 250px" }}>
