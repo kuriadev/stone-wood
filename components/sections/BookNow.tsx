@@ -1,7 +1,6 @@
   "use client";
 
   import { useState, useEffect, useRef } from "react";
-  import { createPortal } from "react-dom";
   import { useTheme } from "@/contexts/ThemeContext";
   import { useWidth } from "@/hooks/useWidth";
   import { useToast } from "@/contexts/ToastContext";
@@ -37,6 +36,18 @@
     EVENT_VENUE_RATE,
     SHARED_PER_HEAD_RATE,
   } from "@/lib/validators";
+  import { Button } from "@/components/ui/button";
+  import { Checkbox } from "@/components/ui/checkbox";
+  import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+  } from "@/components/ui/dialog";
+  import { Label } from "@/components/ui/label";
+  import { Separator } from "@/components/ui/separator";
 
   interface BookNowProps {
     /** Real bookings (personal details stripped) — used only to show which
@@ -146,8 +157,6 @@
     // warning modal below) so they can never be broken by some ancestor
     // ending up with a non-"none" CSS transform — document isn't available
     // during SSR, so this only flips true once we're safely in the browser.
-    const [portalReady, setPortalReady] = useState(false);
-    useEffect(() => setPortalReady(true), []);
 
 
     const setF = (k: string, v: string) => setFormState((f) => ({ ...f, [k]: v }));
@@ -457,21 +466,6 @@
     const labels = stepLabels;
     const currentIdx = stepIdx[step] ?? 0;
 
-    // Shared modal backdrop style
-    const modalBackdrop: React.CSSProperties = {
-      position: "fixed", inset: 0,
-      background: "rgba(0,0,0,0.82)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      zIndex: 500, padding: 20,
-    };
-    const modalBox: React.CSSProperties = {
-      background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff",
-      border: `1px solid ${C.border}`,
-      borderRadius: 14,
-      padding: mob ? "28px 20px" : "36px",
-      width: "100%", maxWidth: 420,
-      boxShadow: "0 40px 100px rgba(0,0,0,0.7)",
-    };
 
     return (
       <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "32px 16px" : "80px 24px" }}>
@@ -1303,99 +1297,106 @@
           </div>
         </div>
 
-        {/* ── MODAL: GCash No-Refund Warning (Step 5 → 6) ──
-            Portaled into document.body — see Home.tsx's package modal for
-            why: a fixed-position modal nested inside the ordinary page tree
-            can get silently hijacked by any ancestor that ends up with a
-            non-"none" transform (page-load animations, hover effects...),
-            which resizes/repositions it against that ancestor's box instead
-            of the viewport. A portal removes the ancestor chain entirely. */}
-        {showGcashWarning && portalReady && createPortal(
-          <div
-            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", zIndex: 500, padding: mob ? "20px" : "40px 20px" }}
-            role="dialog" aria-modal="true" aria-labelledby="gcash-warning-title"
-          >
-            <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: "1px solid rgba(76,175,80,0.3)", borderRadius: 14, padding: mob ? "28px 20px" : "36px", width: "100%", maxWidth: 420, margin: "auto 0", boxShadow: "0 40px 100px rgba(0,0,0,0.7)" }}>
-              {/* Icon */}
-              <div style={{ width: 60, height: 60, borderRadius: "50%", background: "rgba(76,175,80,0.1)", border: "2px solid rgba(76,175,80,0.35)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, fontSize: 28 }}>
+        {/* ── MODAL: GCash payment policy (Step 5 → 6) ──
+            Landscape: the four policy points sit in a 2x2 grid rather than a
+            420px column, so the whole policy is readable without scrolling
+            and the acknowledgement is visible at the same time as the terms
+            it refers to. Radix owns the portal, focus trap and scroll lock,
+            which is what createPortal and portalReady were doing by hand.
+
+            Escape and the backdrop both route through onOpenChange, so every
+            way out resets `policyChecked` -- dismissing the dialog and coming
+            back must not leave the box still ticked from last time. */}
+        <Dialog
+          open={showGcashWarning}
+          onOpenChange={(open) => { if (!open) { setShowGcashWarning(false); setPolicyChecked(false); } }}
+        >
+          <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[min(46rem,calc(100%-2rem))]">
+            <DialogHeader>
+              <div style={{ width: 60, height: 60, borderRadius: "50%", background: "rgba(76,175,80,0.1)", border: "2px solid rgba(76,175,80,0.35)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4, fontSize: 28 }}>
                 ⚠️
               </div>
-
-              <h3 id="gcash-warning-title" style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, fontWeight: 400, marginBottom: 8 }}>
+              <DialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, fontWeight: 400 }}>
                 Before You Proceed
-              </h3>
-              <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7, marginBottom: 20 }}>
+              </DialogTitle>
+              <DialogDescription style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>
                 Please read and understand the following payment policy before continuing to the GCash payment step.
-              </p>
+              </DialogDescription>
+            </DialogHeader>
 
-              {/* Policy box — green highlighted */}
-              <div style={{ background: "rgba(76,175,80,0.07)", border: "1.5px solid rgba(76,175,80,0.4)", borderRadius: 10, padding: "18px 20px", marginBottom: 24 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                  <span style={{ fontSize: 20 }}>⚠️</span>
-                  <span style={{ color: "#4caf50", fontSize: 13.5, fontWeight: 700, letterSpacing: 1.5 }}>PAYMENT POLICY</span>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <span style={{ color: "#4caf50", fontSize: 15, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>❌</span>
-                    <span style={{ color: C.textH, fontSize: 15, fontWeight: 600, lineHeight: 1.5 }}>
-                      No Refunds — All payments are non-refundable once submitted.
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <span style={{ color: "#4caf50", fontSize: 15, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>💰</span>
-                    <span style={{ color: C.textH, fontSize: 15, fontWeight: 600, lineHeight: 1.5 }}>
-                      50% Down Payment — Only half the total is required now. The remaining balance is due on the day of your visit.
-                    </span>
-                  </div>
-                  <div style={{ height: 1, background: "rgba(76,175,80,0.2)", marginTop: 4 }} />
-                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <span style={{ color: "#4caf50", fontSize: 13.5, flexShrink: 0, marginTop: 2 }}>📅</span>
-                    <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
-                      Rescheduling is subject to availability and must be discussed with the admin directly.
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <span style={{ color: "#4caf50", fontSize: 13.5, flexShrink: 0, marginTop: 2 }}>🔇</span>
-                    <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
-                      {QUIET_HOURS_POLICY} The resort is in a residential village.
-                    </span>
-                  </div>
-                </div>
+            {/* Policy box — green highlighted */}
+            <div style={{ background: "rgba(76,175,80,0.07)", border: "1.5px solid rgba(76,175,80,0.4)", borderRadius: 10, padding: "18px 20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                <span style={{ fontSize: 20 }}>⚠️</span>
+                <span style={{ color: "#4caf50", fontSize: 13.5, fontWeight: 700, letterSpacing: 1.5 }}>PAYMENT POLICY</span>
               </div>
-
-              {/* Checkbox acknowledgement */}
-              <div
-                onClick={() => setPolicyChecked((v) => !v)}
-                style={{ display: "flex", alignItems: "flex-start", gap: 12, background: policyChecked ? "rgba(76,175,80,0.06)" : isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", border: `1.5px solid ${policyChecked ? "rgba(76,175,80,0.5)" : isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 8, padding: "12px 14px", marginBottom: 18, cursor: "pointer", transition: "all .2s", userSelect: "none" }}
-              >
-                <div style={{ width: 20, height: 20, borderRadius: 4, border: `2px solid ${policyChecked ? "#4caf50" : isDark ? "#444" : "#bbb"}`, background: policyChecked ? "#4caf50" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1, transition: "all .2s" }}>
-                  {policyChecked && <span style={{ color: "#fff", fontSize: 13.5, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+              <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span style={{ color: "#4caf50", fontSize: 15, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>❌</span>
+                  <span style={{ color: C.textH, fontSize: 15, fontWeight: 600, lineHeight: 1.5 }}>
+                    No Refunds — All payments are non-refundable once submitted.
+                  </span>
                 </div>
-                <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
-                  I have read and understood the payment policy. I agree that <strong style={{ color: C.textH }}>all payments are non-refundable</strong> and that a <strong style={{ color: C.textH }}>50% down payment</strong> is required to confirm my booking.
-                </span>
-              </div>
-
-              <div style={{ borderTop: `1px solid ${C.border}`, marginBottom: 18 }} />
-              <div style={{ display: "flex", gap: 10 }}>
-                <button
-                  onClick={() => { setShowGcashWarning(false); setPolicyChecked(false); }}
-                  style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${C.border}`, padding: "12px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 8, letterSpacing: 1 }}
-                >
-                  CANCEL
-                </button>
-                <button
-                  disabled={!policyChecked}
-                  onClick={() => { setShowGcashWarning(false); setPolicyChecked(false); setStep(6); }}
-                  style={{ flex: 2, background: policyChecked ? "rgba(76,175,80,0.12)" : isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", color: policyChecked ? "#4caf50" : C.textS, border: `1px solid ${policyChecked ? "rgba(76,175,80,0.35)" : isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)"}`, padding: "12px 16px", fontSize: 12.5, fontWeight: 700, cursor: policyChecked ? "pointer" : "not-allowed", borderRadius: 8, letterSpacing: 1.5, transition: "all .2s", opacity: policyChecked ? 1 : 0.5 }}
-                >
-                  ✓ YES, I UNDERSTAND
-                </button>
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span style={{ color: "#4caf50", fontSize: 15, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>💰</span>
+                  <span style={{ color: C.textH, fontSize: 15, fontWeight: 600, lineHeight: 1.5 }}>
+                    50% Down Payment — Only half the total is required now. The remaining balance is due on the day of your visit.
+                  </span>
+                </div>
+                <div className="sm:col-span-2" style={{ height: 1, background: "rgba(76,175,80,0.2)", marginTop: 4 }} />
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span style={{ color: "#4caf50", fontSize: 13.5, flexShrink: 0, marginTop: 2 }}>📅</span>
+                  <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
+                    Rescheduling is subject to availability and must be discussed with the admin directly.
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span style={{ color: "#4caf50", fontSize: 13.5, flexShrink: 0, marginTop: 2 }}>🔇</span>
+                  <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
+                    {QUIET_HOURS_POLICY} The resort is in a residential village.
+                  </span>
+                </div>
               </div>
             </div>
-          </div>,
-          document.body
-        )}
+
+            {/* Acknowledgement. A real <Label htmlFor> rather than an onClick
+                div: the whole sentence becomes the checkbox's hit area AND its
+                accessible name, and the space bar now toggles it. */}
+            <Label
+              htmlFor="gcash-policy-ack"
+              style={{ display: "flex", alignItems: "flex-start", gap: 12, background: policyChecked ? "rgba(76,175,80,0.06)" : isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", border: `1.5px solid ${policyChecked ? "rgba(76,175,80,0.5)" : isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 8, padding: "12px 14px", cursor: "pointer", transition: "all .2s", userSelect: "none" }}
+            >
+              <Checkbox
+                id="gcash-policy-ack"
+                checked={policyChecked}
+                onCheckedChange={(v) => setPolicyChecked(v === true)}
+                className="mt-0.5 size-5 border-2 data-[state=checked]:border-[#4caf50] data-[state=checked]:bg-[#4caf50] data-[state=checked]:text-white"
+              />
+              <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, fontWeight: 400, letterSpacing: 0 }}>
+                I have read and understood the payment policy. I agree that <strong style={{ color: C.textH }}>all payments are non-refundable</strong> and that a <strong style={{ color: C.textH }}>50% down payment</strong> is required to confirm my booking.
+              </span>
+            </Label>
+
+            <Separator />
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => { setShowGcashWarning(false); setPolicyChecked(false); }}
+                style={{ color: C.textS, borderColor: C.border, letterSpacing: 1, fontSize: 12.5 }}
+              >
+                CANCEL
+              </Button>
+              <Button
+                disabled={!policyChecked}
+                onClick={() => { setShowGcashWarning(false); setPolicyChecked(false); setStep(6); }}
+                style={{ background: policyChecked ? "rgba(76,175,80,0.12)" : isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", color: policyChecked ? "#4caf50" : C.textS, border: `1px solid ${policyChecked ? "rgba(76,175,80,0.35)" : isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)"}`, fontSize: 12.5, fontWeight: 700, letterSpacing: 1.5 }}
+              >
+                ✓ YES, I UNDERSTAND
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
       </div>
     );
