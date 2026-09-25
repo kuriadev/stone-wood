@@ -268,13 +268,18 @@ export function About({
         >
           {[
             {
-              icon: "leaf",
-              title: "Private & Exclusive",
-              desc: "Your own private resort experience.",
+              // Was "Private & Exclusive" / "No shared guests or overcrowding",
+              // which contradicted the product: the resort sells a Shared tier
+              // where the pool IS shared with other groups in the same slot.
+              // This now describes the real choice a guest makes, in the same
+              // words the booking screen uses (see BookNow's tier copy).
+              icon: "handshake",
+              title: "Shared or Exclusive",
+              desc: "Book the way that suits your group.",
               details: [
-                "No shared guests or overcrowding",
-                "Full control of amenities",
-                "Perfect for intimate gatherings",
+                "Share the pool with other groups, billed per guest",
+                "Or buy out the whole pool for your group alone",
+                "Day, Night, or Whole Day — you choose the slot",
               ],
             },
             {
