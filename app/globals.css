@@ -874,3 +874,49 @@ html {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 1; }
 }
+
+
+/* ── Maintenance notice: the pulsing status dot ──────────────────────
+   Two elements in one: the dot itself, and a ::after ring that expands
+   and fades outward, which reads as a live "still happening" signal
+   rather than a decoration. Sized in em so it tracks the headline as
+   that scales with the viewport. */
+.sw-pulse-dot {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 0.34em;
+  height: 0.34em;
+  border-radius: 50%;
+  background: #c9a84c;
+  box-shadow: 0 0 0.5em rgba(201, 168, 76, 0.85);
+  animation: swPulseCore 2s ease-in-out infinite;
+}
+
+.sw-pulse-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(201, 168, 76, 0.6);
+  animation: swPulseRing 2s ease-out infinite;
+}
+
+@keyframes swPulseCore {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+@keyframes swPulseRing {
+  0%   { transform: scale(1);   opacity: 0.8; }
+  70%  { transform: scale(2.6); opacity: 0; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+/* The ring travels outward, which is exactly the kind of motion the
+   reduced-motion query is about. Keep a gentle opacity breath on the dot
+   so it still reads as live, and drop the ring entirely. */
+@media (prefers-reduced-motion: reduce) {
+  .sw-pulse-dot::after { animation: none !important; opacity: 0.35; }
+  .sw-pulse-dot { animation: swPulseCore 3s ease-in-out infinite !important; }
+}

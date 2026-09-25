@@ -15,7 +15,8 @@ export type AdminTab =
   | "Inventory"
   | "Analytics"
   | "Reports"
-  | "Customer Service";
+  | "Customer Service"
+  | "Maintenance";
 
 export interface CustomerMessage {
   id: number;

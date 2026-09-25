@@ -8,13 +8,14 @@ import { T } from "@/lib/theme";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { Panel, StatCard, BarChart, ProgressRow } from "@/components/admin/charts";
-import { fmt } from "@/lib/utils";
+import { fmt, fmtDate } from "@/lib/utils";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { BookingsTab } from "@/components/admin/BookingsTab";
 import { InventoryTab } from "@/components/admin/InventoryTab";
 import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
 import { FacilitiesTab } from "@/components/admin/FacilitiesTab";
 import { PackagesTab } from "@/components/admin/PackagesTab";
+import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
 import { getPackageTier, checkBookingAvailability, isRoomOpen, roomsTakenOn } from "@/lib/utils";
 import { priceBooking, bookingLabel } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
@@ -801,6 +802,7 @@ const SIDEBAR_GROUPS = [
   { label: "MANAGEMENT",   tabs: ["Rooms", "Packages", "Facilities", "Gallery", "Inventory"] },
   { label: "INSIGHTS",     tabs: ["Analytics", "Reports"] },
   { label: "SUPPORT",      tabs: ["Customer Service"] },
+  { label: "SITE",         tabs: ["Maintenance"] },
 ];
 
 // ── Admin Component ───────────────────────────────────────────────────────────
@@ -949,7 +951,7 @@ export function Admin({
     bookingId: string; action: "Confirmed" | "Cancelled"; guestName: string;
   } | null>(null);
 
-  const tabs: AdminTab[] = ["Dashboard", "Bookings", "Walk-In", "Occupancy", "Rooms", "Packages", "Facilities", "Gallery", "Inventory", "Analytics", "Reports", "Customer Service"];
+  const tabs: AdminTab[] = ["Dashboard", "Bookings", "Walk-In", "Occupancy", "Rooms", "Packages", "Facilities", "Gallery", "Inventory", "Analytics", "Reports", "Customer Service", "Maintenance"];
   // Icon per tab. Names resolve against the stroke set in ./Icon, so the
   // sidebar inherits the theme instead of rendering OS colour emoji.
   const tabIcons: Record<AdminTab, IconName> = {
@@ -957,6 +959,7 @@ export function Admin({
     Occupancy: "calendar", Rooms: "bed", Packages: "gift",
     Facilities: "toolbox", Gallery: "image", Inventory: "package",
     Analytics: "trending-up", Reports: "bar-chart", "Customer Service": "message",
+    Maintenance: "toolbox",
   };
 
   // Flags every facility a completed booking used (whole-resort amenities,
@@ -1240,6 +1243,41 @@ export function Admin({
                 const { present: liveBookings, total: totalInResort } =
                   getCurrentOccupancy(bookings, now);
                 const anyoneIn = totalInResort > 0;
+
+                // Why is it empty?
+                //
+                // "No confirmed guests checked in for today yet" was the only
+                // thing this said, for every possible reason — no bookings at
+                // all, a tour that had already finished, a Night group not due
+                // for hours, or bookings still waiting on approval. A correct
+                // zero was indistinguishable from a broken panel, which is
+                // exactly how it got read.
+                const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+                const liveToday = bookings.filter((b) => b.date === todayISO && b.status !== "Cancelled");
+                const confirmedToday = liveToday.filter((b) => b.status === "Confirmed");
+                const awaitingToday = liveToday.filter((b) => b.status === "Paid");
+                const nextUp = bookings
+                  .filter((b) => b.date > todayISO && b.status !== "Cancelled" && b.status !== "Completed")
+                  .sort((a, b) => a.date.localeCompare(b.date))[0];
+
+                const emptyReason = (() => {
+                  if (confirmedToday.length > 0) {
+                    // There ARE confirmed bookings today; the clock is simply
+                    // outside their hours. Name the hours so it is obvious.
+                    const windows = confirmedToday
+                      .map((b) => SLOTS[b.slot ?? "Day"])
+                      .map((sl) => `${sl.label} (${sl.hours})`);
+                    const unique = Array.from(new Set(windows));
+                    return `${confirmedToday.length} confirmed booking${confirmedToday.length === 1 ? "" : "s"} today — ${unique.join(", ")}. Nobody is on site at this hour.`;
+                  }
+                  if (awaitingToday.length > 0) {
+                    return `${awaitingToday.length} booking${awaitingToday.length === 1 ? " is" : "s are"} booked for today but still Paid — approve ${awaitingToday.length === 1 ? "it" : "them"} below and ${awaitingToday.length === 1 ? "it" : "they"} will appear here.`;
+                  }
+                  if (nextUp) {
+                    return `No bookings for today. The next one is ${fmtDate(nextUp.date)}.`;
+                  }
+                  return "No bookings for today, and none upcoming.";
+                })();
                 return (
                   <div style={{ marginBottom: 36 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
@@ -1274,7 +1312,18 @@ export function Admin({
                                 <td style={{ padding: "12px 14px" }}><span style={{ background: b.source === "Walk-In" ? "rgba(74,159,212,0.08)" : "rgba(201,168,76,0.1)", color: b.source === "Walk-In" ? "#4a9fd4" : gold, fontSize: 10.5, padding: "3px 10px", borderRadius: 20, letterSpacing: 1 }}>{b.source ?? "Online"}</span></td>
                               </tr>
                             ))}
-                            {liveBookings.length === 0 && <tr><td colSpan={5} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 14.5 }}>No confirmed guests checked in for today yet.</td></tr>}
+                            {liveBookings.length === 0 && (
+                              <tr>
+                                <td colSpan={5} style={{ padding: "30px 20px", textAlign: "center" }}>
+                                  <div style={{ color: C.textS, fontSize: 14.5, marginBottom: 6 }}>
+                                    No one is in the resort right now.
+                                  </div>
+                                  <div style={{ color: C.textXS, fontSize: 12.5, lineHeight: 1.6 }}>
+                                    {emptyReason}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
                           </tbody>
                         </table>
                       </div>
@@ -1536,6 +1585,9 @@ export function Admin({
 
           {/* FACILITIES */}
           {tab === "Facilities" && <FacilitiesTab facilities={facilities} setFacilities={setFacilities} bookings={bookings} mob={mob} />}
+
+          {/* MAINTENANCE — the switch that closes the public site */}
+          {tab === "Maintenance" && <MaintenanceTab mob={mob} />}
 
           {/* INVENTORY */}
           {tab === "Inventory" && <InventoryTab inventory={inventory} setInventory={setInventory} />}

@@ -166,8 +166,20 @@ export function BookingDatePicker({
           const dayDate = new Date(year, month, d);
           const isPast = dayDate < today;
           const isBeyond = dayDate > maxDate;
-          const isBooked = fullDates.has(ds);
-          const isClosed = closedSet.has(ds);
+          // A past date is just past. It used to be tested for availability
+          // as well, and because `isBooked` is applied after `isPast` in the
+          // cascade below, a past date that happened to be unavailable for
+          // the CURRENT request was repainted as "Booked" — so 24 Sep looked
+          // ordinary under Shared but turned grey the moment you switched to
+          // Exclusive, as though someone had just booked it. Whether a date
+          // gone by could have taken a booking is not information; it only
+          // made the same day look different depending on the tier.
+          //
+          // Out of range is the same: nobody can book it, so it should not
+          // advertise why.
+          const bookable = !isPast && !isBeyond;
+          const isBooked = bookable && fullDates.has(ds);
+          const isClosed = bookable && closedSet.has(ds);
           const isSel = selectedDate === ds;
           const disabled = isPast || isBeyond || isBooked || isClosed;
           let bg = isDark ? "#0f2a17" : "#dff5e5";

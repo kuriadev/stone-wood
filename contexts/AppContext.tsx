@@ -3,6 +3,8 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 import { useDbCollection } from "@/hooks/useDbCollection";
 import { usePublicAvailability } from "@/hooks/usePublicAvailability";
+import { useMaintenance } from "@/hooks/useMaintenance";
+import type { MaintenanceState } from "@/types/maintenance";
 import { COLLECTIONS } from "@/lib/collections";
 import {
   INIT_BOOKINGS,
@@ -76,6 +78,13 @@ interface AppState {
     packages: boolean;
     gallery: boolean;
   };
+  /** Whether the public site is closed, and why. Polled, so a visitor who
+   *  is already on the site sees the switch flip without refreshing. */
+  maintenance: MaintenanceState;
+  /** Push a just-saved state in immediately rather than waiting out the
+   *  poll — used by the admin's Maintenance tab after it writes. */
+  applyMaintenance: (next: MaintenanceState) => void;
+  refreshMaintenance: () => Promise<void>;
 }
 
 const AppCtx = createContext<AppState | null>(null);
@@ -95,6 +104,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // never loaded the site and cannot reach the API.
   const [adminBookings, setBookings] = useDbCollection<Booking>(COLLECTIONS.bookings, INIT_BOOKINGS, adminAuth);
   const publicAvailability = usePublicAvailability(!adminAuth);
+  const { maintenance, refreshMaintenance, applyMaintenance } = useMaintenance();
   const bookings = adminAuth ? adminBookings : publicAvailability.bookings;
   const [rooms, setRooms, roomsMeta] = useDbCollection<Room>(COLLECTIONS.rooms, INIT_ROOMS);
   const [galleryImgs, setGalleryImgs, galleryMeta] = useDbCollection<string>(COLLECTIONS.gallery, INIT_GALLERY);
@@ -129,6 +139,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         availability: publicAvailability.loading,
         content: roomsMeta.loading || packagesMeta.loading || galleryMeta.loading,
       },
+      maintenance,
+      applyMaintenance,
+      refreshMaintenance,
       skeleton: {
         rooms: roomsMeta.loading && !roomsMeta.hydrated,
         packages: packagesMeta.loading && !packagesMeta.hydrated,

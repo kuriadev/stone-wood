@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { TopLoader, LoaderRef } from "@/components/layout/TopLoader";
 import { CursorDot } from "@/components/layout/CursorDot";
 import { useApp } from "@/contexts/AppContext";
+import { MaintenanceGate } from "@/components/layout/MaintenanceGate";
 
 export function ClientShell({ children }: { children: React.ReactNode }) {
   const loaderRef = useRef<LoaderRef>(null);
@@ -64,13 +65,17 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
         entirely, letting position:fixed children anchor to the viewport
         again as normal.
       */}
-      <div
-        key={pathname}
-        className="sw-page"
-        onAnimationEnd={(e) => { e.currentTarget.style.animation = "none"; }}
-      >
-        {children}
-      </div>
+      {/* Wraps the page, not the whole shell, so the top loader and the
+          cursor dot keep working while the site is closed. */}
+      <MaintenanceGate>
+        <div
+          key={pathname}
+          className="sw-page"
+          onAnimationEnd={(e) => { e.currentTarget.style.animation = "none"; }}
+        >
+          {children}
+        </div>
+      </MaintenanceGate>
     </>
   );
 }
