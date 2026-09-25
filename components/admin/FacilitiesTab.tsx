@@ -5,6 +5,19 @@ import { QUIET_HOURS_START } from "@/lib/resort";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { T } from "@/lib/theme";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
 import { gold, outBtn } from "@/lib/styles";
 import type { Facility, FacilityStatus } from "@/types/facility";
 import type { Booking } from "@/types/booking";
@@ -208,22 +221,28 @@ export function FacilitiesTab({ facilities, setFacilities, bookings, mob }: Faci
             Every reservation that has used a facility or room, across all statuses — filter by facility or search by guest, ID, or package to see what a given reservation used.
           </p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
-            <select
-              value={historyFacility === "all" ? "all" : String(historyFacility)}
-              onChange={(e) => setHistoryFacility(e.target.value === "all" ? "all" : Number(e.target.value))}
-              className="sw-input"
-              style={{ ...C.inp, borderRadius: 6, width: mob ? "100%" : 240 }}
-            >
-              <option value="all">All facilities</option>
-              {facilities.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-            </select>
-            <input
-              value={historySearch}
-              onChange={(e) => setHistorySearch(e.target.value)}
-              placeholder="Search by guest, ID, or package…"
-              className="sw-input"
-              style={{ ...C.inp, borderRadius: 6, flex: 1, minWidth: mob ? "100%" : 260 }}
-            />
+            <div className="[&_[data-slot=native-select-wrapper]]:w-full" style={{ width: mob ? "100%" : 240 }}>
+              <Label htmlFor="history-facility" className="sr-only">Filter by facility</Label>
+              <NativeSelect
+                id="history-facility"
+                value={historyFacility === "all" ? "all" : String(historyFacility)}
+                onChange={(e) => setHistoryFacility(e.target.value === "all" ? "all" : Number(e.target.value))}
+                style={{ ...C.inp, borderRadius: 6, height: "auto" }}
+              >
+                <option value="all">All facilities</option>
+                {facilities.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </NativeSelect>
+            </div>
+            <div style={{ flex: 1, minWidth: mob ? "100%" : 260 }}>
+              <Label htmlFor="history-search" className="sr-only">Search facility history</Label>
+              <Input
+                id="history-search"
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                placeholder="Search by guest, ID, or package…"
+                style={{ ...C.inp, borderRadius: 6, height: "auto" }}
+              />
+            </div>
           </div>
           <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, overflow: "hidden" }}>
             <div style={{ overflowX: "auto" }}>
@@ -300,7 +319,7 @@ export function FacilitiesTab({ facilities, setFacilities, bookings, mob }: Faci
                       </div>
                       {editNotesId === f.id ? (
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                          <input value={notesDraft} onChange={(e) => setNotesDraft(e.target.value)} placeholder="Notes (e.g. pool filter needs replacing)" className="sw-input" style={{ ...C.inp, borderRadius: 6, flex: 1 }} />
+                          <Input value={notesDraft} onChange={(e) => setNotesDraft(e.target.value)} placeholder="Notes (e.g. pool filter needs replacing)" aria-label="Facility notes" style={{ ...C.inp, borderRadius: 6, flex: 1, height: "auto" }} />
                           <button onClick={saveNotes} style={{ ...outBtn, padding: "6px 12px", fontSize: 11.5 }}>SAVE</button>
                         </div>
                       ) : (
@@ -484,22 +503,29 @@ export function FacilitiesTab({ facilities, setFacilities, bookings, mob }: Faci
       </>
       )}
 
-      {/* Checklist edit modal */}
-      {checklistEditor && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }} role="dialog" aria-modal="true">
-          <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: `1px solid ${cBr}`, borderRadius: 12, padding: "24px 22px", width: "100%", maxWidth: 420, boxShadow: "0 40px 100px rgba(0,0,0,0.7)" }}>
-            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400, marginBottom: 14 }}>
-              Edit {checklistEditor.which === "before" ? "Before-Use" : "After-Use"} Checklist
-            </h3>
-            <p style={{ color: C.textS, fontSize: 12.5, marginBottom: 10 }}>One step per line.</p>
-            <textarea value={checklistDraft} onChange={(e) => setChecklistDraft(e.target.value)} rows={6} className="sw-input" style={{ ...C.inp, borderRadius: 6, resize: "none", marginBottom: 16 }} />
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setChecklistEditor(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "10px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6 }}>CANCEL</button>
-              <button onClick={saveChecklist} style={{ ...outBtn, flex: 2, borderRadius: 6 }}>SAVE</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Checklist edit — wider than the old 420px box because the content is
+          a list of steps, one per line, and at 420 most steps wrapped. */}
+      <Dialog open={!!checklistEditor} onOpenChange={(open) => { if (!open) setChecklistEditor(null); }}>
+        <DialogContent className="sm:max-w-[min(34rem,calc(100%-2rem))]">
+          <DialogHeader>
+            <DialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400 }}>
+              Edit {checklistEditor?.which === "before" ? "Before-Use" : "After-Use"} Checklist
+            </DialogTitle>
+            <DialogDescription style={{ color: C.textS, fontSize: 12.5 }}>One step per line.</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={checklistDraft}
+            onChange={(e) => setChecklistDraft(e.target.value)}
+            rows={6}
+            aria-label="Checklist steps, one per line"
+            style={{ ...C.inp, borderRadius: 6, resize: "none", height: "auto" }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChecklistEditor(null)} style={{ color: C.textS, borderColor: cBr, padding: "10px 16px", height: "auto", fontSize: 12.5, borderRadius: 6 }}>CANCEL</Button>
+            <Button onClick={saveChecklist} style={{ ...outBtn, borderRadius: 6, height: "auto" }}>SAVE</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

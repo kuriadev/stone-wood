@@ -5,6 +5,8 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useApp } from "@/contexts/AppContext";
 import { T } from "@/lib/theme";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { Icon } from "@/components/common/Icon";
 import {
@@ -176,37 +178,32 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
           })}
         </div>
 
-        <label style={{ display: "block", marginTop: 20 }}>
-          <span
-            style={{
-              display: "block",
-              color: C.textXS,
-              fontSize: 11.5,
-              letterSpacing: 2.5,
-              marginBottom: 8,
-            }}
+        <div style={{ marginTop: 20 }}>
+          <Label
+            htmlFor="maintenance-message"
+            style={{ display: "block", color: C.textXS, fontSize: 11.5, letterSpacing: 2.5, marginBottom: 8 }}
           >
             EXTRA LINE (OPTIONAL)
-          </span>
-          <input
+          </Label>
+          <Input
+            id="maintenance-message"
             value={message}
             onChange={(e) => setMessage(e.target.value.slice(0, 200))}
             placeholder="e.g. We reopen on Monday, 5 October."
+            aria-describedby="maintenance-message-hint"
             style={{
-              width: "100%",
               padding: "11px 14px",
+              height: "auto",
               borderRadius: 8,
               background: C.bgCard2,
-              border: `1px solid ${C.border}`,
               color: C.textH,
               fontSize: 14.5,
-              fontFamily: "inherit",
             }}
           />
-          <span style={{ display: "block", color: C.textXS, fontSize: 12, marginTop: 6 }}>
+          <span id="maintenance-message-hint" style={{ display: "block", color: C.textXS, fontSize: 12, marginTop: 6 }}>
             {message.length}/200 · shown under the headline
           </span>
-        </label>
+        </div>
       </div>
 
       {/* Actions */}

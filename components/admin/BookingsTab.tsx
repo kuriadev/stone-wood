@@ -4,6 +4,27 @@ import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { T } from "@/lib/theme";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { gold, goldBtn } from "@/lib/styles";
 import { fmt, getBookingSlot } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
@@ -165,14 +186,13 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
         <svg style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", opacity: 0.35 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.textH} strokeWidth="2">
           <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
-        <label htmlFor="bookings-search" className="sr-only">Search bookings</label>
-        <input
+        <Label htmlFor="bookings-search" className="sr-only">Search bookings</Label>
+        <Input
           id="bookings-search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name, ID, email, phone, date, or package…"
-          className="sw-input"
-          style={{ ...C.inp, paddingLeft: 36, borderRadius: 6 }}
+          style={{ ...C.inp, paddingLeft: 36, borderRadius: 6, height: "auto" }}
         />
         {search && (
           <button
@@ -283,21 +303,28 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
       </>
       )}
 
-      {/* ── Archive Confirm Modal ── */}
-      {confirmArchive && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }} role="dialog" aria-modal="true">
-          <div style={{ background: isDark ? "#0d0d0d" : "#fff", border: `1px solid ${cBr}`, borderRadius: 8, padding: "28px 26px", width: "100%", maxWidth: 400 }}>
-            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400, marginBottom: 10 }}>Archive reservation {confirmArchive.id}?</h3>
-            <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 20 }}>
-              It'll move out of the active list into the Archived view, filed under <strong style={{ color: confirmArchive.status === "Completed" ? "#4a9fd4" : "#e55" }}>{confirmArchive.status}</strong>. You can restore it any time.
-            </p>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setConfirmArchive(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "10px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6 }}>CANCEL</button>
-              <button onClick={() => archiveBooking(confirmArchive)} style={{ flex: 1, background: "rgba(150,150,150,0.1)", color: C.textH, border: `1px solid ${cBr}`, padding: "10px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6, fontWeight: 700 }}>ARCHIVE</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Archive Confirm ── */}
+      <AlertDialog open={!!confirmArchive} onOpenChange={(open) => { if (!open) setConfirmArchive(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400 }}>
+              Archive reservation {confirmArchive?.id}?
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5 }}>
+              It&apos;ll move out of the active list into the Archived view, filed under <strong style={{ color: confirmArchive?.status === "Completed" ? "#4a9fd4" : "#e55" }}>{confirmArchive?.status}</strong>. You can restore it any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel style={{ color: C.textS, borderColor: cBr, padding: "10px 16px", height: "auto", fontSize: 12.5, borderRadius: 6 }}>CANCEL</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { if (confirmArchive) archiveBooking(confirmArchive); }}
+              style={{ background: "rgba(150,150,150,0.1)", color: C.textH, border: `1px solid ${cBr}`, padding: "10px 16px", height: "auto", fontSize: 12.5, borderRadius: 6, fontWeight: 700 }}
+            >
+              ARCHIVE
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ── View Booking Modal ── */}
       {viewBooking && (() => {
@@ -310,12 +337,15 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
         const bookedRooms = rooms.filter((r) => (b.rooms || []).includes(r.id));
         const pm = getPaymentMethod(b);
         return (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20, overflowY: "auto" }} role="dialog" aria-modal="true" aria-labelledby="view-booking-title">
-            <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: `1px solid ${cBr}`, borderRadius: 12, padding: mob ? "24px 18px" : "32px", width: "100%", maxWidth: 520, boxShadow: "0 40px 100px rgba(0,0,0,0.7)", maxHeight: "90vh", overflowY: "auto" }}>
+          <Dialog open={!!viewBooking} onOpenChange={(open) => { if (!open) setViewBooking(null); }}>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[min(42rem,calc(100%-2rem))]">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
                 <div>
                   <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 4 }}>BOOKING DETAILS</p>
-                  <h3 id="view-booking-title" style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, margin: 0 }}>{b.name}</h3>
+                  <DialogTitle asChild>
+                    <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, margin: 0 }}>{b.name}</h3>
+                  </DialogTitle>
+                  <DialogDescription className="sr-only">Full details for booking {b.id}.</DialogDescription>
                 </div>
                 <span style={{ color: gold, fontFamily: "monospace", fontSize: 14.5, fontWeight: 700 }}>{b.id}</span>
               </div>
@@ -417,60 +447,69 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
                 </div>
               </div>
             )}
-              <button onClick={() => setViewBooking(null)} style={{ ...goldBtn, width: "100%", padding: 12 }}>CLOSE</button>
-            </div>
-          </div>
+              <Button onClick={() => setViewBooking(null)} style={{ ...goldBtn, width: "100%", padding: 12, height: "auto" }}>CLOSE</Button>
+            </DialogContent>
+          </Dialog>
         );
       })()}
 
-      {/* ── Accept / Reject Confirm Modal ── */}
-      {confirmAction && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }} role="dialog" aria-modal="true">
-          <div style={{ background: isDark ? "#0d0d0d" : "#fff", border: `1px solid ${confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}`, borderRadius: 8, padding: "32px 28px", width: "100%", maxWidth: 420, boxShadow: "0 32px 80px rgba(0,0,0,0.6)" }}>
-            <div style={{ width: 44, height: 44, borderRadius: "50%", background: confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.1)" : "rgba(229,85,85,0.1)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, color: confirmAction.action === "Confirmed" ? "#4caf50" : "#e55" }}>
-              <Icon name={confirmAction.action === "Confirmed" ? "check" : "x"} size={20} />
-            </div>
-            <h3 style={{ color: isDark ? "#e8e8e8" : "#111", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400, marginBottom: 8 }}>
-              {confirmAction.action === "Confirmed" ? "Accept this booking?" : "Reject this booking?"}
-            </h3>
-            <p style={{ color: isDark ? "#888" : "#666", fontSize: 14.5, lineHeight: 1.7, marginBottom: confirmAction.action === "Cancelled" ? 16 : 24 }}>
-              {confirmAction.action === "Confirmed"
-                ? <>{`Accept booking for `}<strong style={{ color: isDark ? "#ddd" : "#333" }}>{confirmAction.guestName}</strong>?</>
-                : <>{`Reject booking for `}<strong style={{ color: isDark ? "#ddd" : "#333" }}>{confirmAction.guestName}</strong>. A rejection message will be sent to the guest.</>
-              }
-            </p>
-            {confirmAction.action === "Cancelled" && (
-              <div style={{ marginBottom: 20 }}>
-                <label htmlFor="rejection-msg" style={{ color: isDark ? "#888" : "#666", fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 8 }}>
-                  REJECTION MESSAGE <span style={{ color: "#888", letterSpacing: 0 }}>(sent to guest)</span>
-                </label>
-                <div style={{ background: isDark ? "rgba(229,85,85,0.04)" : "rgba(229,85,85,0.03)", border: "1px solid rgba(229,85,85,0.25)", borderRadius: 5, padding: "2px 0" }}>
-                  <textarea
+      {/* ── Accept / Reject Confirm ── */}
+      <AlertDialog open={!!confirmAction} onOpenChange={(open) => { if (!open) { setConfirmAction(null); setRejectionMsg(""); } }}>
+        <AlertDialogContent className="sm:max-w-[min(32rem,calc(100%-2rem))]">
+          {confirmAction && (
+            <>
+              <div style={{ width: 44, height: 44, borderRadius: "50%", background: confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.1)" : "rgba(229,85,85,0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: confirmAction.action === "Confirmed" ? "#4caf50" : "#e55" }}>
+                <Icon name={confirmAction.action === "Confirmed" ? "check" : "x"} size={20} />
+              </div>
+              <AlertDialogHeader>
+                <AlertDialogTitle style={{ color: isDark ? "#e8e8e8" : "#111", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400 }}>
+                  {confirmAction.action === "Confirmed" ? "Accept this booking?" : "Reject this booking?"}
+                </AlertDialogTitle>
+                <AlertDialogDescription style={{ color: isDark ? "#888" : "#666", fontSize: 14.5, lineHeight: 1.7 }}>
+                  {confirmAction.action === "Confirmed"
+                    ? <>{`Accept booking for `}<strong style={{ color: isDark ? "#ddd" : "#333" }}>{confirmAction.guestName}</strong>?</>
+                    : <>{`Reject booking for `}<strong style={{ color: isDark ? "#ddd" : "#333" }}>{confirmAction.guestName}</strong>. A rejection message will be sent to the guest.</>
+                  }
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+
+              {confirmAction.action === "Cancelled" && (
+                <div>
+                  <Label htmlFor="rejection-msg" style={{ color: isDark ? "#888" : "#666", fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 8 }}>
+                    REJECTION MESSAGE <span style={{ color: "#888", letterSpacing: 0 }}>(sent to guest)</span>
+                  </Label>
+                  <Textarea
                     id="rejection-msg"
                     value={rejectionMsg}
                     onChange={(e) => setRejectionMsg(e.target.value)}
                     rows={4}
                     placeholder={`Hi ${confirmAction.guestName},\n\nWe regret to inform you that your booking has been declined.`}
-                    style={{ background: "transparent", border: "none", color: isDark ? "#e0e0e0" : "#222", fontSize: 14.5, lineHeight: 1.7, padding: "12px 14px", width: "100%", resize: "vertical", outline: "none", boxSizing: "border-box" }}
+                    style={{ background: isDark ? "rgba(229,85,85,0.04)" : "rgba(229,85,85,0.03)", border: "1px solid rgba(229,85,85,0.25)", color: isDark ? "#e0e0e0" : "#222", fontSize: 14.5, lineHeight: 1.7, padding: "12px 14px", resize: "vertical" }}
                   />
+                  {confirmAction.guestEmail && (
+                    <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 6 }}>
+                      Will be sent to: <span style={{ color: gold }}>{confirmAction.guestEmail}</span>
+                    </p>
+                  )}
                 </div>
-                {confirmAction.guestEmail && (
-                  <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 6 }}>
-                    Will be sent to: <span style={{ color: gold }}>{confirmAction.guestEmail}</span>
-                  </p>
-                )}
-              </div>
-            )}
-            <div style={{ borderTop: `1px solid ${isDark ? "#1e1e1e" : "#eee"}`, marginBottom: 20 }} />
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => { setConfirmAction(null); setRejectionMsg(""); }} style={{ flex: 1, background: "transparent", color: isDark ? "#777" : "#888", border: `1px solid ${isDark ? "#2a2a2a" : "#ddd"}`, padding: "11px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>GO BACK</button>
-              <button onClick={executeAction} style={{ flex: 2, background: confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.12)" : "rgba(229,85,85,0.10)", color: confirmAction.action === "Confirmed" ? "#4caf50" : "#e55", border: `1px solid ${confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}`, padding: "11px 16px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", borderRadius: 4, letterSpacing: 2 }}>
-                {confirmAction.action === "Confirmed" ? "YES, ACCEPT" : "YES, SEND & REJECT"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              )}
+
+              <Separator />
+              <AlertDialogFooter>
+                <AlertDialogCancel style={{ color: isDark ? "#777" : "#888", borderColor: isDark ? "#2a2a2a" : "#ddd", padding: "11px 16px", height: "auto", fontSize: 12.5, borderRadius: 4, letterSpacing: 1 }}>
+                  GO BACK
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={executeAction}
+                  style={{ background: confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.12)" : "rgba(229,85,85,0.10)", color: confirmAction.action === "Confirmed" ? "#4caf50" : "#e55", border: `1px solid ${confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}`, padding: "11px 16px", height: "auto", fontSize: 12.5, fontWeight: 700, borderRadius: 4, letterSpacing: 2 }}
+                >
+                  {confirmAction.action === "Confirmed" ? "YES, ACCEPT" : "YES, SEND & REJECT"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
