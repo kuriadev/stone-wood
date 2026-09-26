@@ -12,11 +12,23 @@ import { pricingProblem, standardPackagePrice } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
 import { Icon } from "@/components/common/Icon";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 
 interface PackagesTabProps {
   packages: ResortPackage[];
@@ -125,8 +137,8 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
             <div style={{ position: "relative" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img loading="lazy" decoding="async" src={p.cover} alt={p.title} style={{ width: "100%", height: 130, objectFit: "cover", display: "block" }} />
-              <span style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.55)", color: gold, fontSize: 10.5, padding: "3px 8px", borderRadius: 20, letterSpacing: 1 }}>{p.status} · {p.resource}</span>
-              {!p.active && <span style={{ position: "absolute", top: 8, right: 8, background: "rgba(200,60,60,0.85)", color: "#fff", fontSize: 10.5, padding: "3px 8px", borderRadius: 20, letterSpacing: 1 }}>HIDDEN</span>}
+              <Badge variant="outline" style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.55)", color: gold, fontSize: 10.5, padding: "3px 8px", borderRadius: 20, letterSpacing: 1 }}>{p.status} · {p.resource}</Badge>
+              {!p.active && <Badge variant="outline" style={{ position: "absolute", top: 8, right: 8, background: "rgba(200,60,60,0.85)", color: "#fff", fontSize: 10.5, padding: "3px 8px", borderRadius: 20, letterSpacing: 1 }}>HIDDEN</Badge>}
             </div>
             <div style={{ padding: "14px 16px", flex: 1, display: "flex", flexDirection: "column" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
@@ -135,9 +147,9 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
               </div>
               <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5, marginBottom: 8 }}>{p.blurb}</p>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-                <span style={{ fontSize: 10.5, color: gold, border: `1px solid ${gold}55`, borderRadius: 20, padding: "2px 7px" }}>{p.slotMode === "WholeDay" ? "WHOLE DAY" : "DAY OR NIGHT"}</span>
-                {p.requiresRoom && <span style={{ fontSize: 10.5, color: gold, border: `1px solid ${gold}55`, borderRadius: 20, padding: "2px 7px" }}>ROOM REQUIRED</span>}
-                <span style={{ fontSize: 10.5, color: C.textS, border: `1px solid ${cBr}`, borderRadius: 20, padding: "2px 7px" }}>Cap {p.capacity}</span>
+                <Badge variant="outline" style={{ fontSize: 10.5, color: gold, border: `1px solid ${gold}55`, borderRadius: 20, padding: "2px 7px" }}>{p.slotMode === "WholeDay" ? "WHOLE DAY" : "DAY OR NIGHT"}</Badge>
+                {p.requiresRoom && <Badge variant="outline" style={{ fontSize: 10.5, color: gold, border: `1px solid ${gold}55`, borderRadius: 20, padding: "2px 7px" }}>ROOM REQUIRED</Badge>}
+                <Badge variant="outline" style={{ fontSize: 10.5, color: C.textS, border: `1px solid ${cBr}`, borderRadius: 20, padding: "2px 7px" }}>Cap {p.capacity}</Badge>
               </div>
               {/* marginTop:auto — blurb length and the badge row (ROOM REQUIRED,
                   Cap) vary per package, which left these buttons 20px
@@ -249,18 +261,32 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                 <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">EXTRA NOTE (optional)</Label>
                 <Input value={form.note} onChange={(e) => setF("note", e.target.value)} className="sw-input" style={inpS} />
               </div>
-              <div onClick={() => setF("requiresRoom", !form.requiresRoom)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-                <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${form.requiresRoom ? "#4caf50" : cBr}`, background: form.requiresRoom ? "#4caf50" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {form.requiresRoom && <Icon name="check" size={11} style={{ color: "#fff" }} strokeWidth={2.5} />}
-                </div>
+              {/* Was a div with onClick and a hand-drawn tick: not focusable,
+                  not toggleable by keyboard, and invisible to a screen reader.
+                  A real Checkbox inside a Label makes the whole sentence the
+                  hit area and the accessible name, and the space bar works. */}
+              <Label htmlFor="pkg-requiresRoom" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontWeight: 400, letterSpacing: 0 }}>
+                <Checkbox
+                  id="pkg-requiresRoom"
+                  checked={form.requiresRoom}
+                  onCheckedChange={(v) => setF("requiresRoom", v === true)}
+                  className="size-[18px] rounded-[4px] border-2 data-[state=checked]:border-[#4caf50] data-[state=checked]:bg-[#4caf50] data-[state=checked]:text-white"
+                />
                 <span style={{ color: C.textS, fontSize: 13.5 }}>Guest must pick ONE room at checkout (price can't be fixed without it)</span>
-              </div>
-              <div onClick={() => setF("active", !form.active)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-                <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${form.active ? "#4caf50" : cBr}`, background: form.active ? "#4caf50" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {form.active && <Icon name="check" size={11} style={{ color: "#fff" }} strokeWidth={2.5} />}
-                </div>
+              </Label>
+              {/* Was a div with onClick and a hand-drawn tick: not focusable,
+                  not toggleable by keyboard, and invisible to a screen reader.
+                  A real Checkbox inside a Label makes the whole sentence the
+                  hit area and the accessible name, and the space bar works. */}
+              <Label htmlFor="pkg-active" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontWeight: 400, letterSpacing: 0 }}>
+                <Checkbox
+                  id="pkg-active"
+                  checked={form.active}
+                  onCheckedChange={(v) => setF("active", v === true)}
+                  className="size-[18px] rounded-[4px] border-2 data-[state=checked]:border-[#4caf50] data-[state=checked]:bg-[#4caf50] data-[state=checked]:text-white"
+                />
                 <span style={{ color: C.textS, fontSize: 13.5 }}>Visible on the public Packages & Home pages</span>
-              </div>
+              </Label>
             </div>
 
           <DialogFooter>
@@ -273,19 +299,32 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
       </Dialog>
 
 
-      {/* Delete Confirm */}
-      {confirmDelete && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }} role="dialog" aria-modal="true">
-          <div style={{ background: isDark ? "#0d0d0d" : "#fff", border: "1px solid rgba(229,85,85,0.3)", borderRadius: 8, padding: "28px 26px", width: "100%", maxWidth: 380 }}>
-            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400, marginBottom: 10 }}>Remove "{confirmDelete.title}"?</h3>
-            <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 20 }}>This package will no longer appear on the Packages page or be bookable.</p>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setConfirmDelete(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "10px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6 }}>CANCEL</button>
-              <button onClick={executeDelete} style={{ flex: 1, background: "rgba(229,85,85,0.1)", color: "#e55", border: "1px solid rgba(229,85,85,0.3)", padding: "10px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6, fontWeight: 700 }}>REMOVE</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Delete Confirm — an AlertDialog: removing a package pulls it from the
+          public Packages page, so it needs an explicit decision rather than a
+          backdrop click. */}
+      <AlertDialog open={!!confirmDelete} onOpenChange={(open) => { if (!open) setConfirmDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400 }}>
+              Remove &quot;{confirmDelete?.title}&quot;?
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5 }}>
+              This package will no longer appear on the Packages page or be bookable.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel style={{ color: C.textS, borderColor: cBr, padding: "10px 16px", height: "auto", fontSize: 12.5, borderRadius: 6 }}>
+              CANCEL
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeDelete}
+              style={{ background: "rgba(229,85,85,0.1)", color: "#e55", border: "1px solid rgba(229,85,85,0.3)", padding: "10px 16px", height: "auto", fontSize: 12.5, borderRadius: 6, fontWeight: 700 }}
+            >
+              REMOVE
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

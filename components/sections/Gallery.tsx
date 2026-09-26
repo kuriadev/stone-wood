@@ -8,6 +8,12 @@ import { gold, goldBtn } from "@/lib/styles";
 import { srcSetFor, SIZES } from "@/lib/img";
 import { Icon } from "@/components/common/Icon";
 import { Reveal } from "@/components/common/Reveal";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface GalleryProps {
   galleryImgs: string[];
@@ -471,80 +477,95 @@ export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
         </div>
       </div>
 
-      {/* ── Lightbox ──────────────────────────────────────────────── */}
-      {selIdx !== null && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Photo viewer"
-          onClick={close}
+      {/* ── Lightbox ── a Dialog, for the focus trap. It already carried
+          role="dialog" and aria-modal and it already closed on Escape, but
+          nothing confined Tab to it: with a photo open, 0 of 14 tab stops
+          landed inside — focus walked the gallery tiles behind the overlay,
+          so the prev, next and close buttons could not be reached by keyboard
+          at all. Radix confines focus and restores it to the tile on close.
+
+          The panel keeps the full-bleed look: no background, no border, no
+          padding, sized to the viewport rather than shadcn's default card. */}
+      <Dialog open={selIdx !== null} onOpenChange={(open) => { if (!open) close(); }}>
+        <DialogContent
+          showCloseButton={false}
+          className="top-0 left-0 grid h-dvh w-screen max-w-none translate-x-0 translate-y-0 place-items-center border-0 bg-transparent p-0 shadow-none sm:max-w-none"
           style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(5,4,3,0.97)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 200,
             padding: mob ? 12 : 20,
+            // The original viewer sat on a near-opaque rgba(5,4,3,0.97).
+            // shadcn's overlay is black/50, which left the gallery grid
+            // showing through behind the photo. DialogContent is full-bleed
+            // here, so putting the backdrop on it restores the original
+            // without needing to reach into the overlay.
+            background: "rgba(5,4,3,0.97)",
+            boxShadow: "none",
           }}
         >
-          <button
-            onClick={(e) => { e.stopPropagation(); step(-1); }}
-            aria-label="Previous photo"
-            style={arrowStyle(mob, "left")}
-          >
-            ‹
-          </button>
+          <DialogTitle className="sr-only">Photo viewer</DialogTitle>
+          <DialogDescription className="sr-only">
+            {selIdx !== null ? `Photo ${selIdx + 1} of ${galleryImgs.length}. Use the left and right arrow keys to browse.` : ""}
+          </DialogDescription>
 
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={galleryImgs[selIdx]}
-            srcSet={srcSetFor(galleryImgs[selIdx])}
-            sizes={SIZES.modal}
-            alt={`StoneWood Resort, photo ${selIdx + 1} of ${galleryImgs.length}`}
-            decoding="async"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "92%", maxHeight: "86vh", borderRadius: 8, boxShadow: "0 32px 80px rgba(0,0,0,0.8)" }}
-          />
+          {selIdx !== null && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); step(-1); }}
+                aria-label="Previous photo"
+                style={arrowStyle(mob, "left")}
+              >
+                ‹
+              </button>
 
-          <button
-            onClick={(e) => { e.stopPropagation(); step(1); }}
-            aria-label="Next photo"
-            style={arrowStyle(mob, "right")}
-          >
-            ›
-          </button>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={galleryImgs[selIdx]}
+                srcSet={srcSetFor(galleryImgs[selIdx])}
+                sizes={SIZES.modal}
+                alt={`StoneWood Resort, photo ${selIdx + 1} of ${galleryImgs.length}`}
+                decoding="async"
+                onClick={(e) => e.stopPropagation()}
+                style={{ maxWidth: "92%", maxHeight: "86vh", borderRadius: 8, boxShadow: "0 32px 80px rgba(0,0,0,0.8)" }}
+              />
 
-          <button
-            onClick={(e) => { e.stopPropagation(); close(); }}
-            aria-label="Close photo viewer"
-            style={{ ...arrowStyle(mob, "right"), right: mob ? 12 : 20, top: mob ? 12 : 20, transform: "none", fontSize: 20 }}
-          >
-            <Icon name="x" size={17} />
-          </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); step(1); }}
+                aria-label="Next photo"
+                style={arrowStyle(mob, "right")}
+              >
+                ›
+              </button>
 
-          <div
-            style={{
-              position: "fixed",
-              bottom: mob ? 14 : 24,
-              left: "50%",
-              transform: "translateX(-50%)",
-              color: "rgba(201,168,76,0.6)",
-              fontSize: 12.5,
-              letterSpacing: 2,
-              textAlign: "center",
-            }}
-          >
-            {selIdx + 1} / {galleryImgs.length}
-            {!mob && (
-              <span style={{ display: "block", fontSize: 10.5, letterSpacing: 1.4, marginTop: 5, color: "rgba(246,241,232,0.35)" }}>
-                ← → TO BROWSE · ESC TO CLOSE
-              </span>
-            )}
-          </div>
-        </div>
-      )}
+              <button
+                onClick={(e) => { e.stopPropagation(); close(); }}
+                aria-label="Close photo viewer"
+                style={{ ...arrowStyle(mob, "right"), right: mob ? 12 : 20, top: mob ? 12 : 20, transform: "none", fontSize: 20 }}
+              >
+                <Icon name="x" size={17} />
+              </button>
+
+              <div
+                style={{
+                  position: "fixed",
+                  bottom: mob ? 14 : 24,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  color: "rgba(201,168,76,0.6)",
+                  fontSize: 12.5,
+                  letterSpacing: 2,
+                  textAlign: "center",
+                }}
+              >
+                {selIdx + 1} / {galleryImgs.length}
+                {!mob && (
+                  <span style={{ display: "block", fontSize: 10.5, letterSpacing: 1.4, marginTop: 5, color: "rgba(246,241,232,0.35)" }}>
+                    ← → TO BROWSE · ESC TO CLOSE
+                  </span>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

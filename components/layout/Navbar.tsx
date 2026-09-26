@@ -6,6 +6,13 @@ import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { SLOTS } from "@/lib/resort";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 interface NavbarProps {
   page: string;
@@ -31,7 +38,6 @@ export function Navbar({ page, setPage }: NavbarProps) {
   // so the hero reads as one uninterrupted image.
   const [solid, setSolid] = useState(false);
   const [open, setOpen] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
 
   // Only the Home page has a photo hero to sit over.
   const overlay = page === "Home" && !solid;
@@ -79,20 +85,6 @@ export function Navbar({ page, setPage }: NavbarProps) {
     };
   }, []);
 
-  // Close the drawer on Escape, and lock scroll while it's open.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    window.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
-
-  // Never leave the drawer open behind a route change.
   useEffect(() => { setOpen(false); }, [page]);
 
   const go = (p: string) => { setOpen(false); setPage(p); };
@@ -247,6 +239,13 @@ export function Navbar({ page, setPage }: NavbarProps) {
                   background: "none", border: "none", cursor: "pointer",
                   width: 40, height: 40, display: "flex", flexDirection: "column",
                   alignItems: "center", justifyContent: "center", gap: 5, padding: 0,
+                  // The Sheet renders its own close in this same corner, and
+                  // that one is inside the focus trap, so it is the only one a
+                  // keyboard user can reach. This fades out rather than
+                  // stacking a second X on top of it.
+                  opacity: open ? 0 : 1,
+                  pointerEvents: open ? "none" : "auto",
+                  transition: "opacity .2s ease",
                 }}
               >
                 {/* Hamburger morphs into a close mark. */}
@@ -258,38 +257,30 @@ export function Navbar({ page, setPage }: NavbarProps) {
         </div>
       </header>
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer — a Sheet, for the focus trap. The hand-rolled panel
+          already handled Escape and the scroll lock, but nothing confined Tab
+          to it: with the drawer open, 11 of 18 tab stops landed on the page
+          behind it — calendar day cells, "Browse Rooms", "Book Your Stay" —
+          all invisible behind the overlay. Radix confines focus to the panel
+          and restores it to the hamburger on close. */}
       {mob && (
-        <div
-          aria-hidden={!open}
-          style={{
-            position: "fixed", inset: 0, zIndex: 190,
-            pointerEvents: open ? "auto" : "none",
-          }}
-        >
-          <div
-            onClick={() => setOpen(false)}
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetContent
+            side="right"
+            className="w-[min(320px,84vw)] gap-0 sm:max-w-none"
             style={{
-              position: "absolute", inset: 0,
-              background: "rgba(4,3,2,0.6)",
-              backdropFilter: open ? "blur(6px)" : "none",
-              opacity: open ? 1 : 0,
-              transition: "opacity .3s ease",
-            }}
-          />
-          <div
-            ref={panelRef}
-            style={{
-              position: "absolute", top: 0, right: 0, bottom: 0,
-              width: "min(320px, 84vw)",
               background: isDark ? "#0b0907" : "#fdfbf7",
               borderLeft: `1px solid ${C.border}`,
               padding: "96px 28px 32px",
-              transform: open ? "translateX(0)" : "translateX(100%)",
-              transition: "transform .38s cubic-bezier(.22,1,.36,1)",
-              display: "flex", flexDirection: "column",
             }}
           >
+            {/* The drawer is titled for screen readers only: the visible panel
+                is the site's own navigation and has never carried a heading. */}
+            <SheetHeader className="sr-only">
+              <SheetTitle>Menu</SheetTitle>
+              <SheetDescription>Site navigation and booking links.</SheetDescription>
+            </SheetHeader>
+
             <nav aria-label="Mobile" style={{ display: "flex", flexDirection: "column" }}>
               {LINKS.map((l, i) => {
                 const active = page === l;
@@ -298,6 +289,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
                     key={l}
                     onClick={() => go(l)}
                     aria-current={active ? "page" : undefined}
+                    className="animate-in fade-in slide-in-from-right-4 fill-mode-both"
                     style={{
                       background: "none", border: "none", cursor: "pointer",
                       textAlign: "left", padding: "16px 0",
@@ -305,10 +297,12 @@ export function Navbar({ page, setPage }: NavbarProps) {
                       fontFamily: "'Cormorant Garamond',Georgia,serif",
                       fontSize: 24, fontWeight: 400,
                       color: active ? gold : C.textH,
-                      // Links stagger in behind the panel.
-                      opacity: open ? 1 : 0,
-                      transform: open ? "translateX(0)" : "translateX(16px)",
-                      transition: `opacity .3s ease ${120 + i * 55}ms, transform .3s ease ${120 + i * 55}ms`,
+                      // Links stagger in behind the panel. The panel now mounts
+                      // on open rather than sitting hidden, so this is an
+                      // entrance animation with a delay rather than a
+                      // transition between two states.
+                      animationDelay: `${120 + i * 55}ms`,
+                      animationDuration: "300ms",
                     }}
                   >
                     {l}
@@ -336,8 +330,8 @@ export function Navbar({ page, setPage }: NavbarProps) {
                 Angono, Rizal · Day {SLOTS.Day.hours} · Night {SLOTS.Night.hours}
               </p>
             </div>
-          </div>
-        </div>
+          </SheetContent>
+        </Sheet>
       )}
     </>
   );

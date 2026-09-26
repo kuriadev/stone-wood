@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -50,6 +51,15 @@ import type { AdminTab, CustomerMessage } from "@/types/admin";
 import type { Facility } from "@/types/facility";
 import type { InventoryItem } from "@/types/inventory";
 import type { ResortPackage } from "@/types/package";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 
 interface AdminProps {
@@ -376,41 +386,41 @@ function WalkInTab({
       {/* Table */}
       <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, overflow: "hidden", marginBottom: 28 }}>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 480 : 0 }} aria-label="On-site reservations">
-            <thead>
-              <tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
+          <Table style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 480 : 0 }} aria-label="On-site reservations">
+            <TableHeader>
+              <TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
                 {["Ref ID", "Guest", "Contact", "Date", "Status", "Actions"].map((h) => (
-                  <th key={h} scope="col" style={{ padding: "11px 14px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
+                  <TableHead key={h} scope="col" style={{ padding: "11px 14px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {displayRows.length === 0 && (
-                <tr>
-                  <td colSpan={6} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 14.5 }}>
+                <TableRow>
+                  <TableCell colSpan={6} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 14.5 }}>
                     {wiSearch ? `No results for "${wiSearch}".` : `No ${wiTab.toLowerCase()} reservations.`}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
               {displayRows.map((b, idx) => {
                 const col = sc[b.status] || [isDark ? "#111" : "#eee", C.textS];
                 return (
-                  <tr key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#fff" : "#faf7f2") }}>
-                    <td style={{ padding: "12px 14px", color: gold, fontSize: 12.5, fontFamily: "monospace", whiteSpace: "nowrap" }}>{b.id}</td>
-                    <td style={{ padding: "12px 14px" }}>
+                  <TableRow key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#fff" : "#faf7f2") }}>
+                    <TableCell style={{ padding: "12px 14px", color: gold, fontSize: 12.5, fontFamily: "monospace", whiteSpace: "nowrap" }}>{b.id}</TableCell>
+                    <TableCell style={{ padding: "12px 14px" }}>
                       <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600 }}>{b.name}</div>
                       <div style={{ color: C.textXS, fontSize: 12.5 }}>{b.email !== "—" ? b.email : ""}</div>
-                    </td>
-                    <td style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.contact}</td>
-                    <td style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>
+                    </TableCell>
+                    <TableCell style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.contact}</TableCell>
+                    <TableCell style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>
                       {b.date !== "—" ? b.date : <span style={{ color: C.textXS }}>Walk-in</span>}
-                    </td>
-                    <td style={{ padding: "12px 14px" }}>
-                      <span style={{ background: col[0] + "33", color: col[1], fontSize: 10.5, padding: "3px 9px", borderRadius: 20, border: `1px solid ${col[1]}44`, letterSpacing: 1 }}>
+                    </TableCell>
+                    <TableCell style={{ padding: "12px 14px" }}>
+                      <Badge variant="outline" style={{ background: col[0] + "33", color: col[1], fontSize: 10.5, padding: "3px 9px", borderRadius: 20, border: `1px solid ${col[1]}44`, letterSpacing: 1 }}>
                         {b.status.toUpperCase()}
-                      </span>
-                    </td>
-                    <td style={{ padding: "12px 14px" }}>
+                      </Badge>
+                    </TableCell>
+                    <TableCell style={{ padding: "12px 14px" }}>
                       <div style={{ display: "flex", gap: 6 }}>
                         {b.status === "Paid" && (
                           <>
@@ -437,12 +447,12 @@ function WalkInTab({
                           >ARCHIVE</button>
                         )}
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </div>
 
@@ -637,9 +647,9 @@ function WalkInTab({
                 <span style={{ color: C.textS, fontSize: 12.5, letterSpacing: 1 }}>PACKAGE</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ color: gold, fontWeight: 700, fontSize: 14.5 }}>{wfPackageLabel}</span>
-                  <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, color: wfTier === "Exclusive" ? gold : "#4caf50", background: wfTier === "Exclusive" ? "rgba(201,168,76,0.15)" : "rgba(76,175,80,0.12)" }}>
+                  <Badge variant="outline" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, color: wfTier === "Exclusive" ? gold : "#4caf50", background: wfTier === "Exclusive" ? "rgba(201,168,76,0.15)" : "rgba(76,175,80,0.12)" }}>
                     <><Icon name={wfTier === "Exclusive" ? "lock" : "users"} size={12} style={{ marginRight: 6 }} />{wfTier === "Exclusive" ? "EXCLUSIVE" : "SHARED"}</>
-                  </span>
+                  </Badge>
                 </span>
               </div>
               <div style={{ gridColumn: "1/-1", background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${cBr}`, borderRadius: 8, padding: "10px 14px", display: "flex", flexDirection: "column", gap: 5 }}>
@@ -809,20 +819,27 @@ function WalkInTab({
       </AlertDialog>
 
       {/* ── Archive Confirm Modal ── */}
-      {wiConfirmArchive && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }} role="dialog" aria-modal="true">
-          <div style={{ background: isDark ? "#0d0d0d" : "#fff", border: `1px solid ${cBr}`, borderRadius: 8, padding: "28px 26px", width: "100%", maxWidth: 400 }}>
-            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400, marginBottom: 10 }}>Archive reservation {wiConfirmArchive.id}?</h3>
-            <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 20 }}>
-              It'll move out of Walk-In Management into the Bookings tab's Archived view, filed under <strong style={{ color: wiConfirmArchive.status === "Completed" ? "#4a9fd4" : "#e55" }}>{wiConfirmArchive.status}</strong>. You can restore it any time from there.
-            </p>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setWiConfirmArchive(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "10px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6 }}>CANCEL</button>
-              <button onClick={() => archiveWiBooking(wiConfirmArchive)} style={{ flex: 1, background: "rgba(150,150,150,0.1)", color: C.textH, border: `1px solid ${cBr}`, padding: "10px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6, fontWeight: 700 }}>ARCHIVE</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AlertDialog open={!!wiConfirmArchive} onOpenChange={(open) => { if (!open) setWiConfirmArchive(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400 }}>
+              Archive reservation {wiConfirmArchive?.id}?
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5 }}>
+              It&apos;ll move out of Walk-In Management into the Bookings tab&apos;s Archived view, filed under <strong style={{ color: wiConfirmArchive?.status === "Completed" ? "#4a9fd4" : "#e55" }}>{wiConfirmArchive?.status}</strong>. You can restore it any time from there.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel style={{ color: C.textS, borderColor: cBr, padding: "10px 16px", height: "auto", fontSize: 12.5, borderRadius: 6 }}>CANCEL</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { if (wiConfirmArchive) archiveWiBooking(wiConfirmArchive); }}
+              style={{ background: "rgba(150,150,150,0.1)", color: C.textH, border: `1px solid ${cBr}`, padding: "10px 16px", height: "auto", fontSize: 12.5, borderRadius: 6, fontWeight: 700 }}
+            >
+              ARCHIVE
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -1106,6 +1123,189 @@ export function Admin({
     display: "flex", alignItems: "center", gap: 10, transition: "all .15s",
   });
 
+  // The inbox and the archive share one layout and differ only in which
+  // list feeds them, so the markup lives here once and both tab panels
+  // render it.
+  const messagesPanel = (
+    <>
+                {(
+                  csView === "inbox"
+                    ? customerMessages
+                    : archivedMessages
+                ).length === 0 ? (
+                  <div
+                    style={{
+                      background: cBg,
+                      border: `1px solid ${cBr}`,
+                      borderRadius: 10,
+                      padding: "52px 20px",
+                      textAlign: "center",
+                      boxShadow: C.shadowCard,
+                    }}
+                  >
+                    {/* Sized and coloured against the theme rather than left at
+                        the default text colour, so the empty state reads as one
+                        muted unit instead of a hard black mark above grey text. */}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        marginBottom: 14,
+                        color: C.textXS,
+                        opacity: 0.6,
+                      }}
+                    >
+                      <Icon name="message" size={30} strokeWidth={1.25} />
+                    </div>
+
+                    <p
+                      style={{
+                        color: C.textS,
+                        fontSize: 15,
+                      }}
+                    >
+                      {csView === "inbox"
+                        ? "No new messages."
+                        : "No archived messages."}
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 12,
+                    }}
+                  >
+                    {(
+                      csView === "inbox"
+                        ? customerMessages
+                        : archivedMessages
+                    ).map((msg) => (
+                      <div
+                        key={msg.id}
+                        style={{
+                          background: cBg,
+                          border: `1px solid ${cBr}`,
+                          borderRadius: 10,
+                          padding: "20px 22px",
+                          boxShadow: C.shadowCard,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            marginBottom: 10,
+                          }}
+                        >
+                          <div>
+                            <div
+                              style={{
+                                color: C.textH,
+                                fontSize: 15,
+                                fontWeight: 600,
+                              }}
+                            >
+                              {msg.name}
+                            </div>
+
+                            <div
+                              style={{
+                                color: C.textXS,
+                                fontSize: 12.5,
+                              }}
+                            >
+                              {msg.email} · {msg.date}
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
+                          >
+                            {/* TYPE BADGE */}
+                            <span
+                              style={{
+                                background: `${gold}18`,
+                                color: gold,
+                                fontSize: 10.5,
+                                padding: "3px 8px",
+                                borderRadius: 20,
+                                border: `1px solid ${gold}44`,
+                                letterSpacing: 1,
+                              }}
+                            >
+                              {msg.type.toUpperCase()}
+                            </span>
+                            {/* REPLY BUTTON */}
+                            <button
+                              onClick={() => {
+                                setReplyModal(msg);
+
+                                setReplyMode("automated");
+
+                                setReplyMessage(
+                                  automatedReplies[
+                                    msg.type as keyof typeof automatedReplies
+                                  ] || ""
+                                );
+                              }}
+                              style={{
+                                background: `${gold}18`,
+                                border: `1px solid ${gold}44`,
+                                color: gold,
+                                padding: "4px 10px",
+                                fontSize: 11.5,
+                                cursor: "pointer",
+                                borderRadius: 4,
+                              }}
+                            >
+                              REPLY
+                            </button>
+
+                            {/* ARCHIVE BUTTON */}
+                            {csView === "inbox" && (
+                              <button
+                                onClick={() =>
+                                  setConfirmArchiveMsg(msg)
+                                }
+                                style={{
+                                  background: "transparent",
+                                  border: `1px solid ${cBr}`,
+                                  color: C.textXS,
+                                  padding: "4px 10px",
+                                  fontSize: 11.5,
+                                  cursor: "pointer",
+                                  borderRadius: 4,
+                                }}
+                              >
+                                ARCHIVE
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <p
+                          style={{
+                            color: C.textB,
+                            fontSize: 14.5,
+                            lineHeight: 1.7,
+                            margin: 0,
+                          }}
+                        >
+                          {msg.message}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+    </>
+  );
   return (
     <div style={{ background: adminBg, minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       {/* Mobile Top Bar */}
@@ -1181,20 +1381,20 @@ export function Admin({
 
                       {/* Bookings badge */}
                       {t === "Bookings" && Paid > 0 && (
-                        <span style={{
+                        <Badge variant="outline" style={{
                           background: gold, color: "#000",
                           fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
                         }}>
                           {Paid}
-                        </span>
+                        </Badge>
                       )}
 
                       {/* Walk-In badge */}
                       {t === "Walk-In" && bookings.filter(
                         b => b.source === "Walk-In" && b.status === "Paid"
                       ).length > 0 && (
-                        <span style={{
+                        <Badge variant="outline" style={{
                           background: "#4a9fd4", color: "#fff",
                           fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
@@ -1202,29 +1402,29 @@ export function Admin({
                           {bookings.filter(
                             b => b.source === "Walk-In" && b.status === "Paid"
                           ).length}
-                        </span>
+                        </Badge>
                       )}
 
                       {/* Facilities badge */}
                       {t === "Facilities" && facilities.filter(f => f.status === "Needs Cleaning").length > 0 && (
-                        <span style={{
+                        <Badge variant="outline" style={{
                           background: "#e0a020", color: "#000",
                           fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
                         }}>
                           {facilities.filter(f => f.status === "Needs Cleaning").length}
-                        </span>
+                        </Badge>
                       )}
 
                       {/* Customer Service badge */}
                       {t === "Customer Service" && customerMessages.length > 0 && (
-                        <span style={{
+                        <Badge variant="outline" style={{
                           background: "#4a9fd4", color: "#fff",
                           fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
                         }}>
                           {customerMessages.length}
-                        </span>
+                        </Badge>
                       )}
                     </div>
                   ))}
@@ -1331,32 +1531,32 @@ export function Admin({
                     </div>
                     <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 6, overflow: "hidden" }}>
                       <div style={{ overflowX: "auto" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 520 : 0 }}>
-                          <thead><tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>{["Guest", "Package", "Guests Included", "Rooms", "Source"].map((h) => <th key={h} style={{ padding: "12px 14px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
-                          <tbody>
+                        <Table style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 520 : 0 }}>
+                          <TableHeader><TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>{["Guest", "Package", "Guests Included", "Rooms", "Source"].map((h) => <TableHead key={h} style={{ padding: "12px 14px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</TableHead>)}</TableRow></TableHeader>
+                          <TableBody>
                             {liveBookings.map((b, idx) => (
-                              <tr key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#0a0906" : "#080604") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
-                                <td style={{ padding: "12px 14px", color: C.textH, fontSize: 13.5, fontWeight: 600 }}>{b.name}</td>
-                                <td style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5 }}>{b.package}</td>
-                                <td style={{ padding: "12px 14px", color: gold, fontSize: 13.5, fontWeight: 700 }}><Icon name="users" size={12} style={{ marginRight: 5 }} />{b.guests}</td>
-                                <td style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5 }}>{b.rooms.length > 0 ? b.rooms.map((rid) => rooms.find((r) => r.id === rid)?.name ?? `#${rid}`).join(", ") : "—"}</td>
-                                <td style={{ padding: "12px 14px" }}><span style={{ background: b.source === "Walk-In" ? "rgba(74,159,212,0.08)" : "rgba(201,168,76,0.1)", color: b.source === "Walk-In" ? "#4a9fd4" : gold, fontSize: 10.5, padding: "3px 10px", borderRadius: 20, letterSpacing: 1 }}>{b.source ?? "Online"}</span></td>
-                              </tr>
+                              <TableRow key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#0a0906" : "#080604") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
+                                <TableCell style={{ padding: "12px 14px", color: C.textH, fontSize: 13.5, fontWeight: 600 }}>{b.name}</TableCell>
+                                <TableCell style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5 }}>{b.package}</TableCell>
+                                <TableCell style={{ padding: "12px 14px", color: gold, fontSize: 13.5, fontWeight: 700 }}><Icon name="users" size={12} style={{ marginRight: 5 }} />{b.guests}</TableCell>
+                                <TableCell style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5 }}>{b.rooms.length > 0 ? b.rooms.map((rid) => rooms.find((r) => r.id === rid)?.name ?? `#${rid}`).join(", ") : "—"}</TableCell>
+                                <TableCell style={{ padding: "12px 14px" }}><Badge variant="outline" style={{ background: b.source === "Walk-In" ? "rgba(74,159,212,0.08)" : "rgba(201,168,76,0.1)", color: b.source === "Walk-In" ? "#4a9fd4" : gold, fontSize: 10.5, padding: "3px 10px", borderRadius: 20, letterSpacing: 1 }}>{b.source ?? "Online"}</Badge></TableCell>
+                              </TableRow>
                             ))}
                             {liveBookings.length === 0 && (
-                              <tr>
-                                <td colSpan={5} style={{ padding: "30px 20px", textAlign: "center" }}>
+                              <TableRow>
+                                <TableCell colSpan={5} style={{ padding: "30px 20px", textAlign: "center" }}>
                                   <div style={{ color: C.textS, fontSize: 14.5, marginBottom: 6 }}>
                                     No one is in the resort right now.
                                   </div>
                                   <div style={{ color: C.textXS, fontSize: 12.5, lineHeight: 1.6 }}>
                                     {emptyReason}
                                   </div>
-                                </td>
-                              </tr>
+                                </TableCell>
+                              </TableRow>
                             )}
-                          </tbody>
-                        </table>
+                          </TableBody>
+                        </Table>
                       </div>
                     </div>
                   </div>
@@ -1366,33 +1566,33 @@ export function Admin({
               {/* Pending approvals */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                 <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3 }}>PENDING APPROVALS</p>
-                {Paid > 0 && <span style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 11.5, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.15)" }}>{Paid} awaiting</span>}
+                {Paid > 0 && <Badge variant="outline" style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 11.5, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.15)" }}>{Paid} awaiting</Badge>}
               </div>
               <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 6, overflow: "hidden" }}>
                 <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 560 : 0 }}>
-                    <thead><tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>{["ID", "Guest", "Email", "Phone", "Date", "Total", "Status", "Actions"].map((h) => <th key={h} style={{ padding: "12px 14px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
-                    <tbody>
+                  <Table style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 560 : 0 }}>
+                    <TableHeader><TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>{["ID", "Guest", "Email", "Phone", "Date", "Total", "Status", "Actions"].map((h) => <TableHead key={h} style={{ padding: "12px 14px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</TableHead>)}</TableRow></TableHeader>
+                    <TableBody>
                       {bookings.filter((b) => b.status === "Paid").map((b, idx) => (
-                        <tr key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#0a0906" : "#080604") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
-                          <td style={{ padding: "12px 14px", color: gold, fontSize: 12.5, whiteSpace: "nowrap", fontFamily: "monospace" }}>{b.id}</td>
-                          <td style={{ padding: "12px 14px", color: C.textH, fontSize: 13.5 }}>{b.name}</td>
-                          <td style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5 }}>{b.email || "—"}</td>
-                          <td style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.contact || "—"}</td>
-                          <td style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.date}</td>
-                          <td style={{ padding: "12px 14px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</td>
-                          <td style={{ padding: "12px 14px" }}><span style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 10.5, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.2)", letterSpacing: 1 }}>Paid</span></td>
-                          <td style={{ padding: "12px 14px" }}>
+                        <TableRow key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#0a0906" : "#080604") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
+                          <TableCell style={{ padding: "12px 14px", color: gold, fontSize: 12.5, whiteSpace: "nowrap", fontFamily: "monospace" }}>{b.id}</TableCell>
+                          <TableCell style={{ padding: "12px 14px", color: C.textH, fontSize: 13.5 }}>{b.name}</TableCell>
+                          <TableCell style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5 }}>{b.email || "—"}</TableCell>
+                          <TableCell style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.contact || "—"}</TableCell>
+                          <TableCell style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.date}</TableCell>
+                          <TableCell style={{ padding: "12px 14px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</TableCell>
+                          <TableCell style={{ padding: "12px 14px" }}><Badge variant="outline" style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 10.5, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.2)", letterSpacing: 1 }}>Paid</Badge></TableCell>
+                          <TableCell style={{ padding: "12px 14px" }}>
                             <div style={{ display: "flex", gap: 6 }}>
                               <button onClick={() => setDashConfirm({ bookingId: b.id, action: "Confirmed", guestName: b.name })} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.2)", padding: "5px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, whiteSpace: "nowrap", letterSpacing: 1 }}>ACCEPT</button>
                               <button onClick={() => setDashConfirm({ bookingId: b.id, action: "Cancelled", guestName: b.name })} style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "5px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>REJECT</button>
                             </div>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                      {Paid === 0 && <tr><td colSpan={8} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 14.5 }}>No pending bookings.</td></tr>}
-                    </tbody>
-                  </table>
+                      {Paid === 0 && <TableRow><TableCell colSpan={8} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 14.5 }}>No pending bookings.</TableCell></TableRow>}
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
 
@@ -1800,643 +2000,363 @@ export function Admin({
               </div>
 
               {/* ARCHIVE CONFIRM MODAL */}
-              {confirmArchiveMsg && (
-                <div
-                  style={{
-                    position: "fixed",
-                    inset: 0,
-                    background: "rgba(0,0,0,0.8)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    zIndex: 500,
-                    padding: 20,
-                  }}
-                >
-                  <div
-                    style={{
-                      background: isDark ? "#0e0c09" : "#fff",
-                      border: `1px solid ${cBr}`,
-                      borderRadius: 12,
-                      padding: "28px 26px",
-                      width: "100%",
-                      maxWidth: 400,
-                    }}
-                  >
-                    <h3
+              <AlertDialog open={!!confirmArchiveMsg} onOpenChange={(open) => { if (!open) setConfirmArchiveMsg(null); }}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle
                       style={{
                         color: C.textH,
-                        fontFamily:
-                          "'Cormorant Garamond',Georgia,serif",
+                        fontFamily: "'Cormorant Garamond',Georgia,serif",
                         fontSize: 18,
-                        marginBottom: 12,
                         fontWeight: 400,
                       }}
                     >
                       Archive this message?
-                    </h3>
-
-                    <p
-                      style={{
-                        color: C.textS,
-                        fontSize: 14.5,
-                        marginBottom: 22,
-                        lineHeight: 1.7,
-                      }}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription
+                      style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}
                     >
                       From{" "}
                       <strong style={{ color: C.textH }}>
-                        {confirmArchiveMsg.name}
+                        {confirmArchiveMsg?.name}
                       </strong>
-                      : "
-                      {confirmArchiveMsg.message.slice(0, 80)}
-                      {confirmArchiveMsg.message.length > 80
-                        ? "…"
-                        : ""}
-                      "
-                    </p>
+                      : &quot;
+                      {confirmArchiveMsg?.message.slice(0, 80)}
+                      {(confirmArchiveMsg?.message.length ?? 0) > 80 ? "\u2026" : ""}
+                      &quot;
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel
+                      style={{ color: C.textS, borderColor: cBr, padding: 11, height: "auto", fontSize: 12.5, borderRadius: 6 }}
+                    >
+                      CANCEL
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        if (!confirmArchiveMsg) return;
+                        setArchivedMessages((prev) => [...prev, confirmArchiveMsg]);
+                        setCustomerMessages((prev) =>
+                          prev.filter((m) => m.id !== confirmArchiveMsg.id)
+                        );
+                        setConfirmArchiveMsg(null);
+                        toast("Message archived.", "info");
+                      }}
+                      style={{ ...goldBtn, height: "auto" }}
+                    >
+                      ARCHIVE
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
 
-                    <div
+
+              {/* INBOX / ARCHIVE — a real Tabs. The panel below is one layout
+                  fed by two lists, so it is rendered from a single variable
+                  into both TabsContent rather than duplicated: the markup
+                  stays in one place and each list still gets its own
+                  announced tabpanel. */}
+              <Tabs value={csView} onValueChange={(v) => setCsView(v as "inbox" | "archive")}>
+                <TabsList className="mb-5 h-auto gap-2 bg-transparent p-0">
+                  {(["inbox", "archive"] as const).map((v) => (
+                    <TabsTrigger
+                      key={v}
+                      value={v}
+                      className="rounded-full border data-[state=active]:shadow-none"
                       style={{
-                        display: "flex",
-                        gap: 10,
+                        padding: "8px 18px",
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        background: csView === v ? `${gold}18` : "transparent",
+                        color: csView === v ? gold : C.textS,
+                        borderColor: csView === v ? `${gold}55` : cBr,
                       }}
                     >
-                      <button
-                        onClick={() =>
-                          setConfirmArchiveMsg(null)
-                        }
-                        style={{
-                          flex: 1,
-                          background: "transparent",
-                          color: C.textS,
-                          border: `1px solid ${cBr}`,
-                          padding: 11,
-                          fontSize: 12.5,
-                          cursor: "pointer",
-                          borderRadius: 6,
-                        }}
-                      >
-                        CANCEL
-                      </button>
+                      {v === "inbox"
+                        ? `INBOX (${customerMessages.length})`
+                        : `ARCHIVE (${archivedMessages.length})`}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
 
-                      <button
-                        onClick={() => {
-                          setArchivedMessages((prev) => [
-                            ...prev,
-                            confirmArchiveMsg,
-                          ]);
-
-                          setCustomerMessages((prev) =>
-                            prev.filter(
-                              (m) => m.id !== confirmArchiveMsg.id
-                            )
-                          );
-
-                          setConfirmArchiveMsg(null);
-
-                          toast(
-                            "Message archived.",
-                            "info"
-                          );
-                        }}
-                        style={{
-                          ...goldBtn,
-                          flex: 2,
-                        }}
-                      >
-                        ARCHIVE
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-
-              {/* INBOX / ARCHIVE TABS */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  marginBottom: 20,
-                }}
-              >
-                {(["inbox", "archive"] as const).map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setCsView(v)}
-                    style={{
-                      padding: "8px 18px",
-                      fontSize: 12.5,
-                      fontWeight: 700,
-                      borderRadius: 20,
-                      cursor: "pointer",
-                      background:
-                        csView === v
-                          ? `${gold}18`
-                          : "transparent",
-                      color:
-                        csView === v
-                          ? gold
-                          : C.textS,
-                      border: `1px solid ${
-                        csView === v
-                          ? `${gold}55`
-                          : cBr
-                      }`,
-                      letterSpacing: 1,
-                    }}
-                  >
-                    {v.toUpperCase()}{" "}
-
-                    {v === "inbox" &&
-                      customerMessages.length > 0 &&
-                      `(${customerMessages.length})`}
-
-                    {v === "archive" &&
-                      archivedMessages.length > 0 &&
-                      `(${archivedMessages.length})`}
-                  </button>
-                ))}
-              </div>
-
-              {/* EMPTY STATE */}
-              {(
-                csView === "inbox"
-                  ? customerMessages
-                  : archivedMessages
-              ).length === 0 ? (
-                <div
-                  style={{
-                    background: cBg,
-                    border: `1px solid ${cBr}`,
-                    borderRadius: 10,
-                    padding: "52px 20px",
-                    textAlign: "center",
-                    boxShadow: C.shadowCard,
-                  }}
+                <TabsContent value="inbox">{messagesPanel}</TabsContent>
+                <TabsContent value="archive">{messagesPanel}</TabsContent>
+              </Tabs>
+              {/* REPLY MODAL */}
+              <Dialog open={!!replyModal} onOpenChange={(open) => { if (!open) setReplyModal(null); }}>
+                <DialogContent
+                  className="max-h-[90vh] overflow-y-auto sm:max-w-[min(34rem,calc(100%-2rem))]"
+                  style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 14, boxShadow: C.shadowCard }}
                 >
-                  {/* Sized and coloured against the theme rather than left at
-                      the default text colour, so the empty state reads as one
-                      muted unit instead of a hard black mark above grey text. */}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "center",
-                      marginBottom: 14,
-                      color: C.textXS,
-                      opacity: 0.6,
-                    }}
-                  >
-                    <Icon name="message" size={30} strokeWidth={1.25} />
-                  </div>
+                  {replyModal && (
+                    <>
+                      <DialogHeader>
+                        <DialogTitle
+                          style={{
+                            margin: 0,
+                            color: C.textH,
+                            fontSize: 22,
+                            fontWeight: 500,
+                            fontFamily: "'Cormorant Garamond',Georgia,serif",
+                          }}
+                        >
+                          Send Response
+                        </DialogTitle>
+                        <DialogDescription style={{ color: C.textS, fontSize: 13.5 }}>
+                          Replying to {replyModal.name}
+                        </DialogDescription>
+                      </DialogHeader>
 
-                  <p
-                    style={{
-                      color: C.textS,
-                      fontSize: 15,
-                    }}
-                  >
-                    {csView === "inbox"
-                      ? "No new messages."
-                      : "No archived messages."}
-                  </p>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 12,
-                  }}
-                >
-                  {(
-                    csView === "inbox"
-                      ? customerMessages
-                      : archivedMessages
-                  ).map((msg) => (
-                    <div
-                      key={msg.id}
-                      style={{
-                        background: cBg,
-                        border: `1px solid ${cBr}`,
-                        borderRadius: 10,
-                        padding: "20px 22px",
-                        boxShadow: C.shadowCard,
-                      }}
-                    >
+                      {/* MODE SELECT */}
                       <div
                         style={{
                           display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "flex-start",
-                          marginBottom: 10,
+                          gap: 10,
+                          marginBottom: 16,
                         }}
                       >
-                        <div>
-                          <div
-                            style={{
-                              color: C.textH,
-                              fontSize: 15,
-                              fontWeight: 600,
-                            }}
-                          >
-                            {msg.name}
-                          </div>
-
-                          <div
-                            style={{
-                              color: C.textXS,
-                              fontSize: 12.5,
-                            }}
-                          >
-                            {msg.email} · {msg.date}
-                          </div>
-                        </div>
-
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                          }}
-                        >
-                          {/* TYPE BADGE */}
-                          <span
-                            style={{
-                              background: `${gold}18`,
-                              color: gold,
-                              fontSize: 10.5,
-                              padding: "3px 8px",
-                              borderRadius: 20,
-                              border: `1px solid ${gold}44`,
-                              letterSpacing: 1,
-                            }}
-                          >
-                            {msg.type.toUpperCase()}
-                          </span>
-                          {/* REPLY BUTTON */}
+                        {(["automated", "manual"] as const).map((type) => (
                           <button
+                            key={type}
                             onClick={() => {
-                              setReplyModal(msg);
+                              setReplyMode(type);
 
-                              setReplyMode("automated");
-
-                              setReplyMessage(
-                                automatedReplies[
-                                  msg.type as keyof typeof automatedReplies
-                                ] || ""
-                              );
+                              if (type === "automated") {
+                                setReplyMessage(
+                                  automatedReplies[
+                                    replyModal.type as keyof typeof automatedReplies
+                                  ] || ""
+                                );
+                              } else {
+                                setReplyMessage("");
+                              }
                             }}
                             style={{
-                              background: `${gold}18`,
-                              border: `1px solid ${gold}44`,
-                              color: gold,
-                              padding: "4px 10px",
-                              fontSize: 11.5,
+                              padding: "8px 14px",
+                              borderRadius: 20,
                               cursor: "pointer",
-                              borderRadius: 4,
+                              fontSize: 12.5,
+                              fontWeight: 700,
+                              letterSpacing: 1,
+                              background:
+                                replyMode === type
+                                  ? `${gold}18`
+                                  : "transparent",
+                              color:
+                                replyMode === type
+                                  ? gold
+                                  : C.textS,
+                              border: `1px solid ${
+                                replyMode === type
+                                  ? `${gold}55`
+                                  : cBr
+                              }`,
                             }}
                           >
-                            REPLY
+                            {type.toUpperCase()}
                           </button>
-
-                          {/* ARCHIVE BUTTON */}
-                          {csView === "inbox" && (
-                            <button
-                              onClick={() =>
-                                setConfirmArchiveMsg(msg)
-                              }
-                              style={{
-                                background: "transparent",
-                                border: `1px solid ${cBr}`,
-                                color: C.textXS,
-                                padding: "4px 10px",
-                                fontSize: 11.5,
-                                cursor: "pointer",
-                                borderRadius: 4,
-                              }}
-                            >
-                              ARCHIVE
-                            </button>
-                          )}
-                        </div>
+                        ))}
                       </div>
 
-                      <p
-                        style={{
-                          color: C.textB,
-                          fontSize: 14.5,
-                          lineHeight: 1.7,
-                          margin: 0,
-                        }}
-                      >
-                        {msg.message}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {/* REPLY MODAL */}
-              {replyModal && (
-                <div
-                  style={{
-                    position: "fixed",
-                    inset: 0,
-                    background: "rgba(0,0,0,0.75)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    zIndex: 600,
-                    padding: 20,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "100%",
-                      maxWidth: 520,
-                      background: cBg,
-                      border: `1px solid ${cBr}`,
-                      borderRadius: 14,
-                      padding: "24px",
-                      boxShadow: C.shadowCard,
-                    }}
-                  >
-                    <div style={{ marginBottom: 18 }}>
-                      <h3
-                        style={{
-                          margin: 0,
-                          color: C.textH,
-                          fontSize: 22,
-                          fontWeight: 500,
-                          fontFamily:
-                            "'Cormorant Garamond',Georgia,serif",
-                        }}
-                      >
-                        Send Response
-                      </h3>
-
-                      <p
-                        style={{
-                          color: C.textS,
-                          fontSize: 13.5,
-                          marginTop: 6,
-                          marginBottom: 0,
-                        }}
-                      >
-                        Replying to {replyModal.name}
-                      </p>
-                    </div>
-
-                    {/* MODE SELECT */}
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: 10,
-                        marginBottom: 16,
-                      }}
-                    >
-                      {(["automated", "manual"] as const).map((type) => (
-                        <button
-                          key={type}
-                          onClick={() => {
-                            setReplyMode(type);
-
-                            if (type === "automated") {
-                              setReplyMessage(
-                                automatedReplies[
-                                  replyModal.type as keyof typeof automatedReplies
-                                ] || ""
-                              );
-                            } else {
-                              setReplyMessage("");
-                            }
-                          }}
+                      {/* EMAIL */}
+                      <div style={{ marginBottom: 14 }}>
+                        <Label
+                          htmlFor="reply-email"
                           style={{
-                            padding: "8px 14px",
-                            borderRadius: 20,
-                            cursor: "pointer",
-                            fontSize: 12.5,
-                            fontWeight: 700,
-                            letterSpacing: 1,
-                            background:
-                              replyMode === type
-                                ? `${gold}18`
-                                : "transparent",
-                            color:
-                              replyMode === type
-                                ? gold
-                                : C.textS,
-                            border: `1px solid ${
-                              replyMode === type
-                                ? `${gold}55`
-                                : cBr
-                            }`,
+                            display: "block",
+                            color: C.textXS,
+                            fontSize: 11.5,
+                            marginBottom: 6,
+                            letterSpacing: 2,
                           }}
                         >
-                          {type.toUpperCase()}
-                        </button>
-                      ))}
-                    </div>
+                          CUSTOMER EMAIL
+                        </Label>
 
-                    {/* EMAIL */}
-                    <div style={{ marginBottom: 14 }}>
-                      <Label
-                        htmlFor="reply-email"
-                        style={{
-                          display: "block",
-                          color: C.textXS,
-                          fontSize: 11.5,
-                          marginBottom: 6,
-                          letterSpacing: 2,
-                        }}
-                      >
-                        CUSTOMER EMAIL
-                      </Label>
+                        <Input
+                          id="reply-email"
+                          value={replyModal.email}
+                          disabled
+                          style={{
+                            padding: "12px 14px",
+                            height: "auto",
+                            borderRadius: 8,
+                            border: `1px solid ${cBr}`,
+                            background: "transparent",
+                            color: C.textS,
+                            fontSize: 14.5,
+                          }}
+                        />
+                      </div>
 
-                      <Input
-                        id="reply-email"
-                        value={replyModal.email}
-                        disabled
-                        style={{
-                          padding: "12px 14px",
-                          height: "auto",
-                          borderRadius: 8,
-                          border: `1px solid ${cBr}`,
-                          background: "transparent",
-                          color: C.textS,
-                          fontSize: 14.5,
-                        }}
-                      />
-                    </div>
+                      {/* MESSAGE */}
+                      <div style={{ marginBottom: 20 }}>
+                        <Label
+                          htmlFor="reply-message"
+                          style={{
+                            display: "block",
+                            color: C.textXS,
+                            fontSize: 11.5,
+                            marginBottom: 6,
+                            letterSpacing: 2,
+                          }}
+                        >
+                          MESSAGE
+                        </Label>
 
-                    {/* MESSAGE */}
-                    <div style={{ marginBottom: 20 }}>
-                      <Label
-                        htmlFor="reply-message"
-                        style={{
-                          display: "block",
-                          color: C.textXS,
-                          fontSize: 11.5,
-                          marginBottom: 6,
-                          letterSpacing: 2,
-                        }}
-                      >
-                        MESSAGE
-                      </Label>
-
-                      <Textarea
-                        id="reply-message"
-                        value={replyMessage}
-                        onChange={(e) =>
-                          setReplyMessage(e.target.value)
-                        }
-                        rows={6}
-                        style={{
-                          resize: "none",
-                          height: "auto",
-                          padding: "14px",
-                          borderRadius: 8,
-                          border: `1px solid ${cBr}`,
-                          background: "transparent",
-                          color: C.textB,
-                          fontSize: 14.5,
-                          outline: "none",
-                          lineHeight: 1.7,
-                        }}
-                      />
-                    </div>
-
-                    {/* ACTIONS */}
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        gap: 10,
-                      }}
-                    >
-                      <button
-                        onClick={() => setReplyModal(null)}
-                        style={{
-                          background: "transparent",
-                          border: `1px solid ${cBr}`,
-                          color: C.textS,
-                          padding: "10px 16px",
-                          borderRadius: 6,
-                          cursor: "pointer",
-                          fontSize: 12.5,
-                        }}
-                      >
-                        CANCEL
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          window.location.href = `mailto:${replyModal.email}?subject=Customer Service Response&body=${encodeURIComponent(
-                            replyMessage
-                          )}`;
-
-                          setReplyModal(null);
-                        }}
-                        style={{
-                          ...goldBtn,
-                          padding: "10px 18px",
-                        }}
-                      >
-                        SEND EMAIL
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+                        <Textarea
+                          id="reply-message"
+                          value={replyMessage}
+                          onChange={(e) =>
+                            setReplyMessage(e.target.value)
+                          }
+                          rows={6}
+                          style={{
+                            resize: "none",
+                            height: "auto",
+                            padding: "14px",
+                            borderRadius: 8,
+                            border: `1px solid ${cBr}`,
+                            background: "transparent",
+                            color: C.textB,
+                            fontSize: 14.5,
+                            outline: "none",
+                            lineHeight: 1.7,
+                          }}
+                        />
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setReplyModal(null)}
+                          style={{ borderColor: cBr, color: C.textS, padding: "10px 16px", height: "auto", borderRadius: 6, fontSize: 12.5 }}
+                        >
+                          CANCEL
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            window.location.href = `mailto:${replyModal.email}?subject=Customer Service Response&body=${encodeURIComponent(
+                              replyMessage
+                            )}`;
+                            setReplyModal(null);
+                          }}
+                          style={{ ...goldBtn, padding: "10px 18px", height: "auto" }}
+                        >
+                          SEND EMAIL
+                        </Button>
+                      </DialogFooter>
+                    </>
+                  )}
+                </DialogContent>
+              </Dialog>
             </div>
           )}
         </div>
       </div>
 
       {/* ── Dashboard Accept / Reject Confirm Modal (#3) ── */}
-      {dashConfirm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, padding: 20 }} role="dialog" aria-modal="true" aria-labelledby="dash-confirm-title">
-          <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.35)" : "rgba(229,85,85,0.35)"}`, borderRadius: 14, padding: mob ? "28px 20px" : "36px 32px", width: "100%", maxWidth: 410, boxShadow: "0 40px 100px rgba(0,0,0,0.7)" }}>
-            {/* Icon */}
-            <div style={{ width: 56, height: 56, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, color: dashConfirm.action === "Confirmed" ? "#4caf50" : "#e55", background: dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.1)" : "rgba(229,85,85,0.1)", border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}` }}>
-              <Icon name={dashConfirm.action === "Confirmed" ? "check" : "x"} size={20} />
-            </div>
+      <AlertDialog open={!!dashConfirm} onOpenChange={(open) => { if (!open) setDashConfirm(null); }}>
+        <AlertDialogContent className="sm:max-w-[min(30rem,calc(100%-2rem))]">
+          {dashConfirm && (
+            <>
+              <div style={{ width: 56, height: 56, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.1)" : "rgba(229,85,85,0.1)", border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}`, color: dashConfirm.action === "Confirmed" ? "#4caf50" : "#e55" }}>
+                <Icon name={dashConfirm.action === "Confirmed" ? "check" : "x"} size={20} />
+              </div>
 
-            <h3 id="dash-confirm-title" style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 10 }}>
-              {dashConfirm.action === "Confirmed" ? "Accept this booking?" : "Reject this booking?"}
-            </h3>
-            <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7, marginBottom: 18 }}>
-              {dashConfirm.action === "Confirmed"
-                ? <>You are about to <strong style={{ color: "#4caf50" }}>accept</strong> the booking for <strong style={{ color: C.textH }}>{dashConfirm.guestName}</strong>. This will confirm their reservation.</>
-                : <>You are about to <strong style={{ color: "#e55" }}>reject</strong> the booking for <strong style={{ color: C.textH }}>{dashConfirm.guestName}</strong>. This cannot be undone.</>
-              }
-            </p>
+              <AlertDialogHeader>
+                <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400 }}>
+                  {dashConfirm.action === "Confirmed" ? "Accept this booking?" : "Reject this booking?"}
+                </AlertDialogTitle>
+                <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>
+                  {dashConfirm.action === "Confirmed"
+                    ? <>You are about to <strong style={{ color: "#4caf50" }}>accept</strong> the booking for <strong style={{ color: C.textH }}>{dashConfirm.guestName}</strong>.</>
+                    : <>You are about to <strong style={{ color: "#e55" }}>reject</strong> the booking for <strong style={{ color: C.textH }}>{dashConfirm.guestName}</strong>.</>
+                  }
+                </AlertDialogDescription>
+              </AlertDialogHeader>
 
-            {/* Warning callout */}
-            <div style={{ background: dashConfirm.action === "Confirmed" ? (isDark ? "rgba(76,175,80,0.06)" : "rgba(76,175,80,0.05)") : (isDark ? "rgba(229,85,85,0.06)" : "rgba(229,85,85,0.04)"), border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.2)" : "rgba(229,85,85,0.15)"}`, borderRadius: 8, padding: "11px 14px", marginBottom: 22, display: "flex", gap: 8 }}>
-              <Icon name={dashConfirm.action === "Confirmed" ? "check-circle" : "alert"} size={15} />
-              <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
-                {dashConfirm.action === "Confirmed"
-                  ? "The guest will receive a confirmation email and their booking status will be updated to 'Confirmed'."
-                  : "The guest will receive a cancellation email and their booking status will be updated to 'Cancelled'."
-                }
-              </span>
-            </div>
+              {/* Warning callout */}
+              <div style={{ background: dashConfirm.action === "Confirmed" ? (isDark ? "rgba(76,175,80,0.06)" : "rgba(76,175,80,0.05)") : (isDark ? "rgba(229,85,85,0.06)" : "rgba(229,85,85,0.05)"), border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.2)" : "rgba(229,85,85,0.2)"}`, borderRadius: 8, padding: "12px 14px", display: "flex", gap: 10, alignItems: "flex-start", color: dashConfirm.action === "Confirmed" ? "#4caf50" : "#e55" }}>
+                <Icon name={dashConfirm.action === "Confirmed" ? "check-circle" : "alert"} size={15} />
+                <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
+                  {dashConfirm.action === "Confirmed"
+                    ? "The guest will receive a confirmation email and their booking status will be updated to 'Confirmed'."
+                    : "The guest will receive a cancellation email and their booking status will be updated to 'Cancelled'."
+                  }
+                </span>
+              </div>
 
-            <div style={{ borderTop: `1px solid ${cBr}`, marginBottom: 18 }} />
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setDashConfirm(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "12px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 8, letterSpacing: 1 }}>
-                GO BACK
-              </button>
-              <button
-                onClick={() => {
-                  updateStatus(dashConfirm.bookingId, dashConfirm.action);
-                  if (dashConfirm.action === "Confirmed") toast(`Booking accepted for ${dashConfirm.guestName}.`, "success");
-                  else toast(`Booking rejected for ${dashConfirm.guestName}.`, "warning");
-                  setDashConfirm(null);
-                }}
-                style={{ flex: 2, padding: "12px 16px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", borderRadius: 8, letterSpacing: 2, background: dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.12)" : "rgba(229,85,85,0.10)", color: dashConfirm.action === "Confirmed" ? "#4caf50" : "#e55", border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}` }}
-              >
-                {dashConfirm.action === "Confirmed" ? "YES, ACCEPT" : "YES, REJECT"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              <Separator />
+              <AlertDialogFooter>
+                <AlertDialogCancel style={{ color: C.textS, borderColor: cBr, padding: "12px 16px", height: "auto", fontSize: 12.5, borderRadius: 8 }}>
+                  GO BACK
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    updateStatus(dashConfirm.bookingId, dashConfirm.action);
+                    if (dashConfirm.action === "Confirmed") toast(`Booking accepted for ${dashConfirm.guestName}.`, "success");
+                    else toast(`Booking rejected for ${dashConfirm.guestName}.`, "warning");
+                    setDashConfirm(null);
+                  }}
+                  style={{ padding: "12px 16px", height: "auto", fontSize: 12.5, fontWeight: 700, borderRadius: 8, letterSpacing: 2, background: dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.12)" : "rgba(229,85,85,0.10)", color: dashConfirm.action === "Confirmed" ? "#4caf50" : "#e55", border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}` }}
+                >
+                  {dashConfirm.action === "Confirmed" ? "YES, ACCEPT" : "YES, REJECT"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Logout Confirm */}
-      {showLogoutConfirm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, padding: 20 }}>
-          <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: `1px solid ${cBr}`, borderRadius: 12, padding: "32px 28px", width: "100%", maxWidth: 380, boxShadow: "0 40px 100px rgba(0,0,0,0.7)" }}>
-            <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.2)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, color: "#e55" }}><Icon name="lock" size={20} /></div>
-            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400, marginBottom: 8 }}>Sign out?</h3>
-            <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7, marginBottom: 24 }}>You will be returned to the main site.</p>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowLogoutConfirm(false)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>CANCEL</button>
-              <button onClick={() => { setShowLogoutConfirm(false); onLogout(); toast("Signed out.", "info"); }} style={{ flex: 2, background: isDark ? "rgba(255,255,255,0.04)" : "#f5f0e8", color: C.textH, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", borderRadius: 6, letterSpacing: 2 }}>YES, SIGN OUT</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AlertDialog open={showLogoutConfirm} onOpenChange={(open) => { if (!open) setShowLogoutConfirm(false); }}>
+        <AlertDialogContent>
+          <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#e55" }}><Icon name="lock" size={20} /></div>
+          <AlertDialogHeader>
+            <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400 }}>Sign out?</AlertDialogTitle>
+            <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>You will be returned to the main site.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel style={{ color: C.textS, borderColor: cBr, padding: "11px 16px", height: "auto", fontSize: 12.5, borderRadius: 6, letterSpacing: 1 }}>CANCEL</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setShowLogoutConfirm(false); onLogout(); toast("Signed out.", "info"); }}
+              style={{ background: isDark ? "rgba(255,255,255,0.04)" : "#f5f0e8", color: C.textH, border: `1px solid ${cBr}`, padding: "11px 16px", height: "auto", fontSize: 12.5, fontWeight: 700, borderRadius: 6, letterSpacing: 2 }}
+            >
+              YES, SIGN OUT
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Remove Room Confirm */}
-      {confirmRemoveRoom && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, padding: 20 }}>
-          <div style={{ background: isDark ? "linear-gradient(160deg,#0e0c09,#0a0806)" : "#fff", border: "1px solid rgba(229,85,85,0.22)", borderRadius: 12, padding: "28px 26px", width: "100%", maxWidth: 400, boxShadow: "0 40px 100px rgba(0,0,0,0.7)" }}>
-            {confirmRemoveRoom.img && <img loading="lazy" decoding="async" src={confirmRemoveRoom.img} alt={confirmRemoveRoom.name} style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 8, marginBottom: 18 }} />}
-            <div style={{ width: 50, height: 50, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.2)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16, color: "#e55" }}><Icon name="bed" size={22} /></div>
-            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, marginBottom: 8 }}>Remove this room?</h3>
-            <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7, marginBottom: 6 }}><strong style={{ color: C.textH }}>{confirmRemoveRoom.name}</strong> will be permanently removed from the system.</p>
-            <p style={{ color: "rgba(229,85,85,0.75)", fontSize: 13.5, marginBottom: 22 }}><Icon name="alert" size={12} style={{ marginRight: 5 }} />This action cannot be undone.</p>
-            <div style={{ borderTop: `1px solid ${cBr}`, marginBottom: 18 }} />
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setConfirmRemoveRoom(null)} style={{ flex: 1, background: "transparent", color: C.textS, border: `1px solid ${cBr}`, padding: "11px 16px", fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>CANCEL</button>
-              <button onClick={() => { deleteRoom(confirmRemoveRoom.id); setConfirmRemoveRoom(null); }} style={{ flex: 2, background: "rgba(229,85,85,0.10)", color: "#e55", border: "1px solid rgba(229,85,85,0.25)", padding: "11px 16px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", borderRadius: 6, letterSpacing: 2 }}>YES, REMOVE</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AlertDialog open={!!confirmRemoveRoom} onOpenChange={(open) => { if (!open) setConfirmRemoveRoom(null); }}>
+        <AlertDialogContent>
+          {confirmRemoveRoom && (
+            <>
+              {confirmRemoveRoom.img && <img loading="lazy" decoding="async" src={confirmRemoveRoom.img} alt={confirmRemoveRoom.name} style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 8 }} />}
+              <div style={{ width: 50, height: 50, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#e55" }}><Icon name="bed" size={22} /></div>
+              <AlertDialogHeader>
+                <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400 }}>Remove this room?</AlertDialogTitle>
+                <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>
+                  <strong style={{ color: C.textH }}>{confirmRemoveRoom.name}</strong> will be permanently removed from the system.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <p style={{ color: "rgba(229,85,85,0.75)", fontSize: 13.5, margin: 0 }}><Icon name="alert" size={12} style={{ marginRight: 5 }} />This action cannot be undone.</p>
+              <Separator />
+              <AlertDialogFooter>
+                <AlertDialogCancel style={{ color: C.textS, borderColor: cBr, padding: "11px 16px", height: "auto", fontSize: 12.5, borderRadius: 6, letterSpacing: 1 }}>CANCEL</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => { deleteRoom(confirmRemoveRoom.id); setConfirmRemoveRoom(null); }}
+                  style={{ background: "rgba(229,85,85,0.10)", color: "#e55", border: "1px solid rgba(229,85,85,0.25)", padding: "11px 16px", height: "auto", fontSize: 12.5, fontWeight: 700, borderRadius: 6, letterSpacing: 2 }}
+                >
+                  YES, REMOVE
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Add/Edit Room — landscape: the image preview and its picker sit in
           their own column beside the fields, instead of pushing four inputs

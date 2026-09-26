@@ -10,6 +10,13 @@ import { useState } from "react";
 import { srcSetFor, SIZES } from "@/lib/img";
 import { Icon } from "@/components/common/Icon";
 import { Reveal } from "@/components/common/Reveal";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface RoomsPageProps {
   setPage: (p: string) => void;
@@ -165,78 +172,67 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
         </div>
       </div>
 
-      {/* MODAL */}
-      {activeRoom && (
-  <div
-    onClick={() => setActiveRoom(null)}
-    style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.7)",
-      backdropFilter: "blur(10px)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 999,
-      animation: "fadeIn .3s ease",
-    }}
-  >
-    <div
-      onClick={(e) => e.stopPropagation()}
-      style={{
-        width: mob ? "92%" : 720,
-        borderRadius: 16,
-        overflow: "hidden",
-        background: "rgba(18,16,10,0.95)",
-        border: `1px solid ${gold}`,
-        boxShadow: "0 30px 90px rgba(0,0,0,0.7)",
-        animation: "scaleIn .35s ease",
-      }}
-    >
-      <img
-        loading="lazy" decoding="async"
-        src={activeRoom.img}
-        srcSet={srcSetFor(activeRoom.img)}
-        sizes={SIZES.modal}
-        alt={activeRoom.name}
-        style={{ width: "100%", height: 260, objectFit: "cover" }}
-      />
+      {/* MODAL — landscape, matching the package modals: the photo holds one
+          column and the room's details hold the other. Radix supplies the
+          portal, focus trap, Escape and a close button, none of which the
+          hand-rolled overlay had. */}
+      <Dialog open={!!activeRoom} onOpenChange={(open) => { if (!open) setActiveRoom(null); }}>
+        <DialogContent className="max-h-[92vh] gap-0 overflow-hidden p-0 sm:max-w-[min(52rem,calc(100%-2rem))]">
+          {activeRoom && (
+            <div className="grid max-h-[92vh] md:grid-cols-2">
+              <div className="relative flex flex-col overflow-hidden bg-black/20">
+                <img
+                  loading="lazy" decoding="async"
+                  src={activeRoom.img}
+                  srcSet={srcSetFor(activeRoom.img)}
+                  sizes={SIZES.modal}
+                  alt={activeRoom.name}
+                  style={{ width: "100%", flex: 1, minHeight: mob ? 200 : 260, objectFit: "cover" }}
+                />
+              </div>
 
-      <div style={{ padding: 24 }}>
-        <h2 style={{
-          fontFamily: "'Cormorant Garamond',Georgia,serif",
-          fontSize: 26,
-          color: "#fff",
-          marginBottom: 6
-        }}>
-          {activeRoom.name}
-        </h2>
+              <div className="overflow-y-auto max-h-[92vh]" style={{ padding: 24, background: "rgba(18,16,10,0.95)" }}>
+                <DialogTitle asChild>
+                  <h2 style={{
+                    fontFamily: "'Cormorant Garamond',Georgia,serif",
+                    fontSize: 26,
+                    color: "#fff",
+                    marginBottom: 6,
+                    fontWeight: 400
+                  }}>
+                    {activeRoom.name}
+                  </h2>
+                </DialogTitle>
 
-        <p style={{ color: gold, fontSize: 14.5, marginBottom: 10 }}>
-          <Icon name="bed" size={13} style={{ marginRight: 5 }} />{activeRoom.beds}
-        </p>
+                <p style={{ color: gold, fontSize: 14.5, marginBottom: 10 }}>
+                  <Icon name="bed" size={13} style={{ marginRight: 5 }} />{activeRoom.beds}
+                </p>
 
-        <p style={{ color: "#ccc", fontSize: 15, lineHeight: 1.7 }}>
-          {activeRoom.desc}
-        </p>
+                <DialogDescription asChild>
+                  <p style={{ color: "#ccc", fontSize: 15, lineHeight: 1.7 }}>
+                    {activeRoom.desc}
+                  </p>
+                </DialogDescription>
 
-        <button
-          className="sw-btn"
-          onClick={() => onAddToBooking(activeRoom.id)}
-          style={{
-            ...outBtn,
-            width: "100%",
-            marginTop: 20,
-            padding: "13px",
-            borderRadius: 8,
-          }}
-        >
-          ADD TO BOOKING
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+                <Button
+                  className="sw-btn"
+                  onClick={() => onAddToBooking(activeRoom.id)}
+                  style={{
+                    ...outBtn,
+                    width: "100%",
+                    marginTop: 20,
+                    padding: "13px",
+                    height: "auto",
+                    borderRadius: 8,
+                  }}
+                >
+                  ADD TO BOOKING
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* STYLES */}
       <style jsx>{`
