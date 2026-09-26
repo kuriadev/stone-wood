@@ -31,6 +31,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface InventoryTabProps {
   inventory: InventoryItem[];
@@ -258,44 +267,44 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
           </p>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table
+            <Table
               style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 520 : undefined }}
               aria-label="Inventory items"
             >
-              <thead>
-                <tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
+              <TableHeader>
+                <TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
                   {["Category", "Item Name", "Qty", "Unit", "Min", "Status", "Notes", "Actions"].map((h) => (
-                    <th key={h} scope="col" style={{ padding: "11px 14px", fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap", fontWeight: "600", color: C.textXS }}>
+                    <TableHead key={h} scope="col" style={{ padding: "11px 14px", fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap", fontWeight: "600", color: C.textXS }}>
                       {h}
-                    </th>
+                    </TableHead>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {filtered.map((item, idx) => {
                   const low = item.qty <= item.minQty;
                   const cc  = catC[item.category] || "#888";
                   return (
-                    <tr
+                    <TableRow
                       key={item.id}
                       style={{ borderBottom: `1px solid ${cBr}`, background: rowBg(idx) }}
                     >
                       {/* Category */}
-                      <td style={{ padding: "11px 14px", whiteSpace: "nowrap" }}>
+                      <TableCell style={{ padding: "11px 14px", whiteSpace: "nowrap" }}>
                         <span
                           style={{ fontSize: 10.5, padding: "3px 8px", borderRadius: 20, letterSpacing: 1, fontWeight: "700", whiteSpace: "nowrap", background: `${cc}18`, color: cc, border: `1px solid ${cc}44` }}
                         >
                           {item.category.toUpperCase()}
                         </span>
-                      </td>
+                      </TableCell>
 
                       {/* Name */}
-                      <td style={{ padding: "11px 14px", color: C.textH, fontSize: 13.5, fontWeight: 500 }}>
+                      <TableCell style={{ padding: "11px 14px", color: C.textH, fontSize: 13.5, fontWeight: 500 }}>
                         {item.name}
-                      </td>
+                      </TableCell>
 
                       {/* Qty controls */}
-                      <td style={{ padding: "11px 14px" }}>
+                      <TableCell style={{ padding: "11px 14px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <button
                             style={{ width: 22, height: 22, borderRadius: 3, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: "0", background: isDark ? "#161616" : "#eee", border: `1px solid ${cBr}`, color: C.textS }}
@@ -318,33 +327,33 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
                             +
                           </button>
                         </div>
-                      </td>
+                      </TableCell>
 
                       {/* Unit */}
-                      <td style={{ padding: "11px 14px", color: C.textS, fontSize: 12.5 }}>
+                      <TableCell style={{ padding: "11px 14px", color: C.textS, fontSize: 12.5 }}>
                         {item.unit}
-                      </td>
+                      </TableCell>
 
                       {/* Min qty */}
-                      <td style={{ padding: "11px 14px", color: C.textS, fontSize: 12.5 }}>
+                      <TableCell style={{ padding: "11px 14px", color: C.textS, fontSize: 12.5 }}>
                         {item.minQty}
-                      </td>
+                      </TableCell>
 
                       {/* Status */}
-                      <td style={{ padding: "11px 14px" }}>
+                      <TableCell style={{ padding: "11px 14px" }}>
                         {low
-                          ? <span style={{ background: "rgba(229, 85, 85, 0.08)", color: "#e55", fontSize: 10.5, padding: "3px 9px", borderRadius: 20, border: "1px solid rgba(229, 85, 85, 0.2)", letterSpacing: 1 }}>LOW STOCK</span>
-                          : <span style={{ background: "rgba(76, 175, 80, 0.08)", color: "#4caf50", fontSize: 10.5, padding: "3px 9px", borderRadius: 20, border: "1px solid rgba(76, 175, 80, 0.2)", letterSpacing: 1 }}>OK</span>
+                          ? <Badge variant="outline" style={{ background: "rgba(229, 85, 85, 0.08)", color: "#e55", fontSize: 10.5, padding: "3px 9px", borderRadius: 20, border: "1px solid rgba(229, 85, 85, 0.2)", letterSpacing: 1 }}>LOW STOCK</Badge>
+                          : <Badge variant="outline" style={{ background: "rgba(76, 175, 80, 0.08)", color: "#4caf50", fontSize: 10.5, padding: "3px 9px", borderRadius: 20, border: "1px solid rgba(76, 175, 80, 0.2)", letterSpacing: 1 }}>OK</Badge>
                         }
-                      </td>
+                      </TableCell>
 
                       {/* Notes */}
-                      <td style={{ padding: "11px 14px", color: C.textS, fontSize: 12.5, maxWidth: 150 }}>
+                      <TableCell style={{ padding: "11px 14px", color: C.textS, fontSize: 12.5, maxWidth: 150 }}>
                         {item.notes || "—"}
-                      </td>
+                      </TableCell>
 
                       {/* Actions */}
-                      <td style={{ padding: "11px 14px" }}>
+                      <TableCell style={{ padding: "11px 14px" }}>
                         <div style={{ display: "flex", gap: 5 }}>
                           <button
                             style={{ background: "transparent", padding: "4px 8px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, color: C.textS, border: `1px solid ${cBr}` }}
@@ -362,12 +371,12 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
                             <Icon name="trash" size={13} />
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
@@ -389,33 +398,33 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
             </span>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table
+            <Table
               style={{ width: "100%", borderCollapse: "collapse", minWidth: 420 }}
               aria-label="Archived inventory items"
             >
-              <thead>
-                <tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
+              <TableHeader>
+                <TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
                   {["Category", "Item Name", "Qty", "Unit", "Deleted On", "Action"].map((h) => (
-                    <th key={h} scope="col" style={{ padding: "11px 14px", fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap", fontWeight: "600", color: C.textXS }}>
+                    <TableHead key={h} scope="col" style={{ padding: "11px 14px", fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap", fontWeight: "600", color: C.textXS }}>
                       {h}
-                    </th>
+                    </TableHead>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {deleted.map((item, idx) => (
-                  <tr
+                  <TableRow
                     key={item.id}
                     style={{ borderBottom: `1px solid ${cBr}`, background: rowBg(idx), opacity: 0.8 }}
                   >
-                    <td style={{ padding: "10px 14px", fontSize: 12.5, color: C.textS }}>{item.category}</td>
-                    <td style={{ padding: "10px 14px", fontSize: 13.5, color: C.textS }}>{item.name}</td>
-                    <td style={{ padding: "10px 14px", fontSize: 12.5, color: C.textS }}>{item.qty}</td>
-                    <td style={{ padding: "10px 14px", fontSize: 12.5, color: C.textS }}>{item.unit}</td>
-                    <td style={{ padding: "10px 14px", fontSize: 12.5, color: C.textXS }}>
+                    <TableCell style={{ padding: "10px 14px", fontSize: 12.5, color: C.textS }}>{item.category}</TableCell>
+                    <TableCell style={{ padding: "10px 14px", fontSize: 13.5, color: C.textS }}>{item.name}</TableCell>
+                    <TableCell style={{ padding: "10px 14px", fontSize: 12.5, color: C.textS }}>{item.qty}</TableCell>
+                    <TableCell style={{ padding: "10px 14px", fontSize: 12.5, color: C.textS }}>{item.unit}</TableCell>
+                    <TableCell style={{ padding: "10px 14px", fontSize: 12.5, color: C.textXS }}>
                       {(item as InventoryItem & { deletedAt?: string }).deletedAt}
-                    </td>
-                    <td style={{ padding: "10px 14px", fontSize: 12.5 }}>
+                    </TableCell>
+                    <TableCell style={{ padding: "10px 14px", fontSize: 12.5 }}>
                       <button
                         style={{ background: "rgba(76, 175, 80, 0.08)", color: "#4caf50", border: "1px solid rgba(76, 175, 80, 0.25)", padding: "4px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}
                         onClick={() => restoreItem(item)}
@@ -423,11 +432,11 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
                       >
                         RESTORE
                       </button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}

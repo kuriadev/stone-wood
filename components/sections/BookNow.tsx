@@ -50,6 +50,7 @@
   import { Separator } from "@/components/ui/separator";
   import { Input } from "@/components/ui/input";
   import { Textarea } from "@/components/ui/textarea";
+  import { Badge } from "@/components/ui/badge";
 
   interface BookNowProps {
     /** Real bookings (personal details stripped) — used only to show which
@@ -522,7 +523,7 @@
                       onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${gold}66`; e.currentTarget.style.boxShadow = isDark ? "0 8px 24px rgba(0,0,0,0.4)" : "0 8px 24px rgba(100,70,10,0.1)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}
                     >
-                      {opt.badge && <span style={{ position: "absolute", top: 12, right: 12, background: `${gold}22`, color: gold, fontSize: 9.5, padding: "3px 8px", borderRadius: 20, letterSpacing: 1, border: `1px solid ${gold}44` }}>{opt.badge}</span>}
+                      {opt.badge && <Badge variant="outline" style={{ position: "absolute", top: 12, right: 12, background: `${gold}22`, color: gold, fontSize: 9.5, padding: "3px 8px", borderRadius: 20, letterSpacing: 1, border: `1px solid ${gold}44` }}>{opt.badge}</Badge>}
                       <div style={{ marginBottom: 12, color: gold, lineHeight: 0 }}><Icon name={opt.icon as IconName} size={30} strokeWidth={1.5} /></div>
                       <h4 style={{ color: C.textH, fontSize: 17, fontFamily: "'Cormorant Garamond',Georgia,serif", marginBottom: 6 }}>{SLOTS[opt.id].label}</h4>
                       <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>{opt.sub}</p>

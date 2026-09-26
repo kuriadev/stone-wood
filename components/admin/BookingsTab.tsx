@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { gold, goldBtn } from "@/lib/styles";
 import { fmt, getBookingSlot } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
@@ -32,6 +33,15 @@ import { OVERTIME_RATE } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
 import { Icon } from "@/components/common/Icon";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface BookingsTabProps {
   bookings: Booking[];
@@ -121,187 +131,194 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }:
 
   return (
     <div>
-      {/* Active / Archived view toggle */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {(["active", "archived"] as const).map((v) => (
-          <button
-            key={v}
-            onClick={() => setBView(v)}
-            style={{ padding: "8px 18px", fontSize: 12.5, fontWeight: 700, borderRadius: 20, cursor: "pointer", letterSpacing: 1, background: bView === v ? `${gold}18` : "transparent", color: bView === v ? gold : C.textS, border: `1px solid ${bView === v ? gold + "55" : cBr}` }}
-          >
-            {v === "active" ? "ACTIVE" : "ARCHIVED"} <span style={{ opacity: 0.7, fontSize: 11.5 }}>({v === "active" ? activeBookings.length : archivedBookings.length})</span>
-          </button>
-        ))}
-      </div>
+      {/* Active / Archived — a real Tabs: arrow keys move between them and
+          each panel is announced as a tabpanel rather than the selected state
+          being carried by colour alone. */}
+      <Tabs value={bView} onValueChange={(v) => setBView(v as "active" | "archived")}>
+        <TabsList className="mb-4 h-auto gap-2 bg-transparent p-0">
+          {(["active", "archived"] as const).map((v) => (
+            <TabsTrigger
+              key={v}
+              value={v}
+              className="rounded-full border data-[state=active]:shadow-none"
+              style={{ padding: "8px 18px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", letterSpacing: 1, background: bView === v ? `${gold}18` : "transparent", color: bView === v ? gold : C.textS, borderColor: bView === v ? gold + "55" : cBr }}
+            >
+              {v === "active" ? "ACTIVE" : "ARCHIVED"} <span style={{ opacity: 0.7, fontSize: 11.5 }}>({v === "active" ? activeBookings.length : archivedBookings.length})</span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-      {bView === "archived" ? (
-        <div>
-          <p style={{ color: C.textS, fontSize: 13.5, marginBottom: 20, lineHeight: 1.6 }}>
-            Reservations moved here stay segregated by how they ended — a finished stay under <strong style={{ color: "#4a9fd4" }}>Completed</strong>, a rejected or backed-out booking under <strong style={{ color: "#e55" }}>Cancelled</strong> — so nothing gets mixed up later.
-          </p>
-          {([
-            { label: "COMPLETED (STAY FINISHED)", color: "#4a9fd4", items: archivedCompleted },
-            { label: "CANCELLED (CUSTOMER BACKED OUT / REJECTED)", color: "#e55", items: archivedCancelled },
-          ] as const).map((group) => (
-            <div key={group.label} style={{ marginBottom: 28 }}>
-              <p style={{ color: group.color, fontSize: 11.5, letterSpacing: 2, marginBottom: 12 }}>{group.label} ({group.items.length})</p>
-              <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 6, overflow: "hidden" }}>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
-                    <thead>
-                      <tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
-                        {["ID", "Guest", "Date", "Package", "Total", "Archived", "Actions"].map((h) => (
-                          <th key={h} style={{ padding: "10px 12px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
+        <TabsContent value="archived">
+          <div>
+            <p style={{ color: C.textS, fontSize: 13.5, marginBottom: 20, lineHeight: 1.6 }}>
+              Reservations moved here stay segregated by how they ended — a finished stay under <strong style={{ color: "#4a9fd4" }}>Completed</strong>, a rejected or backed-out booking under <strong style={{ color: "#e55" }}>Cancelled</strong> — so nothing gets mixed up later.
+            </p>
+            {([
+              { label: "COMPLETED (STAY FINISHED)", color: "#4a9fd4", items: archivedCompleted },
+              { label: "CANCELLED (CUSTOMER BACKED OUT / REJECTED)", color: "#e55", items: archivedCancelled },
+            ] as const).map((group) => (
+              <div key={group.label} style={{ marginBottom: 28 }}>
+                <p style={{ color: group.color, fontSize: 11.5, letterSpacing: 2, marginBottom: 12 }}>{group.label} ({group.items.length})</p>
+                <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 6, overflow: "hidden" }}>
+                  <div style={{ overflowX: "auto" }}>
+                    <Table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
+                      <TableHeader>
+                        <TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
+                          {["ID", "Guest", "Date", "Package", "Total", "Archived", "Actions"].map((h) => (
+                            <TableHead key={h} style={{ padding: "10px 12px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {group.items.length === 0 && (
+                          <TableRow><TableCell colSpan={7} style={{ padding: 20, textAlign: "center", color: C.textXS, fontSize: 13.5 }}>None archived yet.</TableCell></TableRow>
+                        )}
+                        {group.items.map((b, idx) => (
+                          <TableRow key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
+                            <TableCell style={{ padding: "10px 12px", color: gold, fontSize: 12.5, fontFamily: "monospace", whiteSpace: "nowrap" }}>{b.id}</TableCell>
+                            <TableCell style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5 }}>{b.name}</TableCell>
+                            <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.date}</TableCell>
+                            <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.package}</TableCell>
+                            <TableCell style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</TableCell>
+                            <TableCell style={{ padding: "10px 12px", color: C.textXS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.archivedAt ? new Date(b.archivedAt).toLocaleDateString("en-PH") : "—"}</TableCell>
+                            <TableCell style={{ padding: "10px 12px" }}>
+                              <button onClick={() => restoreBooking(b)} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, whiteSpace: "nowrap" }}>RESTORE</button>
+                            </TableCell>
+                          </TableRow>
                         ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.items.length === 0 && (
-                        <tr><td colSpan={7} style={{ padding: 20, textAlign: "center", color: C.textXS, fontSize: 13.5 }}>None archived yet.</td></tr>
-                      )}
-                      {group.items.map((b, idx) => (
-                        <tr key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
-                          <td style={{ padding: "10px 12px", color: gold, fontSize: 12.5, fontFamily: "monospace", whiteSpace: "nowrap" }}>{b.id}</td>
-                          <td style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5 }}>{b.name}</td>
-                          <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.date}</td>
-                          <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.package}</td>
-                          <td style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</td>
-                          <td style={{ padding: "10px 12px", color: C.textXS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.archivedAt ? new Date(b.archivedAt).toLocaleDateString("en-PH") : "—"}</td>
-                          <td style={{ padding: "10px 12px" }}>
-                            <button onClick={() => restoreBooking(b)} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, whiteSpace: "nowrap" }}>RESTORE</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-      <>
-      {/* Search */}
-      <div style={{ position: "relative", marginBottom: 16 }}>
-        <svg style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", opacity: 0.35 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.textH} strokeWidth="2">
-          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <Label htmlFor="bookings-search" className="sr-only">Search bookings</Label>
-        <Input
-          id="bookings-search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name, ID, email, phone, date, or package…"
-          style={{ ...C.inp, paddingLeft: 36, borderRadius: 6, height: "auto" }}
-        />
-        {search && (
-          <button
-            onClick={() => setSearch("")}
-            aria-label="Clear search"
-            style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.textXS, cursor: "pointer", fontSize: 17, lineHeight: 1, padding: 0 }}
-          ><Icon name="x" size={13} /></button>
-        )}
-      </div>
+            ))}
+          </div>
+        </TabsContent>
 
-      {/* Status filter tabs */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-        {filters.map((f) => {
-          const active = bf === f; const col = fC[f];
-          return (
+        <TabsContent value="active">
+        <>
+        {/* Search */}
+        <div style={{ position: "relative", marginBottom: 16 }}>
+          <svg style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", opacity: 0.35 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.textH} strokeWidth="2">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <Label htmlFor="bookings-search" className="sr-only">Search bookings</Label>
+          <Input
+            id="bookings-search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, ID, email, phone, date, or package…"
+            style={{ ...C.inp, paddingLeft: 36, borderRadius: 6, height: "auto" }}
+          />
+          {search && (
             <button
-              key={f}
-              onClick={() => setBf(f)}
-              // Falls back to theme-aware values rather than a literal, so a
-              // filter added later without a colour still follows dark/light
-              // instead of rendering as a fixed near-black pill.
-              style={{ padding: "7px 16px", fontSize: 13.5, fontWeight: 700, borderRadius: 20, cursor: "pointer", background: active ? (col ? col[0] : (isDark ? "#1c1710" : "#f2ece1")) : "transparent", color: active ? (col ? col[1] : gold) : (col ? col[1] + "cc" : C.textS), border: `1px solid ${active ? (col ? col[1] : gold) : (col ? col[1] + "44" : C.border)}` }}
-            >
-              {f} <span style={{ opacity: 0.7, fontSize: 12.5 }}>({f === "All" ? activeBookings.length : activeBookings.filter((b) => b.status === f).length})</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {search && (
-        <p style={{ color: C.textXS, fontSize: 13.5, marginBottom: 12 }}>
-          Showing {filtered.length} result{filtered.length !== 1 ? "s" : ""} for "<span style={{ color: gold }}>{search}</span>"
-        </p>
-      )}
-
-      {/* Table */}
-      <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 6, overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }} aria-label="Bookings list">
-            <thead>
-              <tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
-                {["ID", "Guest", "Email", "Phone", "Date", "Package", "Payment", "Total", "Down", "Status", "Actions"].map((h) => (
-                  <th key={h} scope="col" style={{ padding: "11px 12px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={11} style={{ padding: 24, textAlign: "center", color: C.textXS, fontSize: 14.5 }}>
-                    {search ? `No bookings matching "${search}".` : `No bookings for "${bf}".`}
-                  </td>
-                </tr>
-              )}
-              {filtered.map((b, idx) => {
-                const sc = fC[b.status] || [isDark ? "#111" : "#eee", C.textS];
-                const pm = getPaymentMethod(b);
-                return (
-                  <tr key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
-                    <td style={{ padding: "10px 12px", color: gold, fontSize: 12.5, whiteSpace: "nowrap", fontFamily: "monospace" }}>{b.id}</td>
-                    <td style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5 }}>{b.name}</td>
-                    <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5 }}>{b.email || "—"}</td>
-                    <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.contact || "—"}</td>
-                    <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.date}</td>
-                    <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.package}</td>
-
-                    {/* ── Payment Method column ── */}
-                    <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: pm.bg, border: `1px solid ${pm.border}`, borderRadius: 20, padding: "3px 8px" }}>
-                        {pm.label === "GCash" ? (
-                          <span style={{ width: 14, height: 14, borderRadius: "50%", background: "#00a952", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 9.5, fontWeight: 700, color: "#fff", flexShrink: 0 }}>G</span>
-                        ) : (
-                          <Icon name="home" size={12} />
-                        )}
-                        <span style={{ color: pm.color, fontSize: 10.5, fontWeight: 700, letterSpacing: 1 }}>{pm.label.toUpperCase()}</span>
-                      </div>
-                    </td>
-
-                    <td style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</td>
-                    <td style={{ padding: "10px 12px", color: "#ff9800", fontSize: 13.5, whiteSpace: "nowrap" }}>{fmt(b.downpayment)}</td>
-                    <td style={{ padding: "10px 12px" }}>
-                      <span style={{ background: sc[0] + "33", color: sc[1], fontSize: 10.5, padding: "3px 9px", borderRadius: 20, whiteSpace: "nowrap", border: `1px solid ${sc[1]}44`, letterSpacing: 1 }}>
-                        {b.status.toUpperCase()}
-                      </span>
-                    </td>
-                    <td style={{ padding: "10px 12px" }}>
-                      <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
-                        <button onClick={() => setViewBooking(b)} style={{ background: isDark ? "rgba(201,168,76,0.07)" : "rgba(201,168,76,0.12)", color: gold, border: `1px solid ${gold}44`, padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, whiteSpace: "nowrap" }}>VIEW</button>
-                        {b.status === "Confirmed" && (
-                          <button onClick={() => { updateStatus(b.id, "Completed"); toast(`Booking marked complete for ${b.name}.`, "info"); }} style={{ background: "rgba(74,159,212,0.1)", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.25)", padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, whiteSpace: "nowrap", letterSpacing: 1 }}><Icon name="check" size={12} style={{ marginRight: 5 }} />COMPLETE</button>
-                        )}
-                        {b.status === "Paid" && <>
-                          <button onClick={() => setConfirmAction({ bookingId: b.id, action: "Confirmed", guestName: b.name, guestEmail: b.email })} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>ACCEPT</button>
-                          <button onClick={() => { setRejectionMsg(""); setConfirmAction({ bookingId: b.id, action: "Cancelled", guestName: b.name, guestEmail: b.email }); }} style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>REJECT</button>
-                        </>}
-                        {(b.status === "Completed" || b.status === "Cancelled") && (
-                          <button onClick={() => setConfirmArchive(b)} style={{ background: "rgba(150,150,150,0.08)", color: C.textS, border: `1px solid ${cBr}`, padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, whiteSpace: "nowrap" }}>ARCHIVE</button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+              onClick={() => setSearch("")}
+              aria-label="Clear search"
+              style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.textXS, cursor: "pointer", fontSize: 17, lineHeight: 1, padding: 0 }}
+            ><Icon name="x" size={13} /></button>
+          )}
         </div>
-      </div>
-      </>
-      )}
+
+        {/* Status filter tabs */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+          {filters.map((f) => {
+            const active = bf === f; const col = fC[f];
+            return (
+              <button
+                key={f}
+                onClick={() => setBf(f)}
+                // Falls back to theme-aware values rather than a literal, so a
+                // filter added later without a colour still follows dark/light
+                // instead of rendering as a fixed near-black pill.
+                style={{ padding: "7px 16px", fontSize: 13.5, fontWeight: 700, borderRadius: 20, cursor: "pointer", background: active ? (col ? col[0] : (isDark ? "#1c1710" : "#f2ece1")) : "transparent", color: active ? (col ? col[1] : gold) : (col ? col[1] + "cc" : C.textS), border: `1px solid ${active ? (col ? col[1] : gold) : (col ? col[1] + "44" : C.border)}` }}
+              >
+                {f} <span style={{ opacity: 0.7, fontSize: 12.5 }}>({f === "All" ? activeBookings.length : activeBookings.filter((b) => b.status === f).length})</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {search && (
+          <p style={{ color: C.textXS, fontSize: 13.5, marginBottom: 12 }}>
+            Showing {filtered.length} result{filtered.length !== 1 ? "s" : ""} for "<span style={{ color: gold }}>{search}</span>"
+          </p>
+        )}
+
+        {/* Table */}
+        <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 6, overflow: "hidden" }}>
+          <div style={{ overflowX: "auto" }}>
+            <Table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }} aria-label="Bookings list">
+              <TableHeader>
+                <TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
+                  {["ID", "Guest", "Email", "Phone", "Date", "Package", "Payment", "Total", "Down", "Status", "Actions"].map((h) => (
+                    <TableHead key={h} scope="col" style={{ padding: "11px 12px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={11} style={{ padding: 24, textAlign: "center", color: C.textXS, fontSize: 14.5 }}>
+                      {search ? `No bookings matching "${search}".` : `No bookings for "${bf}".`}
+                    </TableCell>
+                  </TableRow>
+                )}
+                {filtered.map((b, idx) => {
+                  const sc = fC[b.status] || [isDark ? "#111" : "#eee", C.textS];
+                  const pm = getPaymentMethod(b);
+                  return (
+                    <TableRow key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
+                      <TableCell style={{ padding: "10px 12px", color: gold, fontSize: 12.5, whiteSpace: "nowrap", fontFamily: "monospace" }}>{b.id}</TableCell>
+                      <TableCell style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5 }}>{b.name}</TableCell>
+                      <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5 }}>{b.email || "—"}</TableCell>
+                      <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.contact || "—"}</TableCell>
+                      <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.date}</TableCell>
+                      <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.package}</TableCell>
+
+                      {/* ── Payment Method column ── */}
+                      <TableCell style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: pm.bg, border: `1px solid ${pm.border}`, borderRadius: 20, padding: "3px 8px" }}>
+                          {pm.label === "GCash" ? (
+                            <span style={{ width: 14, height: 14, borderRadius: "50%", background: "#00a952", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 9.5, fontWeight: 700, color: "#fff", flexShrink: 0 }}>G</span>
+                          ) : (
+                            <Icon name="home" size={12} />
+                          )}
+                          <span style={{ color: pm.color, fontSize: 10.5, fontWeight: 700, letterSpacing: 1 }}>{pm.label.toUpperCase()}</span>
+                        </div>
+                      </TableCell>
+
+                      <TableCell style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</TableCell>
+                      <TableCell style={{ padding: "10px 12px", color: "#ff9800", fontSize: 13.5, whiteSpace: "nowrap" }}>{fmt(b.downpayment)}</TableCell>
+                      <TableCell style={{ padding: "10px 12px" }}>
+                        <Badge variant="outline" style={{ background: sc[0] + "33", color: sc[1], fontSize: 10.5, padding: "3px 9px", borderRadius: 20, whiteSpace: "nowrap", border: `1px solid ${sc[1]}44`, letterSpacing: 1 }}>
+                          {b.status.toUpperCase()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell style={{ padding: "10px 12px" }}>
+                        <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                          <button onClick={() => setViewBooking(b)} style={{ background: isDark ? "rgba(201,168,76,0.07)" : "rgba(201,168,76,0.12)", color: gold, border: `1px solid ${gold}44`, padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, whiteSpace: "nowrap" }}>VIEW</button>
+                          {b.status === "Confirmed" && (
+                            <button onClick={() => { updateStatus(b.id, "Completed"); toast(`Booking marked complete for ${b.name}.`, "info"); }} style={{ background: "rgba(74,159,212,0.1)", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.25)", padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, whiteSpace: "nowrap", letterSpacing: 1 }}><Icon name="check" size={12} style={{ marginRight: 5 }} />COMPLETE</button>
+                          )}
+                          {b.status === "Paid" && <>
+                            <button onClick={() => setConfirmAction({ bookingId: b.id, action: "Confirmed", guestName: b.name, guestEmail: b.email })} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>ACCEPT</button>
+                            <button onClick={() => { setRejectionMsg(""); setConfirmAction({ bookingId: b.id, action: "Cancelled", guestName: b.name, guestEmail: b.email }); }} style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>REJECT</button>
+                          </>}
+                          {(b.status === "Completed" || b.status === "Cancelled") && (
+                            <button onClick={() => setConfirmArchive(b)} style={{ background: "rgba(150,150,150,0.08)", color: C.textS, border: `1px solid ${cBr}`, padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, whiteSpace: "nowrap" }}>ARCHIVE</button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+        </>
+        </TabsContent>
+      </Tabs>
 
       {/* ── Archive Confirm ── */}
       <AlertDialog open={!!confirmArchive} onOpenChange={(open) => { if (!open) setConfirmArchive(null); }}>

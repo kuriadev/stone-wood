@@ -17,6 +17,7 @@ import type { ResortPackage } from "@/types/package";
 import { srcSetFor, SIZES, imageAt } from "@/lib/img";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { Reveal } from "@/components/common/Reveal";
+import { Badge } from "@/components/ui/badge";
 
 interface HomeProps {
   setPage: (p: string) => void;
@@ -543,14 +544,14 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                     </span>
 
                     {p.listPrice && (
-                      <span style={{ display: "inline-block", marginLeft: 6, fontSize: 10.5, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: "rgba(76,175,80,0.12)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.4)" }}>
+                      <Badge variant="outline" style={{ display: "inline-block", marginLeft: 6, fontSize: 10.5, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: "rgba(76,175,80,0.12)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.4)" }}>
                         SAVE {fmt(p.listPrice - p.price)}
-                      </span>
+                      </Badge>
                     )}
                     {p.requiresRoom && (
-                      <span style={{ display: "inline-block", marginLeft: 6, fontSize: 10.5, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: `${gold}18`, color: gold, border: `1px solid ${gold}44` }}>
+                      <Badge variant="outline" style={{ display: "inline-block", marginLeft: 6, fontSize: 10.5, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: `${gold}18`, color: gold, border: `1px solid ${gold}44` }}>
                         ROOM DISCOUNTED
-                      </span>
+                      </Badge>
                     )}
 
                     {p.note && (

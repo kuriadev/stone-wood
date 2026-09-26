@@ -24,6 +24,7 @@ import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { fmtDate } from "@/lib/utils";
 import type { Booking } from "@/types/booking";
 import { Icon, type IconName } from "@/components/common/Icon";
+import { Badge } from "@/components/ui/badge";
 
 interface ManageBookingProps {
   onGoHome?: () => void;
@@ -350,9 +351,9 @@ export function ManageBooking(_props: ManageBookingProps) {
                       </div>
                       {sub && <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>{sub}</div>}
                       {isRef && (
-                        <span style={{ display: "inline-block", marginTop: 4, background: "rgba(76,175,80,0.12)", color: "#4caf50", fontSize: 10.5, padding: "2px 8px", borderRadius: 20, border: "1px solid rgba(76,175,80,0.3)", letterSpacing: 1 }}>
+                        <Badge variant="outline" style={{ display: "inline-block", marginTop: 4, background: "rgba(76,175,80,0.12)", color: "#4caf50", fontSize: 10.5, padding: "2px 8px", borderRadius: 20, border: "1px solid rgba(76,175,80,0.3)", letterSpacing: 1 }}>
                           {found.status.toUpperCase()}
-                        </span>
+                        </Badge>
                       )}
                     </div>
                   ))}

@@ -18,11 +18,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { gold, outBtn } from "@/lib/styles";
 import type { Facility, FacilityStatus } from "@/types/facility";
 import type { Booking } from "@/types/booking";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { startOfToday, toDateStr } from "@/lib/validators";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface FacilitiesTabProps {
   facilities: Facility[];
@@ -199,309 +209,317 @@ export function FacilitiesTab({ facilities, setFacilities, bookings, mob }: Faci
         </p>
       </div>
 
-      {/* Checklist / Reservation History page toggle */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-        {([
-          { key: "checklist", label: "CARETAKER CHECKLIST" },
-          { key: "history", label: `RESERVATION HISTORY (${allHistoryRows.length})` },
-        ] as const).map((v) => (
-          <button
-            key={v.key}
-            onClick={() => setPageView(v.key)}
-            style={{ padding: "8px 18px", fontSize: 12.5, fontWeight: 700, borderRadius: 20, cursor: "pointer", letterSpacing: 1, background: pageView === v.key ? `${gold}18` : "transparent", color: pageView === v.key ? gold : C.textS, border: `1px solid ${pageView === v.key ? gold + "55" : cBr}` }}
-          >
-            {v.label}
-          </button>
-        ))}
-      </div>
+      {/* Checklist / Reservation History — a real Tabs, so the pair is a
+          tablist: left and right arrows move between them, each panel is
+          announced as a tabpanel, and the selected state is exposed rather
+          than implied by colour alone. */}
+      <Tabs value={pageView} onValueChange={(v) => setPageView(v as "checklist" | "history")}>
+        <TabsList className="mb-6 h-auto gap-2 bg-transparent p-0">
+          {([
+            { key: "checklist", label: "CARETAKER CHECKLIST" },
+            { key: "history", label: `RESERVATION HISTORY (${allHistoryRows.length})` },
+          ] as const).map((v) => (
+            <TabsTrigger
+              key={v.key}
+              value={v.key}
+              className="rounded-full border data-[state=active]:shadow-none"
+              style={{ padding: "8px 18px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", letterSpacing: 1, background: pageView === v.key ? `${gold}18` : "transparent", color: pageView === v.key ? gold : C.textS, borderColor: pageView === v.key ? gold + "55" : cBr }}
+            >
+              {v.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-      {pageView === "history" ? (
-        <div>
-          <p style={{ color: C.textS, fontSize: 13.5, marginBottom: 18, lineHeight: 1.6 }}>
-            Every reservation that has used a facility or room, across all statuses — filter by facility or search by guest, ID, or package to see what a given reservation used.
-          </p>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
-            <div className="[&_[data-slot=native-select-wrapper]]:w-full" style={{ width: mob ? "100%" : 240 }}>
-              <Label htmlFor="history-facility" className="sr-only">Filter by facility</Label>
-              <NativeSelect
-                id="history-facility"
-                value={historyFacility === "all" ? "all" : String(historyFacility)}
-                onChange={(e) => setHistoryFacility(e.target.value === "all" ? "all" : Number(e.target.value))}
-                style={{ ...C.inp, borderRadius: 6, height: "auto" }}
-              >
-                <option value="all">All facilities</option>
-                {facilities.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </NativeSelect>
+        <TabsContent value="history">
+          <div>
+            <p style={{ color: C.textS, fontSize: 13.5, marginBottom: 18, lineHeight: 1.6 }}>
+              Every reservation that has used a facility or room, across all statuses — filter by facility or search by guest, ID, or package to see what a given reservation used.
+            </p>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
+              <div className="[&_[data-slot=native-select-wrapper]]:w-full" style={{ width: mob ? "100%" : 240 }}>
+                <Label htmlFor="history-facility" className="sr-only">Filter by facility</Label>
+                <NativeSelect
+                  id="history-facility"
+                  value={historyFacility === "all" ? "all" : String(historyFacility)}
+                  onChange={(e) => setHistoryFacility(e.target.value === "all" ? "all" : Number(e.target.value))}
+                  style={{ ...C.inp, borderRadius: 6, height: "auto" }}
+                >
+                  <option value="all">All facilities</option>
+                  {facilities.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                </NativeSelect>
+              </div>
+              <div style={{ flex: 1, minWidth: mob ? "100%" : 260 }}>
+                <Label htmlFor="history-search" className="sr-only">Search facility history</Label>
+                <Input
+                  id="history-search"
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  placeholder="Search by guest, ID, or package…"
+                  style={{ ...C.inp, borderRadius: 6, height: "auto" }}
+                />
+              </div>
             </div>
-            <div style={{ flex: 1, minWidth: mob ? "100%" : 260 }}>
-              <Label htmlFor="history-search" className="sr-only">Search facility history</Label>
-              <Input
-                id="history-search"
-                value={historySearch}
-                onChange={(e) => setHistorySearch(e.target.value)}
-                placeholder="Search by guest, ID, or package…"
-                style={{ ...C.inp, borderRadius: 6, height: "auto" }}
-              />
-            </div>
-          </div>
-          <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, overflow: "hidden" }}>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
-                <thead>
-                  <tr style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
-                    {["Date", "Facility", "Guest", "Package", "Guests", "Status"].map((h) => (
-                      <th key={h} style={{ padding: "10px 12px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
+            <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, overflow: "hidden" }}>
+              <div style={{ overflowX: "auto" }}>
+                <Table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
+                  <TableHeader>
+                    <TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
+                      {["Date", "Facility", "Guest", "Package", "Guests", "Status"].map((h) => (
+                        <TableHead key={h} style={{ padding: "10px 12px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredHistoryRows.length === 0 && (
+                      <TableRow><TableCell colSpan={6} style={{ padding: 24, textAlign: "center", color: C.textXS, fontSize: 13.5 }}>No reservations match.</TableCell></TableRow>
+                    )}
+                    {filteredHistoryRows.map((row, idx) => (
+                      <TableRow key={`${row.facility.id}-${row.booking.id}`} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
+                        <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{row.booking.date}</TableCell>
+                        <TableCell style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap" }}><Icon name={row.facility.icon as IconName} size={13} style={{ marginRight: 6 }} />{row.facility.name}</TableCell>
+                        <TableCell style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5 }}>
+                          {row.booking.name} {row.booking.archived && <span style={{ color: C.textXS, fontSize: 10.5 }}>(archived)</span>}
+                        </TableCell>
+                        <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{row.booking.package}</TableCell>
+                        <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5 }}>{row.booking.guests}</TableCell>
+                        <TableCell style={{ padding: "10px 12px", fontSize: 11.5 }}>
+                          <Badge variant="outline" style={{ background: `${historyStatusColor[row.booking.status] ?? gold}18`, color: historyStatusColor[row.booking.status] ?? gold, padding: "3px 8px", borderRadius: 20, border: `1px solid ${historyStatusColor[row.booking.status] ?? gold}44`, letterSpacing: 1, whiteSpace: "nowrap" }}>{row.booking.status.toUpperCase()}</Badge>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredHistoryRows.length === 0 && (
-                    <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: C.textXS, fontSize: 13.5 }}>No reservations match.</td></tr>
-                  )}
-                  {filteredHistoryRows.map((row, idx) => (
-                    <tr key={`${row.facility.id}-${row.booking.id}`} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
-                      <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{row.booking.date}</td>
-                      <td style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap" }}><Icon name={row.facility.icon as IconName} size={13} style={{ marginRight: 6 }} />{row.facility.name}</td>
-                      <td style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5 }}>
-                        {row.booking.name} {row.booking.archived && <span style={{ color: C.textXS, fontSize: 10.5 }}>(archived)</span>}
-                      </td>
-                      <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{row.booking.package}</td>
-                      <td style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5 }}>{row.booking.guests}</td>
-                      <td style={{ padding: "10px 12px", fontSize: 11.5 }}>
-                        <span style={{ background: `${historyStatusColor[row.booking.status] ?? gold}18`, color: historyStatusColor[row.booking.status] ?? gold, padding: "3px 8px", borderRadius: 20, border: `1px solid ${historyStatusColor[row.booking.status] ?? gold}44`, letterSpacing: 1, whiteSpace: "nowrap" }}>{row.booking.status.toUpperCase()}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="checklist">
+        <>
+        {/* Stats */}
+        <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: mob ? 10 : 14, marginBottom: 28 }}>
+          {counts.map(([s, v]) => (
+            <div key={s} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: mob ? "14px 12px" : "18px 16px", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: STATUS_COLOR[s] }} />
+              <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 1.5, marginBottom: 8 }}>{s.toUpperCase()}</div>
+              <div style={{ color: STATUS_COLOR[s], fontSize: mob ? 22 : 28, fontWeight: 700, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>{v}</div>
+            </div>
+          ))}
         </div>
-      ) : (
-      <>
-      {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: mob ? 10 : 14, marginBottom: 28 }}>
-        {counts.map(([s, v]) => (
-          <div key={s} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: mob ? "14px 12px" : "18px 16px", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: STATUS_COLOR[s] }} />
-            <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 1.5, marginBottom: 8 }}>{s.toUpperCase()}</div>
-            <div style={{ color: STATUS_COLOR[s], fontSize: mob ? 22 : 28, fontWeight: 700, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>{v}</div>
+
+        {groups.map((g) => (
+          <div key={g.label} style={{ marginBottom: 28 }}>
+            <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 12 }}>{g.label}</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {g.items.map((f) => {
+                const linkedBooking = f.lastUsedBookingId ? bookings.find((b) => b.id === f.lastUsedBookingId) : null;
+                const todaysReservations = reservationsFor(f);
+                const expanded = expandedId === f.id;
+                const history = historyId === f.id;
+                return (
+                  <div key={f.id} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "14px 18px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                      <div style={{ flexShrink: 0, color: gold, lineHeight: 0 }}><Icon name={f.icon as IconName} size={22} strokeWidth={1.5} /></div>
+                      <div style={{ flex: 1, minWidth: 180 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
+                          <span style={{ color: C.textH, fontSize: 15, fontWeight: 600 }}>{f.name}</span>
+                          <Badge variant="outline" style={{ background: `${STATUS_COLOR[f.status]}18`, color: STATUS_COLOR[f.status], fontSize: 10.5, padding: "3px 9px", borderRadius: 20, border: `1px solid ${STATUS_COLOR[f.status]}44`, letterSpacing: 1 }}>{f.status.toUpperCase()}</Badge>
+                          {todaysReservations.length > 0 && (
+                            <Badge variant="outline" style={{ background: "rgba(76,175,80,0.1)", color: "#4caf50", fontSize: 10.5, padding: "3px 9px", borderRadius: 20, border: "1px solid rgba(76,175,80,0.25)", letterSpacing: 1 }}>
+                              {todaysReservations.length} reservation{todaysReservations.length > 1 ? "s" : ""} today
+                            </Badge>
+                          )}
+                        </div>
+                        <div style={{ color: C.textS, fontSize: 12.5 }}>
+                          {linkedBooking ? <>Last used by <strong style={{ color: C.textH }}>{f.lastUsedGuestName}</strong> ({f.lastUsedBookingId})</> : "No usage recorded yet"}
+                          {" · "}Checked: {fmtWhen(f.lastCheckedAt)}
+                        </div>
+                        {editNotesId === f.id ? (
+                          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                            <Input value={notesDraft} onChange={(e) => setNotesDraft(e.target.value)} placeholder="Notes (e.g. pool filter needs replacing)" aria-label="Facility notes" style={{ ...C.inp, borderRadius: 6, flex: 1, height: "auto" }} />
+                            <button onClick={saveNotes} style={{ ...outBtn, padding: "6px 12px", fontSize: 11.5 }}>SAVE</button>
+                          </div>
+                        ) : (
+                          <div onClick={() => openNotes(f)} style={{ color: f.notes ? C.textB : C.textXS, fontSize: 12.5, marginTop: 6, cursor: "pointer", fontStyle: f.notes ? "normal" : "italic" }}>
+                            {f.notes || "+ add note"}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <button onClick={() => setExpandedId(expanded ? null : f.id)} style={{ background: "transparent", color: gold, border: `1px solid ${gold}44`, padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>
+                          {expanded ? "HIDE CHECKLIST" : "CHECKLIST"}<Icon name={expanded ? "chevron-up" : "chevron-down"} size={12} style={{ marginLeft: 6 }} />
+                        </button>
+                        <button onClick={() => setHistoryId(history ? null : f.id)} style={{ background: "transparent", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.4)", padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>
+                          {history ? "HIDE HISTORY" : `HISTORY (${historyFor(f).length})`}<Icon name={history ? "chevron-up" : "chevron-down"} size={12} style={{ marginLeft: 6 }} />
+                        </button>
+                        {f.status !== "Available" && (
+                          <button onClick={() => setStatus(f.id, "Available")} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}><Icon name="check" size={12} style={{ marginRight: 5 }} />MARK CHECKED</button>
+                        )}
+                        {f.status !== "In Use" && (
+                          <button onClick={() => setStatus(f.id, "In Use")} style={{ background: "rgba(74,159,212,0.08)", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.25)", padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>IN USE</button>
+                        )}
+                        {f.status !== "Under Maintenance" && (
+                          <button onClick={() => setStatus(f.id, "Under Maintenance")} style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>MAINTENANCE</button>
+                        )}
+                      </div>
+                    </div>
+
+                    {expanded && (
+                      <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${cBr}`, display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr 1fr", gap: 16 }}>
+                        {/* Before use */}
+                        <div>
+                          <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 7, marginBottom: 8 }}>
+                            <p style={{ color: gold, fontSize: 11.5, letterSpacing: 2, margin: 0 }}>BEFORE USE</p>
+                            <button
+                              onClick={() => openChecklistEditor(f, "before")}
+                              aria-label={`Edit the before-use checklist for ${f.name}`}
+                              title="Edit checklist"
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: C.textXS,
+                                cursor: "pointer",
+                                padding: 0,
+                                // A square box round a 14px glyph gives the icon a
+                                // real click target without it reading as a second
+                                // button next to the heading.
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: 24,
+                                height: 24,
+                                // Hit area is 24px; layout height stays 14px to
+                                // match the glyph, so the heading row does not
+                                // grow taller than the pencil-less third column
+                                // and push its list out of alignment.
+                                margin: "-5px 0",
+                                borderRadius: 5,
+                                transition: "color .18s ease, background .18s ease",
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.color = gold; e.currentTarget.style.background = `${gold}14`; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.color = C.textXS; e.currentTarget.style.background = "none"; }}
+                            >
+                              {/* Decorative: the button above already carries the label. */}
+                              <Icon name="pencil" size={14} />
+                            </button>
+                          </div>
+                          <ul style={{ margin: 0, paddingLeft: 16, color: C.textS, fontSize: 13.5, lineHeight: 1.8 }}>
+                            {getChecklist(f, "before").map((item, i) => <li key={i}>{item}</li>)}
+                            {getChecklist(f, "before").length === 0 && <li style={{ listStyle: "none", marginLeft: -16, color: C.textXS, fontStyle: "italic" }}>No checklist yet.</li>}
+                          </ul>
+                        </div>
+                        {/* After use */}
+                        <div>
+                          <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 7, marginBottom: 8 }}>
+                            <p style={{ color: gold, fontSize: 11.5, letterSpacing: 2, margin: 0 }}>AFTER USE</p>
+                            <button
+                              onClick={() => openChecklistEditor(f, "after")}
+                              aria-label={`Edit the after-use checklist for ${f.name}`}
+                              title="Edit checklist"
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: C.textXS,
+                                cursor: "pointer",
+                                padding: 0,
+                                // A square box round a 14px glyph gives the icon a
+                                // real click target without it reading as a second
+                                // button next to the heading.
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: 24,
+                                height: 24,
+                                // Hit area is 24px; layout height stays 14px to
+                                // match the glyph, so the heading row does not
+                                // grow taller than the pencil-less third column
+                                // and push its list out of alignment.
+                                margin: "-5px 0",
+                                borderRadius: 5,
+                                transition: "color .18s ease, background .18s ease",
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.color = gold; e.currentTarget.style.background = `${gold}14`; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.color = C.textXS; e.currentTarget.style.background = "none"; }}
+                            >
+                              {/* Decorative: the button above already carries the label. */}
+                              <Icon name="pencil" size={14} />
+                            </button>
+                          </div>
+                          <ul style={{ margin: 0, paddingLeft: 16, color: C.textS, fontSize: 13.5, lineHeight: 1.8 }}>
+                            {getChecklist(f, "after").map((item, i) => <li key={i}>{item}</li>)}
+                            {getChecklist(f, "after").length === 0 && <li style={{ listStyle: "none", marginLeft: -16, color: C.textXS, fontStyle: "italic" }}>No checklist yet.</li>}
+                          </ul>
+                        </div>
+                        {/* Today's reservations using it */}
+                        <div>
+                          {/* margin, not marginBottom: a bare <p> keeps the UA default
+                              margin-top of 1em, which sat this heading 11px lower
+                              than BEFORE/AFTER USE, whose <p> zeroes it. */}
+                          <p style={{ color: gold, fontSize: 11.5, letterSpacing: 2, margin: "0 0 8px" }}>TODAY'S RESERVATIONS</p>
+                          {todaysReservations.length === 0 ? (
+                            <p style={{ color: C.textXS, fontSize: 13.5, fontStyle: "italic", margin: 0 }}>No reservations use this today.</p>
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              {todaysReservations.map((b) => (
+                                <div key={b.id} style={{ fontSize: 13.5, color: C.textS }}>
+                                  <strong style={{ color: C.textH }}>{b.name}</strong> · {b.guests} guests · {b.package}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {history && (() => {
+                      const rows = historyFor(f);
+                      return (
+                        <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${cBr}` }}>
+                          <p style={{ color: "#4a9fd4", fontSize: 11.5, letterSpacing: 2, marginBottom: 10 }}>
+                            RESERVATION HISTORY — who reserved this and what they used
+                          </p>
+                          {rows.length === 0 ? (
+                            <p style={{ color: C.textXS, fontSize: 13.5, fontStyle: "italic", margin: 0 }}>No reservations have used this yet.</p>
+                          ) : (
+                            <div style={{ overflowX: "auto" }}>
+                              <Table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
+                                <TableHeader>
+                                  <TableRow style={{ borderBottom: `1px solid ${cBr}` }}>
+                                    {["Date", "Guest", "Package", "Guests", "Status"].map((h) => (
+                                      <TableHead key={h} style={{ padding: "6px 10px", color: C.textXS, fontSize: 10.5, letterSpacing: 1.5, textAlign: "left", whiteSpace: "nowrap" }}>{h}</TableHead>
+                                    ))}
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {rows.map((b) => (
+                                    <TableRow key={b.id} style={{ borderBottom: `1px solid ${cBr}` }}>
+                                      <TableCell style={{ padding: "8px 10px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.date}</TableCell>
+                                      <TableCell style={{ padding: "8px 10px", color: C.textH, fontSize: 13.5 }}>
+                                        {b.name} {b.archived && <span style={{ color: C.textXS, fontSize: 10.5 }}>(archived)</span>}
+                                      </TableCell>
+                                      <TableCell style={{ padding: "8px 10px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.package}</TableCell>
+                                      <TableCell style={{ padding: "8px 10px", color: C.textS, fontSize: 12.5 }}>{b.guests}</TableCell>
+                                      <TableCell style={{ padding: "8px 10px", fontSize: 11.5 }}>
+                                        <Badge variant="outline" style={{ background: `${historyStatusColor[b.status] ?? gold}18`, color: historyStatusColor[b.status] ?? gold, padding: "3px 8px", borderRadius: 20, border: `1px solid ${historyStatusColor[b.status] ?? gold}44`, letterSpacing: 1, whiteSpace: "nowrap" }}>{b.status.toUpperCase()}</Badge>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ))}
-      </div>
-
-      {groups.map((g) => (
-        <div key={g.label} style={{ marginBottom: 28 }}>
-          <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 12 }}>{g.label}</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {g.items.map((f) => {
-              const linkedBooking = f.lastUsedBookingId ? bookings.find((b) => b.id === f.lastUsedBookingId) : null;
-              const todaysReservations = reservationsFor(f);
-              const expanded = expandedId === f.id;
-              const history = historyId === f.id;
-              return (
-                <div key={f.id} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "14px 18px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                    <div style={{ flexShrink: 0, color: gold, lineHeight: 0 }}><Icon name={f.icon as IconName} size={22} strokeWidth={1.5} /></div>
-                    <div style={{ flex: 1, minWidth: 180 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
-                        <span style={{ color: C.textH, fontSize: 15, fontWeight: 600 }}>{f.name}</span>
-                        <span style={{ background: `${STATUS_COLOR[f.status]}18`, color: STATUS_COLOR[f.status], fontSize: 10.5, padding: "3px 9px", borderRadius: 20, border: `1px solid ${STATUS_COLOR[f.status]}44`, letterSpacing: 1 }}>{f.status.toUpperCase()}</span>
-                        {todaysReservations.length > 0 && (
-                          <span style={{ background: "rgba(76,175,80,0.1)", color: "#4caf50", fontSize: 10.5, padding: "3px 9px", borderRadius: 20, border: "1px solid rgba(76,175,80,0.25)", letterSpacing: 1 }}>
-                            {todaysReservations.length} reservation{todaysReservations.length > 1 ? "s" : ""} today
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ color: C.textS, fontSize: 12.5 }}>
-                        {linkedBooking ? <>Last used by <strong style={{ color: C.textH }}>{f.lastUsedGuestName}</strong> ({f.lastUsedBookingId})</> : "No usage recorded yet"}
-                        {" · "}Checked: {fmtWhen(f.lastCheckedAt)}
-                      </div>
-                      {editNotesId === f.id ? (
-                        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                          <Input value={notesDraft} onChange={(e) => setNotesDraft(e.target.value)} placeholder="Notes (e.g. pool filter needs replacing)" aria-label="Facility notes" style={{ ...C.inp, borderRadius: 6, flex: 1, height: "auto" }} />
-                          <button onClick={saveNotes} style={{ ...outBtn, padding: "6px 12px", fontSize: 11.5 }}>SAVE</button>
-                        </div>
-                      ) : (
-                        <div onClick={() => openNotes(f)} style={{ color: f.notes ? C.textB : C.textXS, fontSize: 12.5, marginTop: 6, cursor: "pointer", fontStyle: f.notes ? "normal" : "italic" }}>
-                          {f.notes || "+ add note"}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <button onClick={() => setExpandedId(expanded ? null : f.id)} style={{ background: "transparent", color: gold, border: `1px solid ${gold}44`, padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>
-                        {expanded ? "HIDE CHECKLIST" : "CHECKLIST"}<Icon name={expanded ? "chevron-up" : "chevron-down"} size={12} style={{ marginLeft: 6 }} />
-                      </button>
-                      <button onClick={() => setHistoryId(history ? null : f.id)} style={{ background: "transparent", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.4)", padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>
-                        {history ? "HIDE HISTORY" : `HISTORY (${historyFor(f).length})`}<Icon name={history ? "chevron-up" : "chevron-down"} size={12} style={{ marginLeft: 6 }} />
-                      </button>
-                      {f.status !== "Available" && (
-                        <button onClick={() => setStatus(f.id, "Available")} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}><Icon name="check" size={12} style={{ marginRight: 5 }} />MARK CHECKED</button>
-                      )}
-                      {f.status !== "In Use" && (
-                        <button onClick={() => setStatus(f.id, "In Use")} style={{ background: "rgba(74,159,212,0.08)", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.25)", padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>IN USE</button>
-                      )}
-                      {f.status !== "Under Maintenance" && (
-                        <button onClick={() => setStatus(f.id, "Under Maintenance")} style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>MAINTENANCE</button>
-                      )}
-                    </div>
-                  </div>
-
-                  {expanded && (
-                    <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${cBr}`, display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr 1fr", gap: 16 }}>
-                      {/* Before use */}
-                      <div>
-                        <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 7, marginBottom: 8 }}>
-                          <p style={{ color: gold, fontSize: 11.5, letterSpacing: 2, margin: 0 }}>BEFORE USE</p>
-                          <button
-                            onClick={() => openChecklistEditor(f, "before")}
-                            aria-label={`Edit the before-use checklist for ${f.name}`}
-                            title="Edit checklist"
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: C.textXS,
-                              cursor: "pointer",
-                              padding: 0,
-                              // A square box round a 14px glyph gives the icon a
-                              // real click target without it reading as a second
-                              // button next to the heading.
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: 24,
-                              height: 24,
-                              // Hit area is 24px; layout height stays 14px to
-                              // match the glyph, so the heading row does not
-                              // grow taller than the pencil-less third column
-                              // and push its list out of alignment.
-                              margin: "-5px 0",
-                              borderRadius: 5,
-                              transition: "color .18s ease, background .18s ease",
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.color = gold; e.currentTarget.style.background = `${gold}14`; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.color = C.textXS; e.currentTarget.style.background = "none"; }}
-                          >
-                            {/* Decorative: the button above already carries the label. */}
-                            <Icon name="pencil" size={14} />
-                          </button>
-                        </div>
-                        <ul style={{ margin: 0, paddingLeft: 16, color: C.textS, fontSize: 13.5, lineHeight: 1.8 }}>
-                          {getChecklist(f, "before").map((item, i) => <li key={i}>{item}</li>)}
-                          {getChecklist(f, "before").length === 0 && <li style={{ listStyle: "none", marginLeft: -16, color: C.textXS, fontStyle: "italic" }}>No checklist yet.</li>}
-                        </ul>
-                      </div>
-                      {/* After use */}
-                      <div>
-                        <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 7, marginBottom: 8 }}>
-                          <p style={{ color: gold, fontSize: 11.5, letterSpacing: 2, margin: 0 }}>AFTER USE</p>
-                          <button
-                            onClick={() => openChecklistEditor(f, "after")}
-                            aria-label={`Edit the after-use checklist for ${f.name}`}
-                            title="Edit checklist"
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: C.textXS,
-                              cursor: "pointer",
-                              padding: 0,
-                              // A square box round a 14px glyph gives the icon a
-                              // real click target without it reading as a second
-                              // button next to the heading.
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: 24,
-                              height: 24,
-                              // Hit area is 24px; layout height stays 14px to
-                              // match the glyph, so the heading row does not
-                              // grow taller than the pencil-less third column
-                              // and push its list out of alignment.
-                              margin: "-5px 0",
-                              borderRadius: 5,
-                              transition: "color .18s ease, background .18s ease",
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.color = gold; e.currentTarget.style.background = `${gold}14`; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.color = C.textXS; e.currentTarget.style.background = "none"; }}
-                          >
-                            {/* Decorative: the button above already carries the label. */}
-                            <Icon name="pencil" size={14} />
-                          </button>
-                        </div>
-                        <ul style={{ margin: 0, paddingLeft: 16, color: C.textS, fontSize: 13.5, lineHeight: 1.8 }}>
-                          {getChecklist(f, "after").map((item, i) => <li key={i}>{item}</li>)}
-                          {getChecklist(f, "after").length === 0 && <li style={{ listStyle: "none", marginLeft: -16, color: C.textXS, fontStyle: "italic" }}>No checklist yet.</li>}
-                        </ul>
-                      </div>
-                      {/* Today's reservations using it */}
-                      <div>
-                        {/* margin, not marginBottom: a bare <p> keeps the UA default
-                            margin-top of 1em, which sat this heading 11px lower
-                            than BEFORE/AFTER USE, whose <p> zeroes it. */}
-                        <p style={{ color: gold, fontSize: 11.5, letterSpacing: 2, margin: "0 0 8px" }}>TODAY'S RESERVATIONS</p>
-                        {todaysReservations.length === 0 ? (
-                          <p style={{ color: C.textXS, fontSize: 13.5, fontStyle: "italic", margin: 0 }}>No reservations use this today.</p>
-                        ) : (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                            {todaysReservations.map((b) => (
-                              <div key={b.id} style={{ fontSize: 13.5, color: C.textS }}>
-                                <strong style={{ color: C.textH }}>{b.name}</strong> · {b.guests} guests · {b.package}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {history && (() => {
-                    const rows = historyFor(f);
-                    return (
-                      <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${cBr}` }}>
-                        <p style={{ color: "#4a9fd4", fontSize: 11.5, letterSpacing: 2, marginBottom: 10 }}>
-                          RESERVATION HISTORY — who reserved this and what they used
-                        </p>
-                        {rows.length === 0 ? (
-                          <p style={{ color: C.textXS, fontSize: 13.5, fontStyle: "italic", margin: 0 }}>No reservations have used this yet.</p>
-                        ) : (
-                          <div style={{ overflowX: "auto" }}>
-                            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
-                              <thead>
-                                <tr style={{ borderBottom: `1px solid ${cBr}` }}>
-                                  {["Date", "Guest", "Package", "Guests", "Status"].map((h) => (
-                                    <th key={h} style={{ padding: "6px 10px", color: C.textXS, fontSize: 10.5, letterSpacing: 1.5, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {rows.map((b) => (
-                                  <tr key={b.id} style={{ borderBottom: `1px solid ${cBr}` }}>
-                                    <td style={{ padding: "8px 10px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.date}</td>
-                                    <td style={{ padding: "8px 10px", color: C.textH, fontSize: 13.5 }}>
-                                      {b.name} {b.archived && <span style={{ color: C.textXS, fontSize: 10.5 }}>(archived)</span>}
-                                    </td>
-                                    <td style={{ padding: "8px 10px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.package}</td>
-                                    <td style={{ padding: "8px 10px", color: C.textS, fontSize: 12.5 }}>{b.guests}</td>
-                                    <td style={{ padding: "8px 10px", fontSize: 11.5 }}>
-                                      <span style={{ background: `${historyStatusColor[b.status] ?? gold}18`, color: historyStatusColor[b.status] ?? gold, padding: "3px 8px", borderRadius: 20, border: `1px solid ${historyStatusColor[b.status] ?? gold}44`, letterSpacing: 1, whiteSpace: "nowrap" }}>{b.status.toUpperCase()}</span>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-      </>
-      )}
+        </>
+        </TabsContent>
+      </Tabs>
 
       {/* Checklist edit — wider than the old 420px box because the content is
           a list of steps, one per line, and at 420 most steps wrapped. */}
