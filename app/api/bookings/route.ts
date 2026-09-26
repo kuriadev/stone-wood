@@ -31,7 +31,7 @@ import type { Booking, BookingResource, BookingSlot, BookingSource, BookingTier 
 
 export const dynamic = "force-dynamic";
 
-const STATUSES = ["Paid", "Confirmed", "Completed", "Cancelled"] as const;
+const STATUSES = ["Pending", "Confirmed", "Completed", "Cancelled"] as const;
 const RESOURCES: BookingResource[] = ["Pool", "Venue", "Pool+Venue"];
 const TIERS: BookingTier[] = ["Shared", "Exclusive"];
 const SOURCES: BookingSource[] = ["Online", "Walk-In"];
@@ -138,7 +138,7 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
       overtime: d.overtime,
       total: quote.price.total,
       downpayment: paidPesos,
-      status: "Paid",
+      status: "Pending",
       paymentProof: true, // PayMongo confirmed it; no screenshot needed
       notes: [d.notes, ...flags].filter(Boolean).join(" "),
       source: "Online",
@@ -159,6 +159,23 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
     }
 
     const saved = rowToBooking(data as BookingRow);
+
+    // The down payment goes into the sales ledger as received money. The
+    // unique index on PayMongo references means a retry cannot record it
+    // twice. A failure here must not fail the booking: the guest has paid
+    // and the booking exists, so it is logged for staff to add by hand.
+    const ledgerRow = await db.from("payments").insert({
+      booking_id: saved.id,
+      guest_name: saved.name,
+      type: paidPesos >= saved.total ? "Full" : "Downpayment",
+      method: "PayMongo",
+      amount: paidPesos,
+      reference: paymentIntentId,
+      notes: "Online down payment (PayMongo).",
+    });
+    if (ledgerRow.error && ledgerRow.error.code !== "23505") {
+      console.error(`[/api/bookings POST] booking ${saved.id} saved but its payment was not recorded:`, ledgerRow.error.message);
+    }
 
     // Sent from here rather than the browser: this is the only place that
     // knows the booking reached the database. trySendMail never throws — a
@@ -204,8 +221,21 @@ async function createWalkIn(body: Record<string, unknown>) {
     }
 
     const total = Math.max(0, Math.min(Number(b.total) || 0, 1_000_000));
-    const downpayment = Math.max(0, Math.min(Number(b.downpayment) || 0, total));
-    const status = STATUSES.includes(b.status as typeof STATUSES[number]) ? b.status! : "Paid";
+    const downpayment = Math.ceil(total / 2);
+    // The money taken at the desk decides the status: any payment makes it
+    // a real reservation (Confirmed); none leaves it Pending until the guest
+    // pays. The booking itself stores the REQUIRED down payment (50%); what
+    // was actually received goes into the payments ledger below.
+    const pay = b.initialPayment;
+    const payAmount = pay ? Math.round(Number(pay.amount) * 100) / 100 : 0;
+    const payMethods = ["Cash", "GCash", "Bank Transfer"];
+    if (pay && (!Number.isFinite(payAmount) || payAmount <= 0 || payAmount > total || !payMethods.includes(pay.method))) {
+      return NextResponse.json({ success: false, error: "The payment taken at the desk is not valid." }, { status: 400 });
+    }
+    if (pay && pay.method !== "Cash" && !String(pay.reference ?? "").trim()) {
+      return NextResponse.json({ success: false, error: `Enter the ${pay.method} reference number.` }, { status: 400 });
+    }
+    const status = pay ? "Confirmed" : "Pending";
 
     const row = bookingToRow({
       ...(b as Booking),
@@ -217,6 +247,8 @@ async function createWalkIn(body: Record<string, unknown>) {
       total,
       downpayment,
       status,
+      paymentProof: !!pay,
+      arrivalTime: typeof b.arrivalTime === "string" && /^\d{2}:\d{2}$/.test(b.arrivalTime) ? b.arrivalTime : undefined,
       rooms: Array.isArray(b.rooms) ? b.rooms.map(Number).filter(Number.isFinite) : [],
       // Overtime is Day-only and capped (see OVERTIME_MAX).
       overtime: b.slot === "Day" || !b.slot
@@ -233,9 +265,29 @@ async function createWalkIn(body: Record<string, unknown>) {
       cancelReason: null,
     });
 
-    const { data, error } = await getSupabaseAdmin().from("bookings").insert(row).select().single();
+    const db = getSupabaseAdmin();
+    const { data, error } = await db.from("bookings").insert(row).select().single();
     if (error) throw new Error(error.message);
-    return NextResponse.json({ success: true, booking: rowToBooking(data as BookingRow) }, { status: 201 });
+    const saved = rowToBooking(data as BookingRow);
+
+    if (pay) {
+      const ledgerRow = await db.from("payments").insert({
+        booking_id: saved.id,
+        guest_name: saved.name,
+        type: payAmount >= total ? "Full" : "Downpayment",
+        method: pay.method,
+        amount: payAmount,
+        reference: String(pay.reference ?? "").replace(/[<>]/g, "").trim().slice(0, 80),
+        notes: "Collected at the front desk (walk-in).",
+      });
+      if (ledgerRow.error) {
+        // Undo the booking rather than keep a Confirmed walk-in whose money
+        // is missing from the ledger.
+        await db.from("bookings").delete().eq("id", saved.id);
+        throw new Error(ledgerRow.error.message);
+      }
+    }
+    return NextResponse.json({ success: true, booking: saved }, { status: 201 });
   } catch (err) {
     console.error("[/api/bookings POST walk-in]", err);
     return NextResponse.json({ success: false, error: "Could not save the booking." }, { status: 500 });

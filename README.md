@@ -523,3 +523,37 @@ npm run build    # production build
 npm run start    # serve the production build
 npm run lint     # eslint
 ```
+
+## Sales and facility operations (added September 2026)
+
+**Setup:** run the new migration `supabase/migrations/20260926120000_sales_and_facility_ops.sql`
+(`supabase db push`, or paste it into the Supabase SQL editor). It is safe to run twice.
+
+What it changes:
+
+- Booking status **"Paid" is renamed "Pending"** (waiting for admin approval). "Paid" now only
+  ever refers to money actually received.
+- New tables: `payments` (the sales ledger), `expenses`, `daily_closings`, `damage_rates`,
+  `facility_inspections`, `damage_records`.
+- Existing bookings' received downpayments are copied into `payments`. Completed bookings are
+  assumed to have paid their balance in cash at checkout; each such row says so in its notes
+  and can be voided in **Sales → Transactions** if that was not the case.
+- `damage_rates` is seeded with **sample prices**. Replace them with the resort's real prices in
+  **Facilities → Damage rates** before using penalties for real.
+
+Where things are in the admin panel:
+
+| Objective | Screen |
+|---|---|
+| Sales monitoring | **Sales**: transactions, receivables, clients, expenses, daily closing |
+| Facility management | **Facilities**: guests today / coming up / checked out; prepare, check out (inspection, damage, penalty, payment), damage rates |
+| Reservation management | **Bookings**: online and walk-in together, search, status/source/slot/date filters, payments per booking |
+| Reports generation | **Reports**: any month, year or date range; CSV export and print |
+
+The new screens are built on the shadcn components in `components/ui` through the thin
+wrappers in `components/admin/ui.tsx` (Modal → landscape `Dialog`, ConfirmDialog →
+`AlertDialog`, TableShell → `Table`, ViewTabs → `Tabs`, Pill → `Badge`, FullSelect →
+full-width `NativeSelect`).
+
+The admin panel refreshes bookings every 15 seconds and the sales/facility records every
+20 seconds while it is open, so new online bookings appear without reloading.

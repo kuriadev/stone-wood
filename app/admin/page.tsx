@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { Admin } from "@/components/sections/Admin";
+import { OpsProvider } from "@/contexts/OpsContext";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -39,6 +40,7 @@ export default function AdminPage() {
   if (!adminAuth) return null;
 
   return (
+    <OpsProvider>
     <Admin
       bookings={bookings}
       setBookings={setBookings}
@@ -65,5 +67,6 @@ export default function AdminPage() {
       packages={packages}
       setPackages={setPackages}
     />
+    </OpsProvider>
   );
 }

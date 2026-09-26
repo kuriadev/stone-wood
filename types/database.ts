@@ -54,6 +54,8 @@ export interface BookingRow {
   /** Added by 20260924090000_slots_and_packages.sql. NULL on rows that
    *  predate it; the app reads those from the package label. */
   slot: BookingSlot | null;
+  /** Added by 20260926120000_sales_and_facility_ops.sql. */
+  arrival_time: string | null;
 }
 
 export interface InventoryRow {
@@ -129,5 +131,87 @@ export interface PackageRow {
   includes: string[];
   note: string | null;
   active: boolean;
+  created_at: string;
+}
+
+// ── Added by 20260926120000_sales_and_facility_ops.sql ──────────────
+
+export interface PaymentRow {
+  id: number;
+  booking_id: string | null;
+  guest_name: string;
+  type: import("./finance").PaymentType;
+  method: import("./finance").PaymentMethod;
+  amount: number;
+  reference: string;
+  notes: string;
+  received_at: string;
+  voided: boolean;
+  void_reason: string | null;
+  voided_at: string | null;
+  created_at: string;
+}
+
+export interface ExpenseRow {
+  id: number;
+  category: import("./finance").ExpenseCategory;
+  description: string;
+  amount: number;
+  method: "Cash" | "GCash" | "Bank Transfer";
+  spent_on: string;
+  voided: boolean;
+  void_reason: string | null;
+  voided_at: string | null;
+  created_at: string;
+}
+
+export interface DailyClosingRow {
+  closing_date: string;
+  opening_float: number;
+  cash_in: number;
+  cash_out: number;
+  expected_cash: number;
+  counted_cash: number;
+  difference: number;
+  total_collected: number;
+  total_expenses: number;
+  notes: string;
+  closed_at: string;
+}
+
+export interface DamageRateRow {
+  id: number;
+  name: string;
+  category: string;
+  unit: string;
+  rate: number;
+  active: boolean;
+  created_at: string;
+}
+
+export interface InspectionRow {
+  id: number;
+  booking_id: string;
+  stage: import("./finance").InspectionStage;
+  items: import("./finance").InspectionItem[];
+  notes: string;
+  inspected_at: string;
+}
+
+export interface DamageRecordRow {
+  id: number;
+  booking_id: string;
+  inspection_id: number | null;
+  facility_name: string;
+  rate_id: number | null;
+  item_name: string;
+  quantity: number;
+  unit_rate: number;
+  adjustment: number;
+  adjustment_reason: string;
+  amount: number;
+  description: string;
+  voided: boolean;
+  void_reason: string | null;
   created_at: string;
 }

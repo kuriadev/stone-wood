@@ -144,7 +144,7 @@ export function ManageBooking(_props: ManageBookingProps) {
 
   const statusColor = (s: string) => {
     if (s === "Confirmed") return "#4caf50";
-    if (s === "Paid") return "#f5c518";
+    if (s === "Pending") return "#f5c518";
     if (s === "Cancelled") return "#e55555";
     if (s === "Completed") return "#4a9fd4";
     return "#888";

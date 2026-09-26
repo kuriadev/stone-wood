@@ -192,5 +192,37 @@ export function useDbCollection<T>(
 
   // A third element rather than a new shape, so every existing
   // `const [x, setX] = useDbCollection(...)` call site keeps working.
-  return [state, setter, { loading: active ? loading : false, hydrated }] as const;
+  // ── Refresh from the server ───────────────────────────────────────
+  // Used two ways: on demand, after a server route changed rows directly
+  // (a check-out completes a booking without going through this hook), and
+  // on a timer for collections that declare pollMs, so a booking made
+  // online appears in the admin panel without a page reload.
+  //
+  // It never overwrites a local edit that has not reached the server yet:
+  // it waits for queued writes, and skips the refresh if the state still
+  // differs from the last list the server confirmed.
+  const stateRef = useRef(state);
+  useEffect(() => { stateRef.current = state; }, [state]);
+  const reload = useCallback(async () => {
+    if (!active || !liveRef.current) return;
+    await queueRef.current;
+    const rows = await load();
+    if (rows === null) return;
+    if (JSON.stringify(stateRef.current) !== JSON.stringify(baseRef.current)) return;
+    if (JSON.stringify(rows) === JSON.stringify(baseRef.current)) return;
+    applyingRef.current = true;
+    baseRef.current = rows;
+    setState(rows);
+  }, [active, load]);
+
+  const pollMs = collection.pollMs;
+  useEffect(() => {
+    if (!active || !pollMs) return;
+    const tick = () => { if (document.visibilityState === "visible") void reload(); };
+    const t = setInterval(tick, pollMs);
+    window.addEventListener("focus", tick);
+    return () => { clearInterval(t); window.removeEventListener("focus", tick); };
+  }, [active, pollMs, reload]);
+
+  return [state, setter, { loading: active ? loading : false, hydrated, reload }] as const;
 }

@@ -1,47 +1,38 @@
 "use client";
 
-import { useState } from "react";
-import { useTheme } from "@/contexts/ThemeContext";
-import { useToast } from "@/contexts/ToastContext";
-import { T } from "@/lib/theme";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
+// ── Bookings (capstone objective 3)
+//
+// Every reservation in one place, online and walk-in alike: walk-ins are
+// encoded from here (+ New walk-in) rather than on a separate page that
+// repeated the same table, search and statuses.
+//
+// Search covers name, ID, email, phone, date and package. Filters narrow by
+// status, source, slot and a date range, and work in the Archived view too.
+// Each row shows what has actually been paid (from the payments ledger), and
+// the details window lists every payment with a button to record another.
+
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { gold, goldBtn } from "@/lib/styles";
-import { fmt, getBookingSlot } from "@/lib/utils";
+import { NativeSelect } from "@/components/ui/native-select";
+import { useState } from "react";
+import { useToast } from "@/contexts/ToastContext";
+import { useOps } from "@/contexts/OpsContext";
+import { bookingMoney, manilaDate, manilaTime, livePayments } from "@/lib/finance";
+import { fmt, fmtDate, getBookingSlot } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
 import { OVERTIME_RATE } from "@/lib/validators";
-import type { Booking } from "@/types/booking";
+import type { Booking, BookingSlot } from "@/types/booking";
 import type { Room } from "@/types/room";
+import type { Facility } from "@/types/facility";
+import type { ResortPackage } from "@/types/package";
+import { gold } from "@/lib/styles";
 import { Icon } from "@/components/common/Icon";
-import { Badge } from "@/components/ui/badge";
+import { WalkInModal } from "@/components/admin/WalkInModal";
+import { RecordPaymentModal } from "@/components/admin/RecordPaymentModal";
+import { CheckoutModal } from "@/components/admin/InspectionModals";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  PageHead, TableShell, td, Btn, Pill, Modal, Label, Line, useAdminStyle, STATUS_COLOR, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewTabs,
+} from "@/components/admin/ui";
 
 interface BookingsTabProps {
   bookings: Booking[];
@@ -49,484 +40,252 @@ interface BookingsTabProps {
   updateStatus: (id: string, status: string, reason?: string) => void;
   mob: boolean;
   rooms: Room[];
+  packages: ResortPackage[];
+  facilities: Facility[];
 }
 
-export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms }: BookingsTabProps) {
-  const { isDark } = useTheme();
-  const C = T(isDark);
+const STATUSES = ["All", "Pending", "Confirmed", "Completed", "Cancelled"] as const;
+
+export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, packages, facilities }: BookingsTabProps) {
+  const { C, rowBg, cBr, soft, inp } = useAdminStyle();
   const { toast } = useToast();
-  const [bf, setBf] = useState("All");
-  const [search, setSearch] = useState("");
-  const [confirmAction, setConfirmAction] = useState<{ bookingId: string; action: string; guestName: string; guestEmail?: string } | null>(null);
-  const [rejectionMsg, setRejectionMsg] = useState("");
-  const [viewBooking, setViewBooking] = useState<Booking | null>(null);
-  // Active vs Archived reservations — a Completed booking (stay finished) or
-  // a Cancelled one (customer backed out / was rejected) can be archived out
-  // of the working list once staff no longer needs to act on it, without
-  // losing the record. The two are kept visually segregated in the archive
-  // so it's obvious at a glance which is which.
+  const ops = useOps();
+
   const [bView, setBView] = useState<"active" | "archived">("active");
-  const [confirmArchive, setConfirmArchive] = useState<Booking | null>(null);
+  const [status, setStatus] = useState<(typeof STATUSES)[number]>("All");
+  const [search, setSearch] = useState("");
+  const [source, setSource] = useState<"All" | "Online" | "Walk-In">("All");
+  const [slot, setSlot] = useState<"All" | BookingSlot>("All");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
-  const archiveBooking = (b: Booking) => {
-    setBookings((bs) => bs.map((x) => x.id === b.id ? { ...x, archived: true, archivedAt: new Date().toISOString() } : x));
-    toast(`Reservation ${b.id} moved to archive.`, "info");
-    setConfirmArchive(null);
-  };
-  const restoreBooking = (b: Booking) => {
-    setBookings((bs) => bs.map((x) => x.id === b.id ? { ...x, archived: false } : x));
-    toast(`Reservation ${b.id} restored.`, "success");
-  };
-  const archivedBookings = bookings.filter((b) => b.archived);
-  const archivedCompleted = archivedBookings.filter((b) => b.status === "Completed");
-  const archivedCancelled = archivedBookings.filter((b) => b.status === "Cancelled");
+  const [walkIn, setWalkIn] = useState(false);
+  const [viewId, setViewId] = useState<string | null>(null);
+  const [payFor, setPayFor] = useState<string | null>(null);
+  const [checkout, setCheckout] = useState<Booking | null>(null);
+  const [confirm, setConfirm] = useState<{ b: Booking; action: "Confirmed" | "Cancelled" } | null>(null);
+  const [reason, setReason] = useState("");
+  const [archiveOf, setArchiveOf] = useState<Booking | null>(null);
 
-
-  const executeAction = () => {
-  if (!confirmAction) return;
-  const reason = rejectionMsg.trim() || "Your booking did not meet our current availability or requirements.";
-  updateStatus(confirmAction.bookingId, confirmAction.action, confirmAction.action === "Cancelled" ? reason : undefined);
-  if (confirmAction.action === "Cancelled") {
-    toast(`Rejection sent to ${confirmAction.guestEmail || confirmAction.guestName}: "${reason.slice(0, 48)}${reason.length > 48 ? "…" : ""}"`, "warning");
-  } else {
-    toast(`Booking accepted for ${confirmAction.guestName}.`, "success");
-  }
-  setRejectionMsg(""); setConfirmAction(null);
-};
-
-  // Derive payment method from booking source
-  const getPaymentMethod = (b: Booking) => {
-    if (b.source === "Walk-In" || b.package === "On-Site Reservation") return { label: "Walk-In", color: "#4a9fd4", bg: "rgba(74,159,212,0.08)", border: "rgba(74,159,212,0.25)", icon: "" };
-    return { label: "GCash", color: "#00a952", bg: "rgba(0,169,82,0.08)", border: "rgba(0,169,82,0.25)", icon: "G" };
-  };
-
-  const filters = ["All", "Paid", "Confirmed", "Completed", "Cancelled"];
-  // [background, accent] per filter. The accent is used for both the label
-  // and the border, so one pair styles the whole chip.
-  const fC: Record<string, string[]> = {
-    // "All" had no entry, so it fell through to a hardcoded "#1a1a1a" — a
-    // near-black pill that ignored the theme and sat oddly among the tinted
-    // ones in light mode. It now follows the same shape as the rest, in the
-    // brand gold, with a darker gold in light mode for legible contrast
-    // (4.3:1, in line with the Completed and Cancelled chips).
-    "All":       [isDark ? "#2a2205" : "#f9f1da", isDark ? "#c9a84c" : "#8c6d1c"],
-    "Paid":      [isDark ? "#2a2500" : "#fef9e7", "#d4a800"],
-    "Confirmed": [isDark ? "#1a3320" : "#edfbf0", "#2e9e4e"],
-    "Completed": [isDark ? "#0f1a2a" : "#e8f4fb", "#1a6fa0"],
-    "Cancelled": [isDark ? "#2a1010" : "#fdecea", "#c0392b"],
-  };
   const q = search.toLowerCase().trim();
-  const activeBookings = bookings.filter((b) => !b.archived);
-  const filtered = (bf === "All" ? activeBookings : activeBookings.filter((b) => b.status === bf)).filter(
-    (b) => !q ||
-      b.name.toLowerCase().includes(q) ||
-      b.id.toLowerCase().includes(q) ||
-      (b.email || "").toLowerCase().includes(q) ||
-      b.contact.includes(q) ||
-      b.date.includes(q) ||
-      b.package.toLowerCase().includes(q)
+  const pool = bookings.filter((b) => (bView === "archived" ? !!b.archived : !b.archived));
+  const filteredNoStatus = pool.filter((b) => {
+    if (source !== "All" && (b.source ?? "Online") !== source) return false;
+    if (slot !== "All" && getBookingSlot(b) !== slot) return false;
+    if (from && b.date < from) return false;
+    if (to && b.date > to) return false;
+    return !q || b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) ||
+      (b.email || "").toLowerCase().includes(q) || b.contact.includes(q) || b.date.includes(q) || b.package.toLowerCase().includes(q);
+  });
+  const rows = (status === "All" ? filteredNoStatus : filteredNoStatus.filter((b) => b.status === status))
+    .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+  const filtersOn = source !== "All" || slot !== "All" || !!from || !!to || !!q;
+  const clear = () => { setSource("All"); setSlot("All"); setFrom(""); setTo(""); setSearch(""); };
+
+  const viewing = bookings.find((b) => b.id === viewId) ?? null;
+
+  const act = () => {
+    if (!confirm) return;
+    const { b, action } = confirm;
+    if (action === "Cancelled") {
+      const why = reason.trim() || "Your booking did not meet our current availability or requirements.";
+      updateStatus(b.id, "Cancelled", why);
+      setBookings((bs) => bs.map((x) => x.id === b.id ? { ...x, cancelReason: why } : x));
+      toast(`Booking ${b.id} rejected.`, "warning");
+    } else {
+      updateStatus(b.id, "Confirmed");
+      toast(`Booking accepted for ${b.name}.`, "success");
+    }
+    setConfirm(null); setReason("");
+  };
+
+  const sel = { ...inp, padding: "8px 10px", width: "auto" } as const;
+
+  // One list layout for both tabs (the Archived tab just filters to
+  // archived rows), rendered into each TabsContent like Customer Service.
+  const listPanel = (
+    <>
+      {/* Status */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12, alignItems: "center" }}>
+        {STATUSES.map((s) => {
+          const n = s === "All" ? filteredNoStatus.length : filteredNoStatus.filter((b) => b.status === s).length;
+          const on = status === s;
+          const col = s === "All" ? gold : STATUS_COLOR[s];
+          return (
+            <button key={s} type="button" onClick={() => setStatus(s)} aria-pressed={on}
+              style={{ padding: "7px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 20, cursor: "pointer", background: on ? `${col}1c` : "transparent", color: on ? col : C.textS, border: `1px solid ${on ? col + "77" : cBr}` }}>
+              {s} ({n})
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Search + filters */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14, alignItems: "center" }}>
+        <div style={{ position: "relative", flex: "1 1 260px" }}>
+          <Icon name="search" size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: 0.45, color: C.textH }} />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, ID, email, phone, date or package" aria-label="Search bookings" style={{ ...sel, width: "100%", paddingLeft: 32 }} />
+        </div>
+        <NativeSelect value={source} onChange={(e) => setSource(e.target.value as typeof source)} aria-label="Source" style={sel}>
+          <option value="All">All sources</option><option>Online</option><option>Walk-In</option>
+        </NativeSelect>
+        <NativeSelect value={slot} onChange={(e) => setSlot(e.target.value as typeof slot)} aria-label="Slot" style={sel}>
+          <option value="All">All slots</option>
+          {(["Day", "Night", "WholeDay"] as BookingSlot[]).map((s) => <option key={s} value={s}>{SLOTS[s].label}</option>)}
+        </NativeSelect>
+        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Visit date from" style={sel} />
+        <span style={{ color: C.textS, fontSize: 13 }}>to</span>
+        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Visit date to" style={sel} />
+        {filtersOn && <Btn size="sm" onClick={clear}>Clear</Btn>}
+      </div>
+
+      <TableShell head={["ID", "Guest", "Visit", "Package", "Source", "Total", "Paid", "Status", ""]} minWidth={1020}
+        empty={rows.length === 0 ? (filtersOn ? "No bookings match these filters." : status === "All" ? "No bookings yet." : `No ${status.toLowerCase()} bookings.`) : undefined}>
+        {rows.map((b, i) => {
+          const m = bookingMoney(b, ops.payments, ops.damages);
+          const s = SLOTS[getBookingSlot(b)];
+          return (
+            <Row key={b.id} style={{ background: rowBg(i) }}>
+              <Cell style={{ ...td, color: gold, fontFamily: "monospace", whiteSpace: "nowrap" }}>{b.id.startsWith("TMP-") ? "Saving…" : b.id}</Cell>
+              <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.contact}</div></Cell>
+              <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}<div style={{ color: C.textS, fontSize: 11.5 }}>{s.label}</div></Cell>
+              <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{b.package}</Cell>
+              <Cell style={td}><Pill color={b.source === "Walk-In" ? "#3a8fc4" : gold}>{b.source ?? "Online"}</Pill></Cell>
+              <Cell style={{ ...td, color: C.textH, fontWeight: 600, whiteSpace: "nowrap" }}>{fmt(b.total)}</Cell>
+              <Cell style={{ ...td, whiteSpace: "nowrap" }}>
+                <span style={{ color: C.textB }}>{fmt(m.paid)}</span>
+                <div><span style={{ color: MONEY_COLOR[m.state], fontSize: 11.5 }}>{m.state}{m.due > 0 && b.status !== "Cancelled" ? ` · ${fmt(m.due)} owed` : ""}</span></div>
+              </Cell>
+              <Cell style={td}><Pill color={STATUS_COLOR[b.status]}>{b.status}</Pill></Cell>
+              <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                <div style={{ display: "inline-flex", gap: 5 }}>
+                  <Btn size="sm" onClick={() => setViewId(b.id)}>View</Btn>
+                  {!b.archived && b.status === "Pending" && <>
+                    <Btn size="sm" kind="green" onClick={() => setConfirm({ b, action: "Confirmed" })}>Accept</Btn>
+                    <Btn size="sm" kind="red" onClick={() => { setReason(""); setConfirm({ b, action: "Cancelled" }); }}>Reject</Btn>
+                  </>}
+                  {!b.archived && b.status === "Confirmed" && <Btn size="sm" kind="blue" icon="logout" onClick={() => setCheckout(b)}>Check out</Btn>}
+                  {!b.archived && (b.status === "Completed" || b.status === "Cancelled") && <Btn size="sm" onClick={() => setArchiveOf(b)}>Archive</Btn>}
+                  {b.archived && <Btn size="sm" onClick={() => { setBookings((bs) => bs.map((x) => x.id === b.id ? { ...x, archived: false, archivedAt: undefined } : x)); toast(`${b.id} restored.`, "success"); }}>Restore</Btn>}
+                </div>
+              </Cell>
+            </Row>
+          );
+        })}
+      </TableShell>
+    </>
   );
-  const cBg = isDark ? "#0b0a08" : "#ffffff";
-  const cBr = isDark ? "#1e1a14" : "#e4ddd1";
 
   return (
     <div>
-      {/* Active / Archived — a real Tabs: arrow keys move between them and
-          each panel is announced as a tabpanel rather than the selected state
-          being carried by colour alone. */}
-      <Tabs value={bView} onValueChange={(v) => setBView(v as "active" | "archived")}>
-        <TabsList className="mb-4 h-auto gap-2 bg-transparent p-0">
-          {(["active", "archived"] as const).map((v) => (
-            <TabsTrigger
-              key={v}
-              value={v}
-              className="rounded-full border data-[state=active]:shadow-none"
-              style={{ padding: "8px 18px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", letterSpacing: 1, background: bView === v ? `${gold}18` : "transparent", color: bView === v ? gold : C.textS, borderColor: bView === v ? gold + "55" : cBr }}
-            >
-              {v === "active" ? "ACTIVE" : "ARCHIVED"} <span style={{ opacity: 0.7, fontSize: 11.5 }}>({v === "active" ? activeBookings.length : archivedBookings.length})</span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      <PageHead title="Bookings" mob={mob} subtitle="Online and walk-in reservations."
+        action={<Btn kind="primary" icon="plus" onClick={() => setWalkIn(true)}>New walk-in</Btn>} />
 
-        <TabsContent value="archived">
-          <div>
-            <p style={{ color: C.textS, fontSize: 13.5, marginBottom: 20, lineHeight: 1.6 }}>
-              Reservations moved here stay segregated by how they ended — a finished stay under <strong style={{ color: "#4a9fd4" }}>Completed</strong>, a rejected or backed-out booking under <strong style={{ color: "#e55" }}>Cancelled</strong> — so nothing gets mixed up later.
-            </p>
-            {([
-              { label: "COMPLETED (STAY FINISHED)", color: "#4a9fd4", items: archivedCompleted },
-              { label: "CANCELLED (CUSTOMER BACKED OUT / REJECTED)", color: "#e55", items: archivedCancelled },
-            ] as const).map((group) => (
-              <div key={group.label} style={{ marginBottom: 28 }}>
-                <p style={{ color: group.color, fontSize: 11.5, letterSpacing: 2, marginBottom: 12 }}>{group.label} ({group.items.length})</p>
-                <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 6, overflow: "hidden" }}>
-                  <div style={{ overflowX: "auto" }}>
-                    <Table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
-                      <TableHeader>
-                        <TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
-                          {["ID", "Guest", "Date", "Package", "Total", "Archived", "Actions"].map((h) => (
-                            <TableHead key={h} style={{ padding: "10px 12px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {group.items.length === 0 && (
-                          <TableRow><TableCell colSpan={7} style={{ padding: 20, textAlign: "center", color: C.textXS, fontSize: 13.5 }}>None archived yet.</TableCell></TableRow>
-                        )}
-                        {group.items.map((b, idx) => (
-                          <TableRow key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
-                            <TableCell style={{ padding: "10px 12px", color: gold, fontSize: 12.5, fontFamily: "monospace", whiteSpace: "nowrap" }}>{b.id}</TableCell>
-                            <TableCell style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5 }}>{b.name}</TableCell>
-                            <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.date}</TableCell>
-                            <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.package}</TableCell>
-                            <TableCell style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</TableCell>
-                            <TableCell style={{ padding: "10px 12px", color: C.textXS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.archivedAt ? new Date(b.archivedAt).toLocaleDateString("en-PH") : "—"}</TableCell>
-                            <TableCell style={{ padding: "10px 12px" }}>
-                              <button onClick={() => restoreBooking(b)} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, whiteSpace: "nowrap" }}>RESTORE</button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+      <ViewTabs<"active" | "archived"> value={bView} onChange={setBView} views={[
+        { value: "active", label: `Active (${bookings.filter((b) => !b.archived).length})`, content: listPanel },
+        { value: "archived", label: `Archived (${bookings.filter((b) => !!b.archived).length})`, content: listPanel },
+      ]} />
+
+      {/* ── Details ── */}
+      {viewing && (() => {
+        const b = viewing;
+        const m = bookingMoney(b, ops.payments, ops.damages);
+        const s = SLOTS[getBookingSlot(b)];
+        const overtimeFee = s.id === "Day" ? (b.overtime || 0) * OVERTIME_RATE : 0;
+        const bookedRooms = rooms.filter((r) => (b.rooms || []).includes(r.id));
+        const pays = ops.payments.filter((p) => p.bookingId === b.id);
+        return (
+          <Modal title={b.name} subtitle={<><span style={{ color: gold, fontFamily: "monospace" }}>{b.id}</span> · {b.source ?? "Online"} · booked {b.createdAt ? fmtDate(manilaDate(new Date(b.createdAt))) : "—"}</>}
+            onClose={() => setViewId(null)} width={900}
+            footer={<div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+              {m.due > 0 && b.status !== "Cancelled" && <Btn kind="green" icon="cash" onClick={() => setPayFor(b.id)}>Record payment</Btn>}
+              {b.status === "Confirmed" && !b.archived && <Btn kind="blue" icon="logout" onClick={() => { setViewId(null); setCheckout(b); }}>Check out</Btn>}
+            </div>}>
+            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 18 }}>
+              <div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+                  {[["Visit", `${fmtDate(b.date)}`], ["Time", `${s.label} · ${s.hours}`], ["Contact", b.contact], ["Email", b.email || "—"], ["Guests", `${b.guests}`], ["Status", b.status]].map(([l, v]) => (
+                    <div key={l} style={{ background: soft, borderRadius: 8, padding: "8px 12px" }}>
+                      <div style={{ color: C.textS, fontSize: 11.5 }}>{l}</div>
+                      <div style={{ color: C.textH, fontSize: 13.5 }}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+                {b.arrivalTime && <p style={{ color: C.textB, fontSize: 13, margin: "0 0 8px" }}>Arrival time: {b.arrivalTime}</p>}
+                <div style={{ border: `1px solid ${cBr}`, borderRadius: 10, padding: "10px 14px" }}>
+                  <Line label={b.package} value={fmt(Math.max(0, b.total - overtimeFee))} />
+                  {overtimeFee > 0 && <Line label={`Overtime (${b.overtime} hr)`} value={fmt(overtimeFee)} />}
+                  {bookedRooms.map((r) => <Line key={r.id} label={r.name} value="included" />)}
+                  <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}><Line label="Total" value={fmt(b.total)} strong /></div>
+                </div>
+                {b.notes && <p style={{ color: C.textS, fontSize: 13, marginTop: 10 }}>Notes: {b.notes}</p>}
+                {b.status === "Cancelled" && b.cancelReason && <p style={{ color: "#d44", fontSize: 13, marginTop: 10 }}>Cancelled: {b.cancelReason}</p>}
+              </div>
+              <div>
+                <div style={{ background: soft, borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
+                  <Line label="Paid for the stay" value={fmt(m.paid)} />
+                  <Line label={b.status === "Cancelled" ? "Balance (forfeited, not owed)" : "Balance"} value={fmt(b.status === "Cancelled" ? Math.max(0, b.total - m.paid) : m.balance)} color={m.balance > 0 ? "#d4a800" : undefined} />
+                  {m.penaltyTotal > 0 && <Line label="Damage penalties" value={`${fmt(m.penaltyTotal)} (${fmt(m.penaltyDue)} unpaid)`} color="#d44" />}
+                  <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}>
+                    <Line label="Still owed" value={fmt(m.due)} strong color={m.due > 0 ? "#d4a800" : "#2e9e4e"} />
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="active">
-        <>
-        {/* Search */}
-        <div style={{ position: "relative", marginBottom: 16 }}>
-          <svg style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", opacity: 0.35 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.textH} strokeWidth="2">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <Label htmlFor="bookings-search" className="sr-only">Search bookings</Label>
-          <Input
-            id="bookings-search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, ID, email, phone, date, or package…"
-            style={{ ...C.inp, paddingLeft: 36, borderRadius: 6, height: "auto" }}
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              aria-label="Clear search"
-              style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.textXS, cursor: "pointer", fontSize: 17, lineHeight: 1, padding: 0 }}
-            ><Icon name="x" size={13} /></button>
-          )}
-        </div>
-
-        {/* Status filter tabs */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-          {filters.map((f) => {
-            const active = bf === f; const col = fC[f];
-            return (
-              <button
-                key={f}
-                onClick={() => setBf(f)}
-                // Falls back to theme-aware values rather than a literal, so a
-                // filter added later without a colour still follows dark/light
-                // instead of rendering as a fixed near-black pill.
-                style={{ padding: "7px 16px", fontSize: 13.5, fontWeight: 700, borderRadius: 20, cursor: "pointer", background: active ? (col ? col[0] : (isDark ? "#1c1710" : "#f2ece1")) : "transparent", color: active ? (col ? col[1] : gold) : (col ? col[1] + "cc" : C.textS), border: `1px solid ${active ? (col ? col[1] : gold) : (col ? col[1] + "44" : C.border)}` }}
-              >
-                {f} <span style={{ opacity: 0.7, fontSize: 12.5 }}>({f === "All" ? activeBookings.length : activeBookings.filter((b) => b.status === f).length})</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {search && (
-          <p style={{ color: C.textXS, fontSize: 13.5, marginBottom: 12 }}>
-            Showing {filtered.length} result{filtered.length !== 1 ? "s" : ""} for "<span style={{ color: gold }}>{search}</span>"
-          </p>
-        )}
-
-        {/* Table */}
-        <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 6, overflow: "hidden" }}>
-          <div style={{ overflowX: "auto" }}>
-            <Table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }} aria-label="Bookings list">
-              <TableHeader>
-                <TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
-                  {["ID", "Guest", "Email", "Phone", "Date", "Package", "Payment", "Total", "Down", "Status", "Actions"].map((h) => (
-                    <TableHead key={h} scope="col" style={{ padding: "11px 12px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={11} style={{ padding: 24, textAlign: "center", color: C.textXS, fontSize: 14.5 }}>
-                      {search ? `No bookings matching "${search}".` : `No bookings for "${bf}".`}
-                    </TableCell>
-                  </TableRow>
-                )}
-                {filtered.map((b, idx) => {
-                  const sc = fC[b.status] || [isDark ? "#111" : "#eee", C.textS];
-                  const pm = getPaymentMethod(b);
-                  return (
-                    <TableRow key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
-                      <TableCell style={{ padding: "10px 12px", color: gold, fontSize: 12.5, whiteSpace: "nowrap", fontFamily: "monospace" }}>{b.id}</TableCell>
-                      <TableCell style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5 }}>{b.name}</TableCell>
-                      <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5 }}>{b.email || "—"}</TableCell>
-                      <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.contact || "—"}</TableCell>
-                      <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.date}</TableCell>
-                      <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.package}</TableCell>
-
-                      {/* ── Payment Method column ── */}
-                      <TableCell style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: pm.bg, border: `1px solid ${pm.border}`, borderRadius: 20, padding: "3px 8px" }}>
-                          {pm.label === "GCash" ? (
-                            <span style={{ width: 14, height: 14, borderRadius: "50%", background: "#00a952", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 9.5, fontWeight: 700, color: "#fff", flexShrink: 0 }}>G</span>
-                          ) : (
-                            <Icon name="home" size={12} />
-                          )}
-                          <span style={{ color: pm.color, fontSize: 10.5, fontWeight: 700, letterSpacing: 1 }}>{pm.label.toUpperCase()}</span>
-                        </div>
-                      </TableCell>
-
-                      <TableCell style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</TableCell>
-                      <TableCell style={{ padding: "10px 12px", color: "#ff9800", fontSize: 13.5, whiteSpace: "nowrap" }}>{fmt(b.downpayment)}</TableCell>
-                      <TableCell style={{ padding: "10px 12px" }}>
-                        <Badge variant="outline" style={{ background: sc[0] + "33", color: sc[1], fontSize: 10.5, padding: "3px 9px", borderRadius: 20, whiteSpace: "nowrap", border: `1px solid ${sc[1]}44`, letterSpacing: 1 }}>
-                          {b.status.toUpperCase()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell style={{ padding: "10px 12px" }}>
-                        <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
-                          <button onClick={() => setViewBooking(b)} style={{ background: isDark ? "rgba(201,168,76,0.07)" : "rgba(201,168,76,0.12)", color: gold, border: `1px solid ${gold}44`, padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, whiteSpace: "nowrap" }}>VIEW</button>
-                          {b.status === "Confirmed" && (
-                            <button onClick={() => { updateStatus(b.id, "Completed"); toast(`Booking marked complete for ${b.name}.`, "info"); }} style={{ background: "rgba(74,159,212,0.1)", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.25)", padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, whiteSpace: "nowrap", letterSpacing: 1 }}><Icon name="check" size={12} style={{ marginRight: 5 }} />COMPLETE</button>
-                          )}
-                          {b.status === "Paid" && <>
-                            <button onClick={() => setConfirmAction({ bookingId: b.id, action: "Confirmed", guestName: b.name, guestEmail: b.email })} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>ACCEPT</button>
-                            <button onClick={() => { setRejectionMsg(""); setConfirmAction({ bookingId: b.id, action: "Cancelled", guestName: b.name, guestEmail: b.email }); }} style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>REJECT</button>
-                          </>}
-                          {(b.status === "Completed" || b.status === "Cancelled") && (
-                            <button onClick={() => setConfirmArchive(b)} style={{ background: "rgba(150,150,150,0.08)", color: C.textS, border: `1px solid ${cBr}`, padding: "4px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, whiteSpace: "nowrap" }}>ARCHIVE</button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-        </>
-        </TabsContent>
-      </Tabs>
-
-      {/* ── Archive Confirm ── */}
-      <AlertDialog open={!!confirmArchive} onOpenChange={(open) => { if (!open) setConfirmArchive(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400 }}>
-              Archive reservation {confirmArchive?.id}?
-            </AlertDialogTitle>
-            <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5 }}>
-              It&apos;ll move out of the active list into the Archived view, filed under <strong style={{ color: confirmArchive?.status === "Completed" ? "#4a9fd4" : "#e55" }}>{confirmArchive?.status}</strong>. You can restore it any time.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel style={{ color: C.textS, borderColor: cBr, padding: "10px 16px", height: "auto", fontSize: 12.5, borderRadius: 6 }}>CANCEL</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => { if (confirmArchive) archiveBooking(confirmArchive); }}
-              style={{ background: "rgba(150,150,150,0.1)", color: C.textH, border: `1px solid ${cBr}`, padding: "10px 16px", height: "auto", fontSize: 12.5, borderRadius: 6, fontWeight: 700 }}
-            >
-              ARCHIVE
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* ── View Booking Modal ── */}
-      {viewBooking && (() => {
-        const b = viewBooking;
-        // Everything but overtime is one line: the booking's stored total is
-        // the truth (this used to print a hardcoded ₱6,000 for every booking).
-        const bSlot = SLOTS[getBookingSlot(b)];
-        const overtimeFee = bSlot.id === "Day" ? (b.overtime || 0) * OVERTIME_RATE : 0;
-        const stayFee = Math.max(0, b.total - overtimeFee);
-        const bookedRooms = rooms.filter((r) => (b.rooms || []).includes(r.id));
-        const pm = getPaymentMethod(b);
-        return (
-          <Dialog open={!!viewBooking} onOpenChange={(open) => { if (!open) setViewBooking(null); }}>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[min(42rem,calc(100%-2rem))]">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-                <div>
-                  <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 4 }}>BOOKING DETAILS</p>
-                  <DialogTitle asChild>
-                    <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400, margin: 0 }}>{b.name}</h3>
-                  </DialogTitle>
-                  <DialogDescription className="sr-only">Full details for booking {b.id}.</DialogDescription>
-                </div>
-                <span style={{ color: gold, fontFamily: "monospace", fontSize: 14.5, fontWeight: 700 }}>{b.id}</span>
-              </div>
-
-              {/* Guest info grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-                {[["Date", b.date], ["Contact", b.contact], ["Email", b.email || "—"], ["Guests", `${b.guests} pax`]].map(([l, v]) => (
-                  <div key={l} style={{ background: isDark ? "#111" : "#f7f5f0", borderRadius: 5, padding: "10px 13px" }}>
-                    <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 4 }}>{l.toUpperCase()}</div>
-                    <div style={{ color: C.textH, fontSize: 14.5 }}>{v}</div>
+                <div style={{ color: C.textH, fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Payments</div>
+                {pays.length === 0 && <p style={{ color: C.textS, fontSize: 13 }}>No payments recorded yet.</p>}
+                {pays.map((p) => (
+                  <div key={p.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "7px 0", borderBottom: `1px solid ${cBr}`, opacity: p.voided ? 0.5 : 1 }}>
+                    <div>
+                      <div style={{ color: C.textH, fontSize: 13 }}>{p.type} · {p.method}{p.voided ? " · voided" : ""}</div>
+                      <div style={{ color: C.textS, fontSize: 11.5 }}>{fmtDate(manilaDate(p.receivedAt))}, {manilaTime(p.receivedAt)}{p.reference ? ` · ref ${p.reference}` : ""}</div>
+                    </div>
+                    <div style={{ color: p.type === "Refund" ? "#d44" : C.textH, fontWeight: 600, textDecoration: p.voided ? "line-through" : "none" }}>{p.type === "Refund" ? "−" : ""}{fmt(p.amount)}</div>
                   </div>
                 ))}
+                {livePayments(pays).length > 0 && <p style={{ color: C.textS, fontSize: 12, marginTop: 8 }}>To correct a payment, void it in Sales → Transactions.</p>}
               </div>
-
-              {/* Payment method badge in modal */}
-              <div style={{ background: isDark ? "#111" : "#f7f5f0", borderRadius: 5, padding: "10px 13px", marginBottom: 20 }}>
-                <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 6 }}>PAYMENT METHOD</div>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: pm.bg, border: `1px solid ${pm.border}`, borderRadius: 20, padding: "5px 12px" }}>
-                  {pm.label === "GCash" ? (
-                    <span style={{ width: 18, height: 18, borderRadius: "50%", background: "#00a952", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11.5, fontWeight: 700, color: "#fff", flexShrink: 0 }}>G</span>
-                  ) : (
-                    <Icon name="home" size={14} />
-                  )}
-                  <span style={{ color: pm.color, fontSize: 13.5, fontWeight: 700 }}>{pm.label === "GCash" ? "GCash (Online Payment)" : "On-Site (Pay on Arrival)"}</span>
-                </div>
-              </div>
-
-              {/* Pricing breakdown */}
-              <div style={{ border: `1px solid ${cBr}`, borderRadius: 8, overflow: "hidden", marginBottom: 16 }}>
-                <div style={{ background: isDark ? "#0f0e0b" : "#f5f0e8", padding: "10px 18px", borderBottom: `1px solid ${cBr}` }}>
-                  <span style={{ color: C.textS, fontSize: 12.5, fontWeight: 600 }}>Pricing Breakdown</span>
-                </div>
-                <div style={{ padding: "14px 18px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${cBr}` }}>
-                    <div style={{ color: C.textH, fontSize: 14.5, display: "flex", alignItems: "center", gap: 7 }}><Icon name={bSlot.id === "Night" ? "moon" : bSlot.id === "WholeDay" ? "clock" : "sun"} size={14} style={{ opacity: 0.6 }} />{b.package} <span style={{ color: C.textS, fontSize: 12.5 }}>· {bSlot.hours}{bookedRooms.length ? " · rooms included" : ""}</span></div>
-                    <span style={{ color: C.textH, fontSize: 14.5, fontWeight: 600 }}>{fmt(stayFee)}</span>
-                  </div>
-                  {(b.overtime || 0) > 0 && (
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${cBr}` }}>
-                      <div style={{ color: C.textH, fontSize: 14.5, display: "flex", alignItems: "center", gap: 7 }}><Icon name="clock" size={14} style={{ opacity: 0.6 }} />Overtime ({b.overtime}hr × {fmt(OVERTIME_RATE)})</div>
-                      <span style={{ color: "#ff9800", fontSize: 14.5 }}>{fmt(overtimeFee)}</span>
-                    </div>
-                  )}
-                  {bookedRooms.map((r) => (
-                    <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${cBr}` }}>
-                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img loading="lazy" decoding="async" src={r.img} alt={r.name} style={{ width: 44, height: 36, objectFit: "cover", borderRadius: 3 }} />
-                        <div style={{ color: C.textH, fontSize: 14.5, display: "flex", alignItems: "center", gap: 7 }}><Icon name="bed" size={14} style={{ opacity: 0.6 }} />{r.name}</div>
-                      </div>
-                      <span style={{ color: C.textS, fontSize: 12.5 }}>included</span>
-                    </div>
-                  ))}
-                  <div style={{ borderTop: `2px solid ${gold}33`, marginTop: 4, paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: gold, fontWeight: 700, fontSize: 14.5 }}>TOTAL</span>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ color: gold, fontWeight: 700, fontSize: 18 }}>{fmt(b.total)}</div>
-                      <div style={{ color: "#ff9800", fontSize: 13.5, fontWeight: 600 }}>Down: {fmt(b.downpayment)}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10, marginBottom: 20 ,  justifyContent: 'center',}}>
-                <div style={{ background: isDark ? "#111" : "#f7f5f0", borderRadius: 5, padding: "10px 13px" }}>
-                  <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 4 }}>PACKAGE TYPE</div>
-                  <div style={{ color: C.textH, fontSize: 13.5 }}>{b.package}</div>
-                </div>
-              </div>
-              {b.status === "Cancelled" && b.cancelReason && (
-              <div
-                style={{
-                  background: isDark ? "#111" : "#f7f5f0",
-                  borderRadius: 5,
-                  padding: "12px 14px",
-                  marginBottom: 20,
-                  border: "1px solid rgba(229,85,85,0.15)",
-                }}
-              >
-                <div
-                  style={{
-                    color: "#e55",
-                    fontSize: 10.5,
-                    letterSpacing: 2,
-                    marginBottom: 6,
-                  }}
-                >
-                  CANCELLATION REASON
-                </div>
-
-                <div
-                  style={{
-                    color: C.textH,
-                    fontSize: 14.5,
-                    fontWeight: 600,
-                  }}
-                >
-                  {b.cancelReason}
-                </div>
-              </div>
-            )}
-              <Button onClick={() => setViewBooking(null)} style={{ ...goldBtn, width: "100%", padding: 12, height: "auto" }}>CLOSE</Button>
-            </DialogContent>
-          </Dialog>
+            </div>
+          </Modal>
         );
       })()}
 
-      {/* ── Accept / Reject Confirm ── */}
-      <AlertDialog open={!!confirmAction} onOpenChange={(open) => { if (!open) { setConfirmAction(null); setRejectionMsg(""); } }}>
-        <AlertDialogContent className="sm:max-w-[min(32rem,calc(100%-2rem))]">
-          {confirmAction && (
-            <>
-              <div style={{ width: 44, height: 44, borderRadius: "50%", background: confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.1)" : "rgba(229,85,85,0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: confirmAction.action === "Confirmed" ? "#4caf50" : "#e55" }}>
-                <Icon name={confirmAction.action === "Confirmed" ? "check" : "x"} size={20} />
-              </div>
-              <AlertDialogHeader>
-                <AlertDialogTitle style={{ color: isDark ? "#e8e8e8" : "#111", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400 }}>
-                  {confirmAction.action === "Confirmed" ? "Accept this booking?" : "Reject this booking?"}
-                </AlertDialogTitle>
-                <AlertDialogDescription style={{ color: isDark ? "#888" : "#666", fontSize: 14.5, lineHeight: 1.7 }}>
-                  {confirmAction.action === "Confirmed"
-                    ? <>{`Accept booking for `}<strong style={{ color: isDark ? "#ddd" : "#333" }}>{confirmAction.guestName}</strong>?</>
-                    : <>{`Reject booking for `}<strong style={{ color: isDark ? "#ddd" : "#333" }}>{confirmAction.guestName}</strong>. A rejection message will be sent to the guest.</>
-                  }
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-
-              {confirmAction.action === "Cancelled" && (
-                <div>
-                  <Label htmlFor="rejection-msg" style={{ color: isDark ? "#888" : "#666", fontSize: 10.5, letterSpacing: 3, display: "block", marginBottom: 8 }}>
-                    REJECTION MESSAGE <span style={{ color: "#888", letterSpacing: 0 }}>(sent to guest)</span>
-                  </Label>
-                  <Textarea
-                    id="rejection-msg"
-                    value={rejectionMsg}
-                    onChange={(e) => setRejectionMsg(e.target.value)}
-                    rows={4}
-                    placeholder={`Hi ${confirmAction.guestName},\n\nWe regret to inform you that your booking has been declined.`}
-                    style={{ background: isDark ? "rgba(229,85,85,0.04)" : "rgba(229,85,85,0.03)", border: "1px solid rgba(229,85,85,0.25)", color: isDark ? "#e0e0e0" : "#222", fontSize: 14.5, lineHeight: 1.7, padding: "12px 14px", resize: "vertical" }}
-                  />
-                  {confirmAction.guestEmail && (
-                    <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 6 }}>
-                      Will be sent to: <span style={{ color: gold }}>{confirmAction.guestEmail}</span>
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <Separator />
-              <AlertDialogFooter>
-                <AlertDialogCancel style={{ color: isDark ? "#777" : "#888", borderColor: isDark ? "#2a2a2a" : "#ddd", padding: "11px 16px", height: "auto", fontSize: 12.5, borderRadius: 4, letterSpacing: 1 }}>
-                  GO BACK
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={executeAction}
-                  style={{ background: confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.12)" : "rgba(229,85,85,0.10)", color: confirmAction.action === "Confirmed" ? "#4caf50" : "#e55", border: `1px solid ${confirmAction.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}`, padding: "11px 16px", height: "auto", fontSize: 12.5, fontWeight: 700, borderRadius: 4, letterSpacing: 2 }}
-                >
-                  {confirmAction.action === "Confirmed" ? "YES, ACCEPT" : "YES, SEND & REJECT"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </>
+      {/* ── Accept / reject ── */}
+      {confirm && (
+        <ConfirmDialog
+          title={confirm.action === "Confirmed" ? "Accept this booking?" : "Reject this booking?"}
+          description={`${confirm.b.name} · ${confirm.b.id} · ${fmtDate(confirm.b.date)}`}
+          onCancel={() => { setConfirm(null); setReason(""); }}
+          cancelLabel="Go back"
+          confirm={<Btn kind={confirm.action === "Confirmed" ? "green" : "red"} onClick={act}>{confirm.action === "Confirmed" ? "Accept booking" : "Reject booking"}</Btn>}
+          width={500}>
+          {confirm.action === "Confirmed" ? (
+            <p style={{ color: C.textS, fontSize: 14, margin: 0 }}>
+              {confirm.b.email ? `A confirmation email goes to ${confirm.b.email}.` : "This guest has no email, so no confirmation is sent."}
+            </p>
+          ) : (
+            <div>
+              <p style={{ color: C.textS, fontSize: 14, marginTop: 0 }}>
+                Under the no-refund policy, any down payment already received stays recorded as income.
+              </p>
+              <Label htmlFor="reject-reason">Reason sent to the guest</Label>
+              <Textarea id="reject-reason" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. The resort is fully booked for that date." style={{ ...inp, resize: "none" }} />
+            </div>
           )}
-        </AlertDialogContent>
-      </AlertDialog>
+        </ConfirmDialog>
+      )}
+
+      {archiveOf && (
+        <ConfirmDialog title={`Archive ${archiveOf.id}?`} description={`${archiveOf.name} · ${archiveOf.status}`} onCancel={() => setArchiveOf(null)}
+          confirm={<Btn kind="primary" onClick={() => {
+            setBookings((bs) => bs.map((x) => x.id === archiveOf.id ? { ...x, archived: true, archivedAt: new Date().toISOString() } : x));
+            toast(`${archiveOf.id} archived.`, "info"); setArchiveOf(null);
+          }}>Archive</Btn>}>
+          <p style={{ color: C.textS, fontSize: 14, margin: 0 }}>It moves to the Archived list. Its payments and inspection records are kept, and you can restore it any time.</p>
+        </ConfirmDialog>
+      )}
+
+      {walkIn && <WalkInModal bookings={bookings} setBookings={setBookings} rooms={rooms} packages={packages} facilities={facilities} mob={mob} onClose={() => setWalkIn(false)} />}
+      {payFor && <RecordPaymentModal bookings={bookings} bookingId={payFor} onClose={() => setPayFor(null)} />}
+      {checkout && <CheckoutModal booking={checkout} facilities={facilities} mob={mob} onClose={() => setCheckout(null)} />}
     </div>
   );
 }

@@ -26,7 +26,14 @@ import type {
   FacilityRow,
   PackageRow,
   GalleryRow,
+  PaymentRow,
+  ExpenseRow,
+  DailyClosingRow,
+  DamageRateRow,
+  InspectionRow,
+  DamageRecordRow,
 } from "@/types/database";
+import type { Payment, Expense, DailyClosing, DamageRate, Inspection, DamageRecord } from "@/types/finance";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
@@ -139,6 +146,7 @@ export const rowToBooking = (b: BookingRow): Booking => ({
   archivedAt: b.archived_at ?? undefined,
   paymentIntentId: b.payment_intent_id ?? undefined,
   slot: b.slot ?? undefined,
+  arrivalTime: b.arrival_time ?? undefined,
 });
 
 /** `id` is left out: the database assigns it (see booking_ref_seq). */
@@ -164,6 +172,7 @@ export const bookingToRow = (b: Booking): Omit<BookingRow, "created_at" | "id"> 
   archived_at: b.archivedAt ?? null,
   payment_intent_id: b.paymentIntentId ?? null,
   slot: b.slot ?? null,
+  arrival_time: b.arrivalTime && /^\d{2}:\d{2}$/.test(b.arrivalTime) ? b.arrivalTime : null,
 });
 
 export const rowToInventoryItem = (i: InventoryRow): InventoryItem => ({
@@ -262,3 +271,79 @@ export const packageToRow = (p: ResortPackage): Omit<PackageRow, "id" | "created
  *  in the DB, so ordering has to be preserved explicitly on the way out. */
 export const rowsToGalleryUrls = (rows: GalleryRow[]): string[] =>
   [...rows].sort((a, b) => a.sort_order - b.sort_order).map((r) => r.url);
+
+// ── Sales ledger and facility operations ─────────────────────────────
+
+export const rowToPayment = (p: PaymentRow): Payment => ({
+  id: p.id,
+  bookingId: p.booking_id,
+  guestName: p.guest_name,
+  type: p.type,
+  method: p.method,
+  amount: Number(p.amount),
+  reference: p.reference ?? "",
+  notes: p.notes ?? "",
+  receivedAt: p.received_at,
+  voided: p.voided,
+  voidReason: p.void_reason ?? undefined,
+  voidedAt: p.voided_at ?? undefined,
+});
+
+export const rowToExpense = (e: ExpenseRow): Expense => ({
+  id: e.id,
+  category: e.category,
+  description: e.description,
+  amount: Number(e.amount),
+  method: e.method,
+  spentOn: e.spent_on,
+  voided: e.voided,
+  voidReason: e.void_reason ?? undefined,
+});
+
+export const rowToClosing = (c: DailyClosingRow): DailyClosing => ({
+  closingDate: c.closing_date,
+  openingFloat: Number(c.opening_float),
+  cashIn: Number(c.cash_in),
+  cashOut: Number(c.cash_out),
+  expectedCash: Number(c.expected_cash),
+  countedCash: Number(c.counted_cash),
+  difference: Number(c.difference),
+  totalCollected: Number(c.total_collected),
+  totalExpenses: Number(c.total_expenses),
+  notes: c.notes ?? "",
+  closedAt: c.closed_at,
+});
+
+export const rowToDamageRate = (r: DamageRateRow): DamageRate => ({
+  id: r.id,
+  name: r.name,
+  category: r.category,
+  unit: r.unit,
+  rate: Number(r.rate),
+  active: r.active,
+});
+
+export const rowToInspection = (i: InspectionRow): Inspection => ({
+  id: i.id,
+  bookingId: i.booking_id,
+  stage: i.stage,
+  items: Array.isArray(i.items) ? i.items : [],
+  notes: i.notes ?? "",
+  inspectedAt: i.inspected_at,
+});
+
+export const rowToDamage = (d: DamageRecordRow): DamageRecord => ({
+  id: d.id,
+  bookingId: d.booking_id,
+  inspectionId: d.inspection_id,
+  facilityName: d.facility_name,
+  rateId: d.rate_id,
+  itemName: d.item_name,
+  quantity: d.quantity,
+  unitRate: Number(d.unit_rate),
+  adjustment: Number(d.adjustment),
+  adjustmentReason: d.adjustment_reason ?? "",
+  amount: Number(d.amount),
+  description: d.description ?? "",
+  voided: d.voided,
+});

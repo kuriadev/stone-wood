@@ -85,6 +85,10 @@ interface AppState {
    *  poll — used by the admin's Maintenance tab after it writes. */
   applyMaintenance: (next: MaintenanceState) => void;
   refreshMaintenance: () => Promise<void>;
+  /** Re-read bookings / facilities after a server route changed them
+   *  directly (e.g. a check-out). Admin only. */
+  reloadBookings: () => Promise<void>;
+  reloadFacilities: () => Promise<void>;
 }
 
 const AppCtx = createContext<AppState | null>(null);
@@ -102,7 +106,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   //
   // The INIT_* constants stay as the offline fallback for a browser that has
   // never loaded the site and cannot reach the API.
-  const [adminBookings, setBookings] = useDbCollection<Booking>(COLLECTIONS.bookings, INIT_BOOKINGS, adminAuth);
+  const [adminBookings, setBookings, bookingsMeta] = useDbCollection<Booking>(COLLECTIONS.bookings, INIT_BOOKINGS, adminAuth);
   const publicAvailability = usePublicAvailability(!adminAuth);
   const { maintenance, refreshMaintenance, applyMaintenance } = useMaintenance();
   const bookings = adminAuth ? adminBookings : publicAvailability.bookings;
@@ -110,7 +114,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [galleryImgs, setGalleryImgs, galleryMeta] = useDbCollection<string>(COLLECTIONS.gallery, INIT_GALLERY);
   const [closedDates, setClosedDates] = useDbCollection<string>(COLLECTIONS.closedDates, []);
   const [customerMessages, setCustomerMessages] = useDbCollection<CustomerMessage>(COLLECTIONS.customerMessages, [], adminAuth);
-  const [adminFacilities, setFacilities] = useDbCollection<Facility>(COLLECTIONS.facilities, INIT_FACILITIES, adminAuth);
+  const [adminFacilities, setFacilities, facilitiesMeta] = useDbCollection<Facility>(COLLECTIONS.facilities, INIT_FACILITIES, adminAuth);
   // Same split as bookings above: the full facility rows are admin-only
   // (they carry caretaker notes and the last guest's name), so a guest
   // reads statuses from /api/availability instead. Without this their
@@ -142,6 +146,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       maintenance,
       applyMaintenance,
       refreshMaintenance,
+      reloadBookings: bookingsMeta.reload,
+      reloadFacilities: facilitiesMeta.reload,
       skeleton: {
         rooms: roomsMeta.loading && !roomsMeta.hydrated,
         packages: packagesMeta.loading && !packagesMeta.hydrated,

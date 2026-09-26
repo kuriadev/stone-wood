@@ -1,4 +1,6 @@
-export type BookingStatus = "Paid" | "Confirmed" | "Completed" | "Cancelled";
+/** "Pending" = received, waiting for the admin to accept (was "Paid" before
+ *  the sales module: that word now only ever means money actually received). */
+export type BookingStatus = "Pending" | "Confirmed" | "Completed" | "Cancelled";
 export type BookingPackage =
   | "Day Tour"
   | "Day Tour + Room"
@@ -92,4 +94,15 @@ export interface Booking {
   /** Day / Night / Whole Day. Undefined on older records ⇒ read from the
    *  package label (see getBookingSlot). */
   slot?: BookingSlot;
+  /** "HH:MM", walk-ins only. */
+  arrivalTime?: string;
+  /** Client → server only, on a walk-in create: the money taken at the desk
+   *  as the booking was encoded. The server records it in the payments
+   *  ledger; it is never stored on the booking itself. */
+  initialPayment?: {
+    type: "Downpayment" | "Full";
+    method: "Cash" | "GCash" | "Bank Transfer";
+    amount: number;
+    reference?: string;
+  };
 }

@@ -10,6 +10,7 @@ import {
   Leaf, TreePalm, Sunrise, Phone, Star, ChevronUp, ChevronDown,
   SunMoon, Handshake, Siren, Info, Circle, Bookmark,
   Plus, Minus, SquarePen, Pencil, LogOut, Eye, EyeOff,
+  Wallet, Receipt, ClipboardCheck, LogIn, ShieldAlert, Printer, History, UserRound, CalendarClock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -100,6 +101,15 @@ const REGISTRY = {
   info: Info,
   circle: Circle,        // neutral "Other" option
   bookmark: Bookmark,    // booking reference
+  wallet: Wallet,        // sales
+  receipt: Receipt,      // payment / transaction
+  "clipboard-check": ClipboardCheck, // preparation / inspection
+  "log-in": LogIn,       // arriving
+  "shield-alert": ShieldAlert, // damage
+  printer: Printer,
+  history: History,
+  user: UserRound,
+  "calendar-clock": CalendarClock,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof REGISTRY;

@@ -16,7 +16,7 @@ import type { BookingRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
-const STATUSES = ["Paid", "Confirmed", "Completed", "Cancelled"] as const;
+const STATUSES = ["Pending", "Confirmed", "Completed", "Cancelled"] as const;
 
 /** Next 16 hands route params in as a promise. */
 type Ctx = { params: Promise<{ id: string }> };

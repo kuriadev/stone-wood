@@ -6,14 +6,13 @@
 export type AdminTab =
   | "Dashboard"
   | "Bookings"
-  | "Walk-In"
   | "Occupancy"
   | "Rooms"
   | "Packages"
   | "Facilities"
   | "Gallery"
   | "Inventory"
-  | "Analytics"
+  | "Sales"
   | "Reports"
   | "Customer Service"
   | "Maintenance";

@@ -12,7 +12,10 @@ import { fmt, fmtDate } from "@/lib/utils";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { BookingsTab } from "@/components/admin/BookingsTab";
 import { InventoryTab } from "@/components/admin/InventoryTab";
-import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
+import { SalesTab } from "@/components/admin/SalesTab";
+import { ReportsTab } from "@/components/admin/ReportsTab";
+import { useOps } from "@/contexts/OpsContext";
+import { collectedBetween, manilaDate } from "@/lib/finance";
 import { FacilitiesTab } from "@/components/admin/FacilitiesTab";
 import { PackagesTab } from "@/components/admin/PackagesTab";
 import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
@@ -82,773 +85,12 @@ interface AdminProps {
   setPackages: React.Dispatch<React.SetStateAction<ResortPackage[]>>;
 }
 
-// ── WalkInTab sub-component ──────────────────────────────────────────────────
-interface WalkInTabProps {
-  walkInBookings: Booking[];
-  wiPending: Booking[];
-  wiConfirmed: Booking[];
-  wiCompleted: Booking[];
-  updateStatus: (id: string, status: string, reason?: string) => void;
-  isDark: boolean;
-  C: ReturnType<typeof T>;
-  cBg: string;
-  cBr: string;
-  mob: boolean;
-  toast: (msg: string, type?: "success" | "error" | "warning" | "info") => void;
-  gold: string;
-  bookings: Booking[];
-  setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
-  rooms: Room[];
-  packages: ResortPackage[];
-  facilities: Facility[];
-}
-
-const todayStr = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
-
-function WalkInTab({
-  walkInBookings, wiPending, wiConfirmed, wiCompleted,
-  updateStatus, isDark, C, cBg, cBr, mob, toast, gold,
-  bookings, setBookings, rooms,
-  packages, facilities,
-}: WalkInTabProps) {
-  const [wiSearch, setWiSearch] = useState("");
-  const [wiTab, setWiTab] = useState<"Paid" | "Confirmed" | "Completed" | "Cancelled">("Paid");
-  const [wiConfirmAction, setWiConfirmAction] = useState<{
-    bookingId: string;
-    action: "Confirmed" | "Cancelled" | "Completed";
-    guestName: string;
-  } | null>(null);
-
-  // Archive a finished/cancelled walk-in reservation the same way BookingsTab
-  // does for online ones — it moves out of this tab's lists (walkInBookings
-  // excludes archived) and into the Bookings tab's segregated Archived view,
-  // since that's the one place staff check for both sources' history.
-  const [wiConfirmArchive, setWiConfirmArchive] = useState<Booking | null>(null);
-  const archiveWiBooking = (b: Booking) => {
-    setBookings((bs) => bs.map((x) => x.id === b.id ? { ...x, archived: true, archivedAt: new Date().toISOString() } : x));
-    toast(`Reservation ${b.id} moved to archive.`, "info");
-    setWiConfirmArchive(null);
-  };
-
-  // ── New walk-in intake form ──────────────────────────────────────
-  const [showNewWalkIn, setShowNewWalkIn] = useState(false);
-  const [wf, setWf] = useState({
-    name: "", contact: "", email: "", guests: "10", overtime: "0",
-    slot: "Day" as BookingSlot,
-    rooms: [] as number[], date: todayStr(), time: "", notes: "", paymentCollected: true,
-  });
-  const setWfField = (k: string, v: unknown) => setWf((f) => ({ ...f, [k]: v }));
-  // ── Package mode — the walk-in side is still the same booking flow, just
-  // encoded by staff instead of the guest. Picking a package here fixes its
-  // price/capacity/tier exactly like a Home page package deep-link does in
-  // the online Book Now flow. ──────────────────────────────────────────────
-  const [wfMode, setWfMode] = useState<"Custom" | "Package">("Custom");
-  const [wfPkgId, setWfPkgId] = useState<number | null>(null);
-  const wfSelectedPackage = wfMode === "Package" ? packages.find((p) => p.id === wfPkgId) ?? null : null;
-  const isWfPackage = !!wfSelectedPackage;
-  const wfRequiresRoom = !!wfSelectedPackage?.requiresRoom;
-  const wfBookableRooms = rooms.filter((r) => isRoomOpen(r.id, facilities));
-  // A room already rented to someone else that date can't be picked again.
-  // Whole Day packages fix the slot; everything else uses the one picked.
-  const wfSlot: BookingSlot = wfSelectedPackage?.slotMode === "WholeDay"
-    ? "WholeDay"
-    : isWfPackage && wf.slot === "WholeDay" ? "Day" : wf.slot;
-  // Day overtime only: max OVERTIME_MAX hrs, and only while the Night slot
-  // is free — checkBookingAvailability below treats it as holding the Night.
-  const wfOvertime = wfSlot === "Day" ? Math.min(OVERTIME_MAX, Math.max(0, Number(wf.overtime) || 0)) : 0;
-  const wfTakenRooms = roomsTakenOn(wf.date, wfSlot, bookings, wfOvertime);
-  const wfShowRoomPicker = (!isWfPackage) || (isWfPackage && wfRequiresRoom);
-  const toggleWfRoom = (id: number) => {
-    if (isWfPackage && wfRequiresRoom) {
-      setWfField("rooms", wf.rooms.includes(id) ? [] : [id]);
-    } else {
-      setWfField("rooms", wf.rooms.includes(id) ? wf.rooms.filter((r) => r !== id) : [...wf.rooms, id]);
-    }
-  };
-
-  const wfPackageLabel = bookingLabel({
-    packageTitle: wfSelectedPackage?.title,
-    resource: isWfPackage ? wfSelectedPackage!.resource : "Pool",
-    slot: wfSlot,
-    hasRoom: wf.rooms.length > 0,
-  });
-  const wfGuests = isWfPackage ? wfSelectedPackage!.capacity : Number(wf.guests) || 0;
-  // Same Shared-vs-Exclusive choice as the customer-facing Book Now flow:
-  // staff can override the guest-count-derived default explicitly. A package
-  // fixes its own tier — no override needed.
-  const [wfTierChoice, setWfTierChoice] = useState<BookingTier | null>(null);
-  const wfTier: BookingTier = isWfPackage
-    ? wfSelectedPackage!.status
-    : wfSlot === "WholeDay" ? "Exclusive" : (wfTierChoice ?? getPackageTier(wfGuests));
-  const wfResource: BookingResource = isWfPackage ? wfSelectedPackage!.resource : "Pool";
-  // An Exclusive walk-in buyout is fixed to the resort's full capacity, same
-  // as online — the guest count field locks to it instead of staying editable.
-  useEffect(() => {
-    if (!isWfPackage && wfTier === "Exclusive" && wfGuests !== RESORT_MAX_CAPACITY) {
-      setWfField("guests", String(RESORT_MAX_CAPACITY));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wfTier, isWfPackage]);
-  const wfDateCapacity = wf.date
-    ? checkBookingAvailability(wf.date, wfSlot, wfGuests, wfTier, wfResource, bookings, facilities, wfOvertime)
-    : { ok: true as const };
-  const wfSelectedRoomDetails = wf.rooms.map((rid) => rooms.find((r) => r.id === rid)).filter((r): r is Room => !!r);
-  // Same pricing code as Book Now and the server (lib/pricing.ts).
-  const wfPrice = priceBooking({
-    pkg: isWfPackage ? { price: wfSelectedPackage!.price, requiresRoom: wfRequiresRoom } : null,
-    resource: wfResource,
-    tier: wfTier,
-    slot: wfSlot,
-    guests: wfGuests,
-    overtime: wfOvertime,
-    roomPrices: wfSelectedRoomDetails.map((r) => r.price),
-  });
-  const wfTourBase = wfPrice.tourBase + wfPrice.exclusiveDiscount + wfPrice.bundleDiscount;
-  const wfExclusiveDiscount = wfPrice.exclusiveDiscount + wfPrice.bundleDiscount;
-  const wfOvertimeFee = wfPrice.overtimeFee;
-  const wfRoomsFee = wfPrice.roomsFeeRaw;
-  const wfRoomBundleDiscount = wfPrice.roomBundleDiscount;
-  const wfTotal = wfPrice.total;
-  const wfDown = wf.paymentCollected ? wfTotal : Math.ceil(wfTotal / 2);
-  const wfRoomRequirementMet = !wfRequiresRoom || wf.rooms.length > 0;
-  const wfRoomsFree = wf.rooms.every((r) => !wfTakenRooms.has(r));
-  // Email is optional for a walk-in, but one that's typed must be real —
-  // the server refuses a bad one, and the save would fail silently.
-  const wfEmailOk = !wf.email.trim() || isValidEmail(wf.email);
-  const wfValid = isValidName(wf.name) && isValidPHNumber(wf.contact) && wfEmailOk && wfGuests > 0 && wfDateCapacity.ok && wfRoomsFree && (!isWfPackage || (!!wfSelectedPackage && wfRoomRequirementMet));
-  const openNewWalkIn = () => {
-    setWf({ name: "", contact: "", email: "", guests: "10", overtime: "0", slot: "Day", rooms: [], date: todayStr(), time: "", notes: "", paymentCollected: true });
-    setWfTierChoice(null);
-    setWfMode("Custom");
-    setWfPkgId(null);
-    setShowNewWalkIn(true);
-  };
-  const saveWalkIn = () => {
-    // Temporary until the server answers: the database assigns the real
-    // SW- reference, and the bookings sync swaps it in.
-    const id = `TMP-${Date.now()}`;
-    setBookings((b) => [...b, {
-      id,
-      name: sanitizeName(wf.name),
-      contact: sanitizeContact(wf.contact),
-      // Blank, not "—": the server rejects a fake address, and a walk-in
-      // without email is normal.
-      email: wf.email.trim(),
-      date: wf.date || todayStr(),
-      guests: wfGuests || 1,
-      package: wfPackageLabel,
-      rooms: wf.rooms,
-      overtime: wfOvertime,
-      slot: wfSlot,
-      total: wfTotal,
-      downpayment: wfDown,
-      status: wf.paymentCollected ? "Confirmed" : "Paid",
-      paymentProof: wf.paymentCollected,
-      notes: wf.time ? `Arrival: ${wf.time}${wf.notes ? " — " + wf.notes : ""}` : wf.notes,
-      source: "Walk-In",
-      createdAt: Date.now(),
-      resource: wfResource,
-      tier: wfTier,
-    }]);
-    toast(`Walk-in reservation encoded for ${wf.name}.`, "success");
-    setShowNewWalkIn(false);
-  };
-
-  const wiCancelled = walkInBookings.filter(b => b.status === "Cancelled");
-
-  const tabMap = {
-    "Paid":   wiPending,
-    "Confirmed": wiConfirmed,
-    "Completed": wiCompleted,
-    "Cancelled": wiCancelled,
-  };
-  const tabColors: Record<string, string> = {
-    "Paid":   "#f5c518",
-    "Confirmed": "#4caf50",
-    "Completed": "#4a9fd4",
-    "Cancelled": "#c0392b",
-  };
-
-  const q = wiSearch.toLowerCase().trim();
-  const displayRows = tabMap[wiTab].filter(
-    (b) => !q || b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) || b.contact.includes(q) || (b.date && b.date.includes(q))
-  );
-
-  const sc: Record<string, string[]> = {
-    "Paid":   [isDark ? "#2a2500" : "#fef9e7", "#d4a800"],
-    "Confirmed": [isDark ? "#1a3320" : "#edfbf0", "#2e9e4e"],
-    "Completed": [isDark ? "#0f1a2a" : "#e8f4fb", "#1a6fa0"],
-    "Cancelled": [isDark ? "#2a1010" : "#fdecea", "#c0392b"],
-  };
-
-  const executeWiAction = () => {
-    if (!wiConfirmAction) return;
-    updateStatus(wiConfirmAction.bookingId, wiConfirmAction.action);
-    if (wiConfirmAction.action === "Confirmed") {
-      toast(`On-site reservation confirmed for ${wiConfirmAction.guestName}. Payment received.`, "success");
-    } else if (wiConfirmAction.action === "Cancelled") {
-      toast(`On-site reservation cancelled for ${wiConfirmAction.guestName}.`, "warning");
-    } else {
-      toast(`Visit completed for ${wiConfirmAction.guestName}.`, "info");
-    }
-    setWiConfirmAction(null);
-  };
-
-
-  return (
-    <div>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 28 }}>
-        <div>
-          <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>WALK-IN RESERVATIONS</p>
-          <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 6px" }}>Walk-In Management</h2>
-          <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>Encode a guest here as soon as they arrive to reserve without booking online.</p>
-        </div>
-        <button onClick={openNewWalkIn} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2, whiteSpace: "nowrap" }}>+ NEW WALK-IN</button>
-      </div>
-
-      {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(5,1fr)", gap: mob ? 10 : 14, marginBottom: 24 }}>
-        {([
-          ["Total",     walkInBookings.length,  gold],
-          ["Paid",   wiPending.length,   "#f5c518"],
-          ["Confirmed", wiConfirmed.length, "#4caf50"],
-          ["Completed", wiCompleted.length, "#4a9fd4"],
-          ["Cancelled", wiCancelled.length, "#c0392b"],
-        ] as [string, number, string][]).map(([l, v, c]) => (
-          <div key={l} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: mob ? "14px 12px" : "20px 16px", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(to right,${c}22,${c})` }} />
-            <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 8 }}>{l.toUpperCase()}</div>
-            <div style={{ color: c, fontSize: mob ? 24 : 30, fontWeight: 700, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>{v}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Policy notice */}
-      <div style={{ background: isDark ? "rgba(74,159,212,0.05)" : "rgba(74,159,212,0.04)", border: "1px solid rgba(74,159,212,0.2)", borderRadius: 10, padding: "14px 18px", marginBottom: 24, display: "flex", gap: 12, alignItems: "flex-start" }}>
-        {/* Lucide draws with currentColor, and these tinted notice panels set
-            no colour of their own, so the icon fell back to the page's text
-            colour — near-black, invisible against the dark admin. Tint it to
-            the panel's own accent, which is also its border and heading colour. */}
-        <Icon name="home" size={17} style={{ color: "#4a9fd4", flexShrink: 0 }} />
-        <div>
-          <p style={{ color: "#4a9fd4", fontSize: 12.5, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>WALK-IN PAYMENT POLICY</p>
-          <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: 0 }}>
-            When you check <strong style={{ color: "#4caf50" }}>"payment collected"</strong> on the intake form, the reservation is saved as <strong style={{ color: C.textH }}>Confirmed</strong> right away. Leave it unchecked to save it as <strong style={{ color: C.textH }}>Paid</strong> (pending) and press <strong style={{ color: "#4caf50" }}>ACCEPT</strong> once payment is actually collected.
-          </p>
-        </div>
-      </div>
-
-      {/* Search bar */}
-      <div style={{ position: "relative", marginBottom: 16 }}>
-        <svg style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", opacity: 0.35 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.textH} strokeWidth="2">
-          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <Label htmlFor="onsite-search" className="sr-only">Search on-site reservations</Label>
-        <Input
-          id="onsite-search"
-          value={wiSearch}
-          onChange={(e) => setWiSearch(e.target.value)}
-          placeholder="Search by name, ID, contact, or date…"
-          style={{ ...C.inp, paddingLeft: 36, borderRadius: 6, height: "auto" }}
-        />
-        {wiSearch && (
-          <button
-            onClick={() => setWiSearch("")}
-            aria-label="Clear search"
-            style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.textXS, cursor: "pointer", fontSize: 17, lineHeight: 1, padding: 0 }}
-          ><Icon name="x" size={14} /></button>
-        )}
-      </div>
-
-      {/* Status tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {(["Paid", "Confirmed", "Completed", "Cancelled"] as const).map((t) => {
-          const active = wiTab === t;
-          const c = tabColors[t];
-          const count = tabMap[t].length;
-          return (
-            <button
-              key={t}
-              onClick={() => setWiTab(t)}
-              aria-pressed={active}
-              style={{ padding: "8px 16px", fontSize: 12.5, fontWeight: 700, borderRadius: 20, cursor: "pointer", background: active ? `${c}18` : "transparent", color: active ? c : C.textS, border: `1px solid ${active ? c + "55" : cBr}`, letterSpacing: 1 }}
-            >
-              {t} <span style={{ opacity: 0.7, fontSize: 11.5 }}>({count})</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Table */}
-      <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, overflow: "hidden", marginBottom: 28 }}>
-        <div style={{ overflowX: "auto" }}>
-          <Table style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 480 : 0 }} aria-label="On-site reservations">
-            <TableHeader>
-              <TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
-                {["Ref ID", "Guest", "Contact", "Date", "Status", "Actions"].map((h) => (
-                  <TableHead key={h} scope="col" style={{ padding: "11px 14px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {displayRows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 14.5 }}>
-                    {wiSearch ? `No results for "${wiSearch}".` : `No ${wiTab.toLowerCase()} reservations.`}
-                  </TableCell>
-                </TableRow>
-              )}
-              {displayRows.map((b, idx) => {
-                const col = sc[b.status] || [isDark ? "#111" : "#eee", C.textS];
-                return (
-                  <TableRow key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#fff" : "#faf7f2") }}>
-                    <TableCell style={{ padding: "12px 14px", color: gold, fontSize: 12.5, fontFamily: "monospace", whiteSpace: "nowrap" }}>{b.id}</TableCell>
-                    <TableCell style={{ padding: "12px 14px" }}>
-                      <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600 }}>{b.name}</div>
-                      <div style={{ color: C.textXS, fontSize: 12.5 }}>{b.email !== "—" ? b.email : ""}</div>
-                    </TableCell>
-                    <TableCell style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.contact}</TableCell>
-                    <TableCell style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>
-                      {b.date !== "—" ? b.date : <span style={{ color: C.textXS }}>Walk-in</span>}
-                    </TableCell>
-                    <TableCell style={{ padding: "12px 14px" }}>
-                      <Badge variant="outline" style={{ background: col[0] + "33", color: col[1], fontSize: 10.5, padding: "3px 9px", borderRadius: 20, border: `1px solid ${col[1]}44`, letterSpacing: 1 }}>
-                        {b.status.toUpperCase()}
-                      </Badge>
-                    </TableCell>
-                    <TableCell style={{ padding: "12px 14px" }}>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        {b.status === "Paid" && (
-                          <>
-                            <button
-                              onClick={() => setWiConfirmAction({ bookingId: b.id, action: "Confirmed", guestName: b.name })}
-                              style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "5px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1, whiteSpace: "nowrap" }}
-                            ><Icon name="check" size={13} style={{ marginRight: 5 }} />ACCEPT</button>
-                            <button
-                              onClick={() => setWiConfirmAction({ bookingId: b.id, action: "Cancelled", guestName: b.name })}
-                              style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "5px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}
-                            >CANCEL</button>
-                          </>
-                        )}
-                        {b.status === "Confirmed" && (
-                          <button
-                            onClick={() => setWiConfirmAction({ bookingId: b.id, action: "Completed", guestName: b.name })}
-                            style={{ background: "rgba(74,159,212,0.1)", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.25)", padding: "5px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1, whiteSpace: "nowrap" }}
-                          ><Icon name="check" size={13} style={{ marginRight: 5 }} />COMPLETE</button>
-                        )}
-                        {(b.status === "Completed" || b.status === "Cancelled") && (
-                          <button
-                            onClick={() => setWiConfirmArchive(b)}
-                            style={{ background: "rgba(150,150,150,0.08)", color: C.textS, border: `1px solid ${cBr}`, padding: "5px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1, whiteSpace: "nowrap" }}
-                          >ARCHIVE</button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-
-      {/* How it works */}
-      <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 12 }}>HOW WALK-IN RESERVATIONS WORK</p>
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 12 }}>
-        {([
-          ["1. Guest Arrives", "A guest shows up without an online booking and wants to reserve on the spot.", "#4a9fd4"],
-          ["2. Staff Encodes Here", "Press + NEW WALK-IN and fill in their details, tour type, and any rooms.", "#f5c518"],
-          ["3. Mark Payment Collected", "Check the box once cash/GCash is received — the reservation saves as Confirmed.", "#4caf50"],
-        ] as [string, string, string][]).map(([title, desc, c]) => (
-          <div key={title} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "18px 16px", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: c }} />
-            <h4 style={{ color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 8 }}>{title}</h4>
-            <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>{desc}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* ── New Walk-In Intake Modal ── */}
-      {/* Walk-in intake. The hand-rolled fixed overlay this replaced had no
-          focus trap, no ESC handling and no scroll lock — Radix provides all
-          three. Laid out LANDSCAPE: staff encode these at a desk, so the form
-          is wide (max-w-5xl) and runs three columns instead of a narrow
-          480px column that forced constant scrolling. */}
-      <Dialog open={showNewWalkIn} onOpenChange={setShowNewWalkIn}>
-        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontWeight: 400, fontSize: 22 }}>
-              Encode Walk-In Reservation
-            </DialogTitle>
-            <DialogDescription>
-              Record a guest who arrived without booking online.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div>
-            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, minmax(0, 1fr))", gap: 14, marginBottom: 14 }}>
-              <div style={{ gridColumn: "1/-1" }}>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">GUEST NAME</Label>
-                <Input value={wf.name} onChange={(e) => setWfField("name", sanitizeName(e.target.value))} placeholder="Juan Dela Cruz" />
-              </div>
-              <div>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">CONTACT NUMBER</Label>
-                <Input value={wf.contact} onChange={(e) => setWfField("contact", sanitizeContact(e.target.value))} maxLength={11} placeholder="09XXXXXXXXX" />
-              </div>
-              <div>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">EMAIL (OPTIONAL)</Label>
-                <Input value={wf.email} onChange={(e) => setWfField("email", e.target.value)} placeholder="example@email.com" />
-              </div>
-              <div>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">DATE</Label>
-                <Input type="date" value={wf.date} onChange={(e) => setWfField("date", e.target.value)} />
-              </div>
-              <div>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">ARRIVAL TIME</Label>
-                <Input type="time" value={wf.time} onChange={(e) => setWfField("time", e.target.value)} />
-              </div>
-
-              <div style={{ gridColumn: "1/-1" }}>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">BOOKING TYPE</Label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {(["Custom", "Package"] as const).map((m) => (
-                    <button key={m} onClick={() => { setWfMode(m); if (m === "Custom") setWfPkgId(null); }} style={{ flex: 1, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", letterSpacing: 1, background: wfMode === m ? `${gold}18` : "transparent", color: wfMode === m ? gold : C.textS, border: `1px solid ${wfMode === m ? gold + "55" : cBr}` }}>
-                      <><Icon name={m === "Custom" ? "toolbox" : "gift"} size={13} style={{ marginRight: 6 }} />{m === "Custom" ? "Custom Tour" : "Package"}</>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {wfMode === "Package" && (
-                <div style={{ gridColumn: "1/-1" }}>
-                  <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">SELECT PACKAGE</Label>
-                  {packages.filter((p) => p.active).length === 0 ? (
-                    <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>No active packages — add one in the Packages tab.</p>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {packages.filter((p) => p.active).map((p) => {
-                        const sel = wfPkgId === p.id;
-                        return (
-                          <div key={p.id} onClick={() => setWfPkgId(p.id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 8, cursor: "pointer", background: sel ? `${gold}14` : "transparent", border: `1px solid ${sel ? gold + "55" : cBr}` }}>
-                            <div>
-                              <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600 }}>{p.title}</div>
-                              <div style={{ color: C.textS, fontSize: 11.5 }}>{p.status} · {p.resource} · up to {p.capacity} guests</div>
-                            </div>
-                            <span style={{ color: gold, fontWeight: 700, fontSize: 14.5 }}>{fmt(p.price)}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {wfMode === "Custom" && (
-              <>
-              <div>
-                <Label htmlFor="walkin-guests" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">GUESTS</Label>
-                <Input
-                  id="walkin-guests"
-                  type="number"
-                  min={1}
-                  max={RESORT_MAX_CAPACITY}
-                  value={wf.guests}
-                  disabled={wfTier === "Exclusive"}
-                  onChange={(e) => setWfField("guests", e.target.value)}
-                  style={{ ...C.inp, borderRadius: 6, height: "auto", opacity: wfTier === "Exclusive" ? 0.6 : 1 }}
-                />
-                {wfTier === "Exclusive" && (
-                  <p style={{ color: gold, fontSize: 11.5, marginTop: 4 }}><Icon name="lock" size={11} style={{ marginRight: 5 }} />Fixed at {RESORT_MAX_CAPACITY} for an Exclusive buyout.</p>
-                )}
-              </div>
-              <div>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">SHARED OR EXCLUSIVE?</Label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {(["Shared", "Exclusive"] as const).map((opt) => (
-                    <button key={opt} onClick={() => setWfTierChoice(opt)} style={{ flex: 1, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", letterSpacing: 1, background: wfTier === opt ? (opt === "Exclusive" ? `${gold}18` : "rgba(76,175,80,0.12)") : "transparent", color: wfTier === opt ? (opt === "Exclusive" ? gold : "#4caf50") : C.textS, border: `1px solid ${wfTier === opt ? (opt === "Exclusive" ? gold + "55" : "#4caf5055") : cBr}` }}>
-                      <><Icon name={opt === "Exclusive" ? "lock" : "users"} size={13} style={{ marginRight: 6 }} />{opt === "Exclusive" ? "Exclusive" : "Shared"}</>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              </>
-              )}
-
-              {/* WHEN — Day, Night or Whole Day. A Whole Day package fixes it;
-                  a single-slot package still needs Day or Night. */}
-              <div style={{ gridColumn: "1/-1" }}>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">WHEN</Label>
-                {wfSelectedPackage?.slotMode === "WholeDay" ? (
-                  <p style={{ color: C.textH, fontSize: 13.5, margin: 0 }}><Icon name="clock" size={13} style={{ marginRight: 6 }} />Whole Day · {SLOTS.WholeDay.hours}</p>
-                ) : (
-                  <div style={{ display: "flex", gap: 8 }}>
-                    {((isWfPackage ? ["Day", "Night"] : ["Day", "Night", "WholeDay"]) as BookingSlot[]).map((t) => (
-                      <button key={t} onClick={() => { setWfField("slot", t); if (t !== "Day") setWfField("overtime", "0"); }} style={{ flex: 1, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", letterSpacing: 1, background: wfSlot === t ? `${gold}18` : "transparent", color: wfSlot === t ? gold : C.textS, border: `1px solid ${wfSlot === t ? gold + "55" : cBr}` }}>
-                        <><Icon name={t === "Day" ? "sun" : t === "Night" ? "moon" : "clock"} size={13} style={{ marginRight: 6 }} />{SLOTS[t].label}</>
-                        <div style={{ fontSize: 10.5, fontWeight: 400, opacity: 0.75, marginTop: 2 }}>{SLOTS[t].hours}</div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* OVERTIME — Day only, up to OVERTIME_MAX hrs after 5 PM, and
-                  only while the Night slot is free (5–7 PM is otherwise the
-                  cleaning window). The availability check below enforces it. */}
-              {wfSlot === "Day" && (
-                <div style={{ gridColumn: "1/-1" }}>
-                  <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">OVERTIME (DAY ONLY)</Label>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    {Array.from({ length: OVERTIME_MAX + 1 }, (_, h) => h).map((h) => (
-                      <button key={h} onClick={() => setWfField("overtime", String(h))} style={{ flex: 1, padding: "8px 10px", fontSize: 12.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", background: wfOvertime === h ? `${gold}18` : "transparent", color: wfOvertime === h ? gold : C.textS, border: `1px solid ${wfOvertime === h ? gold + "55" : cBr}` }}>
-                        {h === 0 ? "None" : `+${h} hr${h > 1 ? "s" : ""} (until ${5 + h}:00 PM)`}
-                      </button>
-                    ))}
-                  </div>
-                  <p style={{ color: C.textS, fontSize: 11.5, marginTop: 6 }}>
-                    {fmt(OVERTIME_RATE)}/hr. Only possible when no Night group is booked — adding it closes the Night slot for this date.
-                  </p>
-                </div>
-              )}
-
-              {wfShowRoomPicker && (
-              <div style={{ gridColumn: "1/-1" }}>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">
-                  {wfRequiresRoom ? "CHOOSE ROOM (REQUIRED)" : "ROOM ADD-ON (OPTIONAL)"}
-                </Label>
-                {wfRequiresRoom && (
-                  <p style={{ color: C.textS, fontSize: 12.5, marginBottom: 8 }}>Pick the one room included with this package — {Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}% off its normal rate.</p>
-                )}
-                {wfBookableRooms.length === 0 && (
-                  <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>No rooms currently available — check Facilities for maintenance flags.</p>
-                )}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {wfBookableRooms.map((r) => {
-                    const sel = wf.rooms.includes(r.id);
-                    const taken = wfTakenRooms.has(r.id) && !sel;
-                    return (
-                      <button key={r.id} disabled={taken} title={taken ? "Already booked on this date" : undefined} onClick={() => toggleWfRoom(r.id)} style={{ padding: "7px 12px", fontSize: 12.5, borderRadius: 6, cursor: taken ? "not-allowed" : "pointer", opacity: taken ? 0.4 : 1, background: sel ? `${gold}18` : "transparent", color: sel ? gold : C.textS, border: `1px solid ${sel ? gold + "55" : cBr}` }}>
-                        {sel ? <Icon name="check" size={12} style={{ marginRight: 5 }} /> : null}{r.name}{taken ? " · booked" : ""}
-                      </button>
-                    );
-                  })}
-                </div>
-                {wfRequiresRoom && wf.rooms.length === 0 && (
-                  <p style={{ color: "#e55", fontSize: 12.5, marginTop: 6 }}><Icon name="alert" size={12} style={{ marginRight: 5 }} />Please pick a room to continue.</p>
-                )}
-              </div>
-              )}
-
-              <div style={{ gridColumn: "1/-1", background: isDark ? "rgba(201,168,76,0.06)" : "rgba(201,168,76,0.08)", border: `1px solid ${gold}44`, borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ color: C.textS, fontSize: 12.5, letterSpacing: 1 }}>PACKAGE</span>
-                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ color: gold, fontWeight: 700, fontSize: 14.5 }}>{wfPackageLabel}</span>
-                  <Badge variant="outline" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, color: wfTier === "Exclusive" ? gold : "#4caf50", background: wfTier === "Exclusive" ? "rgba(201,168,76,0.15)" : "rgba(76,175,80,0.12)" }}>
-                    <><Icon name={wfTier === "Exclusive" ? "lock" : "users"} size={12} style={{ marginRight: 6 }} />{wfTier === "Exclusive" ? "EXCLUSIVE" : "SHARED"}</>
-                  </Badge>
-                </span>
-              </div>
-              <div style={{ gridColumn: "1/-1", background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${cBr}`, borderRadius: 8, padding: "10px 14px", display: "flex", flexDirection: "column", gap: 5 }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: C.textS, fontSize: 12.5 }}>
-                    {isWfPackage ? `${wfPackageLabel} (package)` : wfTier === "Exclusive" ? `Exclusive pool${wfPrice.slots === 2 ? " × 2 slots" : ""}` : `Shared pool (${wfGuests} × ₱200)`}
-                  </span>
-                  <span style={{ color: C.textB, fontSize: 12.5 }}>{fmt(wfTourBase)}</span>
-                </div>
-                {wfExclusiveDiscount > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>{wfPrice.bundleDiscount > 0 ? "Bundle discount (-10%)" : "Exclusive discount (-5%)"}</span>
-                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>-{fmt(wfExclusiveDiscount)}</span>
-                  </div>
-                )}
-                {wfOvertimeFee > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: C.textS, fontSize: 12.5 }}>Overtime ({wfOvertime} hr × {fmt(OVERTIME_RATE)})</span>
-                    <span style={{ color: C.textB, fontSize: 12.5 }}>{fmt(wfOvertimeFee)}</span>
-                  </div>
-                )}
-                {wfRoomsFee > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: C.textS, fontSize: 12.5 }}>Room(s){wfPrice.slots === 2 ? " × 2 slots" : ""}{isWfPackage ? " (bundled)" : ""}</span>
-                    <span style={{ color: C.textB, fontSize: 12.5 }}>{fmt(wfRoomsFee)}</span>
-                  </div>
-                )}
-                {wfRoomBundleDiscount > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>Room bundle discount (-{Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}%)</span>
-                    <span style={{ color: "#4caf50", fontSize: 12.5 }}>-{fmt(wfRoomBundleDiscount)}</span>
-                  </div>
-                )}
-                <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 4, paddingTop: 6, display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: gold, fontWeight: 700, fontSize: 13.5 }}>Total</span>
-                  <span style={{ color: gold, fontWeight: 700, fontSize: 13.5 }}>{fmt(wfTotal)}</span>
-                </div>
-              </div>
-              {wf.date && !wfDateCapacity.ok && (
-                <div style={{ gridColumn: "1/-1" }}>
-                  <p style={{ color: "#e55", fontSize: 13.5, margin: 0 }}><Icon name="alert" size={13} style={{ marginRight: 5 }} />{wfDateCapacity.reason}</p>
-                </div>
-              )}
-              <div style={{ gridColumn: "1/-1" }}>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">NOTES (OPTIONAL)</Label>
-                <Textarea value={wf.notes} onChange={(e) => setWfField("notes", e.target.value)} rows={2} placeholder="Special requests, etc." className="resize-none" />
-              </div>
-            </div>
-
-            <div
-              onClick={() => setWfField("paymentCollected", !wf.paymentCollected)}
-              style={{ display: "flex", alignItems: "flex-start", gap: 12, background: wf.paymentCollected ? "rgba(76,175,80,0.06)" : isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", border: `1.5px solid ${wf.paymentCollected ? "rgba(76,175,80,0.5)" : cBr}`, borderRadius: 8, padding: "12px 14px", marginBottom: 16, cursor: "pointer", userSelect: "none" }}
-            >
-              <div style={{ width: 20, height: 20, borderRadius: 4, border: `2px solid ${wf.paymentCollected ? "#4caf50" : isDark ? "#444" : "#bbb"}`, background: wf.paymentCollected ? "#4caf50" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                {wf.paymentCollected && <Icon name="check" size={12} style={{ color: "#fff" }} strokeWidth={3} />}
-              </div>
-              <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
-                <strong style={{ color: C.textH }}>Payment collected</strong> — {wf.paymentCollected ? `full amount (${fmt(wfTotal)}) received now, save as Confirmed.` : `not yet collected, save as Paid (pending) until the guest pays.`}
-              </span>
-            </div>
-
-            <div style={{ background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${cBr}`, borderRadius: 8, padding: "10px 14px", marginBottom: 20 }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: C.textS, fontSize: 13.5 }}>{wfPackageLabel} Total</span>
-                <span style={{ color: gold, fontWeight: 700, fontSize: 14.5 }}>{fmt(wfTotal)}</span>
-              </div>
-            </div>
-
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewWalkIn(false)}>
-              Cancel
-            </Button>
-            <Button disabled={!wfValid} onClick={saveWalkIn}>
-              Save reservation
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── On-Site Confirm Modal ── */}
-      {/* Confirmation of an irreversible walk-in action. AlertDialog rather
-          than Dialog: it is a decision, so it traps focus on the choice and
-          will not dismiss on an outside click the way a plain dialog does.
-          The warning panels and summary rows below are unchanged. */}
-      <AlertDialog open={!!wiConfirmAction} onOpenChange={(open) => { if (!open) setWiConfirmAction(null); }}>
-        <AlertDialogContent>
-          {wiConfirmAction && (
-            <>
-              <AlertDialogHeader>
-                <AlertDialogTitle style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontWeight: 400, fontSize: 20 }}>
-                  {wiConfirmAction.action === "Confirmed" ? "Accept this on-site reservation?"
-                : wiConfirmAction.action === "Completed" ? "Mark visit as completed?"
-                : "Cancel this reservation?"}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {wiConfirmAction.action === "Confirmed" && (
-                <>Confirm that <strong style={{ color: C.textH }}>{wiConfirmAction.guestName}</strong> has arrived and payment has been collected at the resort.</>
-              )}
-              {wiConfirmAction.action === "Completed" && (
-                <>Mark <strong style={{ color: C.textH }}>{wiConfirmAction.guestName}</strong>'s visit as completed. This records their stay in the system.</>
-              )}
-              {wiConfirmAction.action === "Cancelled" && (
-                <>Cancel the on-site reservation for <strong style={{ color: C.textH }}>{wiConfirmAction.guestName}</strong>. This action cannot be undone.</>
-              )}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-
-            {/* Icon */}
-            <div style={{
-              width: 52, height: 52, borderRadius: "50%", marginBottom: 18, fontSize: 24,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: wiConfirmAction.action === "Confirmed" ? "rgba(76,175,80,0.1)"
-                : wiConfirmAction.action === "Completed" ? "rgba(74,159,212,0.1)"
-                : "rgba(229,85,85,0.1)",
-              border: `1px solid ${
-                wiConfirmAction.action === "Confirmed" ? "rgba(76,175,80,0.3)"
-                : wiConfirmAction.action === "Completed" ? "rgba(74,159,212,0.3)"
-                : "rgba(229,85,85,0.3)"
-              }`,
-            }}>
-              <Icon name={wiConfirmAction.action === "Confirmed" ? "check" : wiConfirmAction.action === "Completed" ? "flag" : "x"} size={20} />
-            </div>
-
-            
-
-            
-
-            {/* Warning for accept */}
-            {wiConfirmAction.action === "Confirmed" && (
-              <div style={{ background: isDark ? "rgba(76,175,80,0.05)" : "rgba(76,175,80,0.04)", border: "1px solid rgba(76,175,80,0.2)", borderRadius: 8, padding: "10px 14px", marginBottom: 20, display: "flex", gap: 8 }}>
-                <Icon name="cash" size={15} style={{ color: "#4caf50", flexShrink: 0 }} />
-                <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
-                  Only confirm if payment (50% down or full amount) has been <strong style={{ color: "#4caf50" }}>physically collected</strong> at the resort.
-                </span>
-              </div>
-            )}
-
-            {/* Warning for cancel */}
-            {wiConfirmAction.action === "Cancelled" && (
-              <div style={{ background: "rgba(229,85,85,0.04)", border: "1px solid rgba(229,85,85,0.15)", borderRadius: 8, padding: "10px 14px", marginBottom: 20, display: "flex", gap: 8 }}>
-                <Icon name="alert" size={15} style={{ color: "#e55", flexShrink: 0 }} />
-                <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>The guest will be notified that their reservation has been cancelled.</span>
-              </div>
-            )}
-
-
-              <AlertDialogFooter>
-                <AlertDialogCancel>Go back</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={executeWiAction}
-                  className={
-                    wiConfirmAction.action === "Cancelled"
-                      ? "bg-destructive text-white hover:bg-destructive/90"
-                      : undefined
-                  }
-                >
-                  {wiConfirmAction.action === "Confirmed" ? "Yes, accept & confirm"
-                    : wiConfirmAction.action === "Completed" ? "Yes, mark complete"
-                    : "Yes, cancel booking"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </>
-          )}
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* ── Archive Confirm Modal ── */}
-      <AlertDialog open={!!wiConfirmArchive} onOpenChange={(open) => { if (!open) setWiConfirmArchive(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400 }}>
-              Archive reservation {wiConfirmArchive?.id}?
-            </AlertDialogTitle>
-            <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5 }}>
-              It&apos;ll move out of Walk-In Management into the Bookings tab&apos;s Archived view, filed under <strong style={{ color: wiConfirmArchive?.status === "Completed" ? "#4a9fd4" : "#e55" }}>{wiConfirmArchive?.status}</strong>. You can restore it any time from there.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel style={{ color: C.textS, borderColor: cBr, padding: "10px 16px", height: "auto", fontSize: 12.5, borderRadius: 6 }}>CANCEL</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => { if (wiConfirmArchive) archiveWiBooking(wiConfirmArchive); }}
-              style={{ background: "rgba(150,150,150,0.1)", color: C.textH, border: `1px solid ${cBr}`, padding: "10px 16px", height: "auto", fontSize: 12.5, borderRadius: 6, fontWeight: 700 }}
-            >
-              ARCHIVE
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
-}
-
 const SIDEBAR_GROUPS = [
   { label: "OVERVIEW",     tabs: ["Dashboard"] },
-  { label: "RESERVATIONS", tabs: ["Bookings", "Walk-In", "Occupancy"] },
-  { label: "MANAGEMENT",   tabs: ["Rooms", "Packages", "Facilities", "Gallery", "Inventory"] },
-  { label: "INSIGHTS",     tabs: ["Analytics", "Reports"] },
+  { label: "RESERVATIONS", tabs: ["Bookings", "Occupancy"] },
+  { label: "OPERATIONS",   tabs: ["Facilities", "Inventory"] },
+  { label: "FINANCE",      tabs: ["Sales", "Reports"] },
+  { label: "MANAGEMENT",   tabs: ["Rooms", "Packages", "Gallery"] },
   { label: "SUPPORT",      tabs: ["Customer Service"] },
   { label: "SITE",         tabs: ["Maintenance"] },
 ];
@@ -864,6 +106,7 @@ export function Admin({
   const { isDark } = useTheme();
   const C = T(isDark);
   const { toast } = useToast();
+  const ops = useOps();
   const w = useWidth();
   const mob = w < 768;
 
@@ -999,39 +242,23 @@ export function Admin({
     bookingId: string; action: "Confirmed" | "Cancelled"; guestName: string;
   } | null>(null);
 
-  const tabs: AdminTab[] = ["Dashboard", "Bookings", "Walk-In", "Occupancy", "Rooms", "Packages", "Facilities", "Gallery", "Inventory", "Analytics", "Reports", "Customer Service", "Maintenance"];
+  const tabs: AdminTab[] = ["Dashboard", "Bookings", "Occupancy", "Facilities", "Inventory", "Sales", "Reports", "Rooms", "Packages", "Gallery", "Customer Service", "Maintenance"];
   // Icon per tab. Names resolve against the stroke set in ./Icon, so the
   // sidebar inherits the theme instead of rendering OS colour emoji.
   const tabIcons: Record<AdminTab, IconName> = {
-    Dashboard: "grid", Bookings: "clipboard", "Walk-In": "home",
+    Dashboard: "grid", Bookings: "clipboard", Sales: "wallet",
     Occupancy: "calendar", Rooms: "bed", Packages: "gift",
     Facilities: "toolbox", Gallery: "image", Inventory: "package",
-    Analytics: "trending-up", Reports: "bar-chart", "Customer Service": "message",
+    Reports: "bar-chart", "Customer Service": "message",
     Maintenance: "toolbox",
   };
 
-  // Flags every facility a completed booking used (whole-resort amenities,
-  // plus any specific rooms it rented) as "Needs Cleaning" so the caretaker
-  // has a running checklist of what to inspect before the next guest.
-  const markFacilitiesUsed = (booking: Booking) => {
-    setFacilities((fs) => fs.map((f) => {
-      const usedAmenity = f.category === "Amenity" && /Tour/i.test(booking.package);
-      const usedRoom = f.category === "Room" && f.roomId !== undefined && booking.rooms.includes(f.roomId);
-      if (!usedAmenity && !usedRoom) return f;
-      return {
-        ...f,
-        status: "Needs Cleaning",
-        lastUsedBookingId: booking.id,
-        lastUsedGuestName: booking.name,
-        lastCheckedAt: null,
-      };
-    }));
-  };
-
+  // Completing a stay now goes through the check-out window (Facilities /
+  // Bookings → Check out), which inspects the facilities, records damage and
+  // payment, and flags what needs cleaning.
   const updateStatus = async (id: string, status: string, reason?: string) => {
   setBookings((bs) => bs.map((b) => b.id === id ? { ...b, status: status as Booking["status"] } : b));
   const booking = bookings.find((b) => b.id === id);
-  if (status === "Completed" && booking) markFacilitiesUsed(booking);
   if (!booking?.email) return;
   if (status === "Confirmed") {
     try {
@@ -1051,7 +278,7 @@ export function Admin({
   }
 };
 
-  const Paid = bookings.filter((b) => b.status === "Paid").length;
+  const pendingCount = bookings.filter((b) => b.status === "Pending" && !b.archived).length;
   const confirmed = bookings.filter((b) => b.status === "Confirmed").length;
   const completed = bookings.filter((b) => b.status === "Completed").length;
 
@@ -1380,28 +607,13 @@ export function Admin({
                       <span style={{ flex: 1 }}>{t.toUpperCase()}</span>
 
                       {/* Bookings badge */}
-                      {t === "Bookings" && Paid > 0 && (
+                      {t === "Bookings" && pendingCount > 0 && (
                         <Badge variant="outline" style={{
                           background: gold, color: "#000",
                           fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
                         }}>
-                          {Paid}
-                        </Badge>
-                      )}
-
-                      {/* Walk-In badge */}
-                      {t === "Walk-In" && bookings.filter(
-                        b => b.source === "Walk-In" && b.status === "Paid"
-                      ).length > 0 && (
-                        <Badge variant="outline" style={{
-                          background: "#4a9fd4", color: "#fff",
-                          fontSize: 10.5, fontWeight: 700,
-                          borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
-                        }}>
-                          {bookings.filter(
-                            b => b.source === "Walk-In" && b.status === "Paid"
-                          ).length}
+                          {pendingCount}
                         </Badge>
                       )}
 
@@ -1451,7 +663,7 @@ export function Admin({
                 <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Dashboard</h2>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: mob ? 10 : 14, marginBottom: 36 }}>
-                {[["Paid", Paid, "#f5c518", "Pending review"], ["Confirmed", confirmed, "#4caf50", "Approved"], ["Completed", completed, "#4a9fd4", "Past stays"], ["Rooms", rooms.length, gold, "Active listings"]].map(([l, v, c, sub]) => (
+                {[["Pending", pendingCount, "#f5c518", "Waiting for approval"], ["Confirmed", confirmed, "#4caf50", "Approved"], ["Completed", completed, "#4a9fd4", "Past stays"], ["Collected today", fmt(collectedBetween(ops.payments, manilaDate(now))), gold, "From the payment records"]].map(([l, v, c, sub]) => (
                   <div key={l as string} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: mob ? "14px 12px" : "22px 20px", position: "relative", overflow: "hidden", boxShadow: C.shadowCard }}>
                     <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(to right,${c}22,${c})` }} />
                     <div style={{ color: isDark ? "#4a4035" : "#9a8878", fontSize: 10.5, letterSpacing: 2, marginBottom: 10 }}>{(l as string).toUpperCase()}</div>
@@ -1486,7 +698,7 @@ export function Admin({
                 const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
                 const liveToday = bookings.filter((b) => b.date === todayISO && b.status !== "Cancelled");
                 const confirmedToday = liveToday.filter((b) => b.status === "Confirmed");
-                const awaitingToday = liveToday.filter((b) => b.status === "Paid");
+                const awaitingToday = liveToday.filter((b) => b.status === "Pending");
                 const nextUp = bookings
                   .filter((b) => b.date > todayISO && b.status !== "Cancelled" && b.status !== "Completed")
                   .sort((a, b) => a.date.localeCompare(b.date))[0];
@@ -1502,7 +714,7 @@ export function Admin({
                     return `${confirmedToday.length} confirmed booking${confirmedToday.length === 1 ? "" : "s"} today — ${unique.join(", ")}. Nobody is on site at this hour.`;
                   }
                   if (awaitingToday.length > 0) {
-                    return `${awaitingToday.length} booking${awaitingToday.length === 1 ? " is" : "s are"} booked for today but still Paid — approve ${awaitingToday.length === 1 ? "it" : "them"} below and ${awaitingToday.length === 1 ? "it" : "they"} will appear here.`;
+                    return `${awaitingToday.length} booking${awaitingToday.length === 1 ? " is" : "s are"} booked for today but still Pending — approve ${awaitingToday.length === 1 ? "it" : "them"} below and ${awaitingToday.length === 1 ? "it" : "they"} will appear here.`;
                   }
                   if (nextUp) {
                     return `No bookings for today. The next one is ${fmtDate(nextUp.date)}.`;
@@ -1566,14 +778,14 @@ export function Admin({
               {/* Pending approvals */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                 <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3 }}>PENDING APPROVALS</p>
-                {Paid > 0 && <Badge variant="outline" style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 11.5, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.15)" }}>{Paid} awaiting</Badge>}
+                {pendingCount > 0 && <Badge variant="outline" style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 11.5, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.15)" }}>{pendingCount} awaiting</Badge>}
               </div>
               <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 6, overflow: "hidden" }}>
                 <div style={{ overflowX: "auto" }}>
                   <Table style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 560 : 0 }}>
                     <TableHeader><TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>{["ID", "Guest", "Email", "Phone", "Date", "Total", "Status", "Actions"].map((h) => <TableHead key={h} style={{ padding: "12px 14px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</TableHead>)}</TableRow></TableHeader>
                     <TableBody>
-                      {bookings.filter((b) => b.status === "Paid").map((b, idx) => (
+                      {bookings.filter((b) => b.status === "Pending" && !b.archived).map((b, idx) => (
                         <TableRow key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#0a0906" : "#080604") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
                           <TableCell style={{ padding: "12px 14px", color: gold, fontSize: 12.5, whiteSpace: "nowrap", fontFamily: "monospace" }}>{b.id}</TableCell>
                           <TableCell style={{ padding: "12px 14px", color: C.textH, fontSize: 13.5 }}>{b.name}</TableCell>
@@ -1581,7 +793,7 @@ export function Admin({
                           <TableCell style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.contact || "—"}</TableCell>
                           <TableCell style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.date}</TableCell>
                           <TableCell style={{ padding: "12px 14px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</TableCell>
-                          <TableCell style={{ padding: "12px 14px" }}><Badge variant="outline" style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 10.5, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.2)", letterSpacing: 1 }}>Paid</Badge></TableCell>
+                          <TableCell style={{ padding: "12px 14px" }}><Badge variant="outline" style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 10.5, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.2)", letterSpacing: 1 }}>Pending</Badge></TableCell>
                           <TableCell style={{ padding: "12px 14px" }}>
                             <div style={{ display: "flex", gap: 6 }}>
                               <button onClick={() => setDashConfirm({ bookingId: b.id, action: "Confirmed", guestName: b.name })} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.2)", padding: "5px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, whiteSpace: "nowrap", letterSpacing: 1 }}>ACCEPT</button>
@@ -1590,7 +802,7 @@ export function Admin({
                           </TableCell>
                         </TableRow>
                       ))}
-                      {Paid === 0 && <TableRow><TableCell colSpan={8} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 14.5 }}>No pending bookings.</TableCell></TableRow>}
+                      {pendingCount === 0 && <TableRow><TableCell colSpan={8} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 14.5 }}>No pending bookings.</TableCell></TableRow>}
                     </TableBody>
                   </Table>
                 </div>
@@ -1655,46 +867,10 @@ export function Admin({
             </div>
           )}
 
-          {/* BOOKINGS TAB */}
+          {/* BOOKINGS (online and walk-in) */}
           {tab === "Bookings" && (
-            <div>
-              <div style={{ marginBottom: 28 }}>
-                <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>MANAGEMENT</p>
-                <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>All Bookings</h2>
-              </div>
-              <BookingsTab bookings={bookings.filter(b => b.source !== "Walk-In" || b.status === "Confirmed" || b.status === "Completed" || b.archived)} setBookings={setBookings} updateStatus={updateStatus} mob={mob} rooms={rooms} />
-            </div>
+            <BookingsTab bookings={bookings} setBookings={setBookings} updateStatus={updateStatus} mob={mob} rooms={rooms} packages={packages} facilities={facilities} />
           )}
-
-          {/* WALK-IN TAB */}
-          {tab === "Walk-In" && (() => {
-            const walkInBookings = bookings.filter(b => b.source === "Walk-In" && !b.archived);
-            const wiPending   = walkInBookings.filter(b => b.status === "Paid");
-            const wiConfirmed = walkInBookings.filter(b => b.status === "Confirmed");
-            const wiCompleted = walkInBookings.filter(b => b.status === "Completed");
-
-            return (
-              <WalkInTab
-                walkInBookings={walkInBookings}
-                wiPending={wiPending}
-                wiConfirmed={wiConfirmed}
-                wiCompleted={wiCompleted}
-                updateStatus={updateStatus}
-                isDark={isDark}
-                C={C}
-                cBg={cBg}
-                cBr={cBr}
-                mob={mob}
-                toast={toast}
-                gold={gold}
-                bookings={bookings}
-                setBookings={setBookings}
-                rooms={rooms}
-                packages={packages}
-                facilities={facilities}
-              />
-            );
-          })()}
 
           {/* OCCUPANCY */}
           {tab === "Occupancy" && (
@@ -1721,10 +897,10 @@ export function Admin({
                   let bg = isDark ? "#111" : "#f0ede7", col = C.textB, border = `1px solid ${cBr}`;
                   if (isPast) { bg = isDark ? "#0c0b09" : "#f8f6f3"; col = C.textXS; }
                   else if (status === "Closed") { bg = isDark ? "#1a0a0a" : "#fff0f0"; col = "#e07070"; border = "1px solid rgba(229,85,85,0.3)"; }
-                  else if (status === "Confirmed" || status === "Paid") { bg = isDark ? "#0f2018" : "#eafaf0"; col = "#4caf50"; border = "1px solid rgba(76,175,80,0.3)"; }
+                  else if (status === "Confirmed" || status === "Pending") { bg = isDark ? "#0f2018" : "#eafaf0"; col = "#4caf50"; border = "1px solid rgba(76,175,80,0.3)"; }
                   else if (status === "Completed") { bg = isDark ? "#0f1a2a" : "#e8f4fb"; col = "#4a9fd4"; border = "1px solid rgba(74,159,212,0.3)"; }
                   return (
-                    <div key={d} onClick={() => !isPast && !["Confirmed", "Paid", "Completed"].includes(status || "") && toggleClosed(ds)
+                    <div key={d} onClick={() => !isPast && !["Confirmed", "Pending", "Completed"].includes(status || "") && toggleClosed(ds)
                     } style={{ 
                       textAlign: "center", 
                       padding: mob ? "12px 4px" : "16px 4px", 
@@ -1735,20 +911,20 @@ export function Admin({
                       cursor:
                         isPast
                           ? "default"
-                          : ["Confirmed", "Paid", "Completed"].includes(status || "")
+                          : ["Confirmed", "Pending", "Completed"].includes(status || "")
                           ? "default"
                           : "pointer",
                       userSelect: "none", 
                       transition: "all .15s", 
                       position: "relative" }}>
                       {d}
-                      {status && <div style={{ fontSize: 9.5, marginTop: 3, opacity: 0.8 }}>{status === "Closed" ? "CLOSED" : status === "Paid" ? "PAID" : status?.toUpperCase().slice(0, 4)}</div>}
+                      {status && <div style={{ fontSize: 9.5, marginTop: 3, opacity: 0.8 }}>{status === "Closed" ? "CLOSED" : status === "Pending" ? "PEND" : status?.toUpperCase().slice(0, 4)}</div>}
                     </div>
                   );
                 })}
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                {[["Booked/Confirmed", "#4caf50"], ["Paid", "#f5c518"], ["Completed", "#4a9fd4"], ["Closed", "#e07070"], ["Click to close/open", gold]].map(([l, c]) => (
+                {[["Booked/Confirmed", "#4caf50"], ["Pending", "#f5c518"], ["Completed", "#4a9fd4"], ["Closed", "#e07070"], ["Click to close/open", gold]].map(([l, c]) => (
                   <div key={l} style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: c }} /><span style={{ color: C.textS, fontSize: 12.5 }}>{l}</span></div>
                 ))}
               </div>
@@ -1823,173 +999,11 @@ export function Admin({
           {/* INVENTORY */}
           {tab === "Inventory" && <InventoryTab inventory={inventory} setInventory={setInventory} />}
 
-          {/* ANALYTICS */}
-          {tab === "Analytics" && <AnalyticsTab bookings={bookings} />}
+          {/* SALES */}
+          {tab === "Sales" && <SalesTab bookings={bookings} mob={mob} />}
 
           {/* REPORTS */}
-          {tab==="Reports"&&(
-            <div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:28,flexWrap:"wrap",gap:12}}>
-                <div><p style={{color:C.textXS,fontSize:11.5,letterSpacing:2.5,marginBottom:8}}>INSIGHTS</p><h2 style={{color:C.textH,fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:mob?24:30,fontWeight:400,margin:0}}>Reports</h2></div>
-                <button onClick={()=>{
-                  // Build CSV content for Excel
-                  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-                  const now=new Date();
-                  const selMonthIdx=now.getMonth();
-                  const selYear=now.getFullYear();
-                  const monthStr=String(selMonthIdx+1).padStart(2,"0");
-                  const monthBookings=bookings.filter(b=>b.date&&b.date.startsWith(`${selYear}-${monthStr}`));
-                  const header=["Booking ID","Guest Name","Contact","Email","Date","Package","Guests","Overtime (hrs)","Rooms","Total (₱)","Downpayment (₱)","Status","Notes"];
-                  const rows=monthBookings.map(b=>[
-                    b.id,b.name,b.contact||"",b.email||"",b.date,b.package,b.guests,b.overtime||0,
-                    (b.rooms||[]).map(rid=>rooms.find(r=>r.id===rid)?.name||"").filter(Boolean).join(" | ")||"None",
-                    b.total,b.downpayment,b.status,b.paymentProof?"Yes":"No",b.notes||""
-                  ]);
-                  const totalRev=monthBookings.filter(b=>b.status!=="Cancelled").reduce((s,b)=>s+b.total,0);
-                  const totalDown=monthBookings.filter(b=>b.status!=="Cancelled").reduce((s,b)=>s+b.downpayment,0);
-                  const summary=[
-                    [],
-                    ["MONTHLY SUMMARY",""],
-                    ["Month",`${months[selMonthIdx]} ${selYear}`],
-                    ["Total Bookings",monthBookings.length],
-                    ["Confirmed",monthBookings.filter(b=>b.status==="Confirmed").length],
-                    ["Completed",monthBookings.filter(b=>b.status==="Completed").length],
-                    ["Cancelled",monthBookings.filter(b=>b.status==="Cancelled").length],
-                    ["Paid",monthBookings.filter(b=>b.status==="Paid").length],
-                    ["Total Revenue (non-cancelled)",totalRev],
-                    ["Total Downpayments Collected",totalDown],
-                    ["Total Guests",monthBookings.filter(b=>b.status!=="Cancelled").reduce((s,b)=>s+b.guests,0)],
-                  ];
-                  const csvRows=[header,...rows,...summary];
-                  const csv=csvRows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
-                  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
-                  const url=URL.createObjectURL(blob);
-                  const a=document.createElement("a");
-                  a.href=url;a.download=`StoneWood_Report_${months[selMonthIdx]}${selYear}.csv`;
-                  a.click();URL.revokeObjectURL(url);
-                  toast(`Report exported: ${months[selMonthIdx]} ${selYear}.csv`,"success");
-                }} style={{...goldBtn,padding:"10px 20px",fontSize:11.5,letterSpacing:2,display:"flex",alignItems:"center",gap:8}}>
-                  <Icon name="download" size={13} />
-                  EXPORT THIS MONTH
-                </button>
-              </div>
-
-              {/* KPI Cards — each carries a 12-month sparkline derived from
-                  the same bookings the figure itself counts, so the number
-                  arrives with its trend rather than standing alone. */}
-              {(()=>{
-                const mo=(i:number)=>String(i+1).padStart(2,"0");
-                const per=(fn:(b:typeof bookings[number])=>number,filter:(b:typeof bookings[number])=>boolean)=>
-                  Array.from({length:12},(_,i)=>bookings.filter(b=>b.date&&b.date.startsWith(`2026-${mo(i)}`)&&filter(b)).reduce((s,b)=>s+fn(b),0));
-                const notCancelled=(b:typeof bookings[number])=>b.status!=="Cancelled";
-                return(
-                  <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(4,1fr)",gap:mob?10:14,marginBottom:18}}>
-                    <StatCard icon="cash" label="Total Revenue" color="#4caf50" mob={mob}
-                      value={fmt(bookings.filter(notCancelled).reduce((s,b)=>s+b.total,0))}
-                      series={per(b=>b.total,notCancelled)} />
-                    <StatCard icon="download" label="Down Collected" color={gold} mob={mob}
-                      value={fmt(bookings.filter(notCancelled).reduce((s,b)=>s+b.downpayment,0))}
-                      series={per(b=>b.downpayment,notCancelled)} />
-                    <StatCard icon="clipboard" label="Active Bookings" color="#4a9fd4" mob={mob}
-                      value={bookings.filter(b=>["Paid","Confirmed"].includes(b.status)).length}
-                      series={per(()=>1,b=>["Paid","Confirmed"].includes(b.status))} />
-                    <StatCard icon="check-circle" label="Completed" color="#4caf50" mob={mob}
-                      value={bookings.filter(b=>b.status==="Completed").length}
-                      series={per(()=>1,b=>b.status==="Completed")} />
-                  </div>
-                );
-              })()}
-
-              {/* Monthly Revenue Breakdown */}
-              {(()=>{
-                const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-                const monthlyData=months.map((_,mi)=>{
-                  const m=String(mi+1).padStart(2,"0");
-                  const mBookings=bookings.filter(b=>b.date&&b.date.startsWith(`2026-${m}`)&&b.status!=="Cancelled");
-                  return{label:months[mi],revenue:mBookings.reduce((s,b)=>s+b.total,0),count:mBookings.length,guests:mBookings.reduce((s,b)=>s+b.guests,0)};
-                });
-                const maxRev=Math.max(...monthlyData.map(m=>m.revenue),1);
-                void maxRev; // scale is now derived inside BarChart
-                // Green, matching the Total Revenue card above it. Gold is this
-                // tab's colour for down payments (Down Collected), so a gold
-                // revenue bar made the same colour mean two different amounts
-                // on one screen.
-                return(
-                  <Panel title="MONTHLY REVENUE (2026)" style={{marginBottom:18}}>
-                    <BarChart
-                      data={monthlyData.map(m=>({label:m.label,value:m.revenue}))}
-                      color="#4caf50"
-                      height={210}
-                      mob={mob}
-                      formatValue={(v)=>v>=1000?`₱${(v/1000).toFixed(0)}k`:`₱${v}`}
-                    />
-                  </Panel>
-                );
-              })()}
-
-              {/* Booking Status Breakdown + Cancellation Rate */}
-              <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:mob?14:18,marginBottom:18}}>
-                <Panel title="STATUS BREAKDOWN">
-                  {[["Paid","#f5c518"],["Confirmed","#4caf50"],["Completed","#4a9fd4"],["Cancelled","#e55"]].map(([s,c])=>{
-                    const n=bookings.filter(b=>b.status===s).length;
-                    const pct=bookings.length?Math.round((n/bookings.length)*100):0;
-                    return <ProgressRow key={s} label={s} value={n} pct={pct} color={c} />;
-                  })}
-                </Panel>
-                <Panel title="FINANCIAL SUMMARY">
-                  {(()=>{
-                    const active=bookings.filter(b=>b.status!=="Cancelled");
-                    const totalRev=active.reduce((s,b)=>s+b.total,0);
-                    const collected=active.reduce((s,b)=>s+b.downpayment,0);
-                    const balance=totalRev-collected;
-                    const cancelled=bookings.filter(b=>b.status==="Cancelled").length;
-                    const cancelRate=bookings.length?Math.round((cancelled/bookings.length)*100):0;
-                    const avgBookingVal=active.length?Math.round(totalRev/active.length):0;
-                    return(
-                      <div style={{display:"flex",flexDirection:"column"}}>
-                        {[["Gross Revenue",fmt(totalRev),"#4caf50"],["Downpayments In",fmt(collected),gold],["Balance Remaining",fmt(balance),"#4a9fd4"],["Avg Booking Value",fmt(avgBookingVal),C.textH],["Cancellation Rate",`${cancelRate}%`,"#e55"]].map(([l,v,c],i,arr)=>(
-                          <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"11px 0",borderBottom:i===arr.length-1?"none":`1px solid ${cBr}`}}>
-                            <span style={{color:C.textS,fontSize:14}}>{l}</span>
-                            <span style={{color:c,fontWeight:700,fontSize:15,fontVariantNumeric:"tabular-nums"}}>{v}</span>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </Panel>
-              </div>
-
-
-              {/* Export by Month */}
-              <Panel title="EXPORT MONTHLY REPORTS">
-                <p style={{color:C.textXS,fontSize:13,marginTop:-8,marginBottom:16,lineHeight:1.6}}>Download a full booking report for any month as a CSV file (opens in Excel/Sheets).</p>
-                <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                  {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((mon,mi)=>{
-                    const m=String(mi+1).padStart(2,"0");
-                    const mBookings=bookings.filter(b=>b.date&&b.date.startsWith(`2026-${m}`));
-                    const hasData=mBookings.length>0;
-                    return(
-                      <button key={mon} disabled={!hasData} onClick={()=>{
-                        const header=["Booking ID","Guest Name","Contact","Email","Date","Package","Guests","Overtime (hrs)","Rooms","Total (₱)","Downpayment (₱)","Status","Notes"];
-                        const rows=mBookings.map(b=>[b.id,b.name,b.contact||"",b.email||"",b.date,b.package,b.guests,b.overtime||0,(b.rooms||[]).map(rid=>rooms.find(r=>r.id===rid)?.name||"").filter(Boolean).join(" | ")||"None",b.total,b.downpayment,b.status,b.notes||""]);
-                        const totalRev=mBookings.filter(b=>b.status!=="Cancelled").reduce((s,b)=>s+b.total,0);
-                        const summary=[[],["SUMMARY",""],["Month",`${mon} 2026`],["Bookings",mBookings.length],["Revenue (non-cancelled)",totalRev],["Guests",mBookings.filter(b=>b.status!=="Cancelled").reduce((s,b)=>s+b.guests,0)]];
-                        const csv=[header,...rows,...summary].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
-                        const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
-                        const url=URL.createObjectURL(blob);
-                        const a=document.createElement("a");a.href=url;a.download=`StoneWood_${mon}2026.csv`;a.click();URL.revokeObjectURL(url);
-                        toast(`Exported ${mon} 2026 report.`,"success");
-                      }} style={{padding:"8px 14px",fontSize:12,fontWeight:600,borderRadius:8,cursor:hasData?"pointer":"not-allowed",letterSpacing:0.6,background:hasData?(isDark?"rgba(201,168,76,0.08)":"rgba(201,168,76,0.1)"):(isDark?"#0e0c09":"#f5f0e8"),color:hasData?gold:C.textXS,border:`1px solid ${hasData?gold+"55":cBr}`,opacity:hasData?1:0.5,display:"flex",alignItems:"center",gap:5}}>
-                        <Icon name="download" size={11} />
-                        {mon}
-                        {hasData&&<span style={{background:`${gold}22`,borderRadius:10,padding:"1px 6px",fontSize:10.5}}>{mBookings.length}</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              </Panel>
-            </div>
-          )}
+          {tab === "Reports" && <ReportsTab bookings={bookings} rooms={rooms} mob={mob} />}
 
           {/* CUSTOMER SERVICE */}
           {tab === "Customer Service" && (

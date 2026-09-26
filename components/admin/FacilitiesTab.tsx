@@ -1,38 +1,38 @@
 "use client";
 
-import { useState } from "react";
-import { QUIET_HOURS_START } from "@/lib/resort";
-import { useTheme } from "@/contexts/ThemeContext";
-import { useToast } from "@/contexts/ToastContext";
-import { T } from "@/lib/theme";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+// ── Facilities (capstone objective 2)
+//
+// Organised around GUESTS, not around each facility: the owner thinks
+// "the Santos group arrives at 7, the Reyes group is leaving", so that is
+// how this screen is laid out.
+//
+//   Today          groups due today (and any past visit never checked out)
+//   Coming up      the next 14 days — prepare ahead
+//   Checked out    finished visits, with their inspection and damage record
+//
+// Clicking a guest opens the preparation or check-out window
+// (InspectionModals.tsx). A compact strip at the top still shows each
+// facility's status, because "Under Maintenance" blocks bookings.
+
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { gold, outBtn } from "@/lib/styles";
-import type { Facility, FacilityStatus } from "@/types/facility";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useEffect, useMemo, useState } from "react";
+import { useOps } from "@/contexts/OpsContext";
+import { useToast } from "@/contexts/ToastContext";
+import { facilitiesForBooking, checklistFor } from "@/lib/facilityUsage";
+import { bookingMoney, manilaDate, manilaTime } from "@/lib/finance";
+import { isInResort } from "@/lib/occupancy";
+import { fmt, fmtDate, getBookingSlot } from "@/lib/utils";
+import { SLOTS } from "@/lib/resort";
 import type { Booking } from "@/types/booking";
+import type { Facility, FacilityStatus } from "@/types/facility";
+import { gold } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
-import { startOfToday, toDateStr } from "@/lib/validators";
-import { Badge } from "@/components/ui/badge";
+import { PrepModal, CheckoutModal, VisitRecord } from "@/components/admin/InspectionModals";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  PageHead, Segmented, TableShell, td, Btn, Pill, Modal, Label, ErrorNote, useAdminStyle, STATUS_COLOR, Row, Cell, FullSelect, ViewTabs,
+} from "@/components/admin/ui";
 
 interface FacilitiesTabProps {
   facilities: Facility[];
@@ -41,509 +41,316 @@ interface FacilitiesTabProps {
   mob: boolean;
 }
 
-const STATUS_COLOR: Record<FacilityStatus, string> = {
-  "Available": "#4caf50",
-  "In Use": "#4a9fd4",
-  "Needs Cleaning": "#e0a020",
-  "Under Maintenance": "#c0392b",
+const F_COLOR: Record<FacilityStatus, string> = {
+  Available: "#2e9e4e",
+  "In Use": "#3a8fc4",
+  "Needs Cleaning": "#d4a800",
+  "Under Maintenance": "#d44",
 };
+const ICONS = new Set(["pool", "flame", "billiards", "mic", "car", "tent", "bed"]);
+const iconOf = (f: Facility): IconName => (ICONS.has(f.icon) ? (f.icon as IconName) : "toolbox");
 
-// Sensible defaults so every facility shows useful guidance even before
-// staff has customized its checklist — editable per-facility below.
-const DEFAULT_BEFORE: Record<string, string[]> = {
-  "Swimming Pool": ["Check chlorine/pH levels", "Skim leaves & debris", "Test water clarity", "Check lifebuoys & signage are in place"],
-  "Events Venue": ["Sweep & arrange chairs/tables", "Test sound system & lights", "Check restrooms are stocked", "Confirm decor/setup matches booking", `Night groups: remind them sound goes off at ${QUIET_HOURS_START}`],
-  Videoke: ["Test mics & speakers", `Night groups: videoke off at ${QUIET_HOURS_START} (quiet hours)`],
-  Room: ["Change linens & towels", "Check A/C & lights work", "Restock toiletries & water", "Inspect for damage from prior guest"],
-};
-const DEFAULT_AFTER: Record<string, string[]> = {
-  "Swimming Pool": ["Skim leaves & floating trash", "Re-check chlorine/pH levels", "Return floats & equipment to storage", "Note any damage or needed repairs"],
-  "Events Venue": ["Clear trash & leftover items", "Return chairs/tables to storage layout", "Check for damage to fixtures", "Turn off sound system & lights"],
-  Room: ["Strip & send linens to laundry", "Check for left-behind guest items", "Inspect for damage", "Restock for next reservation"],
+const addDays = (date: string, n: number) => {
+  const d = new Date(`${date}T00:00:00`);
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
 export function FacilitiesTab({ facilities, setFacilities, bookings, mob }: FacilitiesTabProps) {
-  const { isDark } = useTheme();
-  const C = T(isDark);
-  const { toast } = useToast();
-  const [editNotesId, setEditNotesId] = useState<number | null>(null);
-  const [notesDraft, setNotesDraft] = useState("");
-  const [checklistEditor, setChecklistEditor] = useState<{ id: number; which: "before" | "after" } | null>(null);
-  const [checklistDraft, setChecklistDraft] = useState("");
-  const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [historyId, setHistoryId] = useState<number | null>(null);
+  const { C, rowBg, inp } = useAdminStyle();
+  const ops = useOps();
+  const [view, setView] = useState<"Guests" | "Rates">("Guests");
+  const [open, setOpen] = useState<{ kind: "prep" | "checkout" | "record"; booking: Booking } | null>(null);
+  const [editFacility, setEditFacility] = useState<Facility | null>(null);
+  const [search, setSearch] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
-  // Page-level view — the per-facility HISTORY dropdown below stays for a
-  // quick "what's used this one" glance, while this toggle gives the admin
-  // a dedicated place to browse every facility's reservation history at
-  // once, filterable by facility and searchable by guest/ID.
-  const [pageView, setPageView] = useState<"checklist" | "history">("checklist");
-  const [historyFacility, setHistoryFacility] = useState<number | "all">("all");
-  const [historySearch, setHistorySearch] = useState("");
+  // A live clock, so "On site now" changes as a slot starts or ends.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const t = setInterval(() => setNow(new Date()), 60_000); return () => clearInterval(t); }, []);
+  const today = manilaDate(now);
+  const horizon = addDays(today, 14);
 
-  const cBg = isDark ? "#0c0b09" : "#ffffff";
-  const cBr = isDark ? "#1a1714" : "#e4ddd1";
+  const real = bookings.filter((b) => !b.id.startsWith("TMP-"));
+  const active = (b: Booking) => b.status === "Pending" || b.status === "Confirmed";
+  const todayList = real.filter((b) => active(b) && b.date <= today).sort((a, b) => a.date.localeCompare(b.date));
+  const upcoming = real.filter((b) => active(b) && b.date > today && b.date <= horizon).sort((a, b) => a.date.localeCompare(b.date));
+  const q = search.toLowerCase().trim();
+  const done = real.filter((b) => b.status === "Completed")
+    .filter((b) => !q || b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) || b.contact.includes(q))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const doneShown = showAll ? done : done.slice(0, 12);
 
-  const counts = (["Available", "In Use", "Needs Cleaning", "Under Maintenance"] as FacilityStatus[]).map(
-    (s) => [s, facilities.filter((f) => f.status === s).length] as [FacilityStatus, number]
+  const prepOf = (b: Booking) => ops.inspections.find((i) => i.bookingId === b.id && i.stage === "Preparation");
+
+  const usesText = (b: Booking) => {
+    const used = facilitiesForBooking(b, facilities);
+    const rooms = used.filter((f) => f.category === "Room").map((f) => f.name.split(" –")[0]);
+    const venue = used.some((f) => f.name === "Events Venue");
+    const pool = used.some((f) => f.name === "Swimming Pool");
+    return [pool && "Pool & amenities", venue && "Events venue", ...rooms].filter(Boolean).join(", ") || "—";
+  };
+
+  const when = (b: Booking) => {
+    const slot = SLOTS[getBookingSlot(b)];
+    const late = b.date < today;
+    return (
+      <>
+        <span style={{ color: late ? "#d44" : C.textB }}>{b.date === today ? "Today" : fmtDate(b.date)}{late ? " (past, not checked out)" : ""}</span>
+        <div style={{ color: C.textS, fontSize: 11.5 }}>{slot.label} · {slot.hours}{b.arrivalTime ? ` · arrives ${b.arrivalTime}` : ""}</div>
+      </>
+    );
+  };
+
+  const prepCell = (b: Booking) => {
+    const p = prepOf(b);
+    return p
+      ? <Pill color="#2e9e4e"><Icon name="check" size={11} />Prepared {manilaDate(p.inspectedAt) === today ? manilaTime(p.inspectedAt) : fmtDate(manilaDate(p.inspectedAt))}</Pill>
+      : <Pill color="#d4a800">Not prepared</Pill>;
+  };
+
+  const guest = (b: Booking) => (
+    <>
+      <span style={{ color: C.textH, fontWeight: 600 }}>{b.name}</span>
+      {isInResort(b, now) && <Pill color="#2e9e4e" style={{ marginLeft: 8 }}>On site now</Pill>}
+      <div style={{ color: C.textS, fontSize: 11.5 }}><span style={{ color: gold, fontFamily: "monospace" }}>{b.id}</span> · {b.guests} guests · {b.source ?? "Online"}</div>
+    </>
   );
 
-  const setStatus = (id: number, status: FacilityStatus) => {
-    setFacilities((fs) => fs.map((f) => {
-      if (f.id !== id) return f;
-      const next: Facility = { ...f, status };
-      if (status === "Available") next.lastCheckedAt = new Date().toISOString();
-      return next;
-    }));
-    const f = facilities.find((x) => x.id === id);
-    if (f) {
-      const msg = status === "Under Maintenance"
-        ? `${f.name} marked "Under Maintenance" — it will no longer be bookable online or via Walk-In.`
-        : `${f.name} marked "${status}".`;
-      toast(msg, status === "Available" ? "success" : status === "Under Maintenance" ? "warning" : "info");
-    }
-  };
-
-  const openNotes = (f: Facility) => { setEditNotesId(f.id); setNotesDraft(f.notes); };
-  const saveNotes = () => {
-    setFacilities((fs) => fs.map((f) => f.id === editNotesId ? { ...f, notes: notesDraft } : f));
-    setEditNotesId(null);
-  };
-
-  const checklistKey = (f: Facility) => f.category === "Room" ? "Room" : f.name;
-  const getChecklist = (f: Facility, which: "before" | "after") => {
-    const custom = which === "before" ? f.beforeUseChecklist : f.afterUseChecklist;
-    return custom ?? (which === "before" ? DEFAULT_BEFORE : DEFAULT_AFTER)[checklistKey(f)] ?? [];
-  };
-  const openChecklistEditor = (f: Facility, which: "before" | "after") => {
-    setChecklistEditor({ id: f.id, which });
-    setChecklistDraft(getChecklist(f, which).join("\n"));
-  };
-  const saveChecklist = () => {
-    if (!checklistEditor) return;
-    const lines = checklistDraft.split("\n").map((s) => s.trim()).filter(Boolean);
-    setFacilities((fs) => fs.map((f) => f.id === checklistEditor.id
-      ? { ...f, [checklistEditor.which === "before" ? "beforeUseChecklist" : "afterUseChecklist"]: lines }
-      : f));
-    setChecklistEditor(null);
-  };
-
-  const fmtWhen = (iso?: string | null) => {
-    if (!iso) return "Never checked";
-    return new Date(iso).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-  };
-
-  // Which of today's reservations actually use this facility — ties the
-  // before/after guidance to real customer bookings instead of being
-  // generic advice divorced from what's actually happening today.
-  // Local date, not UTC: toISOString() reports the previous day in Manila
-  // (UTC+8) from midnight until 8am, which would mis-scope "today".
-  const todayStr = toDateStr(startOfToday());
-  const todaysActive = bookings.filter((b) => b.date === todayStr && b.status !== "Cancelled");
-  const reservationsFor = (f: Facility): Booking[] => {
-    if (f.category === "Room") {
-      return todaysActive.filter((b) => b.rooms.includes(f.roomId ?? -1));
-    }
-    if (f.name === "Swimming Pool") {
-      return todaysActive.filter((b) => (b.resource ?? "Pool") !== "Venue");
-    }
-    if (f.name === "Events Venue") {
-      return todaysActive.filter((b) => b.resource === "Venue" || b.resource === "Pool+Venue");
-    }
-    return [];
-  };
-
-  // Full reservation history for a facility — every booking (any date,
-  // any status, including archived) that used it, newest first, so the
-  // admin can see who reserved it and what they used beyond just today.
-  const matchesFacility = (f: Facility, b: Booking): boolean => {
-    if (f.category === "Room") return b.rooms.includes(f.roomId ?? -1);
-    if (f.name === "Swimming Pool") return (b.resource ?? "Pool") !== "Venue";
-    if (f.name === "Events Venue") return b.resource === "Venue" || b.resource === "Pool+Venue";
-    return false;
-  };
-  const historyFor = (f: Facility): Booking[] =>
-    bookings
-      .filter((b) => matchesFacility(f, b))
-      .slice()
-      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.createdAt ?? 0) - (a.createdAt ?? 0)));
-
-  const historyStatusColor: Record<string, string> = {
-    Paid: "#f5c518", Confirmed: "#4caf50", Completed: "#4a9fd4", Cancelled: "#c0392b",
-  };
-
-  // Combined reservation history across every facility, for the dedicated
-  // "RESERVATION HISTORY" page view — one row per (facility, booking) pair,
-  // newest first, optionally narrowed to a single facility or search term.
-  type HistoryRow = { booking: Booking; facility: Facility };
-  const allHistoryRows: HistoryRow[] = facilities
-    .flatMap((f) => historyFor(f).map((booking) => ({ booking, facility: f })))
-    .sort((a, b) => (a.booking.date < b.booking.date ? 1 : a.booking.date > b.booking.date ? -1 : (b.booking.createdAt ?? 0) - (a.booking.createdAt ?? 0)));
-
-  const hq = historySearch.toLowerCase().trim();
-  const filteredHistoryRows = allHistoryRows.filter((row) => {
-    if (historyFacility !== "all" && row.facility.id !== historyFacility) return false;
-    if (!hq) return true;
-    return (
-      row.booking.name.toLowerCase().includes(hq) ||
-      row.booking.id.toLowerCase().includes(hq) ||
-      row.booking.package.toLowerCase().includes(hq) ||
-      row.facility.name.toLowerCase().includes(hq)
-    );
-  });
-
-  const groups: { label: string; items: Facility[] }[] = [
-    { label: "RESORT AMENITIES", items: facilities.filter((f) => f.category === "Amenity") },
-    { label: "ROOMS", items: facilities.filter((f) => f.category === "Room") },
-  ];
+  const needsClean = facilities.filter((f) => f.status === "Needs Cleaning").length;
 
   return (
     <div>
-      <div style={{ marginBottom: 28 }}>
-        <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>CARETAKER CHECKLIST</p>
-        <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 6px" }}>Facilities</h2>
-        <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>
-          Automatically flagged "Needs Cleaning" when a booking using them is marked Completed. Marking a facility
-          <strong style={{ color: "#e55" }}> "Under Maintenance" </strong>
-          hides it from customers on both Online Booking and Walk-In immediately.
-        </p>
+      <PageHead title="Facilities" mob={mob}
+        subtitle="Prepare for arriving guests, and inspect the facilities before each group leaves." />
+
+      {/* ── Facility status strip ── */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+        {facilities.map((f) => (
+          <button key={f.id} type="button" onClick={() => setEditFacility(f)} title={`${f.status}. Click to change status, notes or checklists.`}
+            style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 12px", borderRadius: 8, cursor: "pointer", background: "transparent", border: `1px solid ${F_COLOR[f.status]}55`, color: C.textB, fontSize: 12.5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: F_COLOR[f.status], flexShrink: 0 }} />
+            <Icon name={iconOf(f)} size={14} />
+            {f.category === "Room" ? f.name.split(" –")[0] : f.name}
+          </button>
+        ))}
       </div>
+      <p style={{ color: C.textS, fontSize: 12.5, margin: "0 0 20px" }}>
+        {needsClean > 0 ? `${needsClean} need${needsClean === 1 ? "s" : ""} cleaning. ` : "Nothing waiting for cleaning. "}
+        <span style={{ color: F_COLOR.Available }}>Available</span>, <span style={{ color: F_COLOR["In Use"] }}>in use</span>, <span style={{ color: F_COLOR["Needs Cleaning"] }}>needs cleaning</span>, <span style={{ color: F_COLOR["Under Maintenance"] }}>under maintenance (can't be booked)</span>. Click one to change it.
+      </p>
 
-      {/* Checklist / Reservation History — a real Tabs, so the pair is a
-          tablist: left and right arrows move between them, each panel is
-          announced as a tabpanel, and the selected state is exposed rather
-          than implied by colour alone. */}
-      <Tabs value={pageView} onValueChange={(v) => setPageView(v as "checklist" | "history")}>
-        <TabsList className="mb-6 h-auto gap-2 bg-transparent p-0">
-          {([
-            { key: "checklist", label: "CARETAKER CHECKLIST" },
-            { key: "history", label: `RESERVATION HISTORY (${allHistoryRows.length})` },
-          ] as const).map((v) => (
-            <TabsTrigger
-              key={v.key}
-              value={v.key}
-              className="rounded-full border data-[state=active]:shadow-none"
-              style={{ padding: "8px 18px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", letterSpacing: 1, background: pageView === v.key ? `${gold}18` : "transparent", color: pageView === v.key ? gold : C.textS, borderColor: pageView === v.key ? gold + "55" : cBr }}
-            >
-              {v.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        <TabsContent value="history">
-          <div>
-            <p style={{ color: C.textS, fontSize: 13.5, marginBottom: 18, lineHeight: 1.6 }}>
-              Every reservation that has used a facility or room, across all statuses — filter by facility or search by guest, ID, or package to see what a given reservation used.
-            </p>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
-              <div className="[&_[data-slot=native-select-wrapper]]:w-full" style={{ width: mob ? "100%" : 240 }}>
-                <Label htmlFor="history-facility" className="sr-only">Filter by facility</Label>
-                <NativeSelect
-                  id="history-facility"
-                  value={historyFacility === "all" ? "all" : String(historyFacility)}
-                  onChange={(e) => setHistoryFacility(e.target.value === "all" ? "all" : Number(e.target.value))}
-                  style={{ ...C.inp, borderRadius: 6, height: "auto" }}
-                >
-                  <option value="all">All facilities</option>
-                  {facilities.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-                </NativeSelect>
-              </div>
-              <div style={{ flex: 1, minWidth: mob ? "100%" : 260 }}>
-                <Label htmlFor="history-search" className="sr-only">Search facility history</Label>
-                <Input
-                  id="history-search"
-                  value={historySearch}
-                  onChange={(e) => setHistorySearch(e.target.value)}
-                  placeholder="Search by guest, ID, or package…"
-                  style={{ ...C.inp, borderRadius: 6, height: "auto" }}
-                />
-              </div>
-            </div>
-            <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, overflow: "hidden" }}>
-              <div style={{ overflowX: "auto" }}>
-                <Table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
-                  <TableHeader>
-                    <TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
-                      {["Date", "Facility", "Guest", "Package", "Guests", "Status"].map((h) => (
-                        <TableHead key={h} style={{ padding: "10px 12px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredHistoryRows.length === 0 && (
-                      <TableRow><TableCell colSpan={6} style={{ padding: 24, textAlign: "center", color: C.textXS, fontSize: 13.5 }}>No reservations match.</TableCell></TableRow>
-                    )}
-                    {filteredHistoryRows.map((row, idx) => (
-                      <TableRow key={`${row.facility.id}-${row.booking.id}`} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#090909" : "#080808") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
-                        <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{row.booking.date}</TableCell>
-                        <TableCell style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap" }}><Icon name={row.facility.icon as IconName} size={13} style={{ marginRight: 6 }} />{row.facility.name}</TableCell>
-                        <TableCell style={{ padding: "10px 12px", color: C.textH, fontSize: 13.5 }}>
-                          {row.booking.name} {row.booking.archived && <span style={{ color: C.textXS, fontSize: 10.5 }}>(archived)</span>}
-                        </TableCell>
-                        <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{row.booking.package}</TableCell>
-                        <TableCell style={{ padding: "10px 12px", color: C.textS, fontSize: 12.5 }}>{row.booking.guests}</TableCell>
-                        <TableCell style={{ padding: "10px 12px", fontSize: 11.5 }}>
-                          <Badge variant="outline" style={{ background: `${historyStatusColor[row.booking.status] ?? gold}18`, color: historyStatusColor[row.booking.status] ?? gold, padding: "3px 8px", borderRadius: 20, border: `1px solid ${historyStatusColor[row.booking.status] ?? gold}44`, letterSpacing: 1, whiteSpace: "nowrap" }}>{row.booking.status.toUpperCase()}</Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="checklist">
-        <>
-        {/* Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: mob ? 10 : 14, marginBottom: 28 }}>
-          {counts.map(([s, v]) => (
-            <div key={s} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: mob ? "14px 12px" : "18px 16px", position: "relative", overflow: "hidden" }}>
-              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: STATUS_COLOR[s] }} />
-              <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 1.5, marginBottom: 8 }}>{s.toUpperCase()}</div>
-              <div style={{ color: STATUS_COLOR[s], fontSize: mob ? 22 : 28, fontWeight: 700, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>{v}</div>
-            </div>
-          ))}
-        </div>
-
-        {groups.map((g) => (
-          <div key={g.label} style={{ marginBottom: 28 }}>
-            <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 12 }}>{g.label}</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {g.items.map((f) => {
-                const linkedBooking = f.lastUsedBookingId ? bookings.find((b) => b.id === f.lastUsedBookingId) : null;
-                const todaysReservations = reservationsFor(f);
-                const expanded = expandedId === f.id;
-                const history = historyId === f.id;
+      <ViewTabs value={view} onChange={setView} views={[
+        { value: "Guests" as const, label: "Guests", content: (
+        <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
+          <section>
+            <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: "0 0 10px" }}>Today <span style={{ color: C.textS, fontWeight: 400 }}>({todayList.length})</span></h3>
+            <TableShell head={["Guest", "When", "Uses", "Preparation", "Owed", ""]} minWidth={880}
+              empty={todayList.length === 0 ? "No groups today." : undefined}>
+              {todayList.map((b, i) => {
+                const m = bookingMoney(b, ops.payments, ops.damages);
                 return (
-                  <div key={f.id} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "14px 18px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                      <div style={{ flexShrink: 0, color: gold, lineHeight: 0 }}><Icon name={f.icon as IconName} size={22} strokeWidth={1.5} /></div>
-                      <div style={{ flex: 1, minWidth: 180 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
-                          <span style={{ color: C.textH, fontSize: 15, fontWeight: 600 }}>{f.name}</span>
-                          <Badge variant="outline" style={{ background: `${STATUS_COLOR[f.status]}18`, color: STATUS_COLOR[f.status], fontSize: 10.5, padding: "3px 9px", borderRadius: 20, border: `1px solid ${STATUS_COLOR[f.status]}44`, letterSpacing: 1 }}>{f.status.toUpperCase()}</Badge>
-                          {todaysReservations.length > 0 && (
-                            <Badge variant="outline" style={{ background: "rgba(76,175,80,0.1)", color: "#4caf50", fontSize: 10.5, padding: "3px 9px", borderRadius: 20, border: "1px solid rgba(76,175,80,0.25)", letterSpacing: 1 }}>
-                              {todaysReservations.length} reservation{todaysReservations.length > 1 ? "s" : ""} today
-                            </Badge>
-                          )}
-                        </div>
-                        <div style={{ color: C.textS, fontSize: 12.5 }}>
-                          {linkedBooking ? <>Last used by <strong style={{ color: C.textH }}>{f.lastUsedGuestName}</strong> ({f.lastUsedBookingId})</> : "No usage recorded yet"}
-                          {" · "}Checked: {fmtWhen(f.lastCheckedAt)}
-                        </div>
-                        {editNotesId === f.id ? (
-                          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                            <Input value={notesDraft} onChange={(e) => setNotesDraft(e.target.value)} placeholder="Notes (e.g. pool filter needs replacing)" aria-label="Facility notes" style={{ ...C.inp, borderRadius: 6, flex: 1, height: "auto" }} />
-                            <button onClick={saveNotes} style={{ ...outBtn, padding: "6px 12px", fontSize: 11.5 }}>SAVE</button>
-                          </div>
-                        ) : (
-                          <div onClick={() => openNotes(f)} style={{ color: f.notes ? C.textB : C.textXS, fontSize: 12.5, marginTop: 6, cursor: "pointer", fontStyle: f.notes ? "normal" : "italic" }}>
-                            {f.notes || "+ add note"}
-                          </div>
-                        )}
+                  <Row key={b.id} style={{ background: rowBg(i) }}>
+                    <Cell style={td}>{guest(b)}</Cell>
+                    <Cell style={td}>{when(b)}</Cell>
+                    <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{usesText(b)}</Cell>
+                    <Cell style={td}>{b.status === "Pending" ? <Pill color={STATUS_COLOR.Pending}>Awaiting approval</Pill> : prepCell(b)}</Cell>
+                    <Cell style={{ ...td, color: m.due > 0 ? "#d4a800" : C.textS, whiteSpace: "nowrap" }}>{m.due > 0 ? fmt(m.due) : "Paid"}</Cell>
+                    <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                      <div style={{ display: "inline-flex", gap: 6 }}>
+                        <Btn size="sm" icon="clipboard-check" onClick={() => setOpen({ kind: "prep", booking: b })}>Prepare</Btn>
+                        <Btn size="sm" kind="blue" icon="logout" onClick={() => setOpen({ kind: "checkout", booking: b })}>Check out</Btn>
                       </div>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        <button onClick={() => setExpandedId(expanded ? null : f.id)} style={{ background: "transparent", color: gold, border: `1px solid ${gold}44`, padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>
-                          {expanded ? "HIDE CHECKLIST" : "CHECKLIST"}<Icon name={expanded ? "chevron-up" : "chevron-down"} size={12} style={{ marginLeft: 6 }} />
-                        </button>
-                        <button onClick={() => setHistoryId(history ? null : f.id)} style={{ background: "transparent", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.4)", padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>
-                          {history ? "HIDE HISTORY" : `HISTORY (${historyFor(f).length})`}<Icon name={history ? "chevron-up" : "chevron-down"} size={12} style={{ marginLeft: 6 }} />
-                        </button>
-                        {f.status !== "Available" && (
-                          <button onClick={() => setStatus(f.id, "Available")} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.25)", padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}><Icon name="check" size={12} style={{ marginRight: 5 }} />MARK CHECKED</button>
-                        )}
-                        {f.status !== "In Use" && (
-                          <button onClick={() => setStatus(f.id, "In Use")} style={{ background: "rgba(74,159,212,0.08)", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.25)", padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>IN USE</button>
-                        )}
-                        {f.status !== "Under Maintenance" && (
-                          <button onClick={() => setStatus(f.id, "Under Maintenance")} style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "6px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}>MAINTENANCE</button>
-                        )}
-                      </div>
-                    </div>
-
-                    {expanded && (
-                      <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${cBr}`, display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr 1fr", gap: 16 }}>
-                        {/* Before use */}
-                        <div>
-                          <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 7, marginBottom: 8 }}>
-                            <p style={{ color: gold, fontSize: 11.5, letterSpacing: 2, margin: 0 }}>BEFORE USE</p>
-                            <button
-                              onClick={() => openChecklistEditor(f, "before")}
-                              aria-label={`Edit the before-use checklist for ${f.name}`}
-                              title="Edit checklist"
-                              style={{
-                                background: "none",
-                                border: "none",
-                                color: C.textXS,
-                                cursor: "pointer",
-                                padding: 0,
-                                // A square box round a 14px glyph gives the icon a
-                                // real click target without it reading as a second
-                                // button next to the heading.
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                width: 24,
-                                height: 24,
-                                // Hit area is 24px; layout height stays 14px to
-                                // match the glyph, so the heading row does not
-                                // grow taller than the pencil-less third column
-                                // and push its list out of alignment.
-                                margin: "-5px 0",
-                                borderRadius: 5,
-                                transition: "color .18s ease, background .18s ease",
-                              }}
-                              onMouseEnter={(e) => { e.currentTarget.style.color = gold; e.currentTarget.style.background = `${gold}14`; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.color = C.textXS; e.currentTarget.style.background = "none"; }}
-                            >
-                              {/* Decorative: the button above already carries the label. */}
-                              <Icon name="pencil" size={14} />
-                            </button>
-                          </div>
-                          <ul style={{ margin: 0, paddingLeft: 16, color: C.textS, fontSize: 13.5, lineHeight: 1.8 }}>
-                            {getChecklist(f, "before").map((item, i) => <li key={i}>{item}</li>)}
-                            {getChecklist(f, "before").length === 0 && <li style={{ listStyle: "none", marginLeft: -16, color: C.textXS, fontStyle: "italic" }}>No checklist yet.</li>}
-                          </ul>
-                        </div>
-                        {/* After use */}
-                        <div>
-                          <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 7, marginBottom: 8 }}>
-                            <p style={{ color: gold, fontSize: 11.5, letterSpacing: 2, margin: 0 }}>AFTER USE</p>
-                            <button
-                              onClick={() => openChecklistEditor(f, "after")}
-                              aria-label={`Edit the after-use checklist for ${f.name}`}
-                              title="Edit checklist"
-                              style={{
-                                background: "none",
-                                border: "none",
-                                color: C.textXS,
-                                cursor: "pointer",
-                                padding: 0,
-                                // A square box round a 14px glyph gives the icon a
-                                // real click target without it reading as a second
-                                // button next to the heading.
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                width: 24,
-                                height: 24,
-                                // Hit area is 24px; layout height stays 14px to
-                                // match the glyph, so the heading row does not
-                                // grow taller than the pencil-less third column
-                                // and push its list out of alignment.
-                                margin: "-5px 0",
-                                borderRadius: 5,
-                                transition: "color .18s ease, background .18s ease",
-                              }}
-                              onMouseEnter={(e) => { e.currentTarget.style.color = gold; e.currentTarget.style.background = `${gold}14`; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.color = C.textXS; e.currentTarget.style.background = "none"; }}
-                            >
-                              {/* Decorative: the button above already carries the label. */}
-                              <Icon name="pencil" size={14} />
-                            </button>
-                          </div>
-                          <ul style={{ margin: 0, paddingLeft: 16, color: C.textS, fontSize: 13.5, lineHeight: 1.8 }}>
-                            {getChecklist(f, "after").map((item, i) => <li key={i}>{item}</li>)}
-                            {getChecklist(f, "after").length === 0 && <li style={{ listStyle: "none", marginLeft: -16, color: C.textXS, fontStyle: "italic" }}>No checklist yet.</li>}
-                          </ul>
-                        </div>
-                        {/* Today's reservations using it */}
-                        <div>
-                          {/* margin, not marginBottom: a bare <p> keeps the UA default
-                              margin-top of 1em, which sat this heading 11px lower
-                              than BEFORE/AFTER USE, whose <p> zeroes it. */}
-                          <p style={{ color: gold, fontSize: 11.5, letterSpacing: 2, margin: "0 0 8px" }}>TODAY'S RESERVATIONS</p>
-                          {todaysReservations.length === 0 ? (
-                            <p style={{ color: C.textXS, fontSize: 13.5, fontStyle: "italic", margin: 0 }}>No reservations use this today.</p>
-                          ) : (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                              {todaysReservations.map((b) => (
-                                <div key={b.id} style={{ fontSize: 13.5, color: C.textS }}>
-                                  <strong style={{ color: C.textH }}>{b.name}</strong> · {b.guests} guests · {b.package}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {history && (() => {
-                      const rows = historyFor(f);
-                      return (
-                        <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${cBr}` }}>
-                          <p style={{ color: "#4a9fd4", fontSize: 11.5, letterSpacing: 2, marginBottom: 10 }}>
-                            RESERVATION HISTORY — who reserved this and what they used
-                          </p>
-                          {rows.length === 0 ? (
-                            <p style={{ color: C.textXS, fontSize: 13.5, fontStyle: "italic", margin: 0 }}>No reservations have used this yet.</p>
-                          ) : (
-                            <div style={{ overflowX: "auto" }}>
-                              <Table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
-                                <TableHeader>
-                                  <TableRow style={{ borderBottom: `1px solid ${cBr}` }}>
-                                    {["Date", "Guest", "Package", "Guests", "Status"].map((h) => (
-                                      <TableHead key={h} style={{ padding: "6px 10px", color: C.textXS, fontSize: 10.5, letterSpacing: 1.5, textAlign: "left", whiteSpace: "nowrap" }}>{h}</TableHead>
-                                    ))}
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {rows.map((b) => (
-                                    <TableRow key={b.id} style={{ borderBottom: `1px solid ${cBr}` }}>
-                                      <TableCell style={{ padding: "8px 10px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.date}</TableCell>
-                                      <TableCell style={{ padding: "8px 10px", color: C.textH, fontSize: 13.5 }}>
-                                        {b.name} {b.archived && <span style={{ color: C.textXS, fontSize: 10.5 }}>(archived)</span>}
-                                      </TableCell>
-                                      <TableCell style={{ padding: "8px 10px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.package}</TableCell>
-                                      <TableCell style={{ padding: "8px 10px", color: C.textS, fontSize: 12.5 }}>{b.guests}</TableCell>
-                                      <TableCell style={{ padding: "8px 10px", fontSize: 11.5 }}>
-                                        <Badge variant="outline" style={{ background: `${historyStatusColor[b.status] ?? gold}18`, color: historyStatusColor[b.status] ?? gold, padding: "3px 8px", borderRadius: 20, border: `1px solid ${historyStatusColor[b.status] ?? gold}44`, letterSpacing: 1, whiteSpace: "nowrap" }}>{b.status.toUpperCase()}</Badge>
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
+                    </Cell>
+                  </Row>
                 );
               })}
-            </div>
-          </div>
-        ))}
-        </>
-        </TabsContent>
-      </Tabs>
+            </TableShell>
+          </section>
 
-      {/* Checklist edit — wider than the old 420px box because the content is
-          a list of steps, one per line, and at 420 most steps wrapped. */}
-      <Dialog open={!!checklistEditor} onOpenChange={(open) => { if (!open) setChecklistEditor(null); }}>
-        <DialogContent className="sm:max-w-[min(34rem,calc(100%-2rem))]">
-          <DialogHeader>
-            <DialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400 }}>
-              Edit {checklistEditor?.which === "before" ? "Before-Use" : "After-Use"} Checklist
-            </DialogTitle>
-            <DialogDescription style={{ color: C.textS, fontSize: 12.5 }}>One step per line.</DialogDescription>
-          </DialogHeader>
-          <Textarea
-            value={checklistDraft}
-            onChange={(e) => setChecklistDraft(e.target.value)}
-            rows={6}
-            aria-label="Checklist steps, one per line"
-            style={{ ...C.inp, borderRadius: 6, resize: "none", height: "auto" }}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setChecklistEditor(null)} style={{ color: C.textS, borderColor: cBr, padding: "10px 16px", height: "auto", fontSize: 12.5, borderRadius: 6 }}>CANCEL</Button>
-            <Button onClick={saveChecklist} style={{ ...outBtn, borderRadius: 6, height: "auto" }}>SAVE</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <section>
+            <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: "0 0 10px" }}>Coming up <span style={{ color: C.textS, fontWeight: 400 }}>(next 14 days, {upcoming.length})</span></h3>
+            <TableShell head={["Guest", "When", "Uses", "Status", "Preparation", ""]} minWidth={820}
+              empty={upcoming.length === 0 ? "No reservations in the next 14 days." : undefined}>
+              {upcoming.map((b, i) => (
+                <Row key={b.id} style={{ background: rowBg(i) }}>
+                  <Cell style={td}>{guest(b)}</Cell>
+                  <Cell style={td}>{when(b)}</Cell>
+                  <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{usesText(b)}</Cell>
+                  <Cell style={td}><Pill color={STATUS_COLOR[b.status]}>{b.status}</Pill></Cell>
+                  <Cell style={td}>{prepCell(b)}</Cell>
+                  <Cell style={{ ...td, textAlign: "right" }}><Btn size="sm" icon="clipboard-check" onClick={() => setOpen({ kind: "prep", booking: b })}>Prepare</Btn></Cell>
+                </Row>
+              ))}
+            </TableShell>
+          </section>
+
+          <section>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+              <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: 0 }}>Checked out <span style={{ color: C.textS, fontWeight: 400 }}>({done.length})</span></h3>
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search guest, booking or phone" aria-label="Search finished visits" style={{ ...inp, width: 260, padding: "8px 10px" }} />
+            </div>
+            <TableShell head={["Guest", "Visit", "Uses", "Damage", "Owed", ""]} minWidth={780}
+              empty={doneShown.length === 0 ? (q ? "No finished visits match." : "No finished visits yet.") : undefined}>
+              {doneShown.map((b, i) => {
+                const m = bookingMoney(b, ops.payments, ops.damages);
+                return (
+                  <Row key={b.id} style={{ background: rowBg(i), cursor: "pointer" }} onClick={() => setOpen({ kind: "record", booking: b })}>
+                    <Cell style={td}>{guest(b)}</Cell>
+                    <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
+                    <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{usesText(b)}</Cell>
+                    <Cell style={td}>{m.penaltyTotal > 0 ? <Pill color="#d44">{fmt(m.penaltyTotal)} penalty</Pill> : <span style={{ color: C.textS, fontSize: 12.5 }}>None</span>}</Cell>
+                    <Cell style={{ ...td, color: m.due > 0 ? "#d4a800" : C.textS }}>{m.due > 0 ? fmt(m.due) : "Settled"}</Cell>
+                    <Cell style={{ ...td, textAlign: "right" }}><Btn size="sm">View record</Btn></Cell>
+                  </Row>
+                );
+              })}
+            </TableShell>
+            {done.length > 12 && (
+              <div style={{ textAlign: "center", marginTop: 10 }}>
+                <Btn size="sm" onClick={() => setShowAll((s) => !s)}>{showAll ? "Show fewer" : `Show all ${done.length}`}</Btn>
+              </div>
+            )}
+          </section>
+        </div>
+        ) },
+        { value: "Rates" as const, label: "Damage rates", content: <DamageRates /> },
+      ]} />
+
+      {open?.kind === "prep" && <PrepModal booking={open.booking} facilities={facilities} onClose={() => setOpen(null)} />}
+      {open?.kind === "checkout" && <CheckoutModal booking={open.booking} facilities={facilities} mob={mob} onClose={() => setOpen(null)} />}
+      {open?.kind === "record" && <VisitRecord booking={open.booking} onClose={() => setOpen(null)} />}
+      {editFacility && (
+        <FacilityModal facility={editFacility} onClose={() => setEditFacility(null)}
+          onSave={(next) => { setFacilities((fs) => fs.map((f) => f.id === next.id ? next : f)); setEditFacility(null); }} />
+      )}
+    </div>
+  );
+}
+
+// ── One facility: status, notes and its two checklists ────────────────
+function FacilityModal({ facility, onClose, onSave }: { facility: Facility; onClose: () => void; onSave: (f: Facility) => void }) {
+  const { C, inp } = useAdminStyle();
+  const { toast } = useToast();
+  const [status, setStatus] = useState<FacilityStatus>(facility.status);
+  const [notes, setNotes] = useState(facility.notes);
+  const [before, setBefore] = useState(checklistFor(facility, "before").join("\n"));
+  const [after, setAfter] = useState(checklistFor(facility, "after").join("\n"));
+  const lines = (s: string) => s.split("\n").map((x) => x.trim()).filter(Boolean);
+
+  const save = () => {
+    onSave({
+      ...facility,
+      status,
+      notes,
+      lastCheckedAt: status === "Available" && facility.status !== "Available" ? new Date().toISOString() : facility.lastCheckedAt,
+      beforeUseChecklist: lines(before),
+      afterUseChecklist: lines(after),
+    });
+    toast(status === "Under Maintenance"
+      ? `${facility.name} is under maintenance. It can't be booked online or at the desk until it's set back to Available.`
+      : `${facility.name} saved.`, status === "Under Maintenance" ? "warning" : "success");
+  };
+
+  return (
+    <Modal title={facility.name}
+      subtitle={facility.lastUsedGuestName ? `Last used by ${facility.lastUsedGuestName} (${facility.lastUsedBookingId})` : "Not used yet"}
+      onClose={onClose} width={760}
+      footer={<div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <Btn onClick={onClose}>Cancel</Btn>
+        <Btn kind="primary" onClick={save}>Save</Btn>
+      </div>}>
+      <Label>Status</Label>
+      <Segmented<FacilityStatus> value={status} onChange={setStatus} size="sm"
+        options={(["Available", "In Use", "Needs Cleaning", "Under Maintenance"] as FacilityStatus[]).map((s) => ({ value: s, label: s }))} />
+      <div style={{ marginTop: 14 }}>
+        <Label htmlFor="f-notes">Notes</Label>
+        <Input id="f-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Pool filter needs replacing" style={inp} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12, marginTop: 14 }}>
+        <div>
+          <Label htmlFor="f-before">Before-use checklist (one per line)</Label>
+          <Textarea id="f-before" rows={6} value={before} onChange={(e) => setBefore(e.target.value)} style={{ ...inp, resize: "vertical" }} />
+        </div>
+        <div>
+          <Label htmlFor="f-after">After-use checklist (one per line)</Label>
+          <Textarea id="f-after" rows={6} value={after} onChange={(e) => setAfter(e.target.value)} style={{ ...inp, resize: "vertical" }} />
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ── Damage rate list ──────────────────────────────────────────────────
+function DamageRates() {
+  const { C, rowBg, inp } = useAdminStyle();
+  const ops = useOps();
+  const { toast } = useToast();
+  const [draft, setDraft] = useState<Record<number, string>>({});
+  const [adding, setAdding] = useState({ name: "", category: "Furniture", unit: "pc", rate: "" });
+  const [error, setError] = useState("");
+  const categories = useMemo(() => Array.from(new Set(["Furniture", "Pool", "Room", "Amenity", ...ops.damageRates.map((r) => r.category)])), [ops.damageRates]);
+
+  const saveRate = async (id: number) => {
+    setError("");
+    const r = await ops.saveRate({ id, rate: Number(draft[id]) });
+    if (!r.ok) return setError(r.error);
+    setDraft((d) => { const n = { ...d }; delete n[id]; return n; });
+    toast("Rate updated. Penalties already recorded keep the rate they were charged at.", "success");
+  };
+  const toggle = async (id: number, active: boolean) => {
+    const r = await ops.saveRate({ id, active });
+    if (!r.ok) setError(r.error);
+  };
+  const add = async () => {
+    setError("");
+    const r = await ops.saveRate({ name: adding.name, category: adding.category, unit: adding.unit, rate: Number(adding.rate) });
+    if (!r.ok) return setError(r.error);
+    setAdding({ name: "", category: adding.category, unit: "pc", rate: "" });
+    toast("Item added to the rate list.", "success");
+  };
+
+  const cell = { ...inp, padding: "7px 9px" };
+  return (
+    <div>
+      <p style={{ color: C.textS, fontSize: 13, marginTop: 0, maxWidth: 720 }}>
+        The price charged for each damaged or lost item. At check-out the penalty is quantity × this rate.
+        The starting prices are samples; replace them with the resort's real replacement costs.
+      </p>
+      <TableShell head={["Item", "Category", "Unit", "Rate (₱)", "In use", ""]} minWidth={720}>
+        {ops.damageRates.map((r, i) => {
+          const edited = draft[r.id] !== undefined && Number(draft[r.id]) !== r.rate;
+          return (
+            <Row key={r.id} style={{ background: rowBg(i), opacity: r.active ? 1 : 0.5 }}>
+              <Cell style={{ ...td, color: C.textH }}>{r.name}</Cell>
+              <Cell style={{ ...td, color: C.textB }}>{r.category}</Cell>
+              <Cell style={{ ...td, color: C.textS }}>{r.unit}</Cell>
+              <Cell style={{ ...td, width: 140 }}>
+                <Input type="number" min={0} aria-label={`Rate for ${r.name}`} value={draft[r.id] ?? String(r.rate)} onChange={(e) => setDraft((d) => ({ ...d, [r.id]: e.target.value }))} style={cell} />
+              </Cell>
+              <Cell style={td}>
+                <label style={{ color: C.textS, fontSize: 12.5, display: "flex", gap: 6, alignItems: "center" }}>
+                  <Checkbox checked={r.active} onCheckedChange={(v) => toggle(r.id, v === true)} aria-label={`${r.name} in use`} /> {r.active ? "Yes" : "Retired"}
+                </label>
+              </Cell>
+              <Cell style={{ ...td, textAlign: "right" }}>{edited && <Btn size="sm" kind="green" onClick={() => saveRate(r.id)}>Save</Btn>}</Cell>
+            </Row>
+          );
+        })}
+        <Row>
+          <Cell style={td}><Input value={adding.name} onChange={(e) => setAdding({ ...adding, name: e.target.value })} placeholder="New item" aria-label="New item name" style={cell} /></Cell>
+          <Cell style={td}>
+            <FullSelect value={adding.category} onChange={(e) => setAdding({ ...adding, category: e.target.value })} aria-label="Category" style={cell}>
+              {categories.map((c) => <option key={c}>{c}</option>)}
+            </FullSelect>
+          </Cell>
+          <Cell style={td}><Input value={adding.unit} onChange={(e) => setAdding({ ...adding, unit: e.target.value })} aria-label="Unit" style={{ ...cell, width: 70 }} /></Cell>
+          <Cell style={td}><Input type="number" min={0} value={adding.rate} onChange={(e) => setAdding({ ...adding, rate: e.target.value })} placeholder="0" aria-label="Rate" style={cell} /></Cell>
+          <Cell style={td} />
+          <Cell style={{ ...td, textAlign: "right" }}><Btn size="sm" kind="primary" icon="plus" onClick={add}>Add</Btn></Cell>
+        </Row>
+      </TableShell>
+      <ErrorNote>{error}</ErrorNote>
     </div>
   );
 }
