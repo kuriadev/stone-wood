@@ -19,7 +19,7 @@ Animation    motion 13.4.3 (Framer Motion, renamed)               behind compone
 Dates        dayjs 1.11.23                                        behind lib/dayjs.ts
 Validation   zod 4.6.5                                            lib/schemas.ts, on top of lib/validators.ts
 Forms        react-hook-form 7.88.0 + @hookform/resolvers 5.9.1    Customer Service + Cancel Booking
-Toasts       sonner 2.0.8                                         repointed to the app's ThemeContext
+Toasts       sonner 2.0.8                                         behind contexts/ToastContext.tsx
 Charts       @mui/x-charts 9.14.0 (+ @mui/material, @emotion/*)    behind components/admin/charts.tsx
 Email        nodemailer 8.0.5 over Gmail SMTP
 Payments     PayMongo QRPh via direct REST — no SDK
@@ -37,12 +37,26 @@ preferences, they are load-bearing.
 **Every form control in the app is shadcn.** The only native ones left are the
 two hidden `type="file"` inputs behind the "Choose image" buttons in
 `Admin.tsx` — shadcn has no file input and those are `display:none` triggers,
-so they stay native on purpose. Buttons are still mixed: **124** native
+so they stay native on purpose. Buttons are still mixed: **105** native
 `<button>` elements remain, mostly nav items, calendar day cells and table row
 actions.
 
 Detail-heavy forms and modals are **landscape**, not portrait — see
 [Landscape dialogs](#landscape-dialogs).
+
+**No hand-rolled modal overlays remain.** Every dialog, confirm and drawer goes
+through `Dialog`, `AlertDialog` or `Sheet`, which is where the focus trap,
+Escape handling and scroll lock come from. Also converted: all nine admin
+`<table>`s to `Table`, 26 status pills to `Badge`, three view switchers to
+`Tabs`, and the toast stack to Sonner.
+
+Three things are deliberately **not** shadcn, and should stay that way:
+
+| Kept | Why |
+|---|---|
+| `components/common/Skeleton.tsx` | It has `role="status"`, one sr-only announcement for the whole grid, `aria-hidden` shapes and the gold shimmer. shadcn's Skeleton is a bare `animate-pulse` div — swapping would lose all of that. |
+| `NativeSelect` over Radix `Select` | A native `<select>` gets the real picker on mobile and keeps the plain `onChange` contract the forms already use. |
+| ~105 native `<button>`s | Measured before converting: a global `:focus-visible` rule already gives every one of them a gold ring, and an audit of every visible button across the public pages and all four booking steps found **zero** that look disabled but are still clickable. Converting them would be churn with regression risk and no measurable gain. |
 
 ## Read this first if you last worked on this repo a while ago
 
@@ -334,6 +348,27 @@ textarea`, apply the change, and diff. The border fix moved exactly 1 of 201
 controls; the font fix moved exactly 4. Anything wider than you expected means
 the selector is too broad.
 
+### Dialogs sit at z-2000, not shadcn's z-50
+
+This app's own fixed chrome outranks shadcn's default. The site header is
+`z-index: 200`, the skip link 300, the theme toggle 1000. A dialog left at
+shadcn's stock `z-50` therefore painted **underneath** all of them, so the
+header stayed bright on top of a dimmed page and the lightbox's close button
+hid behind the nav.
+
+`dialog.tsx`, `alert-dialog.tsx` and `sheet.tsx` all use `z-[2000]`, which
+clears that chrome while staying below the two things that must remain above a
+modal: the maintenance gate (5000) and the top progress bar (9999).
+
+**If you re-add a shadcn overlay component with the CLI, it will arrive at
+`z-50` and quietly render under the header.** Change it.
+
+A caution on testing this: `document.elementFromPoint` ignores elements with
+`pointer-events: none`, and Radix sets exactly that on everything outside an
+open modal. It will happily report the dialog as topmost while the header is
+painting over it. Compare z-index values, or toggle `pointer-events` back on
+before hit-testing.
+
 ### Landscape dialogs
 
 Detail-heavy forms open as landscape dialogs rather than tall portrait cards,
@@ -389,6 +424,24 @@ styling systems.
 `cn()` lives in `lib/cn.ts`, not the usual `lib/utils`, because `lib/utils.ts`
 already holds ~300 lines of booking logic. The shadcn CLI writes
 `from "cn"` into generated files; fix it to `@/lib/cn` after each `add`.
+
+### Tabs, Table, Badge and toasts
+
+- **Tabs** replaced three view switchers (Bookings active/archived, Facilities
+  checklist/history, Customer Service inbox/archive). Arrow keys now move
+  between them and each panel is announced as a tabpanel. Customer Service is
+  the odd one: its two lists share a single layout, so the panel markup lives
+  in one `messagesPanel` variable rendered into both `TabsContent` rather than
+  duplicated.
+- **Table** wraps its `<table>` in an overflow container of its own. The admin
+  tables already had one, so there are two nested — harmless, but do not add a
+  third.
+- **Badge** carries the pill shape; the per-status colours stay inline because
+  they are derived at runtime from booking or stock state.
+- **Toasts** render through Sonner, but the context API is unchanged:
+  `const { toast } = useToast(); toast(msg, type)`. Only the renderer moved.
+  Sonner wraps toasts in an `aria-live` region, which the old hand-rolled stack
+  did not have, so toasts are now announced to screen readers.
 
 ## Conventions worth knowing
 
