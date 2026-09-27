@@ -133,15 +133,22 @@ const DURATIONS = [SLOTS.Day, SLOTS.Night, SLOTS.WholeDay].map((s) => ({ label: 
 // Exclusive for display happens inside the component below, since it needs
 // that prop.
 
+/* Real Google reviews of Stonewood Garden Private Pool, transcribed verbatim.
+ * Nothing here is written for the site: if a quote reads plainly, that is how
+ * the guest wrote it.
+ *
+ * Only reviews that carry TEXT are usable here. Several of the resort's
+ * Google reviews are a star rating and nothing else, which is a number, not a
+ * testimonial, so they are not in this list.
+ *
+ * `rating` is the reviewer's own star count, not a curated one -- see the
+ * three-star entry. To add more, copy the name, stars and text exactly as
+ * Google shows them; do not paraphrase and do not complete a truncated
+ * sentence. */
 const MARQUEE_REVIEWS = [
-  { name: "Isabella M.", rating: 5, message: "Absolutely magical. The infinity pool at sunset is something I'll never forget. Staff treated us like family." },
-  { name: "Daniel R.", rating: 5, message: "Perfect blend of luxury and privacy. The BBQ deck made our anniversary dinner unforgettable." },
-  { name: "Aiko T.", rating: 5, message: "The karaoke room is unreal — we sang till sunrise. Every amenity exceeded our expectations." },
-  { name: "Marcus L.", rating: 4, message: "Quiet, elegant, and impeccably maintained. We're already planning our next stay here." },
-  { name: "Maria Santos", rating: 5, message: "StoneWood is our family's go-to getaway. The pool is amazing and so relaxing!" },
-  { name: "Jose Reyes", rating: 5, message: "Celebrated my birthday here — unforgettable. The staff were so accommodating." },
-  { name: "Ana Cruz", rating: 4, message: "Quiet, private, and beautiful. Exactly what we needed for our team outing." },
-  { name: "Carlo Tan", rating: 5, message: "Great value for the whole group. The videoke setup made the night so much fun." },
+  { name: "koadeal koadeal", rating: 5, when: "7 years ago", message: "Nice and cozy place for Family bonding and gatherings.." },
+  { name: "Teresita Fajardo", rating: 5, when: "8 years ago", message: "A nice place with warm and kind owners." },
+  { name: "Christian David Falcutila", rating: 3, when: "8 years ago", message: "Perfect place for Family bonding / Birthday celebration." },
 ];
 
 export function Home({ setPage, onBookWithDate, bookings, closedDates, packages, packagesLoading = false, onBookPackage }: HomeProps) {
@@ -620,8 +627,14 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           <div className="sw-marquee-track">
             {[...MARQUEE_REVIEWS, ...MARQUEE_REVIEWS].map((r, i) => (
               <div key={i} style={{ flexShrink: 0, width: mob ? 280 : 330, marginRight: 16, background: isDark ? "#0e0c09" : "#fff", border: `1px solid ${isDark ? "rgba(201,168,76,0.1)" : "rgba(201,168,76,0.15)"}`, borderRadius: 12, padding: "26px 24px", boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.35)" : "0 4px 16px rgba(100,70,20,0.08)" }}>
+                <div aria-label={`${r.rating} out of 5 stars`} style={{ display: "flex", gap: 3, marginBottom: 12 }}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <span key={n} aria-hidden="true" style={{ color: n <= r.rating ? gold : C.border, fontSize: 14, lineHeight: 1 }}>&#9733;</span>
+                  ))}
+                </div>
                 <p style={{ color: C.textB, fontSize: 16, lineHeight: 1.85, margin: "0 0 16px", fontStyle: "italic", fontFamily: serif }}>&ldquo;{r.message}&rdquo;</p>
-                <span style={{ color: C.goldInk, fontSize: 13.5, fontWeight: 600, letterSpacing: 0.5 }}>— {r.name}</span>
+                <span style={{ display: "block", color: C.goldInk, fontSize: 13.5, fontWeight: 600, letterSpacing: 0.5 }}>— {r.name}</span>
+                <span style={{ display: "block", color: C.textS, fontSize: 12, marginTop: 4 }}>Google review &middot; {r.when}</span>
               </div>
             ))}
           </div>

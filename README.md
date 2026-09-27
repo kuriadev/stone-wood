@@ -1072,6 +1072,57 @@ The confirm says so plainly — "Nothing has been charged and no reservation has
 been saved" — because the guest is looking at a live QR code and needs to know
 the difference between abandoning it and cancelling a booking that exists.
 
+### "View room" on the booking room step
+
+Each room row carries a VIEW ROOM button that opens the room's photo full
+size. Rooms hold a single `img`, so this is one picture, not a gallery.
+
+**The row had to stop being a button.** It was a single `<button>` covering
+the whole row, and a button cannot contain another button — the markup is
+invalid and the inner control never receives its own click. The row is now a
+plain container holding two controls side by side: the selection, and the
+photo.
+
+That separation is the point: looking at a room and choosing it are different
+intentions, and a guest should be able to do the first without committing to
+the second. Verified — opening the viewer leaves the selection count
+unchanged.
+
+| Checked | Desktop 1280 | Mobile 390 |
+|---|---|---|
+| VIEW ROOM buttons | 3 | 3 |
+| Nested inside another button | 0 | 0 |
+| Hit area | 113x44 | 113x44 |
+| Photo loads | yes (950x633) | yes |
+| Dialog fits viewport | yes | 356 of 390 |
+| No horizontal overflow | yes | yes |
+
+The viewer uses the shared `DialogContent`, so it inherits the focus trap, the
+z-2000 layer and the circular close chip; Escape closes it.
+
+### Testimonials are real Google reviews
+
+`MARQUEE_REVIEWS` in `components/sections/Home.tsx` held eight invented
+quotes ("Isabella M.", "Daniel R." ...). It now holds the resort's actual
+Google reviews, transcribed verbatim, with the reviewer's own star count and
+the age of the review. Each card names Google as the source.
+
+**Only three made it in, and that is the honest number.** Of the reviews
+supplied:
+
+| Left out | Why |
+|---|---|
+| CHEF AP, Danilo Jr. Perez, John Randy Roxas, Ernani Dimaranan, Larry Alfaro, Armando Gonzales | Star rating only, no text. A number is not a testimonial. |
+| inday kuratsha | The quote is cut off mid-sentence in the source ("Not yet but looking nice pool there's"). Completing someone else's sentence is inventing a review. |
+
+The three-star review from Christian David Falcutila is shown **at three
+stars**. The text is positive, but the rating is the reviewer's, not the
+site's, and the stars are rendered from `rating` rather than hard-coded.
+
+Rules for adding more: copy the name, the star count and the text exactly as
+Google shows them. Do not paraphrase, do not round a rating up, and do not
+finish a truncated sentence.
+
 ### Apple HIG: the numbers this section is built to
 
 The site now follows the Apple HIG foundations. It is a website, so Apple's

@@ -171,6 +171,7 @@
     const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
     const [showGcashWarning, setShowGcashWarning] = useState(false);
     const [showCancelPay, setShowCancelPay] = useState(false);
+    const [roomPhoto, setRoomPhoto] = useState<Room | null>(null);
     const [policyChecked, setPolicyChecked] = useState(false);
     // Modals are portaled straight into document.body (see the GCash
     // warning modal below) so they can never be broken by some ancestor
@@ -1097,28 +1098,45 @@
                     const taken = takenRooms.has(r.id);
                     const discountedPrice = requiresRoom ? Math.round(r.price * (1 - ROOM_BUNDLE_DISCOUNT_PCT)) : r.price;
                     return (
-                      <button
+                      <div
                         key={r.id}
-                        type="button"
-                        aria-pressed={sel}
-                        disabled={taken && !sel}
-                        onClick={() => { if (!taken || sel) toggleRoom(r.id); }}
-                        style={{ ...tileStyle(sel), opacity: taken && !sel ? 0.45 : 1, cursor: taken && !sel ? "not-allowed" : "pointer", padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}
+                        style={{ ...tileStyle(sel), opacity: taken && !sel ? 0.45 : 1, cursor: "default", padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, flexWrap: mob ? "wrap" : "nowrap" }}
                       >
-                        {/* alt="" because the room name sits right beside it: a
-                            screen reader would otherwise read it twice. */}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img loading="lazy" decoding="async" src={r.img} alt="" style={{ width: 76, height: 50, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
-                        <span style={{ flex: 1, minWidth: 0 }}>
-                          <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 3 }}>{r.name}</span>
-                          <span style={{ display: "block", color: C.textS, fontSize: 12.5 }}>{r.beds} · Up to {r.capacity} guests</span>
-                          {taken && <span style={{ display: "block", color: "#e07a7a", fontSize: 12, marginTop: 3 }}>Already booked on {fmtDate(date)}</span>}
-                        </span>
-                        <span style={{ textAlign: "right", flexShrink: 0 }}>
-                          {requiresRoom && <span style={{ display: "block", color: C.textXS, fontSize: 12, textDecoration: "line-through" }}>{fmt(r.price)}</span>}
-                          <span style={{ display: "block", color: C.goldInk, fontWeight: 700, fontSize: 15.5 }}>{fmt(discountedPrice)}</span>
-                        </span>
-                      </button>
+                        <button
+                          type="button"
+                          aria-pressed={sel}
+                          disabled={taken && !sel}
+                          onClick={() => { if (!taken || sel) toggleRoom(r.id); }}
+                          style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 14, background: "none", border: "none", padding: 0, textAlign: "left", cursor: taken && !sel ? "not-allowed" : "pointer", font: "inherit", color: "inherit" }}
+                        >
+                          {/* alt="" because the room name sits right beside it: a
+                              screen reader would otherwise read it twice. */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img loading="lazy" decoding="async" src={r.img} alt="" style={{ width: 76, height: 50, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
+                          <span style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 3 }}>{r.name}</span>
+                            <span style={{ display: "block", color: C.textS, fontSize: 12.5 }}>{r.beds} · Up to {r.capacity} guests</span>
+                            {taken && <span style={{ display: "block", color: "#e07a7a", fontSize: 12, marginTop: 3 }}>Already booked on {fmtDate(date)}</span>}
+                          </span>
+                          <span style={{ textAlign: "right", flexShrink: 0 }}>
+                            {requiresRoom && <span style={{ display: "block", color: C.textXS, fontSize: 12, textDecoration: "line-through" }}>{fmt(r.price)}</span>}
+                            <span style={{ display: "block", color: C.goldInk, fontWeight: 700, fontSize: 15.5 }}>{fmt(discountedPrice)}</span>
+                          </span>
+                        </button>
+
+                        {/* Separate control, not part of the row's selection:
+                            looking at a room and choosing it are different
+                            intentions, and a guest should be able to do the
+                            first without committing to the second. */}
+                        <button
+                          type="button"
+                          onClick={() => setRoomPhoto(r)}
+                          aria-label={`View a photo of ${r.name}`}
+                          style={{ ...outBtn, color: C.goldInk, flexShrink: 0, minHeight: 44, padding: "0 16px", borderRadius: 8, fontSize: 11.5, letterSpacing: 1.2 }}
+                        >
+                          VIEW ROOM
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -1541,6 +1559,29 @@
             Escape and the backdrop both route through onOpenChange, so every
             way out resets `policyChecked` -- dismissing the dialog and coming
             back must not leave the box still ticked from last time. */}
+        {/* The room photo, full size. Rooms carry a single image, so this is
+            one picture rather than a gallery. */}
+        <Dialog open={!!roomPhoto} onOpenChange={(o) => { if (!o) setRoomPhoto(null); }}>
+          <DialogContent className="overflow-hidden p-0 sm:max-w-[min(56rem,calc(100%-2rem))]">
+            <DialogHeader className="px-6 pt-6">
+              <DialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 24, fontWeight: 400 }}>
+                {roomPhoto?.name}
+              </DialogTitle>
+              <DialogDescription style={{ color: C.textS, fontSize: 13.5 }}>
+                {roomPhoto ? `${roomPhoto.beds} · Up to ${roomPhoto.capacity} guests` : ""}
+              </DialogDescription>
+            </DialogHeader>
+            {roomPhoto && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={roomPhoto.img}
+                alt={roomPhoto.name}
+                style={{ display: "block", width: "100%", maxHeight: "70vh", objectFit: "contain", background: "#0a0806" }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+
         {/* Cancelling the payment. Worth a confirm: the guest loses the QR
             they are looking at, and a fresh one is minted on the way back. */}
         <AlertDialog open={showCancelPay} onOpenChange={(o) => { if (!o) setShowCancelPay(false); }}>
