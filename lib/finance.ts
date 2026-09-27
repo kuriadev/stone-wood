@@ -6,6 +6,7 @@
 // screens. Pure functions, no React: safe on the server too.
 
 import type { Booking } from "@/types/booking";
+import { dayjs, DATE_FMT } from "@/lib/dayjs";
 import type { Payment, DamageRecord, Expense } from "@/types/finance";
 
 /** The resort runs on Manila time. Dates for "today" and daily totals are
@@ -101,10 +102,11 @@ export function expensesBetween(expenses: Expense[], from: string, to: string = 
 
 /** First and last day of the month containing `date` (YYYY-MM-DD). */
 export function monthRange(date: string): { from: string; to: string } {
-  const [y, m] = date.split("-").map(Number);
-  const last = new Date(y, m, 0).getDate();
-  const mm = String(m).padStart(2, "0");
-  return { from: `${y}-${mm}-01`, to: `${y}-${mm}-${String(last).padStart(2, "0")}` };
+  // `new Date(y, m, 0)` for the last day worked, but it relied on the
+  // month-overflow trick and on `date` splitting cleanly. dayjs states the
+  // intent, and parses in local time so a month never shifts by a day.
+  const d = dayjs(date, DATE_FMT, true);
+  return { from: d.startOf("month").format(DATE_FMT), to: d.endOf("month").format(DATE_FMT) };
 }
 
 /** What identifies the same client across bookings: their phone number,

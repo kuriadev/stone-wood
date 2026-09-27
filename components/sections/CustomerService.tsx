@@ -126,7 +126,7 @@ const submit = handleSubmit(async (values) => {
   return (
     <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "48px 20px" : "80px 24px" }}>
       <div style={{ maxWidth: 940, margin: "0 auto" }}>
-        <p style={{ color: gold, letterSpacing: 4, fontSize: 12.5, marginBottom: 10, textAlign: "center" }}>SUPPORT</p>
+        <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 12.5, marginBottom: 10, textAlign: "center" }}>SUPPORT</p>
         <h2 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 28 : 42, color: C.textH, textAlign: "center", marginBottom: 12 }}>
           Customer Service
         </h2>
@@ -147,7 +147,7 @@ const submit = handleSubmit(async (values) => {
               onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = isDark ? "0 12px 32px rgba(0,0,0,0.45)" : "0 12px 32px rgba(100,70,10,0.12)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = C.shadowCard; }}
             >
-              <div style={{ marginBottom: 8, color: gold, lineHeight: 0 }}><Icon name={icon as IconName} size={22} strokeWidth={1.5} /></div>
+              <div style={{ marginBottom: 8, color: C.goldInk, lineHeight: 0 }}><Icon name={icon as IconName} size={22} strokeWidth={1.5} /></div>
               <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 5 }}>{label.toUpperCase()}</div>
               <div style={{ color: C.textB, fontSize: 13.5, fontWeight: 500 }}>{val}</div>
             </div>
@@ -156,8 +156,8 @@ const submit = handleSubmit(async (values) => {
 
         {submitted ? (
           <div style={{ background: C.bgCard, border: `1px solid ${gold}44`, borderRadius: 12, padding: "52px 24px", textAlign: "center", boxShadow: C.shadow }}>
-            <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg,${gold}22,${gold}11)`, border: `1px solid ${gold}44`, display: "flex", alignItems: "center", justifyContent: "center", color: gold, margin: "0 auto 20px" }}><Icon name="message" size={30} strokeWidth={1.5} /></div>
-            <h3 style={{ color: gold, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 26, marginBottom: 10, fontWeight: 400 }}>Message Received!</h3>
+            <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg,${gold}22,${gold}11)`, border: `1px solid ${gold}44`, display: "flex", alignItems: "center", justifyContent: "center", color: C.goldInk, margin: "0 auto 20px" }}><Icon name="message" size={30} strokeWidth={1.5} /></div>
+            <h3 style={{ color: C.goldInk, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 26, marginBottom: 10, fontWeight: 400 }}>Message Received!</h3>
             <p style={{ color: C.textS, fontSize: 15, lineHeight: 1.8 }}>We'll respond within 24 hours.</p>
           </div>
         ) : (

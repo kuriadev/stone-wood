@@ -11,6 +11,7 @@ import { srcSetFor, SIZES } from "@/lib/img";
 import { Icon } from "@/components/common/Icon";
 import { Reveal } from "@/components/common/Reveal";
 import { Button } from "@/components/ui/button";
+import { MediaGallery } from "@/components/common/MediaGallery";
 import {
   Dialog,
   DialogContent,
@@ -43,7 +44,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
         {/* HEADER — one reveal for the trio so they rise together
             rather than staggering into each other. */}
         <Reveal>
-        <p style={{ color: gold, letterSpacing: 4, fontSize: 12.5, textAlign: "center" }}>
+        <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 12.5, textAlign: "center" }}>
           ACCOMMODATIONS
         </p>
 
@@ -144,7 +145,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
               {/* CONTENT */}
               <div style={{ padding: 20, flex: 1, display: "flex", flexDirection: "column" }}>
                 <h3 style={{ color: C.textH, fontSize: 18 }}>{r.name}</h3>
-                <p style={{ color: gold, fontSize: 13.5 }}><Icon name="bed" size={13} style={{ marginRight: 5 }} />{r.beds}</p>
+                <p style={{ color: C.goldInk, fontSize: 13.5 }}><Icon name="bed" size={13} style={{ marginRight: 5 }} />{r.beds}</p>
                 <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 16 }}>
                   {r.desc}
                 </p>
@@ -172,59 +173,48 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
         </div>
       </div>
 
-      {/* MODAL — landscape, matching the package modals: the photo holds one
-          column and the room's details hold the other. Radix supplies the
-          portal, focus trap, Escape and a close button, none of which the
-          hand-rolled overlay had. */}
+      {/* MODAL — PORTRAIT, deliberately.
+          A room carries ~120 characters against a package's ~360, and split
+          across two columns that left a 441px panel holding four short lines
+          beside a full-height photo. Portrait keeps it in one reading column.
+
+          It uses the same MediaGallery as the package dialogs, so the frame,
+          caption and (when there is more than one shot) the slider all behave
+          identically. Rooms carry a single `img` today, so the arrows,
+          counter and thumbnails stay hidden — add a gallery to the Room type
+          and they appear with no change here. */}
       <Dialog open={!!activeRoom} onOpenChange={(open) => { if (!open) setActiveRoom(null); }}>
-        <DialogContent className="max-h-[92vh] gap-0 overflow-hidden p-0 sm:max-w-[min(52rem,calc(100%-2rem))]">
+        <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto p-0 sm:max-w-md">
           {activeRoom && (
-            <div className="grid max-h-[92vh] md:grid-cols-2">
-              <div className="relative flex flex-col overflow-hidden bg-black/20">
-                <img
-                  loading="lazy" decoding="async"
-                  src={activeRoom.img}
-                  srcSet={srcSetFor(activeRoom.img)}
-                  sizes={SIZES.modal}
-                  alt={activeRoom.name}
-                  style={{ width: "100%", flex: 1, minHeight: mob ? 200 : 260, objectFit: "cover" }}
-                />
-              </div>
+            <div className="flex flex-col">
+              <MediaGallery
+                shots={[{ src: activeRoom.img, label: activeRoom.name }]}
+                eyebrow="ROOM"
+                compact
+                title={
+                  <DialogTitle asChild>
+                    <div className="truncate font-serif text-[26px] leading-tight font-normal text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.6)]">
+                      {activeRoom.name}
+                    </div>
+                  </DialogTitle>
+                }
+              />
 
-              <div className="overflow-y-auto max-h-[92vh]" style={{ padding: 24, background: "rgba(18,16,10,0.95)" }}>
-                <DialogTitle asChild>
-                  <h2 style={{
-                    fontFamily: "'Cormorant Garamond',Georgia,serif",
-                    fontSize: 26,
-                    color: "#fff",
-                    marginBottom: 6,
-                    fontWeight: 400
-                  }}>
-                    {activeRoom.name}
-                  </h2>
-                </DialogTitle>
-
-                <p style={{ color: gold, fontSize: 14.5, marginBottom: 10 }}>
-                  <Icon name="bed" size={13} style={{ marginRight: 5 }} />{activeRoom.beds}
+              <div className="flex flex-col gap-4 p-6">
+                <p className="flex items-center gap-2 text-sm text-accent-ink">
+                  <Icon name="bed" size={14} />
+                  {activeRoom.beds}
                 </p>
 
                 <DialogDescription asChild>
-                  <p style={{ color: "#ccc", fontSize: 15, lineHeight: 1.7 }}>
-                    {activeRoom.desc}
-                  </p>
+                  <p className="text-[15px] leading-relaxed text-body">{activeRoom.desc}</p>
                 </DialogDescription>
+              </div>
 
+              <div className="mt-auto border-t border-border-soft p-6 pt-5">
                 <Button
-                  className="sw-btn"
+                  className="sw-btn h-auto w-full rounded-lg border border-accent-ink bg-transparent py-3.5 text-xs font-bold tracking-wider text-accent-ink hover:bg-accent-ink/10"
                   onClick={() => onAddToBooking(activeRoom.id)}
-                  style={{
-                    ...outBtn,
-                    width: "100%",
-                    marginTop: 20,
-                    padding: "13px",
-                    height: "auto",
-                    borderRadius: 8,
-                  }}
                 >
                   ADD TO BOOKING
                 </Button>

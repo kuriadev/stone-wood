@@ -13,6 +13,7 @@ import { Icon } from "@/components/common/Icon";
 import { Reveal } from "@/components/common/Reveal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { MediaGallery } from "@/components/common/MediaGallery";
 import {
   Dialog,
   DialogContent,
@@ -45,7 +46,7 @@ export function PackagesPage({ packages, onBookPackage }: PackagesPageProps) {
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         {/* HEADER — one reveal for the trio so they rise together. */}
         <Reveal>
-        <p style={{ color: gold, letterSpacing: 4, fontSize: 12.5, textAlign: "center" }}>
+        <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 12.5, textAlign: "center" }}>
           RESORT PACKAGES
         </p>
         <h2 style={{
@@ -105,11 +106,11 @@ export function PackagesPage({ packages, onBookPackage }: PackagesPageProps) {
               </div>
               <div style={{ padding: 20, flex: 1, display: "flex", flexDirection: "column" }}>
                 <h3 style={{ color: C.textH, fontSize: 18 }}>{p.title}</h3>
-                <p style={{ color: gold, fontSize: 12.5, marginBottom: 6 }}>{p.status.toUpperCase()} · {p.resource}</p>
+                <p style={{ color: C.goldInk, fontSize: 12.5, marginBottom: 6 }}>{p.status.toUpperCase()} · {p.resource}</p>
                 <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 16 }}>{p.blurb}</p>
                 {p.requiresRoom && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-                    {p.requiresRoom && <Badge variant="outline" style={{ fontSize: 10.5, letterSpacing: 1, color: gold, border: `1px solid ${gold}55`, borderRadius: 20, padding: "3px 8px" }}>ROOM DISCOUNTED</Badge>}
+                    {p.requiresRoom && <Badge variant="outline" style={{ fontSize: 10.5, letterSpacing: 1, color: C.goldInk, border: `1px solid ${gold}55`, borderRadius: 20, padding: "3px 8px" }}>ROOM DISCOUNTED</Badge>}
                   </div>
                 )}
                 <button
@@ -128,45 +129,70 @@ export function PackagesPage({ packages, onBookPackage }: PackagesPageProps) {
         </div>
       </div>
 
-      {/* MODAL — landscape, matching the package modal on the home page: the
-          photo holds one column and everything the guest decides on holds the
-          other, instead of a 720px card whose content starts below the fold of
-          its own image. Radix supplies the portal, focus trap, Escape and the
-          close button the hand-rolled version never had. */}
+      {/* MODAL — the same two-column shape as the package modal on the home
+          page, sharing MediaGallery so the slider, counter and thumbnails
+          behave identically. This page was previously showing only `cover`
+          even though every package carries a `gallery` array. */}
       <Dialog open={!!activePkg} onOpenChange={(open) => { if (!open) setActivePkg(null); }}>
-        <DialogContent className="max-h-[92vh] gap-0 overflow-hidden p-0 sm:max-w-[min(52rem,calc(100%-2rem))]">
+        <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto p-0 sm:max-w-[min(56rem,calc(100%-2rem))]">
           {activePkg && (
-            <div className="grid max-h-[92vh] md:grid-cols-2">
-              <div className="relative flex flex-col overflow-hidden bg-black/20">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img loading="lazy" decoding="async" src={activePkg.cover} srcSet={srcSetFor(activePkg.cover)} sizes={SIZES.modal} alt={activePkg.title} style={{ width: "100%", flex: 1, minHeight: mob ? 200 : 260, objectFit: "cover" }} />
-              </div>
+            <div className="grid md:grid-cols-2">
+              <MediaGallery
+                shots={activePkg.gallery?.length ? activePkg.gallery : [{ src: activePkg.cover, label: activePkg.title }]}
+                eyebrow="PACKAGE"
+                compact={mob}
+                title={
+                  <DialogTitle asChild>
+                    <div className="truncate font-serif text-[26px] leading-tight font-normal text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.6)] sm:text-3xl">
+                      {activePkg.title}
+                    </div>
+                  </DialogTitle>
+                }
+              />
 
-              <div className="overflow-y-auto max-h-[92vh]" style={{ padding: 24, background: "rgba(18,16,10,0.95)" }}>
-                <DialogTitle asChild>
-                  <h2 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 26, color: "#fff", marginBottom: 6, fontWeight: 400 }}>{activePkg.title}</h2>
-                </DialogTitle>
-                <p style={{ color: gold, fontSize: 14.5, marginBottom: 10 }}>{activePkg.status.toUpperCase()} · Up to {activePkg.capacity} guests</p>
-                <DialogDescription asChild>
-                  <p style={{ color: "#ccc", fontSize: 15, lineHeight: 1.7, marginBottom: 14 }}>{activePkg.blurb}</p>
-                </DialogDescription>
-                {activePkg.includes.length > 0 && (
-                  <ul style={{ color: "#ccc", fontSize: 14.5, lineHeight: 1.9, marginBottom: 14, paddingLeft: 18, listStyle: "disc" }}>
-                    {activePkg.includes.map((inc, i) => <li key={i}>{inc}</li>)}
-                  </ul>
-                )}
-                {activePkg.note && <p style={{ color: C.textS, fontSize: 13.5, marginBottom: 10 }}>{activePkg.note}</p>}
-                <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 16 }}>
-                  {activePkg.listPrice && <span style={{ textDecoration: "line-through", color: "#999", fontSize: 15 }}>{fmt(activePkg.listPrice)}</span>}
-                  <span style={{ color: gold, fontWeight: 700, fontSize: 22 }}>{fmt(activePkg.price)}</span>
+              <div className="flex flex-col">
+                <div className="flex flex-col gap-5 p-6 sm:p-7">
+                  <p className="text-sm text-accent-ink">
+                    {activePkg.status.toUpperCase()} · Up to {activePkg.capacity} guests
+                  </p>
+
+                  <div>
+                    <div className="flex items-baseline gap-2.5">
+                      <span className="font-serif text-[40px] leading-none font-normal text-foreground">{fmt(activePkg.price)}</span>
+                      {activePkg.listPrice && (
+                        <span className="text-[17px] text-faint line-through">{fmt(activePkg.listPrice)}</span>
+                      )}
+                    </div>
+                    {activePkg.note && <p className="mt-1.5 text-[12.5px] text-faint">{activePkg.note}</p>}
+                  </div>
+
+                  <DialogDescription asChild>
+                    <p className="text-[14.5px] leading-relaxed text-muted-foreground">{activePkg.blurb}</p>
+                  </DialogDescription>
+
+                  {activePkg.includes.length > 0 && (
+                    <div>
+                      <p className="mb-3 text-[10.5px] tracking-[2.5px] text-faint">WHAT&apos;S INCLUDED</p>
+                      <ul className="flex flex-col">
+                        {activePkg.includes.map((inc, i) => (
+                          <li key={i} className="flex items-start gap-2 border-b border-border-soft py-2.5 last:border-0 last:pb-0">
+                            <Icon name="check" size={12} className="mt-1 shrink-0 text-accent-ink" />
+                            <span className="text-[14.5px] leading-snug text-body">{inc}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
-                <Button
-                  className="sw-btn"
-                  onClick={() => onBookPackage(activePkg, activePkg.resource, activePkg.status)}
-                  style={{ ...outBtn, width: "100%", padding: "13px", height: "auto", borderRadius: 8 }}
-                >
-                  BOOK PACKAGE
-                </Button>
+
+                <div className="mt-auto border-t border-border-soft p-6 pt-5 sm:px-7">
+                  <Button
+                    className="sw-btn h-auto w-full rounded-lg border border-accent-ink bg-transparent py-3.5 text-xs font-bold tracking-wider text-accent-ink hover:bg-accent-ink/10"
+                    onClick={() => onBookPackage(activePkg, activePkg.resource, activePkg.status)}
+                  >
+                    BOOK PACKAGE
+                  </Button>
+                </div>
               </div>
             </div>
           )}

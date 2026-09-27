@@ -473,7 +473,7 @@
     return (
       <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "32px 16px" : "80px 24px" }}>
         <div style={{ maxWidth: 800, margin: "0 auto" }}>
-          <p style={{ color: gold, letterSpacing: 4, fontSize: 12.5, marginBottom: 8, textAlign: "center" }}>RESERVATIONS</p>
+          <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 12.5, marginBottom: 8, textAlign: "center" }}>RESERVATIONS</p>
           <h2 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 26 : 40, color: C.textH, textAlign: "center", marginBottom: 12 }}>Book Your Stay</h2>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 28 }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={gold} strokeWidth="2" style={{ opacity: 0.7, flexShrink: 0 }}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
@@ -523,8 +523,8 @@
                       onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${gold}66`; e.currentTarget.style.boxShadow = isDark ? "0 8px 24px rgba(0,0,0,0.4)" : "0 8px 24px rgba(100,70,10,0.1)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}
                     >
-                      {opt.badge && <Badge variant="outline" style={{ position: "absolute", top: 12, right: 12, background: `${gold}22`, color: gold, fontSize: 9.5, padding: "3px 8px", borderRadius: 20, letterSpacing: 1, border: `1px solid ${gold}44` }}>{opt.badge}</Badge>}
-                      <div style={{ marginBottom: 12, color: gold, lineHeight: 0 }}><Icon name={opt.icon as IconName} size={30} strokeWidth={1.5} /></div>
+                      {opt.badge && <Badge variant="outline" style={{ position: "absolute", top: 12, right: 12, background: `${gold}22`, color: C.goldInk, fontSize: 9.5, padding: "3px 8px", borderRadius: 20, letterSpacing: 1, border: `1px solid ${gold}44` }}>{opt.badge}</Badge>}
+                      <div style={{ marginBottom: 12, color: C.goldInk, lineHeight: 0 }}><Icon name={opt.icon as IconName} size={30} strokeWidth={1.5} /></div>
                       <h4 style={{ color: C.textH, fontSize: 17, fontFamily: "'Cormorant Garamond',Georgia,serif", marginBottom: 6 }}>{SLOTS[opt.id].label}</h4>
                       <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>{opt.sub}</p>
                     </div>
@@ -580,7 +580,7 @@
                   <p
                     id="booknow-date-label"
                     style={{
-                      color: gold,
+                      color: C.goldInk,
                       fontSize: 11.5,
                       letterSpacing: 2,
                       display: "block",
@@ -636,10 +636,10 @@
                         background: isDark ? "rgba(201,168,76,0.06)" : "rgba(201,168,76,0.08)",
                       }}
                     >
-                      <p style={{ color: gold, fontSize: 11.5, letterSpacing: 2, marginBottom: 8 }}>PACKAGE</p>
+                      <p style={{ color: C.goldInk, fontSize: 11.5, letterSpacing: 2, marginBottom: 8 }}>PACKAGE</p>
                       <p style={{ color: C.textH, fontSize: 16, fontWeight: 600, marginBottom: 4 }}>{initialPackage!.title}</p>
                       <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>
-                        Fixed price of <strong style={{ color: gold }}>{fmt(initialPackage!.price)}</strong> for up to{" "}
+                        Fixed price of <strong style={{ color: C.goldInk }}>{fmt(initialPackage!.price)}</strong> for up to{" "}
                         <strong style={{ color: C.textH }}>{initialPackage!.capacity} guests</strong>
                         {initialPackage!.slotMode === "WholeDay" ? <>, {SLOTS.WholeDay.hours}</> : " per slot"}.
                         {requiresRoom ? " Pick your room next." : ""}
@@ -693,7 +693,7 @@
                       <p
                         id="booknow-guests-label"
                         style={{
-                          color: gold,
+                          color: C.goldInk,
                           fontSize: 11.5,
                           letterSpacing: 2,
                           display: "block",
@@ -783,7 +783,7 @@
                       </div>
 
                       {guestsLocked && (
-                        <p style={{ color: gold, fontSize: 12.5, marginTop: 12 }}>
+                        <p style={{ color: C.goldInk, fontSize: 12.5, marginTop: 12 }}>
                           🔒 Exclusive buyout — fixed at {RESORT_MAX_CAPACITY} guests, {fmt(tourBase)} flat{slotCount === 2 ? " for the whole day" : ""} regardless of how many actually attend.
                         </p>
                       )}
@@ -794,7 +794,7 @@
                       )}
                       {resource === "Venue" || slot === "WholeDay" ? (
                         <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 12, padding: "5px 10px", borderRadius: 20, background: "rgba(201,168,76,0.15)", border: `1px solid ${gold}66` }}>
-                          <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 1, color: gold }}>{resource === "Venue" ? "🔒 EXCLUSIVE — VENUE RENTAL" : "🔒 EXCLUSIVE — WHOLE DAY"}</span>
+                          <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 1, color: C.goldInk }}>{resource === "Venue" ? "🔒 EXCLUSIVE — VENUE RENTAL" : "🔒 EXCLUSIVE — WHOLE DAY"}</span>
                         </div>
                       ) : (
                         <div style={{ marginTop: 14 }}>
@@ -860,7 +860,7 @@
                         background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
                       }}
                     >
-                      <p style={{ color: gold, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 8 }}>
+                      <p style={{ color: C.goldInk, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 8 }}>
                         YOUR TIME
                       </p>
                       <p style={{ color: C.textH, fontSize: 15, fontWeight: 600, margin: "0 0 8px" }}>
@@ -941,7 +941,7 @@
                         </div>
                         <div style={{ textAlign: "right" }}>
                           {requiresRoom && <div style={{ color: C.textXS, fontSize: 12.5, textDecoration: "line-through" }}>{fmt(r.price)}</div>}
-                          <div style={{ color: gold, fontWeight: 700, fontSize: 16 }}>{fmt(discountedPrice)}</div>
+                          <div style={{ color: C.goldInk, fontWeight: 700, fontSize: 16 }}>{fmt(discountedPrice)}</div>
                           <div style={{ marginTop: 6, width: 22, height: 22, borderRadius: requiresRoom ? 6 : "50%", border: `2px solid ${sel ? gold : C.border}`, background: sel ? gold : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13.5, color: sel ? "#000" : "transparent", marginLeft: "auto" }}>✓</div>
                         </div>
                       </div>
@@ -960,7 +960,7 @@
                 {venueFee > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 12 }}>
                     <span style={{ color: C.textS, fontSize: 13.5 }}>Event Venue Rental</span>
-                    <span style={{ color: gold, fontWeight: 700, fontSize: 14.5 }}>{fmt(venueFee)}</span>
+                    <span style={{ color: C.goldInk, fontWeight: 700, fontSize: 14.5 }}>{fmt(venueFee)}</span>
                   </div>
                 )}
 
@@ -1097,8 +1097,8 @@
                   </div>
 
                   <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 12, paddingTop: 10, display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: gold, fontWeight: 700, fontSize: 14.5 }}>Total</span>
-                    <span style={{ color: gold, fontWeight: 700, fontSize: 14.5 }}>{fmt(total)}</span>
+                    <span style={{ color: C.goldInk, fontWeight: 700, fontSize: 14.5 }}>Total</span>
+                    <span style={{ color: C.goldInk, fontWeight: 700, fontSize: 14.5 }}>{fmt(total)}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
                     <span style={{ color: C.textS, fontSize: 13.5 }}>50% Down payment (due now)</span>
@@ -1255,7 +1255,7 @@
                         href={qrData.testUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ display: "block", marginTop: 10, textAlign: "center", color: gold, fontSize: 12.5, letterSpacing: 1, textDecoration: "underline" }}
+                        style={{ display: "block", marginTop: 10, textAlign: "center", color: C.goldInk, fontSize: 12.5, letterSpacing: 1, textDecoration: "underline" }}
                       >
                         ⚡ TEST MODE — simulate a successful payment
                       </a>
@@ -1281,7 +1281,7 @@
                 {/* Reference ID — prominent at top */}
                 <div style={{ background: isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.06)", border: `1px solid ${gold}55`, borderRadius: 12, padding: "20px 24px", marginBottom: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                   <p style={{ color: C.textS, fontSize: 11.5, letterSpacing: 3, margin: 0 }}>YOUR REFERENCE ID</p>
-                  <p style={{ color: gold, fontFamily: "monospace", fontSize: 28, fontWeight: 700, letterSpacing: 3, margin: 0 }}>{bookingId}</p>
+                  <p style={{ color: C.goldInk, fontFamily: "monospace", fontSize: 28, fontWeight: 700, letterSpacing: 3, margin: 0 }}>{bookingId}</p>
                   <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>Screenshot this — you&apos;ll need it for follow-ups and to cancel.</p>
                 </div>
 
@@ -1290,7 +1290,7 @@
                   <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
                     {[["1", "Your GCash payment was verified automatically — no screenshot needed."], ["2", "The resort reviews and confirms your reservation within 24 hours."], ["3", `A confirmation email is sent to ${form.email} once approved.`]].map(([n, txt]) => (
                       <div key={n} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                        <div style={{ width: 20, height: 20, borderRadius: "50%", background: `${gold}22`, border: `1px solid ${gold}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11.5, color: gold, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{n}</div>
+                        <div style={{ width: 20, height: 20, borderRadius: "50%", background: `${gold}22`, border: `1px solid ${gold}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11.5, color: C.goldInk, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{n}</div>
                         <span style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.6 }}>{txt}</span>
                       </div>
                     ))}

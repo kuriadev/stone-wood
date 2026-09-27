@@ -11,23 +11,46 @@ Guests browse rooms and packages, check live availability, and book online with 
 ```
 Framework    Next.js 16.2.6 (App Router, Route Handlers, Turbopack) · React 19.2.6 · TypeScript 5.9.3
 Database     Supabase — PostgreSQL + Row Level Security           @supabase/supabase-js 2.116.0
-UI kit       shadcn/ui on Radix — 24 components in components/ui/ radix-ui 1.6.7
-Styling      Tailwind CSS 4.3.3 — utilities only, NO preflight    + app/globals.css + legacy inline styles
+UI kit       shadcn/ui on Radix — 25 components in components/ui/ radix-ui 1.6.7
+             embla-carousel-react 8.6.0 (Carousel only)
+Styling      Tailwind CSS 4.3.3 — THE styling system, no preflight  @tailwindcss/postcss 4.3.3
+             theme tokens in app/globals.css mirror T(isDark) in lib/theme.ts
+             legacy: ~1,400 inline style={{}} still being converted, file by file
              cva 0.7.1 · clsx 2.1.1 · tailwind-merge 3.7.0 · tw-animate-css 1.4.0 · cn() in lib/cn.ts
 Icons        lucide-react 1.47.0                                  behind components/common/Icon.tsx
 Animation    motion 13.4.3 (Framer Motion, renamed)               behind components/common/Reveal.tsx
 Dates        dayjs 1.11.23                                        behind lib/dayjs.ts
 Validation   zod 4.6.5                                            lib/schemas.ts, on top of lib/validators.ts
 Forms        react-hook-form 7.88.0 + @hookform/resolvers 5.9.1    Customer Service + Cancel Booking
+             (Book Now + Admin walk-in still on useState)
 Toasts       sonner 2.0.8                                         behind contexts/ToastContext.tsx
 Charts       @mui/x-charts 9.14.0 (+ @mui/material, @emotion/*)    behind components/admin/charts.tsx
 Email        nodemailer 8.0.5 over Gmail SMTP
-Payments     PayMongo QRPh via direct REST — no SDK
+Payments     PayMongo QRPh via direct REST — no SDK                 TEST keys (sk_test/pk_test)
 Hosting      Vercel
 ```
 
 **21 runtime dependencies, 9 dev.** shadcn components are *copied source* in
 `components/ui/`, not a dependency — you own and edit them.
+
+### Where each library actually stands
+
+Read this before assuming something is or is not wired up.
+
+| Library | Status | Detail |
+|---|---|---|
+| shadcn/ui | **done** | 24 components. No hand-rolled modal overlay remains; every form control is shadcn bar two hidden file inputs |
+| Motion | **done** | behind `components/common/Reveal.tsx`; nothing else imports it directly |
+| MUI X Charts | **done** | behind `components/admin/charts.tsx`; admin only |
+| dayjs | **done** | every date path goes through `lib/dayjs.ts`; no raw `new Date(string)` parsing left |
+| Sonner | **done** | renders all toasts; `useToast()` API unchanged |
+| Supabase | **done** | live; `/api/rooms`, `/api/packages`, `/api/availability` return real rows |
+| Tailwind | **partial** | the system going forward, but ~1,400 inline styles remain. See *Styling* below |
+| Zod | **partial** | 3 of ~20 body-reading routes. The rest still use hand-rolled `validate()` helpers — validated, just not consolidated |
+| react-hook-form | **partial** | Customer Service + Cancel Booking. Book Now and the admin walk-in form are still `useState` |
+
+Nothing in the "partial" rows is broken or unsafe — they are consolidation
+work, not gaps in behaviour.
 
 Migration in progress: the UI is moving from inline `style={{}}` to Tailwind +
 shadcn. Both exist side by side for now. Read [Tailwind and shadcn](#tailwind-and-shadcn)
@@ -368,6 +391,202 @@ A caution on testing this: `document.elementFromPoint` ignores elements with
 open modal. It will happily report the dialog as topmost while the header is
 painting over it. Compare z-index values, or toggle `pointer-events` back on
 before hit-testing.
+
+### Styling: Tailwind first, tokens always
+
+Tailwind is the styling system. New and edited code uses utilities; the inline
+`style={{}}` blocks are legacy being converted file by file.
+
+The thing that makes this possible is the **token bridge** in
+`app/globals.css`. Every colour `lib/theme.ts` exposes has a matching custom
+property that flips with the theme, and `@theme inline` turns each into a
+utility:
+
+| Utility | Token | `T(isDark)` equivalent |
+|---|---|---|
+| `bg-background` / `text-foreground` | `--background` / `--foreground` | `bg` / `textH` |
+| `bg-card` | `--card` | `bgCard` |
+| `text-body` | `--body` | `textB` |
+| `text-muted-foreground` | `--muted-foreground` | `textS` |
+| `text-faint` | `--faint` | `textXS` |
+| `border-border` / `border-border-soft` | `--border` / `--border-soft` | `border` / `borderLight` |
+| `text-accent-ink` | `--accent-ink` | `goldInk` |
+| `font-serif` / `font-sans` | `--font-serif` / `--font-sans` | Cormorant / Jost |
+
+**Use a token, never a hex.** A hardcoded colour is how a component ends up
+working in one theme and broken in the other — which is exactly what happened
+to the Rooms and Packages modals: they pinned `#fff` text on
+`rgba(18,16,10,0.95)`, so in light mode the close button (which correctly
+follows `--foreground`) sat at **1.06:1** against the panel and was invisible.
+
+### The text tiers were re-tuned for contrast
+
+Four values in `lib/theme.ts` were measured against their own backgrounds and
+moved. All four were failing WCAG AA (4.5:1 for body text):
+
+| Token | Was | Now | Before → after |
+|---|---|---|---|
+| `textS` dark | `#7a6e5e` | `#9b8e79` | 3.95:1 → 6.13:1 |
+| `textXS` dark | `#4a4035` | `#847866` | 1.94:1 → 4.55:1 |
+| `textXS` light | `#a8998a` | `#7d7062` | 2.59:1 → 4.50:1 |
+| gold as text, light | `#c9a84c` | `#8a6d20` (`goldInk`) | 2.14:1 → 4.58:1 |
+
+The two tiers keep a visible gap from each other, so the hierarchy still
+reads — they are both legible now rather than one being decorative.
+
+> **These are shared tokens, so the admin panel's text shifted slightly too.**
+> Nothing was restyled there; the same greys simply got legible. If the admin
+> is meant to keep the old values, `lib/theme.ts` is the one place to change.
+
+Measured across every customer dialog in both themes, the failures went from
+**27 to 0 in light** and **10 to 0 in dark**. The handful the audit still
+reports are compositing artifacts — a gold icon on a 10% gold layer over a
+near-black backdrop resolves to 8.02:1 once composited, and dark ink on a gold
+*gradient* button is 8.22:1, but a naive walk up the DOM sees neither.
+
+### Two golds, and when to use which
+
+`gold` (`#c9a84c`, from `lib/styles.ts`) is the **surface** gold — the Book Now
+button's background, borders, gradients. Unchanged.
+
+`C.goldInk` / `text-accent-ink` is the **ink** gold, for gold TEXT and ICONS.
+It is `#c9a84c` in dark and `#8a6d20` in light, because the brand gold measures
+**8.61:1 on the dark background but only 2.14:1 on the cream one** — it failed
+for every label, meta line and inline icon in light mode. The darker value is
+the same hue at 4.58:1.
+
+The rule follows the *surface*, not the component:
+
+- on a theme-following panel → `C.goldInk` / `text-accent-ink`
+- on an always-dark surface (a photo, the lightbox backdrop, the package
+  modal's gallery column) → plain `gold`, because the darker ink would only
+  lose contrast there
+
+Getting this backwards is silent: it looks right in whichever theme you had
+open. There is a contrast audit script pattern in the commit history that
+walks every dialog in light mode and reports anything under 4.5:1.
+
+### Package groups: tabs, then one carousel
+
+The home page's three package groups — DAY OR NIGHT, WHOLE DAY, EVENTS &
+CELEBRATIONS — are a shadcn `Tabs` selector over a single `Carousel`, not
+three stacked rows.
+
+Two problems this solves. A grid grew taller with every package the admin
+added, so a dozen packages turned the home page into a long scroll. Stacking
+three carousels fixed the width but the section was still three rows tall
+before a guest had chosen anything. One row, switched by tabs, holds the
+section to a constant height whatever the catalogue does.
+
+Cards per view: `basis-1/2` on phones, `sm:basis-1/3`, `lg:basis-1/4`. With
+four packages at desktop width nothing scrolls and the arrows correctly sit
+disabled; they come alive as soon as the count exceeds the view.
+
+Three things worth keeping if this is edited:
+
+- **`pkgGroup` state must be declared above `packageGroups`.** `activeGroup`
+  reads it while deriving the groups, so declaring the state further down the
+  component throws `Cannot access 'X' before initialization` — at build time,
+  during prerender, not in the browser.
+- **`activeGroup` falls back to the first group with packages.** Packages
+  arrive async, so the selected tab can name a group that has none yet.
+- **Arrow placement changes with the space available.** From `sm` the track's
+  `px-12` leaves a gutter and the arrows sit in it, clear of the cards. A
+  phone has no gutter, so overlaying them there covered the card text — they
+  move to a centred row underneath instead.
+
+**`TabsList` pins its own height.** It carries
+`group-data-[orientation=horizontal]/tabs:h-9`, which beats a plain `h-auto`,
+so a wrapped second row of tabs spilled out of the list box and landed on the
+cards below on mobile. Override with the matching variant
+(`group-data-[orientation=horizontal]/tabs:h-auto`), not `h-auto`.
+
+The `carousel` component was added by hand rather than through the shadcn
+CLI: the CLI prompts to overwrite `button.tsx` (decline it) and pulls in a
+junk npm package literally named `cn`, which nothing imports and which should
+be removed again (`npm remove cn`). Only `embla-carousel-react` is wanted.
+
+### One gallery, one dialog shape
+
+`components/common/MediaGallery.tsx` is the photo column for every detail
+dialog — package on the home page, package on the Packages page, room on the
+Rooms page. It was lifted out of the home modal so the three stop growing
+separate variants.
+
+It **degrades on the data it is given**: with one shot there are no arrows, no
+counter and no thumbnail strip, just the frame and its caption. Packages carry
+a `gallery` array and get the full slider; rooms carry a single `img` and get
+the plain frame. Add a gallery to the `Room` type and the slider appears with
+no change to RoomsPage.
+
+The Packages page was previously rendering only `cover` despite every package
+already carrying `gallery` — that data was simply unused.
+
+Everything inside the gallery is white or bright `gold` in both themes,
+because it sits on a photo under a dark gradient. That is the "always-dark
+surface" case from the two-golds note above.
+
+### The detail column has a fixed shape
+
+Every detail dialog uses the same skeleton, so the eye lands in the same place
+each time:
+
+```tsx
+<div className="flex flex-col">
+  <div className="flex flex-col gap-5 p-6 sm:p-7">…sections…</div>
+  <div className="mt-auto border-t border-border-soft p-6 pt-5 sm:px-7">
+    <Button className="h-auto w-full …">…</Button>
+  </div>
+</div>
+```
+
+Three rules hold across all of them:
+
+- **Left-aligned.** The home package modal used to centre the badge, price and
+  blurb while the lists below ran left, so the reading edge broke halfway down
+  the panel. Everything is left now, which is also what the F-pattern wants.
+- **One vertical rhythm.** `gap-5` between sections rather than per-block
+  margins, so spacing cannot drift as blocks are added.
+- **The action is pinned to the foot behind a rule**, full width. Measured
+  across the three dialogs: same 1px rule, same 27px gap below the button,
+  button fills the column minus padding.
+
+Scrolling belongs to `DialogContent`, not the columns. A grid item with its
+own `overflow-y-auto` contributes roughly nothing to row sizing, so the row
+takes its height from the other column and the two end up disagreeing by a few
+pixels — enough to raise a full-height scrollbar over content that fits.
+
+### Landscape or portrait: let the content decide
+
+A dialog is landscape **only when it has enough content to fill two columns.**
+Measured by the text it actually carries:
+
+| Dialog | Content | Layout |
+|---|---|---|
+| Package detail | ~360 chars — blurb, inclusions, slot table, price pair | landscape |
+| Room detail | ~120 chars — name, bed line, one sentence, button | **portrait** |
+| Add/edit room (admin) | image + 5 fields | landscape |
+| Confirms (archive, logout, reject) | a question and two buttons | portrait |
+
+The room modal was landscape first and it read as a mistake: a 441px column
+holding four short lines beside a full-height photo, with the rest empty.
+Splitting thin content across two columns does not make it easier to scan — it
+makes the panel look broken.
+
+### Icons sit with the text they label
+
+An icon belongs on the same baseline as its label, not floating above it:
+
+```tsx
+<p className="flex items-center gap-2 text-sm text-accent-ink">
+  <Icon name="bed" size={14} />
+  {room.beds}
+</p>
+```
+
+`flex items-center gap-2` does the alignment. For a heading, the icon goes
+*above* the title as its own block, never wedged beside a serif display face
+where the optical baselines will not agree.
 
 ### Landscape dialogs
 

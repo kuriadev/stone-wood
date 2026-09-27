@@ -167,7 +167,7 @@ export function ManageBooking(_props: ManageBookingProps) {
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 16 }}>
             <div style={{ height: 1, width: 40, background: `linear-gradient(to right, transparent, ${gold}88)` }} />
-            <p style={{ color: gold, letterSpacing: 4, fontSize: 11.5, margin: 0 }}>CANCEL BOOKING</p>
+            <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 11.5, margin: 0 }}>CANCEL BOOKING</p>
             <div style={{ height: 1, width: 40, background: `linear-gradient(to left, transparent, ${gold}88)` }} />
           </div>
           <h1
@@ -181,7 +181,7 @@ export function ManageBooking(_props: ManageBookingProps) {
             }}
           >
             Cancel{" "}
-            <span style={{ color: gold, fontStyle: "italic" }}>Your Booking</span>
+            <span style={{ color: C.goldInk, fontStyle: "italic" }}>Your Booking</span>
           </h1>
           <p style={{ color: C.textS, fontSize: 15, lineHeight: 1.8, maxWidth: 480, margin: "0 auto" }}>
             Need to cancel your reservation? We're here to help.
@@ -201,7 +201,7 @@ export function ManageBooking(_props: ManageBookingProps) {
             boxShadow: C.shadow,
           }}
         >
-          <p style={{ color: gold, fontSize: 11.5, letterSpacing: 3, marginBottom: 20 }}>FIND YOUR BOOKING</p>
+          <p style={{ color: C.goldInk, fontSize: 11.5, letterSpacing: 3, marginBottom: 20 }}>FIND YOUR BOOKING</p>
           <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr auto", gap: 14, alignItems: "flex-end" }}>
             <div>
               <Label htmlFor="cb-reference" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">
@@ -375,7 +375,7 @@ export function ManageBooking(_props: ManageBookingProps) {
             >
               <div>
                 <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 4 }}>TOTAL AMOUNT</div>
-                <div style={{ color: gold, fontWeight: 700, fontSize: 22, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>
+                <div style={{ color: C.goldInk, fontWeight: 700, fontSize: 22, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>
                   ₱{found.total.toLocaleString()}
                 </div>
               </div>
@@ -394,7 +394,7 @@ export function ManageBooking(_props: ManageBookingProps) {
               boxShadow: C.shadow,
             }}
           >
-            <p style={{ color: gold, fontSize: 11.5, letterSpacing: 3, marginBottom: 16 }}>CANCEL YOUR BOOKING</p>
+            <p style={{ color: C.goldInk, fontSize: 11.5, letterSpacing: 3, marginBottom: 16 }}>CANCEL YOUR BOOKING</p>
 
             <div style={{ marginBottom: 20 }}>
               <p style={{ color: C.textH, fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Help us improve (optional)</p>
@@ -454,7 +454,7 @@ export function ManageBooking(_props: ManageBookingProps) {
               }}
             >
               <span style={{ fontSize: 15, flexShrink: 0 }}>ℹ️</span>
-              <span style={{ color: gold, fontSize: 13.5, lineHeight: 1.6 }}>
+              <span style={{ color: C.goldInk, fontSize: 13.5, lineHeight: 1.6 }}>
                 Free cancellation available up to 24 hours before check-in.
               </span>
             </div>
@@ -496,7 +496,7 @@ export function ManageBooking(_props: ManageBookingProps) {
               Booking Cancelled
             </h3>
             <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>
-              Your booking <strong style={{ color: gold }}>{found?.id}</strong> has been successfully cancelled.
+              Your booking <strong style={{ color: C.goldInk }}>{found?.id}</strong> has been successfully cancelled.
             </p>
           </div>
         )}
@@ -537,7 +537,7 @@ export function ManageBooking(_props: ManageBookingProps) {
               Confirm Cancellation
             </AlertDialogTitle>
             <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>
-              Are you sure you want to cancel booking <strong style={{ color: gold }}>{found?.id}</strong>? This action cannot be undone.
+              Are you sure you want to cancel booking <strong style={{ color: C.goldInk }}>{found?.id}</strong>? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {cancelError && (

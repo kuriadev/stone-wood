@@ -10,6 +10,7 @@ export interface ThemeColors {
   textB: string;
   textS: string;
   textXS: string;
+  goldInk: string;
   inp: CSSProperties;
   navBg: string;
   shadow: string;
@@ -25,8 +26,25 @@ export function T(isDark: boolean): ThemeColors {
     borderLight: isDark ? "#1a1814" : "#ede8df",
     textH: isDark ? "#f2ede6" : "#1a1614",
     textB: isDark ? "#c4b99a" : "#3d3229",
-    textS: isDark ? "#7a6e5e" : "#6b5d4f",
-    textXS: isDark ? "#4a4035" : "#a8998a",
+    // Dark was #7a6e5e at 3.95:1 on the near-black background -- just under
+    // the 4.5:1 body text needs. #9b8e79 is the same hue at 6.13:1.
+    textS: isDark ? "#9b8e79" : "#6b5d4f",
+    // Light was #a8998a, which sits at 2.59:1 on the cream background --
+    // under the 4.5:1 a caption needs. #7d7062 is the same hue at 4.50:1.
+    textXS: isDark ? "#847866" : "#7d7062",
+    /**
+     * Gold for TEXT and ICONS, as opposed to gold as a surface.
+     *
+     * The brand gold #c9a84c reads well on the near-black dark theme (8.61:1)
+     * but collapses to 2.14:1 on the cream light theme, where it is used for
+     * every label, meta line and inline icon. This is the same gold darkened
+     * until it clears 4.5:1 (4.58:1) while staying in the same hue family.
+     *
+     * `gold` from lib/styles.ts is unchanged and stays the SURFACE colour --
+     * the Book Now button is still bright gold with dark text on it, which
+     * was never the problem.
+     */
+    goldInk: isDark ? "#c9a84c" : "#8a6d20",
     inp: {
       background: isDark ? "#0f0e0b" : "#ffffff",
       color: isDark ? "#f2ede6" : "#1a1614",

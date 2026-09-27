@@ -107,7 +107,7 @@ export function About({
       style={{
         letterSpacing: 4,
         fontSize: 12.5,
-        color: gold,
+        color: C.goldInk,
         marginBottom: 14,
         opacity: 0.8,
       }}
@@ -352,7 +352,7 @@ export function About({
           <div
             style={{
               lineHeight: 0,
-              color: gold,
+              color: C.goldInk,
               transition: "transform .3s ease",
             }}
             className="icon-anim"

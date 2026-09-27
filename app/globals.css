@@ -60,6 +60,15 @@
   --border: #e4ddd1;
   --input: #d6cfc4;
   --ring: #c9a84c;
+
+  /* The three tiers T(isDark) carries that shadcn's own set has no slot
+     for. Without these, any component needing C.textB / C.textXS /
+     C.borderLight had to reach for an inline hex, which is how the modals
+     ended up dark-only. */
+  --body: #3d3229;        /* T().textB   — long-form copy   */
+  --faint: #7d7062;       /* T().textXS  — captions, meta   */
+  --accent-ink: #8a6d20;  /* T().goldInk — gold as TEXT     */
+  --border-soft: #ede8df; /* T().borderLight — inner rules  */
 }
 
 .sw-dark {
@@ -75,13 +84,18 @@
   --secondary: #0f0e0b;
   --secondary-foreground: #c4b99a;
   --muted: #0f0e0b;
-  --muted-foreground: #7a6e5e;
+  --muted-foreground: #9b8e79;
   --accent: #0f0e0b;
   --accent-foreground: #c4b99a;
   --destructive: #e55;
   --border: #242018;
   --input: #2e2820;
   --ring: #c9a84c;
+
+  --body: #c4b99a;
+  --faint: #847866;
+  --accent-ink: #c9a84c;
+  --border-soft: #1a1814;
 }
 
 /* ── Preflight, scoped to shadcn components only ──────────────────────
@@ -180,17 +194,35 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  /* `text-body`, `text-faint`, `border-soft` — the app's own tiers, now
+     expressible as utilities instead of inline hex. Because they resolve
+     through the same custom properties the theme flips, a component using
+     them is light/dark correct for free. */
+  --color-body: var(--body);
+  --color-faint: var(--faint);
+  /* `text-accent-ink` — gold that stays legible in BOTH themes.
+     `text-primary` remains the surface gold. */
+  --color-accent-ink: var(--accent-ink);
+  --color-border-soft: var(--border-soft);
+
+  /* `font-serif` is the display face used for every heading; `font-sans`
+     is the body face. Both were previously repeated as inline
+     fontFamily strings. */
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
+  --font-sans: 'Jost', system-ui, sans-serif;
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* Tailwind was removed: the app never used a single utility class, and with
-   v4 the legacy @tailwind directives emitted utilities and @property rules
-   but no preflight — verified by grepping the built CSS for preflight
-   signatures (0 hits). Every reset this design relies on is written below
-   and in the component styles. */
+/* Tailwind is back and is the styling system going forward. It is imported
+   layer by layer at the top of this file, deliberately WITHOUT preflight —
+   see the note there, and the scoped re-application below. The rules further
+   down this file are the remaining hand-written CSS; they are being replaced
+   by utilities file by file, so treat them as legacy rather than as the
+   pattern to copy. */
 
 /* ── KEYFRAMES ── */
 @keyframes swIn {

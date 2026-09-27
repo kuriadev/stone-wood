@@ -16,6 +16,7 @@
 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { dayjs, DATE_FMT } from "@/lib/dayjs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useMemo, useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
@@ -50,11 +51,10 @@ const F_COLOR: Record<FacilityStatus, string> = {
 const ICONS = new Set(["pool", "flame", "billiards", "mic", "car", "tent", "bed"]);
 const iconOf = (f: Facility): IconName => (ICONS.has(f.icon) ? (f.icon as IconName) : "toolbox");
 
-const addDays = (date: string, n: number) => {
-  const d = new Date(`${date}T00:00:00`);
-  d.setDate(d.getDate() + n);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
+// The `T00:00:00` suffix existed to force local-time parsing; dayjs parses
+// in local time already, so the trick is no longer needed.
+const addDays = (date: string, n: number) =>
+  dayjs(date, DATE_FMT, true).add(n, "day").format(DATE_FMT);
 
 export function FacilitiesTab({ facilities, setFacilities, bookings, mob }: FacilitiesTabProps) {
   const { C, rowBg, inp } = useAdminStyle();

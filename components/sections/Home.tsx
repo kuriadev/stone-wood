@@ -11,6 +11,16 @@ import { SLOTS, QUIET_HOURS_POLICY } from "@/lib/resort";
 import { SHARED_PER_HEAD_RATE, EXCLUSIVE_FLAT_RATE, EXCLUSIVE_DISCOUNT_PCT } from "@/lib/validators";
 import { fmt } from "@/lib/utils";
 import { AvailabilityCalendar } from "@/components/common/AvailabilityCalendar";
+import { MediaGallery } from "@/components/common/MediaGallery";
+import { Button } from "@/components/ui/button";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import type { Booking, BookingResource, BookingTier, PackageDeepLink } from "@/types/booking";
 import type { ResortPackage } from "@/types/package";
@@ -149,6 +159,11 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
   const visiblePackages = packages.filter((p) => p.active);
   // Grouped by what the guest is planning, not by tier: a pool visit for
   // the day or night, a whole-day buyout, or an event with the venue.
+  // Which package group is on screen. The three groups used to stack, each
+  // with its own carousel, so the section was three rows tall before a guest
+  // had chosen anything. One row, switched by tabs, keeps it to one.
+  const [pkgGroup, setPkgGroup] = useState("DAY OR NIGHT");
+
   const groupOf = (p: ResortPackage) =>
     p.resource !== "Pool" ? "EVENTS & CELEBRATIONS" : p.slotMode === "WholeDay" ? "WHOLE DAY" : "DAY OR NIGHT";
   const packageGroups = ["DAY OR NIGHT", "WHOLE DAY", "EVENTS & CELEBRATIONS"]
@@ -158,11 +173,17 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
     }))
     .filter((g) => g.tiers.length > 0);
 
+  // Packages arrive async, so the remembered tab can name a group that has no
+  // packages yet (or none any more). Fall back to the first that does rather
+  // than render an empty row.
+  const activeGroup =
+    packageGroups.find((g) => g.label === pkgGroup) ?? packageGroups[0];
+
   // ── Shared type scale ──────────────────────────────────────────────
   // Larger, higher-contrast display type that holds up in both themes.
   const serif = "'Cormorant Garamond',Georgia,serif";
   const eyebrow: React.CSSProperties = {
-    color: gold,
+    color: C.goldInk,
     fontSize: 13.5,
     letterSpacing: 4.5,
     fontWeight: 500,
@@ -309,7 +330,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
 
             {/* Left: one instruction, then supporting detail — the calendar is the action */}
             <div style={{ flex: mob ? "none" : "0 0 250px" }}>
-              <p style={{ color: gold, fontSize: 12.5, letterSpacing: 3, marginBottom: 12, fontWeight: 500 }}>RESERVATIONS</p>
+              <p style={{ color: C.goldInk, fontSize: 12.5, letterSpacing: 3, marginBottom: 12, fontWeight: 500 }}>RESERVATIONS</p>
               <h2 style={{ fontFamily: serif, fontSize: mob ? 26 : 30, color: "#fff", fontWeight: 400, marginBottom: 14, lineHeight: 1.18, letterSpacing: "-0.3px" }}>
                 Select a date to begin
               </h2>
@@ -329,7 +350,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                 ].map(([l, v]) => (
                   <div key={l} style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, color: "rgba(238,232,220,0.6)" }}>
                     <span>{l}</span>
-                    <span style={{ color: gold, fontWeight: 600 }}>{v}</span>
+                    <span style={{ color: C.goldInk, fontWeight: 600 }}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -430,31 +451,71 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
             {DURATIONS.map((d) => (
               <div key={d.label} style={{ background: C.bgCard2, padding: mob ? "18px 20px" : "22px 24px", textAlign: "center" }}>
                 <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 7 }}>{d.label.toUpperCase()}</div>
-                <div style={{ color: gold, fontSize: mob ? 15 : 16, fontWeight: 500, letterSpacing: 0.3 }}>{d.window}</div>
+                <div style={{ color: C.goldInk, fontSize: mob ? 15 : 16, fontWeight: 500, letterSpacing: 0.3 }}>{d.window}</div>
               </div>
             ))}
           </Reveal>
 
-          {/* Package cards — split into shared and exclusive groups */}
+          {/* Package cards.
+              The three group labels are the control now, not three headings:
+              a guest picks DAY OR NIGHT, WHOLE DAY or EVENTS & CELEBRATIONS
+              and sees only that set, in a single carousel row. Stacking all
+              three meant the section grew with every package the admin added
+              in any of them. */}
           {packagesLoading ? (
             <CardGridSkeleton count={6} label="Loading packages" />
-          ) : packageGroups.map((group, gi) => (
-          <div key={group.label} style={{ marginTop: gi === 0 ? 0 : (mob ? 30 : 40) }}>
+          ) : activeGroup ? (
+            <Tabs
+              value={activeGroup.label}
+              onValueChange={setPkgGroup}
+              className="gap-0"
+            >
+              <TabsList // h-auto alone loses: TabsList pins its height with a
+                // `group-data-[orientation=horizontal]/tabs:h-9` variant, so a
+                // wrapped second row of tabs spilled out of the list box and
+                // landed on the cards below. Matching the variant wins.
+                className="mx-auto mb-6 flex w-fit max-w-full flex-wrap justify-center gap-1.5 bg-transparent p-0 group-data-[orientation=horizontal]/tabs:h-auto sm:mb-8">
+                {packageGroups.map((g) => (
+                  <TabsTrigger
+                    key={g.label}
+                    value={g.label}
+                    className="rounded-full border px-4 py-2 text-[11.5px] tracking-[2px] data-[state=active]:shadow-none"
+                    style={{
+                      background: activeGroup.label === g.label ? `${gold}18` : "transparent",
+                      color: activeGroup.label === g.label ? C.goldInk : C.textS,
+                      borderColor: activeGroup.label === g.label ? `${gold}55` : C.border,
+                    }}
+                  >
+                    {g.label}
+                    <span className="ml-1.5 opacity-60">{g.tiers.length}</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
 
-            {/* Group divider — same treatment as AVAILABLE ADD-ONS below */}
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: mob ? 14 : 18 }}>
-              <div style={{ flex: 1, height: 1, background: C.border }} />
-              <span style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, whiteSpace: "nowrap" }}>{group.label}</span>
-              <div style={{ flex: 1, height: 1, background: C.border }} />
-            </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(auto-fit,minmax(220px,1fr))", gap: mob ? 10 : 14 }}>
-            {group.tiers.map(({ p, i }, gIdx) => {
-              const exclusive = p.status === "Exclusive";
-              return (
-                <Reveal
+              {packageGroups.map((group) => (
+                <TabsContent key={group.label} value={group.label} className="mt-0">
+                  <Carousel
+                    opts={{ align: "start", containScroll: "trimSnaps" }}
+                    aria-label={`${group.label} packages`}
+                    className="relative"
+                  >
+                    {/* The track is inset so the arrows sit in the gutter at
+                        each end rather than on top of the cards. Overlaid on
+                        the track they covered the card text underneath. */}
+                    <div className="px-0 sm:px-12">
+                      <CarouselContent className="-ml-2.5 py-1 sm:-ml-3.5">
+                      {group.tiers.map(({ p, i }, gIdx) => {
+                        const exclusive = p.status === "Exclusive";
+                        return (
+                // basis controls how many cards are visible per view: two on
+                // phones, three from sm, four from lg. The card itself is
+                // unchanged.
+                <CarouselItem
                   key={p.code}
-                  className="sw-card"
+                  className="basis-1/2 pl-2.5 sm:basis-1/3 sm:pl-3.5 lg:basis-1/4"
+                >
+                <Reveal
+                  className="sw-card h-full"
                   onClick={() => openPkg(i)}
                   style={{
                     background: C.bgCard2,
@@ -517,7 +578,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
 
                   <div style={{ padding: mob ? "14px 14px 16px" : "16px 18px 18px" }}>
                     <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
-                      <span style={{ color: gold, fontSize: 18, fontWeight: 700 }}>{fmt(p.price)}</span>
+                      <span style={{ color: C.goldInk, fontSize: 18, fontWeight: 700 }}>{fmt(p.price)}</span>
                       {p.listPrice && (
                         <span style={{ color: C.textXS, fontSize: 13.5, textDecoration: "line-through" }}>{fmt(p.listPrice)}</span>
                       )}
@@ -549,7 +610,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                       </Badge>
                     )}
                     {p.requiresRoom && (
-                      <Badge variant="outline" style={{ display: "inline-block", marginLeft: 6, fontSize: 10.5, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: `${gold}18`, color: gold, border: `1px solid ${gold}44` }}>
+                      <Badge variant="outline" style={{ display: "inline-block", marginLeft: 6, fontSize: 10.5, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: `${gold}18`, color: C.goldInk, border: `1px solid ${gold}44` }}>
                         ROOM DISCOUNTED
                       </Badge>
                     )}
@@ -559,11 +620,27 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                     )}
                   </div>
                 </Reveal>
+                </CarouselItem>
               );
             })}
-          </div>
-          </div>
-          ))}
+                      </CarouselContent>
+                    </div>
+
+                    {/* Placement changes with the space available.
+                        From sm the track's px-12 leaves a gutter at each end
+                        and the arrows sit in it, clear of the cards. A phone
+                        has no gutter, so overlaying them there covered the
+                        card text -- they move to a centred row underneath
+                        instead. The row stays swipeable either way. */}
+                    <div className="mt-4 flex justify-center gap-2.5 sm:mt-0 sm:block">
+                      <CarouselPrevious className="static size-9 translate-x-0 translate-y-0 border-border text-foreground disabled:opacity-30 sm:absolute sm:top-1/2 sm:left-0 sm:-translate-y-1/2" />
+                      <CarouselNext className="static size-9 translate-x-0 translate-y-0 border-border text-foreground disabled:opacity-30 sm:absolute sm:top-1/2 sm:right-0 sm:-translate-y-1/2" />
+                    </div>
+                  </Carousel>
+                </TabsContent>
+              ))}
+            </Tabs>
+          ) : null}
 
         </div>
       </div>
@@ -599,202 +676,133 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
             override the base max-w-[calc(100%-2rem)] gutter, and between about
             640px and 1024px the dialog went edge to edge with its rounded
             corners clipped off against the viewport. */}
-        <DialogContent className="max-h-[92vh] gap-0 overflow-hidden p-0 sm:max-w-[min(64rem,calc(100%-2rem))]">
+                <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto p-0 sm:max-w-[min(64rem,calc(100%-2rem))]">
           {activePkg !== null && (() => {
             const p = visiblePackages[activePkg];
             const exclusive = p.status === "Exclusive";
             const gallery = p.gallery;
-            const shot = gallery[Math.min(photoIdx, gallery.length - 1)];
-            const step = (dir: number) => setPhotoIdx((n) => (n + dir + gallery.length) % gallery.length);
+            // The dialog scrolls, not the individual columns: a grid item with
+            // its own overflow contributes ~0 to row sizing, which left the two
+            // columns disagreeing about the row height by a few pixels.
+            // A JSX comment cannot sit directly after `return (` -- it would be
+            // a second sibling and break the element.
             return (
-              <div className="grid max-h-[92vh] md:grid-cols-2">
-                <div className="relative flex flex-col overflow-hidden bg-black/20">
-                  {/* ── Gallery ── */}
-                  <div style={{ position: "relative", flex: 1, minHeight: mob ? 230 : 280, overflow: "hidden", background: "#0a0806" }}>
-                    {gallery.map((g, gi) => (
-                      <div
-                        key={g.label}
-                        style={{
-                          position: "absolute", inset: 0,
-                          backgroundImage: `url(${g.src})`,
-                          backgroundSize: "cover", backgroundPosition: "center",
-                          opacity: gi === photoIdx ? 1 : 0,
-                          transition: "opacity .35s ease",
-                        }}
-                      />
-                    ))}
-                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top,rgba(0,0,0,0.85) 0%,rgba(0,0,0,0.2) 55%,rgba(0,0,0,0.3) 100%)" }} />
-
-                    {/* Prev / next */}
-                    {gallery.length > 1 && (
-                      <>
-                        <button
-                          onClick={() => step(-1)}
-                          aria-label="Previous photo"
-                          style={{
-                            position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
-                            width: 34, height: 34, borderRadius: "50%",
-                            background: "rgba(0,0,0,0.4)", backdropFilter: "blur(6px)",
-                            border: `1px solid ${gold}44`, color: gold, fontSize: 18, cursor: "pointer",
-                            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3,
-                          }}
-                        >
-                          ‹
-                        </button>
-                        <button
-                          onClick={() => step(1)}
-                          aria-label="Next photo"
-                          style={{
-                            position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-                            width: 34, height: 34, borderRadius: "50%",
-                            background: "rgba(0,0,0,0.4)", backdropFilter: "blur(6px)",
-                            border: `1px solid ${gold}44`, color: gold, fontSize: 18, cursor: "pointer",
-                            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3,
-                          }}
-                        >
-                          ›
-                        </button>
-                      </>
-                    )}
-
-                    {/* Counter */}
-                    <div style={{ position: "absolute", top: 16, left: 16, zIndex: 3, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)", borderRadius: 20, padding: "4px 10px", color: "rgba(255,255,255,0.8)", fontSize: 11.5, letterSpacing: 1.5, fontFamily: "monospace" }}>
-                      {String(photoIdx + 1).padStart(2, "0")} / {String(gallery.length).padStart(2, "0")}
-                    </div>
-
-                    {/* Code + current photo label */}
-                    <div style={{ position: "absolute", bottom: 14, left: 20, right: 20, zIndex: 3 }}>
-                      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
-                        <div>
-                          <div style={{ color: gold, fontSize: 10.5, letterSpacing: 3, marginBottom: 4 }}>PACKAGE</div>
-                          <DialogTitle asChild>
-                            <div style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 26 : 30, color: "#fff", lineHeight: 1.1, fontWeight: 400, textShadow: "0 2px 16px rgba(0,0,0,0.6)" }}>
-                              {p.title}
-                            </div>
-                          </DialogTitle>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{ color: gold, fontSize: 10.5, letterSpacing: 2, marginBottom: 3 }}>{shot.kind.toUpperCase()}</div>
-                          <div style={{ color: "rgba(255,255,255,0.9)", fontSize: 13.5 }}>{shot.label}</div>
-                        </div>
+              <div className="grid md:grid-cols-2">
+                <MediaGallery
+                  shots={gallery}
+                  eyebrow="PACKAGE"
+                  compact={mob}
+                  title={
+                    <DialogTitle asChild>
+                      <div className="truncate font-serif text-[26px] leading-tight font-normal text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.6)] sm:text-3xl">
+                        {p.title}
                       </div>
+                    </DialogTitle>
+                  }
+                />
+
+                {/* Detail column.
+                    Left-aligned throughout: the previous version centred the
+                    badge, price and blurb while the lists below ran left,
+                    which broke the reading edge halfway down the panel.
+                    One vertical rhythm (gap-5) instead of per-block margins,
+                    and the action is pinned to the foot behind a divider so
+                    it lands in the same place in every dialog. */}
+                <div className="flex flex-col">
+                  <div className="flex flex-col gap-5 p-6 sm:p-7">
+
+                    {/* Status */}
+                    <div>
+                      <Badge
+                        variant="outline"
+                        className="rounded-full px-3 py-1 text-[10.5px] tracking-[2px]"
+                        style={{
+                          background: exclusive ? `${gold}18` : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"),
+                          color: exclusive ? C.goldInk : C.textS,
+                          borderColor: exclusive ? `${gold}44` : C.border,
+                        }}
+                      >
+                        {p.status.toUpperCase()}{p.note ? ` · ${p.note.toUpperCase()}` : ""}
+                      </Badge>
                     </div>
-                  </div>
 
-                  {/* Thumbnail strip */}
-                  {gallery.length > 1 && (
-                    <div style={{ display: "flex", gap: 6, padding: mob ? "12px 20px 0" : "14px 32px 0", overflowX: "auto" }}>
-                      {gallery.map((g, gi) => (
-                        <button
-                          key={g.label}
-                          onClick={() => setPhotoIdx(gi)}
-                          aria-label={`View ${g.label}`}
-                          style={{
-                            flexShrink: 0,
-                            width: 52, height: 40, borderRadius: 6,
-                            backgroundImage: `url(${g.src})`,
-                            backgroundSize: "cover", backgroundPosition: "center",
-                            border: `2px solid ${gi === photoIdx ? gold : "transparent"}`,
-                            opacity: gi === photoIdx ? 1 : 0.5,
-                            cursor: "pointer", padding: 0,
-                            transition: "opacity .2s, border-color .2s",
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                </div>
-                <div className="overflow-y-auto max-h-[92vh]">
-                  <div style={{ padding: mob ? "22px 24px 30px" : "26px 36px 36px" }}>
-
-                  {/* Status */}
-                  <div style={{ textAlign: "center", marginBottom: 24 }}>
-                    <span
-                      style={{
-                        display: "inline-block", fontSize: 10.5, letterSpacing: 2, padding: "4px 12px", borderRadius: 20,
-                        background: exclusive ? `${gold}18` : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"),
-                        color: exclusive ? gold : C.textS,
-                        border: `1px solid ${exclusive ? `${gold}44` : C.border}`,
-                      }}
-                    >
-                      {p.status.toUpperCase()}{p.note ? ` · ${p.note.toUpperCase()}` : ""}
-                    </span>
-                  </div>
-
-                  {/* Fixed price — a package is a one-time purchase, not a
-                      customizable reservation, so this is the whole tour/venue
-                      cost regardless of how many of the included guests show
-                      up. */}
-                  <div style={{ textAlign: "center", marginBottom: 20 }}>
-                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 10 }}>
-                      <span style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 40, color: C.textH, fontWeight: 400 }}>{fmt(p.price)}</span>
-                      {p.listPrice && (
-                        <span style={{ color: C.textXS, fontSize: 17, textDecoration: "line-through" }}>{fmt(p.listPrice)}</span>
+                    {/* Price. A package is a one-time purchase, so this is the
+                        whole tour/venue cost regardless of how many of the
+                        included guests turn up. */}
+                    <div>
+                      <div className="flex items-baseline gap-2.5">
+                        <span className="font-serif text-[40px] leading-none font-normal text-foreground">{fmt(p.price)}</span>
+                        {p.listPrice && (
+                          <span className="text-[17px] text-faint line-through">{fmt(p.listPrice)}</span>
+                        )}
+                      </div>
+                      {p.listPrice ? (
+                        <p className="mt-1.5 text-[12.5px] tracking-wide text-[#4caf50]">
+                          Bundle discount \u2014 you save {fmt(p.listPrice - p.price)}
+                        </p>
+                      ) : p.requiresRoom ? (
+                        <p className="mt-1.5 text-[12.5px] text-faint">Plus a room of your choice, at a discounted rate</p>
+                      ) : (
+                        <p className="mt-1.5 text-[12.5px] text-faint">Flat price for up to {p.capacity} guests</p>
                       )}
                     </div>
-                    {p.listPrice ? (
-                      <p style={{ color: "#4caf50", fontSize: 12.5, letterSpacing: 0.5, marginTop: 6 }}>
-                        Bundle discount — you save {fmt(p.listPrice - p.price)}
-                      </p>
-                    ) : p.requiresRoom ? (
-                      <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 6 }}>Plus a room of your choice, at a discounted rate</p>
-                    ) : (
-                      <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 6 }}>Flat price for up to {p.capacity} guests</p>
-                    )}
-                  </div>
 
-                  <DialogDescription asChild>
-                    <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.75, textAlign: "center", marginBottom: 24 }}>{p.blurb}</p>
-                  </DialogDescription>
+                    <DialogDescription asChild>
+                      <p className="text-[14.5px] leading-relaxed text-muted-foreground">{p.blurb}</p>
+                    </DialogDescription>
 
-                  {/* Inclusions */}
-                  <div style={{ marginBottom: 24 }}>
-                    <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 12 }}>WHAT'S INCLUDED</p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-                      {p.includes.map((inc) => (
-                        <div key={inc} style={{ display: "flex", alignItems: "flex-start", gap: 8, paddingBottom: 9, borderBottom: `1px solid ${C.borderLight}` }}>
-                          <Icon name="check" size={12} style={{ color: gold, marginTop: 3, flexShrink: 0 }} />
-                          <span style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.5 }}>{inc}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* When this package can be booked: Day or Night (the guest
-                      picks), or Whole Day. */}
-                  {(
-                    <div style={{ marginBottom: 22 }}>
-                      <p style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 12 }}>{p.slotMode === "WholeDay" ? "DURATION" : "CHOOSE WHEN YOU BOOK"}</p>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-                        {(p.slotMode === "WholeDay" ? [SLOTS.WholeDay] : [SLOTS.Day, SLOTS.Night]).map((sl) => ({ label: sl.label, window: sl.hours })).map((d) => (
-                          <div key={d.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 9, borderBottom: `1px solid ${C.borderLight}` }}>
-                            <span style={{ color: C.textB, fontSize: 14.5 }}>{d.label}</span>
-                            <span style={{ color: gold, fontSize: 13.5, fontWeight: 500 }}>{d.window}</span>
-                          </div>
+                    {/* Inclusions */}
+                    <div>
+                      <p className="mb-3 text-[10.5px] tracking-[2.5px] text-faint">WHAT&apos;S INCLUDED</p>
+                      <ul className="flex flex-col">
+                        {p.includes.map((inc) => (
+                          <li key={inc} className="flex items-start gap-2 border-b border-border-soft py-2.5 last:border-0 last:pb-0">
+                            <Icon name="check" size={12} className="mt-1 shrink-0 text-accent-ink" />
+                            <span className="text-[14.5px] leading-snug text-body">{inc}</span>
+                          </li>
                         ))}
-                      </div>
+                      </ul>
                     </div>
-                  )}
 
-                  <button
-                    className="sw-btn"
-                    onClick={() => {
-                      closePkg();
-                      if (onBookPackage) {
-                        onBookPackage(
-                          { code: p.code, title: p.title, price: p.price, listPrice: p.listPrice, capacity: p.capacity, requiresRoom: p.requiresRoom, slotMode: p.slotMode },
-                          p.resource,
-                          p.status
-                        );
-                      } else {
-                        setPage("Book Now");
-                      }
-                    }}
-                    style={{ ...goldBtn, width: "100%", padding: "14px 20px", letterSpacing: 1.5, fontSize: 13.5, borderRadius: 8 }}
-                  >
-                    BOOK {p.title.toUpperCase()} →
-                  </button>
+                    {/* When it can be booked: Day or Night (guest picks), or
+                        Whole Day. */}
+                    <div>
+                      <p className="mb-3 text-[10.5px] tracking-[2.5px] text-faint">
+                        {p.slotMode === "WholeDay" ? "DURATION" : "CHOOSE WHEN YOU BOOK"}
+                      </p>
+                      <ul className="flex flex-col">
+                        {(p.slotMode === "WholeDay" ? [SLOTS.WholeDay] : [SLOTS.Day, SLOTS.Night])
+                          .map((sl) => ({ label: sl.label, window: sl.hours }))
+                          .map((d) => (
+                            <li key={d.label} className="flex items-center justify-between gap-3 border-b border-border-soft py-2.5 last:border-0 last:pb-0">
+                              <span className="text-[14.5px] text-body">{d.label}</span>
+                              <span className="text-[13.5px] font-medium text-accent-ink">{d.window}</span>
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Action, pinned to the foot of the column. */}
+                  <div className="mt-auto border-t border-border-soft p-6 pt-5 sm:px-7">
+                    <Button
+                      className="sw-btn h-auto w-full rounded-lg py-3.5 text-[13.5px] tracking-[1.5px]"
+                      onClick={() => {
+                        closePkg();
+                        if (onBookPackage) {
+                          onBookPackage(
+                            { code: p.code, title: p.title, price: p.price, listPrice: p.listPrice, capacity: p.capacity, requiresRoom: p.requiresRoom, slotMode: p.slotMode },
+                            p.resource,
+                            p.status
+                          );
+                        } else {
+                          setPage("Book Now");
+                        }
+                      }}
+                      style={goldBtn}
+                    >
+                      BOOK {p.title.toUpperCase()} →
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -816,13 +824,13 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
             {PACKAGES.map((p, i) => (
               <Reveal key={p.id} className="sw-card"
                 style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: mob ? "22px 18px" : "28px 24px", textAlign: "left", boxShadow: C.shadowCard, display: "flex", flexDirection: "column", transitionDelay: `${i * 100}ms` }}>
-                <div style={{ marginBottom: 12, color: gold }}><Icon name={p.icon as IconName} size={28} strokeWidth={1.5} /></div>
+                <div style={{ marginBottom: 12, color: C.goldInk }}><Icon name={p.icon as IconName} size={28} strokeWidth={1.5} /></div>
                 <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, marginBottom: 6 }}>{p.label}</h3>
                 <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 14, lineHeight: 1.6 }}>{p.desc}</p>
-                <div style={{ color: gold, fontSize: 24, fontWeight: 700, marginBottom: 16 }}>{p.id === "wholeday" ? "" : "from "}{fmt(p.base)}<span style={{ color: C.textXS, fontSize: 13.5 }}> {p.unit}</span></div>
+                <div style={{ color: C.goldInk, fontSize: 24, fontWeight: 700, marginBottom: 16 }}>{p.id === "wholeday" ? "" : "from "}{fmt(p.base)}<span style={{ color: C.textXS, fontSize: 13.5 }}> {p.unit}</span></div>
                 {p.details.map((d) => (
                   <div key={d} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 7 }}>
-                    <Icon name="check" size={12} style={{ color: gold, marginTop: 3, flexShrink: 0 }} />
+                    <Icon name="check" size={12} style={{ color: C.goldInk, marginTop: 3, flexShrink: 0 }} />
                     <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5 }}>{d}</span>
                   </div>
                 ))}
@@ -895,7 +903,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
             {[...MARQUEE_REVIEWS, ...MARQUEE_REVIEWS].map((r, i) => (
               <div key={i} style={{ flexShrink: 0, width: mob ? 280 : 330, marginRight: 16, background: isDark ? "#0e0c09" : "#fff", border: `1px solid ${isDark ? "rgba(201,168,76,0.1)" : "rgba(201,168,76,0.15)"}`, borderRadius: 12, padding: "26px 24px", boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.35)" : "0 4px 16px rgba(100,70,20,0.08)" }}>
                 <p style={{ color: C.textB, fontSize: 16, lineHeight: 1.85, margin: "0 0 16px", fontStyle: "italic", fontFamily: serif }}>&ldquo;{r.message}&rdquo;</p>
-                <span style={{ color: gold, fontSize: 13.5, fontWeight: 600, letterSpacing: 0.5 }}>— {r.name}</span>
+                <span style={{ color: C.goldInk, fontSize: 13.5, fontWeight: 600, letterSpacing: 0.5 }}>— {r.name}</span>
               </div>
             ))}
           </div>

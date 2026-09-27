@@ -10,35 +10,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToInventoryItem } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
-import { sanitizeLabel, sanitizeNotes } from "@/lib/validators";
+import { inventoryItemInput, inventoryItemPatch, parseInput } from "@/lib/schemas";
 import type { InventoryRow } from "@/types/database";
-import type { InventoryCategory } from "@/types/inventory";
 
 export const dynamic = "force-dynamic";
-
-const CATEGORIES: InventoryCategory[] = [
-  "Pool & Chemicals",
-  "Furniture & Misc",
-  "Cleaning Tools",
-];
-
-/** Shared shape-check for POST and PATCH. Returns an error string, or null. */
-function validate(body: Record<string, unknown>, partial: boolean): string | null {
-  if (!partial || body.category !== undefined) {
-    if (!CATEGORIES.includes(body.category as InventoryCategory)) return "Unknown inventory category.";
-  }
-  if (!partial || body.name !== undefined) {
-    const n = sanitizeLabel(String(body.name ?? ""));
-    if (!n) return "An item name is required.";
-  }
-  for (const k of ["qty", "minQty"] as const) {
-    if (!partial || body[k] !== undefined) {
-      const v = Number(body[k]);
-      if (!Number.isFinite(v) || v < 0) return `${k} must be zero or more.`;
-    }
-  }
-  return null;
-}
 
 export async function GET(req: NextRequest) {
   const denied = requireAdmin(req);
@@ -58,17 +33,17 @@ export async function POST(req: NextRequest) {
   const denied = requireAdmin(req);
   if (denied) return denied;
   try {
-    const body = await req.json().catch(() => ({}));
-    const problem = validate(body, false);
-    if (problem) return NextResponse.json({ success: false, error: problem }, { status: 400 });
+    const parsed = parseInput(inventoryItemInput, await req.json().catch(() => ({})));
+    if (!parsed.ok) return NextResponse.json({ success: false, error: parsed.error }, { status: 400 });
+    const item = parsed.data;
 
     const { data, error } = await getSupabaseAdmin().from("inventory").insert({
-      category: body.category,
-      name: sanitizeLabel(String(body.name)),
-      qty: Math.round(Number(body.qty)),
-      unit: String(body.unit ?? "pc").slice(0, 24),
-      min_qty: Math.round(Number(body.minQty ?? 0)),
-      notes: sanitizeNotes(String(body.notes ?? "")),
+      category: item.category,
+      name: item.name,
+      qty: Math.round(item.qty),
+      unit: item.unit,
+      min_qty: Math.round(item.minQty),
+      notes: item.notes,
     }).select().single();
 
     if (error) throw new Error(error.message);
@@ -88,17 +63,19 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: false, error: "A numeric item id is required." }, { status: 400 });
   }
   try {
-    const body = await req.json().catch(() => ({}));
-    const problem = validate(body, true);
-    if (problem) return NextResponse.json({ success: false, error: problem }, { status: 400 });
+    const parsed = parseInput(inventoryItemPatch, await req.json().catch(() => ({})));
+    if (!parsed.ok) return NextResponse.json({ success: false, error: parsed.error }, { status: 400 });
+    const fields = parsed.data;
 
+    // Only the keys the caller actually sent: `.partial()` leaves the rest
+    // undefined, so an omitted field is never written as null.
     const patch: Partial<InventoryRow> = {};
-    if (body.category !== undefined) patch.category = body.category;
-    if (body.name !== undefined) patch.name = sanitizeLabel(String(body.name));
-    if (body.qty !== undefined) patch.qty = Math.round(Number(body.qty));
-    if (body.unit !== undefined) patch.unit = String(body.unit).slice(0, 24);
-    if (body.minQty !== undefined) patch.min_qty = Math.round(Number(body.minQty));
-    if (body.notes !== undefined) patch.notes = sanitizeNotes(String(body.notes));
+    if (fields.category !== undefined) patch.category = fields.category;
+    if (fields.name !== undefined) patch.name = fields.name;
+    if (fields.qty !== undefined) patch.qty = Math.round(fields.qty);
+    if (fields.unit !== undefined) patch.unit = fields.unit;
+    if (fields.minQty !== undefined) patch.min_qty = Math.round(fields.minQty);
+    if (fields.notes !== undefined) patch.notes = fields.notes;
 
     if (Object.keys(patch).length === 0) {
       return NextResponse.json({ success: false, error: "Nothing to update." }, { status: 400 });

@@ -238,7 +238,7 @@ export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
         <div style={{ position: "relative", zIndex: 2, padding: mob ? "0 20px 44px" : "0 48px 72px", maxWidth: 820 }}>
           <p
             style={{
-              color: gold,
+              color: C.goldInk,
               letterSpacing: 5,
               fontSize: 11.5,
               margin: "0 0 14px",
@@ -262,7 +262,7 @@ export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
             }}
           >
             Seventeen hours,<br />
-            <span style={{ fontStyle: "italic", color: gold }}>told in order</span>
+            <span style={{ fontStyle: "italic", color: C.goldInk }}>told in order</span>
           </h1>
           <p style={{ color: "rgba(246,241,232,0.9)", fontSize: mob ? 15 : 17, lineHeight: 1.75, maxWidth: 540, margin: 0, fontWeight: 300 }}>
             From the gate opening at seven to the last light before midnight. Scroll
@@ -355,7 +355,7 @@ export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
                   <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
                     <span
                       style={{
-                        color: gold,
+                        color: C.goldInk,
                         fontSize: 11.5,
                         letterSpacing: 2.4,
                         border: `1px solid ${gold}44`,
@@ -433,7 +433,7 @@ export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
           {/* ── Closing: every photo, so nothing is buried in the story ── */}
           <section style={{ paddingTop: mob ? 60 : 104 }}>
             <Reveal style={{ textAlign: "center", marginBottom: mob ? 24 : 32 }}>
-              <p style={{ color: gold, letterSpacing: 4, fontSize: 11.5, margin: "0 0 10px" }}>THE FULL SET</p>
+              <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 11.5, margin: "0 0 10px" }}>THE FULL SET</p>
               <h2 style={{ fontFamily: serif, fontSize: mob ? 24 : 32, color: C.textH, fontWeight: 400, margin: "0 0 8px" }}>
                 Every photo, all at once
               </h2>
@@ -578,6 +578,9 @@ function arrowStyle(mob: boolean, side: "left" | "right"): React.CSSProperties {
     transform: "translateY(-50%)",
     background: "rgba(201,168,76,0.1)",
     border: `1px solid ${gold}44`,
+    // Stays the bright gold: the lightbox backdrop is rgba(5,4,3,0.97) in
+    // BOTH themes, so these arrows are always on near-black and the darker
+    // light-mode gold would only reduce contrast here.
     color: gold,
     width: 44,
     height: 44,

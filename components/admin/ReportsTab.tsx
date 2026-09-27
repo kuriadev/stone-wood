@@ -25,6 +25,7 @@ import type { Room } from "@/types/room";
 import { gold } from "@/lib/styles";
 import { Panel, BarChart, ProgressRow } from "@/components/admin/charts";
 import { PageHead, Figure, Segmented, Btn, Line, useAdminStyle } from "@/components/admin/ui";
+import { dayjs, DATE_FMT } from "@/lib/dayjs";
 
 type Period = "Month" | "Year" | "Custom";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -43,7 +44,7 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
   const { from, to, label } = useMemo(() => {
     if (period === "Month") {
       const r = monthRange(`${month}-01`);
-      return { ...r, label: new Date(`${month}-01T00:00:00`).toLocaleString("en-PH", { month: "long", year: "numeric" }) };
+      return { ...r, label: dayjs(`${month}-01`, DATE_FMT, true).format("MMMM YYYY") };
     }
     if (period === "Year") return { from: `${year}-01-01`, to: `${year}-12-31`, label: year };
     return { from: cFrom, to: cTo, label: `${fmtDate(cFrom)} – ${fmtDate(cTo)}` };
@@ -84,12 +85,14 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
       });
     }
     const out: { label: string; money: number; bookings: number; guests: number }[] = [];
-    const start = new Date(`${from}T00:00:00`); const end = new Date(`${to}T00:00:00`);
-    for (let d = new Date(start), n = 0; d <= end && n < 93; d.setDate(d.getDate() + 1), n++) {
-      const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    // Was a mutable Date advanced in the loop header. dayjs is immutable, so
+    // each step produces a new value and the cursor cannot be clobbered.
+    const end = dayjs(to, DATE_FMT, true);
+    for (let d = dayjs(from, DATE_FMT, true), n = 0; !d.isAfter(end, "day") && n < 93; d = d.add(1, "day"), n++) {
+      const ds = d.format(DATE_FMT);
       const money = pays.filter((p) => manilaDate(p.receivedAt) === ds).reduce((s, p) => s + signedAmount(p), 0);
       const count = kept.filter((b) => b.date === ds);
-      out.push({ label: String(d.getDate()), money: round2(money), bookings: count.length, guests: count.reduce((s, b) => s + b.guests, 0) });
+      out.push({ label: String(d.date()), money: round2(money), bookings: count.length, guests: count.reduce((s, b) => s + b.guests, 0) });
     }
     return out;
   }, [period, year, from, to, ops.payments, bookings, pays, kept]);

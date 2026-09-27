@@ -32,6 +32,7 @@ import {
   isValidPHNumber,
   parseDateStr,
   sanitizeContact,
+  sanitizeLabel,
   sanitizeName,
   sanitizeNotes,
 } from "@/lib/validators";
@@ -178,6 +179,58 @@ export type CancelBookingLookup = z.infer<typeof cancelBookingLookup>;
 export type CloseDateInput = z.infer<typeof closeDateInput>;
 export type MaintenanceInput = z.infer<typeof maintenanceInput>;
 export type CustomerMessageInput = z.infer<typeof customerMessageInput>;
+
+// ── Admin CRUD payloads ──────────────────────────────────────────────
+//
+// These mirror the hand-rolled `validate(body, partial)` helpers the routes
+// used to carry, message for message, so the API answers callers exactly as
+// before. What changes is that the rule lives in one place and the route gets
+// a typed value back instead of poking at `Record<string, unknown>`.
+//
+// PATCH uses `.partial()` rather than a second schema with a boolean flag:
+// every field becomes optional, and a field that IS present is still checked.
+
+/** A short free-text label: trimmed and stripped of control characters. */
+const label = (message: string) =>
+  z
+    .string({ message })
+    .transform(sanitizeLabel)
+    .refine((v) => v.length > 0, message);
+
+/** A count that must be a real number, zero or more. */
+const nonNegative = (field: string) =>
+  z.coerce
+    .number({ message: `${field} must be zero or more.` })
+    .refine(Number.isFinite, `${field} must be zero or more.`)
+    .min(0, `${field} must be zero or more.`);
+
+export const INVENTORY_CATEGORIES = [
+  "Pool & Chemicals",
+  "Furniture & Misc",
+  "Cleaning Tools",
+] as const;
+
+/** POST /api/inventory */
+export const inventoryItemInput = z.object({
+  category: z.enum(INVENTORY_CATEGORIES, { message: "Unknown inventory category." }),
+  name: label("An item name is required."),
+  qty: nonNegative("qty"),
+  unit: z.string().transform((v) => v.slice(0, 24)).optional().default("pc"),
+  // Required on create, not defaulted. The retired validator checked this
+  // on every POST -- `Number(undefined)` is NaN, so an omitted minQty was
+  // a 400 -- even though the insert below it wrote `minQty ?? 0`. A
+  // refactor is the wrong place to quietly loosen a validator, so the
+  // stricter of the two behaviours is the one kept. `.partial()` still
+  // makes it optional for PATCH.
+  minQty: nonNegative("minQty"),
+  notes: z.string().transform(sanitizeNotes).optional().default(""),
+});
+
+/** PATCH /api/inventory?id= — every field optional, present ones still checked. */
+export const inventoryItemPatch = inventoryItemInput.partial();
+
+export type InventoryItemInput = z.infer<typeof inventoryItemInput>;
+export type InventoryItemPatch = z.infer<typeof inventoryItemPatch>;
 
 // ── Helper ───────────────────────────────────────────────────────────
 
