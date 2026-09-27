@@ -12,9 +12,45 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { loading } = useApp();
 
+  /* The pathname as of the last render, readable from inside the callbacks
+     below without making them stale. */
+  const pathRef = useRef(pathname);
+  useEffect(() => { pathRef.current = pathname; }, [pathname]);
+
+  /* Clicking the nav item for the page you are already on calls start() but
+     never navigates: `pathname` does not change, `loading.content` does not
+     change, so the effect below never runs and the bar trickles to 90% and
+     parks there for the rest of the session.
+
+     The bar cannot know the target -- callers only hand it start() -- so it
+     checks afterwards instead: if the route is still what it was shortly
+     after the click, nothing navigated and the bar completes itself. */
+  const sameRoute = useRef<number | null>(null);
+
   // expose globally (for nav control)
   useEffect(() => {
-    (globalThis as any).loader = loaderRef;
+    (globalThis as any).loader = {
+      get current() {
+        return {
+          start() {
+            const from = pathRef.current;
+            loaderRef.current?.start();
+            if (sameRoute.current !== null) clearTimeout(sameRoute.current);
+            sameRoute.current = window.setTimeout(() => {
+              sameRoute.current = null;
+              if (pathRef.current === from) loaderRef.current?.finish();
+            }, 700);
+          },
+          finish() {
+            if (sameRoute.current !== null) { clearTimeout(sameRoute.current); sameRoute.current = null; }
+            loaderRef.current?.finish();
+          },
+        };
+      },
+    };
+    return () => {
+      if (sameRoute.current !== null) clearTimeout(sameRoute.current);
+    };
   }, []);
 
   // Finish the bar when the new route has actually rendered.
@@ -38,6 +74,7 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
     // fetched. Finishing on the route alone would put the bar back at the
     // old behaviour: complete before the page has anything real to show.
     if (loading.content) return;
+    if (sameRoute.current !== null) { clearTimeout(sameRoute.current); sameRoute.current = null; }
     loaderRef.current?.finish();
   }, [pathname, loading.content]);
 

@@ -627,9 +627,59 @@ Verified by sampling the fill across the transition: **38 distinct widths**
 between 133px and 267px, not two. The bar is a real `role="progressbar"` with
 `aria-valuetext="Step 2 of 6: DATE"`, so it is announced, not just drawn.
 
+**The fill's colour waves.** Two oversized blob-shaped layers
+(`border-radius: 43%`) live inside the fill, clipped by its `overflow:
+hidden`. Each runs one keyframe that combines `translateX`, `translateY` and
+`rotate`: as a blob turns, its curved edge crosses the 6px band at a changing
+height, and sliding it sideways at the same time makes that crest travel —
+which is what reads as flowing water.
+
+Both transforms **must** sit in a single keyframe. Two animations targeting
+the same element's `transform` do not compose; the last one simply wins.
+
+The layers run opposite directions at different periods (7s and 9.5s) so
+their crests cross rather than marching in step. A faint gold `box-shadow`
+breathes behind them — not clipped by the element's own `overflow`, so it
+spills past the track.
+
+The track is **6px**, not 4: at 4px none of this was visible.
+
+Three things were tried and removed, all for the same reason — on a 6px bar
+they read as glare rather than water: a white `::after` sweep, a bright
+leading cap, and an animated `background-position` ramp. Tints now stay close
+to the brand gold and well under full opacity.
+
+The gold arrives as `--sw-gold` from the component, so the palette stays in
+`lib/styles.ts` while the animation lives in CSS.
+
+Both layers stop at `data-complete="true"` (the DONE step) and under
+`prefers-reduced-motion: reduce`, leaving a flat gold fill: position is still
+reported, nothing flows. A bar still flowing after the booking is finished
+says the opposite of what DONE means.
+
+Verified by decoding each layer's computed matrix with `DOMMatrix` over 5s:
+31 samples, 31 distinct rotations and 31 distinct X offsets per layer, turning
+in opposite directions (A 22° → 151°, B 78° → −48°).
+
+**The labels are buttons, backwards only.**
+
+| Label | State |
+|---|---|
+| Already completed | clickable, returns to that step |
+| Current | clickable (a no-op), focusable, `aria-current="step"` |
+| Still ahead | `disabled` |
+| Any, once on DONE | `disabled` — the reservation is saved and paid |
+
+`ROOM` is also never a target when `showRoomPicker` is false, because a
+venue-only booking or a package with no room never had that step. Nothing
+here lets a guest skip validation to reach payment: the bar reports progress,
+it does not grant it. Each label is 44px tall for the HIG hit area even
+though the text is one short line.
+
 Internal step numbers are historical and there is no step 2 -- `stepIdx` maps
-`{1,3,4,5,6,7}` onto 0-5. Do not renumber the states to match the labels; the
-deep-link entry points depend on them.
+`{1,3,4,5,6,7}` onto 0-5, and `stepOf` is its inverse for the back-jumps. Do
+not renumber the states to match the labels; the deep-link entry points
+depend on them.
 
 | Label | State | Screen |
 |---|---|---|
@@ -639,6 +689,13 @@ deep-link entry points depend on them.
 | CONTACT | 5 | Guest details and the reservation summary |
 | PAYMENT | 6 | GCash QRPh and the order summary |
 | DONE | 7 | Reference ID and what happens next |
+
+**Width.** The column is `maxWidth: 1080` with `44px 48px` of card padding
+(it was 800 / 40px, which left the visit tiles cramped and wrapped the venue
+option's price onto a second line). At 1440 that gives three 318px tiles and,
+on the contact step, two ~484px fields side by side — wide enough to breathe,
+short enough to still read as a form. The phone layout is untouched: the
+column is viewport-width there either way.
 
 **Three shared helpers** keep the six steps from drifting: `stepHead()` (gold
 eyebrow, serif question, optional note), `tileStyle()` (one selected
@@ -705,6 +762,315 @@ scratchpad:
   does nothing; a light-mode audit has to click the toggle.
 - **`getImageData` is not premultiplied.** Dividing by alpha inflates every
   channel and reports luminance above 100%.
+
+### /packages shares the home page's showcase
+
+`/packages` was a grid of every active package -- ten cards at the time of
+writing, three across, each too small to carry its own inclusions, so
+comparing two meant opening a modal. It now renders the same
+`PackageShowcase` the home page uses: one full offer per slide, grouped by
+tier. The per-card detail modal went with the grid; there is nothing left for
+it to reveal that the slide does not already show.
+
+`PackageShowcase` grew two optional props rather than being forked:
+
+| Prop | Default | Effect |
+|---|---|---|
+| `tierStyle` | `"pill"` | `"card"` renders the three tiers as named cards (icon, name, tagline) instead of a compact pill row |
+| `showTierIntro` | `false` | Restates the chosen tier under the selector as `01 - SHARED` / *Come together* / one line of explanation |
+
+Widths: the /packages column is `maxWidth: 1320` with a 40px page gutter,
+giving a 1201px card at 1440 (it was 1100/24px and ~1020). The home page's
+packages section is 1280. Both stack to a single column on a phone.
+
+The home page keeps `"pill"`: there the tier is a filter on one section of a
+longer page. `/packages` uses `"card"`, because there the tier *is* the page's
+first decision.
+
+Tier copy lives on `TIERS` in `PackageShowcase.tsx`, not in the page, so the
+selector and the intro block cannot disagree about what a tier is called.
+
+Verified: switching tiers repoints both the intro and the carousel (Shared 2
+slides, Exclusive 4, Events 4), with no horizontal overflow at 1280 or 390.
+
+The other three nav pages already matched their designs and were not touched:
+`/rooms` (ACCOMMODATIONS / *Rooms & Sleeping Quarters*), `/gallery`
+(*Seventeen hours, told in order*) and `/about`.
+
+### Manage Booking replaces Cancel Booking
+
+`/cancelbooking` (component still `CancelBooking.tsx`, route unchanged so the
+links in already-sent confirmation emails keep working) is no longer a
+cancel-only screen. It is *Your stay, in one place*: find a reservation, read
+its status and money, then choose one of three actions. The footer's SUPPORT
+column says "Manage Booking" to match.
+
+**Only one of the three actions has an endpoint.** `POST
+/api/bookings/[id]/cancel` is real and cancels on the server. A schedule
+change and a guest-detail correction have no endpoint, so they are submitted
+as *requests* through `POST /api/customer-service` — the same inbox the
+contact form feeds — with the booking reference in the message body:
+
+```
+[Schedule change request — booking SW-10105]
+
+<what the guest typed>
+```
+
+Nothing on this page silently mutates a reservation, which is exactly what the
+notice under each form tells the guest. If real reschedule/update endpoints
+arrive later, swap `sendRequest()` and delete the notice.
+
+Two deliberate departures from the mockup:
+
+- **No photograph on the found card.** A booking record carries no image. The
+  mockup shows a room photo; rendering an arbitrary one would show the guest a
+  room they may not have booked. It is an icon tile instead.
+- **"Date" and "Time slot", not "Check-in" and "Check-out".** The resort sells
+  day-use slots, so both dates in the mockup were the same day. The slot cell
+  shows the *hours* rather than the slot's name, because the package label
+  directly above it is already "Day Tour" and the card was saying it twice.
+
+### Customer Service
+
+"How can we help?" — three contact cards each with a second line (response
+time, availability), then the message form.
+
+**The type selector was losing two of its five options.** It offered Feedback,
+Complaint, Question, Booking Issue and Other, but `/api/customer-service`
+stores only `Inquiry | Complaint | Feedback | Suggestion | Other` and falls
+back to `"Other"` for anything else. "Question" and "Booking Issue" were
+therefore discarded on the way to the admin inbox. It is now a three-way
+segmented control whose values the API actually keeps:
+
+| Guest sees | Stored as |
+|---|---|
+| Question | `Inquiry` |
+| Feedback | `Feedback` |
+| Concern | `Complaint` |
+
+### The gallery is a mosaic, not a set of chapters
+
+The hero is unchanged. Below it, the page used to be six written chapters
+("The gate opens", "First in the water" ...) with a sticky time rail down the
+left, an IntersectionObserver tracking which chapter you were in, and a
+separate "every photo, all at once" grid at the end — so every photo appeared
+twice. That is all gone. One mosaic now carries the whole day.
+
+**Layout.** A 12-column grid whose spans repeat on a ten-photo cycle:
+
+```
+SPANS = [7, 5, 4, 5, 7, 7, 4, 3, 4, 7]
+
+row 1   7 + 5 = 12      full
+row 2   4 + 5 = 9       next span is 7, will not fit -> row ends, 3 empty
+row 3   7               next span is 7, will not fit -> row ends, 5 empty
+row 4   7 + 4 = 11      next span is 3, will not fit -> row ends, 1 empty
+```
+
+The gaps down the right are the layout, not a bug: a row ends as soon as the
+next span will not fit, and nothing is re-packed. Photos keep their own aspect
+ratio, so rows stagger. One column on a phone.
+
+**Time badges.** Photos are stamped 07:00 to 23:00 — the resort's seventeen
+open hours, which is where the title comes from — spread evenly across however
+many photos the admin has uploaded:
+
+```ts
+const hour = total <= 1 ? 7 : 7 + Math.round((i * 16) / (total - 1));
+```
+
+With nine photos in the seed set the badges step 07:00, 09:00, 12:00 … 23:00.
+They are positions in the day, not EXIF timestamps.
+
+The page ends on the last photo. The "Check availability" button that used to
+close it is gone, and with it the `onBookNow` prop — the navbar's Book Now is
+always on screen, so the gallery does not need its own copy.
+
+Verified: 8 tiles, badges 07:00 through 23:00, spans matching the cycle, no
+horizontal overflow at 1440 or 390, and the lightbox still opens at z-2000
+with focus trapped and Escape closing it.
+
+### About: the "Find us" band
+
+A full-bleed split between "Why Choose StoneWood" and the map: photo on one
+half, the name, address and a Plan your visit button on the other. It sits
+outside the page's centred column on purpose, so the image runs to the edge of
+the viewport, and stacks to one column on a phone.
+
+The photo is **not** a hard-coded URL. `About` takes an optional `photo` prop
+and `app/about/page.tsx` passes `galleryImgs[0]` from `AppContext`, so the
+resort changes it from the admin Gallery tab rather than through a deploy. The
+image is skipped entirely when the gallery is empty, leaving the panel rather
+than a broken frame.
+
+### Navbar
+
+Roomier, and the CTA is no longer shouting.
+
+| | Before | After |
+|---|---|---|
+| Header height | 78 / 64 scrolled | **88 / 74** |
+| Column max-width | 1240 | **1440** |
+| Side gutter | 32px | **48px** |
+| Nav link gap | 36px | **44px** |
+| BOOK NOW | 138x40, `fontWeight: 700`, `radius: 7` | **147x46**, `fontWeight: 500`, `radius: 10` |
+
+`goldBtn` ships `fontWeight: 700`; the navbar overrides it locally rather than
+changing the shared style, so every other gold button on the site keeps its
+weight.
+
+Side effect worth keeping: at 46px tall the CTA clears the HIG 44x44 default,
+so it dropped out of the "controls between 28 and 44" list — that count went
+from 10 to 9.
+
+### The top loading bar could park at 90% forever
+
+Clicking the nav item for the page you are already on started the bar and
+then stranded it. `ClientShell` finishes the bar from an effect keyed on
+`[pathname, loading.content]`; a same-route `router.push` changes neither, so
+the effect never re-ran, `finish()` was never called, and the bar sat
+trickling to 90% for the rest of the session — on every page, since the stuck
+bar is fixed-position and outlives navigation.
+
+Reproduced before the fix (clicking HOME while on `/`): bar at 18% -> 43% ->
+68% and climbing, route unchanged. After: 18% -> 100% -> gone.
+
+The bar cannot know where a click is headed — callers only hand it `start()`
+— so it checks afterwards instead. `start()` records the current pathname and
+sets a 700ms timer; if the route is still the same when it fires, nothing
+navigated and the bar completes itself. A real navigation clears that timer
+from the pathname effect.
+
+`TopLoader` also gained a 10s last-resort timer. Whatever goes wrong — a
+navigation that never commits, data that never arrives — a bar stuck at 90%
+forever is worse than one that completes slightly early.
+
+The global `loader` is now a small shim object rather than the raw ref, so
+all eight `nav()` handlers get the fix without being touched.
+
+### Dialog and sheet close buttons
+
+The close control was a bare 16px icon at `opacity-70`. Over a photo at the
+top of a dialog it disappeared, and which way it disappeared flipped with the
+theme. It now sits on its own circular chip, in `components/ui/dialog.tsx`
+and `components/ui/sheet.tsx`, so every dialog and sheet on the site gets it.
+
+The chip is **opaque** and drawn from the theme tokens, which is the point:
+the icon contrasts with the chip rather than with whatever image happens to
+be behind it, and the whole control inverts with the theme.
+
+| Measured on the rooms modal | Dark | Light |
+|---|---|---|
+| Chip | `#0c0b09` | `#faf7f2` |
+| Icon vs chip | 16.89:1 | 16.81:1 |
+| Outline ring vs chip | 5.51:1 | 3.91:1 |
+
+The ring started as `border-border`, which measured **1.21:1** against its own
+chip — an outline nobody could see. `border-foreground/55` clears the 3:1 bar
+for non-text UI in both themes. Size is `size-11` (47x47 painted), the HIG
+default control size.
+
+**It stays inside the panel, deliberately.** Placed outside
+(`sm:-top-4 sm:-right-4`) it looked better in isolation but broke in practice:
+several dialogs pass `max-h-[...] overflow-y-auto` to this same element, so
+the chip was clipped to a half-circle by that scroll container and widened its
+scroll area into a stray horizontal scrollbar. Moving it out for real means
+giving every dialog an inner scroll wrapper and splitting the consumer
+classNames across two elements — a bigger change than this fix warrants.
+
+The two lightbox close buttons (`Gallery`, `PackageShowcase`) already had
+their own circular chips and were left alone; they sit on a permanently dark
+full-bleed backdrop.
+
+### Package carousel: arrows centred on the card
+
+A package with few inclusions left the arrows looking stranded. Two separate
+causes, both measured on `/packages` at 1440:
+
+**1. Short cards did not fill the track.** Heights were `[744, 533]` in a
+744px track, so a short card sat at the top and its centre was 105px above
+the tall one's. `<article>` now carries `h-full`, so every slide fills the
+track: `[744, 744]`, centres identical. It also gives the detail column the
+height its `mt-auto` CTA always wanted, so the button reaches the foot
+instead of floating mid-card.
+
+**2. The arrows were centred on the wrong box.** They are absolutely
+positioned against their nearest positioned ancestor, which was `<Carousel>`
+— and that includes the dots row *below* the track. `top-1/2` therefore
+centred them on track + dots, 36px below the card's middle. `relative` moved
+onto the track wrapper, with the desktop arrows inside it; the mobile arrows
+stay a static row under the track.
+
+Offset from card centre to arrow centre: **36px -> 0px**, on both the home
+page and `/packages`, for both a tall and a short package.
+
+Mobile is unchanged and verified separately: arrows `static`, 47x47, side by
+side, below the card and above the dots.
+
+### Navbar legibility while scrolling
+
+The bar was transparent until `scrollY > 72`, then snapped solid over .35s.
+The header is `sticky`, so through those first 72px the hero photograph slid
+UP behind a bar with nothing behind its text — which is exactly where the
+links became unreadable.
+
+**Two fixes, both measured by sampling painted pixels** (the bar is a stack of
+a translucent background over a photograph; compositing it by hand would be
+guesswork):
+
+1. **The background tracks the scroll instead of flipping.** A `--nav-a`
+   variable ramps 0 -> 1 across the same 72px, written straight to the node
+   from the rAF handler, so there is no React re-render while scrolling. It
+   never reaches 0: the bar holds a **minimum 62% (dark) / 68% (light)** of
+   its own theme colour and deepens to 88/90%, with blur going 8px -> 16px.
+   A photograph is not a surface you can guarantee any text against.
+2. **Inactive links were the muted `C.textS`**, which measured 3.77:1 (dark)
+   and 2.46:1 (light) against the bar — under 4.5 in both themes even when
+   fully solid. They now use `rgba(255,255,255,0.92)` / `C.textH`.
+
+Link contrast, ROOMS, sampled at six scroll positions:
+
+| scrollY | 0 | 20 | 40 | 60 | 80 | 200 |
+|---|---|---|---|---|---|---|
+| Dark, before | 8.37 | 8.31 | 8.53 | 7.92 | **3.75** | **3.77** |
+| Dark, after | 16.35 | 16.39 | 15.61 | 15.52 | 15.85 | 15.54 |
+| Light, before | **3.40** | **2.23** | **2.19** | **1.49** | **2.26** | **2.46** |
+| Light, after | 17.12 | 17.09 | 14.96 | 14.13 | 14.44 | 15.24 |
+
+A black scrim was tried first and dropped: it suited the dark theme and failed
+the light one at 2.2:1, because it fought the bar it was fading into. Giving
+the bar a floor in its OWN colour means the text never changes surface.
+
+The `solid` hysteresis (ENTER 72 / EXIT 24) still drives the height change;
+only the background left the binary state.
+
+### Cancelling a payment
+
+The payment step now carries a CANCEL PAYMENT action, shown only while the
+payment is still outstanding (`!paid`) — once PayMongo has confirmed, there is
+a real payment to reconcile and it is no longer the guest's to undo.
+
+**There is nothing to roll back in the database.** A booking row is only
+written after PayMongo confirms (see `confirmOnline`), so cancelling here just
+returns to the guest-details step. Leaving step 6 fires the QR effect's
+cleanup, which `DELETE`s the payment intent, so the code on screen cannot be
+paid afterwards.
+
+Verified by recording every `fetch` the page made across a full run:
+
+```
+POST   /api/payment                    QR minted on entering the step
+GET    /api/payment?id=pi_uvbB9sTg...  status poll
+DELETE /api/payment?id=pi_uvbB9sTg...  voided when Cancel was confirmed
+```
+
+No `POST /api/bookings` at any point, and the progress bar returned to
+"Step 4 of 6: CONTACT".
+
+The confirm says so plainly — "Nothing has been charged and no reservation has
+been saved" — because the guest is looking at a live QR code and needs to know
+the difference between abandoning it and cancelling a booking that exists.
 
 ### Apple HIG: the numbers this section is built to
 

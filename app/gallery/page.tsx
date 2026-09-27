@@ -55,7 +55,7 @@ export default function GalleryRoute() {
           <CardGridSkeleton count={6} label="Loading gallery" />
         </div>
       ) : (
-        <Gallery galleryImgs={galleryImgs} onBookNow={() => nav("Book Now")} />
+        <Gallery galleryImgs={galleryImgs} />
       )}
       <Footer setPage={nav} />
       <ThemeToggle />

@@ -27,10 +27,12 @@ export const TopLoader = forwardRef<LoaderRef>((_, ref) => {
   const [active, setActive] = useState(false);
   const trickle = useRef<number | null>(null);
   const hide = useRef<number | null>(null);
+  const maxLife = useRef<number | null>(null);
 
   const stopTimers = () => {
     if (trickle.current !== null) { clearInterval(trickle.current); trickle.current = null; }
     if (hide.current !== null) { clearTimeout(hide.current); hide.current = null; }
+    if (maxLife.current !== null) { clearTimeout(maxLife.current); maxLife.current = null; }
   };
 
   useImperativeHandle(ref, () => ({
@@ -44,6 +46,14 @@ export const TopLoader = forwardRef<LoaderRef>((_, ref) => {
       trickle.current = window.setInterval(() => {
         setProgress((p) => (p >= 90 ? p : p + Math.max(0.6, (90 - p) * 0.08)));
       }, 160);
+      /* Last resort. Whatever went wrong -- a navigation that never
+         committed, data that never arrived -- a bar stuck at 90% forever is
+         worse than one that completes slightly early. */
+      maxLife.current = window.setTimeout(() => {
+        stopTimers();
+        setProgress(100);
+        hide.current = window.setTimeout(() => { setActive(false); setProgress(0); }, 280);
+      }, 10000);
     },
     finish() {
       stopTimers();

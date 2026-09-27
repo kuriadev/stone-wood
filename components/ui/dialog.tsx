@@ -67,10 +67,23 @@ function DialogContent({
         {...props}
       >
         {children}
+        {/* The close control sits on its own circular chip. A bare icon
+            vanished against a photo at the top of a dialog and its contrast
+            flipped with the theme; the chip is drawn from the
+            background/border/foreground tokens, so it inverts with the theme
+            and the icon contrasts with the chip rather than with whatever
+            happens to be behind it.
+
+            It stays INSIDE the panel. Several dialogs pass
+            `max-h-[...] overflow-y-auto` to this same element, so anything
+            positioned outside it is clipped to a half-circle by that scroll
+            container and widens its scroll area into a stray horizontal
+            scrollbar. Moving it out would mean giving every dialog an inner
+            scroll wrapper. */}
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="absolute top-3 right-3 z-10 flex size-11 items-center justify-center rounded-full border border-foreground/55 bg-background text-foreground shadow-md transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           >
             <XIcon />
             <span className="sr-only">Close</span>

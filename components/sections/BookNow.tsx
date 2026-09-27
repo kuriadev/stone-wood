@@ -36,6 +36,15 @@
     EVENT_VENUE_RATE,
     SHARED_PER_HEAD_RATE,
   } from "@/lib/validators";
+  import {
+    AlertDialog,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+  } from "@/components/ui/alert-dialog";
   import { Button } from "@/components/ui/button";
   import { Checkbox } from "@/components/ui/checkbox";
   import {
@@ -161,6 +170,7 @@
     // Modal states
     const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
     const [showGcashWarning, setShowGcashWarning] = useState(false);
+    const [showCancelPay, setShowCancelPay] = useState(false);
     const [policyChecked, setPolicyChecked] = useState(false);
     // Modals are portaled straight into document.body (see the GCash
     // warning modal below) so they can never be broken by some ancestor
@@ -477,6 +487,20 @@
     const currentIdx = stepIdx[step] ?? 0;
     const pct = ((currentIdx + 1) / labels.length) * 100;
 
+    /* The inverse of stepIdx: which internal step each label goes back to. */
+    const stepOf = [1, 3, 4, 5, 6, 7];
+
+    /* Only a step the guest has already completed can be clicked, and only
+       while the booking is still open:
+         - DONE is terminal. The reservation is saved and paid; sending anyone
+           back into the payment screen from here would be meaningless at best.
+         - ROOM is skipped for a venue-only booking or a package with no room,
+           so it is never a place to return to in those flows.
+       Everything ahead of the guest stays inert -- the bar reports progress,
+       it does not let anyone skip validation to reach payment. */
+    const canJumpTo = (i: number) =>
+      step !== 7 && i < currentIdx && !(i === 2 && !showRoomPicker);
+
     /* Every step opens the same way: a gold eyebrow, a serif question, and an
        optional quiet note on the right. Written once as a function (not a
        nested component, which React would remount on every keystroke) so the
@@ -538,7 +562,7 @@
 
     return (
       <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "32px 16px" : "80px 24px" }}>
-        <div style={{ maxWidth: 800, margin: "0 auto" }}>
+        <div style={{ maxWidth: 1080, margin: "0 auto" }}>
           <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 12.5, marginBottom: 8, textAlign: "center" }}>RESERVATIONS</p>
           <h2 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 30 : 46, color: C.textH, textAlign: "center", marginBottom: 10, fontWeight: 400, lineHeight: 1.1 }}>Create Your Stay</h2>
           <p style={{ color: C.textS, fontSize: mob ? 14.5 : 16, textAlign: "center", margin: "0 0 10px" }}>
@@ -570,41 +594,58 @@
               aria-valuemin={1}
               aria-valuemax={labels.length}
               aria-valuetext={`Step ${currentIdx + 1} of ${labels.length}: ${labels[currentIdx]}`}
-              style={{ height: 4, borderRadius: 999, background: isDark ? "#231e18" : "#e6e0d5", overflow: "hidden" }}
+              style={{ height: 6, borderRadius: 999, background: isDark ? "#231e18" : "#e6e0d5", overflow: "visible" }}
             >
               <div
-                className="transition-[width] duration-700 ease-out motion-reduce:transition-none"
-                style={{ height: "100%", width: `${pct}%`, borderRadius: 999, background: `linear-gradient(90deg, ${gold}b3, ${gold})` }}
+                className="sw-progress-fill transition-[width] duration-700 ease-out motion-reduce:transition-none"
+                data-complete={step === 7 ? "true" : "false"}
+                /* The gradient itself lives in globals.css so it can be
+                   animated; the component only hands it the brand gold. */
+                style={{ height: "100%", width: `${pct}%`, borderRadius: 999, ["--sw-gold" as string]: gold }}
               />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: `repeat(${labels.length},1fr)`, marginTop: 10 }}>
-              {labels.map((label, i) => (
-                <span
-                  key={label}
-                  aria-current={i === currentIdx ? "step" : undefined}
-                  style={{
-                    textAlign: "center",
-                    // 11px is the HIG floor (typography.md > Ensuring
-                    // legibility). It was 9.5 here, which put six labels back
-                    // under the minimum on a phone.
-                    fontSize: 11,
-                    letterSpacing: mob ? 0 : 1.4,
-                    // Done is stated brightly, the current step in gold and
-                    // what is still ahead quietly, so the row reads as
-                    // progress rather than as six equal tabs.
-                    color: i < currentIdx ? C.textB : i === currentIdx ? C.goldInk : C.textS,
-                    fontWeight: i <= currentIdx ? 700 : 500,
-                  }}
-                >
-                  {label}
-                </span>
-              ))}
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${labels.length},1fr)`, marginTop: 4 }}>
+              {labels.map((label, i) => {
+                const jump = canJumpTo(i);
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    disabled={!jump && i !== currentIdx}
+                    onClick={() => jump && setStep(stepOf[i])}
+                    aria-current={i === currentIdx ? "step" : undefined}
+                    aria-label={jump ? `Go back to step ${i + 1}, ${label}` : undefined}
+                    style={{
+                      // 44px keeps the hit area at the HIG default even though
+                      // the label itself is one short line.
+                      minHeight: 44,
+                      padding: "0 2px",
+                      background: "transparent",
+                      border: "none",
+                      textAlign: "center",
+                      // 11px is the HIG floor (typography.md > Ensuring
+                      // legibility). It was 9.5 here, which put six labels back
+                      // under the minimum on a phone.
+                      fontSize: 11,
+                      letterSpacing: mob ? 0 : 1.4,
+                      // Done is stated brightly, the current step in gold and
+                      // what is still ahead quietly, so the row reads as
+                      // progress rather than as six equal tabs.
+                      color: i < currentIdx ? C.textB : i === currentIdx ? C.goldInk : C.textS,
+                      fontWeight: i <= currentIdx ? 700 : 500,
+                      cursor: jump ? "pointer" : "default",
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Main card */}
-          <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : "40px", boxShadow: C.shadow }}>
+          <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : "44px 48px", boxShadow: C.shadow }}>
 
             {/* STEP 1 - Visit type.
                 Picking a tile used to jump straight to the next step. It now
@@ -1403,6 +1444,31 @@
                     )}
                   </div>
                 </div>
+
+                {/* Only while the payment is still outstanding. Once PayMongo
+                    has confirmed, there is a real payment to reconcile and
+                    this is no longer the guest's to undo. */}
+                {!paid && (
+                  <div style={{ marginTop: 22, textAlign: "center" }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowCancelPay(true)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: C.textS,
+                        fontSize: 12.5,
+                        letterSpacing: 1.2,
+                        cursor: "pointer",
+                        minHeight: 44,
+                        padding: "0 16px",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      CANCEL PAYMENT
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1475,6 +1541,41 @@
             Escape and the backdrop both route through onOpenChange, so every
             way out resets `policyChecked` -- dismissing the dialog and coming
             back must not leave the box still ticked from last time. */}
+        {/* Cancelling the payment. Worth a confirm: the guest loses the QR
+            they are looking at, and a fresh one is minted on the way back. */}
+        <AlertDialog open={showCancelPay} onOpenChange={(o) => { if (!o) setShowCancelPay(false); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 24, fontWeight: 400 }}>
+                Cancel this payment?
+              </AlertDialogTitle>
+              <AlertDialogDescription style={{ color: C.textS, fontSize: 14, lineHeight: 1.7 }}>
+                Nothing has been charged and no reservation has been saved. The QR code on
+                screen will stop working, and your date is not held. You can start the
+                payment again from your details.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel style={{ ...outBtn, color: C.goldInk, minHeight: 48 }}>
+                KEEP PAYING
+              </AlertDialogCancel>
+              <Button
+                onClick={() => {
+                  setShowCancelPay(false);
+                  setQrExpired(false);
+                  // Back to guest details. The step-6 effect's cleanup voids
+                  // the payment intent on the way out, so the code cannot be
+                  // paid after this.
+                  setStep(5);
+                }}
+                style={{ minHeight: 48, border: "1px solid rgba(214,138,138,0.5)", background: "rgba(180,70,70,0.22)", color: "#f0c9c9", fontSize: 12.5, fontWeight: 700, letterSpacing: 1.4 }}
+              >
+                YES, CANCEL
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         <Dialog
           open={showGcashWarning}
           onOpenChange={(open) => { if (!open) { setShowGcashWarning(false); setPolicyChecked(false); } }}

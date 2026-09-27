@@ -46,6 +46,16 @@ export function Navbar({ page, setPage }: NavbarProps) {
   // being torn down and re-subscribed on every change.
   const solidRef = useRef(false);
 
+  /* The bar's own background used to be binary: fully transparent until 72px
+     of scroll, then a .35s fade to solid. The header is sticky, so during
+     those 72px the hero photo slides UP behind a bar that has nothing behind
+     its text -- which is where the links became unreadable.
+
+     `--nav-a` ramps 0 -> 1 across the same distance and is written straight
+     to the node each frame, so the background tracks the scroll instead of
+     snapping, and no React re-render happens while scrolling. */
+  const headerRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     // Two thresholds, not one.
     //
@@ -65,6 +75,10 @@ export function Navbar({ page, setPage }: NavbarProps) {
     const read = () => {
       frame = 0;
       const y = window.scrollY;
+      headerRef.current?.style.setProperty(
+        "--nav-a",
+        String(Math.min(1, Math.max(0, y / ENTER))),
+      );
       const next = solidRef.current ? y > EXIT : y > ENTER;
       if (next === solidRef.current) return; // nothing changed, no re-render
       solidRef.current = next;
@@ -96,9 +110,14 @@ export function Navbar({ page, setPage }: NavbarProps) {
   // while that background is dark, which is why these are tied to the theme
   // and not to `overlay` alone. Before this, switching to light mode on the
   // Home page left white links on a light bar.
-  const onDark = overlay && isDark;
+  /* Home only: the bar sits over the hero photo. */
+  const onHero = page === "Home";
 
-  const linkColor = onDark ? "rgba(255,255,255,0.78)" : C.textS;
+  /* The bar carries its own theme-coloured background at every scroll
+     position, so "is the bar dark" is simply "is the theme dark". */
+  const onDark = isDark;
+
+  const linkColor = onDark ? "rgba(255,255,255,0.92)" : C.textH;
   const linkActive = onDark ? "#fff" : C.textH;
 
   return (
@@ -120,23 +139,31 @@ export function Navbar({ page, setPage }: NavbarProps) {
       </a>
 
       <header
+        ref={headerRef}
         style={{
           position: "sticky",
           top: 0,
           zIndex: 200,
-          background: overlay ? "transparent" : (isDark ? "rgba(8,6,4,0.88)" : "rgba(253,251,247,0.9)"),
-          backdropFilter: overlay ? "none" : "blur(16px)",
-          WebkitBackdropFilter: overlay ? "none" : "blur(16px)",
+          /* Only the Home page has a hero to sit over; every other page keeps
+             the bar solid from the start. */
+          background: onHero
+            ? (isDark
+                ? "rgb(8 6 4 / calc(0.62 + 0.26 * var(--nav-a, 0)))"
+                : "rgb(253 251 247 / calc(0.68 + 0.22 * var(--nav-a, 0)))")
+            : (isDark ? "rgba(8,6,4,0.88)" : "rgba(253,251,247,0.9)"),
+          backdropFilter: onHero ? "blur(calc(8px + 8px * var(--nav-a, 0)))" : "blur(16px)",
+          WebkitBackdropFilter: onHero ? "blur(calc(8px + 8px * var(--nav-a, 0)))" : "blur(16px)",
           borderBottom: `1px solid ${overlay ? "transparent" : C.border}`,
-          transition: "background .35s ease, border-color .35s ease",
+          transition: onHero ? "border-color .35s ease" : "background .35s ease, border-color .35s ease",
         }}
       >
+
         <div
           style={{
-            maxWidth: 1240,
+            maxWidth: 1440,
             margin: "0 auto",
-            padding: mob ? "0 20px" : "0 32px",
-            height: solid ? 64 : 78,
+            padding: mob ? "0 20px" : "0 48px",
+            height: solid ? 74 : 88,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -179,7 +206,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
 
           {/* Desktop links */}
           {!mob && (
-            <nav aria-label="Main" style={{ display: "flex", alignItems: "center", gap: 36 }}>
+            <nav aria-label="Main" style={{ display: "flex", alignItems: "center", gap: 44 }}>
               {LINKS.map((l) => {
                 const active = page === l;
                 return (
@@ -224,7 +251,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
               <button
                 onClick={() => go("Book Now")}
                 className="sw-btn"
-                style={{ ...goldBtn, padding: "11px 24px", fontSize: 12.5, letterSpacing: 2, borderRadius: 7, whiteSpace: "nowrap", fontFamily: "inherit" }}
+                style={{ ...goldBtn, padding: "14px 30px", fontSize: 12.5, fontWeight: 500, letterSpacing: 2, borderRadius: 10, whiteSpace: "nowrap", fontFamily: "inherit" }}
               >
                 BOOK NOW
               </button>

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useApp } from "@/contexts/AppContext";
 import { T } from "@/lib/theme";
 import { About } from "@/components/sections/About";
 import { Navbar } from "@/components/layout/Navbar";
@@ -12,6 +13,7 @@ export default function AboutRoute() {
   const router = useRouter();
   const { isDark } = useTheme();
   const C = T(isDark);
+  const { galleryImgs } = useApp();
 
   const nav = (p: string) => {
     const routes: Record<string, string> = {
@@ -51,6 +53,7 @@ export default function AboutRoute() {
       {/* ✅ FIXED */}
       <About
         setPage={nav}
+        photo={galleryImgs[0]}
         onBookWithDate={(d) => router.push(`/book?date=${d}`)}
       />
 

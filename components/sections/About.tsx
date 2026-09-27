@@ -9,12 +9,16 @@ import { Icon, type IconName } from "@/components/common/Icon";
 
 interface AboutProps {
   setPage: (p: string) => void;
+  /** The photo beside "Find us". Comes from the admin's gallery rather than
+   *  a hard-coded URL, so the resort can change it without a deploy. */
+  photo?: string;
   onBookWithDate?: (date: string) => void;
   checkDate?: string | null;
 }
 
 export function About({
   setPage,
+  photo,
   onBookWithDate,
   checkDate,
 }: AboutProps) {
@@ -415,6 +419,67 @@ export function About({
       </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* FIND US — photo on one side, the address and a way to act on the
+          other. Full-bleed: the image runs to the edge of the viewport, so
+          this is deliberately outside the page's centred column. */}
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: mob ? "1fr" : "1fr 1fr",
+          alignItems: "stretch",
+          margin: mob ? "0 0 48px" : "0 0 70px",
+          background: C.bgCard,
+        }}
+      >
+        <div style={{ position: "relative", minHeight: mob ? 260 : 520, overflow: "hidden", background: C.bgCard2 }}>
+          {photo && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              loading="lazy"
+              decoding="async"
+              src={photo}
+              alt=""
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          )}
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            padding: mob ? "36px 24px" : "64px 72px",
+          }}
+        >
+          <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.6, fontWeight: 700, margin: "0 0 18px" }}>
+            FIND US
+          </p>
+          <h2
+            style={{
+              color: C.textH,
+              fontFamily: "'Cormorant Garamond',Georgia,serif",
+              fontSize: mob ? 28 : 40,
+              fontWeight: 400,
+              margin: "0 0 20px",
+              lineHeight: 1.15,
+            }}
+          >
+            Stonewood Garden<br />Private Pool
+          </h2>
+          <p style={{ color: C.textS, fontSize: 14, lineHeight: 1.8, margin: "0 0 28px", maxWidth: 360 }}>
+            22 Yakal cor. Ipil St. Doña Justa Village Phase, 2nd St, Angono, Rizal
+          </p>
+          <button
+            onClick={() => setPage("Book Now")}
+            className="sw-btn"
+            style={{ ...goldBtn, alignSelf: "flex-start", padding: "15px 30px", fontSize: 12.5, letterSpacing: 2, borderRadius: 8, fontFamily: "inherit", minHeight: 48 }}
+          >
+            PLAN YOUR VISIT
+          </button>
         </div>
       </section>
 

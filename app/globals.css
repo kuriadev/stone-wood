@@ -1120,3 +1120,91 @@ html {
   .sw-pulse-dot::after { animation: none !important; opacity: 0.35; }
   .sw-pulse-dot { animation: swPulseCore 3s ease-in-out infinite !important; }
 }
+
+/* ── BOOKING PROGRESS ──────────────────────────────────
+   The wave is two oversized, blob-shaped layers (border-radius ~43%) living
+   inside the fill, each animated on ONE keyframe that combines translateX,
+   translateY and rotate. As a blob rotates, its curved edge crosses the 6px
+   band at a changing height, and sliding it sideways at the same time makes
+   that crest travel -- which is what reads as flowing water.
+
+   Both transforms have to sit in a single keyframe: two animations on the
+   same element's `transform` do not compose, the last one simply wins.
+
+   The two layers run opposite directions at different speeds so their crests
+   cross rather than marching in step. Tints stay close to the brand gold and
+   well under full opacity -- a bright band on a 6px bar reads as glare, not
+   as water.
+
+   The gold arrives as --sw-gold from the component, so the palette stays in
+   lib/styles.ts while the animation lives here. */
+@keyframes sw-wave-a {
+  0%   { transform: translateX(-30%) translateY(0)    rotate(0deg); }
+  50%  { transform: translateX(30%)  translateY(-7%)  rotate(180deg); }
+  100% { transform: translateX(-30%) translateY(0)    rotate(360deg); }
+}
+@keyframes sw-wave-b {
+  0%   { transform: translateX(28%)  translateY(-5%)  rotate(360deg); }
+  50%  { transform: translateX(-28%) translateY(3%)   rotate(180deg); }
+  100% { transform: translateX(28%)  translateY(-5%)  rotate(0deg); }
+}
+@keyframes sw-progress-halo {
+  0%, 100% { box-shadow: 0 0 5px rgba(201, 168, 76, 0.28); }
+  50%      { box-shadow: 0 0 10px rgba(201, 168, 76, 0.5); }
+}
+
+.sw-progress-fill {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--sw-gold, #c9a84c);
+  animation: sw-progress-halo 3.4s ease-in-out infinite;
+}
+
+/* The two wave bodies. Far taller than the bar so that rotating them sweeps
+   a gently curved edge through it rather than a visibly circular one. */
+.sw-progress-fill::before,
+.sw-progress-fill::after {
+  content: "";
+  position: absolute;
+  left: -60%;
+  top: -420%;
+  width: 220%;
+  height: 940%;
+  border-radius: 43%;
+  pointer-events: none;
+  will-change: transform;
+}
+.sw-progress-fill::before {
+  background: rgba(255, 240, 205, 0.3);
+  animation: sw-wave-a 7s linear infinite;
+}
+.sw-progress-fill::after {
+  background: rgba(150, 116, 38, 0.28);
+  animation: sw-wave-b 9.5s linear infinite;
+}
+
+/* Finished: a bar still flowing after the booking is complete says the
+   opposite of what DONE means. */
+.sw-progress-fill[data-complete="true"] {
+  animation: none;
+  box-shadow: 0 0 6px rgba(201, 168, 76, 0.3);
+}
+.sw-progress-fill[data-complete="true"]::before,
+.sw-progress-fill[data-complete="true"]::after {
+  animation: none;
+  opacity: 0;
+}
+
+/* Reduced motion keeps the fill, its colour and the width transition --
+   position is still reported, nothing flows. */
+@media (prefers-reduced-motion: reduce) {
+  .sw-progress-fill {
+    animation: none;
+    box-shadow: 0 0 6px rgba(201, 168, 76, 0.3);
+  }
+  .sw-progress-fill::before,
+  .sw-progress-fill::after {
+    animation: none;
+    opacity: 0;
+  }
+}

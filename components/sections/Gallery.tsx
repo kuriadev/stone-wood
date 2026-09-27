@@ -4,10 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
-import { gold, goldBtn } from "@/lib/styles";
+import { gold } from "@/lib/styles";
 import { srcSetFor, SIZES } from "@/lib/img";
 import { Icon } from "@/components/common/Icon";
-import { Reveal } from "@/components/common/Reveal";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +16,6 @@ import {
 
 interface GalleryProps {
   galleryImgs: string[];
-  onBookNow?: () => void;
 }
 
 /**
@@ -33,71 +31,21 @@ interface GalleryProps {
  * images. With fewer photos than chapters, the later chapters simply do not
  * render — the story shortens instead of breaking.
  */
-const CHAPTERS = [
-  {
-    time: "7:00 AM",
-    label: "Arrival",
-    title: "The gate opens",
-    body:
-      "Day Tour starts at seven. Park under the trees, walk in while the stone is still cool, and take the place in before anyone else is up.",
-    tint: "#7ea8c4", // early blue
-  },
-  {
-    time: "9:30 AM",
-    label: "The Pool",
-    title: "First in the water",
-    body:
-      "The pool has the morning to itself. This is the quiet hour — before the food comes out, before the speakers go on.",
-    tint: "#4fb0c6",
-  },
-  {
-    time: "12:30 PM",
-    label: "Grilling Area",
-    title: "Charcoal and smoke",
-    body:
-      "Lunch happens at the BBQ deck — bring your own food and grill it right by the pool.",
-    tint: "#d98a3d",
-  },
-  {
-    time: "4:00 PM",
-    label: "Golden Hour",
-    title: "The light turns",
-    body:
-      "An hour before Day Tour closes, the light drops low across the water. Most of the photos people take here are taken now.",
-    tint: "#e0a84c",
-  },
-  {
-    time: "7:00 PM",
-    label: "Videoke & Billiards",
-    title: "The night tour begins",
-    body:
-      "A separate booking, a different resort. Videoke in one corner, billiards in the other, the pool lit from below.",
-    tint: "#7c5cc4",
-  },
-  {
-    time: "11:00 PM",
-    label: "The Rooms",
-    title: "Last light",
-    body:
-      "Three rooms if you are staying over. The last hour is the quietest one of the day — the pool empty, the deck cooling down.",
-    tint: "#3b4a7a",
-  },
-] as const;
+/** Column spans for the mosaic, on a repeating cycle. The pattern is taken
+ *  from the design: rows that cannot fit the next span end early, which is
+ *  what produces the deliberate gaps down the right-hand side. */
+const SPANS = [7, 5, 4, 5, 7, 7, 4, 3, 4, 7];
 
-/** Split a list into `buckets` contiguous, near-equal groups. Contiguous so
- *  the order the admin arranged in the Gallery tab is preserved. */
-function sliceEvenly<T>(items: T[], buckets: number): T[][] {
-  const out: T[][] = [];
-  let idx = 0;
-  for (let b = 0; b < buckets; b++) {
-    const take = Math.ceil((items.length - idx) / (buckets - b));
-    out.push(items.slice(idx, idx + take));
-    idx += take;
-  }
-  return out;
+/** Photos are stamped with a time of day, spread evenly across the resort's
+ *  seventeen open hours (07:00 to 23:00) however many photos the admin has
+ *  uploaded -- hence "Seventeen hours, told in order". */
+function hourLabel(i: number, total: number): string {
+  const span = 16; // 07:00 -> 23:00
+  const hour = total <= 1 ? 7 : 7 + Math.round((i * span) / (total - 1));
+  return `${String(hour).padStart(2, "0")}:00`;
 }
 
-export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
+export function Gallery({ galleryImgs }: GalleryProps) {
   // Scroll reveals. Called here, not in the layout: the effect must run
   // after THIS page has hydrated or it mutates un-hydrated DOM.
 
@@ -108,21 +56,11 @@ export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
   const tab = w < 1024;
 
   const [selIdx, setSelIdx] = useState<number | null>(null);
-  const [active, setActive] = useState(0);
-  // <section>, so HTMLElement — not HTMLDivElement.
-  const sectionRefs = useRef<(HTMLElement | null)[]>([]);
   /** Where focus was before the lightbox opened, so it can be handed back. */
   const openerRef = useRef<HTMLElement | null>(null);
 
   const hero = galleryImgs[0];
   const rest = useMemo(() => galleryImgs.slice(1), [galleryImgs]);
-
-  // Only as many chapters as there are photos to carry them.
-  const chapters = useMemo(() => {
-    const count = Math.min(CHAPTERS.length, Math.max(rest.length, 1));
-    const groups = sliceEvenly(rest, count);
-    return CHAPTERS.slice(0, count).map((c, i) => ({ ...c, images: groups[i] ?? [] }));
-  }, [rest]);
 
   const open = (src: string, e?: React.MouseEvent) => {
     openerRef.current = (e?.currentTarget as HTMLElement) ?? null;
@@ -156,26 +94,6 @@ export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
       document.body.style.overflow = prevOverflow;
     };
   }, [selIdx, close, step]);
-
-  // Which chapter the reader is in, for the time rail.
-  useEffect(() => {
-    if (typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        const seen = entries.filter((e) => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (seen) {
-          const i = sectionRefs.current.indexOf(seen.target as HTMLElement);
-          if (i >= 0) setActive(i);
-        }
-      },
-      { threshold: [0.25, 0.5], rootMargin: "-20% 0px -40% 0px" },
-    );
-    sectionRefs.current.forEach((el) => el && io.observe(el));
-    return () => io.disconnect();
-  }, [chapters.length]);
-
-  const jumpTo = (i: number) =>
-    sectionRefs.current[i]?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const serif = "'Cormorant Garamond',Georgia,serif";
 
@@ -280,200 +198,76 @@ export function Gallery({ galleryImgs, onBookNow }: GalleryProps) {
         </div>
       </section>
 
-      <div style={{ display: "flex", maxWidth: 1240, margin: "0 auto", padding: mob ? "0 20px" : "0 32px" }}>
-        {/* ── Time rail: the spine of the story ───────────────────── */}
-        {!tab && (
-          <nav
-            aria-label="Jump to a time of day"
-            style={{ position: "sticky", top: 120, alignSelf: "flex-start", height: "fit-content", paddingTop: 96, paddingRight: 44, flexShrink: 0 }}
-          >
-            {chapters.map((c, i) => {
-              const on = i === active;
-              return (
-                <button
-                  key={c.time}
-                  onClick={() => jumpTo(i)}
-                  aria-current={on ? "true" : undefined}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    background: "none",
-                    border: "none",
-                    padding: "9px 0",
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                    textAlign: "left",
-                    width: 150,
-                    color: on ? gold : C.textXS,
-                    transition: "color .25s ease",
-                  }}
-                >
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      width: on ? 26 : 12,
-                      height: 1,
-                      background: on ? gold : C.border,
-                      transition: "width .25s ease, background .25s ease",
-                      flexShrink: 0,
-                    }}
-                  />
-                  <span style={{ fontSize: 11.5, letterSpacing: 1.6, whiteSpace: "nowrap" }}>{c.time}</span>
-                </button>
-              );
-            })}
-          </nav>
-        )}
+      <div style={{ maxWidth: 1240, margin: "0 auto", padding: mob ? "48px 20px 72px" : "88px 32px 112px" }}>
 
-        {/* ── Chapters ────────────────────────────────────────────── */}
-        <div style={{ flex: 1, minWidth: 0, paddingBottom: mob ? 56 : 96 }}>
-          {chapters.map((c, i) => {
-            const [lead, ...extras] = c.images;
-            return (
-              <section
-                key={c.time}
-                ref={(el) => { sectionRefs.current[i] = el; }}
-                style={{ position: "relative", paddingTop: mob ? 56 : 96, scrollMarginTop: 96 }}
-              >
-                {/* Ambient wash that shifts with the hour. Low alpha so it
-                    reads as light rather than a coloured panel, in either theme. */}
-                <div
-                  aria-hidden="true"
-                  style={{
-                    position: "absolute",
-                    left: mob ? -20 : -80,
-                    right: mob ? -20 : -80,
-                    top: 0,
-                    height: 340,
-                    background: `radial-gradient(ellipse 60% 100% at 30% 0%, ${c.tint}${isDark ? "1f" : "17"} 0%, transparent 70%)`,
-                    pointerEvents: "none",
-                  }}
-                />
+        {/* Section head: the label on the left, the line on the right. */}
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 24, flexWrap: "wrap", marginBottom: mob ? 26 : 40 }}>
+          <p style={{ color: C.textS, fontSize: 11, letterSpacing: 2.6, margin: 0 }}>MORNING TO MIDNIGHT</p>
+          <h2 style={{ color: C.textH, fontFamily: serif, fontSize: mob ? 26 : 38, fontWeight: 400, margin: 0, lineHeight: 1.15 }}>
+            A quiet look inside your stay
+          </h2>
+        </div>
 
-                <Reveal style={{ position: "relative", maxWidth: 620, marginBottom: mob ? 22 : 30 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-                    <span
-                      style={{
-                        color: C.goldInk,
-                        fontSize: 11.5,
-                        letterSpacing: 2.4,
-                        border: `1px solid ${gold}44`,
-                        borderRadius: 20,
-                        padding: "5px 13px",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {c.time}
-                    </span>
-                    <span style={{ color: C.textXS, fontSize: 11, letterSpacing: 2.6, textTransform: "uppercase" }}>
-                      {c.label}
-                    </span>
-                  </div>
-                  <h2
-                    style={{
-                      fontFamily: serif,
-                      fontSize: mob ? 27 : 38,
-                      color: C.textH,
-                      fontWeight: 400,
-                      margin: "0 0 12px",
-                      letterSpacing: "-0.3px",
-                      lineHeight: 1.15,
-                    }}
-                  >
-                    {c.title}
-                  </h2>
-                  <p style={{ color: C.textS, fontSize: mob ? 14.5 : 16, lineHeight: 1.8, margin: 0 }}>{c.body}</p>
-                </Reveal>
-
-                {lead && (
-                  <Reveal style={{ display: "grid", gridTemplateColumns: extras.length && !mob ? "1.7fr 1fr" : "1fr", gap: mob ? 10 : 14 }}>
-                    <GalleryFrame
-                      src={lead}
-                      alt={`${c.title} — ${c.label} at StoneWood, ${c.time}`}
-                      height={mob ? 260 : 440}
-                      border={C.border}
-                      shadow={C.shadowCard}
-                      onOpen={open}
-                    />
-                    {extras.length > 0 && (
-                      <div
-                        style={{
-                          display: "grid",
-                          gap: mob ? 10 : 14,
-                          // On a phone a lone extra was taking one half of a
-                          // two-column grid and leaving the other half empty.
-                          // It only pairs up when there is something to pair with.
-                          gridTemplateColumns: mob && extras.length > 1 ? "1fr 1fr" : "1fr",
-                        }}
-                      >
-                        {extras.map((src) => (
-                          <GalleryFrame
-                            key={src}
-                            src={src}
-                            alt={`${c.label} at StoneWood`}
-                            height={
-                              mob
-                                ? extras.length > 1 ? 130 : 200
-                                : (440 - 14 * (extras.length - 1)) / extras.length
-                            }
-                            border={C.border}
-                            shadow={C.shadowCard}
-                            onOpen={open}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </Reveal>
-                )}
-              </section>
-            );
-          })}
-
-          {/* ── Closing: every photo, so nothing is buried in the story ── */}
-          <section style={{ paddingTop: mob ? 60 : 104 }}>
-            <Reveal style={{ textAlign: "center", marginBottom: mob ? 24 : 32 }}>
-              <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 11.5, margin: "0 0 10px" }}>THE FULL SET</p>
-              <h2 style={{ fontFamily: serif, fontSize: mob ? 24 : 32, color: C.textH, fontWeight: 400, margin: "0 0 8px" }}>
-                Every photo, all at once
-              </h2>
-              <p style={{ color: C.textS, fontSize: 14.5, margin: 0 }}>
-                {galleryImgs.length} photo{galleryImgs.length === 1 ? "" : "s"} · tap any one to view full size
-              </p>
-            </Reveal>
-            <Reveal
+        {/* A 12-column mosaic. The spans repeat on a ten-photo cycle, and a
+            row that cannot fit the next span simply ends -- the gap on the
+            right is the layout, not a bug. Photos keep their own aspect
+            ratio, so rows stagger the way the design does. */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: mob ? "1fr" : "repeat(12, 1fr)",
+            gap: mob ? 14 : 22,
+            alignItems: "start",
+          }}
+        >
+          {rest.map((src, i) => (
+            <button
+              key={`${src}-${i}`}
+              type="button"
+              onClick={(e) => open(src, e)}
+              aria-label={`Open photo ${i + 1} of ${rest.length}, ${hourLabel(i, rest.length)}`}
               style={{
-                display: "grid",
-                gridTemplateColumns: mob ? "1fr 1fr" : tab ? "repeat(3,1fr)" : "repeat(4,1fr)",
-                gap: mob ? 8 : 12,
+                gridColumn: mob ? "auto" : `span ${SPANS[i % SPANS.length]}`,
+                position: "relative",
+                display: "block",
+                width: "100%",
+                padding: 0,
+                border: `1px solid ${C.border}`,
+                borderRadius: 14,
+                overflow: "hidden",
+                background: C.bgCard2,
+                cursor: "zoom-in",
+                lineHeight: 0,
               }}
             >
-              {galleryImgs.map((src, i) => (
-                <GalleryFrame
-                  key={src + i}
-                  src={src}
-                  alt={`StoneWood Resort, photo ${i + 1} of ${galleryImgs.length}`}
-                  height={mob ? 118 : 172}
-                  border={C.border}
-                  shadow={C.shadowCard}
-                  onOpen={open}
-                />
-              ))}
-            </Reveal>
-
-            <Reveal style={{ textAlign: "center", marginTop: mob ? 44 : 64 }}>
-              <p style={{ color: C.textS, fontSize: mob ? 15 : 16.5, lineHeight: 1.8, maxWidth: 460, margin: "0 auto 22px" }}>
-                That is one day. Pick a date and it is yours.
-              </p>
-              <button
-                onClick={onBookNow}
-                className="sw-btn"
-                style={{ ...goldBtn, padding: "14px 36px", fontSize: 13, letterSpacing: 2, borderRadius: 6, fontFamily: "inherit" }}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                loading="lazy"
+                decoding="async"
+                src={src}
+                srcSet={srcSetFor(src)}
+                sizes={SIZES.card}
+                alt=""
+                style={{ display: "block", width: "100%", height: "auto" }}
+              />
+              <span
+                style={{
+                  position: "absolute",
+                  left: 12,
+                  bottom: 12,
+                  background: "rgba(0,0,0,0.58)",
+                  color: "#f2ede4",
+                  fontSize: 11,
+                  letterSpacing: 1,
+                  padding: "5px 10px",
+                  borderRadius: 999,
+                  lineHeight: 1.2,
+                }}
               >
-                CHECK AVAILABILITY →
-              </button>
-            </Reveal>
-          </section>
+                {hourLabel(i, rest.length)}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
 

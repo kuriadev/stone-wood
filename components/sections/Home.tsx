@@ -322,7 +322,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
 
       {/* ── PACKAGES — click a card to expand it at centre screen ── */}
       <div style={{ background: isDark ? "#080604" : "#f7f2ea", padding: mob ? "52px 20px" : "88px 24px", borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto" }}>
 
           <Reveal style={{ textAlign: "center", marginBottom: mob ? 32 : 44 }}>
             <p style={eyebrow}>Packages</p>

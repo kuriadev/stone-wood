@@ -7,7 +7,7 @@ import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
-import { Icon } from "@/components/common/Icon";
+import { Icon, type IconName } from "@/components/common/Icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,10 +40,13 @@ import type { BookingResource, BookingTier } from "@/types/booking";
 
 type TierKey = "SHARED" | "EXCLUSIVE" | "EVENTS";
 
-const TIERS: { key: TierKey; label: string }[] = [
-  { key: "SHARED", label: "Shared" },
-  { key: "EXCLUSIVE", label: "Exclusive" },
-  { key: "EVENTS", label: "Events" },
+const TIERS: { key: TierKey; label: string; icon: IconName; tagline: string; blurb: string }[] = [
+  { key: "SHARED", label: "Shared", icon: "pool", tagline: "Come together",
+    blurb: "Share the pool with other groups and pay per guest." },
+  { key: "EXCLUSIVE", label: "Exclusive", icon: "lock", tagline: "Make it entirely yours",
+    blurb: "Private resort access with no other groups in your time slot." },
+  { key: "EVENTS", label: "Events", icon: "gift", tagline: "Celebrate beautifully",
+    blurb: "The events hall for parties, birthdays and celebrations." },
 ];
 
 /** Which tab a package belongs to: the venue packages are their own group,
@@ -62,9 +65,16 @@ interface PackageShowcaseProps {
     status: BookingTier,
   ) => void;
   onFallbackBook: () => void;
+  /** "pill" is the compact row used on the home page. "card" is the three
+   *  named cards the /packages page leads with, where the tier choice IS the
+   *  page's first decision rather than a filter on a section. */
+  tierStyle?: "pill" | "card";
+  /** Restates the chosen tier under the selector, numbered, so the carousel
+   *  below has a heading that says what it is showing. */
+  showTierIntro?: boolean;
 }
 
-export function PackageShowcase({ packages, onBookPackage, onFallbackBook }: PackageShowcaseProps) {
+export function PackageShowcase({ packages, onBookPackage, onFallbackBook, tierStyle = "pill", showTierIntro = false }: PackageShowcaseProps) {
   const { isDark } = useTheme();
   const C = T(isDark);
   const w = useWidth();
@@ -90,23 +100,67 @@ export function PackageShowcase({ packages, onBookPackage, onFallbackBook }: Pac
       >
         {/* TabsList pins its own height with a group-data variant, so a plain
             h-auto loses and a wrapped row spills onto the content below. */}
-        <TabsList className="mx-auto mb-7 flex w-fit max-w-full flex-wrap justify-center gap-2 bg-transparent p-0 group-data-[orientation=horizontal]/tabs:h-auto">
-          {groups.map((g) => (
-            <TabsTrigger
-              key={g.key}
-              value={g.key}
-              // min-h-11 = 44px, the HIG default control size.
-              className="min-h-11 rounded-full border px-6 text-[11.5px] font-medium tracking-[2px] data-[state=active]:shadow-none"
-              style={{
-                background: active.key === g.key ? `${gold}18` : "transparent",
-                color: active.key === g.key ? C.goldInk : C.textS,
-                borderColor: active.key === g.key ? `${gold}55` : C.border,
-              }}
-            >
-              {g.label.toUpperCase()}
-            </TabsTrigger>
-          ))}
+        <TabsList
+          className={
+            tierStyle === "card"
+              ? "mx-auto mb-0 grid w-full max-w-[760px] grid-cols-1 gap-4 bg-transparent p-0 sm:grid-cols-3 group-data-[orientation=horizontal]/tabs:h-auto"
+              : "mx-auto mb-7 flex w-fit max-w-full flex-wrap justify-center gap-2 bg-transparent p-0 group-data-[orientation=horizontal]/tabs:h-auto"
+          }
+        >
+          {groups.map((g) => {
+            const on = active.key === g.key;
+            if (tierStyle === "card") {
+              return (
+                <TabsTrigger
+                  key={g.key}
+                  value={g.key}
+                  className="flex h-auto min-h-11 flex-col items-center gap-2 rounded-xl border px-5 py-6 data-[state=active]:shadow-none"
+                  style={{
+                    background: on ? `${gold}12` : C.bgCard2,
+                    borderColor: on ? gold : C.border,
+                  }}
+                >
+                  <span style={{ color: C.goldInk, lineHeight: 0 }}>
+                    <Icon name={g.icon} size={22} strokeWidth={1.6} />
+                  </span>
+                  <span style={{ color: C.textH, fontSize: 17, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>
+                    {g.label}
+                  </span>
+                  <span style={{ color: C.textS, fontSize: 12 }}>{g.tagline}</span>
+                </TabsTrigger>
+              );
+            }
+            return (
+              <TabsTrigger
+                key={g.key}
+                value={g.key}
+                // min-h-11 = 44px, the HIG default control size.
+                className="min-h-11 rounded-full border px-6 text-[11.5px] font-medium tracking-[2px] data-[state=active]:shadow-none"
+                style={{
+                  background: on ? `${gold}18` : "transparent",
+                  color: on ? C.goldInk : C.textS,
+                  borderColor: on ? `${gold}55` : C.border,
+                }}
+              >
+                {g.label.toUpperCase()}
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
+
+        {showTierIntro && (
+          <div style={{ textAlign: "center", margin: mob ? "34px 0 22px" : "48px 0 28px" }}>
+            <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.4, fontWeight: 700, margin: "0 0 10px" }}>
+              {String(groups.findIndex((g) => g.key === active.key) + 1).padStart(2, "0")} · {active.label.toUpperCase()}
+            </p>
+            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 26 : 34, fontWeight: 400, margin: "0 0 10px", lineHeight: 1.15 }}>
+              {active.tagline}
+            </h3>
+            <p style={{ color: C.textS, fontSize: 13.5, margin: "0 auto", maxWidth: 480, lineHeight: 1.6 }}>
+              {active.blurb}
+            </p>
+          </div>
+        )}
 
         {groups.map((g) => (
           <TabsContent key={g.key} value={g.key} className="mt-0">
@@ -171,10 +225,14 @@ function TierCarousel({
     >
       {/* The arrows need room outside the card; on a phone there is none, so
           they move under the row instead of sitting on the artwork. */}
-      <div className={many && !mob ? "px-14" : ""}>
+      {/* `relative` here, not on <Carousel>: the arrows centre themselves on
+          their nearest positioned ancestor, and the carousel root includes
+          the dots row below the track. Centring on that put them below the
+          card's middle. This wrapper is exactly the track. */}
+      <div className={`relative ${many && !mob ? "px-14" : ""}`}>
         <CarouselContent className="-ml-4">
           {items.map((p) => (
-            <CarouselItem key={p.code} className="basis-full pl-4">
+            <CarouselItem key={p.code} className="h-auto basis-full pl-4">
               <PackageCard
                 p={p}
                 C={C}
@@ -186,26 +244,24 @@ function TierCarousel({
             </CarouselItem>
           ))}
         </CarouselContent>
+
+        {many && !mob && (
+          <>
+            <CarouselPrevious className="left-0 size-11 border-border text-foreground" />
+            <CarouselNext className="right-0 size-11 border-border text-foreground" />
+          </>
+        )}
       </div>
+
 
       {many && (
         <>
-          <div className={mob ? "mt-5 flex justify-center gap-3" : ""}>
-            <CarouselPrevious
-              className={
-                mob
-                  ? "static size-11 translate-x-0 translate-y-0 border-border text-foreground"
-                  : "left-0 size-11 border-border text-foreground"
-              }
-            />
-            <CarouselNext
-              className={
-                mob
-                  ? "static size-11 translate-x-0 translate-y-0 border-border text-foreground"
-                  : "right-0 size-11 border-border text-foreground"
-              }
-            />
-          </div>
+          {mob && (
+            <div className="mt-5 flex justify-center gap-3">
+              <CarouselPrevious className="static size-11 translate-x-0 translate-y-0 border-border text-foreground" />
+              <CarouselNext className="static size-11 translate-x-0 translate-y-0 border-border text-foreground" />
+            </div>
+          )}
 
           {/* Dots. Position is also stated by the arrows' disabled state and
               announced on the live region, so this is not colour alone. */}
@@ -254,7 +310,12 @@ function PackageCard({
 
   return (
     <article
-      className="grid overflow-hidden rounded-2xl border md:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)]"
+      /* h-full so every slide fills the track, which is as tall as the
+         tallest package. Without it a short package sat at the top of the
+         track and the arrows -- centred on the track -- ended up below the
+         card's own centre. It also gives the detail column the height its
+         mt-auto CTA needs to reach the foot. */
+      className="grid h-full overflow-hidden rounded-2xl border md:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)]"
       style={{ background: C.bgCard2, borderColor: C.border, boxShadow: C.shadowCard }}
     >
       {/* Artwork. Always dark, so the bright gold and white type belong here. */}
@@ -320,13 +381,14 @@ function PackageCard({
             )}
           </div>
 
-          <div className="flex items-baseline gap-3 pt-1">
+          {/* "Starting at" rather than a struck-through list price. The
+              saving it used to show is still on the SAVE badge above, so
+              nothing is lost by dropping the second number. */}
+          <div className="pt-1">
+            <p className="mb-1.5 text-[11px] tracking-[2.5px]" style={{ color: C.textS }}>STARTING AT</p>
             <span className="font-serif text-[40px] leading-none font-normal" style={{ color: C.textH }}>
               {fmt(p.price)}
             </span>
-            {p.listPrice && (
-              <span className="text-[17px] line-through" style={{ color: C.textXS }}>{fmt(p.listPrice)}</span>
-            )}
           </div>
 
           <p className="text-[15px] leading-relaxed" style={{ color: C.textS }}>{p.blurb}</p>

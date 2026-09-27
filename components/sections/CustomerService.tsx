@@ -7,7 +7,6 @@ import { customerServiceForm, type CustomerServiceForm } from "@/lib/schemas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
@@ -48,11 +47,12 @@ export function CustomerService({ onSubmitMessage }: CustomerServiceProps) {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { touchedFields, isSubmitting },
   } = useForm<CustomerServiceForm>({
     resolver: zodResolver(customerServiceForm),
     mode: "onBlur",
-    defaultValues: { name: "", email: "", type: "Feedback", message: "" },
+    defaultValues: { name: "", email: "", type: "Inquiry", message: "" },
   });
 
   // Watched values keep the per-field hints below working unchanged — they
@@ -127,20 +127,20 @@ const submit = handleSubmit(async (values) => {
     <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "48px 20px" : "80px 24px" }}>
       <div style={{ maxWidth: 940, margin: "0 auto" }}>
         <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 12.5, marginBottom: 10, textAlign: "center" }}>SUPPORT</p>
-        <h2 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 28 : 42, color: C.textH, textAlign: "center", marginBottom: 12 }}>
-          Customer Service
+        <h2 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 32 : 52, color: C.textH, textAlign: "center", marginBottom: 12, fontWeight: 400, lineHeight: 1.1 }}>
+          How can we help?
         </h2>
         <p style={{ color: C.textS, textAlign: "center", marginBottom: 36, lineHeight: 1.7, fontSize: 14.5 }}>
-          We'd love to hear from you. Share your feedback, ask a question, or report a concern.
+          Ask a question, share feedback, or tell us about a concern. Our team is ready to assist.
         </p>
 
         {/* Contact cards */}
         <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 12, marginBottom: 36 }}>
           {[
-            ["phone", "Call Us", "+63 912 345 6789"],
-            ["mail", "Email Us", "stonewoodresort.ph@gmail.com"],
-            ["clock", "Hours", `Day ${SLOTS.Day.hours} · Night ${SLOTS.Night.hours}`],
-          ].map(([icon, label, val]) => (
+            ["phone", "Call Us", "+63 912 345 6789", "For urgent booking assistance"],
+            ["mail", "Email Us", "stonewoodresort.ph@gmail.com", "Replies typically arrive within one business day"],
+            ["clock", "Guest Hours", `${SLOTS.Day.start} – ${SLOTS.Night.end}`, "Daily, including weekends"],
+          ].map(([icon, label, val, sub]) => (
             <div
               key={label}
               style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: "20px 14px", textAlign: "center", boxShadow: C.shadowCard, transition: "transform .2s ease,box-shadow .2s ease" }}
@@ -148,8 +148,9 @@ const submit = handleSubmit(async (values) => {
               onMouseLeave={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = C.shadowCard; }}
             >
               <div style={{ marginBottom: 8, color: C.goldInk, lineHeight: 0 }}><Icon name={icon as IconName} size={22} strokeWidth={1.5} /></div>
-              <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 5 }}>{label.toUpperCase()}</div>
-              <div style={{ color: C.textB, fontSize: 13.5, fontWeight: 500 }}>{val}</div>
+              <div style={{ color: C.textS, fontSize: 10.5, letterSpacing: 2, marginBottom: 6 }}>{label.toUpperCase()}</div>
+              <div style={{ color: C.textB, fontSize: 13.5, fontWeight: 600, marginBottom: 6 }}>{val}</div>
+              <div style={{ color: C.textS, fontSize: 11.5, lineHeight: 1.5 }}>{sub}</div>
             </div>
           ))}
         </div>
@@ -219,19 +220,49 @@ const submit = handleSubmit(async (values) => {
               </div>
 
               {/* ── TYPE ──
-                  NativeSelect's wrapper is w-fit, so without this the control
-                  would shrink to its longest option and break the grid row. */}
-              <div className="[&_[data-slot=native-select-wrapper]]:w-full">
-                <Label htmlFor="customer-service-type" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">TYPE</Label>
-                <NativeSelect
-                  id="customer-service-type"
-                  title="Message type"
-                  {...register("type")}
+                  Three named choices rather than a five-option select. The
+                  values are the ones /api/customer-service actually stores:
+                  it falls back to "Other" for anything it does not know, so
+                  the old "Question" and "Booking Issue" options were being
+                  silently discarded before staff ever saw them. */}
+              <div className="md:col-span-3">
+                <span id="cs-type-label" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>
+                  HOW CAN WE HELP?
+                </span>
+                <div
+                  role="radiogroup"
+                  aria-labelledby="cs-type-label"
+                  style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, minmax(0,1fr))", gap: 8, border: `1px solid ${C.border}`, borderRadius: 10, padding: 6, background: C.bgCard2 }}
                 >
-                  {["Feedback", "Complaint", "Question", "Booking Issue", "Other"].map((t) => (
-                    <option key={t}>{t}</option>
-                  ))}
-                </NativeSelect>
+                  {([
+                    ["Question", "Inquiry"],
+                    ["Feedback", "Feedback"],
+                    ["Concern", "Complaint"],
+                  ] as const).map(([label, value]) => {
+                    const on = form.type === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        onClick={() => setValue("type", value, { shouldValidate: true })}
+                        style={{
+                          minHeight: 44,
+                          borderRadius: 8,
+                          border: `1px solid ${on ? gold : "transparent"}`,
+                          background: on ? `${gold}18` : "transparent",
+                          color: on ? C.textH : C.textS,
+                          fontSize: 13,
+                          fontWeight: on ? 700 : 400,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* ── MESSAGE ── */}
@@ -278,12 +309,11 @@ const submit = handleSubmit(async (values) => {
                   SEND MESSAGE
                 </Button>
 
-                {/* Show summary of errors only after first submit attempt */}
-                {!formOk && Object.values(touched).some(Boolean) && (
-                  <p style={{ color: C.textXS, fontSize: 12.5, textAlign: "center", marginTop: 10 }}>
-                    Please fill in all fields correctly before sending.
-                  </p>
-                )}
+                <p style={{ color: C.textS, fontSize: 12, textAlign: "center", marginTop: 12 }}>
+                  {!formOk && Object.values(touched).some(Boolean)
+                    ? "Please fill in all fields correctly before sending."
+                    : "Please include at least 10 characters so we can assist you effectively."}
+                </p>
               </div>
             </div>
           </div>
