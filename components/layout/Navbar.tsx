@@ -167,7 +167,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
             </span>
             <span
               style={{
-                fontSize: 9,
+                fontSize: 11,
                 letterSpacing: 3.5,
                 color: onDark ? "rgba(255,255,255,0.6)" : C.textXS,
                 transition: "color .35s ease",

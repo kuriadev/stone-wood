@@ -466,45 +466,268 @@ Getting this backwards is silent: it looks right in whichever theme you had
 open. There is a contrast audit script pattern in the commit history that
 walks every dialog in light mode and reports anything under 4.5:1.
 
-### Package groups: tabs, then one carousel
+### Choose Your Stay: tier tabs, one package per slide
 
-The home page's three package groups — DAY OR NIGHT, WHOLE DAY, EVENTS &
-CELEBRATIONS — are a shadcn `Tabs` selector over a single `Carousel`, not
-three stacked rows.
+`components/sections/PackageShowcase.tsx` owns the whole section — the tier
+switcher, the carousel, the package card and the gallery lightbox. It was
+lifted out of `Home.tsx`, which had no business holding 250 lines of it.
 
-Two problems this solves. A grid grew taller with every package the admin
-added, so a dozen packages turned the home page into a long scroll. Stacking
-three carousels fixed the width but the section was still three rows tall
-before a guest had chosen anything. One row, switched by tabs, holds the
-section to a constant height whatever the catalogue does.
+Tabs are **SHARED / EXCLUSIVE / EVENTS**, derived by `tierOf()`: venue
+packages are their own group, pool packages split on whether the pool is
+shared or bought out. One package fills each slide, image left and the whole
+offer right, so a guest can compare inclusions and slots without opening a
+modal first.
 
-Cards per view: `basis-1/2` on phones, `sm:basis-1/3`, `lg:basis-1/4`. With
-four packages at desktop width nothing scrolls and the arrows correctly sit
-disabled; they come alive as soon as the count exceeds the view.
+Three things to keep if this is edited:
 
-Three things worth keeping if this is edited:
+- **`tier` state must be declared above the code that derives `active`.**
+  Same class of bug as before: a `const` read during render but declared
+  further down throws `Cannot access 'X' before initialization` at prerender,
+  not in the browser.
+- **`active` falls back to the first non-empty group.** Packages load async
+  and the admin can deactivate the last one in a tier.
+- **Arrow placement changes with the space available** — beside the card from
+  `md`, under it on a phone, because a phone has no gutter and overlaying
+  them covers the card.
 
-- **`pkgGroup` state must be declared above `packageGroups`.** `activeGroup`
-  reads it while deriving the groups, so declaring the state further down the
-  component throws `Cannot access 'X' before initialization` — at build time,
-  during prerender, not in the browser.
-- **`activeGroup` falls back to the first group with packages.** Packages
-  arrive async, so the selected tab can name a group that has none yet.
-- **Arrow placement changes with the space available.** From `sm` the track's
-  `px-12` leaves a gutter and the arrows sit in it, clear of the cards. A
-  phone has no gutter, so overlaying them there covered the card text — they
-  move to a centred row underneath instead.
+### The hero reservation card
 
-**`TabsList` pins its own height.** It carries
-`group-data-[orientation=horizontal]/tabs:h-9`, which beats a plain `h-auto`,
-so a wrapped second row of tabs spilled out of the list box and landed on the
-cards below on mobile. Override with the matching variant
-(`group-data-[orientation=horizontal]/tabs:h-auto`), not `h-auto`.
+`components/sections/HeroReservation.tsx`. The calendar used to be the whole
+interaction — picking a date jumped straight to /book with nothing else
+decided. The card now also collects **visit type** and **guest count**, so the
+price shown is the guest's own rather than a generic "from", and /book opens
+with all three already set.
 
-The `carousel` component was added by hand rather than through the shadcn
-CLI: the CLI prompts to overwrite `button.tsx` (decline it) and pulls in a
-junk npm package literally named `cn`, which nothing imports and which should
-be removed again (`npm remove cn`). Only `embla-carousel-react` is wanted.
+The handoff widened accordingly:
+
+```
+onBookWithDate(date, { slot, guests })
+  -> /book?date=YYYY-MM-DD&slot=Day|Night|WholeDay&guests=N
+  -> BookNow initialSlot / initialGuests
+```
+
+A package still wins over both: its `slotMode` and `capacity` are fixed by the
+package itself, so a package deep-link is unaffected.
+
+Verified end to end: choosing a date, Night Tour and 4 guests produces
+`/book?date=2026-09-27&slot=Night&guests=4`, and /book opens on step 2 with a
+guest count of **4** against a default of **10**.
+
+The price line switches on the arithmetic rather than a label — shared is per
+head, exclusive is a flat rate less its discount, and the card shows whichever
+the guest count actually lands on.
+
+### The two calendars are sized to the HIG
+
+`AvailabilityCalendar` (hero) and `BookingDatePicker` (/book) both had month
+arrows hard-coded to **28x28** — Apple's absolute floor, not its target — and
+day cells that stretched from the row height with no minimum, so on a phone
+they collapsed to 35px tall.
+
+| | Before | After |
+|---|---|---|
+| Month arrows | 28x28 | **44x44** |
+| Day cells, desktop | 70x54 / 98x44 | 73x51 / 98x44 |
+| Day cells, mobile | **37x35** | **40x44** |
+
+Cell *height* now has a floor (`gridAutoRows: minmax(44px,1fr)`). Cell *width*
+on a phone lands at 40px, not 44, and that is deliberate. The arithmetic:
+
+```
+390 viewport - 40 page gutter - 36 hero card - 20 calendar = 294px of grid
+(294 - 12 of gaps) / 7 columns = 40px
+```
+
+Reaching 44 means stripping nearly every margin in that chain, which trades
+one guideline for another — `layout.md` asks for system margins to be
+respected. 40x44 is well clear of the 28x28 minimum and comfortably tappable,
+so the margins stay. Do not "fix" this by removing the padding.
+
+### The hero calendar is part of the card, not a panel on it
+
+`AvailabilityCalendar` still carried its own panel chrome from when it floated
+on its own: a near-black background, a 1px border, a 48px drop shadow and
+20px of padding. Dropped inside the hero card that painted a second panel on
+top of the first, which is what made it read as a widget pasted in from
+somewhere else.
+
+| | Before | After |
+|---|---|---|
+| Panel | `rgba(10,10,10,0.98)`, 1px border, `0 16px 48px` shadow | transparent, no border, no shadow |
+| Month arrows | 8px radius, `1px solid #2a2a2a` | circular, borderless, translucent fill |
+| Month title | 14.5px | 19px, the card's own serif |
+| Weekday row | `Su Mo Tu` | `Sun Mon Tue` |
+| Day cells | 8px radius | 10px radius |
+| Selection | gold on black | green (`#2b6b30`, white text, `#5cb85c` rim) |
+
+The selection moved into the *same* green as the available state rather than
+gold, so "open" and "the one you picked" read as one idea stated twice, once
+quietly and once loudly. Gold stays the card's accent colour for the CTA.
+
+**The legend clipped, and the cause was not the legend.** It sat 9px below the
+card's `overflow: hidden` edge. The calendar root had `height: 100%`, but it is
+not the first child of its column - the "Choose an available date" header sits
+above it - so the percentage resolved against the *whole* column and overshot
+by exactly the header's offset. Chasing it from the legend's side (removing
+`flex: 1`, then pinning with `marginTop: auto`) only moved the 9px around. The
+fix is structural: the column is a flex column and the calendar takes `flex: 1`.
+
+```
+column (flex column, 24px padding)
+  header            auto
+  calendar          flex: 1, minHeight: 0
+    day grid        flex: 1   -> spare height goes into the week rows
+    legend          marginTop: 16
+```
+
+**Unavailable states are told apart by lightness, not hue.** Booked used to be
+*lighter* than past, so the two tiles looked like the same state. Composited
+against the card and measured:
+
+| State | Tile as seen | Relative luminance | Date contrast |
+|---|---|---|---|
+| Past / out of range | `#0f0f0d` | 0.48% | 1.81:1 |
+| Booked | `#050503` | 0.15% | 4.46:1 |
+| Closed | `#190e0b` | 0.54% | 4.46:1 |
+| Available | `#101c0e` | 0.95% | 7.94:1 |
+
+Booked is now a dark, neutral-grey wash that sits *below* the past tint, and
+its date number clears 4.5:1 so the guest can still read which dates are taken.
+Past dates stay the quietest thing in the grid deliberately: they are not a
+state anyone needs to act on.
+
+A disabled month arrow is still drawn at `rgba(255,255,255,0.04)` on
+`rgba(238,232,220,0.38)` rather than near-zero alpha - a control that is
+unavailable should still be *perceivable*, or the header looks broken.
+
+Measuring any of this needs care: several ancestors compute to `oklab()` from
+Tailwind opacity utilities, so parsing `backgroundColor` by hand yields `NaN`
+channels. Resolve colours through a 1x1 canvas instead, and remember
+`getImageData` is **not** premultiplied - dividing by alpha inflates every
+channel and reports luminance above 100%.
+
+### The booking page is one six-step flow
+
+`/book` is six screens sharing one frame: a fixed head (RESERVATIONS / *Create
+Your Stay* / the chosen slot's hours), a progress track, and one card.
+
+**The progress bar is one track, not six nodes.** The old indicator was six
+circles joined by rules, hidden until step 2. It now runs from the first step
+and animates between them:
+
+```
+STEP 3 OF 6                                    ROOM
+========================-----------------------
+VISIT   DATE   ROOM   CONTACT   PAYMENT   DONE
+```
+
+The fill is `(currentIdx + 1) / 6` of the track, transitioned with
+`transition-[width] duration-700 ease-out motion-reduce:transition-none`.
+Verified by sampling the fill across the transition: **38 distinct widths**
+between 133px and 267px, not two. The bar is a real `role="progressbar"` with
+`aria-valuetext="Step 2 of 6: DATE"`, so it is announced, not just drawn.
+
+Internal step numbers are historical and there is no step 2 -- `stepIdx` maps
+`{1,3,4,5,6,7}` onto 0-5. Do not renumber the states to match the labels; the
+deep-link entry points depend on them.
+
+| Label | State | Screen |
+|---|---|---|
+| VISIT | 1 | Day / Night / Whole Day, plus the events-venue choice |
+| DATE | 3 | Calendar, guest count, pool access |
+| ROOM | 4 | Optional room add-on |
+| CONTACT | 5 | Guest details and the reservation summary |
+| PAYMENT | 6 | GCash QRPh and the order summary |
+| DONE | 7 | Reference ID and what happens next |
+
+**Three shared helpers** keep the six steps from drifting: `stepHead()` (gold
+eyebrow, serif question, optional note), `tileStyle()` (one selected
+treatment for every choice on the page) and `navRow()` (BACK, then the
+forward action in the wider half). They are plain functions, not nested
+components -- a nested component is a new type on every render, so React
+would remount the subtree and drop input focus on each keystroke.
+
+**Choosing a visit no longer jumps.** Picking Day Tour used to advance the
+step immediately, so the venue add-on below it was something guests scrolled
+past after the decision was already made. A tile now selects, and CONTINUE
+advances.
+
+**"No room needed" is a row.** It used to be the absence of a choice, which
+left guests unsure whether they had skipped the step or simply missed it.
+
+**The payment step lost its GCash gradient bar.** A full-bleed green header
+made one screen of the flow look like a different site. It carries the same
+head as the other five now, with the countdown as a pill.
+
+**The two calendars are one control.** `BookingDatePicker` kept its own
+palette -- gold selection, `Su Mo Tu`, 3px corners -- while the home page's
+`AvailabilityCalendar` had been restyled. A guest moving from the hero card to
+/book met a second colour language. The picker now shares the palette, with
+light-theme equivalents added, and its "Selected" legend entry is gone: a
+solid green tile needs no key.
+
+#### What the audit caught in this page
+
+Contrast was measured per step, in both themes, compositing each element
+against its real ancestors.
+
+| Element | Was | Now | Cause |
+|---|---|---|---|
+| Step labels (mobile) | 9.5px | **11px** | Below the HIG floor; six labels still fit at 390 with no clipping |
+| BACK / BACK TO HOME (light) | 2.29:1 | **4.58:1** | `outBtn` paints its label in raw `gold`, a *surface* colour |
+| FULL NAME etc. (light) | 2.29:1 | **4.58:1** | `text-primary` is that same raw gold |
+| Visit price lines (light) | 4.32:1 | **4.5+:1** | `goldInk` clears 4.5 on the page, not on the lighter tile |
+| Step-head notes, room note, refund note | 4.33:1 | **6.13:1** | `textXS` is tuned against the page background, not the card |
+
+Two golds, again: `gold` is for surfaces and borders, `goldInk` is for text.
+Every failure above was raw `gold` or a token used against a background it
+was not tuned for. `goldSmall` is a third, darker step for 12px gold on a
+tinted tile in the light theme only.
+
+Still failing, deliberately: **past and out-of-range day cells** (1.88:1 dark,
+2.36:1 light). They are disabled, WCAG exempts disabled controls, and they are
+the one thing in the grid nobody needs to act on.
+
+**Not fixed, and not part of this page:** the footer fails light-mode contrast
+site-wide -- body text at 2.89:1, section headings at 3.65:1 and the copyright
+line at 1.8:1. It appears to keep dark-theme colours on the light background.
+
+#### Measuring this page
+
+Three traps cost real time here; all three are in the probes under the
+scratchpad:
+
+- **Headless Chrome reports `prefers-reduced-motion: reduce` by default.** The
+  progress bar measured `transition-property: none` and looked broken. Probes
+  that test motion must send
+  `Emulation.setEmulatedMedia` with `prefers-reduced-motion: no-preference`.
+- **The theme is React state, not persisted.** Setting `localStorage.theme`
+  does nothing; a light-mode audit has to click the toggle.
+- **`getImageData` is not premultiplied.** Dividing by alpha inflates every
+  channel and reports luminance above 100%.
+
+### Apple HIG: the numbers this section is built to
+
+The site now follows the Apple HIG foundations. It is a website, so Apple's
+*platform conventions* (tab bars, menu bar, sheets) do not apply — the
+foundations do, and they are measurable:
+
+| Rule | Source | State |
+|---|---|---|
+| Text ≥ 11pt | `typography.md › Ensuring legibility` | **0 below** (was 13: a 9px wordmark line, 10.5px labels and footer headings) |
+| Controls ≥ 28×28, 44×44 preferred | `accessibility.md › Minimum sizes` | **0 below minimum**; every control in this section is 44–51px |
+| Contrast 4.5:1 body, 3:1 large/bold | `accessibility.md` | 0 real failures in both themes |
+| Avoid light font weights | `typography.md` | 4 remain at weight 300 on 15–16px intro copy |
+
+Two knowingly open items, both pre-existing and both *Improvements* rather
+than failures: **12 controls sit between 28 and 44px** (calendar day cells at
+37×35, month arrows at 28×28, the hamburger at 40×40) — above Apple's minimum
+but under its 44×44 default; and the **weight-300 intro paragraphs**, which
+Apple advises against at small sizes.
+
+There is a ready-made audit for this. `higaudit.mjs` in the session scratchpad
+walks every element, reports text under 11px, controls under 28 and 44, and
+light weights at small sizes. Re-run it after layout work.
 
 ### One gallery, one dialog shape
 

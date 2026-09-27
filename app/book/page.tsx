@@ -22,6 +22,12 @@ export default function BookPage() {
     ? Number(params.get("room"))
     : null;
   const preselectedDate = params.get("date") ?? "";
+  // ?slot=Day|Night|WholeDay&guests=N — set by the home page reservation card.
+  const slotParam = params.get("slot");
+  const initialSlot =
+    slotParam === "Day" || slotParam === "Night" || slotParam === "WholeDay" ? slotParam : undefined;
+  const guestsParam = Number(params.get("guests"));
+  const initialGuests = Number.isFinite(guestsParam) && guestsParam > 0 ? guestsParam : undefined;
   // Support ?resource=Venue&tier=Exclusive from a Home page package card —
   // lets a package deep-link straight into the matching Book Now setup
   // instead of a separate checkout flow.
@@ -104,6 +110,8 @@ export default function BookPage() {
         clearPreselectedDate={() => router.replace("/book")}
         onGoHome={() => router.push("/")}
         initialResource={initialResource}
+        initialSlot={initialSlot}
+        initialGuests={initialGuests}
         initialTier={initialTier}
         initialPackage={initialPackage}
       />

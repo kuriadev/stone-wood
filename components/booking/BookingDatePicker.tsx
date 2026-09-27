@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from "react";
 import { T } from "@/lib/theme";
-import { gold } from "@/lib/styles";
 import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS } from "@/lib/validators";
 import { checkBookingAvailability } from "@/lib/utils";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
@@ -79,18 +78,25 @@ export function BookingDatePicker({
     });
 
   const navBtn = (enabled: boolean) => ({
-    background: "none",
-    border: `1px solid ${C.border}`,
-    color: C.textS,
+    background: enabled
+      ? (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)")
+      : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.025)"),
+    border: "none",
+    // A disabled arrow still has to be perceivable, or the header looks broken.
+    color: enabled ? C.textB : C.textS,
     cursor: enabled ? "pointer" : "not-allowed",
-    borderRadius: 3,
-    width: 28,
-    height: 28,
-    fontSize: 15,
+    // Round, matching AvailabilityCalendar on the home page: the two
+    // calendars are the same control and should not look like two designs.
+    borderRadius: "50%",
+    // 44x44, the HIG default control size (accessibility.md > Minimum
+    // sizes). 28x28 is Apple's floor, not its target.
+    width: 44,
+    height: 44,
+    fontSize: 20,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    opacity: enabled ? 1 : 0.35,
+    opacity: enabled ? 1 : 0.55,
   });
 
   return (
@@ -99,7 +105,7 @@ export function BookingDatePicker({
         background: C.bgCard,
         border: `1px solid ${C.border}`,
         borderRadius: 6,
-        padding: "16px 14px",
+        padding: "16px 10px",
       }}
     >
       <div
@@ -122,7 +128,8 @@ export function BookingDatePicker({
         <span
           style={{
             color: C.textH,
-            fontSize: 14.5,
+            fontSize: 19,
+            fontWeight: 400,
             fontFamily: "'Cormorant Garamond',Georgia,serif",
           }}
         >
@@ -147,17 +154,17 @@ export function BookingDatePicker({
           marginBottom: 4,
         }}
       >
-        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
           <div
             key={d}
-            style={{ textAlign: "center", fontSize: 11.5, color: C.textXS, padding: "3px 0" }}
+            style={{ textAlign: "center", fontSize: 12, color: C.textS, padding: "2px 0 8px" }}
           >
             {d}
           </div>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: "minmax(44px,1fr)", gap: 2 }}>
         {Array.from({ length: firstDay }).map((_, i) => (
           <div key={`e${i}`} />
         ))}
@@ -182,22 +189,35 @@ export function BookingDatePicker({
           const isClosed = bookable && closedSet.has(ds);
           const isSel = selectedDate === ds;
           const disabled = isPast || isBeyond || isBooked || isClosed;
-          let bg = isDark ? "#0f2a17" : "#dff5e5";
-          let col = isDark ? "#63d471" : "#1f7a38";
-          let bdr = `1px solid ${C.border}`;
+          /* Same palette as AvailabilityCalendar on the home page, with light
+             equivalents added: these two calendars are the same control and a
+             guest moving from the hero card to /book should not meet a second
+             colour language. Booked is DARKER than past in both themes -- it
+             used to be lighter, so the two states looked alike. */
+          let bg = isDark ? "rgba(76,175,80,0.12)" : "#e8f5ea";
+          let col = isDark ? "#6ec071" : "#1f7a38";
+          let bdr = `1px solid ${isDark ? "rgba(76,175,80,0.28)" : "rgba(76,175,80,0.35)"}`;
           let cur: string = "pointer";
-          if (isPast) { bg = isDark ? "#0c0c0c" : "#f8f6f2"; col = C.textXS; cur = "not-allowed"; }
-          if (isBeyond) { bg = isDark ? "#0c0c0c" : "#f8f6f2"; col = C.textXS; cur = "not-allowed"; }
+          const quiet = isDark ? "rgba(255,255,255,0.03)" : "#f4f2ee";
+          const quietInk = isDark ? "rgba(238,232,220,0.22)" : "#a89e90";
+          const quietBdr = `1px solid ${isDark ? "rgba(255,255,255,0.05)" : "#eae5dc"}`;
+          if (isPast) { bg = quiet; col = quietInk; bdr = quietBdr; cur = "not-allowed"; }
+          if (isBeyond) { bg = quiet; col = quietInk; bdr = quietBdr; cur = "not-allowed"; }
           if (isBooked) {
-            bg = isDark ? "#202020" : "#e7e7e7";
-            col = isDark ? "#666" : "#aaa";
-            bdr = isDark
-              ? "1px solid #303030"
-              : "1px solid #d0d0d0";
+            bg = isDark ? "rgba(0,0,0,0.34)" : "#ddd9d2";
+            col = isDark ? "rgba(216,212,204,0.54)" : "#6f6960";
+            bdr = `1px solid ${isDark ? "rgba(255,255,255,0.05)" : "#cfc9c0"}`;
             cur = "not-allowed";
           }
-          if (isClosed) { bg = isDark ? "#1a0a0a" : "#fff0f0"; col = isDark ? "#553333" : "#e0a0a0"; cur = "not-allowed"; }
-          if (isSel) { bg = gold; col = "#000"; bdr = `1px solid ${gold}`; }
+          if (isClosed) {
+            bg = isDark ? "rgba(180,70,70,0.10)" : "#fbeaea";
+            col = isDark ? "rgba(214,138,138,0.75)" : "#b05a5a";
+            bdr = `1px solid ${isDark ? "rgba(180,70,70,0.22)" : "rgba(180,70,70,0.25)"}`;
+            cur = "not-allowed";
+          }
+          /* The selection is the available green stated louder, not a second
+             accent colour: "open" and "the one you picked" are one idea. */
+          if (isSel) { bg = "#2b6b30"; col = "#ffffff"; bdr = "1px solid #5cb85c"; }
           return (
             <button
               key={d}
@@ -219,12 +239,12 @@ export function BookingDatePicker({
               }
               style={{
                 textAlign: "center",
-                padding: "7px 2px",
-                borderRadius: 3,
+                padding: "2px",
+                borderRadius: 10,
                 background: bg,
                 border: bdr,
                 color: col,
-                fontSize: 13.5,
+                fontSize: 14,
                 cursor: cur,
                 fontWeight: isSel ? 700 : 400,
                 userSelect: "none",
@@ -249,14 +269,15 @@ export function BookingDatePicker({
         }}
       >
         {[
-          ["Available", "#5cb85c"],
-          ["Booked", "#888"],
-          ["Closed", "#e55"],
-          ["Selected", gold],
+          /* "Selected" is gone: the chosen day is a solid green tile, which
+             needs no key, and three entries match the home page legend. */
+          ["Available", isDark ? "#6ec071" : "#3a9c4f"],
+          ["Booked", isDark ? "rgba(176,172,164,0.55)" : "#9b958c"],
+          ["Closed", isDark ? "rgba(214,138,138,0.75)" : "#c07575"],
         ].map(([l, c]) => (
           <div key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />
-            <span style={{ color: C.textXS, fontSize: 11.5 }}>{l}</span>
+            <span style={{ color: C.textS, fontSize: 12 }}>{l}</span>
           </div>
         ))}
       </div>

@@ -10,8 +10,9 @@ import { CardGridSkeleton } from "@/components/common/Skeleton";
 import { SLOTS, QUIET_HOURS_POLICY } from "@/lib/resort";
 import { SHARED_PER_HEAD_RATE, EXCLUSIVE_FLAT_RATE, EXCLUSIVE_DISCOUNT_PCT } from "@/lib/validators";
 import { fmt } from "@/lib/utils";
-import { AvailabilityCalendar } from "@/components/common/AvailabilityCalendar";
+import { HeroReservation } from "@/components/sections/HeroReservation";
 import { MediaGallery } from "@/components/common/MediaGallery";
+import { PackageShowcase } from "@/components/sections/PackageShowcase";
 import { Button } from "@/components/ui/button";
 import {
   Carousel,
@@ -22,7 +23,7 @@ import {
 } from "@/components/ui/carousel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import type { Booking, BookingResource, BookingTier, PackageDeepLink } from "@/types/booking";
+import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
 import type { ResortPackage } from "@/types/package";
 import { srcSetFor, SIZES, imageAt } from "@/lib/img";
 import { Icon, type IconName } from "@/components/common/Icon";
@@ -31,7 +32,7 @@ import { Badge } from "@/components/ui/badge";
 
 interface HomeProps {
   setPage: (p: string) => void;
-  onBookWithDate: (d: string) => void;
+  onBookWithDate: (d: string, opts?: { slot?: BookingSlot; guests?: number }) => void;
   bookings: Booking[];
   closedDates: string[];
   /** True while that package list is still on its first fetch and nothing
@@ -304,128 +305,17 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           </p>
         </div>
 
-        {/* ── Inline booking panel — calendar is visible immediately, no click required ── */}
-        <div
-          className="hero-card sw-hero-card-float"
-          style={{
-            position: "relative",
-            zIndex: 3,
-            marginTop: mob ? 28 : 34,
-            width: "100%",
-            maxWidth: 900,
-            background: isDark ? "rgba(6,5,3,0.72)" : "rgba(10,7,3,0.72)",
-            border: `1px solid rgba(201,168,76,${isDark ? "0.28" : "0.4"})`,
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            borderRadius: 16,
-            padding: mob ? "22px 18px" : "30px 34px",
-            boxShadow: "0 32px 80px rgba(0,0,0,0.55)",
-          }}
-        >
-          {/* alignItems is "stretch" on both branches. It used to be
-              "flex-start" on desktop, so the calendar column took only its
-              content height while the left column ran 93px taller — that
-              gap was empty card. Stretching lets the calendar use it. */}
-          <div style={{ display: "flex", flexDirection: mob ? "column" : "row", gap: mob ? 20 : 32, alignItems: "stretch" }}>
-
-            {/* Left: one instruction, then supporting detail — the calendar is the action */}
-            <div style={{ flex: mob ? "none" : "0 0 250px" }}>
-              <p style={{ color: C.goldInk, fontSize: 12.5, letterSpacing: 3, marginBottom: 12, fontWeight: 500 }}>RESERVATIONS</p>
-              <h2 style={{ fontFamily: serif, fontSize: mob ? 26 : 30, color: "#fff", fontWeight: 400, marginBottom: 14, lineHeight: 1.18, letterSpacing: "-0.3px" }}>
-                Select a date to begin
-              </h2>
-              <p style={{ color: "rgba(238,232,220,0.72)", fontSize: 15, lineHeight: 1.75, marginBottom: 22 }}>
-                Green dates are open. Choosing one takes you straight into booking.
-              </p>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 7, paddingTop: 18, borderTop: "1px solid rgba(201,168,76,0.22)" }}>
-                {/* Every figure here comes from the same constants Book Now
-                    charges from — this card used to show a flat ₱6,000/day,
-                    which was only the Exclusive rate. */}
-                {[
-                  ["Day Tour", SLOTS.Day.hours],
-                  ["Night Tour", SLOTS.Night.hours],
-                  ["Shared", `${fmt(SHARED_PER_HEAD_RATE)} / guest`],
-                  ["Exclusive", `from ${fmt(Math.round(EXCLUSIVE_FLAT_RATE * (1 - EXCLUSIVE_DISCOUNT_PCT)))}`],
-                ].map(([l, v]) => (
-                  <div key={l} style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, color: "rgba(238,232,220,0.6)" }}>
-                    <span>{l}</span>
-                    <span style={{ color: C.goldInk, fontWeight: 600 }}>{v}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Secondary paths — still subordinate to the calendar.
-                  Grid, not a wrapping flex row. The two labels are different
-                  lengths, so flex sized each to its text: they sat at 129px
-                  and 140px, left-clustered, stopping ~33px short of the card's
-                  right edge, and on a 320px screen the second one orphaned
-                  onto its own line. auto-fit keeps them equal and edge-to-
-                  edge — side by side when the column can hold both, stacked
-                  full-width when it cannot, with no ragged middle state. */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))",
-                  gap: 10,
-                  marginTop: 22,
-                }}
-              >
-                {([["Browse Rooms", "Rooms", true], ["Manage Booking", "Cancel Booking", false]] as const).map(([label, target, primary]) => {
-                  // The two were styled identically, so neither read as the
-                  // likelier next step. Browsing rooms is what most visitors
-                  // want; managing a booking is for the few who already have
-                  // one. Both stay outline-only so the calendar keeps the
-                  // strongest weight on the card.
-                  const rest = {
-                    background: primary ? `${gold}1f` : "transparent",
-                    borderColor: primary ? `${gold}80` : "rgba(246,241,232,0.16)",
-                    color: primary ? "#f4e8c8" : "rgba(246,241,232,0.62)",
-                  };
-                  return (
-                    <button
-                      key={target}
-                      onClick={() => setPage(target)}
-                      style={{
-                        background: rest.background,
-                        border: `1px solid ${rest.borderColor}`,
-                        color: rest.color,
-                        fontWeight: primary ? 600 : 500,
-                        borderRadius: 7,
-                        padding: "12px 14px",
-                        // Was 37px tall — under the 44px minimum for a touch
-                        // target, which is why they felt fiddly on a phone.
-                        minHeight: mob ? 44 : 40,
-                        width: "100%",
-                        cursor: "pointer",
-                        fontSize: 13,
-                        letterSpacing: 0.6,
-                        // A button does not inherit the page font on its own,
-                        // so it would otherwise fall back to the UA default
-                        // and sit differently from the text above it.
-                        fontFamily: "inherit",
-                        transition: "background .2s ease, border-color .2s ease, color .2s ease",
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = `${gold}33`; e.currentTarget.style.borderColor = gold; e.currentTarget.style.color = "#fff"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = rest.background; e.currentTarget.style.borderColor = rest.borderColor; e.currentTarget.style.color = rest.color; }}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Right: the calendar itself — always rendered, never hidden behind a click */}
-            <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-              <AvailabilityCalendar
-                bookings={bookings}
-                closedDates={closedDates}
-                onSelectDate={(ds) => onBookWithDate(ds)}
-              />
-            </div>
-          </div>
-        </div>
+        {/* ── Inline booking panel — see HeroReservation.tsx.
+             The calendar alone used to be the whole interaction; the card now
+             also carries visit type and guest count, so /book opens with all
+             three set instead of just the date. ── */}
+        <HeroReservation
+          bookings={bookings}
+          closedDates={closedDates}
+          onBookWithDate={onBookWithDate}
+          onBrowseRooms={() => setPage("Rooms")}
+          onManageBooking={() => setPage("Cancel Booking")}
+        />
 
         {/* Amenity pills */}
       </div>
@@ -450,197 +340,25 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           >
             {DURATIONS.map((d) => (
               <div key={d.label} style={{ background: C.bgCard2, padding: mob ? "18px 20px" : "22px 24px", textAlign: "center" }}>
-                <div style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2.5, marginBottom: 7 }}>{d.label.toUpperCase()}</div>
+                <div style={{ color: C.textXS, fontSize: 11, letterSpacing: 2.5, marginBottom: 7 }}>{d.label.toUpperCase()}</div>
                 <div style={{ color: C.goldInk, fontSize: mob ? 15 : 16, fontWeight: 500, letterSpacing: 0.3 }}>{d.window}</div>
               </div>
             ))}
           </Reveal>
 
-          {/* Package cards.
-              The three group labels are the control now, not three headings:
-              a guest picks DAY OR NIGHT, WHOLE DAY or EVENTS & CELEBRATIONS
-              and sees only that set, in a single carousel row. Stacking all
-              three meant the section grew with every package the admin added
-              in any of them. */}
+          {/* Package cards — see components/sections/PackageShowcase.tsx.
+              Lifted out of this file: it carries a tier switcher, a carousel,
+              a full package card and a gallery lightbox, which is more than
+              belongs inline in the page shell. */}
           {packagesLoading ? (
-            <CardGridSkeleton count={6} label="Loading packages" />
-          ) : activeGroup ? (
-            <Tabs
-              value={activeGroup.label}
-              onValueChange={setPkgGroup}
-              className="gap-0"
-            >
-              <TabsList // h-auto alone loses: TabsList pins its height with a
-                // `group-data-[orientation=horizontal]/tabs:h-9` variant, so a
-                // wrapped second row of tabs spilled out of the list box and
-                // landed on the cards below. Matching the variant wins.
-                className="mx-auto mb-6 flex w-fit max-w-full flex-wrap justify-center gap-1.5 bg-transparent p-0 group-data-[orientation=horizontal]/tabs:h-auto sm:mb-8">
-                {packageGroups.map((g) => (
-                  <TabsTrigger
-                    key={g.label}
-                    value={g.label}
-                    className="rounded-full border px-4 py-2 text-[11.5px] tracking-[2px] data-[state=active]:shadow-none"
-                    style={{
-                      background: activeGroup.label === g.label ? `${gold}18` : "transparent",
-                      color: activeGroup.label === g.label ? C.goldInk : C.textS,
-                      borderColor: activeGroup.label === g.label ? `${gold}55` : C.border,
-                    }}
-                  >
-                    {g.label}
-                    <span className="ml-1.5 opacity-60">{g.tiers.length}</span>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-
-              {packageGroups.map((group) => (
-                <TabsContent key={group.label} value={group.label} className="mt-0">
-                  <Carousel
-                    opts={{ align: "start", containScroll: "trimSnaps" }}
-                    aria-label={`${group.label} packages`}
-                    className="relative"
-                  >
-                    {/* The track is inset so the arrows sit in the gutter at
-                        each end rather than on top of the cards. Overlaid on
-                        the track they covered the card text underneath. */}
-                    <div className="px-0 sm:px-12">
-                      <CarouselContent className="-ml-2.5 py-1 sm:-ml-3.5">
-                      {group.tiers.map(({ p, i }, gIdx) => {
-                        const exclusive = p.status === "Exclusive";
-                        return (
-                // basis controls how many cards are visible per view: two on
-                // phones, three from sm, four from lg. The card itself is
-                // unchanged.
-                <CarouselItem
-                  key={p.code}
-                  className="basis-1/2 pl-2.5 sm:basis-1/3 sm:pl-3.5 lg:basis-1/4"
-                >
-                <Reveal
-                  className="sw-card h-full"
-                  onClick={() => openPkg(i)}
-                  style={{
-                    background: C.bgCard2,
-                    border: `1px solid ${exclusive ? `${gold}44` : C.border}`,
-                    borderRadius: 12,
-                    cursor: "pointer",
-                    position: "relative",
-                    overflow: "hidden",
-                    boxShadow: C.shadowCard,
-                    transitionDelay: `${gIdx * 50}ms`,
-                  }}
-                  onMouseEnter={(e) => {
-                    const img = e.currentTarget.querySelector(".sw-pkg-img") as HTMLElement;
-                    if (img) img.style.transform = "scale(1.07)";
-                  }}
-                  onMouseLeave={(e) => {
-                    const img = e.currentTarget.querySelector(".sw-pkg-img") as HTMLElement;
-                    if (img) img.style.transform = "scale(1)";
-                  }}
-                >
-                  {/* Cover photo */}
-                  <div style={{ position: "relative", height: mob ? 104 : 128, overflow: "hidden", background: isDark ? "#14110d" : "#e8e0d4" }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      loading="lazy" decoding="async"
-                      className="sw-pkg-img"
-                      src={p.cover}
-                      srcSet={srcSetFor(p.cover)}
-                      sizes={SIZES.card}
-                      alt={`Package ${p.code}`}
-                      onError={(e) => {
-                        // Fall back to a known-good shot rather than an empty card.
-                        const img = e.currentTarget;
-                        if (img.src !== RESORT_WIDE) img.src = RESORT_WIDE;
-                      }}
-                      style={{
-                        position: "absolute", inset: 0,
-                        width: "100%", height: "100%", objectFit: "cover",
-                        transition: "transform .5s cubic-bezier(.22,1,.36,1)",
-                      }}
-                    />
-                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top,rgba(0,0,0,0.7) 0%,rgba(0,0,0,0.15) 60%,transparent 100%)" }} />
-
-                    {/* Photo count */}
-                    <div style={{ position: "absolute", top: 8, right: 8, display: "flex", alignItems: "center", gap: 4, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", borderRadius: 20, padding: "3px 8px" }}>
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2.5">
-                        <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
-                      </svg>
-                      <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 10.5, fontWeight: 600 }}>{p.gallery.length}</span>
-                    </div>
-
-                    {/* Title over the photo */}
-                    <div style={{ position: "absolute", bottom: 8, left: 14, right: 14, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 18 : 21, color: "#fff", lineHeight: 1.15, fontWeight: 400, textShadow: "0 2px 12px rgba(0,0,0,0.6)" }}>
-                      {p.title}
-                    </div>
-                  </div>
-
-                  {/* Top hairline — gold for exclusive tiers */}
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: exclusive ? `linear-gradient(to right,transparent,${gold},transparent)` : "transparent", zIndex: 2 }} />
-
-                  <div style={{ padding: mob ? "14px 14px 16px" : "16px 18px 18px" }}>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
-                      <span style={{ color: C.goldInk, fontSize: 18, fontWeight: 700 }}>{fmt(p.price)}</span>
-                      {p.listPrice && (
-                        <span style={{ color: C.textXS, fontSize: 13.5, textDecoration: "line-through" }}>{fmt(p.listPrice)}</span>
-                      )}
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
-                      {p.includes.slice(0, 2).map((inc) => (
-                        <div key={inc} style={{ color: C.textB, fontSize: 13.5 }}>{inc}</div>
-                      ))}
-                    </div>
-
-                    <span
-                      style={{
-                        display: "inline-block",
-                        fontSize: 10.5,
-                        letterSpacing: 1.5,
-                        padding: "3px 9px",
-                        borderRadius: 20,
-                        background: exclusive ? `${gold}18` : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"),
-                        color: exclusive ? gold : C.textS,
-                        border: `1px solid ${exclusive ? `${gold}44` : C.border}`,
-                      }}
-                    >
-                      {p.status.toUpperCase()}
-                    </span>
-
-                    {p.listPrice && (
-                      <Badge variant="outline" style={{ display: "inline-block", marginLeft: 6, fontSize: 10.5, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: "rgba(76,175,80,0.12)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.4)" }}>
-                        SAVE {fmt(p.listPrice - p.price)}
-                      </Badge>
-                    )}
-                    {p.requiresRoom && (
-                      <Badge variant="outline" style={{ display: "inline-block", marginLeft: 6, fontSize: 10.5, letterSpacing: 1, padding: "3px 8px", borderRadius: 20, background: `${gold}18`, color: C.goldInk, border: `1px solid ${gold}44` }}>
-                        ROOM DISCOUNTED
-                      </Badge>
-                    )}
-
-                    {p.note && (
-                      <div style={{ color: C.textXS, fontSize: 11.5, marginTop: 8, letterSpacing: 0.5 }}>{p.note}</div>
-                    )}
-                  </div>
-                </Reveal>
-                </CarouselItem>
-              );
-            })}
-                      </CarouselContent>
-                    </div>
-
-                    {/* Placement changes with the space available.
-                        From sm the track's px-12 leaves a gutter at each end
-                        and the arrows sit in it, clear of the cards. A phone
-                        has no gutter, so overlaying them there covered the
-                        card text -- they move to a centred row underneath
-                        instead. The row stays swipeable either way. */}
-                    <div className="mt-4 flex justify-center gap-2.5 sm:mt-0 sm:block">
-                      <CarouselPrevious className="static size-9 translate-x-0 translate-y-0 border-border text-foreground disabled:opacity-30 sm:absolute sm:top-1/2 sm:left-0 sm:-translate-y-1/2" />
-                      <CarouselNext className="static size-9 translate-x-0 translate-y-0 border-border text-foreground disabled:opacity-30 sm:absolute sm:top-1/2 sm:right-0 sm:-translate-y-1/2" />
-                    </div>
-                  </Carousel>
-                </TabsContent>
-              ))}
-            </Tabs>
-          ) : null}
+            <CardGridSkeleton count={2} label="Loading packages" />
+          ) : (
+            <PackageShowcase
+              packages={visiblePackages}
+              onBookPackage={onBookPackage}
+              onFallbackBook={() => setPage("Book Now")}
+            />
+          )}
 
         </div>
       </div>

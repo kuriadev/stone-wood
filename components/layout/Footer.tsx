@@ -70,7 +70,7 @@ export function Footer({ setPage }: FooterProps) {
 
         {/* Navigation */}
         <div>
-          <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 10.5, letterSpacing: 3, marginBottom: 16 }}>
+          <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 11, letterSpacing: 3, marginBottom: 16 }}>
             NAVIGATION
           </div>
           {[...NAV, "Book Now"].map((l) => (
@@ -88,7 +88,7 @@ export function Footer({ setPage }: FooterProps) {
 
         {/* Support */}
         <div>
-          <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 10.5, letterSpacing: 3, marginBottom: 16 }}>
+          <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 11, letterSpacing: 3, marginBottom: 16 }}>
             SUPPORT
           </div>
           {[
@@ -109,7 +109,7 @@ export function Footer({ setPage }: FooterProps) {
 
         {/* Contact */}
         <div>
-          <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 10.5, letterSpacing: 3, marginBottom: 16 }}>
+          <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 11, letterSpacing: 3, marginBottom: 16 }}>
             CONTACT
           </div>
           {["22 Yakal cor. Ipil St. Doña Justa Village Phase, 2nd St, Angono, Rizal", "+63 912 345 6789", "stonewoodresort.ph@gmail.com", `Day ${SLOTS.Day.hours} · Night ${SLOTS.Night.hours}`].map(

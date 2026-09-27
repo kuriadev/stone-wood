@@ -87,14 +87,18 @@ export function AvailabilityCalendar({
     });
 
   const navBtn = (enabled: boolean) => ({
-    background: "none",
-    border: "1px solid #2a2a2a",
-    color: enabled ? "#aaa" : "#3a3a3a",
+    background: enabled ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)",
+    border: "none",
+    color: enabled ? "rgba(238,232,220,0.85)" : "rgba(238,232,220,0.38)",
     cursor: enabled ? "pointer" : "not-allowed",
-    borderRadius: 3,
-    width: 28,
-    height: 28,
-    fontSize: 15,
+    // Round, to read as part of the card's own language rather than as a
+    // boxed widget dropped into it.
+    borderRadius: "50%",
+    // 44x44: the HIG default control size (accessibility.md > Minimum sizes).
+    // These were 28x28, which is Apple's absolute floor, not its target.
+    width: 44,
+    height: 44,
+    fontSize: 20,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -104,10 +108,13 @@ export function AvailabilityCalendar({
   return (
     <div
       style={{
-        background: "rgba(10,10,10,0.98)",
-        border: "1px solid #2a2a2a",
-        borderRadius: 8,
-        padding: "20px 18px",
+        // No background, border or shadow of its own. The calendar sits
+        // inside the hero reservation card, and painting a second panel on
+        // top of that one is what made it read as a widget pasted in from
+        // somewhere else.
+        background: "transparent",
+        border: "none",
+        padding: 0,
         // Width is the layout's business, not the calendar's. This used to
         // clamp itself to a 300-360px band while also declaring width:100%,
         // so it could not use the column Home's hero card gives it: 360px
@@ -118,14 +125,14 @@ export function AvailabilityCalendar({
         // BookingDatePicker, the calendar for this same task on /book, has
         // never carried a clamp; this now matches it.
         width: "100%",
-        // Fill the row, then hand the extra height to the day grid below.
-        // Without the flex column the panel would simply get taller with its
-        // content pinned to the top, which moves the empty space inside the
-        // panel instead of removing it.
-        height: "100%",
+        // flex:1, not height:100%. The calendar is not the first child of its
+        // column -- a header sits above it -- so a percentage height resolves
+        // against the whole column and pushes the legend past the card's
+        // clipped bottom edge. Taking the remaining height avoids that.
+        flex: 1,
+        minHeight: 0,
         display: "flex",
         flexDirection: "column",
-        boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
       }}
     >
       <div
@@ -147,8 +154,9 @@ export function AvailabilityCalendar({
         </button>
         <span
           style={{
-            color: "#f0f0f0",
-            fontSize: 14.5,
+            color: "#f5f1ea",
+            fontSize: 19,
+            fontWeight: 400,
             fontFamily: "'Cormorant Garamond',Georgia,serif",
           }}
         >
@@ -175,20 +183,20 @@ export function AvailabilityCalendar({
           marginBottom: 4,
         }}
       >
-        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
           <div
             key={d}
-            style={{ textAlign: "center", fontSize: 11.5, color: "#666", padding: "3px 0" }}
+            style={{ textAlign: "center", fontSize: 12, color: "rgba(238,232,220,0.45)", padding: "2px 0 8px" }}
           >
             {d}
           </div>
         ))}
       </div>
 
-      {/* flex:1 takes whatever height the panel has spare and gridAutoRows
-          shares it evenly between the week rows, so reclaimed space makes
-          the cells roomier rather than leaving a gap under the calendar. */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: "1fr", gap: 3, flex: 1 }}>
+      {/* flex:1 hands the column's spare height to the week rows, so the
+          month fills the card instead of leaving a void above the legend.
+          gridAutoRows keeps 44px as the floor when there is no spare. */}
+      <div className="gap-[3px] sm:gap-2" style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: "minmax(44px,1fr)", flex: 1, minHeight: 0 }}>
         {!mounted
           ? /* Placeholder keeps the panel the same height before mount. */
             Array.from({ length: 35 }).map((_, i) => (
@@ -224,16 +232,22 @@ export function AvailabilityCalendar({
           const disabled = isPast || isBeyond || isBooked || isClosed;
 
           // ── Available (default): green tint ─────────────────────────────
-          let bg  = "rgba(76,175,80,0.10)";
-          let col = "#5cb85c";
-          let bdr = "1px solid rgba(76,175,80,0.22)";
+          let bg  = "rgba(76,175,80,0.12)";
+          let col = "#6ec071";
+          let bdr = "1px solid rgba(76,175,80,0.28)";
           let cur: string = "pointer";
 
-          if (isPast)   { bg = "#0c0c0c";              col = "#333";     bdr = "1px solid #1a1a1a"; cur = "default";     }
-          if (isBeyond) { bg = "#0c0c0c";              col = "#333";     bdr = "1px solid #1a1a1a"; cur = "not-allowed"; }
-          if (isBooked) { bg = "#161616";              col = "#444";     bdr = "1px solid #252525"; cur = "not-allowed"; }
-          if (isClosed) { bg = "#1a0a0a";              col = "#553333";  bdr = "1px solid #2a1010"; cur = "not-allowed"; }
-          if (isSel)    { bg = gold;                   col = "#000";     bdr = `1px solid ${gold}`; }
+          // Unavailable states stay quiet: a neutral tile for past, out of
+          // range and booked, and a red-tinted one for a closed date.
+          if (isPast)   { bg = "rgba(255,255,255,0.03)"; col = "rgba(238,232,220,0.22)"; bdr = "1px solid rgba(255,255,255,0.05)"; cur = "default";     }
+          if (isBeyond) { bg = "rgba(255,255,255,0.03)"; col = "rgba(238,232,220,0.22)"; bdr = "1px solid rgba(255,255,255,0.05)"; cur = "not-allowed"; }
+          if (isBooked) { bg = "rgba(0,0,0,0.34)";       col = "rgba(216,212,204,0.54)"; bdr = "1px solid rgba(255,255,255,0.05)"; cur = "not-allowed"; }
+          if (isClosed) { bg = "rgba(180,70,70,0.10)";   col = "rgba(214,138,138,0.75)"; bdr = "1px solid rgba(180,70,70,0.22)";  cur = "not-allowed"; }
+          // The selection is the same green, stated louder: solid fill, a
+          // brighter rim and white text. Keeping it in the green family means
+          // "available" and "the one you picked" read as one idea rather than
+          // two unrelated colours.
+          if (isSel)    { bg = "#2b6b30";                col = "#ffffff";                bdr = "1px solid #5cb85c"; }
 
           return (
             <button
@@ -257,11 +271,11 @@ export function AvailabilityCalendar({
               style={{
                 textAlign: "center",
                 padding: "7px 2px",
-                borderRadius: 3,
+                borderRadius: 10,
                 background: bg,
                 border: bdr,
                 color: col,
-                fontSize: 13.5,
+                fontSize: 14,
                 cursor: cur,
                 fontWeight: isSel ? 700 : 400,
                 userSelect: "none",
@@ -284,19 +298,19 @@ export function AvailabilityCalendar({
           display: "flex",
           flexWrap: "wrap",
           gap: 16,
-          marginTop: 14,
+          marginTop: 16,
           justifyContent: "center",
           alignItems: "center",
         }}
       >
         {[
-          ["Available", "#5cb85c"],
-          ["Booked",    "#444"],
-          ["Closed",    "#553333"],
+          ["Available", "#6ec071"],
+          ["Booked",    "rgba(176,172,164,0.55)"],
+          ["Closed",    "rgba(214,138,138,0.75)"],
         ].map(([l, c]) => (
           <div key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />
-            <span style={{ color: "#666", fontSize: 11.5 }}>{l}</span>
+            <span style={{ color: "rgba(238,232,220,0.5)", fontSize: 12 }}>{l}</span>
           </div>
         ))}
       </div>

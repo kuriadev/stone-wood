@@ -47,7 +47,6 @@
     DialogTitle,
   } from "@/components/ui/dialog";
   import { Label } from "@/components/ui/label";
-  import { Separator } from "@/components/ui/separator";
   import { Input } from "@/components/ui/input";
   import { Textarea } from "@/components/ui/textarea";
   import { Badge } from "@/components/ui/badge";
@@ -75,6 +74,11 @@
      *  ⇒ ordinary flow starting at Step 1. */
     initialResource?: BookingResource;
     initialTier?: BookingTier;
+    /** Set by the home page's reservation card, which now collects the slot
+     *  and the guest count alongside the date. A package still wins: its
+     *  slotMode and capacity are fixed by the package itself. */
+    initialSlot?: BookingSlot;
+    initialGuests?: number;
     /** Present only when arriving from a Home page package card. A package
      *  is a fixed, one-time purchase — its price and guest capacity are not
      *  negotiable, so when this is set the whole guest/room/overtime/tier
@@ -88,7 +92,9 @@
     preselectedRoom, clearPreselected,
     preselectedDate, clearPreselectedDate,
     onGoHome,
-    initialResource, initialTier, initialPackage,
+    initialResource,
+    initialSlot,
+    initialGuests, initialTier, initialPackage,
   }: BookNowProps) {
     const { isDark } = useTheme();
     const C = T(isDark);
@@ -103,10 +109,10 @@
     // Day (7 AM–5 PM), Night (7 PM–12 AM) or Whole Day — see lib/resort.ts.
     // A Whole Day package fixes it; a single-slot package lets the guest
     // pick Day or Night on the date step.
-    const [slot, setSlot] = useState<BookingSlot>(initialPackage?.slotMode === "WholeDay" ? "WholeDay" : "Day");
+    const [slot, setSlot] = useState<BookingSlot>(initialPackage?.slotMode === "WholeDay" ? "WholeDay" : (initialSlot ?? "Day"));
     const [step, setStep] = useState(initialResource ? 3 : 1);
     const [date, setDate] = useState(preselectedDate || "");
-    const [guests, setGuests] = useState(initialPackage?.capacity ?? 10);
+    const [guests, setGuests] = useState(initialPackage?.capacity ?? initialGuests ?? 10);
     // Guests don't choose overtime any more: staff add it at the resort when
     // the Night slot is free (max 2 hrs). Kept at 0 so every price and
     // availability call below has one shape for both sides.
@@ -464,133 +470,253 @@
     const inpS: React.CSSProperties = { ...C.inp, borderRadius: 6 };
     const cBr = isDark ? "#2a2520" : "#d6cfc4";
 
-    const stepLabels = ["Tour Type", "Details", "Rooms", "Your Info", "GCash", "Done"];
+    // The internal step numbers are historical (there is no step 2), so the
+    // guest-facing progress runs off this index rather than off `step`.
+    const labels = ["VISIT", "DATE", "ROOM", "CONTACT", "PAYMENT", "DONE"];
     const stepIdx: Record<number, number> = { 1: 0, 3: 1, 4: 2, 5: 3, 6: 4, 7: 5 };
-    const labels = stepLabels;
     const currentIdx = stepIdx[step] ?? 0;
+    const pct = ((currentIdx + 1) / labels.length) * 100;
+
+    /* Every step opens the same way: a gold eyebrow, a serif question, and an
+       optional quiet note on the right. Written once as a function (not a
+       nested component, which React would remount on every keystroke) so the
+       six steps cannot drift apart. */
+    const stepHead = (o: { eyebrow: string; title: string; note?: string; live?: boolean }) => (
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 9px", fontWeight: 700 }}>{o.eyebrow}</p>
+          <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 24 : 30, margin: 0, fontWeight: 400, lineHeight: 1.15 }}>{o.title}</h3>
+        </div>
+        {o.note && (
+          <div style={{ display: "flex", alignItems: "center", gap: 7, paddingTop: mob ? 0 : 22, color: o.live ? "#4caf50" : undefined }}>
+            {o.live && <span className="sw-live-dot" aria-hidden="true" />}
+            <span style={{ color: C.textS, fontSize: o.live ? 11 : 12.5, letterSpacing: o.live ? 1.3 : 0 }}>{o.note}</span>
+          </div>
+        )}
+      </div>
+    );
+
+    /* The selectable tile used by the visit types, the venue choice and the
+       pool-access choice: one border treatment, one selected treatment. */
+    /* goldInk clears 4.5:1 on the page background, but the visit tiles are a
+       shade lighter and 12px gold on them measures 4.32:1. Small gold text on
+       a tile uses this darker step; the dark theme is unaffected. */
+    const goldSmall = isDark ? C.goldInk : "#6f5718";
+
+    const tileStyle = (selected: boolean): React.CSSProperties => ({
+      background: selected ? `${gold}12` : C.bgCard2,
+      border: `1px solid ${selected ? gold : C.border}`,
+      borderRadius: 10,
+      padding: mob ? "16px 16px" : "20px 20px",
+      cursor: "pointer",
+      textAlign: "left",
+      width: "100%",
+      display: "block",
+      transition: "border-color .18s, background .18s",
+    });
+
+    /* BACK on the left, the forward action given the wider half: the primary
+       action is the one the guest is most likely to want. */
+    const navRow = (back: { label: string; onClick: () => void }, fwd: { label: string; onClick: () => void; disabled?: boolean }) => (
+      <div style={{ display: "flex", gap: 12, marginTop: 26, flexDirection: mob ? "column-reverse" : "row" }}>
+        {/* outBtn paints its label in the raw brand gold, which is a
+            surface colour: on the light theme that is 2.29:1 against
+            white. goldInk is the text-safe step of the same gold. */}
+        <button onClick={back.onClick} style={{ ...outBtn, color: C.goldInk, flex: mob ? undefined : "1 1 0", padding: "15px 18px", borderRadius: 8, minHeight: 48 }}>
+          {back.label}
+        </button>
+        <button
+          onClick={fwd.onClick}
+          disabled={fwd.disabled}
+          style={{ ...goldBtn, flex: mob ? undefined : "2 1 0", padding: "15px 18px", borderRadius: 8, minHeight: 48, opacity: fwd.disabled ? 0.45 : 1, cursor: fwd.disabled ? "not-allowed" : "pointer" }}
+        >
+          {fwd.label} <span aria-hidden="true">&rarr;</span>
+        </button>
+      </div>
+    );
 
 
     return (
       <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "32px 16px" : "80px 24px" }}>
         <div style={{ maxWidth: 800, margin: "0 auto" }}>
           <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 12.5, marginBottom: 8, textAlign: "center" }}>RESERVATIONS</p>
-          <h2 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 26 : 40, color: C.textH, textAlign: "center", marginBottom: 12 }}>Book Your Stay</h2>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 28 }}>
+          <h2 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 30 : 46, color: C.textH, textAlign: "center", marginBottom: 10, fontWeight: 400, lineHeight: 1.1 }}>Create Your Stay</h2>
+          <p style={{ color: C.textS, fontSize: mob ? 14.5 : 16, textAlign: "center", margin: "0 0 10px" }}>
+            A simple, secure booking in just a few steps.
+          </p>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: mob ? 24 : 32 }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={gold} strokeWidth="2" style={{ opacity: 0.7, flexShrink: 0 }}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
             <span style={{ color: C.textS, fontSize: 14.5 }}>
-              {step === 1
-                ? <>Day: <strong style={{ color: C.textB }}>{SLOTS.Day.hours}</strong> · Night: <strong style={{ color: C.textB }}>{SLOTS.Night.hours}</strong></>
-                : <>{SLOTS[slot].label}: <strong style={{ color: C.textB }}>{SLOTS[slot].hours}</strong></>
-              }
+              {SLOTS[slot].label}: <strong style={{ color: C.textB }}>{SLOTS[slot].hours}</strong>
             </span>
           </div>
 
-          {/* Step indicator */}
-          {step > 1 && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, marginBottom: 32, overflowX: "auto" }}>
+          {/* Progress. One track rather than six nodes: the guest reads
+              position from how far the fill has travelled, and the fill
+              animates between steps instead of jumping. */}
+          <div style={{ marginBottom: mob ? 26 : 38 }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 9 }}>
+              <span style={{ color: C.textS, fontSize: 11, letterSpacing: 1.8 }}>
+                STEP {currentIdx + 1} OF {labels.length}
+              </span>
+              <span style={{ color: C.goldInk, fontSize: 11, letterSpacing: 1.8, fontWeight: 700 }}>
+                {labels[currentIdx]}
+              </span>
+            </div>
+
+            <div
+              role="progressbar"
+              aria-valuenow={currentIdx + 1}
+              aria-valuemin={1}
+              aria-valuemax={labels.length}
+              aria-valuetext={`Step ${currentIdx + 1} of ${labels.length}: ${labels[currentIdx]}`}
+              style={{ height: 4, borderRadius: 999, background: isDark ? "#231e18" : "#e6e0d5", overflow: "hidden" }}
+            >
+              <div
+                className="transition-[width] duration-700 ease-out motion-reduce:transition-none"
+                style={{ height: "100%", width: `${pct}%`, borderRadius: 999, background: `linear-gradient(90deg, ${gold}b3, ${gold})` }}
+              />
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${labels.length},1fr)`, marginTop: 10 }}>
               {labels.map((label, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center" }}>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: i < currentIdx ? gold : "transparent", border: i === currentIdx ? `2px solid ${gold}` : i < currentIdx ? "none" : `1px solid ${isDark ? "#2a2520" : "#d6cfc4"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, color: i < currentIdx ? "#000" : i === currentIdx ? gold : C.textS, fontWeight: 700, flexShrink: 0 }}>
-                      {i < currentIdx ? "✓" : i + 1}
-                    </div>
-                    <span style={{ color: i === currentIdx ? gold : C.textS, fontSize: mob ? 9.5 : 10.5, letterSpacing: 1, whiteSpace: "nowrap" }}>{label.toUpperCase()}</span>
-                  </div>
-                  {i < labels.length - 1 && (
-                    <div style={{ width: mob ? 20 : 40, height: 1, background: i < currentIdx ? gold : isDark ? "#2a2520" : "#d6cfc4", marginTop: 0, marginBottom: 20, marginLeft: 4, marginRight: 4, flexShrink: 0 }} />
-                  )}
-                </div>
+                <span
+                  key={label}
+                  aria-current={i === currentIdx ? "step" : undefined}
+                  style={{
+                    textAlign: "center",
+                    // 11px is the HIG floor (typography.md > Ensuring
+                    // legibility). It was 9.5 here, which put six labels back
+                    // under the minimum on a phone.
+                    fontSize: 11,
+                    letterSpacing: mob ? 0 : 1.4,
+                    // Done is stated brightly, the current step in gold and
+                    // what is still ahead quietly, so the row reads as
+                    // progress rather than as six equal tabs.
+                    color: i < currentIdx ? C.textB : i === currentIdx ? C.goldInk : C.textS,
+                    fontWeight: i <= currentIdx ? 700 : 500,
+                  }}
+                >
+                  {label}
+                </span>
               ))}
             </div>
-          )}
+          </div>
 
           {/* Main card */}
           <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : "40px", boxShadow: C.shadow }}>
 
-            {/* STEP 1 – Tour Type */}
+            {/* STEP 1 - Visit type.
+                Picking a tile used to jump straight to the next step. It now
+                selects, and CONTINUE advances: the guest can change their mind
+                before committing, and the venue add-on below is part of the
+                same decision rather than an afterthought they scroll past. */}
             {step === 1 && (
               <div>
-                <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, marginBottom: 6, fontWeight: 400 }}>When would you like to come?</h3>
-                <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 24, lineHeight: 1.7 }}>Reserve online now via GCash. 50% down payment required.</p>
-                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr 1fr", gap: 14 }}>
+                {stepHead({
+                  eyebrow: "START WITH YOUR SCHEDULE",
+                  title: "Choose your visit",
+                  note: "LIVE AVAILABILITY CONNECTED",
+                  live: true,
+                })}
+                <p style={{ color: C.textS, fontSize: 14.5, margin: "0 0 22px", lineHeight: 1.65, maxWidth: 560 }}>
+                  Choose the time that works best for your group. You can still adjust the guest count and booking type in the next step.
+                </p>
+
+                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 14 }}>
                   {([
-                    { id: "Day", icon: "sun", sub: `${SLOTS.Day.hours}.`, badge: "POPULAR" },
-                    { id: "Night", icon: "moon", sub: `${SLOTS.Night.hours}. Quiet hours from 10 PM.`, badge: "" },
-                    { id: "WholeDay", icon: "sun-moon", sub: `${SLOTS.WholeDay.hours}, exclusive — Day + Night for 10% less.`, badge: "BEST VALUE" },
-                  ] as const).map((opt) => (
-                    <div key={opt.id} onClick={() => { setSlot(opt.id); if (opt.id === "WholeDay") setTierChoice("Exclusive"); setStep(3); }}
-                      style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: "24px 20px", cursor: "pointer", position: "relative", transition: "border-color .2s,box-shadow .2s" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${gold}66`; e.currentTarget.style.boxShadow = isDark ? "0 8px 24px rgba(0,0,0,0.4)" : "0 8px 24px rgba(100,70,10,0.1)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}
-                    >
-                      {opt.badge && <Badge variant="outline" style={{ position: "absolute", top: 12, right: 12, background: `${gold}22`, color: C.goldInk, fontSize: 9.5, padding: "3px 8px", borderRadius: 20, letterSpacing: 1, border: `1px solid ${gold}44` }}>{opt.badge}</Badge>}
-                      <div style={{ marginBottom: 12, color: C.goldInk, lineHeight: 0 }}><Icon name={opt.icon as IconName} size={30} strokeWidth={1.5} /></div>
-                      <h4 style={{ color: C.textH, fontSize: 17, fontFamily: "'Cormorant Garamond',Georgia,serif", marginBottom: 6 }}>{SLOTS[opt.id].label}</h4>
-                      <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>{opt.sub}</p>
-                    </div>
-                  ))}
+                    { id: "Day", icon: "sun" },
+                    { id: "Night", icon: "moon" },
+                    { id: "WholeDay", icon: "clock" },
+                  ] as const).map((opt) => {
+                    const selected = slot === opt.id;
+                    // Priced through priceBooking rather than written out, so
+                    // these lines cannot drift from what the guest is charged.
+                    const excl = opt.id === "WholeDay";
+                    const price = excl
+                      ? `Exclusive · ${fmt(priceBooking({ resource: "Pool", tier: "Exclusive", slot: opt.id, guests: 1, overtime: 0, roomPrices: [] }).total)}`
+                      : `From ${fmt(SHARED_PER_HEAD_RATE)} per guest`;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => { setSlot(opt.id); if (opt.id === "WholeDay") setTierChoice("Exclusive"); }}
+                        style={{ ...tileStyle(selected), padding: mob ? "18px 18px" : "22px 20px" }}
+                      >
+                        <span style={{ display: "block", marginBottom: 14, color: C.goldInk, lineHeight: 0 }}>
+                          <Icon name={opt.icon as IconName} size={24} strokeWidth={1.6} />
+                        </span>
+                        <span style={{ display: "block", color: C.textH, fontSize: 19, fontFamily: "'Cormorant Garamond',Georgia,serif", marginBottom: 9 }}>
+                          {SLOTS[opt.id].label}
+                        </span>
+                        <span style={{ display: "block", color: C.textB, fontSize: 12.5, fontWeight: 600, marginBottom: 5 }}>
+                          {SLOTS[opt.id].hours}
+                        </span>
+                        <span style={{ display: "block", color: goldSmall, fontSize: 12 }}>{price}</span>
+                      </button>
+                    );
+                  })}
                 </div>
 
-                {/* Optional events-venue add-on — a full, independent buyout of the
-                    events hall alongside the pool tour. A Venue-ONLY booking (no
-                    pool at all) isn't offered here; it comes from a package on the
-                    Home page instead, since it skips the tour entirely. */}
-                <div
-                  onClick={() => setResource((r) => (r === "Pool+Venue" ? "Pool" : "Pool+Venue"))}
-                  style={{
-                    marginTop: 16,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    cursor: "pointer",
-                    borderRadius: 10,
-                    border: `1px solid ${resource === "Pool+Venue" ? gold : cBr}`,
-                    background: resource === "Pool+Venue" ? `${gold}14` : "transparent",
-                    padding: "14px 16px",
-                  }}
-                >
-                  <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${resource === "Pool+Venue" ? gold : cBr}`, background: resource === "Pool+Venue" ? gold : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14.5, color: "#000", flexShrink: 0 }}>
-                    {resource === "Pool+Venue" && "✓"}
+                {/* Events venue. Stated as two named choices rather than a
+                    checkbox: "no venue" is a real, priced option, and a lone
+                    checkbox left guests unsure whether they had opted in. */}
+                <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 26, paddingTop: 24, display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1fr) minmax(0,1.15fr)", gap: mob ? 18 : 28, alignItems: "center" }}>
+                  <div>
+                    <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 9px", fontWeight: 700 }}>EVENT BOOKING</p>
+                    <h4 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 20 : 23, margin: "0 0 9px", fontWeight: 400 }}>
+                      Need space for a celebration?
+                    </h4>
+                    <p style={{ color: C.textS, fontSize: 13, margin: 0, lineHeight: 1.6 }}>
+                      Events are handled separately from your pool visit so pricing and setup remain clear.
+                    </p>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: C.textH, fontSize: 14.5, fontWeight: 600 }}>Also rent the Events Venue</div>
-                    <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>
-                      Exclusive use of the events hall alongside your pool booking · +{fmt(EVENT_VENUE_RATE)} per slot, 10% off with an exclusive pool
-                    </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    {([
+                      { id: "Pool", title: "Resort visit only", sub: "No event venue" },
+                      { id: "Pool+Venue", title: "Add Events Venue", sub: `Private hall · +${fmt(EVENT_VENUE_RATE)} per slot` },
+                    ] as const).map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        aria-pressed={resource === opt.id}
+                        onClick={() => setResource(opt.id)}
+                        style={tileStyle(resource === opt.id)}
+                      >
+                        <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 5 }}>{opt.title}</span>
+                        <span style={{ display: "block", color: C.textS, fontSize: 12, lineHeight: 1.5 }}>{opt.sub}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
+
+                {navRow(
+                  { label: "BACK TO HOME", onClick: () => onGoHome?.() },
+                  { label: "CONTINUE", onClick: () => setStep(3) },
+                )}
               </div>
             )}
 
            {/* STEP 3 – Date & Details */}
               {step === 3 && (
                 <div>
-                  <h3
-                    style={{
-                      color: C.textH,
-                      fontFamily: "'Cormorant Garamond',Georgia,serif",
-                      fontSize: 22,
-                      marginBottom: 20,
-                      fontWeight: 400,
-                    }}
-                  >
-                    Pick Your Date & Details
-                  </h3>
+                  <p id="booknow-date-label" className="sr-only">Select date</p>
+                  {stepHead({
+                    eyebrow: "LIVE AVAILABILITY",
+                    title: "Select a date and group size",
+                    note: "UPDATED IN REAL TIME",
+                    live: true,
+                  })}
 
-                  <p
-                    id="booknow-date-label"
-                    style={{
-                      color: C.goldInk,
-                      fontSize: 11.5,
-                      letterSpacing: 2,
-                      display: "block",
-                      marginBottom: 10,
-                    }}
+                  {/* The month sits in its own panel so it reads as one object
+                      the guest works inside, with the availability verdict
+                      attached to it rather than floating after it. */}
+                  <div
+                    style={{ marginBottom: 22, marginTop: 16, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "14px 12px 16px" : "22px 24px 20px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}
+                    role="group"
+                    aria-labelledby="booknow-date-label"
                   >
-                    SELECT DATE
-                  </p>
-
-                  <div style={{ marginBottom: 28 }} role="group" aria-labelledby="booknow-date-label">
                     <BookingDatePicker
                       bookings={bookings}
                       closedDates={closedDates}
@@ -604,19 +730,19 @@
                     />
 
                     {date && !dateOk && (
-                      <p style={{ color: "#e55", fontSize: 13.5, marginTop: 6 }}>
-                        ⚠ {dateCapacity.reason ?? "This date is unavailable. Please choose another."}
+                      <p style={{ color: "#e07a7a", fontSize: 13, marginTop: 14, marginBottom: 0 }}>
+                        {dateCapacity.reason ?? "This date is unavailable. Please choose another."}
                       </p>
                     )}
 
                     {date && dateOk && (
-                      <p style={{ color: "#4caf50", fontSize: 13.5, marginTop: 6 }}>
-                        ✓ Date looks available — please still call ahead to confirm!
+                      <p style={{ color: "#6ec071", fontSize: 13, marginTop: 14, marginBottom: 0 }}>
+                        Available on {fmtDate(date)}. Your date is held only after payment.
                       </p>
                     )}
 
                     {date && resource !== "Venue" && tier === "Shared" && (
-                      <p style={{ color: C.textS, fontSize: 12.5, marginTop: 6 }}>
+                      <p style={{ color: C.textS, fontSize: 12.5, marginTop: 6, marginBottom: 0 }}>
                         Shared: {sharedUsage.used} of {sharedUsage.max} spots taken for this {SLOTS[slot].label}.
                       </p>
                     )}
@@ -711,7 +837,7 @@
                           opacity: 0.75,
                         }}
                       >
-                        How many people will attend?
+                        Tell us how many people are joining.
                       </p>
 
                       <div
@@ -799,7 +925,7 @@
                       ) : (
                         <div style={{ marginTop: 14 }}>
                           <p style={{ color: C.textS, fontSize: 11.5, letterSpacing: 1.5, marginBottom: 8 }}>
-                            SHARED OR EXCLUSIVE?
+                            POOL ACCESS
                           </p>
                           <div style={{ display: "flex", gap: 8 }}>
                             {(["Shared", "Exclusive"] as const).map((opt) => {
@@ -861,7 +987,7 @@
                       }}
                     >
                       <p style={{ color: C.goldInk, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 8 }}>
-                        YOUR TIME
+                        YOUR SELECTED EXPERIENCE
                       </p>
                       <p style={{ color: C.textH, fontSize: 15, fontWeight: 600, margin: "0 0 8px" }}>
                         {SLOTS[slot].label} · {SLOTS[slot].hours}
@@ -873,39 +999,21 @@
                           ? `Ends at ${SLOTS.Night.end} sharp. ${QUIET_HOURS_POLICY}`
                           : `The resort is yours all day and night — no turnover in between. ${QUIET_HOURS_POLICY}`}
                       </p>
+                      <p style={{ color: C.goldInk, fontSize: 12.5, margin: "14px 0 0", paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+                        Shared {fmt(SHARED_PER_HEAD_RATE)} / guest · Exclusive{" "}
+                        {fmt(priceBooking({ resource: "Pool", tier: "Exclusive", slot, guests: 1, overtime: 0, roomPrices: [] }).total)}
+                      </p>
                     </div>
                   </div>
                   )}
 
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <button
-                      onClick={() => setStep(1)}
-                      style={{
-                        ...outBtn,
-                        flex: 1,
-                        padding: "12px 10px",
-                        borderRadius: 6,
-                      }}
-                    >
-                      BACK
-                    </button>
-
-                    <button
-                      disabled={!date || !dateOk}
-                      // Step 4 only holds the room picker now, so skip it when
-                      // there is no room to pick (venue-only, or a package
-                      // that doesn't include one).
-                      onClick={() => setStep(showRoomPicker ? 4 : 5)}
-                      style={{
-                        ...goldBtn,
-                        flex: 2,
-                        borderRadius: 6,
-                        opacity: !date || !dateOk ? 0.4 : 1,
-                      }}
-                    >
-                      CONTINUE →
-                    </button>
-                  </div>
+                  {/* Step 4 only holds the room picker now, so skip it when
+                      there is no room to pick (venue-only, or a package that
+                      doesn't include one). */}
+                  {navRow(
+                    { label: "BACK", onClick: () => setStep(1) },
+                    { label: "CONTINUE", onClick: () => setStep(showRoomPicker ? 4 : 5), disabled: !date || !dateOk },
+                  )}
                 </div>
               )}
 
@@ -914,37 +1022,62 @@
               <div>
                 {showRoomPicker && (
                 <>
-                <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, marginBottom: 6, fontWeight: 400 }}>
-                  {requiresRoom ? "Choose Your Room" : "Add a Room?"} <span style={{ color: C.textB, fontSize: 15, fontWeight: 700 }}>{requiresRoom ? "(Required)" : "(Optional)"}</span>
-                </h3>
-                <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 20, lineHeight: 1.7 }}>
-                  {requiresRoom
-                    ? `Pick the one room included with this package — ${Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}% off its normal rate.`
-                    : "Rooms are rented separately from the pool. Optional add-on."}
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
+                {stepHead({
+                  eyebrow: requiresRoom ? "INCLUDED WITH YOUR PACKAGE" : "OPTIONAL ADD-ON",
+                  title: requiresRoom ? "Choose your room" : "Would you like a room?",
+                  note: requiresRoom
+                    ? `${Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}% off its normal rate.`
+                    : "Skip this step if you only need the pool.",
+                })}
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 20, marginBottom: 18 }}>
                   {bookableRooms.length === 0 && (
                     <p style={{ color: C.textS, fontSize: 13.5 }}>No rooms are currently available — please check back later or call us.</p>
+                  )}
+
+                  {/* "No room" as a row of its own. It used to be the absence of
+                      a choice, which left guests unsure whether they had
+                      skipped the step or simply not noticed it. */}
+                  {!requiresRoom && bookableRooms.length > 0 && (
+                    <button
+                      type="button"
+                      aria-pressed={selRooms.length === 0}
+                      onClick={() => selRooms.forEach((id) => toggleRoom(id))}
+                      style={{ ...tileStyle(selRooms.length === 0), display: "flex", alignItems: "center", gap: 14, padding: "16px 18px" }}
+                    >
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 3 }}>No room needed</span>
+                        <span style={{ display: "block", color: C.textS, fontSize: 12.5 }}>Continue with your pool reservation only.</span>
+                      </span>
+                      <span style={{ color: C.goldInk, fontSize: 15, fontFamily: "'Cormorant Garamond',Georgia,serif", flexShrink: 0 }}>Included</span>
+                    </button>
                   )}
                   {bookableRooms.map((r) => {
                     const sel = selRooms.includes(r.id);
                     const taken = takenRooms.has(r.id);
                     const discountedPrice = requiresRoom ? Math.round(r.price * (1 - ROOM_BUNDLE_DISCOUNT_PCT)) : r.price;
                     return (
-                      <div key={r.id} onClick={() => { if (!taken || sel) toggleRoom(r.id); }} aria-disabled={taken && !sel} style={{ opacity: taken && !sel ? 0.45 : 1, pointerEvents: taken && !sel ? "none" : "auto", background: sel ? (isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.1)") : C.bgCard2, border: `1px solid ${sel ? gold : C.border}`, borderRadius: 10, padding: "16px 18px", cursor: "pointer", display: "flex", alignItems: "center", gap: 14, transition: "all .2s" }}>
+                      <button
+                        key={r.id}
+                        type="button"
+                        aria-pressed={sel}
+                        disabled={taken && !sel}
+                        onClick={() => { if (!taken || sel) toggleRoom(r.id); }}
+                        style={{ ...tileStyle(sel), opacity: taken && !sel ? 0.45 : 1, cursor: taken && !sel ? "not-allowed" : "pointer", padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}
+                      >
+                        {/* alt="" because the room name sits right beside it: a
+                            screen reader would otherwise read it twice. */}
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img loading="lazy" decoding="async" src={r.img} alt={r.name} style={{ width: 72, height: 56, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ color: C.textH, fontSize: 15, fontWeight: 600, marginBottom: 2 }}>{r.name}</div>
-                          <div style={{ color: C.textS, fontSize: 13.5 }}>🛏 {r.beds} · 👥 Up to {r.capacity}</div>
-                          {taken && <div style={{ color: "#e55", fontSize: 12.5, marginTop: 2 }}>Already booked on {fmtDate(date)}</div>}
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          {requiresRoom && <div style={{ color: C.textXS, fontSize: 12.5, textDecoration: "line-through" }}>{fmt(r.price)}</div>}
-                          <div style={{ color: C.goldInk, fontWeight: 700, fontSize: 16 }}>{fmt(discountedPrice)}</div>
-                          <div style={{ marginTop: 6, width: 22, height: 22, borderRadius: requiresRoom ? 6 : "50%", border: `2px solid ${sel ? gold : C.border}`, background: sel ? gold : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13.5, color: sel ? "#000" : "transparent", marginLeft: "auto" }}>✓</div>
-                        </div>
-                      </div>
+                        <img loading="lazy" decoding="async" src={r.img} alt="" style={{ width: 76, height: 50, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 3 }}>{r.name}</span>
+                          <span style={{ display: "block", color: C.textS, fontSize: 12.5 }}>{r.beds} · Up to {r.capacity} guests</span>
+                          {taken && <span style={{ display: "block", color: "#e07a7a", fontSize: 12, marginTop: 3 }}>Already booked on {fmtDate(date)}</span>}
+                        </span>
+                        <span style={{ textAlign: "right", flexShrink: 0 }}>
+                          {requiresRoom && <span style={{ display: "block", color: C.textXS, fontSize: 12, textDecoration: "line-through" }}>{fmt(r.price)}</span>}
+                          <span style={{ display: "block", color: C.goldInk, fontWeight: 700, fontSize: 15.5 }}>{fmt(discountedPrice)}</span>
+                        </span>
+                      </button>
                     );
                   })}
                 </div>
@@ -964,29 +1097,34 @@
                   </div>
                 )}
 
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => setStep(3)} style={{ ...outBtn, flex: 1, padding: "12px 10px", borderRadius: 6 }}>BACK</button>
-                  <button
-                    disabled={(requiresRoom && selRooms.length === 0) || !roomsFree}
-                    onClick={() => setStep(5)}
-                    style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: (requiresRoom && selRooms.length === 0) || !roomsFree ? 0.4 : 1 }}
-                  >
-                    CONTINUE →
-                  </button>
-                </div>
+                {showRoomPicker && bookableRooms.length > 0 && (
+                  <p style={{ color: C.textS, fontSize: 12.5, margin: "0 0 4px" }}>
+                    Room availability is checked against your selected date before confirmation.
+                  </p>
+                )}
+
+                {navRow(
+                  { label: "BACK", onClick: () => setStep(3) },
+                  { label: "CONTINUE", onClick: () => setStep(5), disabled: (requiresRoom && selRooms.length === 0) || !roomsFree },
+                )}
               </div>
             )}
 
             {/* STEP 5 – Guest Info */}
             {step === 5 && (
               <div>
-                <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, marginBottom: 20, fontWeight: 400 }}>Your Information</h3>
+                {stepHead({
+                  eyebrow: "GUEST DETAILS",
+                  title: "Who should we contact?",
+                  note: "Your information is used only for this reservation.",
+                })}
+                <div style={{ height: 20 }} />
                 {/* Notes spans the pair above it, so the three short fields
                     stay side by side and the free-text box gets the full
                     width it actually needs. */}
                 <div className="mb-5 grid gap-4 md:grid-cols-2">
                   <div>
-                    <Label htmlFor="bn-name" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">FULL NAME</Label>
+                    <Label htmlFor="bn-name" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>FULL NAME</Label>
                     <div style={{ position: "relative" }}>
                       <Input
                         id="bn-name"
@@ -1012,7 +1150,7 @@
                   </div>
 
                   <div>
-                    <Label htmlFor="bn-email" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">EMAIL ADDRESS</Label>
+                    <Label htmlFor="bn-email" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>EMAIL ADDRESS</Label>
                     <Input
                       id="bn-email"
                       type="email"
@@ -1031,7 +1169,7 @@
                   </div>
 
                   <div>
-                    <Label htmlFor="bn-contact" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">CONTACT NUMBER</Label>
+                    <Label htmlFor="bn-contact" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>CONTACT NUMBER</Label>
                     <div style={{ position: "relative" }}>
                       <Input
                         id="bn-contact"
@@ -1052,7 +1190,7 @@
                   </div>
 
                   <div className="md:col-span-2">
-                    <Label htmlFor="bn-notes" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">SPECIAL NOTES (OPTIONAL)</Label>
+                    <Label htmlFor="bn-notes" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>SPECIAL NOTES (OPTIONAL)</Label>
                     <Textarea
                       id="bn-notes"
                       value={form.notes}
@@ -1063,7 +1201,7 @@
                       className="min-h-[88px] resize-none"
                     />
                     <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-                      <span style={{ color: form.notes.length >= NOTES_MAX ? "#e55" : C.textXS, fontSize: 11.5, fontFamily: "monospace" }}>
+                      <span style={{ color: form.notes.length >= NOTES_MAX ? "#e55" : C.textS, fontSize: 11.5, fontFamily: "monospace" }}>
                         {form.notes.length}/{NOTES_MAX}
                       </span>
                     </div>
@@ -1072,41 +1210,43 @@
                 {/* Summary — an itemized liquidation rather than one lump
                     total, so a guest can see exactly what each peso is for
                     before paying. */}
-                <div style={{ background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
-                  <p style={{ color: C.textS, fontSize: 10.5, letterSpacing: 2, marginBottom: 12 }}>BOOKING DETAILS</p>
-                  {[["Date", fmtDate(date)], ["Guests", `${guests} pax`], ["Package", packageLabel], ["Tier", tier]].map(([l, v]) => (
-                    <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                      <span style={{ color: C.textS, fontSize: 13.5 }}>{l}</span>
-                      <span style={{ color: C.textH, fontSize: 13.5, fontWeight: 500 }}>{v}</span>
+                <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "18px 16px" : "22px 24px", marginBottom: 4, background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+                    <span style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.2, fontWeight: 700 }}>RESERVATION SUMMARY</span>
+                    <span style={{ color: C.goldInk, fontSize: 24, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>{fmt(total)}</span>
+                  </div>
+
+                  {([
+                    ["Date", date ? fmtDate(date) : "\u2014"],
+                    ["Experience", `${packageLabel} · ${tier}`],
+                    ["Guests", String(guests)],
+                    ["Room", selRooms.length
+                      ? rooms.filter((r) => selRooms.includes(r.id)).map((r) => r.name).join(", ")
+                      : "No room add-on"],
+                  ] as const).map(([l, v]) => (
+                    <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "11px 0", borderTop: `1px solid ${C.border}` }}>
+                      <span style={{ color: C.textS, fontSize: 13 }}>{l}</span>
+                      <span style={{ color: C.textB, fontSize: 13, fontWeight: 600, textAlign: "right" }}>{v}</span>
                     </div>
                   ))}
 
-                  <p style={{ color: C.textS, fontSize: 10.5, letterSpacing: 2, marginTop: 16, marginBottom: 10 }}>PRICE BREAKDOWN</p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {priceLines.map((l) => (
-                      <div key={l.label} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                        <span style={{ color: l.discount ? "#4caf50" : C.textS, fontSize: 13.5 }}>{l.label}</span>
-                        <span style={{ color: l.discount ? "#4caf50" : C.textB, fontSize: 13.5, whiteSpace: "nowrap" }}>
-                          {l.strike !== undefined && (
-                            <span style={{ textDecoration: "line-through", color: C.textS, marginRight: 6 }}>{fmt(l.strike)}</span>
-                          )}
-                          {l.discount ? "-" : ""}{fmt(l.amount)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  {/* Discounts stay on the page. Everything else in the total is
+                      something the guest picked and saw priced; a discount is
+                      not, so hiding it would make the total unexplainable. */}
+                  {priceLines.filter((l) => l.discount).map((l) => (
+                    <div key={l.label} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "11px 0", borderTop: `1px solid ${C.border}` }}>
+                      <span style={{ color: "#6ec071", fontSize: 13 }}>{l.label}</span>
+                      <span style={{ color: "#6ec071", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>-{fmt(l.amount)}</span>
+                    </div>
+                  ))}
 
-                  <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 12, paddingTop: 10, display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: C.goldInk, fontWeight: 700, fontSize: 14.5 }}>Total</span>
-                    <span style={{ color: C.goldInk, fontWeight: 700, fontSize: 14.5 }}>{fmt(total)}</span>
+                  <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 6, paddingTop: 14, display: "flex", justifyContent: "space-between", gap: 16 }}>
+                    <span style={{ color: C.textS, fontSize: 13 }}>50% due now</span>
+                    <span style={{ color: C.goldInk, fontSize: 13, fontWeight: 700 }}>{fmt(down)}</span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
-                    <span style={{ color: C.textS, fontSize: 13.5 }}>50% Down payment (due now)</span>
-                    <span style={{ color: "#ff9800", fontWeight: 700, fontSize: 13.5 }}>{fmt(down)}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                    <span style={{ color: C.textS, fontSize: 13.5 }}>Remaining balance (due on visit)</span>
-                    <span style={{ color: C.textB, fontSize: 13.5, fontWeight: 600 }}>{fmt(total - down)}</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginTop: 8 }}>
+                    <span style={{ color: C.textS, fontSize: 13 }}>Remaining balance on arrival</span>
+                    <span style={{ color: C.goldInk, fontSize: 13, fontWeight: 700 }}>{fmt(total - down)}</span>
                   </div>
                 </div>
                 {!dateOk && (
@@ -1114,19 +1254,17 @@
                     ⚠ {describeDateProblem(date) ?? "That date is no longer available — please pick another."}
                   </p>
                 )}
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => setStep(showRoomPicker ? 4 : 3)} style={{ ...outBtn, flex: 1, padding: "12px 10px", borderRadius: 6 }}>BACK</button>
-                  <button
-                    // dateOk is re-checked here as well as at step 2: the guest may
-                    // have sat on this screen past midnight, or the date may have
-                    // been taken in the meantime.
-                    disabled={!!validateBookingForm(form) || !dateOk || !roomsFree}
-                    onClick={() => setShowGcashWarning(true)}
-                    style={{ ...goldBtn, flex: 2, borderRadius: 6, opacity: validateBookingForm(form) || !dateOk || !roomsFree ? 0.4 : 1 }}
-                  >
-                    PROCEED TO GCASH →
-                  </button>
-                </div>
+                {/* dateOk is re-checked here as well as at step 2: the guest
+                    may have sat on this screen past midnight, or the date may
+                    have been taken in the meantime. */}
+                {navRow(
+                  { label: "BACK", onClick: () => setStep(showRoomPicker ? 4 : 3) },
+                  {
+                    label: "REVIEW PAYMENT POLICY",
+                    onClick: () => setShowGcashWarning(true),
+                    disabled: !!validateBookingForm(form) || !dateOk || !roomsFree,
+                  },
+                )}
               </div>
             )}
 
@@ -1141,20 +1279,24 @@
                     <button onClick={() => { setQrExpired(false); setQrRetryKey((k) => k + 1); }} style={{ ...goldBtn, padding: "13px 32px", letterSpacing: 2, borderRadius: 6 }}>TRY AGAIN</button>
                   </div>
                 )}
-                {/* GCash header */}
-                <div style={{ background: "linear-gradient(135deg,#00a952,#007a3d)", borderRadius: "8px 8px 0 0", marginTop: mob ? -20 : -40, marginLeft: mob ? -16 : -40, marginRight: mob ? -16 : -40, marginBottom: 0, padding: mob ? "18px 20px" : "22px 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ color: "#fff", fontSize: 17, fontWeight: 700 }}>G</span></div>
-                    <div><div style={{ color: "#fff", fontSize: 15, fontWeight: 700 }}>GCash Payment</div><div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12.5 }}>Scan to pay with GCash app</div></div>
+                {/* The step used to open with a full-bleed GCash gradient bar,
+                    which made this one screen look like a different site. It
+                    now carries the same head as every other step, with the
+                    countdown as a pill rather than a headline. */}
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 22 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 9px", fontWeight: 700 }}>SECURE PAYMENT</p>
+                    <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 24 : 30, margin: 0, fontWeight: 400, lineHeight: 1.15 }}>
+                      Pay the 50% reservation deposit
+                    </h3>
                   </div>
-                  <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: "8px 14px", textAlign: "center" }}>
-                    <div style={{ color: qrSeconds <= 60 ? "#ff6b6b" : "rgba(255,255,255,0.7)", fontSize: 10.5, letterSpacing: 2, marginBottom: 2 }}>EXPIRES IN</div>
-                    <div style={{ color: qrSeconds <= 60 ? "#ff6b6b" : "#fff", fontSize: mob ? 18 : 22, fontWeight: 700, fontFamily: "monospace", letterSpacing: 2 }}>{fmtTimer(qrSeconds)}</div>
+                  <div style={{ border: `1px solid ${qrSeconds <= 60 ? "#e07a7a" : C.border}`, borderRadius: 999, padding: "9px 16px", fontSize: 12.5, color: qrSeconds <= 60 ? "#e07a7a" : C.textS, whiteSpace: "nowrap", marginTop: mob ? 0 : 18 }}>
+                    Session expires in <strong style={{ color: qrSeconds <= 60 ? "#e07a7a" : C.textB, fontFamily: "monospace" }}>{fmtTimer(qrSeconds)}</strong>
                   </div>
                 </div>
-                <div style={{ padding: mob ? "24px 0 0" : "32px 0 0", display: "flex", flexDirection: mob ? "column" : "row", gap: mob ? 24 : 32, alignItems: "flex-start" }}>
+                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,0.85fr) minmax(0,1.15fr)", gap: mob ? 16 : 20, alignItems: "start" }}>
                   {/* QR */}
-                  <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 14, width: mob ? "100%" : "auto" }}>
+                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "18px 16px" : "22px 20px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
                     {/* Real QR from PayMongo — unique to this payment intent.
                         Never render a placeholder here: a decorative QR that
                         cannot be paid is worse than an honest spinner. */}
@@ -1184,35 +1326,34 @@
                         />
                       )}
                     </div>
-                    <div style={{ background: isDark ? "rgba(0,169,82,0.08)" : "rgba(0,169,82,0.06)", border: "1px solid rgba(0,169,82,0.2)", borderRadius: 8, padding: "8px 16px", textAlign: "center" }}>
-                      <div style={{ color: "#00a952", fontSize: 11.5, fontWeight: 700, letterSpacing: 2, marginBottom: 2 }}>AMOUNT DUE (50% DOWN)</div>
-                      <div style={{ color: isDark ? "#fff" : "#111", fontSize: mob ? 22 : 26, fontWeight: 700, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>₱{(serverQuote?.down ?? down).toLocaleString()}</div>
+                    <p style={{ color: C.textS, fontSize: 13, textAlign: "center", margin: 0, lineHeight: 1.6 }}>
+                      Open GCash and scan the code
+                    </p>
+                    <div style={{ width: "100%", background: "rgba(0,169,82,0.10)", border: "1px solid rgba(0,169,82,0.35)", borderRadius: 10, padding: "12px 16px", textAlign: "center" }}>
+                      <div style={{ color: "#4caf50", fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>AMOUNT DUE NOW</div>
+                      <div style={{ color: isDark ? "#fff" : "#111", fontSize: mob ? 24 : 28, fontWeight: 700, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>{fmt(serverQuote?.down ?? down)}</div>
                     </div>
-                    <p style={{ color: C.textS, fontSize: 12.5, textAlign: "center", maxWidth: 220, lineHeight: 1.6 }}>Open your <strong style={{ color: isDark ? "#ccc" : "#333" }}>GCash app</strong> → tap <strong style={{ color: isDark ? "#ccc" : "#333" }}>Scan QR</strong> → point your camera at the code above</p>
                   </div>
                   {/* Order summary */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: C.textS, fontSize: 10.5, letterSpacing: 3, marginBottom: 14 }}>ORDER SUMMARY</div>
-                    <div style={{ background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 16 }}>
-                      {[["Ref ID", "Issued after payment"], ["Guest", form.name], ["Date", date], ["Package", packageLabel]].map(([l, v]) => (
-                        <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderBottom: `1px solid ${C.borderLight}` }}>
-                          <span style={{ color: C.textS, fontSize: 12.5 }}>{l}</span>
-                          <span style={{ color: l === "Ref ID" ? C.textS : C.textH, fontSize: 12.5, fontWeight: 500, fontStyle: l === "Ref ID" ? "italic" : "normal" }}>{v}</span>
+                  <div style={{ minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "18px 16px" : "22px 24px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
+                    <div style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.2, fontWeight: 700, marginBottom: 14 }}>ORDER SUMMARY</div>
+                    <div style={{ marginBottom: 16 }}>
+                      {([
+                        ["Guest", form.name || "\u2014"],
+                        ["Date", date ? fmtDate(date) : "\u2014"],
+                        ["Experience", packageLabel],
+                        ["Guests", overtime > 0 ? `${guests} \u00b7 +${overtime}hr OT` : String(guests)],
+                        ["Full total", fmt(serverQuote?.total ?? total)],
+                      ] as const).map(([l, v]) => (
+                        <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "11px 0", borderBottom: `1px solid ${C.border}` }}>
+                          <span style={{ color: C.textS, fontSize: 13 }}>{l}</span>
+                          <span style={{ color: C.textB, fontSize: 13, fontWeight: 600, textAlign: "right" }}>{v}</span>
                         </div>
                       ))}
-                      <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderBottom: `1px solid ${C.borderLight}` }}>
-                        <span style={{ color: C.textS, fontSize: 12.5 }}>Guests</span>
-                        <span style={{ color: C.textH, fontSize: 12.5 }}>{guests} pax{overtime > 0 ? ` · +${overtime}hr OT` : ""}</span>
-                      </div>
-                      <div style={{ padding: "12px 14px", background: isDark ? "#0d0c09" : "#ece6db" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ color: C.textS, fontSize: 12.5 }}>Full Total</span><span style={{ color: C.textH, fontSize: 12.5, fontWeight: 600 }}>{fmt(serverQuote?.total ?? total)}</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#00a952", fontSize: 13.5, fontWeight: 700 }}>50% Down Due Now</span><span style={{ color: "#00a952", fontSize: 15, fontWeight: 700 }}>{fmt(serverQuote?.down ?? down)}</span></div>
-                      </div>
                     </div>
-                    <div style={{ background: "rgba(229,85,85,0.05)", border: "1px solid rgba(229,85,85,0.15)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 8, alignItems: "flex-start" }}>
-                      <span style={{ fontSize: 14.5, flexShrink: 0 }}>⚠️</span>
-                      <span style={{ color: C.textS, fontSize: 12.5, lineHeight: 1.7 }}>Do not close this page while paying. QR expires in <strong style={{ color: qrSeconds <= 60 ? "#e55" : gold }}>{fmtTimer(qrSeconds)}</strong>.</span>
-                    </div>
+                    <p style={{ color: C.textS, fontSize: 12, lineHeight: 1.6, margin: "0 0 14px" }}>
+                      Keep this page open while you pay.
+                    </p>
                     {/* "I've completed payment" → shows confirm modal */}
                     {/* Live status. There is deliberately no "I've paid"
                         button any more — the old one recorded the booking as
@@ -1274,32 +1415,47 @@
                 ready, via the button below or the nav. */}
             {step === 7 && (
               <div style={{ padding: "8px 0", textAlign: "center" }}>
-                <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(0,169,82,0.1)", border: "1px solid rgba(0,169,82,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, margin: "0 auto 20px" }}>✓</div>
-                <h3 style={{ color: C.textH, fontSize: 24, fontWeight: 400, marginBottom: 10, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>Booking Submitted!</h3>
-                <p style={{ color: C.textS, fontSize: 15, marginBottom: 24 }}>Your down payment of <strong style={{ color: C.textH }}>{fmt(serverQuote?.down ?? down)}</strong> was received. Status: <span style={{ color: "#f5c518", fontWeight: 600 }}>Paid</span> — awaiting the resort's confirmation.</p>
+                <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(76,175,80,0.10)", border: "1px solid rgba(76,175,80,0.45)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, color: "#6ec071", margin: "0 auto 22px" }} aria-hidden="true">✓</div>
+                <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.6, fontWeight: 700, margin: "0 0 12px" }}>RESERVATION SUBMITTED</p>
+                {/* The guest's own name, because this is the one screen that is
+                    addressed to them rather than about the booking. */}
+                <h3 style={{ color: C.textH, fontSize: mob ? 28 : 36, fontWeight: 400, margin: "0 0 14px", fontFamily: "'Cormorant Garamond',Georgia,serif", lineHeight: 1.15 }}>
+                  Thank you{form.name ? `, ${form.name.split(" ")[0]}` : ""}.
+                </h3>
+                <p style={{ color: C.textS, fontSize: 14.5, margin: "0 auto 26px", lineHeight: 1.7, maxWidth: 520 }}>
+                  We received your {fmt(serverQuote?.down ?? down)} deposit. The resort team will review and confirm your reservation within 24 hours.
+                </p>
 
                 {/* Reference ID — prominent at top */}
-                <div style={{ background: isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.06)", border: `1px solid ${gold}55`, borderRadius: 12, padding: "20px 24px", marginBottom: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                  <p style={{ color: C.textS, fontSize: 11.5, letterSpacing: 3, margin: 0 }}>YOUR REFERENCE ID</p>
-                  <p style={{ color: C.goldInk, fontFamily: "monospace", fontSize: 28, fontWeight: 700, letterSpacing: 3, margin: 0 }}>{bookingId}</p>
-                  <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>Screenshot this — you&apos;ll need it for follow-ups and to cancel.</p>
+                <div style={{ background: isDark ? "rgba(201,168,76,0.07)" : "rgba(201,168,76,0.06)", border: `1px solid ${gold}66`, borderRadius: 12, padding: mob ? "20px 18px" : "24px 28px", margin: "0 auto 22px", maxWidth: 540, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                  <p style={{ color: C.textS, fontSize: 11, letterSpacing: 2.6, margin: 0 }}>YOUR REFERENCE ID</p>
+                  <p style={{ color: C.goldInk, fontFamily: "monospace", fontSize: mob ? 28 : 34, fontWeight: 700, letterSpacing: 3, margin: 0 }}>{bookingId}</p>
+                  <p style={{ color: C.textB, fontSize: 13, margin: 0 }}>Save this number for follow-ups and booking management.</p>
                 </div>
 
-                <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 20, textAlign: "left" }}>
-                  <div style={{ background: isDark ? "#0f0e0b" : "#f5f0e8", padding: "10px 18px", borderBottom: `1px solid ${C.border}` }}><span style={{ color: C.textS, fontSize: 13.5, fontWeight: 600 }}>What Happens Next</span></div>
-                  <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
-                    {[["1", "Your GCash payment was verified automatically — no screenshot needed."], ["2", "The resort reviews and confirms your reservation within 24 hours."], ["3", `A confirmation email is sent to ${form.email} once approved.`]].map(([n, txt]) => (
-                      <div key={n} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                        <div style={{ width: 20, height: 20, borderRadius: "50%", background: `${gold}22`, border: `1px solid ${gold}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11.5, color: C.goldInk, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{n}</div>
-                        <span style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.6 }}>{txt}</span>
-                      </div>
+                <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "18px 16px" : "22px 24px", margin: "0 auto 20px", maxWidth: 540, textAlign: "left", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
+                  <p style={{ color: C.textH, fontSize: 15, fontWeight: 700, margin: "0 0 14px" }}>What happens next</p>
+                  {/* An ordered list, not numbered divs: these are steps in
+                      sequence, and a screen reader should say so. */}
+                  <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10 }}>
+                    {[
+                      "Your GCash payment is verified automatically.",
+                      "The resort reviews your reservation details.",
+                      `A confirmation is sent to ${form.email || "your email"}.`,
+                    ].map((txt, i) => (
+                      <li key={txt} style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.textS, fontSize: 13, lineHeight: 1.6 }}>
+                        <span style={{ color: C.goldInk, flexShrink: 0, fontWeight: 700 }}>{i + 1}.</span>
+                        <span>{txt}</span>
+                      </li>
                     ))}
-                  </div>
+                  </ol>
                 </div>
-                <p style={{ color: C.textS, fontSize: 13.5, marginBottom: 20 }}>⚠ No refunds. The remaining balance of {fmt((serverQuote?.total ?? total) - (serverQuote?.down ?? down))} is paid at the resort.</p>
+                <p style={{ color: C.textS, fontSize: 12.5, margin: "0 auto 22px", maxWidth: 540 }}>
+                  No refunds. The remaining balance of {fmt((serverQuote?.total ?? total) - (serverQuote?.down ?? down))} is paid at the resort.
+                </p>
                 <button
                   onClick={() => onGoHome?.()}
-                  style={{ ...goldBtn, padding: "13px 32px", letterSpacing: 2, borderRadius: 6 }}
+                  style={{ ...goldBtn, padding: "15px 34px", letterSpacing: 1.6, borderRadius: 8, minHeight: 48 }}
                 >
                   BACK TO HOME
                 </button>
@@ -1325,86 +1481,72 @@
         >
           <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[min(46rem,calc(100%-2rem))]">
             <DialogHeader>
-              <div style={{ width: 60, height: 60, borderRadius: "50%", background: "rgba(76,175,80,0.1)", border: "2px solid rgba(76,175,80,0.35)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4, fontSize: 28 }}>
-                ⚠️
+              {/* The mark is an outline, not a filled red warning: this is a
+                  policy the guest has to read, not an error they have made. */}
+              <div style={{ width: 48, height: 48, borderRadius: "50%", border: `1.5px solid ${gold}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10, color: C.goldInk, fontSize: 22, fontWeight: 600, flexShrink: 0 }} aria-hidden="true">
+                !
               </div>
-              <DialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, fontWeight: 400 }}>
-                Before You Proceed
+              <DialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 26 : 32, fontWeight: 400, lineHeight: 1.15 }}>
+                Before you continue
               </DialogTitle>
               <DialogDescription style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>
-                Please read and understand the following payment policy before continuing to the GCash payment step.
+                Please review the resort&rsquo;s payment and stay policies.
               </DialogDescription>
             </DialogHeader>
 
-            {/* Policy box — green highlighted */}
-            <div style={{ background: "rgba(76,175,80,0.07)", border: "1.5px solid rgba(76,175,80,0.4)", borderRadius: 10, padding: "18px 20px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                <span style={{ fontSize: 20 }}>⚠️</span>
-                <span style={{ color: "#4caf50", fontSize: 13.5, fontWeight: 700, letterSpacing: 1.5 }}>PAYMENT POLICY</span>
-              </div>
-              <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                  <span style={{ color: "#4caf50", fontSize: 15, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>❌</span>
-                  <span style={{ color: C.textH, fontSize: 15, fontWeight: 600, lineHeight: 1.5 }}>
-                    No Refunds — All payments are non-refundable once submitted.
-                  </span>
-                </div>
-                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                  <span style={{ color: "#4caf50", fontSize: 15, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>💰</span>
-                  <span style={{ color: C.textH, fontSize: 15, fontWeight: 600, lineHeight: 1.5 }}>
-                    50% Down Payment — Only half the total is required now. The remaining balance is due on the day of your visit.
-                  </span>
-                </div>
-                <div className="sm:col-span-2" style={{ height: 1, background: "rgba(76,175,80,0.2)", marginTop: 4 }} />
-                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                  <span style={{ color: "#4caf50", fontSize: 13.5, flexShrink: 0, marginTop: 2 }}>📅</span>
-                  <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
-                    Rescheduling is subject to availability and must be discussed with the admin directly.
-                  </span>
-                </div>
-                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                  <span style={{ color: "#4caf50", fontSize: 13.5, flexShrink: 0, marginTop: 2 }}>🔇</span>
-                  <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
-                    {QUIET_HOURS_POLICY} The resort is in a residential village.
-                  </span>
-                </div>
-              </div>
+            {/* Four policies, each a heading and a plain sentence. The old
+                version leaned on emoji to carry meaning, which a screen
+                reader announces as decoration and which carried no meaning
+                for anyone who could not place the pictogram. */}
+            <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "18px 16px" : "22px 24px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
+              <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2" style={{ margin: 0 }}>
+                {[
+                  ["No refunds", "Payments are non-refundable once submitted."],
+                  ["50% reservation deposit", "Half of the total is due now; the balance is paid on arrival."],
+                  ["Flexible rescheduling", "Changes depend on availability and must be arranged with the resort."],
+                  ["Quiet hours", QUIET_HOURS_POLICY],
+                ].map(([title, body]) => (
+                  <div key={title}>
+                    <dt style={{ color: C.textH, fontSize: 14, fontWeight: 700, marginBottom: 5 }}>{title}</dt>
+                    <dd style={{ color: C.textS, fontSize: 12.5, lineHeight: 1.6, margin: 0 }}>{body}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
 
-            {/* Acknowledgement. A real <Label htmlFor> rather than an onClick
-                div: the whole sentence becomes the checkbox's hit area AND its
-                accessible name, and the space bar now toggles it. */}
+            {/* A real <Label htmlFor> rather than an onClick div: the whole
+                sentence is the checkbox's hit area AND its accessible name,
+                and the space bar toggles it. */}
             <Label
               htmlFor="gcash-policy-ack"
-              style={{ display: "flex", alignItems: "flex-start", gap: 12, background: policyChecked ? "rgba(76,175,80,0.06)" : isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", border: `1.5px solid ${policyChecked ? "rgba(76,175,80,0.5)" : isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: 8, padding: "12px 14px", cursor: "pointer", transition: "all .2s", userSelect: "none" }}
+              style={{ display: "flex", alignItems: "center", gap: 12, background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.025)", border: `1px solid ${policyChecked ? gold : C.border}`, borderRadius: 10, padding: "14px 16px", cursor: "pointer", transition: "border-color .18s", userSelect: "none" }}
             >
               <Checkbox
                 id="gcash-policy-ack"
                 checked={policyChecked}
                 onCheckedChange={(v) => setPolicyChecked(v === true)}
-                className="mt-0.5 size-5 border-2 data-[state=checked]:border-[#4caf50] data-[state=checked]:bg-[#4caf50] data-[state=checked]:text-white"
+                className="size-6 rounded-full border-2 border-[var(--sw-gold)] data-[state=checked]:border-[var(--sw-gold)] data-[state=checked]:bg-[var(--sw-gold)] data-[state=checked]:text-black"
+                style={{ ["--sw-gold" as string]: gold }}
               />
-              <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, fontWeight: 400, letterSpacing: 0 }}>
-                I have read and understood the payment policy. I agree that <strong style={{ color: C.textH }}>all payments are non-refundable</strong> and that a <strong style={{ color: C.textH }}>50% down payment</strong> is required to confirm my booking.
+              <span style={{ color: C.textB, fontSize: 13.5, lineHeight: 1.6, fontWeight: 400, letterSpacing: 0 }}>
+                I understand and agree to the payment and stay policies.
               </span>
             </Label>
-
-            <Separator />
 
             <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => { setShowGcashWarning(false); setPolicyChecked(false); }}
-                style={{ color: C.textS, borderColor: C.border, letterSpacing: 1, fontSize: 12.5 }}
+                style={{ color: C.goldInk, borderColor: gold, letterSpacing: 1.4, fontSize: 12.5, fontWeight: 700, minHeight: 48, padding: "0 22px" }}
               >
-                CANCEL
+                REVIEW DETAILS
               </Button>
               <Button
                 disabled={!policyChecked}
                 onClick={() => { setShowGcashWarning(false); setPolicyChecked(false); setStep(6); }}
-                style={{ background: policyChecked ? "rgba(76,175,80,0.12)" : isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", color: policyChecked ? "#4caf50" : C.textS, border: `1px solid ${policyChecked ? "rgba(76,175,80,0.35)" : isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)"}`, fontSize: 12.5, fontWeight: 700, letterSpacing: 1.5 }}
+                style={{ ...goldBtn, letterSpacing: 1.4, fontSize: 12.5, fontWeight: 700, minHeight: 48, padding: "0 26px", opacity: policyChecked ? 1 : 0.45, cursor: policyChecked ? "pointer" : "not-allowed" }}
               >
-                ✓ YES, I UNDERSTAND
+                AGREE AND CONTINUE
               </Button>
             </DialogFooter>
           </DialogContent>

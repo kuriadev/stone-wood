@@ -68,7 +68,12 @@ const nav = (p: string) => {
       <Navbar page="Home" setPage={nav} />
       <Home
         setPage={nav}
-        onBookWithDate={(d) => router.push(`/book?date=${d}`)}
+        onBookWithDate={(d, opts) => {
+          const q = new URLSearchParams({ date: d });
+          if (opts?.slot) q.set("slot", opts.slot);
+          if (opts?.guests) q.set("guests", String(opts.guests));
+          router.push(`/book?${q.toString()}`);
+        }}
         onBookPackage={(pkg, resource, tier) => router.push(buildPackageBookingUrl(pkg, resource, tier))}
         bookings={bookings}
         closedDates={closedDates}
