@@ -245,6 +245,11 @@ export function Admin({
   const tabs: AdminTab[] = ["Dashboard", "Bookings", "Occupancy", "Facilities", "Inventory", "Sales", "Reports", "Rooms", "Packages", "Gallery", "Customer Service", "Maintenance"];
   // Icon per tab. Names resolve against the stroke set in ./Icon, so the
   // sidebar inherits the theme instead of rendering OS colour emoji.
+  /* What the sidebar prints. The key stays "Occupancy" because that string
+     is the tab id every switch in this file routes on; only the label the
+     staff read changes. */
+  const tabLabels: Record<string, string> = { Occupancy: "Calendar" };
+
   const tabIcons: Record<AdminTab, IconName> = {
     Dashboard: "grid", Bookings: "clipboard", Sales: "wallet",
     Occupancy: "calendar", Rooms: "bed", Packages: "gift",
@@ -285,6 +290,73 @@ export function Admin({
   // Calendar
   const daysInMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0).getDate();
   const firstDay = new Date(calMonth.getFullYear(), calMonth.getMonth(), 1).getDay();
+  /* Which date the pointer (or keyboard focus) is on, for the detail card.
+     Hover alone would strand touch and keyboard users, so the same
+     information is listed under the calendar as well. */
+  const [hoverDay, setHoverDay] = useState<string | null>(null);
+
+  /* One place for the status colours the legend promises. */
+  const statusTone = (st: string | null | undefined) =>
+    st === "Confirmed" ? "#4caf50"
+      : st === "Pending" ? "#f5c518"
+      : st === "Completed" ? "#4a9fd4"
+      : st === "Closed" ? "#e07070"
+      : C.textS;
+
+  /* A date can carry more than one booking -- a shared pool takes several
+     groups -- but the cell can only colour itself once, so it shows the
+     first. The card and the lists below show every one of them. */
+  const bookingsOn = (ds: string) =>
+    bookings.filter((b) => b.date === ds && b.status !== "Cancelled");
+
+  /* The detail card both calendars show on hover/focus. Written once: the
+     dashboard overview and the Calendar screen would otherwise grow two
+     copies of the same markup.
+
+     `colIdx` is the weekday column. The card is 230px wide and the content
+     pane clips horizontally, so on the Sun/Mon and Fri/Sat columns it anchors
+     to that edge rather than centring and being cut off.
+
+     `above` flips it over the cell for the lower rows. Hanging below the last
+     week pushed the card past the bottom of the month panel, which grew the
+     scrolling pane and shifted the layout under the pointer. */
+  const dayCard = (ds: string, list: Booking[], colIdx: number, above: boolean) => (
+    <div
+      role="tooltip"
+      style={{
+        position: "absolute",
+        ...(above ? { bottom: "calc(100% + 8px)" } : { top: "calc(100% + 8px)" }),
+        ...(colIdx <= 1 ? { left: 0 } : colIdx >= 5 ? { right: 0 } : { left: "50%", transform: "translateX(-50%)" }),
+        zIndex: 60,
+        width: 230,
+        textAlign: "left",
+        background: isDark ? "#14120e" : "#fffdf9",
+        border: `1px solid ${cBr}`,
+        borderRadius: 10,
+        boxShadow: isDark ? "0 18px 44px rgba(0,0,0,0.65)" : "0 18px 44px rgba(90,70,25,0.18)",
+        padding: "12px 14px",
+        // Never swallow a click meant for the date underneath.
+        pointerEvents: "none",
+      }}
+    >
+      <div style={{ color: C.textXS, fontSize: 11, letterSpacing: 1.4, marginBottom: 9 }}>
+        {fmtDate(ds).toUpperCase()}
+      </div>
+      {list.map((bk, bi) => (
+        <div key={bk.id} style={{ marginTop: bi ? 10 : 0, paddingTop: bi ? 10 : 0, borderTop: bi ? `1px solid ${cBr}` : "none" }}>
+          <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600, marginBottom: 3 }}>{bk.name}</div>
+          <div style={{ color: C.textS, fontSize: 12, marginBottom: 6 }}>
+            {bk.guests} guests{typeof bk.package === "string" && bk.package ? ` · ${bk.package}` : ""}
+          </div>
+          <span style={{ color: statusTone(bk.status), fontSize: 11, fontWeight: 700, letterSpacing: 0.6 }}>
+            {bk.status.toUpperCase()}
+          </span>
+          <span style={{ color: C.textS, fontSize: 11.5, marginLeft: 8 }}>{bk.id}</span>
+        </div>
+      ))}
+    </div>
+  );
+
   const getDateStatus = (d: number) => {
     const ds = `${calMonth.getFullYear()}-${String(calMonth.getMonth() + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     if (closedDates.includes(ds)) return "Closed";
@@ -604,7 +676,7 @@ export function Admin({
                         size={16}
                         style={{ opacity: tab === t ? 1 : 0.55, transition: "opacity .15s" }}
                       />
-                      <span style={{ flex: 1 }}>{t.toUpperCase()}</span>
+                      <span style={{ flex: 1 }}>{(tabLabels[t] ?? t).toUpperCase()}</span>
 
                       {/* Bookings badge */}
                       {t === "Bookings" && pendingCount > 0 && (
@@ -813,7 +885,7 @@ export function Admin({
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
                   <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, margin: 0 }}>AVAILABILITY OVERVIEW</p>
                   <div style={{ display: "flex", gap: 14 }}>
-                    {[["Booked", "#4caf50"], ["Closed", "#e07070"], ["Available", isDark ? "#2a2620" : "#e8e0d4"]].map(([l, c]) => (
+                    {[["Available", isDark ? "#6ec071" : "#3a9c4f"], ["Booked", isDark ? "rgba(198,198,198,0.85)" : "#8a8a8a"], ["Closed", isDark ? "rgba(214,138,138,0.75)" : "#c07575"]].map(([l, c]) => (
                       <div key={l} style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 10, height: 10, borderRadius: 2, background: c }} /><span style={{ color: C.textXS, fontSize: 11.5 }}>{l}</span></div>
                     ))}
                   </div>
@@ -845,14 +917,36 @@ export function Admin({
                                 const isPast = dayDate < today;
                                 const isBooked = bookedSet.has(ds);
                                 const isClosed = closedSet2.has(ds);
-                                let bg = isDark ? "#1a1814" : "#f0ede7", col = C.textB, dot: string | null = null;
-                                if (isPast) { bg = isDark ? "#0c0b09" : "#f8f6f3"; col = C.textXS; }
-                                else if (isBooked) { bg = isDark ? "#0f2018" : "#eafaf0"; col = "#4caf50"; dot = "#4caf50"; }
-                                else if (isClosed) { bg = isDark ? "#1a0a0a" : "#fff0f0"; col = "#e07070"; dot = "#e07070"; }
-                                const booking = isBooked ? bookings.find((b) => b.date === ds && b.status !== "Cancelled") : null;
+                                let bg = isDark ? "rgba(76,175,80,0.12)" : "#e8f5ea", col = isDark ? "#6ec071" : "#1f7a38", dot: string | null = null;
+                                let dim = false;
+                                if (isPast) { bg = isDark ? "#0c0b09" : "#f8f6f3"; col = C.textB; dim = true; }
+                                else if (isBooked) { bg = isDark ? "rgba(200,200,200,0.42)" : "#d6d6d6"; col = isDark ? "rgba(244,244,244,0.92)" : "#4f4f4f"; dot = isDark ? "rgba(198,198,198,0.85)" : "#8a8a8a"; }
+                                else if (isClosed) { bg = isDark ? "rgba(180,70,70,0.10)" : "#fbeaea"; col = isDark ? "rgba(214,138,138,0.75)" : "#b05a5a"; dot = isDark ? "rgba(214,138,138,0.75)" : "#c07575"; }
+                                const dayBookings = bookingsOn(ds);
+                                const colIdx = (fD + d - 1) % 7;
+                                /* Lower rows open the card upward, so it never
+                                   hangs past the bottom of the month panel. */
+                                const rowIdx = Math.floor((fD + d - 1) / 7);
+                                const cardAbove = rowIdx >= Math.ceil((fD + dIM) / 7) - 2;
                                 return (
-                                  <div key={d} title={booking ? `${booking.name} · ${booking.guests} guests` : isClosed ? "Closed" : ""} style={{ textAlign: "center", padding: "5px 2px", borderRadius: 3, background: bg, color: col, fontSize: 12.5, cursor: booking || isClosed ? "pointer" : "default", userSelect: "none", position: "relative", transition: "background .1s" }}>
+                                  <div
+                                    key={d}
+                                    /* The card replaces the native tooltip wherever there is
+                                       a booking to show. A closed date has none, so it keeps
+                                       a plain title. */
+                                    title={!dayBookings.length && isClosed ? "Closed" : undefined}
+                                    onMouseEnter={() => setHoverDay(ds)}
+                                    onMouseLeave={() => setHoverDay((cur) => (cur === ds ? null : cur))}
+                                    onFocus={() => setHoverDay(ds)}
+                                    onBlur={() => setHoverDay((cur) => (cur === ds ? null : cur))}
+                                    tabIndex={dayBookings.length ? 0 : -1}
+                                    aria-label={dayBookings.length
+                                      ? `${ds}: ${dayBookings.map((bk) => `${bk.name}, ${bk.status}`).join("; ")}`
+                                      : undefined}
+                                    style={{ textAlign: "center", padding: "5px 2px", borderRadius: 3, opacity: dim ? 0.38 : 1, background: bg, color: col, fontSize: 12.5, cursor: dayBookings.length || isClosed ? "pointer" : "default", userSelect: "none", position: "relative", transition: "background .1s" }}
+                                  >
                                     {d}{dot && <div style={{ width: 3, height: 3, borderRadius: "50%", background: dot, margin: "1px auto 0" }} />}
+                                    {hoverDay === ds && dayBookings.length > 0 && dayCard(ds, dayBookings, colIdx, cardAbove)}
                                   </div>
                                 );
                               })}
@@ -877,7 +971,7 @@ export function Admin({
             <div>
               <div style={{ marginBottom: 28 }}>
                 <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>CALENDAR VIEW</p>
-                <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 6px" }}>Occupancy</h2>
+                <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 6px" }}>Calendar</h2>
                 <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>Click a date to toggle it as closed.</p>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
@@ -895,16 +989,38 @@ export function Admin({
                   const status = getDateStatus(d);
                   const isPast = new Date(calMonth.getFullYear(), calMonth.getMonth(), d) < new Date(new Date().setHours(0, 0, 0, 0));
                   let bg = isDark ? "#111" : "#f0ede7", col = C.textB, border = `1px solid ${cBr}`;
-                  if (isPast) { bg = isDark ? "#0c0b09" : "#f8f6f3"; col = C.textXS; }
+                  let dim = false;
+                  if (isPast) { bg = isDark ? "#0c0b09" : "#f8f6f3"; col = C.textB; dim = true; }
                   else if (status === "Closed") { bg = isDark ? "#1a0a0a" : "#fff0f0"; col = "#e07070"; border = "1px solid rgba(229,85,85,0.3)"; }
-                  else if (status === "Confirmed" || status === "Pending") { bg = isDark ? "#0f2018" : "#eafaf0"; col = "#4caf50"; border = "1px solid rgba(76,175,80,0.3)"; }
+                  else if (status === "Pending") { bg = isDark ? "#241f08" : "#fdf6dd"; col = "#f5c518"; border = "1px solid rgba(245,197,24,0.35)"; }
+                  else if (status === "Confirmed") { bg = isDark ? "#0f2018" : "#eafaf0"; col = "#4caf50"; border = "1px solid rgba(76,175,80,0.3)"; }
                   else if (status === "Completed") { bg = isDark ? "#0f1a2a" : "#e8f4fb"; col = "#4a9fd4"; border = "1px solid rgba(74,159,212,0.3)"; }
+                  const dayBookings = bookingsOn(ds);
+                  /* Which weekday column and row this cell sits in: the column
+                     decides whether the card centres or hugs an edge, the row
+                     decides whether it opens downward or upward. */
+                  const colIdx = (firstDay + d - 1) % 7;
+                  const rowIdx = Math.floor((firstDay + d - 1) / 7);
+                  const cardAbove = rowIdx >= Math.ceil((firstDay + daysInMonth) / 7) - 2;
                   return (
-                    <div key={d} onClick={() => !isPast && !["Confirmed", "Pending", "Completed"].includes(status || "") && toggleClosed(ds)
-                    } style={{ 
+                    <div
+                      key={d}
+                      onClick={() => !isPast && !["Confirmed", "Pending", "Completed"].includes(status || "") && toggleClosed(ds)}
+                      onMouseEnter={() => setHoverDay(ds)}
+                      onMouseLeave={() => setHoverDay((cur) => (cur === ds ? null : cur))}
+                      onFocus={() => setHoverDay(ds)}
+                      onBlur={() => setHoverDay((cur) => (cur === ds ? null : cur))}
+                      tabIndex={dayBookings.length ? 0 : -1}
+                      aria-label={dayBookings.length
+                        ? `${ds}: ${dayBookings.map((bk) => `${bk.name}, ${bk.status}`).join("; ")}`
+                        : undefined}
+                      style={{ 
                       textAlign: "center", 
                       padding: mob ? "12px 4px" : "16px 4px", 
                       borderRadius: 6, 
+                      // Same rule as the guest calendars: a date nobody can
+                      // act on recedes, rather than just having muted ink.
+                      opacity: dim ? 0.38 : 1,
                       background: bg, border, 
                       color: col, 
                       fontSize: mob ? 12.5 : 14.5, 
@@ -918,16 +1034,67 @@ export function Admin({
                       transition: "all .15s", 
                       position: "relative" }}>
                       {d}
-                      {status && <div style={{ fontSize: 9.5, marginTop: 3, opacity: 0.8 }}>{status === "Closed" ? "CLOSED" : status === "Pending" ? "PEND" : status?.toUpperCase().slice(0, 4)}</div>}
+                      {status && <div style={{ fontSize: 11, marginTop: 3, opacity: 0.85, letterSpacing: 0.4, lineHeight: 1.2, overflowWrap: "anywhere" }}>{status.toUpperCase()}</div>}
+
+                      {hoverDay === ds && dayBookings.length > 0 && dayCard(ds, dayBookings, colIdx, cardAbove)}
                     </div>
                   );
                 })}
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                {[["Booked/Confirmed", "#4caf50"], ["Pending", "#f5c518"], ["Completed", "#4a9fd4"], ["Closed", "#e07070"], ["Click to close/open", gold]].map(([l, c]) => (
+                {[["Booked/Confirmed", "#4caf50"], ["Pending", "#f5c518"], ["Completed", "#4a9fd4"], ["Closed", "#e07070"]].map(([l, c]) => (
                   <div key={l} style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: c }} /><span style={{ color: C.textS, fontSize: 12.5 }}>{l}</span></div>
                 ))}
               </div>
+
+              {/* The same information the hover card gives, in a form that
+                  survives a touchscreen. Scoped to the month on screen, so
+                  paging the calendar pages these too. */}
+              {(() => {
+                const key = `${calMonth.getFullYear()}-${String(calMonth.getMonth() + 1).padStart(2, "0")}`;
+                const inMonth = bookings
+                  .filter((b) => b.date.startsWith(key) && b.status !== "Cancelled")
+                  .sort((a, b) => a.date.localeCompare(b.date));
+                const groups: { label: string; match: string }[] = [
+                  { label: "Booked/Confirmed", match: "Confirmed" },
+                  { label: "Pending", match: "Pending" },
+                  { label: "Completed", match: "Completed" },
+                ];
+                return (
+                  <div style={{ marginTop: 28, display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, minmax(0,1fr))", gap: 16 }}>
+                    {groups.map((g) => {
+                      const rows = inMonth.filter((b) => b.status === g.match);
+                      const tone = statusTone(g.match);
+                      return (
+                        <div key={g.label} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "16px 16px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                            <span style={{ width: 10, height: 10, borderRadius: 3, background: tone, flexShrink: 0 }} />
+                            <span style={{ color: C.textH, fontSize: 13, fontWeight: 600 }}>{g.label}</span>
+                            <span style={{ color: C.textS, fontSize: 12, marginLeft: "auto" }}>{rows.length}</span>
+                          </div>
+                          {rows.length === 0 ? (
+                            <p style={{ color: C.textS, fontSize: 12.5, margin: 0 }}>None this month.</p>
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                              {rows.map((bk) => (
+                                <div key={bk.id} style={{ borderTop: `1px solid ${cBr}`, paddingTop: 10 }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                                    <span style={{ color: C.textH, fontSize: 13, fontWeight: 600, minWidth: 0, overflowWrap: "anywhere" }}>{bk.name}</span>
+                                    <span style={{ color: tone, fontSize: 11.5, whiteSpace: "nowrap" }}>{fmtDate(bk.date)}</span>
+                                  </div>
+                                  <div style={{ color: C.textS, fontSize: 12, marginTop: 3 }}>
+                                    {bk.guests} guests · {bk.id}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           )}
 

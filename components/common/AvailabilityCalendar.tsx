@@ -239,9 +239,17 @@ export function AvailabilityCalendar({
 
           // Unavailable states stay quiet: a neutral tile for past, out of
           // range and booked, and a red-tinted one for a closed date.
-          if (isPast)   { bg = "rgba(255,255,255,0.03)"; col = "rgba(238,232,220,0.22)"; bdr = "1px solid rgba(255,255,255,0.05)"; cur = "default";     }
-          if (isBeyond) { bg = "rgba(255,255,255,0.03)"; col = "rgba(238,232,220,0.22)"; bdr = "1px solid rgba(255,255,255,0.05)"; cur = "not-allowed"; }
-          if (isBooked) { bg = "rgba(0,0,0,0.34)";       col = "rgba(216,212,204,0.54)"; bdr = "1px solid rgba(255,255,255,0.05)"; cur = "not-allowed"; }
+          /* Two different ideas, told two different ways.
+             BOOKED is a STATE: somebody has that date, so it gets a solid
+             grey chip you can read.
+             PAST and OUT-OF-RANGE are not states, they are the absence of an
+             option, so they keep the neutral tile and are dimmed by opacity
+             instead. Painting both of them grey is what made them
+             indistinguishable. */
+          let dim = false;
+          if (isPast)   { bg = "rgba(255,255,255,0.04)"; col = "rgba(238,232,220,0.55)"; bdr = "1px solid rgba(255,255,255,0.06)"; cur = "default";     dim = true; }
+          if (isBeyond) { bg = "rgba(255,255,255,0.04)"; col = "rgba(238,232,220,0.55)"; bdr = "1px solid rgba(255,255,255,0.06)"; cur = "not-allowed"; dim = true; }
+          if (isBooked) { bg = "rgba(200,200,200,0.42)"; col = "rgba(244,244,244,0.92)"; bdr = "1px solid rgba(210,210,210,0.5)"; cur = "not-allowed"; }
           if (isClosed) { bg = "rgba(180,70,70,0.10)";   col = "rgba(214,138,138,0.75)"; bdr = "1px solid rgba(180,70,70,0.22)";  cur = "not-allowed"; }
           // The selection is the same green, stated louder: solid fill, a
           // brighter rim and white text. Keeping it in the green family means
@@ -272,6 +280,9 @@ export function AvailabilityCalendar({
                 textAlign: "center",
                 padding: "7px 2px",
                 borderRadius: 10,
+                // Dimming the whole cell, rather than just muting its ink, is
+                // what makes a past date read as "not a thing you can press".
+                opacity: dim ? 0.38 : 1,
                 background: bg,
                 border: bdr,
                 color: col,
@@ -305,7 +316,7 @@ export function AvailabilityCalendar({
       >
         {[
           ["Available", "#6ec071"],
-          ["Booked",    "rgba(176,172,164,0.55)"],
+          ["Booked",    "rgba(198,198,198,0.85)"],
           ["Closed",    "rgba(214,138,138,0.75)"],
         ].map(([l, c]) => (
           <div key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>

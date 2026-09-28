@@ -479,6 +479,14 @@
     };
 
     const inpS: React.CSSProperties = { ...C.inp, borderRadius: 6 };
+
+    /* Valid fields tint rather than announce. Kept subtle on purpose: it is
+       confirmation, not an alert, and it sits behind the text the guest is
+       still reading back. */
+    const okField = (ok: boolean): React.CSSProperties =>
+      ok
+        ? { borderColor: "rgba(110,192,113,0.55)", background: "rgba(76,175,80,0.07)" }
+        : {};
     const cBr = isDark ? "#2a2520" : "#d6cfc4";
 
     // The internal step numbers are historical (there is no step 2), so the
@@ -1195,6 +1203,7 @@
                         autoComplete="name"
                         aria-invalid={Boolean(form.name) && !isValidName(form.name)}
                         className="pr-14"
+                        style={okField(Boolean(form.name) && isValidName(form.name))}
                       />
                       <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 11.5, color: form.name.length >= NAME_MAX ? "#e55" : C.textS, fontWeight: 700, fontFamily: "monospace" }}>
                         {form.name.length}/{NAME_MAX}
@@ -1202,9 +1211,6 @@
                     </div>
                     {form.name && !isValidName(form.name) && (
                       <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Please enter your full name (letters only)</p>
-                    )}
-                    {form.name && isValidName(form.name) && (
-                      <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Valid</p>
                     )}
                   </div>
 
@@ -1218,13 +1224,12 @@
                       placeholder="example@email.com"
                       autoComplete="email"
                       aria-invalid={Boolean(form.email) && !isValidEmail(form.email)}
+                      style={okField(Boolean(form.email) && isValidEmail(form.email))}
                     />
                     {form.email && !isValidEmail(form.email) && (
                       <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Please enter a valid email address</p>
                     )}
-                    {form.email && isValidEmail(form.email) && (
-                      <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Valid email</p>
-                    )}
+
                   </div>
 
                   <div>
@@ -1240,12 +1245,13 @@
                         autoComplete="tel"
                         aria-invalid={form.contact.length === 11 && !isValidPHNumber(form.contact)}
                         className="pr-14"
+                        style={okField(isValidPHNumber(form.contact))}
                       />
                       <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 11.5, color: form.contact.length === 11 ? "#4caf50" : form.contact.length > 0 ? "#f5c518" : C.textS, fontWeight: 700, fontFamily: "monospace" }}>{form.contact.length}/11</span>
                     </div>
                     {form.contact.length > 0 && form.contact.length < 11 && <p style={{ color: "#f5c518", fontSize: 12.5, marginTop: 4 }}>⚠ Must be 11 digits</p>}
                     {form.contact.length === 11 && !isValidPHNumber(form.contact) && <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Must start with 09</p>}
-                    {isValidPHNumber(form.contact) && <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Valid</p>}
+
                   </div>
 
                   <div className="md:col-span-2">

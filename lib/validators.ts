@@ -197,12 +197,47 @@ export function describeDateProblem(dateStr: string): string | null {
  * accepted "someone@gmail.com3321321" because its final segment allowed
  * digits. Requiring a letters-only TLD at the very end closes that hole.
  */
+/**
+ * Top-level domains a guest might plausibly be reachable at.
+ *
+ * The regex below treats ANY run of letters as a TLD, which is why
+ * "name@gmail.comxxxxxx" used to validate: it parses as the domain "gmail"
+ * with the TLD "comxxxxxx". That is syntactically legal and completely
+ * undeliverable, and a booking confirmation sent there is lost in silence.
+ *
+ * Every two-letter country code is accepted wholesale (.ph, .co, .io, .me,
+ * .ai ...). Longer TLDs are checked against this list. It is deliberately
+ * generous but finite -- a guest on some exotic new gTLD would be rejected,
+ * which is the trade this form should make: a typo caught now costs one
+ * retype, a typo missed costs the confirmation email.
+ */
+const KNOWN_TLDS = new Set([
+  "com", "net", "org", "edu", "gov", "mil", "int", "info", "biz", "name",
+  "mobi", "pro", "asia", "tel", "travel", "jobs", "coop", "aero", "cat",
+  "app", "dev", "page", "site", "online", "store", "shop", "tech", "cloud",
+  "email", "live", "life", "world", "today", "space", "website", "digital",
+  "agency", "studio", "design", "media", "news", "blog", "wiki", "xyz",
+  "top", "club", "fun", "link", "one", "ltd", "inc", "llc", "group",
+  "global", "solutions", "services", "systems", "network", "center",
+  "company", "business", "expert", "guru", "ninja", "rocks", "social",
+  "team", "tools", "works", "zone", "academy", "school", "institute",
+]);
+
+/** The part after the final dot, lower-cased. */
+function tldOf(email: string): string {
+  const parts = email.toLowerCase().split(".");
+  return parts[parts.length - 1] ?? "";
+}
+
 export function isValidEmail(email: string): boolean {
   const e = (email ?? "").trim();
   if (e.length === 0 || e.length > 254) return false;
   if (e.includes("..")) return false;
   if (e.startsWith(".") || e.startsWith("@")) return false;
-  return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/.test(e);
+  if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/.test(e)) return false;
+  const tld = tldOf(e);
+  // Two-letter country codes pass; anything longer must be one we know.
+  return /^[a-z]{2}$/.test(tld) || KNOWN_TLDS.has(tld);
 }
 
 /** A valid address that is specifically on gmail.com. */

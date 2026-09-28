@@ -1123,6 +1123,181 @@ Rules for adding more: copy the name, the star count and the text exactly as
 Google shows them. Do not paraphrase, do not round a rating up, and do not
 finish a truncated sentence.
 
+### Email validation accepted undeliverable addresses
+
+`name@gmail.comxxxxx` passed. The regex in `isValidEmail` treats any run of
+letters as a TLD, so that parses as the domain `gmail` with the TLD
+`comxxxxx` -- syntactically legal, completely undeliverable, and the booking
+confirmation goes nowhere. `validateBookingForm` uses `isValidEmail`, so the
+whole booking flow accepted it.
+
+`isValidEmail` now checks the final label as well: every two-letter country
+code passes (`.ph`, `.co`, `.io`, `.me`), and anything longer must be in
+`KNOWN_TLDS`. The list is generous but finite. **That is the deliberate
+trade**: a guest on some exotic new gTLD is rejected and has to use another
+address, which costs one retype; a typo that slips through costs the
+confirmation email silently. For a form whose entire purpose is reaching
+someone later, catching it is worth more.
+
+Checked against a table rather than by eye -- 11 addresses that must be
+rejected, 8 that must be accepted, plus the name and contact rules:
+
+| Rejected | Accepted |
+|---|---|
+| `name@gmail.comxxxxx`, `name@gmail.commmmmmmmmmmm`, `name@gmail.comph`, `name@gmail.c`, `name@gmail`, `name@.com`, `@gmail.com`, `name..surname@gmail.com`, `.name@gmail.com` | `name@gmail.com`, `first.last+tag@gmail.com`, `guest@yahoo.com.ph`, `guest@outlook.ph`, `guest@stonewood.io`, `guest@some-host.co.uk`, `guest@resort.online`, `guest@mail.company` |
+
+### Valid fields tint instead of announcing
+
+The contact step printed a green line under each field once it was accepted
+("✓ Valid", "✓ Valid email"). Three of them, saying nothing is wrong, and
+each one shifted the layout as a field flipped state. They are gone. A valid
+field now carries a quiet green wash and rim instead:
+
+```
+borderColor: rgba(110,192,113,0.55)
+background:  rgba(76,175,80,0.07)
+```
+
+Confirmation, not an alert — it sits behind text the guest is still reading
+back. The focus ring still wins while a field is focused. Error states are
+untouched: a wrong value keeps its red rim and its message, because that one
+does need words.
+
+Note: `CustomerService` still uses the old "✓ Looks good" lines. It gets the
+email fix automatically (it validates through `isGmailAddress`, which calls
+`isValidEmail`), but not the tint.
+
+### Booked vs unavailable: two ideas, told two ways
+
+Booked dates and past/out-of-range dates were both grey, so the legend's
+"Booked" swatch appeared to describe half the month. They are different
+things and now look it:
+
+| | Treatment | Why |
+|---|---|---|
+| **Booked** | solid grey chip, full opacity | A *state*. Somebody has that date, and the guest should be able to read it. |
+| **Past / out of range** | neutral tile at `opacity: 0.38` | Not a state -- the absence of an option. Dimming the whole cell (not just muting the ink) is what makes it read as un-pressable. |
+| Closed | red tint, full opacity | A state, same logic as booked. |
+| Available | green tint | |
+
+Measured on `/book`, compositing through ancestors *and* folding in each
+element's own opacity:
+
+| | Dark | Light |
+|---|---|---|
+| Past tile | `#2a2927` @ 0.38 | `#f9f8f6` @ 0.38 |
+| Booked tile | `#5f5e5d` @ 1.0 | `#d6d6d6` @ 1.0 |
+| Booked vs past | 2.25:1 | 1.37:1 |
+
+The dark grey started at `rgba(168,168,168,0.24)` and measured **1.2:1**
+against the dimmed past tile -- close enough to be the very confusion this
+change exists to remove. It is `rgba(200,200,200,0.42)` now. The light number
+is lower but the reading is not: there, past sits within a hair of the card
+colour while booked is a definite grey chip.
+
+Applied to both customer calendars -- `AvailabilityCalendar` (home hero) and
+`BookingDatePicker` (`/book`) -- so the two stay one control.
+
+The legend has carried three entries since the calendars were restyled;
+"Selected" was already gone, because the chosen day is a solid green tile that
+needs no key.
+
+**The admin calendar follows the same past-date rule, and deliberately not
+the same colours.** `FacilitiesTab` and `InspectionModals` turned out to have
+no calendar at all -- they matched a search for "Available" because that is a
+*facility status*, not a legend. The only admin calendar is the Availability
+Overview in `Admin.tsx`.
+
+There, green means **booked**, which is the opposite of the guest view and is
+right for staff: a taken date is revenue, an open one is not. Recolouring it
+grey to match the guest legend would have made the staff view worse rather
+than more consistent, so the colours stayed. What carried over is the
+principle behind the change:
+
+- past dates now recede at `opacity: 0.38`, as on the guest side, instead of
+  only having their ink muted,
+- the legend is reordered to Available / Booked / Closed so both legends read
+  in the same order.
+
+The booked-vs-past confusion never existed here, because booked is green.
+
+**The Occupancy calendar** (same file, its own screen) got the same past-date
+rule, and its title is now "Calendar". Its legend labels are booking
+statuses -- Booked/Confirmed, Pending, Completed, Closed -- not the guest
+Available/Booked/Closed set, so those stayed.
+
+While reading it, a real mismatch turned up: the legend has always promised
+**yellow for Pending**, but the cells painted `Confirmed || Pending` the same
+green. A date still awaiting payment looked settled, and the legend was
+describing a colour the calendar never drew. Pending is now its own yellow
+(`#f5c518` on `#241f08` / `#fdf6dd`), which is what the legend already said.
+
+Two more things on that screen:
+
+- **Status labels spell the word.** The cell label sliced the status to four
+  characters, so "Completed" read as `COMP` and "Pending" as `PEND` -- and the
+  legend never explained either. It prints the full status now, at 11px rather
+  than 9.5 (the HIG floor), with `overflowWrap` so a long word wraps inside a
+  narrow cell instead of spilling out of it.
+- **"Click to close/open" is gone from the legend.** It described an
+  interaction rather than a state, and the line under the title already says
+  it: *"Click a date to toggle it as closed."* The legend now lists only the
+  four colours the calendar actually paints.
+
+Verified by type-check, build and reading the diff: both admin calendars sit
+behind the admin login, and this probe has no credentials for it.
+
+### Admin Calendar: who is actually booked
+
+The calendar coloured a date and named a status, but never said *who*. Two
+additions, deliberately paired:
+
+**A detail card on hover/focus.** Pointing at a date shows the bookings on it
+-- name, guest count, package, status and reference. It is `pointer-events:
+none` so it can never swallow the click that toggles a date closed, and it
+anchors by weekday column (left edge for Sun/Mon, right edge for Fri/Sat,
+centred otherwise) because the content pane clips horizontally and a centred
+250px card would be cut off on the edge columns.
+
+**The same information listed under the calendar**, grouped into
+Booked/Confirmed, Pending and Completed for the month on screen. This is not
+decoration: **hover does not exist on a touchscreen**, so on a phone the list
+is the only way to read this, and it is what makes the feature work in both
+modes. Paging the calendar pages the lists.
+
+The cells also became focusable (`tabIndex={0}` when they carry a booking,
+with an `aria-label` naming the guests), so the card is reachable by keyboard
+rather than pointer only.
+
+A date can hold more than one booking -- a shared pool takes several groups --
+and the cell can only paint one colour, so it shows the first. The card and
+the lists show every one of them.
+
+**The card opens upward on the lower rows.** Hanging below the last week
+pushed it past the bottom of the month panel, which grew the scrolling pane
+and shifted the layout out from under the pointer. Each cell now knows its
+row as well as its column: the column decides whether the card centres or
+hugs an edge, the row decides whether it opens downward or upward
+(`rowIdx >= totalRows - 2`). It is also 230px rather than 250.
+
+**Both admin calendars share one card.** The Dashboard's Availability
+Overview had only a native `title` tooltip; it now uses the same
+hover/focus card, from a single `dayCard(ds, list, colIdx)` helper rather
+than a second copy of the markup. `role="tooltip"` appears once in the file
+and is called twice.
+
+The Dashboard overview also swapped to the guest colour convention on
+request: **green is available, grey is booked**, where it previously read the
+other way round. All four calendars in the app now agree on what green means,
+so nobody has to remember which screen they are looking at. The Calendar
+screen keeps its own palette, because there the colours encode booking
+*status* -- Confirmed green, Pending yellow, Completed blue -- not
+availability.
+
+**Sidebar label.** The nav item reads "CALENDAR" via a `tabLabels` lookup.
+The tab id stays `"Occupancy"` because every `tab === ...` switch in the file
+routes on that string; only the printed label changed.
+
 ### Apple HIG: the numbers this section is built to
 
 The site now follows the Apple HIG foundations. It is a website, so Apple's

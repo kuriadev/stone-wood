@@ -199,14 +199,22 @@ export function BookingDatePicker({
           let bdr = `1px solid ${isDark ? "rgba(76,175,80,0.28)" : "rgba(76,175,80,0.35)"}`;
           let cur: string = "pointer";
           const quiet = isDark ? "rgba(255,255,255,0.03)" : "#f4f2ee";
-          const quietInk = isDark ? "rgba(238,232,220,0.22)" : "#a89e90";
+          const quietInk = isDark ? "rgba(238,232,220,0.55)" : "#6f675c";
           const quietBdr = `1px solid ${isDark ? "rgba(255,255,255,0.05)" : "#eae5dc"}`;
-          if (isPast) { bg = quiet; col = quietInk; bdr = quietBdr; cur = "not-allowed"; }
-          if (isBeyond) { bg = quiet; col = quietInk; bdr = quietBdr; cur = "not-allowed"; }
+          /* Two different ideas, told two different ways.
+             BOOKED is a STATE: somebody has that date, so it gets a solid
+             grey chip you can read.
+             PAST and OUT-OF-RANGE are not states, they are the absence of an
+             option, so they keep the neutral tile and are dimmed by opacity
+             instead. Painting both of them grey is what made them
+             indistinguishable. */
+          let dim = false;
+          if (isPast) { bg = quiet; col = quietInk; bdr = quietBdr; cur = "not-allowed"; dim = true; }
+          if (isBeyond) { bg = quiet; col = quietInk; bdr = quietBdr; cur = "not-allowed"; dim = true; }
           if (isBooked) {
-            bg = isDark ? "rgba(0,0,0,0.34)" : "#ddd9d2";
-            col = isDark ? "rgba(216,212,204,0.54)" : "#6f6960";
-            bdr = `1px solid ${isDark ? "rgba(255,255,255,0.05)" : "#cfc9c0"}`;
+            bg = isDark ? "rgba(200,200,200,0.42)" : "#d6d6d6";
+            col = isDark ? "rgba(244,244,244,0.92)" : "#4f4f4f";
+            bdr = `1px solid ${isDark ? "rgba(210,210,210,0.5)" : "#c0c0c0"}`;
             cur = "not-allowed";
           }
           if (isClosed) {
@@ -241,6 +249,9 @@ export function BookingDatePicker({
                 textAlign: "center",
                 padding: "2px",
                 borderRadius: 10,
+                // Dimming the whole cell, rather than just muting its ink, is
+                // what makes a past date read as "not a thing you can press".
+                opacity: dim ? 0.38 : 1,
                 background: bg,
                 border: bdr,
                 color: col,
@@ -272,7 +283,7 @@ export function BookingDatePicker({
           /* "Selected" is gone: the chosen day is a solid green tile, which
              needs no key, and three entries match the home page legend. */
           ["Available", isDark ? "#6ec071" : "#3a9c4f"],
-          ["Booked", isDark ? "rgba(176,172,164,0.55)" : "#9b958c"],
+          ["Booked", isDark ? "rgba(198,198,198,0.85)" : "#8a8a8a"],
           ["Closed", isDark ? "rgba(214,138,138,0.75)" : "#c07575"],
         ].map(([l, c]) => (
           <div key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
