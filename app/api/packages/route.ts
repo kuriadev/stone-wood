@@ -9,7 +9,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToPackage } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import { pricingProblem } from "@/lib/pricing";
-import { sanitizeLabel, sanitizeNotes } from "@/lib/validators";
+import { GALLERY_MAX, sanitizeLabel, sanitizeNotes } from "@/lib/validators";
 import type { PackageRow } from "@/types/database";
 import type { BookingResource, BookingTier } from "@/types/booking";
 
@@ -33,6 +33,29 @@ export async function GET() {
   }
 }
 
+/** The gallery as the admin form sends it: up to GALLERY_MAX frames, each
+ *  a real image source with a caption. Anything else in the array is dropped
+ *  rather than written to the row -- the column is rendered straight into the
+ *  guest's gallery, and a request does not have to come from the admin UI. */
+function cleanGallery(input: unknown): { src: string; label: string; kind: string }[] {
+  if (!Array.isArray(input)) return [];
+  const seen = new Set<string>();
+  const out: { src: string; label: string; kind: string }[] = [];
+  for (const raw of input) {
+    const g = (raw ?? {}) as Record<string, unknown>;
+    const src = String(g.src ?? "").slice(0, 2_000_000);
+    if (!src || seen.has(src)) continue;
+    seen.add(src);
+    out.push({
+      src,
+      label: sanitizeLabel(String(g.label ?? "")).slice(0, 60),
+      kind: sanitizeLabel(String(g.kind ?? "")).slice(0, 30),
+    });
+    if (out.length >= GALLERY_MAX) break;
+  }
+  return out;
+}
+
 function build(b: Record<string, unknown>) {
   const price = Number(b.price);
   const capacity = Number(b.capacity);
@@ -49,7 +72,7 @@ function build(b: Record<string, unknown>) {
     requires_room: !!b.requiresRoom,
     slot_mode: (b.slotMode === "WholeDay" ? "WholeDay" : "Single") as "Single" | "WholeDay",
     cover: String(b.cover ?? "").slice(0, 2_000_000),
-    gallery: Array.isArray(b.gallery) ? b.gallery : [],
+    gallery: cleanGallery(b.gallery),
     blurb: sanitizeNotes(String(b.blurb ?? "")),
     includes: lines(b.includes),
     note: b.note ? sanitizeNotes(String(b.note)) : null,

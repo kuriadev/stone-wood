@@ -7,6 +7,7 @@ import { T } from "@/lib/theme";
 import { gold } from "@/lib/styles";
 import { srcSetFor, SIZES } from "@/lib/img";
 import { Icon } from "@/components/common/Icon";
+import { GALLERY_SPANS, galleryHourLabel } from "@/lib/gallery";
 import {
   Dialog,
   DialogContent,
@@ -34,16 +35,7 @@ interface GalleryProps {
 /** Column spans for the mosaic, on a repeating cycle. The pattern is taken
  *  from the design: rows that cannot fit the next span end early, which is
  *  what produces the deliberate gaps down the right-hand side. */
-const SPANS = [7, 5, 4, 5, 7, 7, 4, 3, 4, 7];
 
-/** Photos are stamped with a time of day, spread evenly across the resort's
- *  seventeen open hours (07:00 to 23:00) however many photos the admin has
- *  uploaded -- hence "Seventeen hours, told in order". */
-function hourLabel(i: number, total: number): string {
-  const span = 16; // 07:00 -> 23:00
-  const hour = total <= 1 ? 7 : 7 + Math.round((i * span) / (total - 1));
-  return `${String(hour).padStart(2, "0")}:00`;
-}
 
 export function Gallery({ galleryImgs }: GalleryProps) {
   // Scroll reveals. Called here, not in the layout: the effect must run
@@ -225,9 +217,9 @@ export function Gallery({ galleryImgs }: GalleryProps) {
               key={`${src}-${i}`}
               type="button"
               onClick={(e) => open(src, e)}
-              aria-label={`Open photo ${i + 1} of ${rest.length}, ${hourLabel(i, rest.length)}`}
+              aria-label={`Open photo ${i + 1} of ${rest.length}, ${galleryHourLabel(i, rest.length)}`}
               style={{
-                gridColumn: mob ? "auto" : `span ${SPANS[i % SPANS.length]}`,
+                gridColumn: mob ? "auto" : `span ${GALLERY_SPANS[i % GALLERY_SPANS.length]}`,
                 position: "relative",
                 display: "block",
                 width: "100%",
@@ -264,7 +256,7 @@ export function Gallery({ galleryImgs }: GalleryProps) {
                   lineHeight: 1.2,
                 }}
               >
-                {hourLabel(i, rest.length)}
+                {galleryHourLabel(i, rest.length)}
               </span>
             </button>
           ))}

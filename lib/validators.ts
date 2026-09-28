@@ -25,6 +25,10 @@ export const NOTES_MAX = 200;
  *  PLACEHOLDER — tune to the venue's real headcount limit. */
 export const RESORT_MAX_CAPACITY = 30;
 
+/** How many photos a room or a package may carry. Enforced by the API as
+ *  well as the admin UI -- the UI cap is a courtesy, the API cap is the rule. */
+export const GALLERY_MAX = 5;
+
 export const GUESTS_MIN = 1;
 /** No single booking can ask for more guests than the resort can physically
  *  hold. */

@@ -186,9 +186,12 @@ const submit = handleSubmit(async (values) => {
                   placeholder="Your full name"
                   aria-invalid={touched.name && !nameOk}
                 />
-                {touched.name && !nameOk && (
-                  <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Please enter your full name (letters only, at least 2)</p>
-                )}
+                {/* No message for the name. The field already refuses digits
+                    and symbols as they are typed, so the only way to fail is
+                    to leave it empty or type one letter -- which the red
+                    border, `aria-invalid` and the line under the disabled
+                    Send button all already say. A sentence spelling out the
+                    rule was noise on a field that cannot be got wrong. */}
                 {touched.name && nameOk && (
                   <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Looks good</p>
                 )}
@@ -304,7 +307,7 @@ const submit = handleSubmit(async (values) => {
                 <Button
                   onClick={submit}
                   disabled={!formOk || isSubmitting}
-                  style={{ ...goldBtn, width: "100%", padding: 13, height: "auto" }}
+                  style={{ ...goldBtn, width: "100%", height: "auto" }}
                 >
                   SEND MESSAGE
                 </Button>

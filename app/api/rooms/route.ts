@@ -5,10 +5,35 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToRoom, roomToRow } from "@/lib/supabase";
+import { GALLERY_MAX } from "@/lib/validators";
 import { requireAdmin } from "@/lib/auth";
 import { sanitizeLabel, sanitizeNotes } from "@/lib/validators";
 import type { RoomRow } from "@/types/database";
 import type { Room } from "@/types/room";
+
+/** Strings only, no blanks, no duplicates, cover first, capped at
+ *  GALLERY_MAX. The admin UI enforces the same cap, but a request does not
+ *  have to come from the admin UI. */
+function cleanGallery(input: unknown, cover: string): string[] {
+  const list = Array.isArray(input) ? input : [];
+  const cleaned = list
+    .map((x) => String(x ?? "").slice(0, 2000))
+    .filter((x) => x.length > 0);
+  if (cover && !cleaned.includes(cover)) cleaned.unshift(cover);
+  return Array.from(new Set(cleaned)).slice(0, GALLERY_MAX);
+}
+
+/** True when PostgREST is saying the `gallery` column is not there yet,
+ *  i.e. supabase/migrations/20260928120000_room_gallery.sql has not been
+ *  applied to this database.
+ *
+ *  A room is more important than its extra photos: rather than failing the
+ *  whole save, the write is retried without the column, so adding and editing
+ *  rooms keeps working on a database that is still on the old schema and
+ *  starts keeping galleries the moment the migration lands. */
+function galleryColumnMissing(msg: string): boolean {
+  return /gallery/i.test(msg) && /(column|schema cache)/i.test(msg);
+}
 
 export const dynamic = "force-dynamic";
 
@@ -44,17 +69,22 @@ export async function POST(req: NextRequest) {
     const problem = problemWith(b, false);
     if (problem) return NextResponse.json({ success: false, error: problem }, { status: 400 });
 
-    const { data, error } = await getSupabaseAdmin().from("rooms")
-      .insert(roomToRow({
-        name: sanitizeLabel(String(b.name)),
-        beds: String(b.beds ?? "").slice(0, 60),
-        capacity: Math.round(Number(b.capacity)),
-        price: Number(b.price),
-        desc: sanitizeNotes(String(b.desc ?? "")),
-        img: String(b.img ?? "").slice(0, 2000),
-      } as Room))
-      .select().single();
+    const row = roomToRow({
+      name: sanitizeLabel(String(b.name)),
+      beds: String(b.beds ?? "").slice(0, 60),
+      capacity: Math.round(Number(b.capacity)),
+      price: Number(b.price),
+      desc: sanitizeNotes(String(b.desc ?? "")),
+      img: String(b.img ?? "").slice(0, 2000),
+      gallery: cleanGallery(b.gallery, String(b.img ?? "")),
+    } as Room);
 
+    let { data, error } = await getSupabaseAdmin().from("rooms").insert(row).select().single();
+    if (error && galleryColumnMissing(error.message)) {
+      console.warn("[/api/rooms POST] rooms.gallery is missing - apply 20260928120000_room_gallery.sql. Saving the cover only.");
+      const { gallery: _drop, ...bare } = row;
+      ({ data, error } = await getSupabaseAdmin().from("rooms").insert(bare).select().single());
+    }
     if (error) throw new Error(error.message);
     return NextResponse.json({ success: true, room: rowToRoom(data as RoomRow) }, { status: 201 });
   } catch (err) {
@@ -83,10 +113,21 @@ export async function PATCH(req: NextRequest) {
     // The UI calls it `desc`; the column is `description` (desc is reserved).
     if (b.desc !== undefined) patch.description = sanitizeNotes(String(b.desc));
     if (b.img !== undefined) patch.img = String(b.img).slice(0, 2000);
+    if (b.gallery !== undefined) {
+      patch.gallery = cleanGallery(b.gallery, String(b.img ?? ""));
+      // The cover must stay the first photo, or the card and the gallery
+      // would disagree about what this room looks like.
+      if (patch.gallery.length && b.img === undefined) patch.img = patch.gallery[0];
+    }
 
     if (Object.keys(patch).length === 0) return NextResponse.json({ success: false, error: "Nothing to update." }, { status: 400 });
 
-    const { data, error } = await getSupabaseAdmin().from("rooms").update(patch).eq("id", id).select().maybeSingle();
+    let { data, error } = await getSupabaseAdmin().from("rooms").update(patch).eq("id", id).select().maybeSingle();
+    if (error && galleryColumnMissing(error.message)) {
+      console.warn("[/api/rooms PATCH] rooms.gallery is missing - apply 20260928120000_room_gallery.sql. Saving the cover only.");
+      const { gallery: _drop, ...bare } = patch;
+      ({ data, error } = await getSupabaseAdmin().from("rooms").update(bare).eq("id", id).select().maybeSingle());
+    }
     if (error) throw new Error(error.message);
     if (!data) return NextResponse.json({ success: false, error: "Room not found." }, { status: 404 });
     return NextResponse.json({ success: true, room: rowToRoom(data as RoomRow) });

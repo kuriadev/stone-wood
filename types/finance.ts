@@ -12,6 +12,12 @@ export const PAYMENT_METHODS: PaymentMethod[] = ["PayMongo", "Cash", "GCash", "B
  *  the online checkout, never from the admin form. */
 export const MANUAL_METHODS: Exclude<PaymentMethod, "PayMongo">[] = ["Cash", "GCash", "Bank Transfer"];
 
+/** What the front desk can actually take from a guest standing there. A bank
+ *  transfer does not settle at the counter, so it is not offered as a way of
+ *  paying for a walk-in. It stays a valid PaymentMethod: records that already
+ *  used one still read back, and the Sales breakdown still reports it. */
+export const DESK_METHODS: Exclude<PaymentMethod, "PayMongo" | "Bank Transfer">[] = ["Cash", "GCash"];
+
 export interface Payment {
   id: number;
   bookingId: string | null;

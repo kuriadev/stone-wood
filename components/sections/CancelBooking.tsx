@@ -195,6 +195,10 @@ export function ManageBooking(_props: ManageBookingProps) {
   const microLabel: React.CSSProperties = { color: C.textS, fontSize: 10.5, letterSpacing: 1.8, margin: "0 0 6px" };
   const eyebrow: React.CSSProperties = { color: C.goldInk, fontSize: 11, letterSpacing: 2.2, fontWeight: 700, margin: 0 };
 
+  /* The warning red. The pale pink the cancel controls use is legible on the
+     dark card and washes out on the light one, so this follows the theme. */
+  const dangerInk = isDark ? "#e8b4b4" : "#a02c2c";
+
   const slotHours = found?.slot ? SLOTS[found.slot as BookingSlot]?.hours : null;
   const balance = found ? Math.max(0, found.total - found.downpayment) : 0;
   const closed = found?.status === "Cancelled" || found?.status === "Completed";
@@ -236,7 +240,7 @@ export function ManageBooking(_props: ManageBookingProps) {
               every control under 44px. */}
           <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr auto", gap: 14, alignItems: "end" }}>
             <div>
-              <Label htmlFor="mb-ref" className="mb-1.5 block text-[11px] tracking-[2px]" style={{ color: C.goldInk }}>
+              <Label htmlFor="mb-ref" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>
                 BOOKING REFERENCE
               </Label>
               <Input
@@ -245,11 +249,10 @@ export function ManageBooking(_props: ManageBookingProps) {
                 placeholder="Example: SW-00000"
                 autoComplete="off"
                 aria-invalid={!!lookupErrors.reference}
-                style={{ minHeight: 48 }}
               />
             </div>
             <div>
-              <Label htmlFor="mb-email" className="mb-1.5 block text-[11px] tracking-[2px]" style={{ color: C.goldInk }}>
+              <Label htmlFor="mb-email" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>
                 EMAIL ADDRESS
               </Label>
               <Input
@@ -259,13 +262,12 @@ export function ManageBooking(_props: ManageBookingProps) {
                 placeholder="Email used for booking"
                 autoComplete="email"
                 aria-invalid={!!lookupErrors.email}
-                style={{ minHeight: 48 }}
               />
             </div>
             <button
               type="submit"
               disabled={looking}
-              style={{ ...goldBtn, minHeight: 48, padding: "0 26px", borderRadius: 8, opacity: looking ? 0.5 : 1, cursor: looking ? "wait" : "pointer", whiteSpace: "nowrap" }}
+              style={{ ...goldBtn, opacity: looking ? 0.5 : 1, cursor: looking ? "wait" : "pointer", whiteSpace: "nowrap" }}
             >
               {looking ? "SEARCHING…" : <>FIND BOOKING <span aria-hidden="true">&rarr;</span></>}
             </button>
@@ -450,6 +452,35 @@ export function ManageBooking(_props: ManageBookingProps) {
                         })}
                       </div>
 
+                      {/* The money consequence, stated before the request is
+                          sent rather than only in the confirm dialog. The
+                          policy itself is not new -- Book Now states it at
+                          checkout ("Payments are non-refundable once
+                          submitted") and the ledger treats a cancelled
+                          booking's deposit as forfeited (lib/finance.ts).
+                          This page was the one place a guest could reach it
+                          without being told. */}
+                      <div
+                        role="note"
+                        style={{ display: "flex", gap: 10, alignItems: "flex-start", border: "1px solid rgba(214,138,138,0.45)", background: "rgba(180,70,70,0.10)", borderRadius: 10, padding: "14px 16px", margin: "0 0 12px" }}
+                      >
+                        {/* A pale pink reads on the dark card and disappears on
+                            the light one, so the red follows the theme rather
+                            than the panel it happens to sit in. */}
+                        <span aria-hidden="true" style={{ color: dangerInk, lineHeight: 0, flexShrink: 0, marginTop: 2 }}><Icon name="shield-alert" size={15} strokeWidth={1.8} /></span>
+                        <span style={{ fontSize: 12.5, lineHeight: 1.6 }}>
+                          <strong style={{ display: "block", color: dangerInk, fontSize: 13, letterSpacing: 0.3, marginBottom: 3 }}>
+                            No refunds
+                          </strong>
+                          <span style={{ color: C.textS }}>
+                            {found.paymentProof
+                              ? <>The {fmt(found.downpayment)} already paid on this booking is not returned if you cancel, and it cannot be moved to another date.</>
+                              : <>Anything already paid on this booking is not returned if you cancel, and it cannot be moved to another date.</>}
+                            {" "}The resort may make an exception, but only it can decide that.
+                          </span>
+                        </span>
+                      </div>
+
                       <p style={{ display: "flex", gap: 9, alignItems: "flex-start", border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", color: C.textS, fontSize: 12.5, lineHeight: 1.6, margin: "0 0 20px" }}>
                         <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, flexShrink: 0, marginTop: 1 }}><Icon name="shield-alert" size={14} strokeWidth={1.6} /></span>
                         Submitting a request does not immediately cancel your stay. The resort will review your eligibility and contact you by email.
@@ -474,7 +505,7 @@ export function ManageBooking(_props: ManageBookingProps) {
 
                   {action === "cancel" && cancelDone && (
                     <p style={{ color: "#6ec071", fontSize: 14, margin: 0, lineHeight: 1.7 }}>
-                      Your cancellation has been recorded. The resort will email you about any refund your booking is eligible for.
+                      Your cancellation has been recorded and the resort will email you to confirm. Payments already made are not refunded unless the resort approves an exception.
                     </p>
                   )}
 
@@ -515,7 +546,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                               type="button"
                               onClick={() => void sendRequest()}
                               disabled={requestSending || requestText.trim().length < 10}
-                              style={{ ...goldBtn, minHeight: 48, borderRadius: 8, padding: "0 24px", opacity: requestSending || requestText.trim().length < 10 ? 0.45 : 1, cursor: requestSending ? "wait" : requestText.trim().length < 10 ? "not-allowed" : "pointer" }}
+                              style={{ ...goldBtn, opacity: requestSending || requestText.trim().length < 10 ? 0.45 : 1, cursor: requestSending ? "wait" : requestText.trim().length < 10 ? "not-allowed" : "pointer" }}
                             >
                               {requestSending ? "SENDING…" : <>SEND REQUEST <span aria-hidden="true">&rarr;</span></>}
                             </button>

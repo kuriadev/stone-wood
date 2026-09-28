@@ -251,7 +251,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
               <button
                 onClick={() => go("Book Now")}
                 className="sw-btn"
-                style={{ ...goldBtn, padding: "14px 30px", fontSize: 12.5, fontWeight: 500, letterSpacing: 2, borderRadius: 10, whiteSpace: "nowrap", fontFamily: "inherit" }}
+                style={{ ...goldBtn, whiteSpace: "nowrap", fontFamily: "inherit" }}
               >
                 BOOK NOW
               </button>
@@ -341,7 +341,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
             <button
               onClick={() => go("Book Now")}
               className="sw-btn"
-              style={{ ...goldBtn, marginTop: 28, padding: "15px 24px", fontSize: 13.5, letterSpacing: 2, borderRadius: 8 }}
+              style={{ ...goldBtn, marginTop: 28, width: "100%" }}
             >
               BOOK NOW
             </button>

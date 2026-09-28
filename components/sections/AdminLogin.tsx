@@ -63,29 +63,34 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
   const pageBg = isDark ? "#070604" : "#f7f3ec";
   const cardBg = isDark ? "#0d0b08" : "#ffffff";
   const cardBorder = isDark ? "#1c1811" : "#e6dfd2";
-  const labelCol = isDark ? "#6a5e4a" : "#9b8f7a";
+  /* #6a5e4a measured 3.1:1 against this screen's surface -- under the 4.5
+     bar for an 11.5px label -- and was the only label colour on the site
+     that was not goldInk. One change fixes both. */
+  const labelCol = C.goldInk;
 
   // Only the parts shadcn's Input does not already own. The focus ring and
   // the invalid state come from the component now (focus-visible:ring and
   // aria-invalid), which is why the `focused` state that fed the old
   // `field(active, invalid)` helper is gone.
+  /* Only the surface colour is particular to this screen. Height, padding,
+     radius and type come from Input, so the login fields match the booking
+     and contact forms instead of being 47px with an 8px corner. */
   const fieldBase: React.CSSProperties = {
     background: isDark ? "#0a0907" : "#fbf9f5",
     color: C.textH,
-    padding: "12px 14px",
-    fontSize: 14.5,
-    borderRadius: 8,
     width: "100%",
-    height: "auto",
   };
 
+  /* The same field label every other form uses: 11.5px, weight 500, 2px of
+     tracking, 6px clear of the field. It was 10.5/600/2.4 here, which is
+     close enough to look like a mistake rather than a decision. */
   const labelStyle: React.CSSProperties = {
     color: labelCol,
-    fontSize: 10.5,
-    letterSpacing: 2.4,
-    fontWeight: 600,
+    fontSize: 11.5,
+    letterSpacing: 2,
+    fontWeight: 500,
     display: "block",
-    marginBottom: 8,
+    marginBottom: 6,
   };
 
   return (
@@ -130,7 +135,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
             <span style={{ color: gold, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 24, letterSpacing: 5, fontWeight: 600 }}>STONEWOOD</span>
             <div style={{ width: 24, height: 1, background: `${gold}66` }} />
           </Button>
-          <p style={{ color: labelCol, fontSize: 10.5, letterSpacing: 5, margin: 0 }}>ADMIN PORTAL</p>
+          <p style={{ color: labelCol, fontSize: 11, letterSpacing: 5, margin: 0 }}>ADMIN PORTAL</p>
         </div>
 
         {/* Card */}

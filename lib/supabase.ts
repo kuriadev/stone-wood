@@ -13,6 +13,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { Room } from "@/types/room";
+import { GALLERY_MAX } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
 import type { InventoryItem } from "@/types/inventory";
 import type { CustomerMessage } from "@/types/admin";
@@ -111,6 +112,7 @@ export const rowToRoom = (r: RoomRow): Room => ({
   price: Number(r.price),
   desc: r.description,
   img: r.img,
+  gallery: Array.isArray(r.gallery) ? r.gallery : [],
 });
 
 export const roomToRow = (r: Room): Omit<RoomRow, "id" | "created_at"> => ({
@@ -120,6 +122,10 @@ export const roomToRow = (r: Room): Omit<RoomRow, "id" | "created_at"> => ({
   price: r.price,
   description: r.desc,
   img: r.img,
+  // Cover first, and never longer than the cap. A room saved without a
+  // gallery still gets a one-photo one, so readers never have to special-case
+  // "has a picture but an empty gallery".
+  gallery: (r.gallery?.length ? r.gallery : r.img ? [r.img] : []).slice(0, GALLERY_MAX),
 });
 
 export const rowToBooking = (b: BookingRow): Booking => ({

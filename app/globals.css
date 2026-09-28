@@ -583,9 +583,15 @@ img {
 /* Pause on hover so a guest can finish reading a card. */
 .sw-marquee-track:hover { animation-play-state: paused; }
 
-/* The loop is seamless because the track holds the reviews twice and
-   translateX(-50%) is exactly one copy's width. Change one without the
-   other and the strip will visibly jump on every cycle. */
+/* The loop is seamless because the track holds the SET twice and
+   translateX(-50%) is exactly one set's width. Change one without the other
+   and the strip will visibly jump on every cycle.
+
+   The set is not simply the review list: Home.tsx repeats the reviews until
+   one set is wider than the viewport, because a set narrower than the screen
+   runs out of cards mid-cycle and leaves a blank on the right. It also
+   overrides the duration below, inline, to keep the travel speed constant
+   however many copies that takes. */
 
 /* ── SCROLL REVEAL ── */
 /* .sw-reveal and its data-sw-in state used to live here. Scroll reveals

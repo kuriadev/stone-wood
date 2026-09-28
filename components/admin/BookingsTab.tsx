@@ -126,10 +126,10 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
           <Icon name="search" size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: 0.45, color: C.textH }} />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, ID, email, phone, date or package" aria-label="Search bookings" style={{ ...sel, width: "100%", paddingLeft: 32 }} />
         </div>
-        <NativeSelect value={source} onChange={(e) => setSource(e.target.value as typeof source)} aria-label="Source" style={sel}>
+        <NativeSelect value={source} onChange={(e) => setSource(e.target.value as typeof source)} aria-label="Source" style={{ ...sel, paddingRight: 38 }}>
           <option value="All">All sources</option><option>Online</option><option>Walk-In</option>
         </NativeSelect>
-        <NativeSelect value={slot} onChange={(e) => setSlot(e.target.value as typeof slot)} aria-label="Slot" style={sel}>
+        <NativeSelect value={slot} onChange={(e) => setSlot(e.target.value as typeof slot)} aria-label="Slot" style={{ ...sel, paddingRight: 38 }}>
           <option value="All">All slots</option>
           {(["Day", "Night", "WholeDay"] as BookingSlot[]).map((s) => <option key={s} value={s}>{SLOTS[s].label}</option>)}
         </NativeSelect>

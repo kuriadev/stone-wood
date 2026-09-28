@@ -49,7 +49,14 @@ export function MediaGallery({
 
   // A different item can be opened without this unmounting, so the index has
   // to come back to the first frame or the new item opens mid-gallery.
-  useEffect(() => { setIdx(0); }, [shots]);
+  //
+  // Keyed on the photos themselves, not on the array. Callers build `shots`
+  // inline, so a plain `[shots]` is a new array on every render of the
+  // PARENT -- and a parent that re-renders while the dialog is open (a timer,
+  // a fetch landing) would drag the gallery back to the first frame mid-browse.
+  // Keying on the photos means the reset fires only when they actually change.
+  const shotKey = shots.map((g) => g.src).join("|");
+  useEffect(() => { setIdx(0); }, [shotKey]);
 
   const step = (dir: number) => setIdx((n) => (n + dir + shots.length) % shots.length);
   const shot = shots[Math.min(idx, shots.length - 1)];

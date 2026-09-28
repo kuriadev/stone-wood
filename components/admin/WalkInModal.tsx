@@ -24,9 +24,9 @@ import { SLOTS } from "@/lib/resort";
 import { manilaDate } from "@/lib/finance";
 import {
   sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail,
-  RESORT_MAX_CAPACITY, ROOM_BUNDLE_DISCOUNT_PCT, OVERTIME_MAX, OVERTIME_RATE,
+  RESORT_MAX_CAPACITY, ROOM_BUNDLE_DISCOUNT_PCT,
 } from "@/lib/validators";
-import { MANUAL_METHODS } from "@/types/finance";
+import { DESK_METHODS } from "@/types/finance";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 import type { Room } from "@/types/room";
 import type { Facility } from "@/types/facility";
@@ -52,8 +52,8 @@ export function WalkInModal({
   const { toast } = useToast();
 
   const [wf, setWf] = useState({
-    name: "", contact: "", email: "", guests: "10", overtime: "0",
-    slot: "Day" as BookingSlot, rooms: [] as number[], date: manilaDate(), time: "", notes: "",
+    name: "", contact: "", email: "", guests: "10",
+    slot: "Day" as BookingSlot, rooms: [] as number[], date: manilaDate(), notes: "",
   });
   const set = (k: keyof typeof wf, v: unknown) => setWf((f) => ({ ...f, [k]: v }));
 
@@ -64,25 +64,41 @@ export function WalkInModal({
   const requiresRoom = !!pkg?.requiresRoom;
   const bookableRooms = rooms.filter((r) => isRoomOpen(r.id, facilities));
 
+  /* The walk-in desk could only ever book the pool: `resource` was the
+     literal "Pool" for a custom tour, so the events venue -- which pricing,
+     availability and the API have all handled all along -- was reachable
+     online but not at the front desk. */
+  const [resourceChoice, setResourceChoice] = useState<BookingResource>("Pool");
+  const resource: BookingResource = isPkg ? pkg!.resource : resourceChoice;
+  const usesPool = resource !== "Venue";
+
   const slot: BookingSlot = pkg?.slotMode === "WholeDay" ? "WholeDay" : isPkg && wf.slot === "WholeDay" ? "Day" : wf.slot;
-  const overtime = slot === "Day" ? Math.min(OVERTIME_MAX, Math.max(0, Number(wf.overtime) || 0)) : 0;
+  /* The desk does not sell overtime, so a walk-in is always booked for the
+     slot as it stands. Availability, pricing and the saved record all still
+     take the figure -- it is simply always zero here. */
+  const overtime = 0;
   const takenRooms = roomsTakenOn(wf.date, slot, bookings, overtime);
-  const showRooms = !isPkg || requiresRoom;
+  const showRooms = (!isPkg || requiresRoom) && usesPool;
   const toggleRoom = (id: number) => {
     if (requiresRoom) set("rooms", wf.rooms.includes(id) ? [] : [id]);
     else set("rooms", wf.rooms.includes(id) ? wf.rooms.filter((r) => r !== id) : [...wf.rooms, id]);
   };
 
-  const label = bookingLabel({ packageTitle: pkg?.title, resource: isPkg ? pkg!.resource : "Pool", slot, hasRoom: wf.rooms.length > 0 });
+  const label = bookingLabel({ packageTitle: pkg?.title, resource, slot, hasRoom: wf.rooms.length > 0 });
   const guests = isPkg ? pkg!.capacity : Number(wf.guests) || 0;
   const [tierChoice, setTierChoice] = useState<BookingTier | null>(null);
-  const tier: BookingTier = isPkg ? pkg!.status : slot === "WholeDay" ? "Exclusive" : (tierChoice ?? getPackageTier(guests));
-  const resource: BookingResource = isPkg ? pkg!.resource : "Pool";
+  // The venue is always exclusive, whatever else is chosen -- the same rule
+  // the quote engine applies server-side (lib/bookingQuote.ts).
+  const tier: BookingTier = isPkg
+    ? pkg!.status
+    : !usesPool
+      ? "Exclusive"
+      : slot === "WholeDay" ? "Exclusive" : (tierChoice ?? getPackageTier(guests));
 
   useEffect(() => {
-    if (!isPkg && tier === "Exclusive" && guests !== RESORT_MAX_CAPACITY) set("guests", String(RESORT_MAX_CAPACITY));
+    if (!isPkg && usesPool && tier === "Exclusive" && guests !== RESORT_MAX_CAPACITY) set("guests", String(RESORT_MAX_CAPACITY));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tier, isPkg]);
+  }, [tier, isPkg, usesPool]);
 
   const capacity = wf.date
     ? checkBookingAvailability(wf.date, slot, guests, tier, resource, bookings, facilities, overtime)
@@ -98,7 +114,7 @@ export function WalkInModal({
 
   // ── Payment at the desk ────────────────────────────────────────────
   const [payChoice, setPayChoice] = useState<PayChoice>("Full");
-  const [method, setMethod] = useState<(typeof MANUAL_METHODS)[number]>("Cash");
+  const [method, setMethod] = useState<(typeof DESK_METHODS)[number]>("Cash");
   const [reference, setReference] = useState("");
   const payNow = payChoice === "Full" ? total : payChoice === "Downpayment" ? down : 0;
 
@@ -138,7 +154,6 @@ export function WalkInModal({
       status: payChoice === "None" ? "Pending" : "Confirmed",
       paymentProof: payChoice !== "None",
       notes: wf.notes,
-      arrivalTime: wf.time || undefined,
       source: "Walk-In",
       createdAt: Date.now(),
       resource,
@@ -189,15 +204,9 @@ export function WalkInModal({
             <Label htmlFor="wi-email">Email (optional)</Label>
             <Input id="wi-email" value={wf.email} onChange={(e) => set("email", e.target.value)} placeholder="example@email.com" style={inp} />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div>
-              <Label htmlFor="wi-date">Date</Label>
-              <Input id="wi-date" type="date" value={wf.date} onChange={(e) => set("date", e.target.value)} style={inp} />
-            </div>
-            <div>
-              <Label htmlFor="wi-time">Arrival time</Label>
-              <Input id="wi-time" type="time" value={wf.time} onChange={(e) => set("time", e.target.value)} style={inp} />
-            </div>
+          <div>
+            <Label htmlFor="wi-date">Date</Label>
+            <Input id="wi-date" type="date" value={wf.date} onChange={(e) => set("date", e.target.value)} style={inp} />
           </div>
           <div>
             <Label htmlFor="wi-notes">Notes (optional)</Label>
@@ -215,6 +224,28 @@ export function WalkInModal({
             ]} />
           </div>
 
+          {mode === "Custom" && (
+            <div>
+              <Label>Facility</Label>
+              <Segmented<BookingResource>
+                value={resourceChoice}
+                size="sm"
+                onChange={(r) => {
+                  setResourceChoice(r);
+                  // A venue-only booking cannot carry rooms, so anything
+                  // already picked is dropped rather than silently rejected
+                  // on save.
+                  if (r === "Venue") set("rooms", []);
+                }}
+                options={[
+                  { value: "Pool", label: "Pool" },
+                  { value: "Venue", label: "Events venue" },
+                  { value: "Pool+Venue", label: "Pool + venue" },
+                ]}
+              />
+            </div>
+          )}
+
           {mode === "Package" ? (
             <div>
               <Label>Package</Label>
@@ -229,15 +260,25 @@ export function WalkInModal({
             <div style={{ display: "grid", gridTemplateColumns: "0.8fr 1.2fr", gap: 10 }}>
               <div>
                 <Label htmlFor="wi-guests">Guests</Label>
-                <Input id="wi-guests" type="number" min={1} max={RESORT_MAX_CAPACITY} value={wf.guests} disabled={tier === "Exclusive"}
-                  onChange={(e) => set("guests", e.target.value)} style={{ ...inp, opacity: tier === "Exclusive" ? 0.6 : 1 }} />
+                {/* An exclusive POOL buyout is the whole resort, so the count
+                    is fixed. A venue booking is exclusive too, but only of the
+                    venue -- the headcount is still whatever group walked in,
+                    which is what the server stores (lib/bookingQuote.ts). */}
+                <Input id="wi-guests" type="number" min={1} max={RESORT_MAX_CAPACITY} value={wf.guests} disabled={usesPool && tier === "Exclusive"}
+                  onChange={(e) => set("guests", e.target.value)} style={{ ...inp, opacity: usesPool && tier === "Exclusive" ? 0.6 : 1 }} />
               </div>
               <div>
                 <Label>Pool use</Label>
-                <Segmented<BookingTier> value={tier} onChange={setTierChoice} size="sm" options={[
-                  { value: "Shared", label: "Shared" },
-                  { value: "Exclusive", label: "Exclusive" },
-                ]} />
+                {usesPool ? (
+                  <Segmented<BookingTier> value={tier} onChange={setTierChoice} size="sm" options={[
+                    { value: "Shared", label: "Shared" },
+                    { value: "Exclusive", label: "Exclusive" },
+                  ]} />
+                ) : (
+                  <p style={{ color: C.textS, fontSize: 12.5, margin: "6px 0 0", lineHeight: 1.5 }}>
+                    No pool on this booking. The events venue is always exclusive.
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -248,19 +289,10 @@ export function WalkInModal({
               <p style={{ color: C.textH, fontSize: 13.5, margin: 0 }}>Whole day · {SLOTS.WholeDay.hours}</p>
             ) : (
               <Segmented<BookingSlot> value={slot} size="sm"
-                onChange={(t) => { set("slot", t); if (t !== "Day") set("overtime", "0"); }}
+                onChange={(t) => set("slot", t)}
                 options={((isPkg ? ["Day", "Night"] : ["Day", "Night", "WholeDay"]) as BookingSlot[]).map((t) => ({ value: t, label: SLOTS[t].label, hint: SLOTS[t].hours }))} />
             )}
           </div>
-
-          {slot === "Day" && (
-            <div>
-              <Label>Overtime</Label>
-              <Segmented value={String(overtime)} onChange={(v) => set("overtime", v)} size="sm"
-                options={Array.from({ length: OVERTIME_MAX + 1 }, (_, h) => ({ value: String(h), label: h === 0 ? "None" : `+${h} hr`, hint: h === 0 ? undefined : `until ${5 + h}:00 PM` }))} />
-              <p style={{ color: C.textS, fontSize: 12, margin: "5px 0 0" }}>{fmt(OVERTIME_RATE)}/hr, only when no Night group is booked.</p>
-            </div>
-          )}
 
           {showRooms && (
             <div>
@@ -285,12 +317,26 @@ export function WalkInModal({
         <div style={col}>
           <div style={{ background: soft, borderRadius: 10, padding: "12px 14px" }}>
             <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>{label} <span style={{ color: tier === "Exclusive" ? gold : "#2e9e4e", fontSize: 12, fontWeight: 500 }}>· {tier}</span></div>
-            <Line label={isPkg ? "Package" : tier === "Exclusive" ? `Exclusive pool${price.slots === 2 ? " × 2 slots" : ""}` : `Shared pool (${guests} × ₱200)`}
-              value={fmt(price.tourBase + price.exclusiveDiscount + price.bundleDiscount)} />
+            {/* One line per thing being charged. A single "pool" line read
+                wrong the moment the venue could be booked without one. */}
+            {isPkg ? (
+              <Line label="Package" value={fmt(price.tourBase + price.exclusiveDiscount + price.bundleDiscount)} />
+            ) : (
+              <>
+                {price.poolFee > 0 && (
+                  <Line
+                    label={tier === "Exclusive" ? `Exclusive pool${price.slots === 2 ? " × 2 slots" : ""}` : `Shared pool (${guests} × ₱200)`}
+                    value={fmt(price.poolFee)}
+                  />
+                )}
+                {price.venueFee > 0 && (
+                  <Line label={`Events venue${price.slots === 2 ? " × 2 slots" : ""}`} value={fmt(price.venueFee)} />
+                )}
+              </>
+            )}
             {price.exclusiveDiscount + price.bundleDiscount > 0 && (
               <Line label={price.bundleDiscount > 0 ? "Bundle discount" : "Exclusive discount"} value={`−${fmt(price.exclusiveDiscount + price.bundleDiscount)}`} color="#2e9e4e" />
             )}
-            {price.overtimeFee > 0 && <Line label={`Overtime (${overtime} hr)`} value={fmt(price.overtimeFee)} />}
             {price.roomsFeeRaw > 0 && <Line label="Rooms" value={fmt(price.roomsFeeRaw)} />}
             {price.roomBundleDiscount > 0 && <Line label="Room discount" value={`−${fmt(price.roomBundleDiscount)}`} color="#2e9e4e" />}
             <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 6, paddingTop: 4 }}>
@@ -310,7 +356,7 @@ export function WalkInModal({
             <>
               <div>
                 <Label>Paid with</Label>
-                <Segmented value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: m }))} />
+                <Segmented value={method} onChange={setMethod} size="sm" options={DESK_METHODS.map((m) => ({ value: m, label: m }))} />
               </div>
               {method !== "Cash" && (
                 <div>

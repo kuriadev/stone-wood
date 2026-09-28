@@ -476,7 +476,7 @@ export function About({
           <button
             onClick={() => setPage("Book Now")}
             className="sw-btn"
-            style={{ ...goldBtn, alignSelf: "flex-start", padding: "15px 30px", fontSize: 12.5, letterSpacing: 2, borderRadius: 8, fontFamily: "inherit", minHeight: 48 }}
+            style={{ ...goldBtn, alignSelf: "flex-start", fontFamily: "inherit" }}
           >
             PLAN YOUR VISIT
           </button>
@@ -530,13 +530,7 @@ export function About({
               ? onBookWithDate(checkDate)
               : setPage("Book Now")
           }
-          style={{
-            ...goldBtn,
-            padding: "14px 28px",
-            letterSpacing: 2,
-            fontSize: 13.5,
-            borderRadius: 8,
-          }}
+          style={goldBtn}
         >
           {checkDate ? "CONTINUE BOOKING" : "BOOK YOUR STAY"}
         </button>

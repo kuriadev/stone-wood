@@ -178,7 +178,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
       {/* ── Filters ── */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         {/* Search */}
-        <div style={{ flex: "1", minWidth: 180, position: "relative" }}>
+        <div style={{ flex: "1", minWidth: 180, position: "relative", display: showArchive ? "none" : "block" }}>
           <svg
             style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: "0.35", pointerEvents: "none" }}
             width="14" height="14" viewBox="0 0 24 24"
@@ -203,7 +203,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
         </div>
 
         {/* Category filter buttons */}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }} role="group" aria-label="Filter by category">
+        <div style={{ display: showArchive ? "none" : "flex", gap: 6, flexWrap: "wrap" }} role="group" aria-label="Filter by category">
           {cats.map((c) => (
             <button
               key={c}
@@ -231,21 +231,58 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
           + ADD ITEM
         </button>
 
-        {/* Archive toggle */}
-        {deleted.length > 0 && (
-          <button
-            style={{ padding: "9px 14px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, background: "transparent", letterSpacing: 1, flexShrink: "0", color: C.textS, border: `1px solid ${cBr}` }}
-            onClick={() => setShowArchive((s) => !s)}
-            aria-expanded={showArchive}
-            aria-label={`${showArchive ? "Hide" : "Show"} archived items (${deleted.length})`}
-          >
-            <Icon name="trash" size={12} /> ARCHIVE ({deleted.length})
-          </button>
-        )}
       </div>
 
-      {/* ── Low-stock alert ── */}
-      {lowStock > 0 && (
+      {/* ── Active / Archived ──
+          The archive used to be a panel appended under the live table, which
+          meant finding it required scrolling past every item you were not
+          looking for. It is a view of its own now: the two tabs sit above the
+          table and swap what it shows, so "where is the archive" is answered
+          before you scroll rather than after. */}
+      <div
+        role="tablist"
+        aria-label="Which items to show"
+        style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}
+      >
+        {([
+          { key: false, label: "ACTIVE", count: filtered.length },
+          { key: true, label: "ARCHIVED", count: deleted.length },
+        ] as const).map((v) => {
+          const on = showArchive === v.key;
+          return (
+            <button
+              key={String(v.key)}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => setShowArchive(v.key)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                minHeight: 40,
+                padding: "0 16px",
+                borderRadius: 8,
+                cursor: "pointer",
+                fontSize: 11.5,
+                letterSpacing: 1.6,
+                fontWeight: on ? 700 : 500,
+                color: on ? C.textH : C.textS,
+                background: on ? (isDark ? "rgba(201,168,76,0.14)" : "rgba(201,168,76,0.12)") : "transparent",
+                border: `1px solid ${on ? gold : cBr}`,
+              }}
+            >
+              {v.key && <Icon name="trash" size={12} />}
+              {v.label}
+              <span style={{ color: on ? C.goldInk : C.textXS, fontWeight: 600 }}>{v.count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Low-stock alert ── active view only: an archived item cannot be
+          restocked, so the warning would be describing nothing actionable. */}
+      {!showArchive && lowStock > 0 && (
         <div style={{ background: "rgba(229, 85, 85, 0.05)", border: "1px solid rgba(229, 85, 85, 0.2)", borderRadius: 4, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }} role="alert">
           {/* Tinted to the panel's accent: Lucide uses currentColor and this
               banner sets none, so the icon would take the page's near-black
@@ -258,8 +295,9 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
       )}
 
       {/* ── Inventory table ── */}
+      {!showArchive && (
       <div
-        style={{ borderRadius: 10, overflow: "hidden", background: cBg, border: `1px solid ${cBr}`, marginBottom: showArchive && deleted.length ? 24 : 0, boxShadow: C.shadowCard }}
+        style={{ borderRadius: 10, overflow: "hidden", background: cBg, border: `1px solid ${cBr}`, boxShadow: C.shadowCard }}
       >
         {filtered.length === 0 ? (
           <p style={{ padding: "40px 20px", textAlign: "center", fontSize: 14.5, color: C.textS }}>
@@ -380,8 +418,17 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
           </div>
         )}
       </div>
+      )}
 
-      {/* ── Archive section ── */}
+      {/* ── Archive view ── */}
+      {showArchive && deleted.length === 0 && (
+        <div style={{ borderRadius: 10, background: cBg, border: `1px solid ${cBr}`, padding: "40px 24px", textAlign: "center", boxShadow: C.shadowCard }}>
+          <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>
+            Nothing archived. Items you remove from the list appear here and can be restored.
+          </p>
+        </div>
+      )}
+
       {showArchive && deleted.length > 0 && (
         <div
           style={{ borderRadius: 10, overflow: "hidden", background: cBg, border: `1px solid ${cBr}`, boxShadow: C.shadowCard }}

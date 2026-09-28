@@ -21,6 +21,7 @@ export interface RoomRow {
   price: number;
   description: string;
   img: string;
+  gallery: string[];
   created_at: string;
 }
 

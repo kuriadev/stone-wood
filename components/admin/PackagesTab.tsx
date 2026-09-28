@@ -10,7 +10,9 @@ import type { ResortPackage } from "@/types/package";
 import type { BookingResource, BookingTier, PackageSlotMode } from "@/types/booking";
 import { pricingProblem, standardPackagePrice } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
+import { GALLERY_MAX } from "@/lib/validators";
 import { Icon } from "@/components/common/Icon";
+import { PhotoSet } from "@/components/admin/PhotoSet";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -39,10 +41,21 @@ interface PackagesTabProps {
 const RESOURCES: BookingResource[] = ["Pool", "Venue", "Pool+Venue"];
 const STATUSES: BookingTier[] = ["Shared", "Exclusive"];
 
+/** The code is what a booking stores to say which package was bought, so
+ *  it has to be stable, unique and safe to put in a URL. Typing is free
+ *  text; this is the one normalisation the form and the API both apply. */
+function normCode(raw: string): string {
+  return raw
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 const BLANK_FORM = {
   code: "", title: "", resource: "Pool" as BookingResource, status: "Shared" as BookingTier,
   price: "", listPrice: "", capacity: "", requiresRoom: false, slotMode: "Single" as PackageSlotMode,
-  cover: "", blurb: "", includes: "", note: "", active: true,
+  cover: "", photos: [] as string[], captions: [] as string[], blurb: "", includes: "", note: "", active: true,
 };
 
 export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
@@ -57,7 +70,17 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
 
   const cBg = isDark ? "#0c0b09" : "#ffffff";
   const cBr = isDark ? "#1a1714" : "#e4ddd1";
+  /* Delete stays red in both themes, but #e55 is a pale red: it reads on the
+     dark card and washes out to about 3:1 on the white one. The ink follows
+     the theme so the icon is legible either way. */
+  const dangerInk = isDark ? "#ff7b7b" : "#c62828";
+  const dangerBg = isDark ? "rgba(229,85,85,0.10)" : "rgba(198,40,40,0.06)";
+  const dangerBorder = isDark ? "rgba(229,85,85,0.30)" : "rgba(198,40,40,0.30)";
   const inpS: React.CSSProperties = { ...C.inp, borderRadius: 6 };
+  /* Selects only. `C.inp` sets `padding` inline, which overrides the
+     `pr-9` NativeSelect reserves for its chevron -- without this the arrow
+     sits on top of the selected value. */
+  const selS: React.CSSProperties = { ...inpS, paddingRight: 38 };
   const setF = (k: string, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
 
   const openAdd = () => {
@@ -71,21 +94,39 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
       code: p.code, title: p.title, resource: p.resource, status: p.status,
       price: String(p.price), listPrice: p.listPrice ? String(p.listPrice) : "",
       capacity: String(p.capacity), requiresRoom: !!p.requiresRoom, slotMode: p.slotMode ?? "Single",
-      cover: p.cover, blurb: p.blurb, includes: p.includes.join("\n"),
+      cover: p.cover,
+      // Packages have had a gallery column all along; the form only ever set
+      // the cover, so an existing package shows its cover plus whatever the
+      // gallery already holds.
+      photos: p.gallery?.length ? p.gallery.map((g) => g.src).slice(0, GALLERY_MAX) : p.cover ? [p.cover] : [],
+      captions: p.gallery?.length ? p.gallery.map((g) => g.label ?? "").slice(0, GALLERY_MAX) : [],
+      blurb: p.blurb, includes: p.includes.join("\n"),
       note: p.note ?? "", active: p.active,
     });
     setShowModal(true);
   };
-  const handleImg = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]; if (!f) return;
-    const rd = new FileReader();
-    rd.onload = (ev) => setF("cover", ev.target?.result as string);
-    rd.readAsDataURL(f);
-  };
+
+  /* What the package will actually be filed under: what the admin typed,
+     or the title turned into a code when they left it alone. */
+  const effectiveCode = normCode(form.code.trim() || form.title);
+  /* Two packages sharing a code would collide everywhere the code is the
+     identity -- the deep link from Home, the lookup on the Packages page,
+     and the `packageCode` already written onto past bookings. */
+  const codeTaken = effectiveCode !== "" && packages.some((x) => x.code === effectiveCode && x.id !== editPkg?.id);
 
   const savePkg = () => {
+    const cover = form.photos[0] || form.cover || "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&q=80";
+    const photos = (form.photos.length ? form.photos : [cover]).slice(0, GALLERY_MAX);
+    const gallery = photos.map((src, i) => ({
+      src,
+      // The caption is what the guest reads beside the photo. Left blank it
+      // falls back to the package title for the cover and a plain number for
+      // the rest, so the gallery never shows an empty caption slot.
+      label: (form.captions[i] || "").trim() || (i === 0 ? form.title.trim() || "Cover" : "Photo " + (i + 1)),
+      kind: "",
+    }));
     const data: Omit<ResortPackage, "id" | "gallery"> = {
-      code: form.code.trim() || form.title.trim().toUpperCase().replace(/\s+/g, "-"),
+      code: effectiveCode,
       title: form.title.trim(),
       resource: form.resource,
       status: form.status,
@@ -94,17 +135,17 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
       capacity: Number(form.capacity) || 1,
       requiresRoom: form.requiresRoom || undefined,
       slotMode: form.slotMode,
-      cover: form.cover || "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&q=80",
+      cover,
       blurb: form.blurb,
       includes: form.includes.split("\n").map((s) => s.trim()).filter(Boolean),
       note: form.note || undefined,
       active: form.active,
     };
     if (editPkg) {
-      setPackages((p) => p.map((x) => x.id === editPkg.id ? { ...x, ...data, gallery: x.gallery } : x));
+      setPackages((p) => p.map((x) => x.id === editPkg.id ? { ...x, ...data, gallery } : x));
       toast("Package updated.", "success");
     } else {
-      setPackages((p) => [...p, { id: Date.now(), ...data, gallery: [] }]);
+      setPackages((p) => [...p, { id: Date.now(), ...data, gallery }]);
       toast("Package added.", "success");
     }
     setShowModal(false);
@@ -157,7 +198,23 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
               <div style={{ display: "flex", gap: 8, marginTop: "auto", paddingTop: 4 }}>
                 <button onClick={() => toggleActive(p)} style={{ ...outBtn, flex: 1, padding: "7px 10px", fontSize: 11.5, letterSpacing: 1 }}>{p.active ? "HIDE" : "SHOW"}</button>
                 <button onClick={() => openEdit(p)} style={{ ...outBtn, flex: 1, padding: "7px 10px", fontSize: 11.5, letterSpacing: 1 }}>EDIT</button>
-                <button onClick={() => setConfirmDelete(p)} style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "7px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>DEL</button>
+                {/* An icon, not "DEL": the abbreviation had to be guessed at,
+                    and the trash can is the one symbol nobody has to. Icon
+                    only, so it needs a real accessible name -- and a title so
+                    a sighted user gets the same word on hover. */}
+                <button
+                  onClick={() => setConfirmDelete(p)}
+                  aria-label={`Delete ${p.title}`}
+                  title={`Delete ${p.title}`}
+                  style={{
+                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    width: 40, minHeight: 34, flexShrink: 0,
+                    background: dangerBg, color: dangerInk, border: `1px solid ${dangerBorder}`,
+                    cursor: "pointer", borderRadius: 6, padding: 0,
+                  }}
+                >
+                  <Icon name="trash" size={15} strokeWidth={1.8} />
+                </button>
               </div>
             </div>
           </div>
@@ -183,45 +240,80 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 sm:grid-cols-2 [&>div:has(textarea)]:sm:col-span-2 [&>div:has(input[type=file])]:sm:col-span-2">
+          {/* One 12-column grid, and every field states its own span.
+              Before this the form was a 2-column grid with SUB-grids nested
+              inside single columns -- RESOURCE and TIER shared one half, the
+              three price fields shared the other -- so nothing lined up
+              across rows and the leftover space read as random gaps. */}
+          <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-12">
 
-              <div>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">TITLE</Label>
-                <Input value={form.title} onChange={(e) => setF("title", e.target.value)} placeholder="Pool + Room Package" className="sw-input" style={inpS} />
+              <div className="sm:col-span-6">
+                <Label htmlFor="pkg-title" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">TITLE</Label>
+                <Input id="pkg-title" value={form.title} onChange={(e) => setF("title", e.target.value)} placeholder="Pool + Room Package" className="sw-input" style={inpS} />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {/* The code had form state, was saved and was read back on edit,
+                  but no field ever showed it -- so it could only ever be the
+                  title in capitals, and an admin could not tell what a booking
+                  would end up referencing. */}
+              <div className="sm:col-span-6">
+                <Label htmlFor="pkg-code" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">CODE</Label>
+                <Input
+                  id="pkg-code"
+                  value={form.code}
+                  onChange={(e) => setF("code", e.target.value)}
+                  placeholder={form.title.trim() ? normCode(form.title) : "POOL-ROOM-PACKAGE"}
+                  className="sw-input"
+                  style={{ ...inpS, ...(codeTaken ? { borderColor: "#e55" } : {}) }}
+                  aria-describedby="pkg-code-hint"
+                  aria-invalid={codeTaken || undefined}
+                />
+                <p id="pkg-code-hint" style={{ color: codeTaken ? "#e55" : C.textS, fontSize: 12, margin: "5px 0 0", lineHeight: 1.6 }}>
+                  {codeTaken
+                    ? `Another package already uses ${effectiveCode}. Codes must be unique.`
+                    : editPkg
+                      ? `Saved as ${effectiveCode || "\u2014"}. Bookings already placed reference the old code, so change it only if you mean to.`
+                      : `Saved as ${effectiveCode || "\u2014"}. Leave it blank to build it from the title.`}
+                </p>
+              </div>
+              <div className="sm:col-span-3">
                 <div>
-                  <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">RESOURCE</Label>
-                  <NativeSelect value={form.resource} onChange={(e) => setF("resource", e.target.value as BookingResource)} className="sw-input" style={inpS}>
+                  <Label htmlFor="pkg-resource" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">RESOURCE</Label>
+                  <NativeSelect id="pkg-resource" value={form.resource} onChange={(e) => setF("resource", e.target.value as BookingResource)} className="sw-input [&_[data-slot=native-select-wrapper]]:w-full" style={selS}>
                     {RESOURCES.map((r) => <option key={r} value={r}>{r}</option>)}
                   </NativeSelect>
                 </div>
+              </div>
+              <div className="sm:col-span-3">
                 <div>
-                  <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">TIER</Label>
-                  <NativeSelect value={form.status} onChange={(e) => setF("status", e.target.value as BookingTier)} className="sw-input" style={inpS}>
+                  <Label htmlFor="pkg-tier" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">TIER</Label>
+                  <NativeSelect id="pkg-tier" value={form.status} onChange={(e) => setF("status", e.target.value as BookingTier)} className="sw-input [&_[data-slot=native-select-wrapper]]:w-full" style={selS}>
                     {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </NativeSelect>
                 </div>
               </div>
-              <div>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">WHEN</Label>
-                <NativeSelect value={form.slotMode} onChange={(e) => setF("slotMode", e.target.value as PackageSlotMode)} className="sw-input" style={inpS}>
+              <div className="sm:col-span-6">
+                <Label htmlFor="pkg-when" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">WHEN</Label>
+                <NativeSelect id="pkg-when" value={form.slotMode} onChange={(e) => setF("slotMode", e.target.value as PackageSlotMode)} className="sw-input [&_[data-slot=native-select-wrapper]]:w-full" style={selS}>
                   <option value="Single">Day or Night — guest picks ({SLOTS.Day.hours} / {SLOTS.Night.hours})</option>
                   <option value="WholeDay">Whole Day ({SLOTS.WholeDay.hours})</option>
                 </NativeSelect>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <div className="sm:col-span-4">
                 <div>
-                  <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">PRICE (₱)</Label>
-                  <Input type="number" min={0} value={form.price} onChange={(e) => setF("price", e.target.value)} className="sw-input" style={inpS} />
+                  <Label htmlFor="pkg-price" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">PRICE (₱)</Label>
+                  <Input type="number" min={0} id="pkg-price" value={form.price} onChange={(e) => setF("price", e.target.value)} className="sw-input" style={inpS} />
                 </div>
+              </div>
+              <div className="sm:col-span-4">
                 <div>
-                  <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">LIST PRICE</Label>
-                  <Input type="number" min={0} value={form.listPrice} onChange={(e) => setF("listPrice", e.target.value)} placeholder="optional" className="sw-input" style={inpS} />
+                  <Label htmlFor="pkg-list" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">LIST PRICE</Label>
+                  <Input type="number" min={0} id="pkg-list" value={form.listPrice} onChange={(e) => setF("listPrice", e.target.value)} placeholder="optional" className="sw-input" style={inpS} />
                 </div>
+              </div>
+              <div className="sm:col-span-4">
                 <div>
-                  <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">CAPACITY</Label>
-                  <Input type="number" min={1} value={form.capacity} onChange={(e) => setF("capacity", e.target.value)} className="sw-input" style={inpS} />
+                  <Label htmlFor="pkg-capacity" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">CAPACITY</Label>
+                  <Input type="number" min={1} id="pkg-capacity" value={form.capacity} onChange={(e) => setF("capacity", e.target.value)} className="sw-input" style={inpS} />
                 </div>
               </div>
               {/* What the standard rules give for this setup, so a promo
@@ -229,11 +321,11 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   the package dearer than booking the same thing by hand. */}
               {(() => {
                 const problem = pricingProblem(form.resource, form.status, form.slotMode === "WholeDay" ? "WholeDay" : "Day");
-                if (problem) return <p style={{ color: "#e55", fontSize: 12.5, margin: 0 }}>⚠ {problem}</p>;
+                if (problem) return <p className="sm:col-span-12" style={{ color: "#e55", fontSize: 12.5, margin: 0 }}>{problem}</p>;
                 const std = standardPackagePrice({ resource: form.resource, tier: form.status, slotMode: form.slotMode, capacity: Number(form.capacity) || 1 });
                 const price = Number(form.price);
                 return (
-                  <p style={{ color: C.textS, fontSize: 12.5, margin: 0, lineHeight: 1.6 }}>
+                  <p className="sm:col-span-12" style={{ color: C.textS, fontSize: 12.5, margin: 0, lineHeight: 1.6 }}>
                     Standard price for this setup: <strong style={{ color: gold }}>{fmt(std.price)}</strong>
                     {std.listPrice > std.price ? <> (regular {fmt(std.listPrice)})</> : null}
                     {" "}<button type="button" onClick={() => { setF("price", String(std.price)); setF("listPrice", std.listPrice > std.price ? String(std.listPrice) : ""); }} style={{ background: "none", border: "none", color: gold, cursor: "pointer", textDecoration: "underline", fontSize: 12.5, padding: 0 }}>use it</button>
@@ -241,31 +333,37 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   </p>
                 );
               })()}
-              <div>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">PHOTO</Label>
-                <Input type="file" accept="image/*" onChange={handleImg} className="sw-input" style={inpS} />
-                {form.cover && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img loading="lazy" decoding="async" src={form.cover} alt="" style={{ width: "100%", height: 100, objectFit: "cover", borderRadius: 6, marginTop: 8 }} />
-                )}
+              <div className="sm:col-span-12">
+                <Label htmlFor="pkg-add-photo" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">PHOTOS</Label>
+                <PhotoSet
+                  photos={form.photos}
+                  captions={form.captions}
+                  onChange={(photos, captions) => setForm((f) => ({ ...f, photos, captions }))}
+                  noun="package"
+                  idPrefix="pkg"
+                  withCaptions
+                />
               </div>
-              <div>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">BLURB</Label>
-                <Textarea value={form.blurb} onChange={(e) => setF("blurb", e.target.value)} rows={2} className="sw-input" style={{ ...inpS, resize: "none" }} />
+              <div className="sm:col-span-12">
+                <Label htmlFor="pkg-blurb" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">SHORT DESCRIPTION</Label>
+                <p style={{ color: C.textS, fontSize: 12, margin: "0 0 6px" }}>
+                  One or two sentences under the package title, on the card the guest sees.
+                </p>
+                <Textarea id="pkg-blurb" value={form.blurb} onChange={(e) => setF("blurb", e.target.value)} rows={2} className="sw-input" style={{ ...inpS, resize: "none" }} />
               </div>
-              <div>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">INCLUDES (one per line)</Label>
-                <Textarea value={form.includes} onChange={(e) => setF("includes", e.target.value)} rows={3} className="sw-input" style={{ ...inpS, resize: "none" }} />
+              <div className="sm:col-span-12">
+                <Label htmlFor="pkg-includes" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">INCLUDES (one per line)</Label>
+                <Textarea id="pkg-includes" value={form.includes} onChange={(e) => setF("includes", e.target.value)} rows={3} className="sw-input" style={{ ...inpS, resize: "none" }} />
               </div>
-              <div>
-                <Label className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">EXTRA NOTE (optional)</Label>
-                <Input value={form.note} onChange={(e) => setF("note", e.target.value)} className="sw-input" style={inpS} />
+              <div className="sm:col-span-6">
+                <Label htmlFor="pkg-note" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">EXTRA NOTE (optional)</Label>
+                <Input id="pkg-note" value={form.note} onChange={(e) => setF("note", e.target.value)} className="sw-input" style={inpS} />
               </div>
               {/* Was a div with onClick and a hand-drawn tick: not focusable,
                   not toggleable by keyboard, and invisible to a screen reader.
                   A real Checkbox inside a Label makes the whole sentence the
                   hit area and the accessible name, and the space bar works. */}
-              <Label htmlFor="pkg-requiresRoom" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontWeight: 400, letterSpacing: 0 }}>
+              <Label htmlFor="pkg-requiresRoom" className="sm:col-span-6" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontWeight: 400, letterSpacing: 0, alignSelf: "end", minHeight: 46 }}>
                 <Checkbox
                   id="pkg-requiresRoom"
                   checked={form.requiresRoom}
@@ -278,7 +376,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   not toggleable by keyboard, and invisible to a screen reader.
                   A real Checkbox inside a Label makes the whole sentence the
                   hit area and the accessible name, and the space bar works. */}
-              <Label htmlFor="pkg-active" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontWeight: 400, letterSpacing: 0 }}>
+              <Label htmlFor="pkg-active" className="sm:col-span-12" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontWeight: 400, letterSpacing: 0, minHeight: 46 }}>
                 <Checkbox
                   id="pkg-active"
                   checked={form.active}
@@ -291,7 +389,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
-            <Button disabled={!form.title.trim() || !form.price} onClick={savePkg}>
+            <Button disabled={!form.title.trim() || !form.price || codeTaken} onClick={savePkg}>
               {editPkg ? "Save changes" : "Add package"}
             </Button>
           </DialogFooter>

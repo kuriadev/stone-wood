@@ -288,7 +288,7 @@ export function HeroReservation({
           <Button
             onClick={() => onBookWithDate(date, { slot, guests })}
             disabled={!date}
-            className="sw-btn h-auto min-h-11 w-full rounded-xl py-4 text-[13px] tracking-[1.5px] disabled:opacity-40"
+            className="sw-btn h-auto w-full disabled:opacity-40"
             style={goldBtn}
           >
             CHECK AVAILABILITY <span aria-hidden="true">→</span>

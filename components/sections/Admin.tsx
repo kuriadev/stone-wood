@@ -9,6 +9,7 @@ import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { Panel, StatCard, BarChart, ProgressRow } from "@/components/admin/charts";
 import { fmt, fmtDate } from "@/lib/utils";
+import { GALLERY_SPANS, galleryHourLabel } from "@/lib/gallery";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { BookingsTab } from "@/components/admin/BookingsTab";
 import { InventoryTab } from "@/components/admin/InventoryTab";
@@ -18,6 +19,7 @@ import { useOps } from "@/contexts/OpsContext";
 import { collectedBetween, manilaDate } from "@/lib/finance";
 import { FacilitiesTab } from "@/components/admin/FacilitiesTab";
 import { PackagesTab } from "@/components/admin/PackagesTab";
+import { PhotoSet } from "@/components/admin/PhotoSet";
 import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
 import {
   AlertDialog,
@@ -46,7 +48,7 @@ import {
 import { getPackageTier, checkBookingAvailability, isRoomOpen, roomsTakenOn } from "@/lib/utils";
 import { priceBooking, bookingLabel } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
-import { sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail, RESORT_MAX_CAPACITY, ROOM_BUNDLE_DISCOUNT_PCT, OVERTIME_MAX, OVERTIME_RATE } from "@/lib/validators";
+import { sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail, RESORT_MAX_CAPACITY, ROOM_BUNDLE_DISCOUNT_PCT, OVERTIME_MAX, OVERTIME_RATE, GALLERY_MAX } from "@/lib/validators";
 import { getCurrentOccupancy } from "@/lib/occupancy";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 import type { Room } from "@/types/room";
@@ -136,9 +138,10 @@ export function Admin({
   const [showModal, setShowModal] = useState(false);
   const [editRoom, setEditRoom] = useState<Room | null>(null);
   const [rf, setRf] = useState({ name: "", beds: "", capacity: "", price: "", desc: "", img: "" });
-  const [imgPrev, setImgPrev] = useState("");
+  /* The room's photos, cover first. `rf.img` stays the cover so every card,
+     list and booking summary that reads it keeps working. */
+  const [rPhotos, setRPhotos] = useState<string[]>([]);
   const [confirmRemoveRoom, setConfirmRemoveRoom] = useState<Room | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   const galleryFileRef = useRef<HTMLInputElement>(null);
   const [calMonth, setCalMonth] = useState(new Date());
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -365,20 +368,42 @@ export function Admin({
   const toggleClosed = (ds: string) => { setClosedDates((p) => p.includes(ds) ? p.filter((x) => x !== ds) : [...p, ds]); toast("Date availability updated.", "info"); };
 
   // Rooms
-  const openAdd = () => { setEditRoom(null); setRf({ name: "", beds: "", capacity: "", price: "", desc: "", img: "" }); setImgPrev(""); setShowModal(true); };
-  const openEdit = (r: Room) => { setEditRoom(r); setRf({ name: r.name, beds: r.beds, capacity: String(r.capacity), price: String(r.price), desc: r.desc, img: r.img }); setImgPrev(r.img); setShowModal(true); };
-  const handleImg = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]; if (!f) return;
-    const rd = new FileReader(); rd.onload = (ev) => { setImgPrev(ev.target?.result as string); setRf((x) => ({ ...x, img: ev.target?.result as string })); }; rd.readAsDataURL(f);
-  };
+  const openAdd = () => { setEditRoom(null); setRf({ name: "", beds: "", capacity: "", price: "", desc: "", img: "" }); setRPhotos([]); setShowModal(true); };
+  const openEdit = (r: Room) => { setEditRoom(r); setRf({ name: r.name, beds: r.beds, capacity: String(r.capacity), price: String(r.price), desc: r.desc, img: r.img });
+    // A room saved before galleries existed has only `img`; show it as a
+    // one-photo set rather than an empty picker.
+    setRPhotos(r.gallery?.length ? r.gallery.slice(0, GALLERY_MAX) : r.img ? [r.img] : []); setShowModal(true); };
   const saveRoom = () => {
-    const data = { ...rf, capacity: Number(rf.capacity), price: Number(rf.price), img: rf.img || "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&q=85" };
+    const cover = rPhotos[0] || rf.img || "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&q=85";
+    const data = { ...rf, capacity: Number(rf.capacity), price: Number(rf.price), img: cover, gallery: (rPhotos.length ? rPhotos : [cover]).slice(0, GALLERY_MAX) };
     if (editRoom) { setRooms((rs) => rs.map((r) => r.id === editRoom.id ? { ...r, ...data } : r)); toast("Room updated.", "success"); }
     else { setRooms((rs) => [...rs, { id: Date.now(), ...data }]); toast("Room added.", "success"); }
     setShowModal(false);
   };
   const deleteRoom = (id: number) => { setRooms((rs) => rs.filter((r) => r.id !== id)); toast("Room removed.", "warning"); };
   const deleteGalleryImg = (idx: number) => { setGalleryImgs((g) => g.filter((_, i) => i !== idx)); toast("Photo removed.", "warning"); };
+
+  /* Replace the photo in ONE slot, leaving every other slot untouched.
+   *
+   * The gallery array is POSITIONAL: index 0 is the hero on /gallery and the
+   * photo beside "Find us" on /about, and everything after it is a mosaic
+   * tile whose position decides the time stamped on it. The tab draws the
+   * real mosaic so the admin can point at the photo they recognise instead
+   * of translating a row number into a place on a page. */
+  const replaceGalleryAt = useRef<number | null>(null);
+  const galleryReplaceRef = useRef<HTMLInputElement>(null);
+  const handleGalleryReplace = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const idx = replaceGalleryAt.current;
+    e.target.value = "";
+    if (!file || idx === null) return;
+    const rd = new FileReader();
+    rd.onload = (ev) => {
+      setGalleryImgs((g) => g.map((src, i) => (i === idx ? (ev.target?.result as string) : src)));
+      toast("Photo replaced.", "success");
+    };
+    rd.readAsDataURL(file);
+  };
   const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => { Array.from(e.target.files || []).forEach((f) => { const rd = new FileReader(); rd.onload = (ev) => { setGalleryImgs((g) => [...g, ev.target?.result as string]); toast("Photo added.", "success"); }; rd.readAsDataURL(f); }); };
   const archiveMessage = async (msg: CustomerMessage) => {
   try {
@@ -1136,21 +1161,114 @@ export function Admin({
           {tab === "Gallery" && (
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
-                <div><p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>MEDIA</p><h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Gallery</h2></div>
+                <div>
+                  <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>MEDIA</p>
+                  <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 6px" }}>Gallery</h2>
+                  <p style={{ color: C.textS, fontSize: 13.5, margin: 0, maxWidth: 560 }}>
+                    Every photo fills one named place on the site. Replace a slot to change that
+                    picture, or move it to change which slot it fills.
+                  </p>
+                </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <input ref={galleryFileRef} type="file" accept="image/*" multiple onChange={handleGalleryUpload} style={{ display: "none" }} />
+                  <input ref={galleryReplaceRef} type="file" accept="image/*" onChange={handleGalleryReplace} style={{ display: "none" }} />
                   <button onClick={() => galleryFileRef.current?.click()} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD PHOTOS</button>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(3,1fr)", gap: 12 }}>
-                {galleryImgs.map((src, i) => (
-                  <div key={i} style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: `1px solid ${cBr}` }}>
+
+              {galleryImgs.length === 0 ? (
+                <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "40px 24px", textAlign: "center" }}>
+                  <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>
+                    No photos yet. The first one you add becomes the gallery hero.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* The gallery as the guest sees it. A list of "Tile 3 of 8"
+                      made the admin translate a row into a position on a page
+                      they were not looking at; this is the page, and you click
+                      the photo you recognise.
+
+                      The grid draws from GALLERY_SPANS and galleryHourLabel in
+                      lib/gallery.ts -- the same source the real page uses, so
+                      this preview cannot drift out of step with it. */}
+                  <p style={{ color: C.textXS, fontSize: 11, letterSpacing: 2, margin: "0 0 10px" }}>
+                    HERO &mdash; /GALLERY BANNER AND THE /ABOUT PHOTO
+                  </p>
+                  <div
+                    style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: `1px solid ${gold}`, marginBottom: 26 }}
+                  >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img loading="lazy" decoding="async" src={src} alt="" style={{ width: "100%", height: 180, objectFit: "cover", display: "block" }} />
-                    <button onClick={() => deleteGalleryImg(i)} style={{ position: "absolute", top: 8, right: 8, background: "rgba(229,85,85,0.9)", border: "none", color: "#fff", width: 28, height: 28, borderRadius: "50%", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="x" size={14} /></button>
+                    <img src={galleryImgs[0]} alt="" style={{ display: "block", width: "100%", height: mob ? 150 : 230, objectFit: "cover" }} />
+                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0.05))" }} />
+                    <button
+                      onClick={() => { replaceGalleryAt.current = 0; galleryReplaceRef.current?.click(); }}
+                      aria-label="Replace the gallery hero photo"
+                      style={{ ...goldBtn, position: "absolute", right: 12, bottom: 12, minHeight: 40, padding: "0 18px", fontSize: 11.5, letterSpacing: 1.4 }}
+                    >
+                      CHANGE PHOTO
+                    </button>
                   </div>
-                ))}
-              </div>
+
+                  <p style={{ color: C.textXS, fontSize: 11, letterSpacing: 2, margin: "0 0 10px" }}>
+                    MOSAIC &mdash; CLICK A PHOTO TO CHANGE IT
+                  </p>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: mob ? "1fr 1fr" : "repeat(12, 1fr)",
+                      gap: 10,
+                      alignItems: "start",
+                    }}
+                  >
+                    {galleryImgs.slice(1).map((src, i) => (
+                      <div
+                        key={`${src}-${i}`}
+                        style={{
+                          gridColumn: mob ? "auto" : `span ${GALLERY_SPANS[i % GALLERY_SPANS.length]}`,
+                          position: "relative",
+                          borderRadius: 10,
+                          overflow: "hidden",
+                          border: `1px solid ${cBr}`,
+                          background: cBg,
+                        }}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={src} alt="" style={{ display: "block", width: "100%", height: "auto" }} />
+
+                        {/* The same stamp the guest sees on that tile. */}
+                        <span style={{ position: "absolute", left: 10, bottom: 10, background: "rgba(0,0,0,0.6)", color: "#f2ede4", fontSize: 11, padding: "4px 9px", borderRadius: 999 }}>
+                          {galleryHourLabel(i, galleryImgs.length - 1)}
+                        </span>
+
+                        <div style={{ position: "absolute", right: 8, top: 8, display: "flex", gap: 6 }}>
+                          <button
+                            onClick={() => { replaceGalleryAt.current = i + 1; galleryReplaceRef.current?.click(); }}
+                            aria-label={`Change the ${galleryHourLabel(i, galleryImgs.length - 1)} photo`}
+                            title="Change this photo"
+                            style={{ ...goldBtn, minHeight: 34, padding: "0 12px", fontSize: 11, letterSpacing: 1, borderRadius: 8, boxShadow: "0 2px 10px rgba(0,0,0,0.45)" }}
+                          >
+                            CHANGE
+                          </button>
+                          <button
+                            onClick={() => deleteGalleryImg(i + 1)}
+                            aria-label={`Remove the ${galleryHourLabel(i, galleryImgs.length - 1)} photo`}
+                            title="Remove this photo"
+                            style={{ background: "rgba(20,10,10,0.75)", border: "1px solid rgba(229,85,85,0.45)", color: "#e8a0a0", width: 34, height: 34, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                          >
+                            <Icon name="trash" size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p style={{ color: C.textS, fontSize: 12.5, margin: "18px 0 0" }}>
+                    Times are the photo&rsquo;s place in the day, not when it was taken &mdash; they
+                    spread across 07:00 to 23:00 and re-count when a photo is added or removed.
+                  </p>
+                </>
+              )}
             </div>
           )}
 
@@ -1556,12 +1674,8 @@ export function Admin({
           <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
             {/* Image */}
             <div>
-              <Label htmlFor="room-image-btn" style={{ display: "block", color: C.textXS, fontSize: 10.5, letterSpacing: 3, marginBottom: 8 }}>ROOM IMAGE</Label>
-              {imgPrev && <img loading="lazy" decoding="async" src={imgPrev} alt="preview" style={{ width: "100%", height: 150, objectFit: "cover", borderRadius: 8, marginBottom: 10, border: `1px solid ${cBr}` }} />}
-              <input ref={fileRef} type="file" accept="image/*" onChange={handleImg} style={{ display: "none" }} />
-              <Button id="room-image-btn" variant="outline" onClick={() => fileRef.current?.click()} style={{ ...outBtn, width: "100%", padding: 11, height: "auto", fontSize: 12.5, borderRadius: 6 }}>
-                <Icon name="folder" size={13} style={{ marginRight: 6 }} />CHOOSE IMAGE
-              </Button>
+              <Label htmlFor="room-add-photo" style={{ display: "block", color: C.textXS, fontSize: 10.5, letterSpacing: 3, marginBottom: 8 }}>ROOM PHOTOS</Label>
+              <PhotoSet photos={rPhotos} onChange={setRPhotos} noun="room" idPrefix="room" thumbHeight={78} />
             </div>
 
             {/* Fields */}

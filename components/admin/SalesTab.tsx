@@ -7,6 +7,10 @@
 // reads the same ledger for printed/exported summaries.
 //
 //   Transactions   every payment, filterable, voidable with a reason
+//   Payments       every booking and where it stands: paid in full, part
+//                  paid, unpaid or forfeited. Receivables hides anything
+//                  settled, so this is the one place a booking can be
+//                  confirmed as fully paid without leaving Sales.
 //   Receivables    bookings that still owe a balance or a penalty
 //   Clients        each guest's bookings, what they paid, what they owe
 //   Expenses       money going out
@@ -25,6 +29,7 @@ import {
 } from "@/lib/finance";
 import { fmt, fmtDate } from "@/lib/utils";
 import { EXPENSE_CATEGORIES, MANUAL_METHODS, PAYMENT_TYPES, PAYMENT_METHODS, type Payment, type Expense } from "@/types/finance";
+import type { BookingMoney } from "@/lib/finance";
 import type { Booking } from "@/types/booking";
 import { gold } from "@/lib/styles";
 import { RecordPaymentModal } from "@/components/admin/RecordPaymentModal";
@@ -33,7 +38,18 @@ import {
   useAdminStyle, Row, Cell, STATUS_COLOR, FullSelect, ViewTabs, ConfirmDialog,
 } from "@/components/admin/ui";
 
-type View = "Transactions" | "Receivables" | "Clients" | "Expenses" | "Closing";
+type View = "Transactions" | "Payments" | "Receivables" | "Clients" | "Expenses" | "Closing";
+
+/** How a booking stands with the money, for the status pill. Receivables
+ *  answers "who still owes"; this answers "where does each booking stand",
+ *  which includes the ones that are settled. */
+const PAY_STATE_COLOR: Record<BookingMoney["state"], string> = {
+  "Paid in full": "#2e9e4e",
+  "Partially paid": "#d4a800",
+  Unpaid: "#d44",
+  Forfeited: "#8a7a66",
+};
+const PAY_STATES: BookingMoney["state"][] = ["Paid in full", "Partially paid", "Unpaid", "Forfeited"];
 
 const TYPE_COLOR: Record<string, string> = {
   Downpayment: "#d4a800", Balance: "#2e9e4e", Full: "#2e9e4e", Penalty: "#d44", Refund: "#8a7a66",
@@ -50,10 +66,13 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
   const collectedToday = collectedBetween(ops.payments, today);
   const collectedMonth = collectedBetween(ops.payments, month.from, month.to);
   const spentMonth = expensesBetween(ops.expenses, month.from, month.to);
-  const receivables = useMemo(
-    () => bookings.map((b) => ({ b, m: bookingMoney(b, ops.payments, ops.damages) })).filter(({ m }) => m.due > 0),
+  /* Costed once and shared: Receivables and Payments both need every
+     booking's money, and bookingMoney() walks the whole ledger per booking. */
+  const withMoney = useMemo(
+    () => bookings.map((b) => ({ b, m: bookingMoney(b, ops.payments, ops.damages) })),
     [bookings, ops.payments, ops.damages],
   );
+  const receivables = useMemo(() => withMoney.filter(({ m }) => m.due > 0), [withMoney]);
   const owed = round2(receivables.reduce((s, r) => s + r.m.due, 0));
   const todayCount = livePayments(ops.payments).filter((p) => manilaDate(p.receivedAt) === today).length;
 
@@ -82,6 +101,7 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
 
       <ViewTabs<View> value={view} onChange={setView} views={[
         { value: "Transactions", label: "Transactions", content: <Transactions payments={ops.payments} /> },
+        { value: "Payments", label: "Booking payments", content: <BookingPayments rows={withMoney} onPay={(id) => setPayFor({ bookingId: id })} /> },
         { value: "Receivables", label: `Receivables (${receivables.length})`, content: <Receivables rows={receivables} onPay={(id) => setPayFor({ bookingId: id })} /> },
         { value: "Clients", label: "Clients", content: <Clients bookings={bookings} /> },
         { value: "Expenses", label: "Expenses", content: <Expenses expenses={ops.expenses} onAdd={() => setAddExpense(true)} /> },
@@ -202,6 +222,93 @@ function VoidModal({ what, kind, id, onClose }: { what: string; kind: "payment" 
         <ErrorNote>{error}</ErrorNote>
       </div>
     </ConfirmDialog>
+  );
+}
+
+// ── Booking payments ──────────────────────────────────────────────────
+//
+// Every booking and what it owes, including the ones that owe nothing.
+function BookingPayments({ rows, onPay }: { rows: { b: Booking; m: BookingMoney }[]; onPay: (id: string) => void }) {
+  const { C, rowBg, inp } = useAdminStyle();
+  const [state, setState] = useState<"All" | BookingMoney["state"]>("All");
+  const [q, setQ] = useState("");
+
+  const counts = PAY_STATES.map((st) => [st, rows.filter((r) => r.m.state === st).length] as const);
+
+  const search = q.toLowerCase().trim();
+  const shown = rows
+    .filter((r) => state === "All" || r.m.state === state)
+    .filter((r) => !search
+      || r.b.id.toLowerCase().includes(search)
+      || r.b.name.toLowerCase().includes(search)
+      || (r.b.contact ?? "").includes(search))
+    // Newest visit first: monitoring starts from what just happened, while
+    // Receivables counts down to the next date money is due.
+    .sort((a, b) => b.b.date.localeCompare(a.b.date));
+
+  const sum = (pick: (r: { b: Booking; m: BookingMoney }) => number) => round2(shown.reduce((n, r) => n + pick(r), 0));
+  const expected = sum((r) => r.b.total);
+  const collected = sum((r) => r.m.paid);
+  const outstanding = sum((r) => r.m.due);
+
+  return (
+    <div>
+      <p style={{ color: C.textS, fontSize: 13, marginTop: 0 }}>
+        Where every booking stands. Figures follow the filter below, and come from the payment records rather than the booking total.
+      </p>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginBottom: 14 }}>
+        <Figure label="Booked value" value={fmt(expected)} note={`${shown.length} booking${shown.length === 1 ? "" : "s"}`} />
+        <Figure label="Collected" value={fmt(collected)} color="#2e9e4e" />
+        <Figure label="Outstanding" value={fmt(outstanding)} color={outstanding > 0 ? "#d4a800" : undefined} />
+      </div>
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+        <Segmented<"All" | BookingMoney["state"]>
+          value={state}
+          onChange={setState}
+          size="sm"
+          options={[
+            { value: "All", label: `All (${rows.length})` },
+            ...counts.map(([st, n]) => ({ value: st, label: `${st} (${n})` })),
+          ]}
+        />
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search reference, guest or phone"
+          aria-label="Search booking payments"
+          style={{ ...inp, flex: 1, minWidth: 220 }}
+        />
+      </div>
+
+      <TableShell head={["Booking", "Guest", "Visit", "Booking", "Payment", "Total", "Paid", "Balance", "Penalty due", ""]} minWidth={1020}
+        empty={shown.length === 0 ? (rows.length === 0 ? "No bookings yet." : "No bookings match this filter.") : undefined}>
+        {shown.map(({ b, m }, i) => (
+          <Row key={b.id} style={{ background: rowBg(i) }}>
+            <Cell style={{ ...td, color: gold, fontFamily: "monospace" }}>
+              {/* A TMP id is a booking this browser just made that the server
+                  has not numbered yet -- showing the placeholder would read
+                  as a real reference. */}
+              {b.id.startsWith("TMP-") ? <span style={{ color: C.textS, fontFamily: "inherit" }}>Saving…</span> : b.id}
+            </Cell>
+            <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.contact}</div></Cell>
+            <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
+            <Cell style={td}><Pill color={STATUS_COLOR[b.status]}>{b.status}</Pill></Cell>
+            <Cell style={td}><Pill color={PAY_STATE_COLOR[m.state]}>{m.state}</Pill></Cell>
+            <Cell style={{ ...td, color: C.textB }}>{fmt(b.total)}</Cell>
+            <Cell style={{ ...td, color: C.textB }}>{fmt(m.paid)}</Cell>
+            <Cell style={{ ...td, color: m.balance > 0 ? "#d4a800" : C.textS }}>{fmt(m.balance)}</Cell>
+            <Cell style={{ ...td, color: m.penaltyDue > 0 ? "#d44" : C.textS }}>{fmt(m.penaltyDue)}</Cell>
+            <Cell style={{ ...td, textAlign: "right" }}>
+              {m.due > 0
+                ? <Btn size="sm" kind="green" icon="cash" onClick={() => onPay(b.id)}>Record</Btn>
+                : <span style={{ color: C.textS, fontSize: 12 }}>{m.state === "Forfeited" ? "Forfeited" : "Settled"}</span>}
+            </Cell>
+          </Row>
+        ))}
+      </TableShell>
+    </div>
   );
 }
 

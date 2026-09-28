@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
@@ -145,6 +145,11 @@ const DURATIONS = [SLOTS.Day, SLOTS.Night, SLOTS.WholeDay].map((s) => ({ label: 
  * three-star entry. To add more, copy the name, stars and text exactly as
  * Google shows them; do not paraphrase and do not complete a truncated
  * sentence. */
+/** How fast the testimonial strip travels, in pixels per second. Held
+ *  constant so the strip reads at the same speed on a phone and on a wide
+ *  desktop; the duration is derived from it and the track's real width. */
+const MARQUEE_PX_PER_SEC = 23;
+
 const MARQUEE_REVIEWS = [
   { name: "koadeal koadeal", rating: 5, when: "7 years ago", message: "Nice and cozy place for Family bonding and gatherings.." },
   { name: "Teresita Fajardo", rating: 5, when: "8 years ago", message: "A nice place with warm and kind owners." },
@@ -213,6 +218,23 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
     lineHeight: 1.9,
     fontWeight: 300,
   };
+  /* The strip holds two identical sets and slides exactly one set's width.
+     That is only seamless while a set is at least as wide as the screen --
+     with three real reviews a set is about 1,040px, which covers a phone but
+     falls half a screen short on a desktop, and the shortfall showed as the
+     blank gap before the loop restarted. Repeat the reviews until one set
+     covers the viewport with a card to spare, and derive the duration from
+     the result so a longer strip does not scroll proportionally faster. */
+  const marquee = useMemo(() => {
+    const stride = (mob ? 280 : 330) + 16;
+    const setWidth = MARQUEE_REVIEWS.length * stride;
+    const copies = Math.max(1, Math.ceil((w + stride) / setWidth));
+    return {
+      cards: Array.from({ length: copies }, () => MARQUEE_REVIEWS).flat(),
+      seconds: Math.round((setWidth * copies) / MARQUEE_PX_PER_SEC),
+    };
+  }, [w, mob]);
+
   const [activePkg, setActivePkg] = useState<number | null>(null);
   // Which photo of the expanded package's gallery is showing.
   const [photoIdx, setPhotoIdx] = useState(0);
@@ -560,7 +582,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                   </div>
                 ))}
                 {p.id === "room" && (
-                  <button className="sw-btn" onClick={() => setPage("Rooms")} style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "linear-gradient(135deg,#c9a84c,#e8c56a)", color: "#1a1000", border: "none", padding: "11px 20px", fontWeight: 700, fontSize: 12.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1.5, boxShadow: "0 2px 12px rgba(201,168,76,0.3)", width: "100%" }}>
+                  <button className="sw-btn" onClick={() => setPage("Rooms")} style={{ ...goldBtn, marginTop: "auto", width: "100%" }}>
                     <Icon name="bed" size={15} /> VIEW ROOMS
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
                   </button>
@@ -624,8 +646,8 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
         <div style={{ position: "relative" }}>
           <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to right,${isDark ? "#080604" : "#f5f0e8"},transparent)`, zIndex: 2, pointerEvents: "none" }} />
           <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to left,${isDark ? "#080604" : "#f5f0e8"},transparent)`, zIndex: 2, pointerEvents: "none" }} />
-          <div className="sw-marquee-track">
-            {[...MARQUEE_REVIEWS, ...MARQUEE_REVIEWS].map((r, i) => (
+          <div className="sw-marquee-track" style={{ animationDuration: `${marquee.seconds}s` }}>
+            {[...marquee.cards, ...marquee.cards].map((r, i) => (
               <div key={i} style={{ flexShrink: 0, width: mob ? 280 : 330, marginRight: 16, background: isDark ? "#0e0c09" : "#fff", border: `1px solid ${isDark ? "rgba(201,168,76,0.1)" : "rgba(201,168,76,0.15)"}`, borderRadius: 12, padding: "26px 24px", boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.35)" : "0 4px 16px rgba(100,70,20,0.08)" }}>
                 <div aria-label={`${r.rating} out of 5 stars`} style={{ display: "flex", gap: 3, marginBottom: 12 }}>
                   {[1, 2, 3, 4, 5].map((n) => (
@@ -665,7 +687,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           <button
             className="sw-btn"
             onClick={() => setPage("Book Now")}
-            style={{ ...goldBtn, padding: mob ? "15px 34px" : "17px 46px", fontSize: 14, letterSpacing: 2.5, borderRadius: 8 }}
+            style={{ ...goldBtn, padding: mob ? "14px 30px" : "16px 40px" }}
           >
             BOOK YOUR STAY
           </button>

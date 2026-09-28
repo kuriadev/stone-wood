@@ -440,7 +440,7 @@ function PackageCard({
         <div className="mt-auto p-6 pt-0 sm:p-7 sm:pt-0">
           <Button
             onClick={onBook}
-            className="sw-btn h-auto w-full rounded-xl py-4 text-[13px] tracking-[1.5px]"
+            className="sw-btn h-auto w-full"
             style={goldBtn}
           >
             BOOK {p.title.toUpperCase()} <span aria-hidden="true">→</span>

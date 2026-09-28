@@ -7,6 +7,8 @@
   import { T } from "@/lib/theme";
   import { gold, goldBtn, outBtn } from "@/lib/styles";
   import { fmt, fmtTimer, fmtDate, getPackageTier, checkBookingAvailability, getSharedPoolUsage, isRoomOpen, roomsTakenOn } from "@/lib/utils";
+  import { roomShots } from "@/lib/gallery";
+  import { MediaGallery } from "@/components/common/MediaGallery";
   import { priceBooking, bookingLabel } from "@/lib/pricing";
   import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
   import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
@@ -555,13 +557,13 @@
         {/* outBtn paints its label in the raw brand gold, which is a
             surface colour: on the light theme that is 2.29:1 against
             white. goldInk is the text-safe step of the same gold. */}
-        <button onClick={back.onClick} style={{ ...outBtn, color: C.goldInk, flex: mob ? undefined : "1 1 0", padding: "15px 18px", borderRadius: 8, minHeight: 48 }}>
+        <button onClick={back.onClick} style={{ ...outBtn, color: C.goldInk, flex: mob ? undefined : "1 1 0" }}>
           {back.label}
         </button>
         <button
           onClick={fwd.onClick}
           disabled={fwd.disabled}
-          style={{ ...goldBtn, flex: mob ? undefined : "2 1 0", padding: "15px 18px", borderRadius: 8, minHeight: 48, opacity: fwd.disabled ? 0.45 : 1, cursor: fwd.disabled ? "not-allowed" : "pointer" }}
+          style={{ ...goldBtn, flex: mob ? undefined : "2 1 0", opacity: fwd.disabled ? 0.45 : 1, cursor: fwd.disabled ? "not-allowed" : "pointer" }}
         >
           {fwd.label} <span aria-hidden="true">&rarr;</span>
         </button>
@@ -1341,7 +1343,7 @@
                     <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.3)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, fontSize: 28 }}>⏱</div>
                     <h3 style={{ color: "#e55", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, fontWeight: 400, marginBottom: 10 }}>QR Code Expired</h3>
                     <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.8, marginBottom: 28, maxWidth: 320 }}>Your payment window has expired. Please go back and try again.</p>
-                    <button onClick={() => { setQrExpired(false); setQrRetryKey((k) => k + 1); }} style={{ ...goldBtn, padding: "13px 32px", letterSpacing: 2, borderRadius: 6 }}>TRY AGAIN</button>
+                    <button onClick={() => { setQrExpired(false); setQrRetryKey((k) => k + 1); }} style={{ ...goldBtn }}>TRY AGAIN</button>
                   </div>
                 )}
                 {/* The step used to open with a full-bleed GCash gradient bar,
@@ -1545,7 +1547,7 @@
                 </p>
                 <button
                   onClick={() => onGoHome?.()}
-                  style={{ ...goldBtn, padding: "15px 34px", letterSpacing: 1.6, borderRadius: 8, minHeight: 48 }}
+                  style={{ ...goldBtn }}
                 >
                   BACK TO HOME
                 </button>
@@ -1565,25 +1567,32 @@
             Escape and the backdrop both route through onOpenChange, so every
             way out resets `policyChecked` -- dismissing the dialog and coming
             back must not leave the box still ticked from last time. */}
-        {/* The room photo, full size. Rooms carry a single image, so this is
-            one picture rather than a gallery. */}
+        {/* The room's photos. A room carries up to five, and this is the same
+            MediaGallery the Rooms page and the package dialogs use, so the
+            arrows, counter and thumbnails behave identically -- and stay
+            hidden when there is only one photo. */}
         <Dialog open={!!roomPhoto} onOpenChange={(o) => { if (!o) setRoomPhoto(null); }}>
-          <DialogContent className="overflow-hidden p-0 sm:max-w-[min(56rem,calc(100%-2rem))]">
-            <DialogHeader className="px-6 pt-6">
-              <DialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 24, fontWeight: 400 }}>
-                {roomPhoto?.name}
-              </DialogTitle>
-              <DialogDescription style={{ color: C.textS, fontSize: 13.5 }}>
-                {roomPhoto ? `${roomPhoto.beds} · Up to ${roomPhoto.capacity} guests` : ""}
-              </DialogDescription>
-            </DialogHeader>
+          <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto p-0 sm:max-w-[min(48rem,calc(100%-2rem))]">
             {roomPhoto && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={roomPhoto.img}
-                alt={roomPhoto.name}
-                style={{ display: "block", width: "100%", maxHeight: "70vh", objectFit: "contain", background: "#0a0806" }}
-              />
+              <div className="flex flex-col">
+                <MediaGallery
+                  shots={roomShots(roomPhoto)}
+                  eyebrow="ROOM"
+                  compact
+                  title={
+                    <DialogTitle asChild>
+                      <div className="truncate font-serif text-[26px] leading-tight font-normal text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.6)]">
+                        {roomPhoto.name}
+                      </div>
+                    </DialogTitle>
+                  }
+                />
+                <DialogDescription asChild>
+                  <p style={{ color: C.textS, fontSize: 13.5, margin: 0, padding: "16px 24px 24px" }}>
+                    {roomPhoto.beds} · Up to {roomPhoto.capacity} guests · {fmt(roomPhoto.price)} per slot
+                  </p>
+                </DialogDescription>
+              </div>
             )}
           </DialogContent>
         </Dialog>
@@ -1692,7 +1701,7 @@
               <Button
                 disabled={!policyChecked}
                 onClick={() => { setShowGcashWarning(false); setPolicyChecked(false); setStep(6); }}
-                style={{ ...goldBtn, letterSpacing: 1.4, fontSize: 12.5, fontWeight: 700, minHeight: 48, padding: "0 26px", opacity: policyChecked ? 1 : 0.45, cursor: policyChecked ? "pointer" : "not-allowed" }}
+                style={{ ...goldBtn, opacity: policyChecked ? 1 : 0.45, cursor: policyChecked ? "pointer" : "not-allowed" }}
               >
                 AGREE AND CONTINUE
               </Button>

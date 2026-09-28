@@ -8,6 +8,7 @@ import { fmt } from "@/lib/utils";
 import type { Room } from "@/types/room";
 import { useState } from "react";
 import { srcSetFor, SIZES } from "@/lib/img";
+import { roomShots } from "@/lib/gallery";
 import { Icon } from "@/components/common/Icon";
 import { Reveal } from "@/components/common/Reveal";
 import { Button } from "@/components/ui/button";
@@ -180,15 +181,14 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
 
           It uses the same MediaGallery as the package dialogs, so the frame,
           caption and (when there is more than one shot) the slider all behave
-          identically. Rooms carry a single `img` today, so the arrows,
-          counter and thumbnails stay hidden — add a gallery to the Room type
-          and they appear with no change here. */}
+          identically. A room carries up to five photos; one photo hides the
+          arrows, counter and thumbnails on its own. */}
       <Dialog open={!!activeRoom} onOpenChange={(open) => { if (!open) setActiveRoom(null); }}>
         <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto p-0 sm:max-w-md">
           {activeRoom && (
             <div className="flex flex-col">
               <MediaGallery
-                shots={[{ src: activeRoom.img, label: activeRoom.name }]}
+                shots={roomShots(activeRoom)}
                 eyebrow="ROOM"
                 compact
                 title={
