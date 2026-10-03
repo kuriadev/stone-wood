@@ -6,22 +6,28 @@
 // ledger — money actually received — never from booking totals. Reports
 // reads the same ledger for printed/exported summaries.
 //
+// Money is taken in during Daily Operations (accepting, settling, closing
+// the day); this is where all of it is kept and looked back on.
+//
 //   Transactions   every payment, filterable, voidable with a reason
-//   Payments       every booking and where it stands: paid in full, part
-//                  paid, unpaid or forfeited. Receivables hides anything
-//                  settled, so this is the one place a booking can be
-//                  confirmed as fully paid without leaving Sales.
+//   Invoices       every booking and where it stands: paid in full, part
+//                  paid, unpaid or forfeited, with a printable invoice
 //   Receivables    bookings that still owe a balance or a penalty
+//   Settlements    the per-booking liquidations: each settled booking's
+//                  charges, payments and anything closed unpaid
 //   Clients        each guest's bookings, what they paid, what they owe
 //   Expenses       money going out
-//   Daily closing  end-of-day liquidation: cash count vs. expected, and
-//                  the day's income minus expenses
+//   Daily liquidation  end-of-day cash count vs. expected, and the day's
+//                  income minus expenses
 
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useMemo, useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
+import { useApp } from "@/contexts/AppContext";
+import { closingBlockers, CLOSE_NEED } from "@/lib/operations";
+import { Icon } from "@/components/common/Icon";
 import { useToast } from "@/contexts/ToastContext";
 import {
   bookingMoney, collectedBetween, expensesBetween, manilaDate, manilaTime, monthRange,
@@ -33,12 +39,14 @@ import type { BookingMoney } from "@/lib/finance";
 import type { Booking } from "@/types/booking";
 import { gold } from "@/lib/styles";
 import { RecordPaymentModal } from "@/components/admin/RecordPaymentModal";
+import { RefundModal } from "@/components/admin/RefundModal";
+import { InvoiceModal } from "@/components/admin/InvoiceModal";
 import {
   PageHead, Figure, Segmented, TableShell, td, Btn, Pill, Modal, Label, Line, ErrorNote,
   useAdminStyle, Row, Cell, STATUS_COLOR, FullSelect, ViewTabs, ConfirmDialog,
 } from "@/components/admin/ui";
 
-type View = "Transactions" | "Payments" | "Receivables" | "Clients" | "Expenses" | "Closing";
+type View = "Transactions" | "Payments" | "Receivables" | "Settlements" | "Clients" | "Expenses" | "Closing";
 
 /** How a booking stands with the money, for the status pill. Receivables
  *  answers "who still owes"; this answers "where does each booking stand",
@@ -48,8 +56,11 @@ const PAY_STATE_COLOR: Record<BookingMoney["state"], string> = {
   "Partially paid": "#d4a800",
   Unpaid: "#d44",
   Forfeited: "#8a7a66",
+  Refunded: "#4a9fd4",
+  "Held for guest": "#9a7bd0",
+  "Refund owed": "#e07a3a",
 };
-const PAY_STATES: BookingMoney["state"][] = ["Paid in full", "Partially paid", "Unpaid", "Forfeited"];
+const PAY_STATES: BookingMoney["state"][] = ["Paid in full", "Partially paid", "Unpaid", "Forfeited", "Refund owed", "Refunded", "Held for guest"];
 
 const TYPE_COLOR: Record<string, string> = {
   Downpayment: "#d4a800", Balance: "#2e9e4e", Full: "#2e9e4e", Penalty: "#d44", Refund: "#8a7a66",
@@ -61,7 +72,10 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
   const month = monthRange(today);
   const [view, setView] = useState<View>("Transactions");
   const [payFor, setPayFor] = useState<{ bookingId?: string } | null>(null);
+  const [refundFor, setRefundFor] = useState<string | null>(null);
   const [addExpense, setAddExpense] = useState(false);
+  const [invoiceId, setInvoiceId] = useState<string | null>(null);
+  const invoiceOf = invoiceId ? bookings.find((b) => b.id === invoiceId) ?? null : null;
 
   const collectedToday = collectedBetween(ops.payments, today);
   const collectedMonth = collectedBetween(ops.payments, month.from, month.to);
@@ -101,15 +115,20 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
 
       <ViewTabs<View> value={view} onChange={setView} views={[
         { value: "Transactions", label: "Transactions", content: <Transactions payments={ops.payments} /> },
-        { value: "Payments", label: "Booking payments", content: <BookingPayments rows={withMoney} onPay={(id) => setPayFor({ bookingId: id })} /> },
-        { value: "Receivables", label: `Receivables (${receivables.length})`, content: <Receivables rows={receivables} onPay={(id) => setPayFor({ bookingId: id })} /> },
+        { value: "Payments", label: "Invoices", content: <BookingPayments rows={withMoney} onPay={(id) => setPayFor({ bookingId: id })} onInvoice={setInvoiceId} /> },
+        { value: "Receivables", label: `Receivables (${receivables.length})`, content: <Receivables rows={receivables} refunds={bookings.filter((b) => b.refundStatus === "Owed")} onPay={(id) => setPayFor({ bookingId: id })} onRefund={setRefundFor} onInvoice={setInvoiceId} /> },
+        { value: "Settlements", label: "Settlements", content: <Settlements rows={withMoney} onInvoice={setInvoiceId} /> },
         { value: "Clients", label: "Clients", content: <Clients bookings={bookings} /> },
         { value: "Expenses", label: "Expenses", content: <Expenses expenses={ops.expenses} onAdd={() => setAddExpense(true)} /> },
-        { value: "Closing", label: "Daily closing", content: <Closing /> },
+        { value: "Closing", label: "Daily liquidation", content: <Closing /> },
       ]} />
 
       {payFor && <RecordPaymentModal bookings={bookings} bookingId={payFor.bookingId} onClose={() => setPayFor(null)} />}
+      {refundFor && bookings.find((b) => b.id === refundFor) && (
+        <RefundModal booking={bookings.find((b) => b.id === refundFor)!} onClose={() => setRefundFor(null)} />
+      )}
       {addExpense && <ExpenseModal onClose={() => setAddExpense(false)} />}
+      {invoiceOf && <InvoiceModal booking={invoiceOf} onClose={() => setInvoiceId(null)} />}
     </div>
   );
 }
@@ -228,7 +247,7 @@ function VoidModal({ what, kind, id, onClose }: { what: string; kind: "payment" 
 // ── Booking payments ──────────────────────────────────────────────────
 //
 // Every booking and what it owes, including the ones that owe nothing.
-function BookingPayments({ rows, onPay }: { rows: { b: Booking; m: BookingMoney }[]; onPay: (id: string) => void }) {
+function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: BookingMoney }[]; onPay: (id: string) => void; onInvoice: (id: string) => void }) {
   const { C, rowBg, inp } = useAdminStyle();
   const [state, setState] = useState<"All" | BookingMoney["state"]>("All");
   const [q, setQ] = useState("");
@@ -300,10 +319,13 @@ function BookingPayments({ rows, onPay }: { rows: { b: Booking; m: BookingMoney 
             <Cell style={{ ...td, color: C.textB }}>{fmt(m.paid)}</Cell>
             <Cell style={{ ...td, color: m.balance > 0 ? "#d4a800" : C.textS }}>{fmt(m.balance)}</Cell>
             <Cell style={{ ...td, color: m.penaltyDue > 0 ? "#d44" : C.textS }}>{fmt(m.penaltyDue)}</Cell>
-            <Cell style={{ ...td, textAlign: "right" }}>
-              {m.due > 0
-                ? <Btn size="sm" kind="green" icon="cash" onClick={() => onPay(b.id)}>Record</Btn>
-                : <span style={{ color: C.textS, fontSize: 12 }}>{m.state === "Forfeited" ? "Forfeited" : "Settled"}</span>}
+            <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+              <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                {!b.id.startsWith("TMP-") && <Btn size="sm" icon="receipt" onClick={() => onInvoice(b.id)}>Invoice</Btn>}
+                {m.due > 0
+                  ? <Btn size="sm" kind="green" icon="cash" onClick={() => onPay(b.id)}>Record</Btn>
+                  : <span style={{ color: C.textS, fontSize: 12 }}>{m.state === "Forfeited" || m.state === "Refunded" || m.state === "Refund owed" || m.state === "Held for guest" ? m.state : "Settled"}</span>}
+              </div>
             </Cell>
           </Row>
         ))}
@@ -313,14 +335,39 @@ function BookingPayments({ rows, onPay }: { rows: { b: Booking; m: BookingMoney 
 }
 
 // ── Receivables ───────────────────────────────────────────────────────
-function Receivables({ rows, onPay }: { rows: { b: Booking; m: ReturnType<typeof bookingMoney> }[]; onPay: (id: string) => void }) {
+function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
+  rows: { b: Booking; m: ReturnType<typeof bookingMoney> }[];
+  /** Bookings the resort cancelled whose refund hasn't been sent yet. */
+  refunds: Booking[];
+  onPay: (id: string) => void;
+  onRefund: (id: string) => void;
+  onInvoice: (id: string) => void;
+}) {
   const { C, rowBg, inp } = useAdminStyle();
   const sorted = [...rows].sort((a, b) => a.b.date.localeCompare(b.b.date));
   const total = round2(rows.reduce((s, r) => s + r.m.due, 0));
+  const refundTotal = round2(refunds.reduce((s, b) => s + (b.refundAmount ?? 0), 0));
   return (
     <div>
+      {/* Money the resort owes back comes first: a guest is waiting on it. */}
+      {refunds.length > 0 && (
+        <div style={{ marginBottom: 22 }}>
+          <h4 style={{ color: "#e07a3a", fontSize: 14, margin: "0 0 8px" }}>Refunds owed to guests ({fmt(refundTotal)})</h4>
+          <TableShell head={["Booking", "Guest", "Original visit", "Refund owed", ""]} minWidth={640}>
+            {refunds.map((b, i) => (
+              <Row key={b.id} style={{ background: rowBg(i) }}>
+                <Cell style={{ ...td, color: gold, fontFamily: "monospace" }}>{b.id}</Cell>
+                <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.contact}</div></Cell>
+                <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
+                <Cell style={{ ...td, color: "#e07a3a", fontWeight: 700 }}>{fmt(b.refundAmount ?? 0)}</Cell>
+                <Cell style={{ ...td, textAlign: "right" }}><Btn size="sm" kind="primary" icon="cash" onClick={() => onRefund(b.id)}>Send refund</Btn></Cell>
+              </Row>
+            ))}
+          </TableShell>
+        </div>
+      )}
       <p style={{ color: C.textS, fontSize: 13, marginTop: 0 }}>
-        Online guests pay the remaining balance on the day of their visit. Record it here, or at check-out in Facilities.
+        Online guests pay the remaining balance on the day of their visit, normally when the booking is settled in Daily Operations. Money that comes in later is recorded here.
       </p>
       <TableShell head={["Booking", "Guest", "Visit", "Status", "Total", "Paid", "Balance", "Penalty", "Owed", ""]} minWidth={940}
         empty={sorted.length === 0 ? "Nothing to collect. Every booking is paid up." : undefined}>
@@ -335,13 +382,83 @@ function Receivables({ rows, onPay }: { rows: { b: Booking; m: ReturnType<typeof
             <Cell style={{ ...td, color: m.balance > 0 ? "#d4a800" : C.textS }}>{fmt(m.balance)}</Cell>
             <Cell style={{ ...td, color: m.penaltyDue > 0 ? "#d44" : C.textS }}>{fmt(m.penaltyDue)}</Cell>
             <Cell style={{ ...td, color: C.textH, fontWeight: 700 }}>{fmt(m.due)}</Cell>
-            <Cell style={{ ...td, textAlign: "right" }}><Btn size="sm" kind="green" icon="cash" onClick={() => onPay(b.id)}>Record</Btn></Cell>
+            <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+              <div style={{ display: "inline-flex", gap: 6 }}>
+                <Btn size="sm" icon="receipt" onClick={() => onInvoice(b.id)}>Invoice</Btn>
+                <Btn size="sm" kind="green" icon="cash" onClick={() => onPay(b.id)}>Record</Btn>
+              </div>
+            </Cell>
           </Row>
         ))}
       </TableShell>
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10, color: C.textH, fontSize: 14 }}>
         Total owed: <strong style={{ marginLeft: 8 }}>{fmt(total)}</strong>
       </div>
+    </div>
+  );
+}
+
+// ── Settlements: the per-booking liquidations ─────────────────────────
+function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney }[]; onInvoice: (id: string) => void }) {
+  const { C, rowBg, inp } = useAdminStyle();
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [q, setQ] = useState("");
+  const [onlyUnpaid, setOnlyUnpaid] = useState(false);
+
+  const search = q.toLowerCase().trim();
+  const settled = rows
+    .filter(({ b }) => b.status === "Completed" && b.settledAt)
+    .map((r) => ({ ...r, on: manilaDate(r.b.settledAt!) }))
+    .filter(({ on }) => (!from || on >= from) && (!to || on <= to))
+    .filter(({ m }) => !onlyUnpaid || m.due > 0)
+    .filter(({ b }) => !search || b.id.toLowerCase().includes(search) || b.name.toLowerCase().includes(search) || b.contact.includes(search))
+    .sort((a, b) => b.b.settledAt!.localeCompare(a.b.settledAt!));
+
+  const sum = (pick: (r: { b: Booking; m: BookingMoney }) => number) => round2(settled.reduce((n, r) => n + pick(r), 0));
+  const charges = sum((r) => r.b.total + r.m.penaltyTotal);
+  const paid = sum((r) => r.m.paid + r.m.penaltyPaid);
+  const unpaid = sum((r) => r.m.due);
+  const sel = { ...inp, padding: "8px 10px", width: "auto" } as const;
+
+  return (
+    <div>
+      <p style={{ color: C.textS, fontSize: 13, marginTop: 0 }}>
+        Each booking settled in Daily Operations: the stay and any damage penalties, against what was paid. The daily cash count is under Daily liquidation.
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginBottom: 14 }}>
+        <Figure label="Settled bookings" value={settled.length} />
+        <Figure label="Charges" value={fmt(charges)} />
+        <Figure label="Paid" value={fmt(paid)} color="#2e9e4e" />
+        <Figure label="Closed unpaid" value={fmt(unpaid)} color={unpaid > 0 ? "#d4a800" : undefined} />
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search reference, guest or phone" aria-label="Search settlements" style={{ ...sel, flex: "1 1 220px" }} />
+        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Settled from" style={sel} />
+        <span style={{ color: C.textS, fontSize: 13 }}>to</span>
+        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Settled to" style={sel} />
+        <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 6, alignItems: "center" }}>
+          <Checkbox checked={onlyUnpaid} onCheckedChange={(v) => setOnlyUnpaid(v === true)} /> Only closed unpaid
+        </label>
+      </div>
+      <TableShell head={["Settled", "Booking", "Guest", "Stay", "Penalties", "Paid", "Unpaid", ""]} minWidth={940}
+        empty={settled.length === 0 ? "No settled bookings match." : undefined}>
+        {settled.map(({ b, m, on }, i) => (
+          <Row key={b.id} style={{ background: rowBg(i) }}>
+            <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(on)}<div style={{ color: C.textS, fontSize: 11.5 }}>{manilaTime(b.settledAt!)}</div></Cell>
+            <Cell style={{ ...td, color: gold, fontFamily: "monospace" }}>{b.id}</Cell>
+            <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>Visit {fmtDate(b.date)}</div></Cell>
+            <Cell style={{ ...td, color: C.textB }}>{fmt(b.total)}</Cell>
+            <Cell style={{ ...td, color: m.penaltyTotal > 0 ? "#d44" : C.textS }}>{fmt(m.penaltyTotal)}</Cell>
+            <Cell style={{ ...td, color: C.textB }}>{fmt(round2(m.paid + m.penaltyPaid))}</Cell>
+            <Cell style={{ ...td, color: m.due > 0 ? "#d4a800" : C.textS }}>
+              {m.due > 0 ? fmt(m.due) : "—"}
+              {b.settlementNote && <div style={{ color: C.textS, fontSize: 11.5 }}>{b.settlementNote}</div>}
+            </Cell>
+            <Cell style={{ ...td, textAlign: "right" }}><Btn size="sm" icon="receipt" onClick={() => onInvoice(b.id)}>Invoice</Btn></Cell>
+          </Row>
+        ))}
+      </TableShell>
     </div>
   );
 }
@@ -532,12 +649,24 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
 }
 
 // ── Daily closing (liquidation) ───────────────────────────────────────
-function Closing() {
+//
+// Before the cash count, every reservation up to the chosen day has to be
+// finished (lib/operations.ts → closingBlockers; /api/closings enforces it
+// too). Daily Operations passes `onAct`, so each unfinished booking gets the
+// button that finishes it right here; Sales lists them and points there.
+
+/** What a closing checklist button asks Daily Operations to open. */
+export type CloseAction = "accept" | "reject" | "checkout" | "noshow" | "settle";
+
+export function Closing({ onAct }: { onAct?: (action: CloseAction, b: Booking) => void } = {}) {
   const { C, soft, rowBg, cBg, cBr, inp } = useAdminStyle();
   const ops = useOps();
+  const { bookings } = useApp();
   const { toast } = useToast();
-  const [date, setDate] = useState(manilaDate());
+  const today = manilaDate();
+  const [date, setDate] = useState(today);
   const existing = ops.closings.find((c) => c.closingDate === date);
+  const blockers = closingBlockers(bookings, date);
   const [openingFloat, setOpeningFloat] = useState("");
   const [counted, setCounted] = useState("");
   const [notes, setNotes] = useState("");
@@ -557,6 +686,7 @@ function Closing() {
 
   const save = async () => {
     setError("");
+    if (blockers.length > 0) return setError("Finish the bookings listed above first.");
     if (counted === "" || Number(counted) < 0) return setError("Enter the cash you counted in the drawer.");
     setBusy(true);
     const r = await ops.closeDay({ date, openingFloat: floatNum, countedCash: Number(counted), notes });
@@ -575,6 +705,43 @@ function Closing() {
         <Input id="close-date" type="date" max={manilaDate()} value={date} onChange={(e) => pick(e.target.value)} style={{ ...inp, width: "auto", padding: "8px 10px" }} />
         {existing && <Pill color="#2e9e4e">Closed at {manilaTime(existing.closedAt)}</Pill>}
       </div>
+
+      {blockers.length > 0 && (
+        <section aria-labelledby="close-blockers" style={{ border: "1px solid #d4a80066", background: "rgba(212,168,0,0.06)", borderRadius: 10, padding: "12px 16px", marginBottom: 16 }}>
+          <h4 id="close-blockers" style={{ color: C.textH, fontSize: 14.5, fontWeight: 600, margin: 0, display: "flex", gap: 8, alignItems: "center" }}>
+            <Icon name="alert" size={15} style={{ color: "#d4a800" }} />
+            Finish {blockers.length === 1 ? "this booking" : `these ${blockers.length} bookings`} before closing {date === today ? "today" : fmtDate(date)}
+          </h4>
+          <p style={{ color: C.textS, fontSize: 13, margin: "4px 0 8px" }}>
+            Every reservation up to this day has to be completed or cancelled first, so the cash count includes everything those groups paid.
+          </p>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {blockers.map(({ b, need }) => (
+              <li key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "8px 0", borderTop: `1px solid ${cBr}` }}>
+                <span style={{ flex: "1 1 240px", fontSize: 13.5, color: C.textB }}>
+                  <strong style={{ color: C.textH }}>{b.name}</strong> · {b.date === today ? "today" : fmtDate(b.date)} · <span style={{ color: "#d4a800" }}>{CLOSE_NEED[need].label}</span>
+                  <span style={{ color: C.textS }}>: {CLOSE_NEED[need].todo}</span>
+                </span>
+                {onAct && (
+                  <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {need === "confirm" && <>
+                      <Btn size="sm" kind="green" onClick={() => onAct("accept", b)}>Accept</Btn>
+                      <Btn size="sm" kind="red" onClick={() => onAct("reject", b)}>Cancel</Btn>
+                    </>}
+                    {need === "arrival" && <>
+                      <Btn size="sm" kind="primary" onClick={() => onAct("checkout", b)}>Complete stay</Btn>
+                      <Btn size="sm" kind="red" onClick={() => onAct("noshow", b)}>No-show</Btn>
+                    </>}
+                    {need === "checkout" && <Btn size="sm" kind="primary" onClick={() => onAct("checkout", b)}>Check out</Btn>}
+                    {need === "settle" && <Btn size="sm" kind="primary" onClick={() => onAct("settle", b)}>Settle</Btn>}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+          {!onAct && <p style={{ color: C.textS, fontSize: 12.5, margin: "8px 0 0" }}>Finish them in Daily Operations, then come back to close the day.</p>}
+        </section>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 14, marginBottom: 22 }}>
         <div style={{ background: soft, borderRadius: 10, padding: "14px 18px" }}>
@@ -614,7 +781,9 @@ function Closing() {
           </div>
           <ErrorNote>{error}</ErrorNote>
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
-            <Btn kind="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : existing ? "Close this day again" : "Close the day"}</Btn>
+            <Btn kind="primary" disabled={busy || blockers.length > 0} onClick={save}>
+              {busy ? "Saving…" : blockers.length > 0 ? "Finish the bookings above first" : existing ? "Close this day again" : "Close the day"}
+            </Btn>
           </div>
         </div>
       </div>

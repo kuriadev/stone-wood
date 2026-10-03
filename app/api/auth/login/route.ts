@@ -4,6 +4,7 @@
 // from env vars here, on the server, so they never enter the bundle.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { logActivity } from "@/lib/activity.server";
 import { checkAdminCredentials, createSessionToken, sessionCookie } from "@/lib/auth";
 import { rateLimit, tooManyRequests, resetRateLimit } from "@/lib/rateLimit";
 
@@ -54,7 +55,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
   if (!checkAdminCredentials(username, password)) {
+    await logActivity({ actor: "Guest", action: "security.login_failed", entity: "admin", summary: `A failed admin sign-in attempt (username "${username.slice(0, 40)}", from ${ip}).`, details: { ip } });
     // One message for both wrong username and wrong password — naming which
     // one was wrong confirms valid usernames to an attacker.
     return NextResponse.json(
@@ -78,6 +81,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  await logActivity({ actor: "Admin", action: "security.login", entity: "admin", summary: `Signed in to the admin panel (from ${ip}).`, details: { ip } });
   const res = NextResponse.json({ success: true });
   res.cookies.set(sessionCookie(token));
   resetRateLimit(req, LIMIT.name);

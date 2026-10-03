@@ -1,57 +1,40 @@
-// ── POST /api/checkout → inspect, charge and check a group out   (admin only)
+// ── POST /api/checkout → inspect the facilities as a group leaves   (admin only)
 //
-// The resort's rule: facilities are inspected BEFORE the group leaves, and
-// any damage penalty is paid on the spot together with the stay balance.
-// So one request does the whole check-out:
+// Step 1 of the end of a stay. The resort's rule: facilities are inspected
+// BEFORE the group leaves. One request:
 //
 //   1. records the after-use inspection of every facility the booking used;
 //   2. records each damaged item, with its penalty computed HERE as
 //        quantity × the rate on the owner's rate list (+ an adjustment,
 //        which needs a reason);
-//   3. records the balance and penalty payments handed over;
-//   4. marks the booking Completed;
-//   5. flags the facilities "Needs Cleaning" (or "Under Maintenance" where
-//      the owner says the damage takes it out of service).
+//   3. stamps the booking checked_out_at;
+//   4. flags the facilities "Needs Cleaning" (or "Under Maintenance" where
+//      the owner says the damage takes it out of service) — except any a
+//      group still on site is using.
 //
-// Settlement must be complete — balance and penalties both paid — unless
-// the owner explicitly leaves it unpaid and says why. That exception keeps
-// a guest who genuinely cannot pay from blocking the check-out, while
-// leaving the amount visible as a receivable in Sales.
+// Money is step 2, /api/settle: it shows the per-booking liquidation
+// (stay balance + these penalties), takes the final payment and completes
+// the booking. Splitting them lets the owner inspect first and settle the
+// tally with the guest after, which is how it happens at the gate.
 //
 // Everything is validated before anything is written. Supabase's client has
 // no multi-statement transaction, so if a write fails part-way the rows
 // already written for THIS check-out are removed again before answering.
-// The booking is then exactly as it was, and the check-out can be retried
-// without duplicating a payment or a penalty.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { logActivity } from "@/lib/activity.server";
+import { fmt } from "@/lib/utils";
 import { getSupabaseAdmin, rowToFacility, rowToDamageRate } from "@/lib/supabase";
+import { facilitiesInUseByOthers, stayLongOver } from "@/lib/ops.server";
 import { requireAdmin } from "@/lib/auth";
 import { loadBookingLedger } from "@/lib/ledger.server";
 import { cleanItems } from "@/lib/inspection.server";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { cleanText } from "@/lib/money";
 import { round2 } from "@/lib/finance";
-import { fmt } from "@/lib/utils";
-import { MANUAL_METHODS } from "@/types/finance";
 import type { FacilityRow, DamageRateRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
-
-type Method = (typeof MANUAL_METHODS)[number];
-
-interface PayIn { amount: number; method: Method; reference: string }
-
-function readPay(v: unknown): PayIn | null | "bad" {
-  if (!v || typeof v !== "object") return null;
-  const x = v as Record<string, unknown>;
-  const amount = Math.round(Number(x.amount) * 100) / 100;
-  if (!Number.isFinite(amount) || amount <= 0) return null;
-  if (!MANUAL_METHODS.includes(x.method as Method)) return "bad";
-  const reference = cleanText(x.reference, 80);
-  if (x.method !== "Cash" && !reference) return "bad";
-  return { amount, method: x.method as Method, reference };
-}
 
 export async function POST(req: NextRequest) {
   const denied = requireAdmin(req);
@@ -66,9 +49,11 @@ export async function POST(req: NextRequest) {
     const ledger = await loadBookingLedger(bookingId);
     if (!ledger) return NextResponse.json({ success: false, error: "That booking no longer exists." }, { status: 404 });
     const { booking, money } = ledger;
-    if (booking.status === "Completed" || booking.status === "Cancelled") {
-      return NextResponse.json({ success: false, error: `This booking is already ${booking.status.toLowerCase()}.` }, { status: 409 });
+    if (booking.status !== "Confirmed") {
+      return NextResponse.json({ success: false, error: booking.status === "Pending" ? "Accept this booking first." : `This booking is already ${booking.status.toLowerCase()}.` }, { status: 409 });
     }
+    if (!booking.checkedInAt) return NextResponse.json({ success: false, error: "Check the group in before checking them out." }, { status: 409 });
+    if (booking.checkedOutAt) return NextResponse.json({ success: false, error: "This group is already checked out. Settle the booking next." }, { status: 409 });
 
     const [fs, rs] = await Promise.all([
       db.from("facilities").select("*"),
@@ -129,36 +114,12 @@ export async function POST(req: NextRequest) {
     }
     const newPenalty = round2(damages.reduce((s, d) => s + d.amount, 0));
 
-    // ── Settlement ───────────────────────────────────────────────────
-    const balanceDue = money.balance;
-    const penaltyDue = round2(money.penaltyDue + newPenalty);
-    const payBalance = readPay(b.balancePayment);
-    const payPenalty = readPay(b.penaltyPayment);
-    if (payBalance === "bad" || payPenalty === "bad") {
-      return NextResponse.json({ success: false, error: "Choose a payment method, and enter the reference number for GCash or bank transfer." }, { status: 400 });
-    }
-    if (payBalance && payBalance.amount > balanceDue) {
-      return NextResponse.json({ success: false, error: `The balance is only ${fmt(balanceDue)}.` }, { status: 409 });
-    }
-    if (payPenalty && payPenalty.amount > penaltyDue) {
-      return NextResponse.json({ success: false, error: `The penalty is only ${fmt(penaltyDue)}.` }, { status: 409 });
-    }
-    const paidNow = (payBalance?.amount ?? 0) + (payPenalty?.amount ?? 0);
-    const leftOwing = round2(balanceDue + penaltyDue - paidNow);
-    const leaveUnpaid = !!b.leaveUnpaid;
     const notes = cleanText(b.notes, 300);
-    if (leftOwing > 0 && !leaveUnpaid) {
-      return NextResponse.json({ success: false, error: `${fmt(leftOwing)} is still owed. Collect it, or mark it as left unpaid with a reason.` }, { status: 409 });
-    }
-    if (leftOwing > 0 && leaveUnpaid && notes.length < 3) {
-      return NextResponse.json({ success: false, error: "Say why the guest is leaving without paying in full." }, { status: 400 });
-    }
 
     // ── Writes (undone again if any step fails) ──────────────────────
     const now = new Date().toISOString();
     let inspectionId: number | null = null;
-    let paymentIds: number[] = [];
-    let completed = false;
+    let stamped = false;
     try {
       const insp = await db.from("facility_inspections").insert({
         booking_id: booking.id, stage: "Checkout", items, notes,
@@ -171,53 +132,34 @@ export async function POST(req: NextRequest) {
         if (d.error) throw new Error(d.error.message);
       }
 
-      const pays = [];
-      if (payBalance) {
-        pays.push({
-          booking_id: booking.id, guest_name: booking.name,
-          type: money.paid <= 0 && payBalance.amount >= balanceDue ? "Full" : "Balance",
-          method: payBalance.method, amount: payBalance.amount, reference: payBalance.reference,
-          notes: "Collected at check-out.", received_at: now,
-        });
-      }
-      if (payPenalty) {
-        pays.push({
-          booking_id: booking.id, guest_name: booking.name, type: "Penalty",
-          method: payPenalty.method, amount: payPenalty.amount, reference: payPenalty.reference,
-          notes: "Damage penalty collected at check-out.", received_at: now,
-        });
-      }
-      if (pays.length) {
-        const p = await db.from("payments").insert(pays).select("id");
-        if (p.error) throw new Error(p.error.message);
-        paymentIds = (p.data as { id: number }[]).map((x) => x.id);
-      }
-
-      const done = await db.from("bookings").update({ status: "Completed", payment_proof: true })
-        .eq("id", booking.id).in("status", ["Pending", "Confirmed"]).select("id").maybeSingle();
+      const done = await db.from("bookings").update({ checked_out_at: now })
+        .eq("id", booking.id).eq("status", "Confirmed").is("checked_out_at", null).select("id").maybeSingle();
       if (done.error) throw new Error(done.error.message);
       if (!done.data) throw new Error("booking changed while checking out");
-      completed = true;
+      stamped = true;
     } catch (writeErr) {
       // Roll back this check-out's own rows. The booking update is the last
       // write, so if we are here it did not happen.
-      if (!completed) {
-        if (paymentIds.length) await db.from("payments").delete().in("id", paymentIds);
-        if (inspectionId !== null) {
-          await db.from("damage_records").delete().eq("inspection_id", inspectionId);
-          await db.from("facility_inspections").delete().eq("id", inspectionId);
-        }
+      if (!stamped && inspectionId !== null) {
+        await db.from("damage_records").delete().eq("inspection_id", inspectionId);
+        await db.from("facility_inspections").delete().eq("id", inspectionId);
       }
       throw writeErr;
     }
 
-    // Facility flags come after the booking is safely completed: a failure
+    // Facility flags come after the booking is safely stamped: a failure
     // here only leaves a status to fix by hand, never a half check-out.
     const outOfService = new Set(
       (Array.isArray(b.maintenanceFacilityIds) ? b.maintenanceFacilityIds : [])
         .map(Number).filter((id) => usedIds.has(id)),
     );
+    const stillInUse = await facilitiesInUseByOthers(booking.id, (fs.data as FacilityRow[]).map(rowToFacility));
+    // A stay recorded after the fact doesn't make today's facilities need
+    // cleaning; only damage that takes one out of service still applies.
+    const longOver = stayLongOver(booking);
     for (const f of used) {
+      if (stillInUse.has(f.id) && !outOfService.has(f.id)) continue;
+      if (longOver && !outOfService.has(f.id)) continue;
       await db.from("facilities").update({
         status: outOfService.has(f.id) ? "Under Maintenance" : "Needs Cleaning",
         last_used_booking_id: booking.id,
@@ -226,14 +168,18 @@ export async function POST(req: NextRequest) {
       }).eq("id", f.id);
     }
 
+    await logActivity({
+      actor: "Admin", action: "stay.checked_out", bookingId: booking.id, entity: "booking", entityId: booking.id,
+      summary: `Checked out ${booking.name} (${booking.id}) after inspecting ${used.length} facilit${used.length === 1 ? "y" : "ies"}.${damages.length ? ` ${damages.length} damaged item${damages.length === 1 ? "" : "s"}, ${fmt(newPenalty)} in penalties.` : " No damage."}`,
+      details: { damages: damages.map((d) => ({ item: d.item_name, qty: d.quantity, amount: d.amount, facility: d.facility_name })), outOfService: [...outOfService] },
+    });
     return NextResponse.json({
       success: true,
       penalty: newPenalty,
-      collected: round2(paidNow),
-      leftOwing,
+      toSettle: round2(money.balance + money.penaltyDue + newPenalty),
     });
   } catch (err) {
     console.error("[/api/checkout POST]", err);
-    return NextResponse.json({ success: false, error: "Could not complete the check-out. Nothing was marked complete — try again." }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Could not save the check-out. Nothing was recorded — try again." }, { status: 500 });
   }
 }

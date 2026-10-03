@@ -10,7 +10,9 @@
 // active and the date stayed blocked.
 
 import { NextResponse, type NextRequest } from "next/server";
-import { getSupabaseAdmin, rowToBooking } from "@/lib/supabase";
+import { logActivity } from "@/lib/activity.server";
+import { getSupabaseAdmin, rowToBooking, missingNewColumn, withoutNewColumns } from "@/lib/supabase";
+import { loadGuestBooking } from "@/lib/rebooking.server";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { sanitizeNotes, startOfToday, toDateStr } from "@/lib/validators";
 import type { BookingRow } from "@/types/database";
@@ -24,25 +26,29 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
   const { id } = await params;
-  const body = (await req.json().catch(() => null)) as { email?: unknown; reason?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { email?: unknown; t?: unknown; reason?: unknown } | null;
   const email = String(body?.email ?? "").trim().toLowerCase();
+  const token = String(body?.t ?? "").trim();
   const reason = sanitizeNotes(String(body?.reason ?? "")).slice(0, 200) || null;
-  if (!email) {
+  if (!email && !token) {
     return NextResponse.json({ success: false, error: "An email address is required." }, { status: 400 });
   }
 
   try {
     const db = getSupabaseAdmin();
-    const { data, error } = await db
-      .from("bookings").select("*").eq("id", id).eq("email", email).maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!data) {
+    // The email on the booking, or the signed link the resort sent them.
+    const b = await loadGuestBooking(id, { email, token });
+    if (!b) {
       return NextResponse.json({ success: false, error: "No booking found for those details." }, { status: 404 });
     }
-
-    const b = rowToBooking(data as BookingRow);
     if (b.status === "Cancelled") {
       return NextResponse.json({ success: false, error: "This booking is already cancelled." }, { status: 409 });
+    }
+    if (b.status === "ResortCancelled") {
+      return NextResponse.json({ success: false, error: "The resort cancelled this booking. Choose a new date or a refund instead." }, { status: 409 });
+    }
+    if (b.checkedInAt) {
+      return NextResponse.json({ success: false, error: "You're already checked in, so the booking can't be cancelled." }, { status: 409 });
     }
     if (b.status === "Completed") {
       return NextResponse.json({ success: false, error: "A completed stay can't be cancelled." }, { status: 409 });
@@ -53,18 +59,23 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
     // The status guard in the WHERE clause means two cancel clicks, or a
     // cancel racing an admin action, can't both "win".
-    const { data: updated, error: upErr } = await db
-      .from("bookings")
-      .update({ status: "Cancelled", cancel_reason: reason })
-      .eq("id", id)
-      .eq("status", b.status)
-      .select()
-      .maybeSingle();
+    const change = { status: "Cancelled", cancel_reason: reason, cancelled_at: new Date().toISOString() };
+    let { data: updated, error: upErr } = await db
+      .from("bookings").update(change).eq("id", id).eq("status", b.status).select().maybeSingle();
+    if (upErr && missingNewColumn(upErr)) {
+      ({ data: updated, error: upErr } = await db
+        .from("bookings").update(withoutNewColumns(change)).eq("id", id).eq("status", b.status).select().maybeSingle());
+    }
     if (upErr) throw new Error(upErr.message);
     if (!updated) {
       return NextResponse.json({ success: false, error: "This booking changed just now — please search again." }, { status: 409 });
     }
 
+    await logActivity({
+      actor: "Guest", action: "booking.cancelled_by_guest", bookingId: b.id, entity: "booking", entityId: b.id,
+      summary: `${b.name} cancelled ${b.id} (${b.date}) from their booking page.${reason ? ` Reason: ${reason}` : ""} Under the policy, payments are not refunded.`,
+      details: { reason, previousStatus: b.status },
+    });
     return NextResponse.json({ success: true, booking: rowToBooking(updated as BookingRow) });
   } catch (err) {
     console.error("[/api/bookings/[id]/cancel POST]", err);

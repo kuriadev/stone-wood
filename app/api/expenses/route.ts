@@ -5,6 +5,8 @@
 // rather than deleted so the day's figures can always be traced.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server";
+import { fmt } from "@/lib/utils";
 import { getSupabaseAdmin, rowToExpense } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import { parseAmount, cleanText, isDateStr } from "@/lib/money";
@@ -33,6 +35,7 @@ export async function POST(req: NextRequest) {
       category: b.category, description, amount, method: b.method, spent_on: b.spentOn,
     }).select().single();
     if (error) throw new Error(error.message);
+    await logActivity({ actor: "Admin", action: "expense.added", entity: "expense", entityId: (data as ExpenseRow).id, summary: `Recorded an expense: ${description}, ${fmt(amount)} (${b.category}, ${b.method}).` });
     return NextResponse.json({ success: true, expense: rowToExpense(data as ExpenseRow) }, { status: 201 });
   } catch (err) {
     console.error("[/api/expenses POST]", err);
@@ -56,6 +59,8 @@ export async function PATCH(req: NextRequest) {
       .eq("id", id).eq("voided", false).select().maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) return NextResponse.json({ success: false, error: "That expense is already voided or does not exist." }, { status: 409 });
+    const e = data as ExpenseRow;
+    await logActivity({ actor: "Admin", action: "expense.voided", entity: "expense", entityId: id, summary: `Voided the expense "${e.description}" (${fmt(Number(e.amount))}). Reason: ${reason}` });
     return NextResponse.json({ success: true, expense: rowToExpense(data as ExpenseRow) });
   } catch (err) {
     console.error("[/api/expenses PATCH]", err);

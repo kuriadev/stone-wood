@@ -113,4 +113,32 @@ export interface OpsData {
   damageRates: DamageRate[];
   inspections: Inspection[];
   damages: DamageRecord[];
+  /** Guest date-change requests: every pending one, plus recent history. */
+  dateChanges: DateChange[];
+}
+
+export interface DateChange {
+  id: number;
+  bookingId: string;
+  fromDate: string;
+  toDate: string;
+  requestedBy: "Guest" | "Resort";
+  status: "Pending" | "Approved" | "Declined" | "Expired";
+  /** Pending guest requests hold the new date until this time (ISO). */
+  holdUntil?: string;
+  decidedAt?: string;
+  note: string;
+  createdAt: string;
+}
+
+export interface Activity {
+  id: number;
+  at: string;
+  actor: "Admin" | "Guest" | "System";
+  action: string;
+  entity: string;
+  entityId: string;
+  bookingId?: string;
+  summary: string;
+  details: Record<string, unknown>;
 }

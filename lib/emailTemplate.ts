@@ -103,7 +103,9 @@ export function buildBookingReceivedEmail(booking: Booking): { subject: string; 
                   ["Package", booking.package],
                   ["Number of Guests", `${escapeHtml(booking.guests)} pax`],
                   ["Total Amount", fmt(booking.total)],
-                  ["Downpayment", fmt(booking.downpayment)],
+                  booking.downpayment >= booking.total
+                    ? ["Paid Online", `${fmt(booking.downpayment)} (paid in full)`]
+                    : ["Downpayment", fmt(booking.downpayment)],
                 ].map(([label, value]) => `
                 <tr>
                   <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#8a6d3b;font-size:12px;width:40%;">${escapeHtml(label)}</td>
@@ -160,10 +162,26 @@ export function buildBookingReceivedEmail(booking: Booking): { subject: string; 
   return { subject, html };
 }
 
-export function buildRejectionEmail(booking: Booking, reason: string): { subject: string; html: string } {
+/** What happened to the guest's money when the resort turned a booking
+ *  down. Omitted by older callers, which get the generic line. */
+export interface RejectionMoney {
+  /** What the guest had paid. */
+  paid: number;
+  /** Set when the resort refunded them. */
+  refund: { amount: number; method: string; reference: string } | null;
+}
+
+export function buildRejectionEmail(booking: Booking, reason: string, money?: RejectionMoney): { subject: string; html: string } {
   const subject = `❌ Booking Update – ${sanitizeHeaderValue(booking.id, 40)} | StoneWood Resort`;
   const defaultReason = "Your booking did not meet our current availability or requirements.";
   const displayReason = reason.trim() || defaultReason;
+  const moneyLine = !money
+    ? "💳 If a downpayment was made, our team will process your refund shortly."
+    : money.refund
+      ? `💳 We have refunded ${fmt(money.refund.amount)} to you by ${escapeHtml(money.refund.method)}${money.refund.reference ? ` (reference ${escapeHtml(money.refund.reference)})` : ""}.`
+      : money.paid > 0
+        ? `💳 The ${fmt(money.paid)} you paid is not refunded, under the resort's payment policy.`
+        : "";
 
   const html = `
 <!DOCTYPE html>
@@ -244,7 +262,7 @@ export function buildRejectionEmail(booking: Booking, reason: string): { subject
                     <p style="margin:0 0 12px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;">What You Can Do</p>
                     <p style="margin:0 0 8px;color:#4a3a28;font-size:13px;line-height:1.7;">📅 Try booking a different date that may be available.</p>
                     <p style="margin:0 0 8px;color:#4a3a28;font-size:13px;line-height:1.7;">📞 Contact us directly to check availability and discuss options.</p>
-                    <p style="margin:0;color:#4a3a28;font-size:13px;line-height:1.7;">💳 If a downpayment was made, our team will process your refund shortly.</p>
+                    ${moneyLine ? `<p style="margin:0;color:#4a3a28;font-size:13px;line-height:1.7;">${moneyLine}</p>` : ""}
                   </td>
                 </tr>
               </table>
@@ -384,7 +402,7 @@ export function buildReceiptEmail(booking: Booking, otp: string): { subject: str
                   <td style="padding:14px 0 4px;color:#1a1108;font-size:20px;font-weight:700;text-align:right;">${fmt(booking.total)}</td>
                 </tr>
                 <tr>
-                  <td style="padding:0 0 12px;color:#8a6d3b;font-size:12px;">Downpayment Required</td>
+                  <td style="padding:0 0 12px;color:#8a6d3b;font-size:12px;">${booking.downpayment >= booking.total ? "Paid in Full" : "Downpayment Required"}</td>
                   <td style="padding:0 0 12px;color:#e67e22;font-size:14px;text-align:right;font-weight:700;">${fmt(booking.downpayment)}</td>
                 </tr>
               </table>
@@ -411,7 +429,8 @@ export function buildReceiptEmail(booking: Booking, otp: string): { subject: str
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">🪪 Bring a valid ID upon check-in.</p>
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">⏰ Your ${slotInfo.label}: <strong>${slotInfo.start}</strong> to <strong>${slotInfo.end}</strong>.</p>
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">🔇 ${QUIET_HOURS_POLICY}</p>
-                    <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">💳 ${booking.package === "On-Site Reservation" ? "Pay the full balance on arrival." : "Please ensure your downpayment has been sent via GCash."}</p>
+                    <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">💳 ${booking.downpayment >= booking.total ? "Your stay is fully paid. Nothing more is due on arrival." : booking.package === "On-Site Reservation" ? "Pay the full balance on arrival." : `The remaining balance of ${fmt(booking.total - booking.downpayment)} is paid at the resort.`}</p>
+                    <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">📅 If the resort has to cancel, you choose a free new date or a full refund. If you cancel, payments aren't refunded, but you can move your booking to another date once from your booking page.</p>
                     <p style="margin:0;color:#4a3a28;font-size:13px;line-height:1.7;">📞 For questions, contact us at our resort hotline.</p>
                   </td>
                 </tr>
@@ -458,4 +477,77 @@ export function buildReceiptEmail(booking: Booking, otp: string): { subject: str
   `.trim();
 
   return { subject, html };
+}
+
+// ── Short notices: cancellations, date changes, refunds ────────────────
+//
+// One layout for every notice about a booking that changed after it was
+// made. Each comes with a button to the guest's own booking page, where the
+// same facts (and any choice they need to make) are always shown. Every
+// string is escaped here, so callers pass plain text.
+
+export interface Notice {
+  subject: string;
+  title: string;
+  /** One line under the title. */
+  tagline: string;
+  name: string;
+  paragraphs: string[];
+  rows?: [string, string][];
+  button?: { label: string; url: string };
+}
+
+export function buildNoticeEmail(n: Notice): { subject: string; html: string } {
+  const rows = (n.rows ?? []).map(([label, value]) => `
+                <tr>
+                  <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#8a6d3b;font-size:12px;width:40%;">${escapeHtml(label)}</td>
+                  <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#2a1f0e;font-size:13px;font-weight:600;">${escapeHtml(value)}</td>
+                </tr>`).join("");
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(n.title)} – StoneWood Resort</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f1eb;font-family:'Georgia',serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1eb;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">
+          <tr>
+            <td style="background:linear-gradient(135deg,#1a1108 0%,#2a1f0e 60%,#1a1108 100%);border-radius:12px 12px 0 0;padding:36px;text-align:center;">
+              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:4px;text-transform:uppercase;">StoneWood Resort</p>
+              <h1 style="margin:0 0 6px;color:#f0e6cc;font-size:26px;font-weight:400;letter-spacing:1px;">${escapeHtml(n.title)}</h1>
+              <p style="margin:0;color:#c9a84c;font-size:13px;">${escapeHtml(n.tagline)}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#ffffff;padding:32px 36px;">
+              <p style="margin:0 0 16px;color:#5a4a35;font-size:15px;line-height:1.7;">Dear <strong>${escapeHtml(n.name)}</strong>,</p>
+              ${n.paragraphs.map((p) => `<p style="margin:0 0 14px;color:#5a4a35;font-size:14px;line-height:1.8;">${escapeHtml(p)}</p>`).join("")}
+              ${rows ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin:10px 0 24px;">${rows}</table>` : ""}
+              ${n.button ? `
+              <table cellpadding="0" cellspacing="0" style="margin:8px auto 4px;">
+                <tr>
+                  <td style="background:#c9a84c;border-radius:6px;">
+                    <a href="${escapeHtml(n.button.url)}" style="display:inline-block;padding:13px 26px;color:#1a1000;font-size:13px;font-weight:700;letter-spacing:1px;text-decoration:none;">${escapeHtml(n.button.label)}</a>
+                  </td>
+                </tr>
+              </table>` : ""}
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#1a1108;border-radius:0 0 12px 12px;padding:18px 36px;text-align:center;">
+              <p style="margin:0;color:#8a7a5a;font-size:11.5px;">StoneWood Private Resort · Angono, Rizal</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+  return { subject: `${sanitizeHeaderValue(n.subject, 120)} | StoneWood Resort`, html };
 }

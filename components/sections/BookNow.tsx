@@ -138,6 +138,11 @@
     const [selRooms, setSelRooms] = useState<number[]>(preselectedRoom ? [preselectedRoom] : []);
     const [form, setFormState] = useState({ name: "", email: "", contact: "", notes: "" });
     const [bookingId, setBookingId] = useState("");
+    // Paid online bookings are confirmed at once; only one the server
+    // flagged (the date taken while paying, say) waits for the resort.
+    const [confirmedNow, setConfirmedNow] = useState(true);
+    // Pay the 50% deposit (the default) or the whole total now.
+    const [payFull, setPayFull] = useState(false);
     const [qrSeconds, setQrSeconds] = useState(600);
     const [qrExpired, setQrExpired] = useState(false);
     const [qrRetryKey, setQrRetryKey] = useState(0);
@@ -161,7 +166,7 @@
     // The server's own price for this booking, returned with the QR. The
     // payment screen shows these so the amount on screen is exactly the
     // amount on the QR, even if something changed since the guest started.
-    const [serverQuote, setServerQuote] = useState<{ total: number; down: number } | null>(null);
+    const [serverQuote, setServerQuote] = useState<{ total: number; down: number; dueNow: number; payFull: boolean } | null>(null);
     // Saving the booking after payment: in progress, or failed with a message.
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -257,7 +262,13 @@
       rooms: selRooms,
       date,
       name: form.name, email: form.email, contact: form.contact, notes: form.notes,
+      payFull,
     };
+    // What the QR charges and what is left for arrival. Once the QR exists
+    // the server's figures win, so the screen always matches the QR.
+    const dueNow = serverQuote?.dueNow ?? (payFull ? total : down);
+    const fullTotal = serverQuote?.total ?? total;
+    const paidInFull = serverQuote?.payFull ?? payFull;
     const roomsFree = selRooms.every((r) => !takenRooms.has(r));
     // One line per part of the price, in the same order the server adds
     // them up. Whole Day doubles the per-slot parts, and says so.
@@ -313,6 +324,9 @@
       let cancelled = false;
 
       setQrData(null);
+      // The last QR's figures go too: the guest may have switched between
+      // the deposit and paying in full since then.
+      setServerQuote(null);
       setQrError(null);
       setPaid(false);
       setQrExpired(false);
@@ -468,6 +482,7 @@
           throw new Error(json?.error ?? "We couldn't save your booking.");
         }
         setBookingId(json.booking.id);
+        setConfirmedNow(json.booking.status === "Confirmed");
         onBooked?.();
         clearPreselected?.(); clearPreselectedDate?.();
         if (timerRef.current) clearInterval(timerRef.current);
@@ -1307,13 +1322,39 @@
                     </div>
                   ))}
 
-                  <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 6, paddingTop: 14, display: "flex", justifyContent: "space-between", gap: 16 }}>
-                    <span style={{ color: C.textS, fontSize: 13 }}>50% due now</span>
-                    <span style={{ color: C.goldInk, fontSize: 13, fontWeight: 700 }}>{fmt(down)}</span>
+                  {/* How much to pay now. A radio group of two cards: the 50%
+                      deposit stays the default, and paying in full means
+                      nothing is left to settle on arrival. */}
+                  <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 6, paddingTop: 14 }}>
+                    <div id="pay-plan-label" style={{ color: C.textS, fontSize: 12, letterSpacing: 1.6, fontWeight: 700, marginBottom: 10 }}>HOW MUCH TO PAY NOW</div>
+                    <div role="radiogroup" aria-labelledby="pay-plan-label" style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 10 }}>
+                      {([
+                        { full: false, title: "50% deposit", amount: down, note: `${fmt(total - down)} paid at the resort` },
+                        { full: true, title: "Pay in full", amount: total, note: "Nothing to pay on arrival" },
+                      ] as const).map((o) => {
+                        const on = payFull === o.full;
+                        return (
+                          <button key={o.title} type="button" role="radio" aria-checked={on} onClick={() => setPayFull(o.full)}
+                            style={{ textAlign: "left", padding: "12px 14px", borderRadius: 10, cursor: "pointer", background: on ? "rgba(201,168,76,0.12)" : "transparent", border: `1px solid ${on ? gold : C.border}`, display: "flex", gap: 10, alignItems: "flex-start" }}>
+                            <span aria-hidden="true" style={{ width: 16, height: 16, borderRadius: "50%", border: `1.5px solid ${on ? gold : C.textS}`, marginTop: 2, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              {on && <span style={{ width: 8, height: 8, borderRadius: "50%", background: gold }} />}
+                            </span>
+                            <span style={{ minWidth: 0 }}>
+                              <span style={{ display: "block", color: C.textH, fontSize: 13.5, fontWeight: 700 }}>{o.title} · {fmt(o.amount)}</span>
+                              <span style={{ display: "block", color: C.textS, fontSize: 12, marginTop: 2 }}>{o.note}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginTop: 14 }}>
+                    <span style={{ color: C.textS, fontSize: 13 }}>Due now</span>
+                    <span style={{ color: C.goldInk, fontSize: 13, fontWeight: 700 }}>{fmt(payFull ? total : down)}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginTop: 8 }}>
-                    <span style={{ color: C.textS, fontSize: 13 }}>Remaining balance on arrival</span>
-                    <span style={{ color: C.goldInk, fontSize: 13, fontWeight: 700 }}>{fmt(total - down)}</span>
+                    <span style={{ color: C.textS, fontSize: 13 }}>Balance on arrival</span>
+                    <span style={{ color: C.goldInk, fontSize: 13, fontWeight: 700 }}>{fmt(payFull ? 0 : total - down)}</span>
                   </div>
                 </div>
                 {!dateOk && (
@@ -1354,7 +1395,7 @@
                   <div style={{ minWidth: 0 }}>
                     <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 9px", fontWeight: 700 }}>SECURE PAYMENT</p>
                     <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 24 : 30, margin: 0, fontWeight: 400, lineHeight: 1.15 }}>
-                      Pay the 50% reservation deposit
+                      {paidInFull ? "Pay in full" : "Pay the 50% reservation deposit"}
                     </h3>
                   </div>
                   <div style={{ border: `1px solid ${qrSeconds <= 60 ? "#e07a7a" : C.border}`, borderRadius: 999, padding: "9px 16px", fontSize: 12.5, color: qrSeconds <= 60 ? "#e07a7a" : C.textS, whiteSpace: "nowrap", marginTop: mob ? 0 : 18 }}>
@@ -1398,7 +1439,7 @@
                     </p>
                     <div style={{ width: "100%", background: "rgba(0,169,82,0.10)", border: "1px solid rgba(0,169,82,0.35)", borderRadius: 10, padding: "12px 16px", textAlign: "center" }}>
                       <div style={{ color: "#4caf50", fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>AMOUNT DUE NOW</div>
-                      <div style={{ color: isDark ? "#fff" : "#111", fontSize: mob ? 24 : 28, fontWeight: 700, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>{fmt(serverQuote?.down ?? down)}</div>
+                      <div style={{ color: isDark ? "#fff" : "#111", fontSize: mob ? 24 : 28, fontWeight: 700, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>{fmt(dueNow)}</div>
                     </div>
                   </div>
                   {/* Order summary */}
@@ -1508,14 +1549,17 @@
             {step === 7 && (
               <div style={{ padding: "8px 0", textAlign: "center" }}>
                 <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(76,175,80,0.10)", border: "1px solid rgba(76,175,80,0.45)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, color: "#6ec071", margin: "0 auto 22px" }} aria-hidden="true">✓</div>
-                <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.6, fontWeight: 700, margin: "0 0 12px" }}>RESERVATION SUBMITTED</p>
+                <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.6, fontWeight: 700, margin: "0 0 12px" }}>{confirmedNow ? "RESERVATION CONFIRMED" : "RESERVATION RECEIVED"}</p>
                 {/* The guest's own name, because this is the one screen that is
                     addressed to them rather than about the booking. */}
                 <h3 style={{ color: C.textH, fontSize: mob ? 28 : 36, fontWeight: 400, margin: "0 0 14px", fontFamily: "'Cormorant Garamond',Georgia,serif", lineHeight: 1.15 }}>
                   Thank you{form.name ? `, ${form.name.split(" ")[0]}` : ""}.
                 </h3>
                 <p style={{ color: C.textS, fontSize: 14.5, margin: "0 auto 26px", lineHeight: 1.7, maxWidth: 520 }}>
-                  We received your {fmt(serverQuote?.down ?? down)} deposit. The resort team will review and confirm your reservation within 24 hours.
+                  We received your {fmt(dueNow)} {paidInFull ? "payment, so your stay is fully paid" : "deposit"}.{" "}
+                  {confirmedNow
+                    ? <>Your reservation is confirmed. See you on {date ? fmtDate(date) : "your visit"}!</>
+                    : <>The resort needs to check one detail and will contact you within 24 hours.</>}
                 </p>
 
                 {/* Reference ID — prominent at top */}
@@ -1531,9 +1575,17 @@
                       sequence, and a screen reader should say so. */}
                   <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10 }}>
                     {[
-                      "Your GCash payment is verified automatically.",
-                      "The resort reviews your reservation details.",
-                      `A confirmation is sent to ${form.email || "your email"}.`,
+                      ...(confirmedNow
+                        ? [
+                          `Your confirmation is on its way to ${form.email || "your email"}.`,
+                          "Your booking page shows your payments and lets you change the date once, if plans change.",
+                          paidInFull ? "Nothing more is due on arrival, apart from any damage or extra hours." : "Pay the balance at the resort on the day.",
+                        ]
+                        : [
+                          "Your payment is safe and recorded.",
+                          "The resort checks the detail it flagged.",
+                          `You'll hear from them at ${form.email || "your email"} within 24 hours.`,
+                        ]),
                     ].map((txt, i) => (
                       <li key={txt} style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.textS, fontSize: 13, lineHeight: 1.6 }}>
                         <span style={{ color: C.goldInk, flexShrink: 0, fontWeight: 700 }}>{i + 1}.</span>
@@ -1543,7 +1595,9 @@
                   </ol>
                 </div>
                 <p style={{ color: C.textS, fontSize: 12.5, margin: "0 auto 22px", maxWidth: 540 }}>
-                  No refunds. The remaining balance of {fmt((serverQuote?.total ?? total) - (serverQuote?.down ?? down))} is paid at the resort.
+                  {paidInFull
+                    ? <>No refunds. Nothing more is due at the resort, apart from any damage or extra hours.</>
+                    : <>No refunds. The remaining balance of {fmt(fullTotal - dueNow)} is paid at the resort.</>}
                 </p>
                 <button
                   onClick={() => onGoHome?.()}
@@ -1658,8 +1712,8 @@
             <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "18px 16px" : "22px 24px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
               <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2" style={{ margin: 0 }}>
                 {[
-                  ["No refunds", "Payments are non-refundable once submitted."],
-                  ["50% reservation deposit", "Half of the total is due now; the balance is paid on arrival."],
+                  ["Cancellations", "If the resort has to cancel, you choose a free new date or a full refund. If you cancel, payments aren't refunded, but you can move your booking to another date once."],
+                  [payFull ? "Paying in full" : "50% reservation deposit", payFull ? "The whole total is paid now; nothing is due on arrival." : "Half of the total is due now; the balance is paid on arrival."],
                   ["Flexible rescheduling", "Changes depend on availability and must be arranged with the resort."],
                   ["Quiet hours", QUIET_HOURS_POLICY],
                 ].map(([title, body]) => (

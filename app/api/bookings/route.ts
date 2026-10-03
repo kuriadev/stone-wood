@@ -10,6 +10,12 @@
 //     sending the same paymentIntentId twice returns the booking that
 //     already exists instead of creating another.
 //
+//     The booking is CONFIRMED at once: the payment is verified with
+//     PayMongo and the date is checked here, which is everything the owner
+//     used to check by hand. Only a booking with something wrong (the date
+//     taken while the guest was paying, the wrong amount) waits as Pending
+//     for the owner, flagged in its notes.
+//
 //   Admin (Walk-In)   a Booking object, with a valid admin session
 //     Staff encode it at the front desk; email is optional.
 //
@@ -17,11 +23,13 @@
 // purpose: the guards are the admin session and the PayMongo check.
 
 import { NextResponse, type NextRequest } from "next/server";
-import { getSupabaseAdmin, rowToBooking, bookingToRow } from "@/lib/supabase";
+import { getSupabaseAdmin, rowToBooking, bookingToRow, missingNewColumn, withoutNewColumns } from "@/lib/supabase";
 import { isAdminRequest, requireAdmin } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { isValidEmail, isValidPHNumber, sanitizeName, sanitizeNotes, NAME_MIN, NAME_MAX, OVERTIME_MAX } from "@/lib/validators";
-import { buildBookingReceivedEmail } from "@/lib/emailTemplate";
+import { buildBookingReceivedEmail, buildReceiptEmail, generateOTP } from "@/lib/emailTemplate";
+import { logActivity } from "@/lib/activity.server";
+import { fmtDate } from "@/lib/utils";
 import { trySendMail } from "@/lib/mailer";
 import { getPaymentStatus } from "@/lib/paymongo";
 import { quoteBooking } from "@/lib/bookingQuote";
@@ -121,8 +129,8 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
     if (!quote.available) {
       flags.push(`⚠ CHECK: ${quote.unavailableReason ?? "date no longer available"} (taken while the guest was paying).`);
     }
-    if (paidPesos !== quote.price.down) {
-      flags.push(`⚠ CHECK: paid ${fmt(paidPesos)} but the down payment is ${fmt(quote.price.down)}.`);
+    if (paidPesos !== quote.dueNow) {
+      flags.push(`⚠ CHECK: paid ${fmt(paidPesos)} but ${quote.draft.payFull ? "the full total" : "the down payment"} is ${fmt(quote.dueNow)}.`);
     }
 
     const d = quote.draft;
@@ -138,7 +146,7 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
       overtime: d.overtime,
       total: quote.price.total,
       downpayment: paidPesos,
-      status: "Pending",
+      status: flags.length ? "Pending" : "Confirmed",
       paymentProof: true, // PayMongo confirmed it; no screenshot needed
       notes: [d.notes, ...flags].filter(Boolean).join(" "),
       source: "Online",
@@ -148,7 +156,10 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
       paymentIntentId,
     });
 
-    const { data, error } = await db.from("bookings").insert(row).select().single();
+    const confirmedNow = flags.length === 0;
+    const full = { ...row, confirmed_at: confirmedNow ? new Date().toISOString() : null };
+    let { data, error } = await db.from("bookings").insert(full).select().single();
+    if (error && missingNewColumn(error)) ({ data, error } = await db.from("bookings").insert(withoutNewColumns(full)).select().single());
     if (error) {
       // 23505 on payment_intent_id: a parallel request saved it first.
       if (error.code === "23505") {
@@ -160,7 +171,8 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
 
     const saved = rowToBooking(data as BookingRow);
 
-    // The down payment goes into the sales ledger as received money. The
+    // The online payment (the down payment, or the whole total when the
+    // guest paid in full) goes into the sales ledger as received money. The
     // unique index on PayMongo references means a retry cannot record it
     // twice. A failure here must not fail the booking: the guest has paid
     // and the booking exists, so it is logged for staff to add by hand.
@@ -171,7 +183,7 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
       method: "PayMongo",
       amount: paidPesos,
       reference: paymentIntentId,
-      notes: "Online down payment (PayMongo).",
+      notes: paidPesos >= saved.total ? "Paid in full online (PayMongo)." : "Online down payment (PayMongo).",
     });
     if (ledgerRow.error && ledgerRow.error.code !== "23505") {
       console.error(`[/api/bookings POST] booking ${saved.id} saved but its payment was not recorded:`, ledgerRow.error.message);
@@ -180,8 +192,21 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
     // Sent from here rather than the browser: this is the only place that
     // knows the booking reached the database. trySendMail never throws — a
     // slow Gmail must not turn a saved, paid booking into an error.
-    const { subject, html } = buildBookingReceivedEmail(saved);
-    const emailed = await trySendMail({ to: saved.email, subject, html }, `booking-received ${saved.id}`);
+    // Confirmed: the confirmation itself. Flagged: the "received, being
+    // reviewed" email, since the owner still has to look at it.
+    const { subject, html } = confirmedNow ? buildReceiptEmail(saved, generateOTP()) : buildBookingReceivedEmail(saved);
+    const emailed = await trySendMail({ to: saved.email, subject, html }, `${confirmedNow ? "booking-confirmed" : "booking-received"} ${saved.id}`);
+
+    await logActivity([
+      {
+        actor: "Guest", action: "booking.created", bookingId: saved.id, entity: "booking", entityId: saved.id,
+        summary: `${saved.name} booked ${saved.package} for ${fmtDate(saved.date)} online and paid ${fmt(paidPesos)}${paidPesos >= saved.total ? " (in full)" : ""} by PayMongo.`,
+        details: { total: saved.total, paid: paidPesos, paymentIntentId, emailed },
+      },
+      confirmedNow
+        ? { actor: "System", action: "booking.confirmed", bookingId: saved.id, entity: "booking", entityId: saved.id, summary: `Confirmed ${saved.id} automatically: payment verified with PayMongo and the date was free.` }
+        : { actor: "System", action: "booking.needs_review", bookingId: saved.id, entity: "booking", entityId: saved.id, summary: `${saved.id} needs the owner's review: ${flags.join(" ")}`, details: { flags } },
+    ]);
 
     return NextResponse.json({ success: true, booking: saved, emailed }, { status: 201 });
   } catch (err) {
@@ -266,7 +291,9 @@ async function createWalkIn(body: Record<string, unknown>) {
     });
 
     const db = getSupabaseAdmin();
-    const { data, error } = await db.from("bookings").insert(row).select().single();
+    const full = { ...row, confirmed_at: status === "Confirmed" ? new Date().toISOString() : null };
+    let { data, error } = await db.from("bookings").insert(full).select().single();
+    if (error && missingNewColumn(error)) ({ data, error } = await db.from("bookings").insert(withoutNewColumns(full)).select().single());
     if (error) throw new Error(error.message);
     const saved = rowToBooking(data as BookingRow);
 
@@ -287,6 +314,11 @@ async function createWalkIn(body: Record<string, unknown>) {
         throw new Error(ledgerRow.error.message);
       }
     }
+    await logActivity({
+      actor: "Admin", action: "booking.created", bookingId: saved.id, entity: "booking", entityId: saved.id,
+      summary: `Encoded a walk-in: ${saved.name}, ${saved.package}, ${fmtDate(saved.date)}. ${pay ? `${fmt(payAmount)} received by ${pay.method}; confirmed.` : "Nothing paid yet; pending."}`,
+      details: { total, paid: payAmount, method: pay?.method ?? null },
+    });
     return NextResponse.json({ success: true, booking: saved }, { status: 201 });
   } catch (err) {
     console.error("[/api/bookings POST walk-in]", err);

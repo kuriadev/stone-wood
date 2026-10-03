@@ -27,6 +27,8 @@ import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLin
 import type { ResortPackage } from "@/types/package";
 import { srcSetFor, SIZES, imageAt } from "@/lib/img";
 import { Icon, type IconName } from "@/components/common/Icon";
+import { facilityIcon } from "@/lib/facilityUsage";
+import type { PublicAmenity } from "@/types/facility";
 import { Reveal } from "@/components/common/Reveal";
 import { Badge } from "@/components/ui/badge";
 
@@ -55,6 +57,11 @@ interface HomeProps {
 // HERO_BG lives in lib/constants.ts so the root layout can preload it.
 
 // Resort services — rendered as a clean line-icon row.
+//
+// The list itself comes from Facility Management (/api/amenities), so an
+// amenity the owner adds shows up here. These hand-drawn icons are kept for
+// the original amenities, matched by name, and the list below is what shows
+// while that request is in flight or if it fails.
 const SERVICES: { name: string; icon: React.ReactNode }[] = [
   {
     name: "Swimming Pool",
@@ -261,6 +268,23 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [activePkg]);
+
+  // Amenities the owner manages in Facility Management. null until loaded.
+  const [amenities, setAmenities] = useState<PublicAmenity[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/amenities")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (live && j?.success && Array.isArray(j.amenities)) setAmenities(j.amenities); })
+      .catch(() => { /* keep the built-in list */ });
+    return () => { live = false; };
+  }, []);
+  const facilityRow = useMemo(() => {
+    const drawn = new Map(SERVICES.map((sv) => [sv.name, sv.icon]));
+    return amenities && amenities.length > 0
+      ? amenities.map((a) => ({ name: a.name, desc: a.description, drawn: drawn.get(a.name), icon: facilityIcon({ icon: a.icon, category: "Amenity" }) }))
+      : SERVICES.map((sv) => ({ name: sv.name, desc: "", drawn: sv.icon, icon: "toolbox" as const }));
+  }, [amenities]);
 
   const ratesHeaderRef = useRef<HTMLDivElement>(null);
   const amenitiesDivRef = useRef<HTMLDivElement>(null);
@@ -592,7 +616,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
 
           </div>
 
-          <p style={{ color: C.textXS, fontSize: 14.5, marginTop: 8, lineHeight: 1.8 }}>All bookings require a 50% down payment. No refunds. Rescheduling subject to discussion. {QUIET_HOURS_POLICY}</p>
+          <p style={{ color: C.textXS, fontSize: 14.5, marginTop: 8, lineHeight: 1.8 }}>Pay a 50% down payment to book, or pay in full. If the resort has to cancel, you choose a free new date or a full refund; if you cancel, payments aren't refunded, but you can move your booking once. {QUIET_HOURS_POLICY}</p>
         </div>
       </div>
 
@@ -608,29 +632,34 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           <Reveal
             style={{
               display: "grid",
-              gridTemplateColumns: mob ? "repeat(2,1fr)" : tab ? "repeat(3,1fr)" : "repeat(6,1fr)",
+              gridTemplateColumns: mob ? "repeat(2,1fr)" : tab ? "repeat(3,1fr)" : `repeat(${Math.min(6, facilityRow.length)},1fr)`,
               gap: mob ? "36px 16px" : 20,
             }}
           >
-            {SERVICES.map((s) => (
+            {facilityRow.map((s) => (
               <div key={s.name} style={{ textAlign: "center" }}>
-                <svg
-                  width="38"
-                  height="38"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={C.textH}
-                  strokeWidth="1.1"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{ margin: "0 auto 18px", display: "block", opacity: 0.85 }}
-                  aria-hidden="true"
-                >
-                  {s.icon}
-                </svg>
+                {s.drawn ? (
+                  <svg
+                    width="38"
+                    height="38"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke={C.textH}
+                    strokeWidth="1.1"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ margin: "0 auto 18px", display: "block", opacity: 0.85 }}
+                    aria-hidden="true"
+                  >
+                    {s.drawn}
+                  </svg>
+                ) : (
+                  <Icon name={s.icon} size={38} strokeWidth={1.1} style={{ margin: "0 auto 18px", display: "block", opacity: 0.85, color: C.textH }} />
+                )}
                 <div style={{ fontFamily: serif, fontSize: mob ? 16 : 18, color: C.textH, fontWeight: 400, lineHeight: 1.35 }}>
                   {s.name}
                 </div>
+                {s.desc && <div style={{ color: C.textS, fontSize: 13, lineHeight: 1.5, marginTop: 6 }}>{s.desc}</div>}
               </div>
             ))}
           </Reveal>

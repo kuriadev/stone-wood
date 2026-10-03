@@ -1,6 +1,7 @@
 // ── Who is physically in the resort right now
 //
-// Used by the dashboard's "TODAY (LIVE)" panel. A booking counts toward
+// getOccupancyWindow gives a booking's hours; Daily Operations uses it to
+// flag a checked-in group whose booked time is over. A booking counts toward
 // occupancy only while the clock is inside its tour window — so guests drop
 // off by themselves when their tour ends, rather than lingering until
 // midnight because the date still matches.

@@ -100,8 +100,13 @@ export function bookingHeldSlots(b: Booking): Array<"Day" | "Night"> {
   return occupiedSlots(getBookingSlot(b), b.overtime ?? 0);
 }
 
+/** Whether a booking still occupies its date. A cancelled one doesn't, and
+ *  neither does one the resort cancelled while the guest picks a new date:
+ *  its old date is free for others from the moment it's cancelled. */
+export const holdsDate = (b: Pick<Booking, "status">) => b.status !== "Cancelled" && b.status !== "ResortCancelled";
+
 const liveOn = (date: string, bookings: Booking[]) =>
-  bookings.filter((b) => b.date === date && b.status !== "Cancelled");
+  bookings.filter((b) => b.date === date && holdsDate(b));
 
 /** Live pool-capacity readout for one slot of a date — e.g. "Shared: 22 of
  *  30 spots taken". Only counts Shared, pool-using bookings in that slot. */

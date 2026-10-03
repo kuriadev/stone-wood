@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { gold } from "@/lib/styles";
 import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
-import { checkBookingAvailability } from "@/lib/utils";
+import { checkBookingAvailability, holdsDate } from "@/lib/utils";
 
 interface AvailabilityCalendarProps {
   bookings: Booking[];
@@ -51,7 +51,7 @@ export function AvailabilityCalendar({
   // none of that yet, so it errs toward not advertising a date it cannot
   // promise.
   const bookedDates = useMemo(() => {
-    const dates = new Set(bookings.filter((b) => b.status !== "Cancelled").map((b) => b.date));
+    const dates = new Set(bookings.filter(holdsDate).map((b) => b.date));
     const full = new Set<string>();
     dates.forEach((d) => {
       const anySlotFull = (["Day", "Night"] as const).some(

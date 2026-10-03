@@ -7,6 +7,7 @@
 // positions one row at a time.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin, rowsToGalleryUrls } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import type { GalleryRow } from "@/types/database";
@@ -60,6 +61,7 @@ export async function PUT(req: NextRequest) {
 
     const { error: insErr } = await db.from("gallery").insert(rows);
     if (insErr) throw new Error(insErr.message);
+    await logActivity({ actor: "Admin", action: "site.gallery", entity: "gallery", summary: `Updated the website gallery (${rows.length} photo${rows.length === 1 ? "" : "s"}).` });
 
     return NextResponse.json({ success: true, gallery: rows.map((r) => r.url) });
   } catch (err) {

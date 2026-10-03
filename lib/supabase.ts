@@ -33,8 +33,10 @@ import type {
   DamageRateRow,
   InspectionRow,
   DamageRecordRow,
+  ActivityRow,
+  DateChangeRow,
 } from "@/types/database";
-import type { Payment, Expense, DailyClosing, DamageRate, Inspection, DamageRecord } from "@/types/finance";
+import type { Payment, Expense, DailyClosing, DamageRate, Inspection, DamageRecord, Activity, DateChange } from "@/types/finance";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
@@ -153,10 +155,28 @@ export const rowToBooking = (b: BookingRow): Booking => ({
   paymentIntentId: b.payment_intent_id ?? undefined,
   slot: b.slot ?? undefined,
   arrivalTime: b.arrival_time ?? undefined,
+  checkedInAt: b.checked_in_at ?? undefined,
+  checkedOutAt: b.checked_out_at ?? undefined,
+  settledAt: b.settled_at ?? undefined,
+  settlementNote: b.settlement_note || undefined,
+  confirmedAt: b.confirmed_at ?? undefined,
+  cancelledAt: b.cancelled_at ?? undefined,
+  choiceDeadline: b.choice_deadline ?? undefined,
+  heldAmount: b.held_amount != null ? Number(b.held_amount) : undefined,
+  refundStatus: b.refund_status ?? undefined,
+  refundAmount: b.refund_amount != null ? Number(b.refund_amount) : undefined,
+  refundSentAt: b.refund_sent_at ?? undefined,
+  refundReceipt: b.refund_receipt ?? undefined,
 });
 
-/** `id` is left out: the database assigns it (see booking_ref_seq). */
-export const bookingToRow = (b: Booking): Omit<BookingRow, "created_at" | "id"> => ({
+/** `id` is left out: the database assigns it (see booking_ref_seq). So are
+ *  the day-of stage columns and the cancellation / refund trail: only their
+ *  own routes (/api/checkin, /api/checkout, /api/settle, the cancel, rebook
+ *  and refund routes) ever write them. */
+export const bookingToRow = (b: Booking): Omit<BookingRow,
+  "created_at" | "id" | "checked_in_at" | "checked_out_at" | "settled_at" | "settlement_note"
+  | "confirmed_at" | "cancelled_at" | "choice_deadline" | "held_amount"
+  | "refund_status" | "refund_amount" | "refund_sent_at" | "refund_receipt"> => ({
   name: b.name,
   contact: b.contact,
   email: b.email,
@@ -220,6 +240,10 @@ export const rowToFacility = (f: FacilityRow): Facility => ({
   // checklist when these are unset, and an empty array would suppress it.
   beforeUseChecklist: f.before_use_checklist ?? undefined,
   afterUseChecklist: f.after_use_checklist ?? undefined,
+  area: f.area ?? undefined,
+  description: f.description ?? "",
+  showOnSite: f.show_on_site ?? true,
+  active: f.active ?? true,
 });
 
 export const facilityToRow = (f: Facility): Omit<FacilityRow, "id" | "created_at"> => ({
@@ -234,6 +258,10 @@ export const facilityToRow = (f: Facility): Omit<FacilityRow, "id" | "created_at
   notes: f.notes,
   before_use_checklist: f.beforeUseChecklist ?? null,
   after_use_checklist: f.afterUseChecklist ?? null,
+  area: f.category === "Room" ? null : f.area ?? "Pool",
+  description: f.description ?? "",
+  show_on_site: f.showOnSite ?? true,
+  active: f.active ?? true,
 });
 
 export const rowToPackage = (p: PackageRow): ResortPackage => ({
@@ -353,3 +381,45 @@ export const rowToDamage = (d: DamageRecordRow): DamageRecord => ({
   description: d.description ?? "",
   voided: d.voided,
 });
+
+export const rowToActivity = (a: ActivityRow): Activity => ({
+  id: a.id,
+  at: a.at,
+  actor: a.actor,
+  action: a.action,
+  entity: a.entity,
+  entityId: a.entity_id,
+  bookingId: a.booking_id ?? undefined,
+  summary: a.summary,
+  details: a.details ?? {},
+});
+
+export const rowToDateChange = (r: DateChangeRow): DateChange => ({
+  id: r.id,
+  bookingId: r.booking_id,
+  fromDate: r.from_date,
+  toDate: r.to_date,
+  requestedBy: r.requested_by,
+  status: r.status,
+  holdUntil: r.hold_until ?? undefined,
+  decidedAt: r.decided_at ?? undefined,
+  note: r.note ?? "",
+  createdAt: r.created_at,
+});
+
+/** The timestamps added by 20261003120000_activity_log_and_rebooking.sql.
+ *  Until that migration has run, a write that sets them is retried
+ *  without them, so taking a booking or a payment never fails because the
+ *  database is one migration behind the code. */
+export const NEW_BOOKING_COLUMNS = ["confirmed_at", "cancelled_at"] as const;
+
+export function missingNewColumn(err: { message?: string } | null | undefined): boolean {
+  const msg = err?.message ?? "";
+  return /(column|schema cache)/i.test(msg) && NEW_BOOKING_COLUMNS.some((c) => msg.includes(c));
+}
+
+export function withoutNewColumns<T extends Record<string, unknown>>(row: T): T {
+  const copy = { ...row };
+  for (const c of NEW_BOOKING_COLUMNS) delete copy[c];
+  return copy;
+}

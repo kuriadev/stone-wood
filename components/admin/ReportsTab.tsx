@@ -16,7 +16,7 @@ import { useOps } from "@/contexts/OpsContext";
 import {
   bookingMoney, manilaDate, manilaTime, monthRange, livePayments, liveExpenses, signedAmount, round2, downloadCsv,
 } from "@/lib/finance";
-import { fmt, fmtDate, getBookingSlot } from "@/lib/utils";
+import { fmt, fmtDate, getBookingSlot, holdsDate } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS, PAYMENT_TYPES } from "@/types/finance";
@@ -62,7 +62,7 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
   const pays = livePayments(ops.payments).filter((p) => inRange(manilaDate(p.receivedAt)));
   const exps = liveExpenses(ops.expenses).filter((e) => inRange(e.spentOn));
   const bks = bookings.filter((b) => !b.id.startsWith("TMP-") && b.date && inRange(b.date));
-  const kept = bks.filter((b) => b.status !== "Cancelled");
+  const kept = bks.filter(holdsDate);
 
   const collected = round2(pays.reduce((s, p) => s + signedAmount(p), 0));
   const spent = round2(exps.reduce((s, e) => s + e.amount, 0));
@@ -70,7 +70,7 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
   const byType = PAYMENT_TYPES.map((t) => [t, round2(pays.filter((p) => p.type === t).reduce((s, p) => s + p.amount, 0))] as const);
   const byMethod = PAYMENT_METHODS.map((m) => [m, round2(pays.filter((p) => p.method === m).reduce((s, p) => s + signedAmount(p), 0))] as const);
   const byCat = EXPENSE_CATEGORIES.map((c) => [c, round2(exps.filter((e) => e.category === c).reduce((s, e) => s + e.amount, 0))] as const).filter(([, v]) => v > 0);
-  const statusCount = (["Pending", "Confirmed", "Completed", "Cancelled"] as const).map((s) => [s, bks.filter((b) => b.status === s).length] as const);
+  const statusCount = (["Pending", "Confirmed", "Completed", "Cancelled", "ResortCancelled"] as const).map((s) => [s, bks.filter((b) => b.status === s).length] as const);
   const guests = kept.reduce((s, b) => s + b.guests, 0);
   const slotCount = (["Day", "Night", "WholeDay"] as BookingSlot[]).map((s) => [s, kept.filter((b) => getBookingSlot(b) === s).length] as const);
 
@@ -80,7 +80,7 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
       return MONTHS.map((m, i) => {
         const r = monthRange(`${year}-${String(i + 1).padStart(2, "0")}-01`);
         const money = livePayments(ops.payments).filter((p) => { const d = manilaDate(p.receivedAt); return d >= r.from && d <= r.to; }).reduce((s, p) => s + signedAmount(p), 0);
-        const count = bookings.filter((b) => b.status !== "Cancelled" && b.date >= r.from && b.date <= r.to);
+        const count = bookings.filter((b) => holdsDate(b) && b.date >= r.from && b.date <= r.to);
         return { label: m, money: round2(money), bookings: count.length, guests: count.reduce((s, b) => s + b.guests, 0) };
       });
     }

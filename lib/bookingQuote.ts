@@ -22,6 +22,7 @@ import {
   sanitizeName, sanitizeContact, sanitizeNotes,
   isWithinBookingWindow, describeDateProblem,
 } from "@/lib/validators";
+import { heldBookings } from "@/lib/rebooking.server";
 import type { BookingRow, FacilityRow, PackageRow, RoomRow } from "@/types/database";
 import type { BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 
@@ -42,12 +43,16 @@ export interface BookingDraft {
   email: string;
   contact: string;
   notes: string;
+  /** Pay the whole total online instead of the 50% down payment. */
+  payFull: boolean;
 }
 
 export interface BookingQuote {
   draft: BookingDraft;
   packageLabel: string;
   price: PriceBreakdown;
+  /** What the QR charges: the total when paying in full, else the 50%. */
+  dueNow: number;
   /** false when the date/pool/venue/room is no longer free. */
   available: boolean;
   unavailableReason?: string;
@@ -154,7 +159,7 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
       ? db.from("rooms").select("*").in("id", roomIds)
       : Promise.resolve({ data: [] as RoomRow[], error: null }),
     db.from("facilities").select("*"),
-    db.from("bookings").select("*").eq("date", date).neq("status", "Cancelled"),
+    db.from("bookings").select("*").eq("date", date).not("status", "in", "(Cancelled,ResortCancelled)"),
   ]);
   if (roomsRes.error) throw new Error(roomsRes.error.message);
   if (facRes.error) throw new Error(facRes.error.message);
@@ -164,7 +169,9 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
   if (rooms.length !== roomIds.length) return bad("One of the chosen rooms no longer exists.", 409);
 
   const facilities = (facRes.data as FacilityRow[]).map(rowToFacility);
-  const sameDay = (bookedRes.data as BookingRow[]).map(rowToBooking);
+  // A date a guest is waiting to move to is held for them (48 hours), so
+  // it counts as booked here too.
+  const sameDay = [...(bookedRes.data as BookingRow[]).map(rowToBooking), ...(await heldBookings({ date }))];
 
   // ── Availability ────────────────────────────────────────────────
   let available = true;
@@ -212,9 +219,11 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
         resource, tier, slot, guests, overtime,
         rooms: rooms.map((r) => r.id),
         date, name, email, contact, notes,
+        payFull: d.payFull === true,
       },
       packageLabel,
       price,
+      dueNow: d.payFull === true ? price.total : price.down,
       available,
       unavailableReason,
     },

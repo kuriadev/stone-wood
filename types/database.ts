@@ -11,7 +11,7 @@
 
 import type { BookingStatus, BookingResource, BookingTier, BookingSource, BookingSlot, PackageSlotMode } from "./booking";
 import type { InventoryCategory } from "./inventory";
-import type { FacilityCategory, FacilityStatus } from "./facility";
+import type { AmenityArea, FacilityCategory, FacilityStatus } from "./facility";
 
 export interface RoomRow {
   id: number;
@@ -57,6 +57,45 @@ export interface BookingRow {
   slot: BookingSlot | null;
   /** Added by 20260926120000_sales_and_facility_ops.sql. */
   arrival_time: string | null;
+  /** Added by 20260929120000_operations_and_amenities.sql. */
+  checked_in_at: string | null;
+  checked_out_at: string | null;
+  settled_at: string | null;
+  settlement_note: string;
+  /** Added by 20261003120000_activity_log_and_rebooking.sql. */
+  confirmed_at: string | null;
+  cancelled_at: string | null;
+  choice_deadline: string | null;
+  held_amount: number;
+  refund_status: "Owed" | "Sent" | null;
+  refund_amount: number;
+  refund_sent_at: string | null;
+  refund_receipt: string | null;
+}
+
+export interface ActivityRow {
+  id: number;
+  at: string;
+  actor: "Admin" | "Guest" | "System";
+  action: string;
+  entity: string;
+  entity_id: string;
+  booking_id: string | null;
+  summary: string;
+  details: Record<string, unknown>;
+}
+
+export interface DateChangeRow {
+  id: number;
+  booking_id: string;
+  from_date: string;
+  to_date: string;
+  requested_by: "Guest" | "Resort";
+  status: "Pending" | "Approved" | "Declined" | "Expired";
+  hold_until: string | null;
+  decided_at: string | null;
+  note: string;
+  created_at: string;
 }
 
 export interface InventoryRow {
@@ -111,6 +150,11 @@ export interface FacilityRow {
   notes: string;
   before_use_checklist: string[] | null;
   after_use_checklist: string[] | null;
+  /** Added by 20260929120000_operations_and_amenities.sql. NULL for rooms. */
+  area: AmenityArea | null;
+  description: string;
+  show_on_site: boolean;
+  active: boolean;
   created_at: string;
 }
 

@@ -1,32 +1,62 @@
 // ── Which facilities a reservation uses, and what to check on each
 //
-// Replaces the old /Tour/i test on the package label, which missed every
-// package booking ("Private Pool", "Party Package"…) and venue-only events.
-// The booking's resource decides it:
-//   Pool        → every amenity except the events venue
-//   Venue       → the events venue and parking
+// Each amenity carries an AREA the owner sets in Facility Management, and
+// the booking's resource picks the areas it uses:
+//   Pool        → Pool + Common amenities
+//   Venue       → Venue + Common amenities
 //   Pool+Venue  → every amenity
-// plus each room the booking rented.
+// plus each room the booking rented. Retired amenities are left out.
+//
+// This used to match hard-coded names ("Events Venue", "Parking Area"), so
+// a new amenity landed in every pool booking and renaming the venue broke
+// venue bookings. The name rule survives only as the fallback for records
+// cached before the area column existed.
 
 import type { Booking } from "@/types/booking";
-import type { Facility } from "@/types/facility";
+import type { AmenityArea, Facility } from "@/types/facility";
 import { QUIET_HOURS_START } from "@/lib/resort";
 
-const VENUE = "Events Venue";
-const PARKING = "Parking Area";
+/** The two amenities booking availability is checked against by name
+ *  (lib/utils.ts isPoolOpen / isVenueOpen). They can't be renamed or
+ *  retired from the admin. */
+export const CORE_AMENITIES = ["Swimming Pool", "Events Venue"] as const;
+export const isCoreAmenity = (f: Pick<Facility, "name" | "category">) =>
+  f.category === "Amenity" && (CORE_AMENITIES as readonly string[]).includes(f.name);
+
+/** Icons the owner can pick for an amenity (names from components/common/Icon). */
+export const AMENITY_ICONS = [
+  "pool", "flame", "billiards", "mic", "car", "tent", "utensils", "palm", "leaf", "sunrise", "home", "users", "star", "toolbox",
+] as const;
+export type AmenityIcon = (typeof AMENITY_ICONS)[number];
+export const facilityIcon = (f: Pick<Facility, "icon" | "category">): AmenityIcon | "bed" =>
+  f.category === "Room" ? "bed" : (AMENITY_ICONS as readonly string[]).includes(f.icon) ? (f.icon as AmenityIcon) : "toolbox";
+
+export const AREA_LABEL: Record<AmenityArea, string> = {
+  Pool: "Pool area",
+  Venue: "Events venue",
+  Common: "Every booking",
+};
+
+export function amenityArea(f: Facility): AmenityArea {
+  if (f.area) return f.area;
+  if (f.name === "Events Venue") return "Venue";
+  if (f.name === "Parking Area") return "Common";
+  return "Pool";
+}
 
 export function facilitiesForBooking(b: Booking, facilities: Facility[]): Facility[] {
   const resource = b.resource ?? "Pool";
   return facilities.filter((f) => {
     if (f.category === "Room") return f.roomId !== undefined && (b.rooms || []).includes(f.roomId);
-    if (resource === "Pool+Venue") return true;
-    if (resource === "Venue") return f.name === VENUE || f.name === PARKING;
-    return f.name !== VENUE;
+    if (f.active === false) return false;
+    const area = amenityArea(f);
+    if (area === "Common" || resource === "Pool+Venue") return true;
+    return area === resource;
   });
 }
 
 // Defaults used until the owner writes a checklist of their own for a
-// facility (editable in Facilities → Facility status).
+// facility (editable in Facility Management → Facilities → Edit).
 const DEFAULT_BEFORE: Record<string, string[]> = {
   "Swimming Pool": ["Check chlorine/pH levels", "Skim leaves & debris", "Test water clarity", "Lifebuoys & signage in place"],
   "BBQ / Grilling Area": ["Clean grill grates", "Check charcoal & tongs", "Wipe tables"],

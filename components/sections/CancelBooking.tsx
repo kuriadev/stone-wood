@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cancelBookingLookup, type CancelBookingLookup } from "@/lib/schemas";
@@ -18,46 +18,59 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useApp } from "@/contexts/AppContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
-import { fmt, fmtDate } from "@/lib/utils";
+import { fmt, fmtDate, getBookingSlot, getBookingResource, getBookingTier } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
+import { choiceOpen, fmtDeadline, holdActive, HOLD_HOURS } from "@/lib/rebooking";
 import type { Booking, BookingSlot } from "@/types/booking";
+import type { DateChange } from "@/types/finance";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { Badge } from "@/components/ui/badge";
+import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
 
 interface ManageBookingProps {
   onGoHome?: () => void;
 }
 
-/** The three things a guest can do with a booking they have found.
+/** What a guest can do with a booking they have found.
  *
- *  Only `cancel` has an endpoint of its own. A reschedule or a detail
- *  correction is a REQUEST: it goes to the same inbox the contact form feeds,
- *  tagged with the booking reference, and staff act on it. Nothing here
- *  silently mutates a reservation, which is also what the notice under each
- *  form tells the guest. */
+ *  Changing the date is a real request now: the guest picks a free date,
+ *  it's held for them while the resort approves it. Correcting details is
+ *  still a message to the resort's inbox. Cancelling has its own endpoint. */
 type ActionKey = "reschedule" | "details" | "cancel";
 
-const ACTIONS: { key: ActionKey; icon: IconName; title: string; sub: string }[] = [
-  { key: "reschedule", icon: "calendar", title: "Request a schedule change", sub: "Choose a different available date" },
-  { key: "details", icon: "message", title: "Update guest details", sub: "Correct your contact information" },
-  { key: "cancel", icon: "shield-alert", title: "Request cancellation", sub: "Subject to the booking policy" },
-];
-
 const CANCEL_REASONS = ["Emergency", "Booked by mistake", "Change of plans", "Other"];
+
+/** A payment as the guest's page shows it. */
+interface GuestPayment {
+  type: string;
+  method: string;
+  amount: number;
+  reference: string;
+  receivedAt: string;
+}
+
+/** How the guest proved the booking is theirs: the email on it, or the
+ *  signed link the resort sent them. Sent again with every change. */
+interface Proof { email?: string; t?: string }
+
+const PAYMENT_LABEL: Record<string, string> = {
+  Downpayment: "Down payment", Full: "Paid in full", Balance: "Balance", Penalty: "Damage penalty", Refund: "Refund to you",
+};
 
 export function ManageBooking(_props: ManageBookingProps) {
   const { isDark } = useTheme();
   const C = T(isDark);
   const w = useWidth();
   const mob = w < 768;
+  const { bookings: availability, closedDates } = useApp();
 
   const {
     register: registerLookup,
     handleSubmit: submitLookup,
-    watch: watchLookup,
     setValue: setLookupValue,
     formState: { errors: lookupErrors },
   } = useForm<CancelBookingLookup>({
@@ -66,17 +79,20 @@ export function ManageBooking(_props: ManageBookingProps) {
     defaultValues: { reference: "", email: "" },
   });
 
-  const refInput = watchLookup("reference");
-  const emailInput = watchLookup("email");
-
   const [found, setFound] = useState<Booking | null>(null);
+  const [payments, setPayments] = useState<GuestPayment[]>([]);
+  const [dateChanges, setDateChanges] = useState<DateChange[]>([]);
+  const [changesLeft, setChangesLeft] = useState(0);
+  const [today, setToday] = useState("");
+  const [proof, setProof] = useState<Proof>({});
   const [notFound, setNotFound] = useState(false);
-  const [cancelReason, setCancelReason] = useState<string | null>(null);
-  const [cancelDone, setCancelDone] = useState(false);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [searched, setSearched] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [looking, setLooking] = useState(false);
+
+  const [cancelReason, setCancelReason] = useState<string | null>(null);
+  const [cancelDone, setCancelDone] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
@@ -86,28 +102,32 @@ export function ManageBooking(_props: ManageBookingProps) {
   const [requestDone, setRequestDone] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
 
-  // Deep link from the confirmation email: ?booking=SW-10105&email=…
-  useEffect(() => {
-    const q = new URLSearchParams(window.location.search);
-    const ref = q.get("booking");
-    const mail = q.get("email");
-    if (ref) setLookupValue("reference", ref);
-    if (mail) setLookupValue("email", mail);
-  }, [setLookupValue]);
+  // Picking a date: a new date after a resort cancellation, or a date change.
+  const [newDate, setNewDate] = useState("");
+  const [picking, setPicking] = useState(false);
+  const [dateBusy, setDateBusy] = useState(false);
+  const [dateError, setDateError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [showRefundConfirm, setShowRefundConfirm] = useState(false);
 
-  const handleFind = submitLookup(async ({ reference: ref, email: mail }) => {
-    if (looking) return;
+  // ── Find ─────────────────────────────────────────────────────────────
+  const runLookup = useCallback(async (ref: string, p: Proof) => {
     setSearched(true);
-    setCancelDone(false);
     setErrorMsg(null);
-    setAction(null);
-    setRequestDone(false);
     setLooking(true);
     try {
-      const res = await fetch(`/api/bookings/${encodeURIComponent(ref)}?email=${encodeURIComponent(mail)}`, { cache: "no-store" });
+      const qs = new URLSearchParams();
+      if (p.email) qs.set("email", p.email.trim().toLowerCase());
+      if (p.t) qs.set("t", p.t);
+      const res = await fetch(`/api/bookings/${encodeURIComponent(ref)}?${qs}`, { cache: "no-store" });
       const json = await res.json().catch(() => null);
       if (res.ok && json?.booking) {
         setFound(json.booking as Booking);
+        setPayments((json.payments ?? []) as GuestPayment[]);
+        setDateChanges((json.dateChanges ?? []) as DateChange[]);
+        setChangesLeft(Number(json.changesLeft) || 0);
+        setToday(String(json.today ?? ""));
+        setProof(p);
         setNotFound(false);
       } else {
         setFound(null);
@@ -121,22 +141,102 @@ export function ManageBooking(_props: ManageBookingProps) {
     } finally {
       setLooking(false);
     }
+  }, []);
+
+  // Links from the resort: ?booking=SW-10105&email=… (confirmation email)
+  // or ?booking=SW-10105&t=… (a text or notice; opens the booking at once).
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const ref = q.get("booking");
+    const mail = q.get("email");
+    const t = q.get("t");
+    if (ref) setLookupValue("reference", ref);
+    if (mail) setLookupValue("email", mail);
+    if (ref && t) void runLookup(ref, { t });
+  }, [setLookupValue, runLookup]);
+
+  const handleFind = submitLookup(async ({ reference: ref, email: mail }) => {
+    if (looking) return;
+    setCancelDone(false);
+    setAction(null);
+    setRequestDone(false);
+    setNotice(null);
+    await runLookup(ref, { email: mail });
   });
 
-  // Cancels on the server. Previously this only changed the browser's copy,
-  // so the admin never saw the cancellation and the date stayed blocked.
+  const refresh = () => (found ? runLookup(found.id, proof) : Promise.resolve());
+
+  const post = async (path: string, body: Record<string, unknown>) => {
+    const res = await fetch(`/api/bookings/${encodeURIComponent(found!.id)}/${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, email: proof.email, t: proof.t }),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || json?.success === false) throw new Error(json?.error ?? "Something went wrong. Please try again.");
+    return json;
+  };
+
+  // ── After a resort cancellation: a new date, or a refund ─────────────
+  const confirmRebook = async () => {
+    if (!found || !newDate || dateBusy) return;
+    setDateBusy(true);
+    setDateError(null);
+    try {
+      await post("rebook", { date: newDate });
+      setNotice(`Your booking is confirmed for ${fmtDate(newDate)}. We've sent the details to you.`);
+      setPicking(false);
+      setNewDate("");
+      await refresh();
+    } catch (err) {
+      setDateError(err instanceof Error ? err.message : "Could not move your booking.");
+    } finally {
+      setDateBusy(false);
+    }
+  };
+
+  const confirmRefund = async () => {
+    if (!found || dateBusy) return;
+    setDateBusy(true);
+    setDateError(null);
+    try {
+      await post("refund-request", {});
+      setShowRefundConfirm(false);
+      setNotice("Your refund is being arranged. You'll see the reference here when it's sent.");
+      await refresh();
+    } catch (err) {
+      setDateError(err instanceof Error ? err.message : "Could not record your choice.");
+      setShowRefundConfirm(false);
+    } finally {
+      setDateBusy(false);
+    }
+  };
+
+  // ── Guest-requested date change ──────────────────────────────────────
+  const requestDateChange = async () => {
+    if (!found || !newDate || dateBusy) return;
+    setDateBusy(true);
+    setDateError(null);
+    try {
+      await post("date-change", { date: newDate });
+      setNotice(`Request sent. ${fmtDate(newDate)} is held for you for ${HOLD_HOURS} hours while the resort reviews it.`);
+      setAction(null);
+      setNewDate("");
+      await refresh();
+    } catch (err) {
+      setDateError(err instanceof Error ? err.message : "Could not send your request.");
+    } finally {
+      setDateBusy(false);
+    }
+  };
+
+  // ── Cancel ───────────────────────────────────────────────────────────
   const confirmCancel = async () => {
     if (!found || cancelling) return;
     setCancelling(true);
     setCancelError(null);
     try {
-      const res = await fetch(`/api/bookings/${encodeURIComponent(found.id)}/cancel`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: (emailInput ?? "").trim().toLowerCase(), reason: cancelReason ?? "" }),
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.booking) throw new Error(json?.error ?? "Could not cancel the booking.");
+      const json = await post("cancel", { reason: cancelReason ?? "" });
       setFound(json.booking as Booking);
       setCancelDone(true);
       setShowCancelConfirm(false);
@@ -147,14 +247,13 @@ export function ManageBooking(_props: ManageBookingProps) {
     }
   };
 
-  /** Reschedule / detail-change requests ride the customer-service inbox,
-   *  with the reference in the body so staff can find the reservation. */
+  /** Detail corrections ride the customer-service inbox, with the
+   *  reference in the body so staff can find the reservation. */
   const sendRequest = async () => {
     if (!found || requestSending || requestText.trim().length < 10) return;
     setRequestSending(true);
     setRequestError(null);
     try {
-      const kind = action === "reschedule" ? "Schedule change" : "Guest detail update";
       const res = await fetch("/api/customer-service", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -162,7 +261,7 @@ export function ManageBooking(_props: ManageBookingProps) {
           name: found.name,
           email: found.email,
           type: "Inquiry",
-          message: `[${kind} request — booking ${found.id}]\n\n${requestText.trim()}`,
+          message: `[Guest detail update request — booking ${found.id}]\n\n${requestText.trim()}`,
         }),
       });
       const json = await res.json().catch(() => null);
@@ -180,9 +279,14 @@ export function ManageBooking(_props: ManageBookingProps) {
     if (s === "Confirmed") return "#4caf50";
     if (s === "Pending") return "#f5c518";
     if (s === "Cancelled") return "#e55555";
+    if (s === "ResortCancelled") return "#9a7bd0";
     if (s === "Completed") return "#4a9fd4";
     return "#888";
   };
+  const statusLabel = (b: Booking) =>
+    b.status === "ResortCancelled" ? "CANCELLED BY THE RESORT"
+      : b.status === "Pending" ? "BEING REVIEWED"
+        : b.status.toUpperCase();
 
   const card: React.CSSProperties = {
     background: C.bgCard,
@@ -194,14 +298,52 @@ export function ManageBooking(_props: ManageBookingProps) {
 
   const microLabel: React.CSSProperties = { color: C.textS, fontSize: 10.5, letterSpacing: 1.8, margin: "0 0 6px" };
   const eyebrow: React.CSSProperties = { color: C.goldInk, fontSize: 11, letterSpacing: 2.2, fontWeight: 700, margin: 0 };
+  const serif = "'Cormorant Garamond',Georgia,serif";
 
   /* The warning red. The pale pink the cancel controls use is legible on the
      dark card and washes out on the light one, so this follows the theme. */
   const dangerInk = isDark ? "#e8b4b4" : "#a02c2c";
 
   const slotHours = found?.slot ? SLOTS[found.slot as BookingSlot]?.hours : null;
-  const balance = found ? Math.max(0, found.total - found.downpayment) : 0;
-  const closed = found?.status === "Cancelled" || found?.status === "Completed";
+  const paidNet = payments.reduce((s, p) => s + (p.type === "Refund" ? -p.amount : p.type === "Penalty" ? 0 : p.amount), 0);
+  const balance = found ? Math.max(0, found.total - paidNet) : 0;
+  const pendingChange = dateChanges.find((r) => r.status === "Pending" && holdActive(r));
+  const lastDecided = dateChanges.find((r) => r.requestedBy === "Guest" && (r.status === "Declined" || r.status === "Expired"));
+  const lastRefund = [...payments].reverse().find((p) => p.type === "Refund");
+  const choosing = !!found && choiceOpen(found);
+  const canMove = !!found && found.status === "Confirmed" && !found.checkedInAt && !!today && found.date > today;
+  const closed = !!found && (found.status === "Cancelled" || found.status === "Completed" || found.status === "ResortCancelled");
+
+  const actions: { key: ActionKey; icon: IconName; title: string; sub: string; disabled?: string }[] = [
+    {
+      key: "reschedule", icon: "calendar", title: "Change the date", sub: "Pick another free date",
+      disabled: !canMove ? "Only a confirmed booking can be moved, before the day of the visit."
+        : pendingChange ? "You already have a request waiting."
+          : changesLeft <= 0 ? "This booking's date has already been changed once." : undefined,
+    },
+    { key: "details", icon: "message", title: "Update guest details", sub: "Correct your contact information" },
+    { key: "cancel", icon: "shield-alert", title: "Cancel booking", sub: "Subject to the booking policy" },
+  ];
+
+  /** The free-date calendar for this booking's own package and time slot. */
+  const picker = found && (
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "14px 12px" : "18px 20px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
+      <BookingDatePicker
+        bookings={availability}
+        closedDates={closedDates}
+        selectedDate={newDate}
+        onSelectDate={(d) => { setNewDate(d); setDateError(null); }}
+        isDark={isDark}
+        guests={found.guests}
+        resource={getBookingResource(found)}
+        tier={getBookingTier(found)}
+        slot={getBookingSlot(found)}
+      />
+      <p style={{ color: C.textS, fontSize: 12.5, margin: "10px 0 0" }}>
+        Same package and time slot ({SLOTS[getBookingSlot(found)].label}); your payment carries over.
+      </p>
+    </div>
+  );
 
   return (
     <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "40px 16px 64px" : "80px 24px 96px" }}>
@@ -210,87 +352,71 @@ export function ManageBooking(_props: ManageBookingProps) {
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: mob ? 30 : 44 }}>
           <p style={{ ...eyebrow, letterSpacing: 3.4, marginBottom: 14 }}>MANAGE BOOKING</p>
-          <h1 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 32 : 52, color: C.textH, fontWeight: 400, margin: "0 0 12px", lineHeight: 1.1 }}>
+          <h1 style={{ fontFamily: serif, fontSize: mob ? 32 : 52, color: C.textH, fontWeight: 400, margin: "0 0 12px", lineHeight: 1.1 }}>
             Your stay, in one place
           </h1>
           <p style={{ color: C.textS, fontSize: mob ? 14 : 15, lineHeight: 1.7, maxWidth: 560, margin: "0 auto" }}>
-            Find your reservation to review its status, update your details, or request a schedule change.
+            Find your reservation to see its status and payments, change the date, or update your details.
           </p>
         </div>
 
         {/* ── FIND ─────────────────────────────────────────────────────── */}
-        <form onSubmit={handleFind} style={{ ...card, marginBottom: 20 }}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 22 }}>
-            <span
-              aria-hidden="true"
-              style={{ width: 52, height: 52, borderRadius: "50%", background: `${gold}1a`, border: `1px solid ${gold}55`, display: "flex", alignItems: "center", justifyContent: "center", color: C.goldInk, flexShrink: 0 }}
-            >
-              <Icon name="calendar" size={22} strokeWidth={1.6} />
-            </span>
-            <div style={{ minWidth: 0 }}>
-              <p style={{ ...eyebrow, marginBottom: 8 }}>FIND YOUR RESERVATION</p>
-              <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 21 : 26, fontWeight: 400, margin: 0, lineHeight: 1.2 }}>
-                Enter the details from your confirmation email.
-              </h2>
+        {!(found && proof.t) && (
+          <form onSubmit={handleFind} style={{ ...card, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 22 }}>
+              <span
+                aria-hidden="true"
+                style={{ width: 52, height: 52, borderRadius: "50%", background: `${gold}1a`, border: `1px solid ${gold}55`, display: "flex", alignItems: "center", justifyContent: "center", color: C.goldInk, flexShrink: 0 }}
+              >
+                <Icon name="calendar" size={22} strokeWidth={1.6} />
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ ...eyebrow, marginBottom: 8 }}>FIND YOUR RESERVATION</p>
+                <h2 style={{ color: C.textH, fontFamily: serif, fontSize: mob ? 21 : 26, fontWeight: 400, margin: 0, lineHeight: 1.2 }}>
+                  Enter the details from your confirmation.
+                </h2>
+              </div>
             </div>
-          </div>
 
-          {/* The button shares the row on desktop so the whole lookup reads as
-              one action, and stacks on a phone where three across would put
-              every control under 44px. */}
-          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr auto", gap: 14, alignItems: "end" }}>
-            <div>
-              <Label htmlFor="mb-ref" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>
-                BOOKING REFERENCE
-              </Label>
-              <Input
-                id="mb-ref"
-                {...registerLookup("reference")}
-                placeholder="Example: SW-00000"
-                autoComplete="off"
-                aria-invalid={!!lookupErrors.reference}
-              />
+            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr auto", gap: 14, alignItems: "end" }}>
+              <div>
+                <Label htmlFor="mb-ref" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>
+                  BOOKING REFERENCE
+                </Label>
+                <Input id="mb-ref" {...registerLookup("reference")} placeholder="Example: SW-00000" autoComplete="off" aria-invalid={!!lookupErrors.reference} />
+              </div>
+              <div>
+                <Label htmlFor="mb-email" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>
+                  EMAIL ADDRESS
+                </Label>
+                <Input id="mb-email" type="email" {...registerLookup("email")} placeholder="Email used for booking" autoComplete="email" aria-invalid={!!lookupErrors.email} />
+              </div>
+              <button
+                type="submit"
+                disabled={looking}
+                style={{ ...goldBtn, opacity: looking ? 0.5 : 1, cursor: looking ? "wait" : "pointer", whiteSpace: "nowrap" }}
+              >
+                {looking ? "SEARCHING…" : <>FIND BOOKING <span aria-hidden="true">&rarr;</span></>}
+              </button>
             </div>
-            <div>
-              <Label htmlFor="mb-email" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>
-                EMAIL ADDRESS
-              </Label>
-              <Input
-                id="mb-email"
-                type="email"
-                {...registerLookup("email")}
-                placeholder="Email used for booking"
-                autoComplete="email"
-                aria-invalid={!!lookupErrors.email}
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={looking}
-              style={{ ...goldBtn, opacity: looking ? 0.5 : 1, cursor: looking ? "wait" : "pointer", whiteSpace: "nowrap" }}
-            >
-              {looking ? "SEARCHING…" : <>FIND BOOKING <span aria-hidden="true">&rarr;</span></>}
-            </button>
-          </div>
 
-          {/* Pressing Find with an empty box used to do nothing at all — the
-              resolver rejected and no message was shown. */}
-          {(lookupErrors.reference || lookupErrors.email) && (
-            <p style={{ color: "#e07a7a", fontSize: 12.5, margin: "12px 0 0" }}>
-              {lookupErrors.reference?.message ?? lookupErrors.email?.message}
+            {(lookupErrors.reference || lookupErrors.email) && (
+              <p style={{ color: "#e07a7a", fontSize: 12.5, margin: "12px 0 0" }}>
+                {lookupErrors.reference?.message ?? lookupErrors.email?.message}
+              </p>
+            )}
+
+            <p style={{ display: "flex", alignItems: "center", gap: 7, color: C.textS, fontSize: 12, margin: "16px 0 0" }}>
+              <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0 }}><Icon name="lock" size={13} strokeWidth={1.6} /></span>
+              Your reservation information is encrypted and secure.
             </p>
-          )}
-
-          <p style={{ display: "flex", alignItems: "center", gap: 7, color: C.textS, fontSize: 12, margin: "16px 0 0" }}>
-            <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0 }}><Icon name="lock" size={13} strokeWidth={1.6} /></span>
-            Your reservation information is encrypted and secure.
-          </p>
-        </form>
+          </form>
+        )}
 
         {/* ── NOT FOUND ───────────────────────────────────────────────── */}
         {searched && notFound && !looking && (
           <div style={{ ...card, marginBottom: 20, borderColor: "rgba(224,122,122,0.4)" }}>
-            <h3 style={{ color: "#e07a7a", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 21, fontWeight: 400, margin: "0 0 8px" }}>
+            <h3 style={{ color: "#e07a7a", fontFamily: serif, fontSize: 21, fontWeight: 400, margin: "0 0 8px" }}>
               We couldn&rsquo;t find that reservation
             </h3>
             <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: 0 }}>
@@ -309,9 +435,6 @@ export function ManageBooking(_props: ManageBookingProps) {
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "auto 1.4fr repeat(3, minmax(0,1fr)) auto", gap: mob ? 16 : 20, alignItems: "center" }}>
-                {/* A reservation record carries no photograph, so this is a
-                    mark rather than a picture of a room the guest may not
-                    have booked. */}
                 <span
                   aria-hidden="true"
                   style={{ width: 84, height: 62, borderRadius: 10, background: `linear-gradient(135deg, ${gold}26, ${gold}0d)`, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", color: C.goldInk, flexShrink: 0 }}
@@ -321,13 +444,11 @@ export function ManageBooking(_props: ManageBookingProps) {
 
                 <div style={{ minWidth: 0 }}>
                   <p style={microLabel}>PRIVATE RESORT RESERVATION</p>
-                  <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 23, fontWeight: 400, margin: 0, lineHeight: 1.2 }}>
+                  <h3 style={{ color: C.textH, fontFamily: serif, fontSize: 23, fontWeight: 400, margin: 0, lineHeight: 1.2 }}>
                     {found.package || "Resort booking"}
                   </h3>
                 </div>
 
-                {/* "Check-out" would be wrong here: the resort sells day-use
-                    slots, so a booking has one date and a time slot. */}
                 <div>
                   <p style={microLabel}>DATE</p>
                   <p style={{ color: C.textB, fontSize: 13.5, fontWeight: 600, margin: 0 }}>{fmtDate(found.date)}</p>
@@ -348,7 +469,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                     variant="outline"
                     style={{ background: `${statusColor(found.status)}1f`, color: statusColor(found.status), border: `1px solid ${statusColor(found.status)}59`, fontSize: 10.5, letterSpacing: 1.4, padding: "3px 10px", borderRadius: 999 }}
                   >
-                    {found.status.toUpperCase()}
+                    {statusLabel(found)}
                   </Badge>
                 </div>
               </div>
@@ -356,24 +477,135 @@ export function ManageBooking(_props: ManageBookingProps) {
               <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 24, paddingTop: 20, display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4, minmax(0,1fr))", gap: 18 }}>
                 {([
                   ["TOTAL AMOUNT", fmt(found.total)],
-                  ["DEPOSIT PAID", fmt(found.downpayment)],
-                  ["BALANCE ON ARRIVAL", fmt(balance)],
+                  ["PAID SO FAR", fmt(Math.max(0, paidNet))],
+                  [closed ? "BALANCE" : "BALANCE ON ARRIVAL", closed ? "—" : fmt(balance)],
                   ["BOOKED ON", found.createdAt ? new Date(found.createdAt).toLocaleString("en-PH", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—"],
                 ] as const).map(([l, v]) => (
                   <div key={l}>
                     <p style={microLabel}>{l}</p>
-                    <p style={{ color: C.goldInk, fontSize: 17, fontFamily: "'Cormorant Garamond',Georgia,serif", margin: 0, lineHeight: 1.3 }}>{v}</p>
+                    <p style={{ color: C.goldInk, fontSize: 17, fontFamily: serif, margin: 0, lineHeight: 1.3 }}>{v}</p>
                   </div>
                 ))}
               </div>
             </div>
+
+            {notice && (
+              <p role="status" style={{ ...card, padding: "16px 20px", marginBottom: 20, color: "#6ec071", fontSize: 14, lineHeight: 1.6, borderColor: "rgba(110,192,113,0.45)" }}>
+                {notice}
+              </p>
+            )}
+
+            {/* ── THE RESORT CANCELLED: choose a new date or a refund ──────── */}
+            {found.status === "ResortCancelled" && (
+              <div style={{ ...card, marginBottom: 20, borderColor: "#9a7bd077" }}>
+                <p style={{ ...eyebrow, color: "#b49be0", marginBottom: 10 }}>THE RESORT HAD TO CANCEL</p>
+                <h3 style={{ color: C.textH, fontFamily: serif, fontSize: mob ? 22 : 28, fontWeight: 400, margin: "0 0 10px", lineHeight: 1.2 }}>
+                  We&rsquo;re sorry. Choose a new date or a refund.
+                </h3>
+                {found.cancelReason && <p style={{ color: C.textB, fontSize: 14, lineHeight: 1.7, margin: "0 0 10px" }}>{found.cancelReason}</p>}
+                {choosing ? (
+                  <>
+                    <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: "0 0 18px" }}>
+                      {(found.heldAmount ?? 0) > 0 && <>Your {fmt(found.heldAmount ?? 0)} is safe. </>}
+                      Move your booking to any free date at no cost, or ask for a full refund. Please choose by <strong style={{ color: C.textH }}>{fmtDeadline(found.choiceDeadline!)}</strong>; after that we refund you.
+                    </p>
+                    {!picking ? (
+                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                        <button type="button" onClick={() => { setPicking(true); setNewDate(""); setDateError(null); }} style={{ ...goldBtn }}>PICK A NEW DATE</button>
+                        {(found.heldAmount ?? 0) > 0 && (
+                          <button type="button" onClick={() => setShowRefundConfirm(true)} style={{ ...outBtn, color: C.goldInk, minHeight: 48 }}>REQUEST A REFUND</button>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                        {picker}
+                        {dateError && <p style={{ color: "#e07a7a", fontSize: 13, margin: 0 }}>{dateError}</p>}
+                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                          <button type="button" onClick={() => setPicking(false)} style={{ ...outBtn, color: C.goldInk, minHeight: 48 }}>BACK</button>
+                          <button type="button" disabled={!newDate || dateBusy} onClick={() => void confirmRebook()}
+                            style={{ ...goldBtn, opacity: !newDate || dateBusy ? 0.5 : 1, cursor: !newDate ? "not-allowed" : dateBusy ? "wait" : "pointer" }}>
+                            {dateBusy ? "SAVING…" : newDate ? `CONFIRM ${fmtDate(newDate).toUpperCase()}` : "CHOOSE A DATE"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>The time to choose has passed, so your refund is being arranged.</p>
+                )}
+              </div>
+            )}
+
+            {/* ── REFUND ──────────────────────────────────────────────────── */}
+            {found.refundStatus && (
+              <div style={{ ...card, marginBottom: 20, borderColor: found.refundStatus === "Sent" ? "rgba(110,192,113,0.45)" : "#e07a3a66" }}>
+                <p style={{ ...eyebrow, color: found.refundStatus === "Sent" ? "#6ec071" : "#e8a070", marginBottom: 10 }}>
+                  {found.refundStatus === "Sent" ? "REFUND SENT" : "REFUND ON ITS WAY"}
+                </p>
+                {found.refundStatus === "Sent" ? (
+                  <>
+                    <p style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.7, margin: "0 0 6px" }}>
+                      We sent your refund of <strong style={{ color: C.textH }}>{fmt(found.refundAmount ?? 0)}</strong>
+                      {found.refundSentAt ? <> on {new Date(found.refundSentAt).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })}</> : null}
+                      {lastRefund ? <> by {lastRefund.method}{lastRefund.reference ? <>, reference <span style={{ fontFamily: "monospace" }}>{lastRefund.reference}</span></> : null}</> : null}.
+                    </p>
+                    {found.refundReceipt && (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={found.refundReceipt} alt="Refund transfer receipt" style={{ display: "block", marginTop: 12, maxWidth: "100%", maxHeight: 360, borderRadius: 10, border: `1px solid ${C.border}` }} />
+                    )}
+                  </>
+                ) : (
+                  <p style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.7, margin: 0 }}>
+                    The resort owes you <strong style={{ color: C.textH }}>{fmt(found.refundAmount ?? 0)}</strong>. They will send it to you and the reference number will appear here, and you&rsquo;ll get a text when it&rsquo;s sent.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* ── A DATE CHANGE IN PROGRESS, OR JUST ANSWERED ─────────────── */}
+            {pendingChange && (
+              <div style={{ ...card, marginBottom: 20, borderColor: `${gold}66` }}>
+                <p style={{ ...eyebrow, marginBottom: 10 }}>DATE CHANGE REQUESTED</p>
+                <p style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.7, margin: 0 }}>
+                  You asked to move to <strong style={{ color: C.textH }}>{fmtDate(pendingChange.toDate)}</strong>. It&rsquo;s held for you until {fmtDeadline(pendingChange.holdUntil!)} while the resort reviews it. Your booking stays on {fmtDate(found.date)} until then.
+                </p>
+              </div>
+            )}
+            {!pendingChange && lastDecided && found.status === "Confirmed" && (
+              <p style={{ ...card, padding: "16px 20px", marginBottom: 20, color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
+                {lastDecided.status === "Declined"
+                  ? <>The resort couldn&rsquo;t move your booking to {fmtDate(lastDecided.toDate)}.{lastDecided.note ? ` ${lastDecided.note}` : ""}</>
+                  : <>Your request to move to {fmtDate(lastDecided.toDate)} wasn&rsquo;t answered in time, so the date wasn&rsquo;t kept. You can ask again.</>}
+              </p>
+            )}
+
+            {/* ── PAYMENTS ────────────────────────────────────────────────── */}
+            {payments.length > 0 && (
+              <div style={{ ...card, marginBottom: 20 }}>
+                <p style={{ ...eyebrow, marginBottom: 12 }}>PAYMENTS ON THIS BOOKING</p>
+                {payments.map((p, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 0", borderTop: i ? `1px solid ${C.border}` : "none" }}>
+                    <div>
+                      <div style={{ color: C.textH, fontSize: 14 }}>{PAYMENT_LABEL[p.type] ?? p.type} · {p.method === "PayMongo" ? "Online (GCash QR)" : p.method}</div>
+                      <div style={{ color: C.textS, fontSize: 12 }}>
+                        {new Date(p.receivedAt).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })}
+                        {p.reference && p.method !== "PayMongo" ? <> · ref <span style={{ fontFamily: "monospace" }}>{p.reference}</span></> : null}
+                      </div>
+                    </div>
+                    <div style={{ color: p.type === "Refund" ? "#6ec071" : C.textB, fontWeight: 700, fontSize: 14.5, whiteSpace: "nowrap" }}>
+                      {p.type === "Refund" ? "+" : ""}{fmt(p.amount)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* ── ACTIONS ───────────────────────────────────────────── */}
             <div style={card}>
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 20 }}>
                 <div>
                   <p style={{ ...eyebrow, marginBottom: 9 }}>MANAGE YOUR RESERVATION</p>
-                  <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 28, fontWeight: 400, margin: 0, lineHeight: 1.15 }}>
+                  <h3 style={{ color: C.textH, fontFamily: serif, fontSize: mob ? 22 : 28, fontWeight: 400, margin: 0, lineHeight: 1.15 }}>
                     What would you like to do?
                   </h3>
                 </div>
@@ -382,27 +614,32 @@ export function ManageBooking(_props: ManageBookingProps) {
                 </a>
               </div>
 
-              {closed ? (
+              {closed || found.checkedInAt ? (
                 <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: 0 }}>
-                  This reservation is {found.status.toLowerCase()}, so there is nothing left to change. Contact support if you think that is wrong.
+                  {found.status === "ResortCancelled"
+                    ? "Use the choice above: a new date or a refund."
+                    : `This reservation is ${found.checkedInAt && !closed ? "under way" : found.status.toLowerCase()}, so there is nothing left to change here. Contact support if you think that is wrong.`}
                 </p>
               ) : (
                 <>
                   <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, minmax(0,1fr))", gap: 14 }}>
-                    {ACTIONS.map((a) => {
+                    {actions.map((a) => {
                       const on = action === a.key;
                       return (
                         <button
                           key={a.key}
                           type="button"
                           aria-pressed={on}
-                          onClick={() => { setAction(on ? null : a.key); setRequestDone(false); setRequestError(null); }}
+                          disabled={!!a.disabled}
+                          title={a.disabled}
+                          onClick={() => { setAction(on ? null : a.key); setRequestDone(false); setRequestError(null); setNewDate(""); setDateError(null); }}
                           style={{
                             background: on ? `${gold}12` : C.bgCard2,
                             border: `1px solid ${on ? gold : C.border}`,
                             borderRadius: 12,
                             padding: "18px 18px",
-                            cursor: "pointer",
+                            cursor: a.disabled ? "not-allowed" : "pointer",
+                            opacity: a.disabled ? 0.5 : 1,
                             textAlign: "left",
                             transition: "border-color .18s, background .18s",
                           }}
@@ -411,7 +648,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                             <Icon name={a.icon} size={20} strokeWidth={1.6} />
                           </span>
                           <span style={{ display: "block", color: C.textH, fontSize: 14, fontWeight: 700, marginBottom: 5 }}>{a.title}</span>
-                          <span style={{ display: "block", color: C.textS, fontSize: 12, lineHeight: 1.5 }}>{a.sub}</span>
+                          <span style={{ display: "block", color: C.textS, fontSize: 12, lineHeight: 1.5 }}>{a.disabled ?? a.sub}</span>
                         </button>
                       );
                     })}
@@ -419,10 +656,36 @@ export function ManageBooking(_props: ManageBookingProps) {
 
                   {action && <div style={{ borderTop: `1px solid ${C.border}`, margin: "26px 0 22px" }} />}
 
+                  {/* Change the date: pick a free one; the resort approves. */}
+                  {action === "reschedule" && (
+                    <>
+                      <p style={{ ...eyebrow, marginBottom: 10 }}>CHANGE THE DATE</p>
+                      <p style={{ color: C.textS, fontSize: 13, margin: "0 0 14px", lineHeight: 1.6 }}>
+                        Pick a free date. We hold it for you for {HOLD_HOURS} hours while the resort approves the change, and your booking stays on {fmtDate(found.date)} until then. You can change the date once.
+                      </p>
+                      {picker}
+                      {dateError && <p style={{ color: "#e07a7a", fontSize: 13, margin: "12px 0 0" }}>{dateError}</p>}
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+                        <button type="button" disabled={!newDate || dateBusy} onClick={() => void requestDateChange()}
+                          style={{ ...goldBtn, opacity: !newDate || dateBusy ? 0.45 : 1, cursor: !newDate ? "not-allowed" : dateBusy ? "wait" : "pointer" }}>
+                          {dateBusy ? "SENDING…" : newDate ? <>REQUEST {fmtDate(newDate).toUpperCase()} <span aria-hidden="true">&rarr;</span></> : "CHOOSE A DATE"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+
                   {/* Cancellation */}
                   {action === "cancel" && !cancelDone && (
                     <>
-                      <p style={{ ...eyebrow, color: C.goldInk, marginBottom: 10 }}>CANCELLATION REQUEST</p>
+                      <p style={{ ...eyebrow, color: C.goldInk, marginBottom: 10 }}>CANCELLATION</p>
+                      {canMove && changesLeft > 0 && !pendingChange && (
+                        <p style={{ display: "flex", gap: 10, alignItems: "flex-start", border: `1px solid ${gold}66`, borderRadius: 10, padding: "14px 16px", color: C.textB, fontSize: 13, lineHeight: 1.6, margin: "0 0 16px" }}>
+                          <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, flexShrink: 0, marginTop: 2 }}><Icon name="calendar" size={15} strokeWidth={1.6} /></span>
+                          <span>
+                            Can&rsquo;t make it on {fmtDate(found.date)}? You can <button type="button" onClick={() => setAction("reschedule")} style={{ background: "none", border: "none", padding: 0, color: C.goldInk, textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>move it to another date</button> instead, once, and keep what you paid.
+                          </span>
+                        </p>
+                      )}
                       <p style={{ color: C.textS, fontSize: 13, margin: "0 0 16px" }}>
                         Help us understand why your plans changed. This step is optional.
                       </p>
@@ -430,74 +693,31 @@ export function ManageBooking(_props: ManageBookingProps) {
                         {CANCEL_REASONS.map((r) => {
                           const on = cancelReason === r;
                           return (
-                            <button
-                              key={r}
-                              type="button"
-                              aria-pressed={on}
-                              onClick={() => setCancelReason(on ? null : r)}
-                              style={{
-                                minHeight: 48,
-                                borderRadius: 10,
-                                border: `1px solid ${on ? gold : C.border}`,
-                                background: on ? `${gold}12` : C.bgCard2,
-                                color: on ? C.goldInk : C.textB,
-                                fontSize: 13,
-                                cursor: "pointer",
-                                padding: "0 12px",
-                              }}
-                            >
+                            <button key={r} type="button" aria-pressed={on} onClick={() => setCancelReason(on ? null : r)}
+                              style={{ minHeight: 48, borderRadius: 10, border: `1px solid ${on ? gold : C.border}`, background: on ? `${gold}12` : C.bgCard2, color: on ? C.goldInk : C.textB, fontSize: 13, cursor: "pointer", padding: "0 12px" }}>
                               {r}
                             </button>
                           );
                         })}
                       </div>
 
-                      {/* The money consequence, stated before the request is
-                          sent rather than only in the confirm dialog. The
-                          policy itself is not new -- Book Now states it at
-                          checkout ("Payments are non-refundable once
-                          submitted") and the ledger treats a cancelled
-                          booking's deposit as forfeited (lib/finance.ts).
-                          This page was the one place a guest could reach it
-                          without being told. */}
-                      <div
-                        role="note"
-                        style={{ display: "flex", gap: 10, alignItems: "flex-start", border: "1px solid rgba(214,138,138,0.45)", background: "rgba(180,70,70,0.10)", borderRadius: 10, padding: "14px 16px", margin: "0 0 12px" }}
-                      >
-                        {/* A pale pink reads on the dark card and disappears on
-                            the light one, so the red follows the theme rather
-                            than the panel it happens to sit in. */}
+                      <div role="note" style={{ display: "flex", gap: 10, alignItems: "flex-start", border: "1px solid rgba(214,138,138,0.45)", background: "rgba(180,70,70,0.10)", borderRadius: 10, padding: "14px 16px", margin: "0 0 20px" }}>
                         <span aria-hidden="true" style={{ color: dangerInk, lineHeight: 0, flexShrink: 0, marginTop: 2 }}><Icon name="shield-alert" size={15} strokeWidth={1.8} /></span>
                         <span style={{ fontSize: 12.5, lineHeight: 1.6 }}>
-                          <strong style={{ display: "block", color: dangerInk, fontSize: 13, letterSpacing: 0.3, marginBottom: 3 }}>
-                            No refunds
-                          </strong>
+                          <strong style={{ display: "block", color: dangerInk, fontSize: 13, letterSpacing: 0.3, marginBottom: 3 }}>No refunds when you cancel</strong>
                           <span style={{ color: C.textS }}>
-                            {found.paymentProof
-                              ? <>The {fmt(found.downpayment)} already paid on this booking is not returned if you cancel, and it cannot be moved to another date.</>
-                              : <>Anything already paid on this booking is not returned if you cancel, and it cannot be moved to another date.</>}
-                            {" "}The resort may make an exception, but only it can decide that.
+                            {paidNet > 0 ? <>The {fmt(paidNet)} already paid on this booking is not returned if you cancel.</> : <>Anything paid on this booking is not returned if you cancel.</>}
+                            {" "}If the resort ever has to cancel, you choose a new date or a full refund.
                           </span>
                         </span>
                       </div>
 
-                      <p style={{ display: "flex", gap: 9, alignItems: "flex-start", border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", color: C.textS, fontSize: 12.5, lineHeight: 1.6, margin: "0 0 20px" }}>
-                        <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, flexShrink: 0, marginTop: 1 }}><Icon name="shield-alert" size={14} strokeWidth={1.6} /></span>
-                        Submitting a request does not immediately cancel your stay. The resort will review your eligibility and contact you by email.
-                      </p>
-
-                      {cancelError && (
-                        <p style={{ color: "#e07a7a", fontSize: 13, margin: "0 0 14px" }}>{cancelError}</p>
-                      )}
+                      {cancelError && <p style={{ color: "#e07a7a", fontSize: 13, margin: "0 0 14px" }}>{cancelError}</p>}
 
                       <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                        <button
-                          type="button"
-                          onClick={() => setShowCancelConfirm(true)}
-                          disabled={cancelling}
-                          style={{ minHeight: 48, borderRadius: 8, padding: "0 24px", border: "1px solid rgba(214,138,138,0.5)", background: "rgba(180,70,70,0.18)", color: "#e8b4b4", fontSize: 12.5, fontWeight: 700, letterSpacing: 1.4, cursor: cancelling ? "wait" : "pointer", opacity: cancelling ? 0.6 : 1 }}
-                        >
-                          SUBMIT CANCELLATION REQUEST <span aria-hidden="true">&rarr;</span>
+                        <button type="button" onClick={() => setShowCancelConfirm(true)} disabled={cancelling}
+                          style={{ minHeight: 48, borderRadius: 8, padding: "0 24px", border: "1px solid rgba(214,138,138,0.5)", background: "rgba(180,70,70,0.18)", color: "#e8b4b4", fontSize: 12.5, fontWeight: 700, letterSpacing: 1.4, cursor: cancelling ? "wait" : "pointer", opacity: cancelling ? 0.6 : 1 }}>
+                          CANCEL MY BOOKING <span aria-hidden="true">&rarr;</span>
                         </button>
                       </div>
                     </>
@@ -505,49 +725,31 @@ export function ManageBooking(_props: ManageBookingProps) {
 
                   {action === "cancel" && cancelDone && (
                     <p style={{ color: "#6ec071", fontSize: 14, margin: 0, lineHeight: 1.7 }}>
-                      Your cancellation has been recorded and the resort will email you to confirm. Payments already made are not refunded unless the resort approves an exception.
+                      Your booking has been cancelled. Payments already made are not refunded.
                     </p>
                   )}
 
-                  {/* Reschedule / detail change — both are messages to staff. */}
-                  {(action === "reschedule" || action === "details") && (
+                  {/* Detail change: a message to the resort. */}
+                  {action === "details" && (
                     <>
-                      <p style={{ ...eyebrow, marginBottom: 10 }}>
-                        {action === "reschedule" ? "SCHEDULE CHANGE REQUEST" : "GUEST DETAIL UPDATE"}
-                      </p>
+                      <p style={{ ...eyebrow, marginBottom: 10 }}>GUEST DETAIL UPDATE</p>
                       <p style={{ color: C.textS, fontSize: 13, margin: "0 0 14px" }}>
-                        {action === "reschedule"
-                          ? "Tell us the date you would prefer. Changes depend on what is still open on that day."
-                          : "Tell us what needs correcting — a name, a phone number or an email address."}
+                        Tell us what needs correcting: a name, a phone number or an email address.
                       </p>
 
                       {requestDone ? (
                         <p style={{ color: "#6ec071", fontSize: 14, margin: 0, lineHeight: 1.7 }}>
-                          Request sent. The resort will reply to {found.email}.
+                          Request sent. The resort will get back to you.
                         </p>
                       ) : (
                         <>
                           <Label htmlFor="mb-request" className="sr-only">Your request</Label>
-                          <Textarea
-                            id="mb-request"
-                            value={requestText}
-                            onChange={(e) => setRequestText(e.target.value)}
-                            rows={4}
-                            maxLength={2000}
-                            placeholder={action === "reschedule" ? "For example: I'd like to move this to 4 October, Day Tour if possible." : "For example: my contact number should be 0917 000 0000."}
-                          />
+                          <Textarea id="mb-request" value={requestText} onChange={(e) => setRequestText(e.target.value)} rows={4} maxLength={2000}
+                            placeholder="For example: my contact number should be 0917 000 0000." />
                           {requestError && <p style={{ color: "#e07a7a", fontSize: 13, margin: "12px 0 0" }}>{requestError}</p>}
-                          <p style={{ display: "flex", gap: 9, alignItems: "flex-start", border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", color: C.textS, fontSize: 12.5, lineHeight: 1.6, margin: "16px 0 20px" }}>
-                            <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, flexShrink: 0, marginTop: 1 }}><Icon name="shield-alert" size={14} strokeWidth={1.6} /></span>
-                            Submitting a request does not change your booking. The resort will review it and contact you by email.
-                          </p>
-                          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                            <button
-                              type="button"
-                              onClick={() => void sendRequest()}
-                              disabled={requestSending || requestText.trim().length < 10}
-                              style={{ ...goldBtn, opacity: requestSending || requestText.trim().length < 10 ? 0.45 : 1, cursor: requestSending ? "wait" : requestText.trim().length < 10 ? "not-allowed" : "pointer" }}
-                            >
+                          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+                            <button type="button" onClick={() => void sendRequest()} disabled={requestSending || requestText.trim().length < 10}
+                              style={{ ...goldBtn, opacity: requestSending || requestText.trim().length < 10 ? 0.45 : 1, cursor: requestSending ? "wait" : requestText.trim().length < 10 ? "not-allowed" : "pointer" }}>
                               {requestSending ? "SENDING…" : <>SEND REQUEST <span aria-hidden="true">&rarr;</span></>}
                             </button>
                           </div>
@@ -560,7 +762,7 @@ export function ManageBooking(_props: ManageBookingProps) {
             </div>
 
             <p style={{ color: C.textS, fontSize: 12, textAlign: "center", margin: "22px auto 0", maxWidth: 620, lineHeight: 1.6 }}>
-              Payments are non-refundable unless the resort confirms an exception. Schedule changes remain subject to availability.
+              If the resort has to cancel, you choose a free new date or a full refund. If you cancel, payments aren&rsquo;t refunded, but you can move your booking to another date once.
             </p>
           </>
         )}
@@ -570,22 +772,38 @@ export function ManageBooking(_props: ManageBookingProps) {
       <AlertDialog open={showCancelConfirm} onOpenChange={(open) => { if (!open) setShowCancelConfirm(false); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 24, fontWeight: 400 }}>
+            <AlertDialogTitle style={{ color: C.textH, fontFamily: serif, fontSize: 24, fontWeight: 400 }}>
               Cancel this reservation?
             </AlertDialogTitle>
             <AlertDialogDescription style={{ color: C.textS, fontSize: 14, lineHeight: 1.7 }}>
-              Booking {found?.id} for {found ? fmtDate(found.date) : ""} will be cancelled. Payments already made are
-              non-refundable unless the resort confirms an exception.
+              Booking {found?.id} for {found ? fmtDate(found.date) : ""} will be cancelled. Payments already made are not refunded.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel style={{ ...outBtn, color: C.goldInk, minHeight: 48 }}>KEEP MY BOOKING</AlertDialogCancel>
-            <Button
-              onClick={() => void confirmCancel()}
-              disabled={cancelling}
-              style={{ minHeight: 48, border: "1px solid rgba(214,138,138,0.5)", background: "rgba(180,70,70,0.22)", color: "#f0c9c9", fontSize: 12.5, fontWeight: 700, letterSpacing: 1.4 }}
-            >
+            <Button onClick={() => void confirmCancel()} disabled={cancelling}
+              style={{ minHeight: 48, border: "1px solid rgba(214,138,138,0.5)", background: "rgba(180,70,70,0.22)", color: "#f0c9c9", fontSize: 12.5, fontWeight: 700, letterSpacing: 1.4 }}>
               {cancelling ? "CANCELLING…" : "YES, CANCEL IT"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Refund instead of a new date, after a resort cancellation. */}
+      <AlertDialog open={showRefundConfirm} onOpenChange={(open) => { if (!open) setShowRefundConfirm(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle style={{ color: C.textH, fontFamily: serif, fontSize: 24, fontWeight: 400 }}>
+              Request a refund?
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ color: C.textS, fontSize: 14, lineHeight: 1.7 }}>
+              Your booking {found?.id} stays cancelled and the resort refunds you {fmt(found?.heldAmount ?? 0)}. You&rsquo;ll see the reference here once it&rsquo;s sent.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel style={{ ...outBtn, color: C.goldInk, minHeight: 48 }}>GO BACK</AlertDialogCancel>
+            <Button onClick={() => void confirmRefund()} disabled={dateBusy} style={{ ...goldBtn, minHeight: 48 }}>
+              {dateBusy ? "SAVING…" : "YES, REFUND ME"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

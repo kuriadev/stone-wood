@@ -5,6 +5,13 @@
 // visible in the ledger with the reason, which is what makes the record
 // trustworthy for the owner (and defensible to anyone auditing it).
 //
+// A Refund on a booking whose refund is OWED (the resort cancelled and the
+// guest chose a refund, or didn't choose in time) completes that refund
+// once the full amount is sent: the booking shows "Refund sent" with the
+// date, reference and an optional receipt photo (`receipt`, a data URL) on
+// the guest's own page, and the guest is emailed. The response carries the
+// text message and link for "Text the guest".
+//
 // Every amount is checked against the booking's real balance, loaded here
 // from the database: a balance payment cannot exceed what is still owed, a
 // penalty payment cannot exceed the unpaid penalty, and a refund cannot
@@ -15,7 +22,12 @@ import { getSupabaseAdmin, rowToPayment } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import { loadBookingLedger } from "@/lib/ledger.server";
 import { parseAmount, cleanText } from "@/lib/money";
-import { fmt } from "@/lib/utils";
+import { fmt, fmtDate } from "@/lib/utils";
+import { logActivity } from "@/lib/activity.server";
+import { guestLinkFor } from "@/lib/rebooking.server";
+import { notices } from "@/lib/notices";
+import { buildNoticeEmail } from "@/lib/emailTemplate";
+import { trySendMail } from "@/lib/mailer";
 import { MANUAL_METHODS, type PaymentType } from "@/types/finance";
 import type { PaymentRow } from "@/types/database";
 
@@ -57,7 +69,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: `Only ${fmt(money.paid)} has been paid, so that is the most that can be refunded.` }, { status: 409 });
       }
     } else {
-      if (booking.status === "Cancelled") {
+      if (booking.status === "Cancelled" || booking.status === "ResortCancelled") {
         return NextResponse.json({ success: false, error: "This booking is cancelled. Nothing more is owed on it." }, { status: 409 });
       }
       if (amount > money.balance) {
@@ -90,7 +102,54 @@ export async function POST(req: NextRequest) {
         .eq("id", booking.id).eq("status", "Pending");
     }
 
-    return NextResponse.json({ success: true, payment: rowToPayment(data as PaymentRow) }, { status: 201 });
+    // A group already checked out that pays off the rest here (from Sales →
+    // Receivables or Bookings) is done: complete it, as Settle would have,
+    // rather than leave it under "To settle" with nothing owed.
+    let completed = false;
+    if (booking.status === "Confirmed" && booking.checkedOutAt && type !== "Refund") {
+      const after = await loadBookingLedger(booking.id);
+      if (after && after.money.due <= 0) {
+        const done = await getSupabaseAdmin().from("bookings")
+          .update({ status: "Completed", payment_proof: true, settled_at: new Date().toISOString(), settlement_note: "" })
+          .eq("id", booking.id).eq("status", "Confirmed").select("id").maybeSingle();
+        completed = !!done.data;
+      }
+    }
+
+    // ── A refund the resort owed ───────────────────────────────────
+    const reference = cleanText(body.reference, 80);
+    let refundDone = false;
+    let guestLink: string | undefined;
+    let sms: string | undefined;
+    if (type === "Refund" && booking.refundStatus === "Owed") {
+      const after = await loadBookingLedger(booking.id);
+      const refunded = (after?.payments ?? []).filter((p) => p.type === "Refund" && !p.voided).reduce((s, p) => s + p.amount, 0);
+      const receipt = typeof body.receipt === "string" && /^data:image\/(png|jpe?g|webp);base64,/.test(body.receipt) && body.receipt.length <= 2_000_000
+        ? body.receipt : null;
+      refundDone = refunded >= (booking.refundAmount ?? 0);
+      const patch: Record<string, unknown> = {};
+      if (refundDone) Object.assign(patch, { refund_status: "Sent", refund_sent_at: new Date().toISOString() });
+      if (receipt) patch.refund_receipt = receipt;
+      if (Object.keys(patch).length) await getSupabaseAdmin().from("bookings").update(patch).eq("id", booking.id);
+      if (refundDone) {
+        guestLink = guestLinkFor(booking);
+        const n = notices.refundSent(booking, refunded, method, reference, guestLink);
+        sms = n.sms;
+        if (booking.email) await trySendMail({ to: booking.email, ...buildNoticeEmail(n.email) }, `refund-sent ${booking.id}`);
+      }
+    }
+
+    await logActivity({
+      actor: "Admin",
+      action: type === "Refund" ? (refundDone ? "refund.sent" : "payment.refund") : "payment.recorded",
+      bookingId: booking.id, entity: "payment", entityId: (data as PaymentRow).id,
+      summary: type === "Refund"
+        ? `Refunded ${fmt(amount)} to ${booking.name} (${booking.id}) by ${method}${reference ? `, ref ${reference}` : ""}.${refundDone ? " The refund owed is now fully sent." : ""}`
+        : `Recorded ${fmt(amount)} ${type.toLowerCase()} from ${booking.name} (${booking.id}, ${fmtDate(booking.date)}) by ${method}${reference ? `, ref ${reference}` : ""}.${completed ? " Nothing is owed now, so the booking is completed." : ""}`,
+      details: { type, method, amount, reference, completed },
+    });
+
+    return NextResponse.json({ success: true, payment: rowToPayment(data as PaymentRow), completed, refundDone, guestLink, sms }, { status: 201 });
   } catch (err) {
     console.error("[/api/payments POST]", err);
     return NextResponse.json({ success: false, error: "Could not record the payment." }, { status: 500 });
@@ -115,7 +174,13 @@ export async function PATCH(req: NextRequest) {
       .select().maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) return NextResponse.json({ success: false, error: "That payment is already voided or does not exist." }, { status: 409 });
-    return NextResponse.json({ success: true, payment: rowToPayment(data as PaymentRow) });
+    const p = rowToPayment(data as PaymentRow);
+    await logActivity({
+      actor: "Admin", action: "payment.voided", bookingId: p.bookingId ?? null, entity: "payment", entityId: p.id,
+      summary: `Voided a ${fmt(p.amount)} ${p.type.toLowerCase()} (${p.method}) from ${p.guestName || "a guest"}. Reason: ${reason}`,
+      details: { amount: p.amount, type: p.type, method: p.method, reference: p.reference, reason },
+    });
+    return NextResponse.json({ success: true, payment: p });
   } catch (err) {
     console.error("[/api/payments PATCH]", err);
     return NextResponse.json({ success: false, error: "Could not void the payment." }, { status: 500 });

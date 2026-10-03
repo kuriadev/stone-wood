@@ -1,7 +1,7 @@
 // ── Sales calculations
 //
 // One place that decides what "collected", "balance" and "penalty due"
-// mean. The Dashboard, Sales, Bookings, Facilities and Reports all call
+// mean. Daily Operations, Sales, Bookings, Facilities and Reports all call
 // these, so the same booking can never show two different balances on two
 // screens. Pure functions, no React: safe on the server too.
 
@@ -46,8 +46,10 @@ const STAY_TYPES = new Set(["Downpayment", "Balance", "Full", "Refund"]);
 export interface BookingMoney {
   /** Net paid toward the stay (downpayment + balance + full − refunds). */
   paid: number;
-  /** Still owed on the stay. Zero for a cancelled booking: its downpayment
-   *  is forfeited under the no-refund policy, and nothing more is owed. */
+  /** Still owed on the stay. Zero for a cancelled booking: nothing more is
+   *  owed on it. What was paid is either kept (the no-refund policy, when
+   *  the guest cancels or doesn't show) or refunded (when the resort had to
+   *  cancel), and the state says which. */
   balance: number;
   /** Total of recorded damage penalties. */
   penaltyTotal: number;
@@ -55,7 +57,10 @@ export interface BookingMoney {
   penaltyDue: number;
   /** balance + penaltyDue: what the guest still has to hand over. */
   due: number;
-  state: "Paid in full" | "Partially paid" | "Unpaid" | "Forfeited";
+  /** "Held for guest": the resort cancelled and the guest is choosing a new
+   *  date or a refund. "Refund owed": they chose (or ran out of time for)
+   *  a refund that hasn't been sent yet. */
+  state: "Paid in full" | "Partially paid" | "Unpaid" | "Forfeited" | "Refunded" | "Held for guest" | "Refund owed";
 }
 
 export function bookingMoney(
@@ -68,12 +73,14 @@ export function bookingMoney(
   const penaltyPaid = mine.filter((p) => p.type === "Penalty").reduce((s, p) => s + p.amount, 0);
   const penaltyTotal = liveDamages(damages).filter((d) => d.bookingId === b.id).reduce((s, d) => s + d.amount, 0);
 
-  const cancelled = b.status === "Cancelled";
+  const cancelled = b.status === "Cancelled" || b.status === "ResortCancelled";
   const balance = cancelled ? 0 : Math.max(0, round2(b.total - paid));
   const penaltyDue = Math.max(0, round2(penaltyTotal - penaltyPaid));
 
   let state: BookingMoney["state"];
-  if (cancelled) state = paid > 0 ? "Forfeited" : "Unpaid";
+  if (b.status === "ResortCancelled") state = "Held for guest";
+  else if (cancelled && b.refundStatus === "Owed") state = "Refund owed";
+  else if (cancelled) state = paid > 0 ? "Forfeited" : mine.some((p) => p.type === "Refund") ? "Refunded" : "Unpaid";
   else if (balance <= 0) state = "Paid in full";
   else if (paid > 0) state = "Partially paid";
   else state = "Unpaid";

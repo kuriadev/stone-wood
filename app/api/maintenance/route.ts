@@ -6,6 +6,7 @@
 // about to be shown. Nothing here is sensitive.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import { maintenanceInput, parseInput } from "@/lib/schemas";
@@ -88,6 +89,11 @@ export async function PATCH(req: NextRequest) {
         { status: 500 },
       );
     }
+    await logActivity({
+      actor: "Admin", action: "site.maintenance", entity: "site_settings", entityId: 1,
+      summary: b.active ? `Closed the public website for maintenance (${b.reason}).` : "Opened the public website again.",
+      details: { active: b.active, reason: b.reason, message: b.message },
+    });
     return NextResponse.json({ success: true, maintenance: toState(data as SiteSettingsRow) });
   } catch (err) {
     console.error("[/api/maintenance PATCH]", err);

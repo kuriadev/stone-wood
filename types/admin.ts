@@ -4,7 +4,8 @@
 // them any more.
 
 export type AdminTab =
-  | "Dashboard"
+  | "Operations"
+  | "Activity"
   | "Bookings"
   | "Occupancy"
   | "Rooms"

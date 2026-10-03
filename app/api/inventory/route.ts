@@ -8,6 +8,7 @@
 // and write here goes through the service role behind the admin session.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server";
 import { getSupabaseAdmin, rowToInventoryItem } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import { inventoryItemInput, inventoryItemPatch, parseInput } from "@/lib/schemas";
@@ -47,6 +48,8 @@ export async function POST(req: NextRequest) {
     }).select().single();
 
     if (error) throw new Error(error.message);
+    const added = data as InventoryRow;
+    await logActivity({ actor: "Admin", action: "inventory.added", entity: "inventory", entityId: added.id, summary: `Added "${added.name}" to inventory (${added.qty} ${added.unit}).` });
     return NextResponse.json({ success: true, item: rowToInventoryItem(data as InventoryRow) }, { status: 201 });
   } catch (err) {
     console.error("[/api/inventory POST]", err);
@@ -81,10 +84,15 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Nothing to update." }, { status: 400 });
     }
 
+    const prev = await loadRow("inventory", id);
     const { data, error } = await getSupabaseAdmin()
       .from("inventory").update(patch).eq("id", id).select().maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) return NextResponse.json({ success: false, error: "Item not found." }, { status: 404 });
+    const diff = changes(prev, data as Record<string, unknown>);
+    if (Object.keys(diff).length) {
+      await logActivity({ actor: "Admin", action: "inventory.updated", entity: "inventory", entityId: id, summary: `Updated "${(data as InventoryRow).name}" in inventory: ${listFields(diff)}.`, details: { changes: diff } });
+    }
 
     return NextResponse.json({ success: true, item: rowToInventoryItem(data as InventoryRow) });
   } catch (err) {
@@ -111,6 +119,7 @@ export async function DELETE(req: NextRequest) {
 
     if (error) throw new Error(error.message);
     if (!data) return NextResponse.json({ success: false, error: "Item not found." }, { status: 404 });
+    await logActivity({ actor: "Admin", action: "inventory.removed", entity: "inventory", entityId: id, summary: `Removed "${(data as InventoryRow).name}" from inventory.` });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[/api/inventory DELETE]", err);

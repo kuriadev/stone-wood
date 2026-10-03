@@ -12,6 +12,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { startOfToday, toDateStr } from "@/lib/validators";
+import { heldBookings } from "@/lib/rebooking.server";
 import type { BookingResource, BookingSlot, BookingStatus, BookingTier } from "@/types/booking";
 import type { FacilityStatus } from "@/types/facility";
 
@@ -66,20 +67,26 @@ export async function GET(req: NextRequest) {
       db
         .from("bookings")
         .select("date, guests, status, rooms, resource, tier, slot, overtime, package")
-        .neq("status", "Cancelled")
+        .not("status", "in", "(Cancelled,ResortCancelled)")
         .gte("date", toDateStr(from))
         .order("date"),
       // Column list, not select("*"): the omitted columns are staff-only and
       // one of them holds a past guest's name.
       db.from("facilities").select("id, category, name, status, room_id").order("id"),
     ]);
+    // Dates held for a guest's pending date change count as booked, so the
+    // calendar never offers a date someone is already waiting on.
+    const holds = (await heldBookings({ fromDate: toDateStr(from) })).map((b) => ({
+      date: b.date, guests: b.guests, status: b.status, rooms: b.rooms, resource: b.resource ?? null,
+      tier: b.tier ?? null, slot: b.slot ?? null, overtime: b.overtime, package: b.package,
+    }));
 
     if (bookingsRes.error) throw new Error(bookingsRes.error.message);
     if (facilitiesRes.error) throw new Error(facilitiesRes.error.message);
 
     return NextResponse.json({
       success: true,
-      slots: (bookingsRes.data ?? []) as AvailabilitySlot[],
+      slots: [...((bookingsRes.data ?? []) as AvailabilitySlot[]), ...(holds as AvailabilitySlot[])],
       // Lets a guest see that a room is Under Maintenance. Without it their
       // copy of the facility list was the hardcoded INIT_FACILITIES, where
       // everything is "Available" — so a room pulled out of circulation in

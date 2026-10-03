@@ -1,6 +1,12 @@
 /** "Pending" = received, waiting for the admin to accept (was "Paid" before
  *  the sales module: that word now only ever means money actually received). */
-export type BookingStatus = "Pending" | "Confirmed" | "Completed" | "Cancelled";
+/** "ResortCancelled": the resort couldn't host the booking. The date is
+ *  freed, the payment stays with the booking, and the guest has until
+ *  `choiceDeadline` to pick a new date or ask for a refund. */
+export type BookingStatus = "Pending" | "Confirmed" | "Completed" | "Cancelled" | "ResortCancelled";
+
+/** A refund the resort owes, then has sent. */
+export type RefundStatus = "Owed" | "Sent";
 export type BookingPackage =
   | "Day Tour"
   | "Day Tour + Room"
@@ -96,6 +102,28 @@ export interface Booking {
   slot?: BookingSlot;
   /** "HH:MM", walk-ins only. */
   arrivalTime?: string;
+  /** Day-of steps, recorded from the Operations screen (ISO timestamps).
+   *  Checked in → the group arrived. Checked out → the after-use
+   *  inspection is done. Settled → the per-booking liquidation is done and
+   *  the booking is Completed. */
+  checkedInAt?: string;
+  checkedOutAt?: string;
+  settledAt?: string;
+  /** Why a booking was settled with money still owed. */
+  settlementNote?: string;
+  /** When the booking was confirmed / cancelled (ISO). */
+  confirmedAt?: string;
+  cancelledAt?: string;
+  /** ResortCancelled only: the guest's last day to choose, and the money
+   *  held for them meanwhile. */
+  choiceDeadline?: string;
+  heldAmount?: number;
+  /** The refund trail, when the resort owes or has sent a refund. */
+  refundStatus?: RefundStatus;
+  refundAmount?: number;
+  refundSentAt?: string;
+  /** A photo of the transfer receipt (data URL). */
+  refundReceipt?: string;
   /** Client → server only, on a walk-in create: the money taken at the desk
    *  as the booking was encoded. The server records it in the payments
    *  ledger; it is never stored on the booking itself. */

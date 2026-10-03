@@ -10,9 +10,19 @@
 // status, source, slot and a date range, and work in the Archived view too.
 // Each row shows what has actually been paid (from the payments ledger), and
 // the details window lists every payment with a button to record another.
+//
+// A confirmed booking whose day has come is completed from here as well as
+// from Daily Operations, through the same window: Complete inspects the
+// facilities (Facility Management) and collects the rest of the bill
+// (Sales) in one step, so "Completed" always means paid and inspected.
+//
+// "Cancel (resort can't host)" is the one way the resort turns a booking
+// down, any time before check-in. The guest then picks a new date or a
+// refund; the details window follows that through (waiting for the guest,
+// refund owed → sent), along with any date change the guest asked for and
+// the booking's full history.
 
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { NativeSelect } from "@/components/ui/native-select";
 import { useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
@@ -29,22 +39,28 @@ import { gold } from "@/lib/styles";
 import { Icon } from "@/components/common/Icon";
 import { WalkInModal } from "@/components/admin/WalkInModal";
 import { RecordPaymentModal } from "@/components/admin/RecordPaymentModal";
-import { CheckoutModal } from "@/components/admin/InspectionModals";
+import { LiveStatus } from "@/components/admin/LiveStatus";
+import { CheckoutModal, SettleModal } from "@/components/admin/InspectionModals";
+import { ResortCancelDialog, type UpdateStatus } from "@/components/admin/ResortCancelDialog";
+import { RefundModal } from "@/components/admin/RefundModal";
+import { DateChangeReview } from "@/components/admin/DateChangeReview";
+import { BookingHistory } from "@/components/admin/BookingHistory";
+import { choiceOpen, fmtDeadline, holdActive, withHolds } from "@/lib/rebooking";
 import {
-  PageHead, TableShell, td, Btn, Pill, Modal, Label, Line, useAdminStyle, STATUS_COLOR, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewTabs,
+  PageHead, TableShell, td, Btn, Pill, Modal, Line, useAdminStyle, STATUS_COLOR, STATUS_LABEL, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewTabs,
 } from "@/components/admin/ui";
 
 interface BookingsTabProps {
   bookings: Booking[];
   setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
-  updateStatus: (id: string, status: string, reason?: string) => void;
+  updateStatus: UpdateStatus;
   mob: boolean;
   rooms: Room[];
   packages: ResortPackage[];
   facilities: Facility[];
 }
 
-const STATUSES = ["All", "Pending", "Confirmed", "Completed", "Cancelled"] as const;
+const STATUSES = ["All", "Pending", "Confirmed", "Completed", "ResortCancelled", "Cancelled"] as const;
 
 export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, packages, facilities }: BookingsTabProps) {
   const { C, rowBg, cBr, soft, inp } = useAdminStyle();
@@ -62,10 +78,22 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
   const [walkIn, setWalkIn] = useState(false);
   const [viewId, setViewId] = useState<string | null>(null);
   const [payFor, setPayFor] = useState<string | null>(null);
-  const [checkout, setCheckout] = useState<Booking | null>(null);
-  const [confirm, setConfirm] = useState<{ b: Booking; action: "Confirmed" | "Cancelled" } | null>(null);
-  const [reason, setReason] = useState("");
+  const [confirm, setConfirm] = useState<Booking | null>(null);
+  /** "Cancel (resort can't host)", for a pending or a confirmed booking. */
+  const [turnDown, setTurnDown] = useState<Booking | null>(null);
+  const [refundFor, setRefundFor] = useState<Booking | null>(null);
+  const [reviewReq, setReviewReq] = useState<number | null>(null);
+  const reviewing = reviewReq === null ? null : ops.dateChanges.find((r) => r.id === reviewReq) ?? null;
   const [archiveOf, setArchiveOf] = useState<Booking | null>(null);
+  /** Finishing a stay: "complete" inspects and collects; "settle" collects
+   *  the rest from a group already checked out. */
+  const [finish, setFinish] = useState<{ kind: "complete" | "settle"; id: string } | null>(null);
+  const today = manilaDate();
+  /** The finishing step a booking is ready for, if any. */
+  const finishStep = (b: Booking): "complete" | "settle" | null =>
+    b.archived || b.status !== "Confirmed" ? null
+      : b.checkedOutAt ? "settle"
+        : b.date <= today ? "complete" : null;
 
   const q = search.toLowerCase().trim();
   const pool = bookings.filter((b) => (bView === "archived" ? !!b.archived : !b.archived));
@@ -84,19 +112,11 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
 
   const viewing = bookings.find((b) => b.id === viewId) ?? null;
 
-  const act = () => {
+  const accept = () => {
     if (!confirm) return;
-    const { b, action } = confirm;
-    if (action === "Cancelled") {
-      const why = reason.trim() || "Your booking did not meet our current availability or requirements.";
-      updateStatus(b.id, "Cancelled", why);
-      setBookings((bs) => bs.map((x) => x.id === b.id ? { ...x, cancelReason: why } : x));
-      toast(`Booking ${b.id} rejected.`, "warning");
-    } else {
-      updateStatus(b.id, "Confirmed");
-      toast(`Booking accepted for ${b.name}.`, "success");
-    }
-    setConfirm(null); setReason("");
+    updateStatus(confirm.id, "Confirmed");
+    toast(`Booking accepted for ${confirm.name}.`, "success");
+    setConfirm(null);
   };
 
   const sel = { ...inp, padding: "8px 10px", width: "auto" } as const;
@@ -114,7 +134,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
           return (
             <button key={s} type="button" onClick={() => setStatus(s)} aria-pressed={on}
               style={{ padding: "7px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 20, cursor: "pointer", background: on ? `${col}1c` : "transparent", color: on ? col : C.textS, border: `1px solid ${on ? col + "77" : cBr}` }}>
-              {s} ({n})
+              {s === "All" ? s : STATUS_LABEL[s] ?? s} ({n})
             </button>
           );
         })}
@@ -154,17 +174,28 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
               <Cell style={{ ...td, color: C.textH, fontWeight: 600, whiteSpace: "nowrap" }}>{fmt(b.total)}</Cell>
               <Cell style={{ ...td, whiteSpace: "nowrap" }}>
                 <span style={{ color: C.textB }}>{fmt(m.paid)}</span>
-                <div><span style={{ color: MONEY_COLOR[m.state], fontSize: 11.5 }}>{m.state}{m.due > 0 && b.status !== "Cancelled" ? ` · ${fmt(m.due)} owed` : ""}</span></div>
+                <div><span style={{ color: MONEY_COLOR[m.state], fontSize: 11.5 }}>{m.state}{m.due > 0 && b.status !== "Cancelled" ? ` · ${fmt(m.due)} owed` : ""}{b.refundStatus === "Owed" ? ` · ${fmt(b.refundAmount ?? 0)}` : ""}</span></div>
               </Cell>
-              <Cell style={td}><Pill color={STATUS_COLOR[b.status]}>{b.status}</Pill></Cell>
+              <Cell style={td}>
+                <Pill color={STATUS_COLOR[b.status]}>{STATUS_LABEL[b.status] ?? b.status}</Pill>
+                {ops.dateChanges.some((r) => r.bookingId === b.id && r.status === "Pending") && (
+                  <div style={{ color: "#d4a800", fontSize: 11.5, marginTop: 3 }}>Asks to change date</div>
+                )}
+                {/* Where the day-of work stands; it is done in Daily Operations. */}
+                {b.status === "Confirmed" && (b.checkedInAt || b.checkedOutAt) && (
+                  <div style={{ color: C.textS, fontSize: 11.5, marginTop: 3 }}>{b.checkedOutAt ? "Checked out · to settle" : "Checked in"}</div>
+                )}
+              </Cell>
               <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                 <div style={{ display: "inline-flex", gap: 5 }}>
                   <Btn size="sm" onClick={() => setViewId(b.id)}>View</Btn>
                   {!b.archived && b.status === "Pending" && <>
-                    <Btn size="sm" kind="green" onClick={() => setConfirm({ b, action: "Confirmed" })}>Accept</Btn>
-                    <Btn size="sm" kind="red" onClick={() => { setReason(""); setConfirm({ b, action: "Cancelled" }); }}>Reject</Btn>
+                    <Btn size="sm" kind="green" onClick={() => setConfirm(b)}>Accept</Btn>
+                    <Btn size="sm" kind="red" onClick={() => setTurnDown(b)}>Cancel</Btn>
                   </>}
-                  {!b.archived && b.status === "Confirmed" && <Btn size="sm" kind="blue" icon="logout" onClick={() => setCheckout(b)}>Check out</Btn>}
+                  {finishStep(b) === "complete" && <Btn size="sm" kind="blue" icon="check" onClick={() => setFinish({ kind: "complete", id: b.id })}>Complete</Btn>}
+                  {finishStep(b) === "settle" && <Btn size="sm" kind="blue" icon="receipt" onClick={() => setFinish({ kind: "settle", id: b.id })}>Settle</Btn>}
+                  {b.refundStatus === "Owed" && <Btn size="sm" kind="red" icon="cash" onClick={() => setRefundFor(b)}>Send refund</Btn>}
                   {!b.archived && (b.status === "Completed" || b.status === "Cancelled") && <Btn size="sm" onClick={() => setArchiveOf(b)}>Archive</Btn>}
                   {b.archived && <Btn size="sm" onClick={() => { setBookings((bs) => bs.map((x) => x.id === b.id ? { ...x, archived: false, archivedAt: undefined } : x)); toast(`${b.id} restored.`, "success"); }}>Restore</Btn>}
                 </div>
@@ -179,7 +210,12 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
   return (
     <div>
       <PageHead title="Bookings" mob={mob} subtitle="Online and walk-in reservations."
-        action={<Btn kind="primary" icon="plus" onClick={() => setWalkIn(true)}>New walk-in</Btn>} />
+        action={
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <LiveStatus />
+            <Btn kind="primary" icon="plus" onClick={() => setWalkIn(true)}>New walk-in</Btn>
+          </div>
+        } />
 
       <ViewTabs<"active" | "archived"> value={bView} onChange={setBView} views={[
         { value: "active", label: `Active (${bookings.filter((b) => !b.archived).length})`, content: listPanel },
@@ -194,17 +230,30 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
         const overtimeFee = s.id === "Day" ? (b.overtime || 0) * OVERTIME_RATE : 0;
         const bookedRooms = rooms.filter((r) => (b.rooms || []).includes(r.id));
         const pays = ops.payments.filter((p) => p.bookingId === b.id);
+        const request = ops.dateChanges.find((r) => r.bookingId === b.id && r.status === "Pending");
         return (
           <Modal title={b.name} subtitle={<><span style={{ color: gold, fontFamily: "monospace" }}>{b.id}</span> · {b.source ?? "Online"} · booked {b.createdAt ? fmtDate(manilaDate(new Date(b.createdAt))) : "—"}</>}
             onClose={() => setViewId(null)} width={900}
             footer={<div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
-              {m.due > 0 && b.status !== "Cancelled" && <Btn kind="green" icon="cash" onClick={() => setPayFor(b.id)}>Record payment</Btn>}
-              {b.status === "Confirmed" && !b.archived && <Btn kind="blue" icon="logout" onClick={() => { setViewId(null); setCheckout(b); }}>Check out</Btn>}
+              {/* An emergency can stop the resort hosting a group, whatever
+                  they paid: cancel until they arrive, and they choose a new
+                  date or a refund. */}
+              {!b.archived && (b.status === "Confirmed" || b.status === "Pending") && !b.checkedInAt && (
+                <Btn kind="red" icon="x" onClick={() => { setViewId(null); setTurnDown(b); }} style={{ marginRight: "auto" }}>Cancel (resort can&apos;t host)</Btn>
+              )}
+              {b.refundStatus === "Owed" && <Btn kind="primary" icon="cash" onClick={() => { setViewId(null); setRefundFor(b); }}>Send refund · {fmt(b.refundAmount ?? 0)}</Btn>}
+              {m.due > 0 && b.status !== "Cancelled" && <Btn kind={finishStep(b) ? "ghost" : "green"} icon="cash" onClick={() => setPayFor(b.id)}>Record payment</Btn>}
+              {finishStep(b) === "complete" && <Btn kind="primary" icon="check" onClick={() => { setViewId(null); setFinish({ kind: "complete", id: b.id }); }}>Complete stay{m.due > 0 ? ` · collect ${fmt(m.due)}` : ""}</Btn>}
+              {finishStep(b) === "settle" && <Btn kind="primary" icon="receipt" onClick={() => { setViewId(null); setFinish({ kind: "settle", id: b.id }); }}>Settle{m.due > 0 ? ` · ${fmt(m.due)}` : ""}</Btn>}
             </div>}>
             <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 18 }}>
               <div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
-                  {[["Visit", `${fmtDate(b.date)}`], ["Time", `${s.label} · ${s.hours}`], ["Contact", b.contact], ["Email", b.email || "—"], ["Guests", `${b.guests}`], ["Status", b.status]].map(([l, v]) => (
+                  {[["Visit", `${fmtDate(b.date)}`], ["Time", `${s.label} · ${s.hours}`], ["Contact", b.contact], ["Email", b.email || "—"], ["Guests", `${b.guests}`], ["Status", STATUS_LABEL[b.status] ?? b.status],
+                    ...(b.checkedInAt ? [["Checked in", `${fmtDate(manilaDate(b.checkedInAt))}, ${manilaTime(b.checkedInAt)}`]] : []),
+                    ...(b.checkedOutAt ? [["Checked out", `${fmtDate(manilaDate(b.checkedOutAt))}, ${manilaTime(b.checkedOutAt)}`]] : []),
+                    ...(b.settledAt ? [["Settled", `${fmtDate(manilaDate(b.settledAt))}, ${manilaTime(b.settledAt)}`]] : []),
+                  ].map(([l, v]) => (
                     <div key={l} style={{ background: soft, borderRadius: 8, padding: "8px 12px" }}>
                       <div style={{ color: C.textS, fontSize: 11.5 }}>{l}</div>
                       <div style={{ color: C.textH, fontSize: 13.5 }}>{v}</div>
@@ -219,7 +268,37 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                   <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}><Line label="Total" value={fmt(b.total)} strong /></div>
                 </div>
                 {b.notes && <p style={{ color: C.textS, fontSize: 13, marginTop: 10 }}>Notes: {b.notes}</p>}
-                {b.status === "Cancelled" && b.cancelReason && <p style={{ color: "#d44", fontSize: 13, marginTop: 10 }}>Cancelled: {b.cancelReason}</p>}
+                {(b.status === "Cancelled" || b.status === "ResortCancelled") && b.cancelReason && <p style={{ color: "#d44", fontSize: 13, marginTop: 10 }}>Cancelled: {b.cancelReason}</p>}
+
+                {/* What the guest is deciding, or what the resort owes them. */}
+                {b.status === "ResortCancelled" && (
+                  <div style={{ border: "1px solid #9a7bd055", background: "rgba(154,123,208,0.08)", borderRadius: 10, padding: "10px 14px", marginTop: 10, fontSize: 13, color: C.textB, lineHeight: 1.6 }}>
+                    <strong style={{ color: C.textH }}>Cancelled by the resort. Waiting for the guest.</strong><br />
+                    {choiceOpen(b)
+                      ? <>They can pick a new date or a refund until {fmtDeadline(b.choiceDeadline!)}. {fmt(b.heldAmount ?? 0)} is held for them.</>
+                      : <>Their time to choose has passed; the refund becomes owed.</>}
+                  </div>
+                )}
+                {b.refundStatus && (
+                  <div style={{ border: `1px solid ${b.refundStatus === "Owed" ? "#e07a3a66" : cBr}`, borderRadius: 10, padding: "10px 14px", marginTop: 10, fontSize: 13, color: C.textB }}>
+                    <strong style={{ color: b.refundStatus === "Owed" ? "#e07a3a" : "#2e9e4e" }}>
+                      {b.refundStatus === "Owed" ? `Refund owed: ${fmt(b.refundAmount ?? 0)}` : `Refund sent${b.refundSentAt ? ` ${fmtDate(manilaDate(b.refundSentAt))}` : ""}: ${fmt(b.refundAmount ?? 0)}`}
+                    </strong>
+                    {b.refundReceipt && (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={b.refundReceipt} alt="Refund receipt" style={{ display: "block", marginTop: 8, maxHeight: 160, borderRadius: 8 }} />
+                    )}
+                  </div>
+                )}
+                {request && (
+                  <div style={{ border: "1px solid #d4a80066", background: "rgba(212,168,0,0.06)", borderRadius: 10, padding: "10px 14px", marginTop: 10, fontSize: 13, color: C.textB, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <span>
+                      <strong style={{ color: C.textH }}>Asks to move to {fmtDate(request.toDate)}.</strong>{" "}
+                      {holdActive(request) ? `Held until ${fmtDeadline(request.holdUntil!)}.` : "The hold ran out."}
+                    </span>
+                    <Btn size="sm" kind="primary" onClick={() => { setViewId(null); setReviewReq(request.id); }}>Review</Btn>
+                  </div>
+                )}
               </div>
               <div>
                 <div style={{ background: soft, borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
@@ -244,6 +323,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                 {livePayments(pays).length > 0 && <p style={{ color: C.textS, fontSize: 12, marginTop: 8 }}>To correct a payment, void it in Sales → Transactions.</p>}
               </div>
             </div>
+            <div style={{ marginTop: 18 }}><BookingHistory bookingId={b.id} /></div>
           </Modal>
         );
       })()}
@@ -251,26 +331,21 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
       {/* ── Accept / reject ── */}
       {confirm && (
         <ConfirmDialog
-          title={confirm.action === "Confirmed" ? "Accept this booking?" : "Reject this booking?"}
-          description={`${confirm.b.name} · ${confirm.b.id} · ${fmtDate(confirm.b.date)}`}
-          onCancel={() => { setConfirm(null); setReason(""); }}
+          title="Accept this booking?"
+          description={`${confirm.name} · ${confirm.id} · ${fmtDate(confirm.date)}`}
+          onCancel={() => setConfirm(null)}
           cancelLabel="Go back"
-          confirm={<Btn kind={confirm.action === "Confirmed" ? "green" : "red"} onClick={act}>{confirm.action === "Confirmed" ? "Accept booking" : "Reject booking"}</Btn>}
+          confirm={<Btn kind="green" onClick={accept}>Accept booking</Btn>}
           width={500}>
-          {confirm.action === "Confirmed" ? (
-            <p style={{ color: C.textS, fontSize: 14, margin: 0 }}>
-              {confirm.b.email ? `A confirmation email goes to ${confirm.b.email}.` : "This guest has no email, so no confirmation is sent."}
-            </p>
-          ) : (
-            <div>
-              <p style={{ color: C.textS, fontSize: 14, marginTop: 0 }}>
-                Under the no-refund policy, any down payment already received stays recorded as income.
-              </p>
-              <Label htmlFor="reject-reason">Reason sent to the guest</Label>
-              <Textarea id="reject-reason" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. The resort is fully booked for that date." style={{ ...inp, resize: "none" }} />
-            </div>
-          )}
+          <p style={{ color: C.textS, fontSize: 14, margin: 0 }}>
+            {confirm.email ? `A confirmation email goes to ${confirm.email}.` : "This guest has no email, so no confirmation is sent."}
+          </p>
         </ConfirmDialog>
+      )}
+      {turnDown && <ResortCancelDialog booking={turnDown} onClose={() => setTurnDown(null)} />}
+      {refundFor && <RefundModal booking={bookings.find((x) => x.id === refundFor.id) ?? refundFor} onClose={() => setRefundFor(null)} />}
+      {reviewing && bookings.find((x) => x.id === reviewing.bookingId) && (
+        <DateChangeReview request={reviewing} booking={bookings.find((x) => x.id === reviewing.bookingId)!} onClose={() => setReviewReq(null)} />
       )}
 
       {archiveOf && (
@@ -283,9 +358,15 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
         </ConfirmDialog>
       )}
 
-      {walkIn && <WalkInModal bookings={bookings} setBookings={setBookings} rooms={rooms} packages={packages} facilities={facilities} mob={mob} onClose={() => setWalkIn(false)} />}
+      {walkIn && <WalkInModal bookings={withHolds(bookings, ops.dateChanges)} setBookings={setBookings} rooms={rooms} packages={packages} facilities={facilities} mob={mob} onClose={() => setWalkIn(false)} />}
       {payFor && <RecordPaymentModal bookings={bookings} bookingId={payFor} onClose={() => setPayFor(null)} />}
-      {checkout && <CheckoutModal booking={checkout} facilities={facilities} mob={mob} onClose={() => setCheckout(null)} />}
+      {finish && (() => {
+        const b = bookings.find((x) => x.id === finish.id);
+        if (!b) return null;
+        return finish.kind === "complete"
+          ? <CheckoutModal booking={b} facilities={facilities} mob={mob} onClose={() => setFinish(null)} />
+          : <SettleModal booking={b} onClose={() => setFinish(null)} />;
+      })()}
     </div>
   );
 }

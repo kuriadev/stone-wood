@@ -8,6 +8,7 @@
 
 import nodemailer from "nodemailer";
 import { NextResponse, type NextRequest } from "next/server";
+import { logActivity } from "@/lib/activity.server";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { escapeHtml, sanitizeHeaderValue } from "@/lib/escapeHtml";
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
       `,
     });
 
+    await logActivity({ actor: "Admin", action: "message.replied", entity: "customer_message", summary: `Replied by email to ${customerName || customerEmail}${type ? ` (${type})` : ""}.` });
     return NextResponse.json({ success: true });
   } catch (err) {
     // Logged in full, returned as a generic failure: the underlying error can

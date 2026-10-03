@@ -86,9 +86,10 @@ interface AppState {
   applyMaintenance: (next: MaintenanceState) => void;
   refreshMaintenance: () => Promise<void>;
   /** Re-read bookings / facilities after a server route changed them
-   *  directly (e.g. a check-out). Admin only. */
-  reloadBookings: () => Promise<void>;
-  reloadFacilities: () => Promise<void>;
+   *  directly (e.g. a check-out). Admin only. Resolves false when the
+   *  server could not be reached. */
+  reloadBookings: () => Promise<boolean>;
+  reloadFacilities: () => Promise<boolean>;
 }
 
 const AppCtx = createContext<AppState | null>(null);

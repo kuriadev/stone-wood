@@ -8,16 +8,16 @@ import { T } from "@/lib/theme";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { Panel, StatCard, BarChart, ProgressRow } from "@/components/admin/charts";
-import { fmt, fmtDate } from "@/lib/utils";
+import { fmt, fmtDate, holdsDate } from "@/lib/utils";
 import { GALLERY_SPANS, galleryHourLabel } from "@/lib/gallery";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { BookingsTab } from "@/components/admin/BookingsTab";
 import { InventoryTab } from "@/components/admin/InventoryTab";
 import { SalesTab } from "@/components/admin/SalesTab";
 import { ReportsTab } from "@/components/admin/ReportsTab";
-import { useOps } from "@/contexts/OpsContext";
-import { collectedBetween, manilaDate } from "@/lib/finance";
+import { ActivityTab } from "@/components/admin/ActivityTab";
 import { FacilitiesTab } from "@/components/admin/FacilitiesTab";
+import { OperationsTab } from "@/components/admin/OperationsTab";
 import { PackagesTab } from "@/components/admin/PackagesTab";
 import { PhotoSet } from "@/components/admin/PhotoSet";
 import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
@@ -49,22 +49,14 @@ import { getPackageTier, checkBookingAvailability, isRoomOpen, roomsTakenOn } fr
 import { priceBooking, bookingLabel } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
 import { sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail, RESORT_MAX_CAPACITY, ROOM_BUNDLE_DISCOUNT_PCT, OVERTIME_MAX, OVERTIME_RATE, GALLERY_MAX } from "@/lib/validators";
-import { getCurrentOccupancy } from "@/lib/occupancy";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 import type { Room } from "@/types/room";
 import type { AdminTab, CustomerMessage } from "@/types/admin";
+import type { RejectionMoney } from "@/lib/emailTemplate";
 import type { Facility } from "@/types/facility";
 import type { InventoryItem } from "@/types/inventory";
 import type { ResortPackage } from "@/types/package";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 
 interface AdminProps {
@@ -88,10 +80,10 @@ interface AdminProps {
 }
 
 const SIDEBAR_GROUPS = [
-  { label: "OVERVIEW",     tabs: ["Dashboard"] },
+  { label: "TODAY",        tabs: ["Operations"] },
   { label: "RESERVATIONS", tabs: ["Bookings", "Occupancy"] },
-  { label: "OPERATIONS",   tabs: ["Facilities", "Inventory"] },
-  { label: "FINANCE",      tabs: ["Sales", "Reports"] },
+  { label: "FACILITIES",   tabs: ["Facilities", "Inventory"] },
+  { label: "FINANCE",      tabs: ["Sales", "Reports", "Activity"] },
   { label: "MANAGEMENT",   tabs: ["Rooms", "Packages", "Gallery"] },
   { label: "SUPPORT",      tabs: ["Customer Service"] },
   { label: "SITE",         tabs: ["Maintenance"] },
@@ -108,33 +100,13 @@ export function Admin({
   const { isDark } = useTheme();
   const C = T(isDark);
   const { toast } = useToast();
-  const ops = useOps();
   const w = useWidth();
   const mob = w < 768;
 
 
-  const [tab, setTab] = useState<AdminTab>("Dashboard");
+  const [tab, setTab] = useState<AdminTab>("Operations");
   const [sideOpen, setSideOpen] = useState(false);
 
-  // ── Wall clock, kept genuinely live ─────────────────────────────────
-  // The dashboard's "TODAY (LIVE)" panel used new Date() evaluated during
-  // render, so it only changed if something else happened to re-render.
-  // Left open, it never noticed a tour ending or the day rolling over.
-  //
-  // Deliberately named `now`, not `todayStr` — a module-level todayStr()
-  // helper already exists above for WalkInTab, and shadowing it inside this
-  // component with a different type would be a trap for the next reader.
-  //
-  // 30s is fine: occupancy changes on hour boundaries, so the count is
-  // correct within half a minute of a tour starting or ending.
-  //
-  // Admin returns null until adminAuth, so this never renders on the server
-  // and cannot produce a hydration mismatch.
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 30_000);
-    return () => clearInterval(t);
-  }, []);
   const [showModal, setShowModal] = useState(false);
   const [editRoom, setEditRoom] = useState<Room | null>(null);
   const [rf, setRf] = useState({ name: "", beds: "", capacity: "", price: "", desc: "", img: "" });
@@ -186,38 +158,29 @@ export function Admin({
   }, [setCustomerMessages]);
 
 
+    // Moves messages a month old or more into the archive when auto-archive
+    // is switched on. The two updates are made side by side: calling one
+    // setter from inside the other's updater runs during React's render and
+    // is an error ("Cannot update a component while rendering a different
+    // component").
     useEffect(() => {
       if (!autoArchiveEnabled) return;
 
       const now = new Date();
+      const isOld = (msg: CustomerMessage) => {
+        const msgDate = new Date(msg.createdAt || msg.date);
+        const diffMonths =
+          now.getMonth() - msgDate.getMonth() +
+          12 * (now.getFullYear() - msgDate.getFullYear());
+        return diffMonths >= 1;
+      };
 
-      setCustomerMessages((prev) => {
-        const remaining: CustomerMessage[] = [];
-        const toArchive: CustomerMessage[] = [];
-
-        prev.forEach((msg) => {
-          const msgDate = new Date(msg.createdAt || msg.date);
-
-          const diffMonths =
-            now.getMonth() - msgDate.getMonth() +
-            12 * (now.getFullYear() - msgDate.getFullYear());
-
-          if (diffMonths >= 1) {
-            toArchive.push(msg);
-          } else {
-            remaining.push(msg);
-          }
-        });
-
-        if (toArchive.length > 0) {
-          setArchivedMessages((old) => [
-            ...toArchive,
-            ...old,
-          ]);
-        }
-
-        return remaining;
-      });
+      const toArchive = customerMessages.filter(isOld);
+      if (toArchive.length === 0) return;
+      const ids = new Set(toArchive.map((m) => m.id));
+      setArchivedMessages((old) => [...toArchive, ...old.filter((m) => !ids.has(m.id))]);
+      setCustomerMessages((prev) => prev.filter((m) => !ids.has(m.id)));
+      // Runs when auto-archive is switched on, as before, not on every poll.
     }, [autoArchiveEnabled]);
 
     const [replyModal, setReplyModal] = useState<any | null>(null);
@@ -241,33 +204,32 @@ export function Admin({
         "Thank you for contacting us. We will get back to you soon.",
     };
 
-  const [dashConfirm, setDashConfirm] = useState<{
-    bookingId: string; action: "Confirmed" | "Cancelled"; guestName: string;
-  } | null>(null);
 
-  const tabs: AdminTab[] = ["Dashboard", "Bookings", "Occupancy", "Facilities", "Inventory", "Sales", "Reports", "Rooms", "Packages", "Gallery", "Customer Service", "Maintenance"];
+  const tabs: AdminTab[] = ["Operations", "Bookings", "Occupancy", "Facilities", "Inventory", "Sales", "Reports", "Activity", "Rooms", "Packages", "Gallery", "Customer Service", "Maintenance"];
   // Icon per tab. Names resolve against the stroke set in ./Icon, so the
   // sidebar inherits the theme instead of rendering OS colour emoji.
   /* What the sidebar prints. The key stays "Occupancy" because that string
      is the tab id every switch in this file routes on; only the label the
      staff read changes. */
-  const tabLabels: Record<string, string> = { Occupancy: "Calendar" };
+  const tabLabels: Record<string, string> = { Occupancy: "Calendar", Operations: "Daily Operations" };
 
   const tabIcons: Record<AdminTab, IconName> = {
-    Dashboard: "grid", Bookings: "clipboard", Sales: "wallet",
+    Operations: "clipboard-check", Bookings: "clipboard", Sales: "wallet",
     Occupancy: "calendar", Rooms: "bed", Packages: "gift",
     Facilities: "toolbox", Gallery: "image", Inventory: "package",
-    Reports: "bar-chart", "Customer Service": "message",
+    Reports: "bar-chart", "Customer Service": "message", Activity: "history",
     Maintenance: "toolbox",
   };
 
-  // Completing a stay now goes through the check-out window (Facilities /
-  // Bookings → Check out), which inspects the facilities, records damage and
-  // payment, and flags what needs cleaning.
-  const updateStatus = async (id: string, status: string, reason?: string) => {
+  // Completing a stay goes through Daily Operations: Check out (inspect,
+  // record damage) and then Settle (final payment), never a bare status.
+  // `silent` skips the guest email, e.g. for a no-show. `money` says what
+  // happened to a payment when the resort turned the booking down
+  // (refunded or kept), so the rejection email can tell the guest.
+  const updateStatus = async (id: string, status: string, reason?: string, opts?: { silent?: boolean; money?: RejectionMoney }) => {
   setBookings((bs) => bs.map((b) => b.id === id ? { ...b, status: status as Booking["status"] } : b));
   const booking = bookings.find((b) => b.id === id);
-  if (!booking?.email) return;
+  if (!booking?.email || opts?.silent) return;
   if (status === "Confirmed") {
     try {
       const res = await fetch("/api/email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking, type: "confirmed" }) });
@@ -278,7 +240,7 @@ export function Admin({
   }
   if (status === "Cancelled") {
     try {
-      const res = await fetch("/api/email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking, type: "rejected", reason: reason || "" }) });
+      const res = await fetch("/api/email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking, type: "rejected", reason: reason || "", money: opts?.money }) });
       const data = await res.json();
       if (data.success) toast(`Rejection email sent to ${booking.email}`, "warning");
       else toast(`Booking rejected but email failed: ${data.error}`, "warning");
@@ -287,8 +249,6 @@ export function Admin({
 };
 
   const pendingCount = bookings.filter((b) => b.status === "Pending" && !b.archived).length;
-  const confirmed = bookings.filter((b) => b.status === "Confirmed").length;
-  const completed = bookings.filter((b) => b.status === "Completed").length;
 
   // Calendar
   const daysInMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0).getDate();
@@ -310,11 +270,9 @@ export function Admin({
      groups -- but the cell can only colour itself once, so it shows the
      first. The card and the lists below show every one of them. */
   const bookingsOn = (ds: string) =>
-    bookings.filter((b) => b.date === ds && b.status !== "Cancelled");
+    bookings.filter((b) => b.date === ds && holdsDate(b));
 
-  /* The detail card both calendars show on hover/focus. Written once: the
-     dashboard overview and the Calendar screen would otherwise grow two
-     copies of the same markup.
+  /* The detail card the Calendar shows on hover/focus.
 
      `colIdx` is the weekday column. The card is 230px wide and the content
      pane clips horizontally, so on the Sun/Mon and Fri/Sat columns it anchors
@@ -704,7 +662,7 @@ export function Admin({
                       <span style={{ flex: 1 }}>{(tabLabels[t] ?? t).toUpperCase()}</span>
 
                       {/* Bookings badge */}
-                      {t === "Bookings" && pendingCount > 0 && (
+                      {t === "Operations" && pendingCount > 0 && (
                         <Badge variant="outline" style={{
                           background: gold, color: "#000",
                           fontSize: 10.5, fontWeight: 700,
@@ -752,238 +710,10 @@ export function Admin({
         {/* Main Content */}
         <div style={{ flex: 1, padding: mob ? "20px 16px" : "40px", overflowY: "auto", minWidth: 0, background: adminBg }}>
 
-          {/* DASHBOARD */}
-          {tab === "Dashboard" && (
-            <div>
-              <div style={{ marginBottom: 32 }}>
-                <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>OVERVIEW</p>
-                <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Dashboard</h2>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: mob ? 10 : 14, marginBottom: 36 }}>
-                {[["Pending", pendingCount, "#f5c518", "Waiting for approval"], ["Confirmed", confirmed, "#4caf50", "Approved"], ["Completed", completed, "#4a9fd4", "Past stays"], ["Collected today", fmt(collectedBetween(ops.payments, manilaDate(now))), gold, "From the payment records"]].map(([l, v, c, sub]) => (
-                  <div key={l as string} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: mob ? "14px 12px" : "22px 20px", position: "relative", overflow: "hidden", boxShadow: C.shadowCard }}>
-                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(to right,${c}22,${c})` }} />
-                    <div style={{ color: isDark ? "#4a4035" : "#9a8878", fontSize: 10.5, letterSpacing: 2, marginBottom: 10 }}>{(l as string).toUpperCase()}</div>
-                    <div style={{ color: c as string, fontSize: mob ? 26 : 34, fontWeight: 700, fontFamily: "'Cormorant Garamond',Georgia,serif", lineHeight: 1, marginBottom: 6 }}>{v as number}</div>
-                    {!mob && <div style={{ color: isDark ? "#3a3025" : "#b0a090", fontSize: 12.5 }}>{sub as string}</div>}
-                  </div>
-                ))}
-              </div>
-
-              {/* Currently ongoing bookings — today's confirmed guests, live */}
-              {(() => {
-                // Occupancy is by TIME WINDOW, not just date: a booking counts
-                // only while the clock sits inside its tour hours, so guests
-                // drop off on their own when a tour ends instead of lingering
-                // until midnight. See lib/occupancy.ts for the hours.
-                //
-                // This replaced a date-only filter that also used
-                // toISOString() — UTC, which in Manila (UTC+8) reported the
-                // PREVIOUS day from midnight until 8am.
-                const { present: liveBookings, total: totalInResort } =
-                  getCurrentOccupancy(bookings, now);
-                const anyoneIn = totalInResort > 0;
-
-                // Why is it empty?
-                //
-                // "No confirmed guests checked in for today yet" was the only
-                // thing this said, for every possible reason — no bookings at
-                // all, a tour that had already finished, a Night group not due
-                // for hours, or bookings still waiting on approval. A correct
-                // zero was indistinguishable from a broken panel, which is
-                // exactly how it got read.
-                const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-                const liveToday = bookings.filter((b) => b.date === todayISO && b.status !== "Cancelled");
-                const confirmedToday = liveToday.filter((b) => b.status === "Confirmed");
-                const awaitingToday = liveToday.filter((b) => b.status === "Pending");
-                const nextUp = bookings
-                  .filter((b) => b.date > todayISO && b.status !== "Cancelled" && b.status !== "Completed")
-                  .sort((a, b) => a.date.localeCompare(b.date))[0];
-
-                const emptyReason = (() => {
-                  if (confirmedToday.length > 0) {
-                    // There ARE confirmed bookings today; the clock is simply
-                    // outside their hours. Name the hours so it is obvious.
-                    const windows = confirmedToday
-                      .map((b) => SLOTS[b.slot ?? "Day"])
-                      .map((sl) => `${sl.label} (${sl.hours})`);
-                    const unique = Array.from(new Set(windows));
-                    return `${confirmedToday.length} confirmed booking${confirmedToday.length === 1 ? "" : "s"} today — ${unique.join(", ")}. Nobody is on site at this hour.`;
-                  }
-                  if (awaitingToday.length > 0) {
-                    return `${awaitingToday.length} booking${awaitingToday.length === 1 ? " is" : "s are"} booked for today but still Pending — approve ${awaitingToday.length === 1 ? "it" : "them"} below and ${awaitingToday.length === 1 ? "it" : "they"} will appear here.`;
-                  }
-                  if (nextUp) {
-                    return `No bookings for today. The next one is ${fmtDate(nextUp.date)}.`;
-                  }
-                  return "No bookings for today, and none upcoming.";
-                })();
-                return (
-                  <div style={{ marginBottom: 36 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-                      <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, margin: 0 }}>CURRENTLY ONGOING BOOKINGS — TODAY (LIVE)</p>
-                      {/* Green while anyone is on site, red when the resort is
-                          empty. The dot inherits currentColor, so the state
-                          change needs only the one colour swap here. */}
-                      <span
-                        title={anyoneIn
-                          ? `${liveBookings.length} booking${liveBookings.length === 1 ? "" : "s"} currently on site`
-                          : "No tour is running right now"}
-                        style={{ background: anyoneIn ? "rgba(76,175,80,0.08)" : "rgba(229,85,85,0.07)", color: anyoneIn ? "#4caf50" : "#d9534f", fontSize: 11.5, padding: "4px 12px", borderRadius: 20, border: `1px solid ${anyoneIn ? "rgba(76,175,80,0.2)" : "rgba(229,85,85,0.2)"}`, letterSpacing: 1, display: "inline-flex", alignItems: "center", gap: 7, transition: "background .3s ease, border-color .3s ease, color .3s ease" }}
-                      >
-                        {/* Pulsing dot — the conventional "this is live" signal.
-                            The ring animates outward while the core stays solid,
-                            so it reads as a heartbeat rather than a flash. */}
-                        <span className="sw-live-dot" aria-hidden="true" />
-                        <Icon name="users" size={13} />Total people in resort: {totalInResort}
-                      </span>
-                    </div>
-                    <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 6, overflow: "hidden" }}>
-                      <div style={{ overflowX: "auto" }}>
-                        <Table style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 520 : 0 }}>
-                          <TableHeader><TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>{["Guest", "Package", "Guests Included", "Rooms", "Source"].map((h) => <TableHead key={h} style={{ padding: "12px 14px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</TableHead>)}</TableRow></TableHeader>
-                          <TableBody>
-                            {liveBookings.map((b, idx) => (
-                              <TableRow key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#0a0906" : "#080604") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
-                                <TableCell style={{ padding: "12px 14px", color: C.textH, fontSize: 13.5, fontWeight: 600 }}>{b.name}</TableCell>
-                                <TableCell style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5 }}>{b.package}</TableCell>
-                                <TableCell style={{ padding: "12px 14px", color: gold, fontSize: 13.5, fontWeight: 700 }}><Icon name="users" size={12} style={{ marginRight: 5 }} />{b.guests}</TableCell>
-                                <TableCell style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5 }}>{b.rooms.length > 0 ? b.rooms.map((rid) => rooms.find((r) => r.id === rid)?.name ?? `#${rid}`).join(", ") : "—"}</TableCell>
-                                <TableCell style={{ padding: "12px 14px" }}><Badge variant="outline" style={{ background: b.source === "Walk-In" ? "rgba(74,159,212,0.08)" : "rgba(201,168,76,0.1)", color: b.source === "Walk-In" ? "#4a9fd4" : gold, fontSize: 10.5, padding: "3px 10px", borderRadius: 20, letterSpacing: 1 }}>{b.source ?? "Online"}</Badge></TableCell>
-                              </TableRow>
-                            ))}
-                            {liveBookings.length === 0 && (
-                              <TableRow>
-                                <TableCell colSpan={5} style={{ padding: "30px 20px", textAlign: "center" }}>
-                                  <div style={{ color: C.textS, fontSize: 14.5, marginBottom: 6 }}>
-                                    No one is in the resort right now.
-                                  </div>
-                                  <div style={{ color: C.textXS, fontSize: 12.5, lineHeight: 1.6 }}>
-                                    {emptyReason}
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Pending approvals */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3 }}>PENDING APPROVALS</p>
-                {pendingCount > 0 && <Badge variant="outline" style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 11.5, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.15)" }}>{pendingCount} awaiting</Badge>}
-              </div>
-              <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 6, overflow: "hidden" }}>
-                <div style={{ overflowX: "auto" }}>
-                  <Table style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 560 : 0 }}>
-                    <TableHeader><TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>{["ID", "Guest", "Email", "Phone", "Date", "Total", "Status", "Actions"].map((h) => <TableHead key={h} style={{ padding: "12px 14px", color: C.textXS, fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap" }}>{h}</TableHead>)}</TableRow></TableHeader>
-                    <TableBody>
-                      {bookings.filter((b) => b.status === "Pending" && !b.archived).map((b, idx) => (
-                        <TableRow key={b.id} style={{ borderBottom: `1px solid ${cBr}`, background: isDark ? (idx % 2 === 0 ? "#0a0906" : "#080604") : (idx % 2 === 0 ? "#ffffff" : "#faf7f2") }}>
-                          <TableCell style={{ padding: "12px 14px", color: gold, fontSize: 12.5, whiteSpace: "nowrap", fontFamily: "monospace" }}>{b.id}</TableCell>
-                          <TableCell style={{ padding: "12px 14px", color: C.textH, fontSize: 13.5 }}>{b.name}</TableCell>
-                          <TableCell style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5 }}>{b.email || "—"}</TableCell>
-                          <TableCell style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.contact || "—"}</TableCell>
-                          <TableCell style={{ padding: "12px 14px", color: C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{b.date}</TableCell>
-                          <TableCell style={{ padding: "12px 14px", color: C.textH, fontSize: 13.5, whiteSpace: "nowrap", fontWeight: 600 }}>{fmt(b.total)}</TableCell>
-                          <TableCell style={{ padding: "12px 14px" }}><Badge variant="outline" style={{ background: "rgba(245,197,24,0.08)", color: "#f5c518", fontSize: 10.5, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(245,197,24,0.2)", letterSpacing: 1 }}>Pending</Badge></TableCell>
-                          <TableCell style={{ padding: "12px 14px" }}>
-                            <div style={{ display: "flex", gap: 6 }}>
-                              <button onClick={() => setDashConfirm({ bookingId: b.id, action: "Confirmed", guestName: b.name })} style={{ background: "rgba(76,175,80,0.08)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.2)", padding: "5px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, whiteSpace: "nowrap", letterSpacing: 1 }}>ACCEPT</button>
-                              <button onClick={() => setDashConfirm({ bookingId: b.id, action: "Cancelled", guestName: b.name })} style={{ background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "5px 10px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1 }}>REJECT</button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {pendingCount === 0 && <TableRow><TableCell colSpan={8} style={{ padding: "32px 20px", textAlign: "center", color: C.textXS, fontSize: 14.5 }}>No pending bookings.</TableCell></TableRow>}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-
-              {/* Availability Calendar */}
-              <div style={{ marginTop: 36 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-                  <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, margin: 0 }}>AVAILABILITY OVERVIEW</p>
-                  <div style={{ display: "flex", gap: 14 }}>
-                    {[["Available", isDark ? "#6ec071" : "#3a9c4f"], ["Booked", isDark ? "rgba(198,198,198,0.85)" : "#8a8a8a"], ["Closed", isDark ? "rgba(214,138,138,0.75)" : "#c07575"]].map(([l, c]) => (
-                      <div key={l} style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 10, height: 10, borderRadius: 2, background: c }} /><span style={{ color: C.textXS, fontSize: 11.5 }}>{l}</span></div>
-                    ))}
-                  </div>
-                </div>
-                {(() => {
-                  const today = new Date(); today.setHours(0, 0, 0, 0);
-                  const bookedSet = new Set(bookings.filter((b) => b.status !== "Cancelled").map((b) => b.date));
-                  const closedSet2 = new Set(closedDates);
-                  const monthDates = [new Date(today.getFullYear(), today.getMonth(), 1), new Date(today.getFullYear(), today.getMonth() + 1, 1)];
-                  return (
-                    <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 16 }}>
-                      {monthDates.map((mDate, mi) => {
-                        const yr = mDate.getFullYear(), mo = mDate.getMonth();
-                        const dIM = new Date(yr, mo + 1, 0).getDate();
-                        const fD = new Date(yr, mo, 1).getDay();
-                        const toStr = (d: number) => `${yr}-${String(mo + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-                        const label = mDate.toLocaleString("default", { month: "long", year: "numeric" });
-                        return (
-                          <div key={mi} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "20px 18px", boxShadow: C.shadowCard }}>
-                            <p style={{ color: gold, fontSize: 12.5, fontFamily: "'Cormorant Garamond',Georgia,serif", letterSpacing: 2, marginBottom: 14, textAlign: "center" }}>{label}</p>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, marginBottom: 4 }}>
-                              {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => <div key={d} style={{ textAlign: "center", fontSize: 10.5, color: C.textXS, padding: "2px 0" }}>{d}</div>)}
-                            </div>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3 }}>
-                              {Array.from({ length: fD }).map((_, i) => <div key={`e${i}`} />)}
-                              {Array.from({ length: dIM }, (_, i) => i + 1).map((d) => {
-                                const ds = toStr(d);
-                                const dayDate = new Date(yr, mo, d);
-                                const isPast = dayDate < today;
-                                const isBooked = bookedSet.has(ds);
-                                const isClosed = closedSet2.has(ds);
-                                let bg = isDark ? "rgba(76,175,80,0.12)" : "#e8f5ea", col = isDark ? "#6ec071" : "#1f7a38", dot: string | null = null;
-                                let dim = false;
-                                if (isPast) { bg = isDark ? "#0c0b09" : "#f8f6f3"; col = C.textB; dim = true; }
-                                else if (isBooked) { bg = isDark ? "rgba(200,200,200,0.42)" : "#d6d6d6"; col = isDark ? "rgba(244,244,244,0.92)" : "#4f4f4f"; dot = isDark ? "rgba(198,198,198,0.85)" : "#8a8a8a"; }
-                                else if (isClosed) { bg = isDark ? "rgba(180,70,70,0.10)" : "#fbeaea"; col = isDark ? "rgba(214,138,138,0.75)" : "#b05a5a"; dot = isDark ? "rgba(214,138,138,0.75)" : "#c07575"; }
-                                const dayBookings = bookingsOn(ds);
-                                const colIdx = (fD + d - 1) % 7;
-                                /* Lower rows open the card upward, so it never
-                                   hangs past the bottom of the month panel. */
-                                const rowIdx = Math.floor((fD + d - 1) / 7);
-                                const cardAbove = rowIdx >= Math.ceil((fD + dIM) / 7) - 2;
-                                return (
-                                  <div
-                                    key={d}
-                                    /* The card replaces the native tooltip wherever there is
-                                       a booking to show. A closed date has none, so it keeps
-                                       a plain title. */
-                                    title={!dayBookings.length && isClosed ? "Closed" : undefined}
-                                    onMouseEnter={() => setHoverDay(ds)}
-                                    onMouseLeave={() => setHoverDay((cur) => (cur === ds ? null : cur))}
-                                    onFocus={() => setHoverDay(ds)}
-                                    onBlur={() => setHoverDay((cur) => (cur === ds ? null : cur))}
-                                    tabIndex={dayBookings.length ? 0 : -1}
-                                    aria-label={dayBookings.length
-                                      ? `${ds}: ${dayBookings.map((bk) => `${bk.name}, ${bk.status}`).join("; ")}`
-                                      : undefined}
-                                    style={{ textAlign: "center", padding: "5px 2px", borderRadius: 3, opacity: dim ? 0.38 : 1, background: bg, color: col, fontSize: 12.5, cursor: dayBookings.length || isClosed ? "pointer" : "default", userSelect: "none", position: "relative", transition: "background .1s" }}
-                                  >
-                                    {d}{dot && <div style={{ width: 3, height: 3, borderRadius: "50%", background: dot, margin: "1px auto 0" }} />}
-                                    {hoverDay === ds && dayBookings.length > 0 && dayCard(ds, dayBookings, colIdx, cardAbove)}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
+          {/* DAILY OPERATIONS — the home screen */}
+          {tab === "Operations" && (
+            <OperationsTab bookings={bookings} setBookings={setBookings} rooms={rooms} packages={packages}
+              facilities={facilities} updateStatus={updateStatus} mob={mob} />
           )}
 
           {/* BOOKINGS (online and walk-in) */}
@@ -1078,7 +808,7 @@ export function Admin({
               {(() => {
                 const key = `${calMonth.getFullYear()}-${String(calMonth.getMonth() + 1).padStart(2, "0")}`;
                 const inMonth = bookings
-                  .filter((b) => b.date.startsWith(key) && b.status !== "Cancelled")
+                  .filter((b) => b.date.startsWith(key) && holdsDate(b))
                   .sort((a, b) => a.date.localeCompare(b.date));
                 const groups: { label: string; match: string }[] = [
                   { label: "Booked/Confirmed", match: "Confirmed" },
@@ -1289,6 +1019,9 @@ export function Admin({
 
           {/* REPORTS */}
           {tab === "Reports" && <ReportsTab bookings={bookings} rooms={rooms} mob={mob} />}
+
+          {/* ACTIVITY — the audit trail */}
+          {tab === "Activity" && <ActivityTab mob={mob} />}
 
           {/* CUSTOMER SERVICE */}
           {tab === "Customer Service" && (
@@ -1553,60 +1286,6 @@ export function Admin({
           )}
         </div>
       </div>
-
-      {/* ── Dashboard Accept / Reject Confirm Modal (#3) ── */}
-      <AlertDialog open={!!dashConfirm} onOpenChange={(open) => { if (!open) setDashConfirm(null); }}>
-        <AlertDialogContent className="sm:max-w-[min(30rem,calc(100%-2rem))]">
-          {dashConfirm && (
-            <>
-              <div style={{ width: 56, height: 56, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.1)" : "rgba(229,85,85,0.1)", border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}`, color: dashConfirm.action === "Confirmed" ? "#4caf50" : "#e55" }}>
-                <Icon name={dashConfirm.action === "Confirmed" ? "check" : "x"} size={20} />
-              </div>
-
-              <AlertDialogHeader>
-                <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400 }}>
-                  {dashConfirm.action === "Confirmed" ? "Accept this booking?" : "Reject this booking?"}
-                </AlertDialogTitle>
-                <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>
-                  {dashConfirm.action === "Confirmed"
-                    ? <>You are about to <strong style={{ color: "#4caf50" }}>accept</strong> the booking for <strong style={{ color: C.textH }}>{dashConfirm.guestName}</strong>.</>
-                    : <>You are about to <strong style={{ color: "#e55" }}>reject</strong> the booking for <strong style={{ color: C.textH }}>{dashConfirm.guestName}</strong>.</>
-                  }
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-
-              {/* Warning callout */}
-              <div style={{ background: dashConfirm.action === "Confirmed" ? (isDark ? "rgba(76,175,80,0.06)" : "rgba(76,175,80,0.05)") : (isDark ? "rgba(229,85,85,0.06)" : "rgba(229,85,85,0.05)"), border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.2)" : "rgba(229,85,85,0.2)"}`, borderRadius: 8, padding: "12px 14px", display: "flex", gap: 10, alignItems: "flex-start", color: dashConfirm.action === "Confirmed" ? "#4caf50" : "#e55" }}>
-                <Icon name={dashConfirm.action === "Confirmed" ? "check-circle" : "alert"} size={15} />
-                <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6 }}>
-                  {dashConfirm.action === "Confirmed"
-                    ? "The guest will receive a confirmation email and their booking status will be updated to 'Confirmed'."
-                    : "The guest will receive a cancellation email and their booking status will be updated to 'Cancelled'."
-                  }
-                </span>
-              </div>
-
-              <Separator />
-              <AlertDialogFooter>
-                <AlertDialogCancel style={{ color: C.textS, borderColor: cBr, padding: "12px 16px", height: "auto", fontSize: 12.5, borderRadius: 8 }}>
-                  GO BACK
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => {
-                    updateStatus(dashConfirm.bookingId, dashConfirm.action);
-                    if (dashConfirm.action === "Confirmed") toast(`Booking accepted for ${dashConfirm.guestName}.`, "success");
-                    else toast(`Booking rejected for ${dashConfirm.guestName}.`, "warning");
-                    setDashConfirm(null);
-                  }}
-                  style={{ padding: "12px 16px", height: "auto", fontSize: 12.5, fontWeight: 700, borderRadius: 8, letterSpacing: 2, background: dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.12)" : "rgba(229,85,85,0.10)", color: dashConfirm.action === "Confirmed" ? "#4caf50" : "#e55", border: `1px solid ${dashConfirm.action === "Confirmed" ? "rgba(76,175,80,0.3)" : "rgba(229,85,85,0.3)"}` }}
-                >
-                  {dashConfirm.action === "Confirmed" ? "YES, ACCEPT" : "YES, REJECT"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </>
-          )}
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Logout Confirm */}
       <AlertDialog open={showLogoutConfirm} onOpenChange={(open) => { if (!open) setShowLogoutConfirm(false); }}>

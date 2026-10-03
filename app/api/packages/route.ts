@@ -6,6 +6,8 @@
 // Needs migration 20260923090000.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server";
+import { fmt } from "@/lib/utils";
 import { getSupabaseAdmin, rowToPackage } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import { pricingProblem } from "@/lib/pricing";
@@ -106,6 +108,8 @@ export async function POST(req: NextRequest) {
       if (error.code === "23505") return NextResponse.json({ success: false, error: "A package with that code already exists." }, { status: 409 });
       throw new Error(error.message);
     }
+    const added = data as PackageRow;
+    await logActivity({ actor: "Admin", action: "package.added", entity: "package", entityId: added.id, summary: `Added the package "${added.title}" at ${fmt(Number(added.price))}.` });
     return NextResponse.json({ success: true, package: rowToPackage(data as PackageRow) }, { status: 201 });
   } catch (err) {
     console.error("[/api/packages POST]", err);
@@ -123,9 +127,14 @@ export async function PATCH(req: NextRequest) {
     const problem = problemWith(b);
     if (problem) return NextResponse.json({ success: false, error: problem }, { status: 400 });
 
+    const prev = await loadRow("packages", id);
     const { data, error } = await getSupabaseAdmin().from("packages").update(build(b)).eq("id", id).select().maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) return NextResponse.json({ success: false, error: "Package not found." }, { status: 404 });
+    const diff = changes(prev, data as Record<string, unknown>);
+    if (Object.keys(diff).length) {
+      await logActivity({ actor: "Admin", action: "package.updated", entity: "package", entityId: id, summary: `Updated the package "${(data as PackageRow).title}": ${listFields(diff)}.`, details: { changes: diff } });
+    }
     return NextResponse.json({ success: true, package: rowToPackage(data as PackageRow) });
   } catch (err) {
     console.error("[/api/packages PATCH]", err);
@@ -139,8 +148,9 @@ export async function DELETE(req: NextRequest) {
   const id = Number(req.nextUrl.searchParams.get("id"));
   if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "A numeric package id is required." }, { status: 400 });
   try {
-    const { error } = await getSupabaseAdmin().from("packages").delete().eq("id", id);
+    const { data, error } = await getSupabaseAdmin().from("packages").delete().eq("id", id).select().maybeSingle();
     if (error) throw new Error(error.message);
+    if (data) await logActivity({ actor: "Admin", action: "package.removed", entity: "package", entityId: id, summary: `Removed the package "${(data as PackageRow).title}".` });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[/api/packages DELETE]", err);

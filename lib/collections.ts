@@ -66,9 +66,6 @@ export interface Collection<T> {
   /** Only hydrate when signed in. Admin-only endpoints 401 for guests, and a
    *  401 would otherwise read as "could not load" on every public page. */
   adminOnly?: boolean;
-  /** Re-fetch on this interval while the page is visible, so changes made
-   *  elsewhere (a guest booking online) show up without a reload. */
-  pollMs?: number;
 }
 
 /** Diff two id-keyed arrays and post/patch/delete the difference. */
@@ -132,7 +129,7 @@ export const COLLECTIONS = {
   facilities: {
     key: "sw_facilities",
     adminOnly: true,
-    pollMs: 30_000,
+    // Kept live by the admin panel's sync (OpsContext), with bookings.
     load: () =>
       getJson<Facility[]>("/api/facilities", (j) => j.facilities as Facility[] | undefined),
     // Facilities are never created or deleted from the UI, only updated, so
@@ -153,8 +150,8 @@ export const COLLECTIONS = {
     key: "sw_bookings",
     adminOnly: true,
     // New online bookings and PayMongo payments arrive without the admin
-    // doing anything, so the panel checks for them every 15 seconds.
-    pollMs: 15_000,
+    // doing anything. The admin panel's live sync (OpsContext) re-reads
+    // this every 15 seconds, together with facilities and the ledger.
     load: () => getJson<Booking[]>("/api/bookings", (j) => j.bookings as Booking[] | undefined),
     // Only the admin panel writes through here (walk-ins, status changes,
     // archiving). The database assigns every booking reference, so a new

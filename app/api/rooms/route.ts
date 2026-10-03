@@ -4,6 +4,8 @@
 // ── DELETE /api/rooms?id=  → delete a room   (admin only)
 
 import { NextResponse, type NextRequest } from "next/server";
+import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server";
+import { fmt } from "@/lib/utils";
 import { getSupabaseAdmin, rowToRoom, roomToRow } from "@/lib/supabase";
 import { GALLERY_MAX } from "@/lib/validators";
 import { requireAdmin } from "@/lib/auth";
@@ -86,6 +88,8 @@ export async function POST(req: NextRequest) {
       ({ data, error } = await getSupabaseAdmin().from("rooms").insert(bare).select().single());
     }
     if (error) throw new Error(error.message);
+    const added = data as RoomRow;
+    await logActivity({ actor: "Admin", action: "room.added", entity: "room", entityId: added.id, summary: `Added the room "${added.name}" at ${fmt(Number(added.price))} per slot.` });
     return NextResponse.json({ success: true, room: rowToRoom(data as RoomRow) }, { status: 201 });
   } catch (err) {
     console.error("[/api/rooms POST]", err);
@@ -122,6 +126,7 @@ export async function PATCH(req: NextRequest) {
 
     if (Object.keys(patch).length === 0) return NextResponse.json({ success: false, error: "Nothing to update." }, { status: 400 });
 
+    const prev = await loadRow("rooms", id);
     let { data, error } = await getSupabaseAdmin().from("rooms").update(patch).eq("id", id).select().maybeSingle();
     if (error && galleryColumnMissing(error.message)) {
       console.warn("[/api/rooms PATCH] rooms.gallery is missing - apply 20260928120000_room_gallery.sql. Saving the cover only.");
@@ -130,6 +135,10 @@ export async function PATCH(req: NextRequest) {
     }
     if (error) throw new Error(error.message);
     if (!data) return NextResponse.json({ success: false, error: "Room not found." }, { status: 404 });
+    const diff = changes(prev, data as Record<string, unknown>);
+    if (Object.keys(diff).length) {
+      await logActivity({ actor: "Admin", action: "room.updated", entity: "room", entityId: id, summary: `Updated the room "${(data as RoomRow).name}": ${listFields(diff)}.`, details: { changes: diff } });
+    }
     return NextResponse.json({ success: true, room: rowToRoom(data as RoomRow) });
   } catch (err) {
     console.error("[/api/rooms PATCH]", err);
@@ -144,8 +153,9 @@ export async function DELETE(req: NextRequest) {
   const id = Number(req.nextUrl.searchParams.get("id"));
   if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "A numeric room id is required." }, { status: 400 });
   try {
-    const { error } = await getSupabaseAdmin().from("rooms").delete().eq("id", id);
+    const { data, error } = await getSupabaseAdmin().from("rooms").delete().eq("id", id).select().maybeSingle();
     if (error) throw new Error(error.message);
+    if (data) await logActivity({ actor: "Admin", action: "room.removed", entity: "room", entityId: id, summary: `Removed the room "${(data as RoomRow).name}".` });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[/api/rooms DELETE]", err);

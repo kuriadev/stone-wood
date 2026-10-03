@@ -6,10 +6,12 @@
 
 import { NextResponse } from "next/server";
 import { clearedSessionCookie } from "@/lib/auth";
+import { logActivity } from "@/lib/activity.server";
 
 export const dynamic = "force-dynamic";
 
 export async function POST() {
+  await logActivity({ actor: "Admin", action: "security.logout", entity: "admin", summary: "Signed out of the admin panel." });
   const res = NextResponse.json({ success: true });
   res.cookies.set(clearedSessionCookie());
   return res;

@@ -8,6 +8,8 @@
 // record keeps the unit rate it was charged at.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server";
+import { fmt } from "@/lib/utils";
 import { getSupabaseAdmin, rowToDamageRate } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import { cleanText } from "@/lib/money";
@@ -35,6 +37,7 @@ export async function POST(req: NextRequest) {
       unit: cleanText(b?.unit, 20) || "pc",
     }).select().single();
     if (error) throw new Error(error.message);
+    await logActivity({ actor: "Admin", action: "rate.added", entity: "damage_rate", entityId: (data as DamageRateRow).id, summary: `Added "${name}" to the damage rate list at ${fmt(r)}.` });
     return NextResponse.json({ success: true, rate: rowToDamageRate(data as DamageRateRow) }, { status: 201 });
   } catch (err) {
     console.error("[/api/damage-rates POST]", err);
@@ -64,9 +67,14 @@ export async function PATCH(req: NextRequest) {
   if (b.active !== undefined) patch.active = !!b.active;
   if (Object.keys(patch).length === 0) return NextResponse.json({ success: false, error: "Nothing to update." }, { status: 400 });
   try {
+    const prev = await loadRow("damage_rates", id);
     const { data, error } = await getSupabaseAdmin().from("damage_rates").update(patch).eq("id", id).select().maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) return NextResponse.json({ success: false, error: "Item not found." }, { status: 404 });
+    const diff = changes(prev, data as Record<string, unknown>);
+    if (Object.keys(diff).length) {
+      await logActivity({ actor: "Admin", action: "rate.updated", entity: "damage_rate", entityId: id, summary: `Updated "${(data as DamageRateRow).name}" on the damage rate list: ${listFields(diff)}.`, details: { changes: diff } });
+    }
     return NextResponse.json({ success: true, rate: rowToDamageRate(data as DamageRateRow) });
   } catch (err) {
     console.error("[/api/damage-rates PATCH]", err);

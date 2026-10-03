@@ -1214,3 +1214,13 @@ html {
     opacity: 0;
   }
 }
+
+/* ── Printed invoice (components/admin/InvoiceModal.tsx) ──
+   A plain copy of the invoice sits directly under <body>. On screen it is
+   hidden; on paper it is the only thing printed, in black on white. */
+.sw-print-only { display: none; }
+@media print {
+  body > *:not(.sw-print-only) { display: none !important; }
+  .sw-print-only { display: block !important; padding: 12mm; background: #fff; }
+  .sw-print-only, .sw-print-only * { color: #000 !important; border-color: #999 !important; }
+}

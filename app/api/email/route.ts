@@ -5,8 +5,9 @@
 //   GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx   ← 16-char Gmail App Password
 
 import { NextRequest, NextResponse } from "next/server";
+import { logActivity } from "@/lib/activity.server";
 import nodemailer from "nodemailer";
-import { buildReceiptEmail, buildRejectionEmail, generateOTP } from "@/lib/emailTemplate";
+import { buildReceiptEmail, buildRejectionEmail, generateOTP, type RejectionMoney } from "@/lib/emailTemplate";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { isValidEmail } from "@/lib/validators";
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
   try {
-    const { booking, type, reason }: { booking: Booking; type: "confirmed" | "rejected"; reason?: string } = await req.json();
+    const { booking, type, reason, money }: { booking: Booking; type: "confirmed" | "rejected"; reason?: string; money?: RejectionMoney } = await req.json();
 
     if (!booking?.email || !isValidEmail(booking.email)) {
       return NextResponse.json({ error: "A valid booking email is required." }, { status: 400 });
@@ -47,7 +48,17 @@ export async function POST(req: NextRequest) {
       otp = generateOTP();
       ({ subject, html } = buildReceiptEmail(booking, otp));
     } else {
-      ({ subject, html } = buildRejectionEmail(booking, (reason || "").slice(0, 1000)));
+      // Only well-formed money details reach the template; anything else
+      // falls back to the generic line.
+      const m = money && typeof money.paid === "number" && Number.isFinite(money.paid)
+        ? {
+            paid: Math.max(0, money.paid),
+            refund: money.refund && Number.isFinite(Number(money.refund.amount))
+              ? { amount: Number(money.refund.amount), method: String(money.refund.method ?? "").slice(0, 40), reference: String(money.refund.reference ?? "").slice(0, 80) }
+              : null,
+          }
+        : undefined;
+      ({ subject, html } = buildRejectionEmail(booking, (reason || "").slice(0, 1000), m));
     }
 
     // ── Configure Nodemailer transporter (Gmail SMTP) ────────────────────────
@@ -67,6 +78,10 @@ export async function POST(req: NextRequest) {
       html,
     });
 
+    await logActivity({
+      actor: "Admin", action: type === "confirmed" ? "email.confirmation" : "email.rejection", bookingId: booking.id ?? null, entity: "booking", entityId: booking.id,
+      summary: `Emailed the ${type === "confirmed" ? "booking confirmation" : "cancellation notice"} for ${booking.id} to ${booking.email}.`,
+    });
     return NextResponse.json({ success: true, ...(otp ? { otp } : {}) }, { status: 200 });
   } catch (err) {
     // `detail: String(err)` used to go back to the caller. An SMTP failure

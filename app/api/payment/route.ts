@@ -5,9 +5,10 @@
 // the QR image, the expiry, and a status string.
 //
 // The browser no longer says how much to charge. It sends the booking it
-// wants (a draft), and the amount on the QR is the 50% down payment worked
-// out here from the database — so editing the total in DevTools can't buy
-// a booking for less.
+// wants (a draft), and the amount on the QR is worked out here from the
+// database: the 50% down payment, or the whole total when the guest chose
+// to pay in full — so editing the total in DevTools can't buy a booking
+// for less.
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const amount = quote.price.down * 100; // pesos → centavos
+    const amount = quote.dueNow * 100; // pesos → centavos
     if (amount < MIN_AMOUNT_CENTAVOS) {
       return NextResponse.json(
         { success: false, error: `Minimum payment is ₱${MIN_AMOUNT_CENTAVOS / 100}.` },
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
       payment,
       // What the server will hold the guest to. The page shows these, so the
       // amount on screen is always the amount on the QR.
-      quote: { total: quote.price.total, down: quote.price.down, packageLabel: quote.packageLabel },
+      quote: { total: quote.price.total, down: quote.price.down, dueNow: quote.dueNow, payFull: quote.draft.payFull, packageLabel: quote.packageLabel },
     });
   } catch (err) {
     // Logged in full; returned generically. The upstream message can quote

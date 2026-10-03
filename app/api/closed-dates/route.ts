@@ -5,6 +5,7 @@
 // Public read: the booking calendar has to grey these out for guests.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import { parseDateStr } from "@/lib/validators";
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
       .upsert({ date, reason }, { onConflict: "date" });
 
     if (error) throw new Error(error.message);
+    await logActivity({ actor: "Admin", action: "calendar.closed_date", entity: "closed_date", entityId: date, summary: `Closed the resort on ${date}${reason ? `: ${reason}` : ""}.` });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[/api/closed-dates POST]", err);
@@ -59,6 +61,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const { error } = await getSupabaseAdmin().from("closed_dates").delete().eq("date", date);
     if (error) throw new Error(error.message);
+    await logActivity({ actor: "Admin", action: "calendar.opened_date", entity: "closed_date", entityId: date, summary: `Opened ${date} for bookings again.` });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[/api/closed-dates DELETE]", err);

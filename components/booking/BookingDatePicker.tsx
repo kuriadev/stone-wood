@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { T } from "@/lib/theme";
 import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS } from "@/lib/validators";
-import { checkBookingAvailability } from "@/lib/utils";
+import { checkBookingAvailability, holdsDate } from "@/lib/utils";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 
 interface BookingDatePickerProps {
@@ -46,7 +46,7 @@ export function BookingDatePicker({
   // A date is "full" for this request when checkBookingAvailability says so —
   // not merely because some other (Shared) booking already exists on it.
   const fullDates = useMemo(() => {
-    const candidateDates = new Set(bookings.filter((b) => b.status !== "Cancelled").map((b) => b.date));
+    const candidateDates = new Set(bookings.filter(holdsDate).map((b) => b.date));
     const full = new Set<string>();
     candidateDates.forEach((ds) => {
       if (!checkBookingAvailability(ds, slot, guests, tier, resource, bookings).ok) full.add(ds);

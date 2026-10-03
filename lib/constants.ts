@@ -151,12 +151,12 @@ export const INIT_BOOKINGS: Booking[] = [
 // room in INIT_ROOMS (roomId links the two so a booking's room list can
 // flag exactly which room facilities it used).
 export const INIT_FACILITIES: Facility[] = [
-  { id: 1, category: "Amenity", name: "Swimming Pool", icon: "pool", status: "Available", notes: "" },
-  { id: 2, category: "Amenity", name: "BBQ / Grilling Area", icon: "flame", status: "Available", notes: "" },
-  { id: 3, category: "Amenity", name: "Billiards", icon: "billiards", status: "Available", notes: "" },
-  { id: 4, category: "Amenity", name: "Videoke", icon: "mic", status: "Available", notes: "" },
-  { id: 5, category: "Amenity", name: "Parking Area", icon: "car", status: "Available", notes: "" },
-  { id: 6, category: "Amenity", name: "Events Venue", icon: "tent", status: "Available", notes: "" },
+  { id: 1, category: "Amenity", area: "Pool", name: "Swimming Pool", icon: "pool", status: "Available", notes: "", description: AMENITIES[0].desc },
+  { id: 2, category: "Amenity", area: "Pool", name: "BBQ / Grilling Area", icon: "flame", status: "Available", notes: "", description: AMENITIES[1].desc },
+  { id: 3, category: "Amenity", area: "Pool", name: "Billiards", icon: "billiards", status: "Available", notes: "", description: AMENITIES[2].desc },
+  { id: 4, category: "Amenity", area: "Pool", name: "Videoke", icon: "mic", status: "Available", notes: "", description: AMENITIES[3].desc },
+  { id: 5, category: "Amenity", area: "Common", name: "Parking Area", icon: "car", status: "Available", notes: "", description: AMENITIES[4].desc },
+  { id: 6, category: "Amenity", area: "Venue", name: "Events Venue", icon: "tent", status: "Available", notes: "", description: "Covered events hall for parties and gatherings." },
   { id: 101, category: "Room", name: "Room 1 – Queen & Deck", icon: "bed", roomId: 1, status: "Available", notes: "" },
   { id: 102, category: "Room", name: "Room 2 – Deck Suite", icon: "bed", roomId: 2, status: "Available", notes: "" },
   { id: 103, category: "Room", name: "Room 3 – Cozy Double", icon: "bed", roomId: 3, status: "Available", notes: "" },

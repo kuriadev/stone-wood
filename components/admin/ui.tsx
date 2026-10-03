@@ -223,6 +223,12 @@ export const STATUS_COLOR: Record<string, string> = {
   Confirmed: "#4caf50",
   Completed: "#4a9fd4",
   Cancelled: "#e55",
+  ResortCancelled: "#9a7bd0",
+};
+
+/** What staff read for a status. The stored value stays a single word. */
+export const STATUS_LABEL: Record<string, string> = {
+  ResortCancelled: "Waiting for guest",
 };
 
 export const MONEY_COLOR: Record<string, string> = {
@@ -230,6 +236,9 @@ export const MONEY_COLOR: Record<string, string> = {
   "Partially paid": "#f5c518",
   Unpaid: "#e55",
   Forfeited: "#8a7a66",
+  Refunded: "#4a9fd4",
+  "Held for guest": "#9a7bd0",
+  "Refund owed": "#e07a3a",
 };
 
 // ── Buttons ───────────────────────────────────────────────────────────

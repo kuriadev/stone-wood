@@ -195,34 +195,42 @@ export function useDbCollection<T>(
   // ── Refresh from the server ───────────────────────────────────────
   // Used two ways: on demand, after a server route changed rows directly
   // (a check-out completes a booking without going through this hook), and
-  // on a timer for collections that declare pollMs, so a booking made
-  // online appears in the admin panel without a page reload.
+  // by the admin panel's live sync (OpsContext), so a booking made online
+  // appears without a page reload.
   //
   // It never overwrites a local edit that has not reached the server yet:
   // it waits for queued writes, and skips the refresh if the state still
   // differs from the last list the server confirmed.
+  //
+  // Resolves true when the server answered, false when it could not be
+  // reached, so the caller can tell the admin whether the screen is live.
   const stateRef = useRef(state);
   useEffect(() => { stateRef.current = state; }, [state]);
-  const reload = useCallback(async () => {
-    if (!active || !liveRef.current) return;
+  const reload = useCallback(async (): Promise<boolean> => {
+    if (!active) return false;
     await queueRef.current;
     const rows = await load();
-    if (rows === null) return;
-    if (JSON.stringify(stateRef.current) !== JSON.stringify(baseRef.current)) return;
-    if (JSON.stringify(rows) === JSON.stringify(baseRef.current)) return;
+    if (rows === null) return false;
+    if (!liveRef.current) {
+      // The first load failed (offline, or the request dropped), so nothing
+      // was ever applied and the collection is still read-only. This is the
+      // retry: apply it exactly as the first load would have. Local edits
+      // made meanwhile were never sent, so the server's list is the truth.
+      applyingRef.current = true;
+      baseRef.current = rows;
+      liveRef.current = true;
+      setState(rows);
+      setHydrated(true);
+      setLoading(false);
+      return true;
+    }
+    if (JSON.stringify(stateRef.current) !== JSON.stringify(baseRef.current)) return true;
+    if (JSON.stringify(rows) === JSON.stringify(baseRef.current)) return true;
     applyingRef.current = true;
     baseRef.current = rows;
     setState(rows);
+    return true;
   }, [active, load]);
-
-  const pollMs = collection.pollMs;
-  useEffect(() => {
-    if (!active || !pollMs) return;
-    const tick = () => { if (document.visibilityState === "visible") void reload(); };
-    const t = setInterval(tick, pollMs);
-    window.addEventListener("focus", tick);
-    return () => { clearInterval(t); window.removeEventListener("focus", tick); };
-  }, [active, pollMs, reload]);
 
   return [state, setter, { loading: active ? loading : false, hydrated, reload }] as const;
 }

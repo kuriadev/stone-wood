@@ -6,6 +6,7 @@
 // instance held its own copy — so two admins could see two different inboxes.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin, rowToCustomerMessage } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
       date: new Date().toISOString().slice(0, 10),
     });
     if (error) throw new Error(error.message);
+    await logActivity({ actor: "Guest", action: "message.received", entity: "customer_message", summary: `${name} sent a ${type.toLowerCase()} message from the website.` });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[/api/customer-service POST]", err);
