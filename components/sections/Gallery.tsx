@@ -190,7 +190,12 @@ export function Gallery({ galleryImgs }: GalleryProps) {
         </div>
       </section>
 
-      <div style={{ maxWidth: 1240, margin: "0 auto", padding: mob ? "48px 20px 72px" : "88px 32px 112px" }}>
+      {/* 1240 left roughly a third of a wide screen empty on either side,
+          which made the mosaic read as a narrow column rather than a wall of
+          photographs. The cap is still a cap — photos stop growing on a very
+          wide monitor rather than stretching to the bezels — but it is set
+          where the grid fills the screen it is actually viewed on. */}
+      <div style={{ maxWidth: 1600, margin: "0 auto", padding: mob ? "48px 20px 72px" : "88px 48px 112px" }}>
 
         {/* Section head: the label on the left, the line on the right. */}
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 24, flexWrap: "wrap", marginBottom: mob ? 26 : 40 }}>
