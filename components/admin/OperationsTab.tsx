@@ -316,9 +316,17 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         break;
     }
 
+    /* Red when the slot has run out or the booking is overdue, otherwise the
+       ordinary card edge. Named once because three sides now use it. */
+    const edge = c.timeUp || c.overdue ? "#d4444066" : cBr;
+
     return (
       <article key={b.id} aria-label={`${b.name}, ${next}`}
-        style={{ background: cBg, border: `1px solid ${c.timeUp || c.overdue ? "#d4444066" : cBr}`, borderLeft: `3px solid ${color}`, borderRadius: 12, padding: "13px 15px", display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+        /* Three sides written out rather than a `border` shorthand with
+           `borderLeft` after it: React warns that updating one during a
+           re-render while the other is set can leave the two out of step,
+           and the left edge here is a status colour that changes. */
+        style={{ background: cBg, borderTop: `1px solid ${edge}`, borderRight: `1px solid ${edge}`, borderBottom: `1px solid ${edge}`, borderLeft: `3px solid ${color}`, borderRadius: 12, padding: "13px 15px", display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
@@ -559,7 +567,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
           </ul>
           {attention.length > ATTENTION_SHOWN && (
             <button type="button" onClick={() => setAllAttention((v) => !v)}
-              style={{ width: "100%", padding: "9px", border: "none", borderTop: `1px solid ${cBr}`, background: soft, color: C.textB, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+              style={{ width: "100%", padding: "9px", borderTop: `1px solid ${cBr}`, borderRight: "none", borderBottom: "none", borderLeft: "none", background: soft, color: C.textB, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
               {allAttention ? "Show fewer" : `Show ${attention.length - ATTENTION_SHOWN} more`}
             </button>
           )}

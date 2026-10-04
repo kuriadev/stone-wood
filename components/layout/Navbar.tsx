@@ -318,8 +318,12 @@ export function Navbar({ page, setPage }: NavbarProps) {
                     aria-current={active ? "page" : undefined}
                     className="animate-in fade-in slide-in-from-right-4 fill-mode-both"
                     style={{
-                      background: "none", border: "none", cursor: "pointer",
+                      background: "none", cursor: "pointer",
                       textAlign: "left", padding: "16px 0",
+                      // Sides written out. A shorthand sitting beside
+                      // `borderBottom` is the mix React warns about: updating
+                      // one during a re-render can leave the two out of step.
+                      borderTop: "none", borderRight: "none", borderLeft: "none",
                       borderBottom: `1px solid ${C.borderLight}`,
                       fontFamily: "'Satoshi',system-ui,sans-serif",
                       fontSize: 24, fontWeight: 400,
