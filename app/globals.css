@@ -25,78 +25,102 @@
    T(isDark), and the theme is signalled by `sw-dark` / `sw-light` on
    <html> (see contexts/ThemeContext.tsx).
 
-   Both facts are reconciled here, once:
-     • the variables below are the SAME hex values T() returns, so a
-       shadcn component and a hand-styled one agree on every colour;
-     • the dark variant is redefined to follow `.sw-dark`, because this
-       app has never used Tailwind's default `.dark` class.
+   There is now ONE list of colours: the --sw-* palette below. shadcn's
+   names are aliases of it, and T() in lib/theme.ts returns `var(--sw-*)`
+   references rather than its own copies — so a hand-written style and a
+   shadcn component cannot disagree, and a colour is changed in one place.
 
-   If a colour changes in lib/theme.ts it must change here too. That is
-   the cost of two styling systems; keeping the values literal and
-   adjacent is the cheapest honest way to pay it.
+   The dark variant follows `.sw-dark`, because this app has never used
+   Tailwind's default `.dark` class.
    ════════════════════════════════════════════════════════════════════ */
 
 @custom-variant dark (&:is(.sw-dark *));
 
+/* ════════════════════════════════════════════════════════════════════
+   THE PALETTE — authored once, here.
+
+   These are the single source for every colour in the app. Tailwind and
+   shadcn read them through the @theme mappings below; hand-written styles
+   read the SAME variables, because T() in lib/theme.ts now returns
+   `var(--sw-*)` rather than its own copy of the hex values.
+
+   That is what removes the cost the old note here admitted to: there is no
+   longer a second list to keep in step. Change a colour once and both
+   systems follow.
+   ════════════════════════════════════════════════════════════════════ */
 :root {
-  --radius: 0.625rem;
-
-  /* light — mirrors T(false) */
-  --background: #faf7f2;
-  --foreground: #1a1614;
-  --card: #ffffff;
-  --card-foreground: #1a1614;
-  --popover: #ffffff;
-  --popover-foreground: #1a1614;
-  --primary: #c9a84c;            /* gold, from lib/styles.ts */
-  --primary-foreground: #1a1000;
-  --secondary: #f5f0e8;
-  --secondary-foreground: #3d3229;
-  --muted: #f5f0e8;
-  --muted-foreground: #6b5d4f;
-  --accent: #f5f0e8;
-  --accent-foreground: #3d3229;
-  --destructive: #e55;
-  --border: #e4ddd1;
-  --input: #d6cfc4;
-  --ring: #c9a84c;
-
-  /* The three tiers T(isDark) carries that shadcn's own set has no slot
-     for. Without these, any component needing C.textB / C.textXS /
-     C.borderLight had to reach for an inline hex, which is how the modals
-     ended up dark-only. */
-  --body: #3d3229;        /* T().textB   — long-form copy   */
-  --faint: #7d7062;       /* T().textXS  — captions, meta   */
-  --accent-ink: #8a6d20;  /* T().goldInk — gold as TEXT     */
-  --border-soft: #ede8df; /* T().borderLight — inner rules  */
+  --sw-bg: #faf7f2;
+  --sw-bg-card: #ffffff;
+  --sw-bg-card-2: #f5f0e8;
+  --sw-border: #e4ddd1;
+  --sw-border-light: #ede8df;
+  --sw-text-h: #1a1614;
+  --sw-text-b: #3d3229;
+  --sw-text-s: #6b5d4f;
+  --sw-text-xs: #7d7062;
+  /* Gold for TEXT and ICONS. The brand gold collapses to 2.14:1 on the cream
+     background, so this is the same hue darkened to clear 4.5:1. The SURFACE
+     gold (lib/styles.ts) is unchanged. */
+  --sw-gold-ink: #8a6d20;
+  --sw-input-bg: #ffffff;
+  --sw-input-border: #d6cfc4;
+  --sw-input-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --sw-nav-bg: rgba(250, 247, 242, 0.97);
+  --sw-shadow: 0 4px 24px rgba(80, 55, 20, 0.10);
+  --sw-shadow-card: 0 2px 16px rgba(80, 55, 20, 0.08);
 }
 
 .sw-dark {
-  /* dark — mirrors T(true) */
-  --background: #121212;
-  --foreground: #f2ede6;
-  --card: #1f1f1f;
-  --card-foreground: #f2ede6;
-  --popover: #1f1f1f;
-  --popover-foreground: #f2ede6;
-  --primary: #c9a84c;
+  --sw-bg: #121212;
+  --sw-bg-card: #1f1f1f;
+  --sw-bg-card-2: #1a1a1a;
+  --sw-border: #2a2a2a;
+  --sw-border-light: #242424;
+  --sw-text-h: #f2ede6;
+  --sw-text-b: #c4b99a;
+  --sw-text-s: #9b8e79;
+  --sw-text-xs: #968a78;
+  --sw-gold-ink: #c9a84c;
+  --sw-input-bg: #1a1a1a;
+  --sw-input-border: #333333;
+  --sw-input-shadow: none;
+  --sw-nav-bg: rgba(18, 18, 18, 0.97);
+  --sw-shadow: 0 4px 24px rgba(0, 0, 0, 0.55);
+  --sw-shadow-card: 0 2px 16px rgba(0, 0, 0, 0.4);
+}
+
+:root {
+  --radius: 0.625rem;
+
+  /* shadcn's names, pointed at the palette above. Nothing is repeated:
+     change --sw-bg once and every shadcn component follows. */
+  --background: var(--sw-bg);
+  --foreground: var(--sw-text-h);
+  --card: var(--sw-bg-card);
+  --card-foreground: var(--sw-text-h);
+  --popover: var(--sw-bg-card);
+  --popover-foreground: var(--sw-text-h);
+  --primary: #c9a84c;            /* the SURFACE gold, from lib/styles.ts */
   --primary-foreground: #1a1000;
-  --secondary: #1a1a1a;
-  --secondary-foreground: #c4b99a;
-  --muted: #1a1a1a;
-  --muted-foreground: #9b8e79;
-  --accent: #1a1a1a;
-  --accent-foreground: #c4b99a;
+  --secondary: var(--sw-bg-card-2);
+  --secondary-foreground: var(--sw-text-b);
+  --muted: var(--sw-bg-card-2);
+  --muted-foreground: var(--sw-text-s);
+  --accent: var(--sw-bg-card-2);
+  --accent-foreground: var(--sw-text-b);
   --destructive: #e55;
-  --border: #2a2a2a;
-  --input: #333333;
+  --border: var(--sw-border);
+  --input: var(--sw-input-border);
   --ring: #c9a84c;
 
-  --body: #c4b99a;
-  --faint: #968a78;
-  --accent-ink: #c9a84c;
-  --border-soft: #242424;
+  /* The tiers shadcn's own set has no slot for. */
+  --body: var(--sw-text-b);          /* long-form copy  */
+  --faint: var(--sw-text-xs);        /* captions, meta  */
+  --accent-ink: var(--sw-gold-ink);  /* gold as TEXT    */
+  --border-soft: var(--sw-border-light);
 }
+
+
 
 /* ── Preflight, scoped to shadcn components only ──────────────────────
    Dropping Tailwind's global reset protected the existing site (see the

@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { useTheme } from "@/contexts/ThemeContext";
-import { T } from "@/lib/theme";
+import { THEME_VARS, resolveVar } from "@/lib/theme";
 import type { ReactNode } from "react";
 
 /**
@@ -21,7 +21,23 @@ import type { ReactNode } from "react";
  */
 export function ChartTheme({ children }: { children: ReactNode }) {
   const { isDark } = useTheme();
-  const C = T(isDark);
+
+  /* MUI is the one consumer that needs real colour VALUES: it runs its own
+     alpha() and darken() over the palette, and cannot do that to a
+     `var(--sw-*)` reference. So the variables are resolved from the
+     document here rather than keeping a private copy of the hex values —
+     the palette is still authored once, in globals.css.
+
+     Re-resolved whenever the theme flips, because that is when the
+     variables under <html> change. The fallbacks only apply during the
+     server render, where there is no computed style to read. */
+  const C = useMemo(() => ({
+    bgCard: resolveVar(THEME_VARS.bgCard, isDark ? "#1f1f1f" : "#ffffff"),
+    bg: resolveVar(THEME_VARS.bg, isDark ? "#121212" : "#faf7f2"),
+    textH: resolveVar(THEME_VARS.textH, isDark ? "#f2ede6" : "#1a1614"),
+    textS: resolveVar(THEME_VARS.textS, isDark ? "#9b8e79" : "#6b5d4f"),
+    border: resolveVar(THEME_VARS.border, isDark ? "#2a2a2a" : "#e4ddd1"),
+  }), [isDark]);
 
   const theme = useMemo(
     () =>

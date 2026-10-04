@@ -1,5 +1,27 @@
 import type { CSSProperties } from "react";
 
+/* ── The theme, read from the one place it is authored ───────────────────
+ *
+ * These used to be a second copy of the hex values that app/globals.css
+ * declares for Tailwind and shadcn, with a note admitting that changing a
+ * colour meant editing both. There is only one list now: the `--sw-*`
+ * custom properties in globals.css. This file points at them.
+ *
+ * Why that works for both styling systems:
+ *   • Tailwind utilities and shadcn components already resolve the same
+ *     variables through the @theme mappings.
+ *   • A hand-written `style={{ color: C.textH }}` now emits
+ *     `color: var(--sw-text-h)`, which the browser resolves against
+ *     whichever theme class is on <html>.
+ *
+ * That also means the theme switch is pure CSS: nothing re-renders to
+ * recolour, the variables simply resolve differently under `.sw-dark`.
+ *
+ * `isDark` is still taken, because a handful of call sites branch on more
+ * than colour (an icon swap, a shadow that only exists in light mode), and
+ * because every consumer already passes it.
+ */
+
 export interface ThemeColors {
   bg: string;
   bgCard: string;
@@ -17,47 +39,57 @@ export interface ThemeColors {
   shadowCard: string;
 }
 
-export function T(isDark: boolean): ThemeColors {
+/** The variable names, exported so anything that needs a real colour value
+ *  rather than a reference (MUI's chart palette is the one case) can resolve
+ *  them from the document instead of hard-coding a copy. */
+export const THEME_VARS = {
+  bg: "--sw-bg",
+  bgCard: "--sw-bg-card",
+  bgCard2: "--sw-bg-card-2",
+  border: "--sw-border",
+  borderLight: "--sw-border-light",
+  textH: "--sw-text-h",
+  textB: "--sw-text-b",
+  textS: "--sw-text-s",
+  textXS: "--sw-text-xs",
+  goldInk: "--sw-gold-ink",
+} as const;
+
+/** Read a palette variable as an actual colour. Browser only — on the
+ *  server there is no computed style, so the caller gets the fallback. */
+export function resolveVar(name: string, fallback: string): string {
+  if (typeof window === "undefined") return fallback;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+const V = (name: string) => `var(${name})`;
+
+export function T(_isDark: boolean): ThemeColors {
   return {
-    bg: isDark ? "#121212" : "#faf7f2",
-    bgCard: isDark ? "#1f1f1f" : "#ffffff",
-    bgCard2: isDark ? "#1a1a1a" : "#f5f0e8",
-    border: isDark ? "#2a2a2a" : "#e4ddd1",
-    borderLight: isDark ? "#242424" : "#ede8df",
-    textH: isDark ? "#f2ede6" : "#1a1614",
-    textB: isDark ? "#c4b99a" : "#3d3229",
-    // Dark was #7a6e5e at 3.95:1 on the near-black background -- just under
-    // the 4.5:1 body text needs. #9b8e79 is the same hue at 6.13:1.
-    textS: isDark ? "#9b8e79" : "#6b5d4f",
-    // Light was #a8998a, which sits at 2.59:1 on the cream background --
-    // under the 4.5:1 a caption needs. #7d7062 is the same hue at 4.50:1.
-    textXS: isDark ? "#968a78" : "#7d7062",
-    /**
-     * Gold for TEXT and ICONS, as opposed to gold as a surface.
-     *
-     * The brand gold #c9a84c reads well on the near-black dark theme (8.61:1)
-     * but collapses to 2.14:1 on the cream light theme, where it is used for
-     * every label, meta line and inline icon. This is the same gold darkened
-     * until it clears 4.5:1 (4.58:1) while staying in the same hue family.
-     *
-     * `gold` from lib/styles.ts is unchanged and stays the SURFACE colour --
-     * the Book Now button is still bright gold with dark text on it, which
-     * was never the problem.
-     */
-    goldInk: isDark ? "#c9a84c" : "#8a6d20",
+    bg: V("--sw-bg"),
+    bgCard: V("--sw-bg-card"),
+    bgCard2: V("--sw-bg-card-2"),
+    border: V("--sw-border"),
+    borderLight: V("--sw-border-light"),
+    textH: V("--sw-text-h"),
+    textB: V("--sw-text-b"),
+    textS: V("--sw-text-s"),
+    textXS: V("--sw-text-xs"),
+    goldInk: V("--sw-gold-ink"),
     inp: {
-      background: isDark ? "#1a1a1a" : "#ffffff",
-      color: isDark ? "#f2ede6" : "#1a1614",
-      border: `1px solid ${isDark ? "#333333" : "#d6cfc4"}`,
+      background: V("--sw-input-bg"),
+      color: V("--sw-text-h"),
+      border: `1px solid ${V("--sw-input-border")}`,
       padding: "11px 14px",
       fontSize: 13,
       borderRadius: 6,
       width: "100%",
       boxSizing: "border-box",
-      boxShadow: isDark ? "none" : "0 1px 3px rgba(0,0,0,0.06)",
+      boxShadow: V("--sw-input-shadow"),
     },
-    navBg: isDark ? "rgba(18,18,18,0.97)" : "rgba(250,247,242,0.97)",
-    shadow: isDark ? "0 4px 24px rgba(0,0,0,0.55)" : "0 4px 24px rgba(80,55,20,0.10)",
-    shadowCard: isDark ? "0 2px 16px rgba(0,0,0,0.4)" : "0 2px 16px rgba(80,55,20,0.08)",
+    navBg: V("--sw-nav-bg"),
+    shadow: V("--sw-shadow"),
+    shadowCard: V("--sw-shadow-card"),
   };
 }
