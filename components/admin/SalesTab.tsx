@@ -43,7 +43,7 @@ import { RefundModal } from "@/components/admin/RefundModal";
 import { InvoiceModal } from "@/components/admin/InvoiceModal";
 import {
   PageHead, Figure, Segmented, TableShell, td, Btn, Pill, Modal, Label, Line, ErrorNote,
-  useAdminStyle, Row, Cell, STATUS_COLOR, FullSelect, ViewTabs, ConfirmDialog,
+  useAdminStyle, Row, Cell, STATUS_COLOR, FullSelect, ViewTabs, ConfirmDialog, TotalLine, TOGGLE_CLEARANCE,
 } from "@/components/admin/ui";
 
 type View = "Transactions" | "Payments" | "Receivables" | "Settlements" | "Clients" | "Expenses" | "Closing";
@@ -168,18 +168,33 @@ function Transactions({ payments }: { payments: Payment[] }) {
   const sel = { ...inp, padding: "8px 10px", width: "auto" } as const;
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
-        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From" style={sel} />
-        <span style={{ color: C.textS, fontSize: 13 }}>to</span>
-        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To" style={sel} />
-        <NativeSelect value={type} onChange={(e) => setType(e.target.value)} aria-label="Type" style={sel}>
-          <option>All</option>{PAYMENT_TYPES.map((t) => <option key={t}>{t}</option>)}
-        </NativeSelect>
-        <NativeSelect value={method} onChange={(e) => setMethod(e.target.value)} aria-label="Method" style={sel}>
-          <option>All</option>{PAYMENT_METHODS.map((t) => <option key={t}>{t}</option>)}
-        </NativeSelect>
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Guest, booking or reference" style={{ ...sel, minWidth: 200, flex: 1 }} />
-        <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 6, alignItems: "center" }}>
+      {/* A grid that becomes the old single row only when there is width for
+          one. Wrapping a flex row left the controls ragged at middling
+          widths — a lone date input on its own line, the search box squeezed
+          to its 200px minimum beside a stranded checkbox. Columns keep them
+          aligned at every size, and the date pair stays together. */}
+      <div className="mb-3 grid grid-cols-1 items-center gap-2.5 sm:grid-cols-2 xl:flex xl:flex-wrap">
+        <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
+          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From" style={{ ...sel, minWidth: 0, flex: 1 }} />
+          <span style={{ color: C.textS, fontSize: 13, flexShrink: 0 }}>to</span>
+          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To" style={{ ...sel, minWidth: 0, flex: 1 }} />
+        </div>
+{/* The w-full override has to sit on an ANCESTOR: NativeSelect passes
+            its className to the <select>, while the element that is w-fit is
+            the wrapper around it. Put on the select itself, the selector was
+            hunting for the wrapper inside its own child and did nothing. */}
+        <div className="sw-select-fill" style={{ minWidth: 0 }}>
+          <NativeSelect value={type} onChange={(e) => setType(e.target.value)} aria-label="Type" style={{ ...sel, width: "100%" }}>
+            <option>All</option>{PAYMENT_TYPES.map((t) => <option key={t}>{t}</option>)}
+          </NativeSelect>
+        </div>
+        <div className="sw-select-fill" style={{ minWidth: 0 }}>
+          <NativeSelect value={method} onChange={(e) => setMethod(e.target.value)} aria-label="Method" style={{ ...sel, width: "100%" }}>
+            <option>All</option>{PAYMENT_METHODS.map((t) => <option key={t}>{t}</option>)}
+          </NativeSelect>
+        </div>
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Guest, booking or reference" className="sm:col-span-2 xl:flex-1" style={{ ...sel, width: "100%", minWidth: 0 }} />
+        <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 6, alignItems: "center", minHeight: 36 }}>
           <Checkbox checked={showVoided} onCheckedChange={(v) => setShowVoided(v === true)} /> Show voided
         </label>
         <Btn size="sm" icon="download" onClick={exportCsv}>Export</Btn>
@@ -206,9 +221,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
           </Row>
         ))}
       </TableShell>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10, color: C.textH, fontSize: 14 }}>
-        Net total: <strong style={{ marginLeft: 8 }}>{fmt(net)}</strong>
-      </div>
+      <TotalLine label="Net total" value={fmt(net)} />
       {voiding && <VoidModal what={`${voiding.type} of ${fmt(voiding.amount)} from ${voiding.guestName}`} kind="payment" id={voiding.id} onClose={() => setVoiding(null)} />}
     </div>
   );
@@ -394,9 +407,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
           </Row>
         ))}
       </TableShell>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10, color: C.textH, fontSize: 14 }}>
-        Total owed: <strong style={{ marginLeft: 8 }}>{fmt(total)}</strong>
-      </div>
+      <TotalLine label="Total owed" value={fmt(total)} />
     </div>
   );
 }
@@ -783,7 +794,9 @@ export function Closing({ onAct }: { onAct?: (action: CloseAction, b: Booking) =
             <Input id="close-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. ₱50 short, change given wrong" style={inp} />
           </div>
           <ErrorNote>{error}</ErrorNote>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+          {/* Same clearance: this is the page's last row, right-aligned,
+              and the toggle floats over that corner. */}
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12, paddingRight: TOGGLE_CLEARANCE }}>
             <Btn kind="primary" disabled={busy || blockers.length > 0} onClick={save}>
               {busy ? "Saving…" : blockers.length > 0 ? "Finish the bookings above first" : existing ? "Close this day again" : "Close the day"}
             </Btn>

@@ -282,6 +282,23 @@ export function Line({ label, value, strong, color }: { label: ReactNode; value:
 
 // ── Table shell ───────────────────────────────────────────────────────
 // Table brings its own overflow wrapper, so this adds only the border.
+/** The theme toggle floats over the bottom-right corner (52px at a 20px
+ *  inset), so anything right-aligned at the foot of an admin page sits
+ *  underneath it. Every such row reserves this much. */
+export const TOGGLE_CLEARANCE = 72;
+
+/** The summary figure under a table. One component so "Net total" and
+ *  "Total owed" cannot drift apart in spacing or weight. */
+export function TotalLine({ label, value }: { label: string; value: ReactNode }) {
+  const { C } = useAdminStyle();
+  return (
+    <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "baseline", gap: 8, marginTop: 14, paddingRight: TOGGLE_CLEARANCE, color: C.textS, fontSize: 13.5 }}>
+      {label}
+      <strong style={{ color: C.textH, fontSize: 16, fontWeight: 700 }}>{value}</strong>
+    </div>
+  );
+}
+
 export function TableShell({ head, children, minWidth = 720, empty, label }: { head: string[]; children: ReactNode; minWidth?: number; empty?: ReactNode; label?: string }) {
   const { C, cBg, cBr, head: hBg } = useAdminStyle();
   return (

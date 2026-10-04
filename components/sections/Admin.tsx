@@ -708,7 +708,10 @@ export function Admin({
         )}
 
         {/* Main Content */}
-        <div style={{ flex: 1, padding: mob ? "20px 16px" : "40px", overflowY: "auto", minWidth: 0, background: adminBg }}>
+        {/* paddingBottom leaves room for the theme toggle, which floats over
+            the bottom-right corner. Without it the last row of any admin
+            table sits under the button with no way to scroll it clear. */}
+        <div style={{ flex: 1, padding: mob ? "20px 16px" : "40px", paddingBottom: mob ? 96 : 104, overflowY: "auto", minWidth: 0, background: adminBg }}>
 
           {/* DAILY OPERATIONS — the home screen */}
           {tab === "Operations" && (
