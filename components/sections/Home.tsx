@@ -201,7 +201,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
 
   // ── Shared type scale ──────────────────────────────────────────────
   // Larger, higher-contrast display type that holds up in both themes.
-  const serif = "'Cormorant Garamond',Georgia,serif";
+  const serif = "'Satoshi',system-ui,sans-serif";
   const eyebrow: React.CSSProperties = {
     color: C.goldInk,
     fontSize: 13.5,
@@ -596,7 +596,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
               <Reveal key={p.id} className="sw-card"
                 style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: mob ? "22px 18px" : "28px 24px", textAlign: "left", boxShadow: C.shadowCard, display: "flex", flexDirection: "column", transitionDelay: `${i * 100}ms` }}>
                 <div style={{ marginBottom: 12, color: C.goldInk }}><Icon name={p.icon as IconName} size={28} strokeWidth={1.5} /></div>
-                <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, marginBottom: 6 }}>{p.label}</h3>
+                <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18, marginBottom: 6 }}>{p.label}</h3>
                 <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 14, lineHeight: 1.6 }}>{p.desc}</p>
                 <div style={{ color: C.goldInk, fontSize: 24, fontWeight: 700, marginBottom: 16 }}>{p.id === "wholeday" ? "" : "from "}{fmt(p.base)}<span style={{ color: C.textXS, fontSize: 13.5 }}> {p.unit}</span></div>
                 {p.details.map((d) => (

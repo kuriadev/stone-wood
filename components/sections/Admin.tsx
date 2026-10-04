@@ -595,7 +595,7 @@ export function Admin({
         <div style={{ background: sideBg, borderBottom: `1px solid ${sideBorder}`, padding: "0 20px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 90 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: gold }} />
-            <span style={{ color: isDark ? "#e0e0e0" : "#111", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 16, letterSpacing: 2 }}>STONEWOOD</span>
+            <span style={{ color: isDark ? "#e0e0e0" : "#111", fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 16, letterSpacing: 2 }}>STONEWOOD</span>
           </div>
           <button onClick={() => setSideOpen((o) => !o)} style={{ background: "none", border: `1px solid ${cBr}`, color: isDark ? "#888" : "#666", cursor: "pointer", padding: "6px 10px", borderRadius: 3, fontSize: 14.5 }}>{<Icon name={sideOpen ? "x" : "menu"} size={16} />}</button>
         </div>
@@ -609,7 +609,7 @@ export function Admin({
               <div style={{ padding: "32px 24px 24px", borderBottom: `1px solid ${sideBorder}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: gold, flexShrink: 0 }} />
-                  <span style={{ color: isDark ? "#e0e0e0" : "#111", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, letterSpacing: 2 }}>STONEWOOD</span>
+                  <span style={{ color: isDark ? "#e0e0e0" : "#111", fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 17, letterSpacing: 2 }}>STONEWOOD</span>
                 </div>
                 <div style={{ color: isDark ? "#888888" : "#6c6c6c", fontSize: 10.5, letterSpacing: 3, marginLeft: 16 }}>ADMIN PANEL</div>
               </div>
@@ -632,7 +632,7 @@ export function Admin({
                     fontWeight: 600,
                     whiteSpace: "nowrap",
                     textTransform: "uppercase" as const,
-                    fontFamily: "'Jost',system-ui,sans-serif",
+                    fontFamily: "'Satoshi',system-ui,sans-serif",
                   }}>
                     {group.label}
                   </span>
@@ -729,12 +729,12 @@ export function Admin({
             <div>
               <div style={{ marginBottom: 28 }}>
                 <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>CALENDAR VIEW</p>
-                <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 6px" }}>Calendar</h2>
+                <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 6px" }}>Calendar</h2>
                 <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>Click a date to toggle it as closed.</p>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                 <button onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))} style={{ background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", borderRadius: 4, padding: "6px 14px", fontSize: 14.5 }}>‹</button>
-                <span style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18 }}>{calMonth.toLocaleString("default", { month: "long", year: "numeric" })}</span>
+                <span style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18 }}>{calMonth.toLocaleString("default", { month: "long", year: "numeric" })}</span>
                 <button onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))} style={{ background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", borderRadius: 4, padding: "6px 14px", fontSize: 14.5 }}>›</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: 8 }}>
@@ -860,7 +860,7 @@ export function Admin({
           {tab === "Rooms" && (
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
-                <div><p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>ACCOMMODATIONS</p><h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Rooms</h2></div>
+                <div><p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>ACCOMMODATIONS</p><h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Rooms</h2></div>
                 <button onClick={openAdd} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD ROOM</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fill,minmax(280px,1fr))", gap: 20 }}>
@@ -876,7 +876,7 @@ export function Admin({
                       </div>
                     </div>
                     <div style={{ padding: "16px 18px" }}>
-                      <h4 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, marginBottom: 4, fontWeight: 400 }}>{r.name}</h4>
+                      <h4 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 17, marginBottom: 4, fontWeight: 400 }}>{r.name}</h4>
                       <p style={{ color: gold, fontSize: 12.5, marginBottom: 8 }}><Icon name="bed" size={12} style={{ marginRight: 5 }} />{r.beds}</p>
                       <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, marginBottom: 14 }}>{r.desc}</p>
                       <div style={{ display: "flex", gap: 8 }}>
@@ -896,7 +896,7 @@ export function Admin({
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
                 <div>
                   <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>MEDIA</p>
-                  <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 6px" }}>Gallery</h2>
+                  <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 6px" }}>Gallery</h2>
                   <p style={{ color: C.textS, fontSize: 13.5, margin: 0, maxWidth: 560 }}>
                     Every photo fills one named place on the site. Replace a slot to change that
                     picture, or move it to change which slot it fills.
@@ -1031,7 +1031,7 @@ export function Admin({
             <div>
               <div style={{ marginBottom: 28 }}>
                 <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>MESSAGES</p>
-                <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Customer Service</h2>
+                <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Customer Service</h2>
               </div>
 
               {/* ARCHIVE CONFIRM MODAL */}
@@ -1041,7 +1041,7 @@ export function Admin({
                     <AlertDialogTitle
                       style={{
                         color: C.textH,
-                        fontFamily: "'Cormorant Garamond',Georgia,serif",
+                        fontFamily: "'Satoshi',system-ui,sans-serif",
                         fontSize: 18,
                         fontWeight: 400,
                       }}
@@ -1133,7 +1133,7 @@ export function Admin({
                             color: C.textH,
                             fontSize: 22,
                             fontWeight: 500,
-                            fontFamily: "'Cormorant Garamond',Georgia,serif",
+                            fontFamily: "'Satoshi',system-ui,sans-serif",
                           }}
                         >
                           Send Response
@@ -1295,7 +1295,7 @@ export function Admin({
         <AlertDialogContent>
           <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#e55" }}><Icon name="lock" size={20} /></div>
           <AlertDialogHeader>
-            <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400 }}>Sign out?</AlertDialogTitle>
+            <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18, fontWeight: 400 }}>Sign out?</AlertDialogTitle>
             <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>You will be returned to the main site.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1318,7 +1318,7 @@ export function Admin({
               {confirmRemoveRoom.img && <img loading="lazy" decoding="async" src={confirmRemoveRoom.img} alt={confirmRemoveRoom.name} style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 8 }} />}
               <div style={{ width: 50, height: 50, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#e55" }}><Icon name="bed" size={22} /></div>
               <AlertDialogHeader>
-                <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 400 }}>Remove this room?</AlertDialogTitle>
+                <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 20, fontWeight: 400 }}>Remove this room?</AlertDialogTitle>
                 <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>
                   <strong style={{ color: C.textH }}>{confirmRemoveRoom.name}</strong> will be permanently removed from the system.
                 </AlertDialogDescription>
@@ -1345,7 +1345,7 @@ export function Admin({
       <Dialog open={showModal} onOpenChange={(open) => { if (!open) setShowModal(false); }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[min(48rem,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, fontWeight: 400 }}>
+            <DialogTitle style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 22, fontWeight: 400 }}>
               {editRoom ? "Edit Room" : "Add New Room"}
             </DialogTitle>
             <DialogDescription>

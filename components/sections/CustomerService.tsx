@@ -127,7 +127,7 @@ const submit = handleSubmit(async (values) => {
     <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "48px 20px" : "80px 24px" }}>
       <div style={{ maxWidth: 940, margin: "0 auto" }}>
         <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 12.5, marginBottom: 10, textAlign: "center" }}>SUPPORT</p>
-        <h2 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 32 : 52, color: C.textH, textAlign: "center", marginBottom: 12, fontWeight: 400, lineHeight: 1.1 }}>
+        <h2 style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 32 : 52, color: C.textH, textAlign: "center", marginBottom: 12, fontWeight: 400, lineHeight: 1.1 }}>
           How can we help?
         </h2>
         <p style={{ color: C.textS, textAlign: "center", marginBottom: 36, lineHeight: 1.7, fontSize: 14.5 }}>
@@ -158,7 +158,7 @@ const submit = handleSubmit(async (values) => {
         {submitted ? (
           <div style={{ background: C.bgCard, border: `1px solid ${gold}44`, borderRadius: 12, padding: "52px 24px", textAlign: "center", boxShadow: C.shadow }}>
             <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg,${gold}22,${gold}11)`, border: `1px solid ${gold}44`, display: "flex", alignItems: "center", justifyContent: "center", color: C.goldInk, margin: "0 auto 20px" }}><Icon name="message" size={30} strokeWidth={1.5} /></div>
-            <h3 style={{ color: C.goldInk, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 26, marginBottom: 10, fontWeight: 400 }}>Message Received!</h3>
+            <h3 style={{ color: C.goldInk, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 26, marginBottom: 10, fontWeight: 400 }}>Message Received!</h3>
             <p style={{ color: C.textS, fontSize: 15, lineHeight: 1.8 }}>We'll respond within 24 hours.</p>
           </div>
         ) : (

@@ -298,7 +298,7 @@ export function ManageBooking(_props: ManageBookingProps) {
 
   const microLabel: React.CSSProperties = { color: C.textS, fontSize: 10.5, letterSpacing: 1.8, margin: "0 0 6px" };
   const eyebrow: React.CSSProperties = { color: C.goldInk, fontSize: 11, letterSpacing: 2.2, fontWeight: 700, margin: 0 };
-  const serif = "'Cormorant Garamond',Georgia,serif";
+  const serif = "'Satoshi',system-ui,sans-serif";
 
   /* The warning red. The pale pink the cancel controls use is legible on the
      dark card and washes out on the light one, so this follows the theme. */

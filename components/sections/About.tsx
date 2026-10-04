@@ -122,7 +122,7 @@ export function About({
     {/* TITLE */}
 <h1
   style={{
-    fontFamily: "'Cormorant Garamond',Georgia,serif",
+    fontFamily: "'Satoshi',system-ui,sans-serif",
     fontSize: mob ? 38 : 60,
     fontWeight: 400,
     lineHeight: 1.1,
@@ -248,7 +248,7 @@ export function About({
       <section style={{ textAlign: "center", marginBottom: 80 }}>
         <h2
           style={{
-            fontFamily: "'Cormorant Garamond',Georgia,serif",
+            fontFamily: "'Satoshi',system-ui,sans-serif",
             fontSize: mob ? 26 : 32,
             color: C.textH,
             marginBottom: mob ? 24 : 40,
@@ -459,7 +459,7 @@ export function About({
           <h2
             style={{
               color: C.textH,
-              fontFamily: "'Cormorant Garamond',Georgia,serif",
+              fontFamily: "'Satoshi',system-ui,sans-serif",
               fontSize: mob ? 28 : 40,
               fontWeight: 400,
               margin: "0 0 20px",
@@ -506,7 +506,7 @@ export function About({
       >
         <h3
           style={{
-            fontFamily: "'Cormorant Garamond',Georgia,serif",
+            fontFamily: "'Satoshi',system-ui,sans-serif",
             fontSize: 26,
             marginBottom: 20,
             color: C.textH,

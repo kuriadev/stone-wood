@@ -100,7 +100,7 @@ export function HeroReservation({
           <p style={{ ...label, color: C.goldInk, fontWeight: 500, marginBottom: 6 }}>RESERVATIONS</p>
           <h2
             style={{
-              fontFamily: "'Cormorant Garamond',Georgia,serif",
+              fontFamily: "'Satoshi',system-ui,sans-serif",
               fontSize: mob ? 26 : 30, color: "#fff", fontWeight: 400, margin: 0, lineHeight: 1.1,
             }}
           >
@@ -168,7 +168,7 @@ export function HeroReservation({
               <p style={{ fontSize: 12, color: "rgba(238,232,220,0.6)", margin: "0 0 3px" }}>Selected date</p>
               <p
                 style={{
-                  fontFamily: "'Cormorant Garamond',Georgia,serif",
+                  fontFamily: "'Satoshi',system-ui,sans-serif",
                   fontSize: 22, color: date ? "#fff" : "rgba(238,232,220,0.55)",
                   margin: 0, lineHeight: 1.15, fontWeight: 400,
                 }}
@@ -277,7 +277,7 @@ export function HeroReservation({
             </div>
             <p
               style={{
-                fontFamily: "'Cormorant Garamond',Georgia,serif",
+                fontFamily: "'Satoshi',system-ui,sans-serif",
                 fontSize: 24, color: C.goldInk, margin: 0, whiteSpace: "nowrap", fontWeight: 400,
               }}
             >

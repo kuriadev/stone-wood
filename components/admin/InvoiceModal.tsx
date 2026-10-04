@@ -21,7 +21,7 @@ function Head({ b }: { b: Booking }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 6 }}>
       <div>
-        <div style={{ fontSize: 20, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>StoneWood Private Resort</div>
+        <div style={{ fontSize: 20, fontFamily: "'Satoshi',system-ui,sans-serif" }}>StoneWood Private Resort</div>
         <div style={{ fontSize: 12.5, opacity: 0.75 }}>Angono, Rizal · Statement of account</div>
       </div>
       <div style={{ textAlign: "right", fontSize: 13 }}>

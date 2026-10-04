@@ -130,7 +130,7 @@ export function BookingDatePicker({
             color: C.textH,
             fontSize: 19,
             fontWeight: 400,
-            fontFamily: "'Cormorant Garamond',Georgia,serif",
+            fontFamily: "'Satoshi',system-ui,sans-serif",
           }}
         >
           {calMonth.toLocaleString("default", { month: "long", year: "numeric" })}

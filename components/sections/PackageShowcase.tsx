@@ -124,7 +124,7 @@ export function PackageShowcase({ packages, onBookPackage, onFallbackBook, tierS
                   <span style={{ color: C.goldInk, lineHeight: 0 }}>
                     <Icon name={g.icon} size={22} strokeWidth={1.6} />
                   </span>
-                  <span style={{ color: C.textH, fontSize: 17, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>
+                  <span style={{ color: C.textH, fontSize: 17, fontFamily: "'Satoshi',system-ui,sans-serif" }}>
                     {g.label}
                   </span>
                   <span style={{ color: C.textS, fontSize: 12 }}>{g.tagline}</span>
@@ -154,7 +154,7 @@ export function PackageShowcase({ packages, onBookPackage, onFallbackBook, tierS
             <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.4, fontWeight: 700, margin: "0 0 10px" }}>
               {String(groups.findIndex((g) => g.key === active.key) + 1).padStart(2, "0")} · {active.label.toUpperCase()}
             </p>
-            <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 26 : 34, fontWeight: 400, margin: "0 0 10px", lineHeight: 1.15 }}>
+            <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 26 : 34, fontWeight: 400, margin: "0 0 10px", lineHeight: 1.15 }}>
               {active.tagline}
             </h3>
             <p style={{ color: C.textS, fontSize: 13.5, margin: "0 auto", maxWidth: 480, lineHeight: 1.6 }}>

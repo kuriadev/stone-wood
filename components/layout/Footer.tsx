@@ -54,7 +54,7 @@ export function Footer({ setPage }: FooterProps) {
           <div
             style={{
               color: gold,
-              fontFamily: "'Cormorant Garamond',Georgia,serif",
+              fontFamily: "'Satoshi',system-ui,sans-serif",
               fontSize: 24,
               letterSpacing: 4,
               marginBottom: 14,

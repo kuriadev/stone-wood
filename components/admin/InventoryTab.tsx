@@ -137,7 +137,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
       <div style={{ marginBottom: 28 }}>
         <p style={{ fontSize: 11.5, letterSpacing: 3, marginBottom: 8, color: C.textXS }}>STOCK MANAGEMENT</p>
         <h2
-          style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontWeight: "400", margin: "0 0 6px", color: C.textH, fontSize: mob ? 22 : 26 }}
+          style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontWeight: "400", margin: "0 0 6px", color: C.textH, fontSize: mob ? 22 : 26 }}
         >
           Inventory
         </h2>
@@ -167,7 +167,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
               {(l as string).toUpperCase()}
             </div>
             <div
-              style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontWeight: "700", lineHeight: "1", fontSize: mob ? 24 : 30, color: c as string }}
+              style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontWeight: "700", lineHeight: "1", fontSize: mob ? 24 : 30, color: c as string }}
             >
               {v as number}
             </div>
@@ -495,7 +495,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
         <AlertDialogContent>
           <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(229, 85, 85, 0.1)", border: "1px solid rgba(229, 85, 85, 0.2)", color: "#e55", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }} aria-hidden="true"><Icon name="trash" size={13} /></div>
           <AlertDialogHeader>
-            <AlertDialogTitle style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400, color: C.textH }}>
+            <AlertDialogTitle style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18, fontWeight: 400, color: C.textH }}>
               Archive this item?
             </AlertDialogTitle>
             <AlertDialogDescription style={{ fontSize: 14.5, lineHeight: 1.7, color: C.textS }}>
@@ -524,7 +524,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
       <Dialog open={showAddModal} onOpenChange={(open) => { if (!open) setShowAddModal(false); }}>
         <DialogContent className="sm:max-w-[min(42rem,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400, color: C.textH }}>
+            <DialogTitle style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18, fontWeight: 400, color: C.textH }}>
               {editItem ? "Edit Item" : "Add New Item"}
             </DialogTitle>
             <DialogDescription>

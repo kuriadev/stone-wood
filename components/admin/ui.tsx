@@ -53,7 +53,7 @@ export function useAdminStyle() {
   };
 }
 
-export const serif = "'Cormorant Garamond',Georgia,serif";
+export const serif = "'Satoshi',system-ui,sans-serif";
 
 // ── Page heading ──────────────────────────────────────────────────────
 export function PageHead({ title, subtitle, action, mob }: { title: string; subtitle?: string; action?: ReactNode; mob?: boolean }) {

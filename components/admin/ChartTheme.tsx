@@ -32,9 +32,9 @@ export function ChartTheme({ children }: { children: ReactNode }) {
           text: { primary: C.textH, secondary: C.textS },
           divider: C.border,
         },
-        // Charts must not introduce Roboto — the rest of the admin is Jost.
+        // Charts must not introduce Roboto — the rest of the admin is Satoshi.
         typography: {
-          fontFamily: "'Jost', system-ui, sans-serif",
+          fontFamily: "'Satoshi', system-ui, sans-serif",
           fontSize: 12,
         },
       }),

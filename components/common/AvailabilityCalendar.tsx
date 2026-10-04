@@ -157,7 +157,7 @@ export function AvailabilityCalendar({
             color: "#f5f1ea",
             fontSize: 19,
             fontWeight: 400,
-            fontFamily: "'Cormorant Garamond',Georgia,serif",
+            fontFamily: "'Satoshi',system-ui,sans-serif",
           }}
         >
           {mounted && calMonth

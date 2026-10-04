@@ -87,7 +87,7 @@ export function Gallery({ galleryImgs }: GalleryProps) {
     };
   }, [selIdx, close, step]);
 
-  const serif = "'Cormorant Garamond',Georgia,serif";
+  const serif = "'Satoshi',system-ui,sans-serif";
 
   // Nothing to tell a story with.
   if (galleryImgs.length === 0) {

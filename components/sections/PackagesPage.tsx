@@ -35,7 +35,7 @@ export function PackagesPage({ setPage, packages, onBookPackage }: PackagesPageP
           RESORT PACKAGES
         </p>
         <h2 style={{
-          fontFamily: "'Cormorant Garamond',Georgia,serif",
+          fontFamily: "'Satoshi',system-ui,sans-serif",
           fontSize: mob ? 28 : 46,
           color: C.textH,
           textAlign: "center",

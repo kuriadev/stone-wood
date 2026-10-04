@@ -61,7 +61,7 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
       <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 9px", fontWeight: 700 }}>
         EVENT PACKAGES
       </p>
-      <h4 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 20 : 23, margin: "0 0 9px", fontWeight: 400 }}>
+      <h4 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 20 : 23, margin: "0 0 9px", fontWeight: 400 }}>
         Or book a ready-made celebration
       </h4>
       <p style={{ color: C.textS, fontSize: 13, margin: "0 0 18px", lineHeight: 1.6, maxWidth: 560 }}>
@@ -117,7 +117,7 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
               </span>
 
               <span style={{ display: "block", padding: "14px 16px 16px" }}>
-                <span style={{ display: "block", color: C.textH, fontSize: 16, fontFamily: "'Cormorant Garamond',Georgia,serif", marginBottom: 6 }}>
+                <span style={{ display: "block", color: C.textH, fontSize: 16, fontFamily: "'Satoshi',system-ui,sans-serif", marginBottom: 6 }}>
                   {p.title}
                 </span>
                 <span style={{ display: "block", color: C.textS, fontSize: 12, lineHeight: 1.55, marginBottom: 10 }}>

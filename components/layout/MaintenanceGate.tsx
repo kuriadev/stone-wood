@@ -100,7 +100,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
             fontSize: 11.5,
             letterSpacing: 4,
             margin: "0 0 22px",
-            fontFamily: "'Cormorant Garamond',Georgia,serif",
+            fontFamily: "'Satoshi',system-ui,sans-serif",
           }}
         >
           STONEWOOD PRIVATE RESORT
@@ -118,7 +118,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
             gap: 18,
             margin: 0,
             color: C.textH,
-            fontFamily: "'Cormorant Garamond',Georgia,serif",
+            fontFamily: "'Satoshi',system-ui,sans-serif",
             fontWeight: 400,
             lineHeight: 1.15,
             // Scales with the viewport so the headline stays big and legible

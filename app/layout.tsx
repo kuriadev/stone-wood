@@ -21,22 +21,21 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://api.fontshare.com" />
         <link
           rel="preconnect"
-          href="https://fonts.gstatic.com"
+          href="https://cdn.fontshare.com"
           crossOrigin="anonymous"
         />
-        {/* Weights trimmed to what the app actually renders, audited against
-            every style object in the tree:
-              • Cormorant italic (2 files, 76 KB) had ZERO usages.
-              • Cormorant 300 (37 KB) had ZERO usages.
-              • Cormorant 700 IS used 8 times but was never loaded, so those
-                headings were being synthesised as faux-bold from 400.
-            Net: 113 KB less font data AND the 700 headings now render in the
-            real cut rather than a browser-stretched approximation. */}
+        {/* Satoshi is the whole type system — display and UI alike. It comes
+            from Fontshare rather than Google Fonts, which is why the
+            preconnects above point elsewhere than they used to.
+
+            Weights are the ones the app actually renders. Satoshi has no 600
+            cut, so the handful of `fontWeight: 600` call sites resolve to 700
+            by the CSS font-matching rules rather than being synthesised. */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Jost:wght@300;400;500;600;700&display=swap"
+          href="https://api.fontshare.com/v2/css?f%5B%5D=satoshi@300,400,500,700,900&display=swap"
           rel="stylesheet"
         />
 

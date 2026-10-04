@@ -550,7 +550,7 @@
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 12 }}>
         <div style={{ minWidth: 0 }}>
           <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 9px", fontWeight: 700 }}>{o.eyebrow}</p>
-          <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 24 : 30, margin: 0, fontWeight: 400, lineHeight: 1.15 }}>{o.title}</h3>
+          <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 24 : 30, margin: 0, fontWeight: 400, lineHeight: 1.15 }}>{o.title}</h3>
         </div>
         {o.note && (
           <div style={{ display: "flex", alignItems: "center", gap: 7, paddingTop: mob ? 0 : 22, color: o.live ? "#4caf50" : undefined }}>
@@ -626,7 +626,7 @@
       <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "32px 16px" : "80px 24px" }}>
         <div style={{ maxWidth: 1080, margin: "0 auto" }}>
           <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 12.5, marginBottom: 8, textAlign: "center" }}>RESERVATIONS</p>
-          <h2 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 30 : 46, color: C.textH, textAlign: "center", marginBottom: 10, fontWeight: 400, lineHeight: 1.1 }}>Create Your Stay</h2>
+          <h2 style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 30 : 46, color: C.textH, textAlign: "center", marginBottom: 10, fontWeight: 400, lineHeight: 1.1 }}>Create Your Stay</h2>
           <p style={{ color: C.textS, fontSize: mob ? 14.5 : 16, textAlign: "center", margin: "0 0 10px" }}>
             A simple, secure booking in just a few steps.
           </p>
@@ -750,7 +750,7 @@
                         <span style={{ display: "block", marginBottom: 14, color: C.goldInk, lineHeight: 0 }}>
                           <Icon name={opt.icon as IconName} size={24} strokeWidth={1.6} />
                         </span>
-                        <span style={{ display: "block", color: C.textH, fontSize: 19, fontFamily: "'Cormorant Garamond',Georgia,serif", marginBottom: 9 }}>
+                        <span style={{ display: "block", color: C.textH, fontSize: 19, fontFamily: "'Satoshi',system-ui,sans-serif", marginBottom: 9 }}>
                           {SLOTS[opt.id].label}
                         </span>
                         <span style={{ display: "block", color: C.textB, fontSize: 12.5, fontWeight: 600, marginBottom: 5 }}>
@@ -768,7 +768,7 @@
                 <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 26, paddingTop: 24, display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1fr) minmax(0,1.15fr)", gap: mob ? 18 : 28, alignItems: "center" }}>
                   <div>
                     <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 9px", fontWeight: 700 }}>EVENT BOOKING</p>
-                    <h4 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 20 : 23, margin: "0 0 9px", fontWeight: 400 }}>
+                    <h4 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 20 : 23, margin: "0 0 9px", fontWeight: 400 }}>
                       Need space for a celebration?
                     </h4>
                     <p style={{ color: C.textS, fontSize: 13, margin: 0, lineHeight: 1.6 }}>
@@ -1169,7 +1169,7 @@
                         <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 3 }}>No room needed</span>
                         <span style={{ display: "block", color: C.textS, fontSize: 12.5 }}>Continue with your pool reservation only.</span>
                       </span>
-                      <span style={{ color: C.goldInk, fontSize: 15, fontFamily: "'Cormorant Garamond',Georgia,serif", flexShrink: 0 }}>Included</span>
+                      <span style={{ color: C.goldInk, fontSize: 15, fontFamily: "'Satoshi',system-ui,sans-serif", flexShrink: 0 }}>Included</span>
                     </button>
                   )}
                   {bookableRooms.map((r) => {
@@ -1350,7 +1350,7 @@
                 <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "18px 16px" : "22px 24px", marginBottom: 4, background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
                   <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
                     <span style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.2, fontWeight: 700 }}>RESERVATION SUMMARY</span>
-                    <span style={{ color: C.goldInk, fontSize: 24, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>{fmt(total)}</span>
+                    <span style={{ color: C.goldInk, fontSize: 24, fontFamily: "'Satoshi',system-ui,sans-serif" }}>{fmt(total)}</span>
                   </div>
 
                   {([
@@ -1437,7 +1437,7 @@
                 {qrExpired && (
                   <div style={{ position: "absolute", inset: 0, background: isDark ? "rgba(6,5,4,0.96)" : "rgba(250,247,242,0.97)", zIndex: 10, borderRadius: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center" }}>
                     <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.3)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, fontSize: 28 }}>⏱</div>
-                    <h3 style={{ color: "#e55", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 22, fontWeight: 400, marginBottom: 10 }}>QR Code Expired</h3>
+                    <h3 style={{ color: "#e55", fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 22, fontWeight: 400, marginBottom: 10 }}>QR Code Expired</h3>
                     <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.8, marginBottom: 28, maxWidth: 320 }}>Your payment window has expired. Please go back and try again.</p>
                     <button onClick={() => { setQrExpired(false); setQrRetryKey((k) => k + 1); }} style={{ ...goldBtn }}>TRY AGAIN</button>
                   </div>
@@ -1449,7 +1449,7 @@
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 22 }}>
                   <div style={{ minWidth: 0 }}>
                     <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 9px", fontWeight: 700 }}>SECURE PAYMENT</p>
-                    <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 24 : 30, margin: 0, fontWeight: 400, lineHeight: 1.15 }}>
+                    <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 24 : 30, margin: 0, fontWeight: 400, lineHeight: 1.15 }}>
                       {paidInFull ? "Pay in full" : "Pay the 50% reservation deposit"}
                     </h3>
                   </div>
@@ -1494,7 +1494,7 @@
                     </p>
                     <div style={{ width: "100%", background: "rgba(0,169,82,0.10)", border: "1px solid rgba(0,169,82,0.35)", borderRadius: 10, padding: "12px 16px", textAlign: "center" }}>
                       <div style={{ color: "#4caf50", fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>AMOUNT DUE NOW</div>
-                      <div style={{ color: isDark ? "#fff" : "#111", fontSize: mob ? 24 : 28, fontWeight: 700, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>{fmt(dueNow)}</div>
+                      <div style={{ color: isDark ? "#fff" : "#111", fontSize: mob ? 24 : 28, fontWeight: 700, fontFamily: "'Satoshi',system-ui,sans-serif" }}>{fmt(dueNow)}</div>
                     </div>
                   </div>
                   {/* Order summary */}
@@ -1607,7 +1607,7 @@
                 <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.6, fontWeight: 700, margin: "0 0 12px" }}>{confirmedNow ? "RESERVATION CONFIRMED" : "RESERVATION RECEIVED"}</p>
                 {/* The guest's own name, because this is the one screen that is
                     addressed to them rather than about the booking. */}
-                <h3 style={{ color: C.textH, fontSize: mob ? 28 : 36, fontWeight: 400, margin: "0 0 14px", fontFamily: "'Cormorant Garamond',Georgia,serif", lineHeight: 1.15 }}>
+                <h3 style={{ color: C.textH, fontSize: mob ? 28 : 36, fontWeight: 400, margin: "0 0 14px", fontFamily: "'Satoshi',system-ui,sans-serif", lineHeight: 1.15 }}>
                   Thank you{form.name ? `, ${form.name.split(" ")[0]}` : ""}.
                 </h3>
                 <p style={{ color: C.textS, fontSize: 14.5, margin: "0 auto 26px", lineHeight: 1.7, maxWidth: 520 }}>
@@ -1701,7 +1701,7 @@
                   <div style={{ display: "flex", flexDirection: "column", padding: mob ? "20px 20px 22px" : "26px 28px 28px", minWidth: 0 }}>
                     <p style={{ color: C.goldInk, fontSize: 10.5, letterSpacing: 2.4, margin: "0 0 8px", fontWeight: 700 }}>ROOM</p>
                     <DialogTitle asChild>
-                      <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 24 : 28, fontWeight: 400, margin: "0 0 14px", lineHeight: 1.15 }}>
+                      <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 24 : 28, fontWeight: 400, margin: "0 0 14px", lineHeight: 1.15 }}>
                         {roomPhoto.name}
                       </h3>
                     </DialogTitle>
@@ -1776,7 +1776,7 @@
         <AlertDialog open={showCancelPay} onOpenChange={(o) => { if (!o) setShowCancelPay(false); }}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 24, fontWeight: 400 }}>
+              <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 24, fontWeight: 400 }}>
                 Cancel this payment?
               </AlertDialogTitle>
               <AlertDialogDescription style={{ color: C.textS, fontSize: 14, lineHeight: 1.7 }}>
@@ -1817,7 +1817,7 @@
               <div style={{ width: 48, height: 48, borderRadius: "50%", border: `1.5px solid ${gold}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10, color: C.goldInk, fontSize: 22, fontWeight: 600, flexShrink: 0 }} aria-hidden="true">
                 !
               </div>
-              <DialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 26 : 32, fontWeight: 400, lineHeight: 1.15 }}>
+              <DialogTitle style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 26 : 32, fontWeight: 400, lineHeight: 1.15 }}>
                 Before you continue
               </DialogTitle>
               <DialogDescription style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>

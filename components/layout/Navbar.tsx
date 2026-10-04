@@ -182,7 +182,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
           >
             <span
               style={{
-                fontFamily: "'Cormorant Garamond',Georgia,serif",
+                fontFamily: "'Satoshi',system-ui,sans-serif",
                 fontSize: mob ? 19 : 22,
                 letterSpacing: 5,
                 color: onDark ? "#fff" : C.textH,
@@ -321,7 +321,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
                       background: "none", border: "none", cursor: "pointer",
                       textAlign: "left", padding: "16px 0",
                       borderBottom: `1px solid ${C.borderLight}`,
-                      fontFamily: "'Cormorant Garamond',Georgia,serif",
+                      fontFamily: "'Satoshi',system-ui,sans-serif",
                       fontSize: 24, fontWeight: 400,
                       color: active ? gold : C.textH,
                       // Links stagger in behind the panel. The panel now mounts

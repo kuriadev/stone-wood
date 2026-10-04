@@ -22,8 +22,12 @@ import type { NextConfig } from "next";
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' data: https://fonts.gstatic.com",
+  // Satoshi is served by Fontshare: the stylesheet from api.fontshare.com,
+  // the woff2/woff/ttf files from cdn.fontshare.com. Without both the policy
+  // blocks the face outright and the whole site silently falls back to
+  // system-ui.
+  "style-src 'self' 'unsafe-inline' https://api.fontshare.com",
+  "font-src 'self' data: https://cdn.fontshare.com",
   "img-src 'self' data: blob: https:",
   "connect-src 'self' https://api.paymongo.com https://*.supabase.co wss://*.supabase.co",
   "frame-src https://www.google.com",

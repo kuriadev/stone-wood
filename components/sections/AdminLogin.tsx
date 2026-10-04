@@ -132,7 +132,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
             style={{ display: "inline-flex", alignItems: "center", marginBottom: 12, transition: "opacity .2s" }}
           >
             <div style={{ width: 24, height: 1, background: `${gold}66` }} />
-            <span style={{ color: gold, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 24, letterSpacing: 5, fontWeight: 600 }}>STONEWOOD</span>
+            <span style={{ color: gold, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 24, letterSpacing: 5, fontWeight: 600 }}>STONEWOOD</span>
             <div style={{ width: 24, height: 1, background: `${gold}66` }} />
           </Button>
           <p style={{ color: labelCol, fontSize: 11, letterSpacing: 5, margin: 0 }}>ADMIN PORTAL</p>
@@ -171,7 +171,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
             <Icon name="lock" size={19} />
           </div>
 
-          <h2 style={{ color: C.textH, fontSize: 22, fontFamily: "'Cormorant Garamond',Georgia,serif", fontWeight: 400, margin: "0 0 5px", letterSpacing: 0.4 }}>Sign In</h2>
+          <h2 style={{ color: C.textH, fontSize: 22, fontFamily: "'Satoshi',system-ui,sans-serif", fontWeight: 400, margin: "0 0 5px", letterSpacing: 0.4 }}>Sign In</h2>
           <p style={{ color: C.textS, fontSize: 14, margin: "0 0 28px", lineHeight: 1.6 }}>Enter your credentials to continue.</p>
 
           <div style={{ marginBottom: 18 }}>

@@ -50,7 +50,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
         </p>
 
         <h2 style={{
-          fontFamily: "'Cormorant Garamond',Georgia,serif",
+          fontFamily: "'Satoshi',system-ui,sans-serif",
           fontSize: mob ? 28 : 46,
           color: C.textH,
           textAlign: "center",
@@ -136,7 +136,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
                   <span style={{
                     color: "#fff",
                     fontWeight: 700,
-                    fontFamily: "'Cormorant Garamond',Georgia,serif",
+                    fontFamily: "'Satoshi',system-ui,sans-serif",
                   }}>
                     {fmt(r.price)}
                   </span>

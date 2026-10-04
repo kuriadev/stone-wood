@@ -163,7 +163,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
         <div>
           <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>RESORT PACKAGES</p>
-          <h2 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Packages</h2>
+          <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Packages</h2>
           <p style={{ color: C.textS, fontSize: 13.5, margin: "6px 0 0" }}>Shown on the public Packages page and offered as deep links from Home and Walk-In.</p>
         </div>
         <button onClick={openAdd} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD PACKAGE</button>
@@ -183,7 +183,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
             </div>
             <div style={{ padding: "14px 16px", flex: 1, display: "flex", flexDirection: "column" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                <h4 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 16, fontWeight: 400, margin: 0 }}>{p.title}</h4>
+                <h4 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 16, fontWeight: 400, margin: 0 }}>{p.title}</h4>
                 <span style={{ color: gold, fontWeight: 700, fontSize: 14.5, whiteSpace: "nowrap" }}>{fmt(p.price)}</span>
               </div>
               <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5, marginBottom: 8 }}>{p.blurb}</p>
@@ -232,7 +232,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontWeight: 400, fontSize: 22 }}>
+            <DialogTitle style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontWeight: 400, fontSize: 22 }}>
               {editPkg ? "Edit Package" : "Add Package"}
             </DialogTitle>
             <DialogDescription>
@@ -403,7 +403,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
       <AlertDialog open={!!confirmDelete} onOpenChange={(open) => { if (!open) setConfirmDelete(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 400 }}>
+            <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18, fontWeight: 400 }}>
               Remove &quot;{confirmDelete?.title}&quot;?
             </AlertDialogTitle>
             <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5 }}>
