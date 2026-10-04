@@ -32,7 +32,7 @@ import { gold } from "@/lib/styles";
 import { Icon } from "@/components/common/Icon";
 import { VisitRecord } from "@/components/admin/InspectionModals";
 import {
-  PageHead, Segmented, TableShell, td, Btn, Pill, Modal, Label, ErrorNote, useAdminStyle, Row, Cell, FullSelect, ViewTabs, ConfirmDialog,
+  PageHead, Segmented, TableShell, td, Btn, Pill, Modal, Label, ErrorNote, useAdminStyle, Row, Cell, FullSelect, ViewTabs, ConfirmDialog, usePaged, Pager,
 } from "@/components/admin/ui";
 
 interface FacilitiesTabProps {
@@ -326,6 +326,7 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
     return used.map((f) => (f.category === "Room" ? f.name.split(" –")[0] : f.name)).join(", ") || "—";
   };
 
+  const pagedChk = usePaged(shown);
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
@@ -334,7 +335,7 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
       </div>
       <TableShell head={["Guest", "Visit", "Facilities", "Prepared", "Damage", "Settlement", ""]} minWidth={900}
         empty={shown.length === 0 ? (q ? "No visits match." : "No visits checked out yet.") : undefined}>
-        {shown.map((b, i) => {
+        {pagedChk.rows.map((b, i) => {
           const m = bookingMoney(b, ops.payments, ops.damages);
           const prepared = ops.inspections.some((x) => x.bookingId === b.id && x.stage === "Preparation");
           return (
@@ -355,6 +356,7 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
           );
         })}
       </TableShell>
+      <Pager {...pagedChk} noun="bookings" />
       {done.length > 15 && (
         <div style={{ textAlign: "center", marginTop: 10 }}>
           <Btn size="sm" onClick={() => setShowAll((s) => !s)}>{showAll ? "Show fewer" : `Show all ${done.length}`}</Btn>
@@ -382,6 +384,7 @@ function Damages({ bookings }: { bookings: Booking[] }) {
       d.bookingId.toLowerCase().includes(q) || (b?.name.toLowerCase().includes(q) ?? false));
   const total = rows.reduce((s, r) => s + r.d.amount, 0);
 
+  const pagedDmg = usePaged(rows);
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
@@ -392,7 +395,7 @@ function Damages({ bookings }: { bookings: Booking[] }) {
       </div>
       <TableShell head={["Date", "Guest", "Facility", "Item", "Qty × rate", "Penalty"]} minWidth={860}
         empty={rows.length === 0 ? (q ? "No damage records match." : "No damage recorded yet.") : undefined}>
-        {rows.map(({ d, b, at }, i) => (
+        {pagedDmg.rows.map(({ d, b, at }, i) => (
           <Row key={d.id} style={{ background: rowBg(i), cursor: b ? "pointer" : "default" }} onClick={() => b && setOpen(b)}>
             <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{at ? fmtDate(manilaDate(at)) : b ? fmtDate(b.date) : "—"}</Cell>
             <Cell style={td}>
@@ -413,6 +416,7 @@ function Damages({ bookings }: { bookings: Booking[] }) {
           </Row>
         ))}
       </TableShell>
+      <Pager {...pagedDmg} noun="damages" />
       {open && <VisitRecord booking={open} onClose={() => setOpen(null)} />}
     </div>
   );

@@ -47,7 +47,7 @@ import { DateChangeReview } from "@/components/admin/DateChangeReview";
 import { BookingHistory } from "@/components/admin/BookingHistory";
 import { choiceOpen, fmtDeadline, holdActive, withHolds } from "@/lib/rebooking";
 import {
-  PageHead, TableShell, td, Btn, Pill, Modal, Line, useAdminStyle, STATUS_COLOR, STATUS_LABEL, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewTabs,
+  PageHead, TableShell, td, Btn, Pill, Modal, Line, useAdminStyle, STATUS_COLOR, STATUS_LABEL, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewTabs, usePaged, Pager,
 } from "@/components/admin/ui";
 
 interface BookingsTabProps {
@@ -107,6 +107,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
   });
   const rows = (status === "All" ? filteredNoStatus : filteredNoStatus.filter((b) => b.status === status))
     .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+  const paged = usePaged(rows);
   const filtersOn = source !== "All" || slot !== "All" || !!from || !!to || !!q;
   const clear = () => { setSource("All"); setSlot("All"); setFrom(""); setTo(""); setSearch(""); };
 
@@ -161,7 +162,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
 
       <TableShell head={["ID", "Guest", "Visit", "Package", "Source", "Total", "Paid", "Status", ""]} minWidth={1020}
         empty={rows.length === 0 ? (filtersOn ? "No bookings match these filters." : status === "All" ? "No bookings yet." : `No ${status.toLowerCase()} bookings.`) : undefined}>
-        {rows.map((b, i) => {
+        {paged.rows.map((b, i) => {
           const m = bookingMoney(b, ops.payments, ops.damages);
           const s = SLOTS[getBookingSlot(b)];
           return (
@@ -204,6 +205,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
           );
         })}
       </TableShell>
+      <Pager {...paged} noun="bookings" />
     </>
   );
 

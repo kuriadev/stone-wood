@@ -19,7 +19,7 @@ import { downloadCsv, manilaDate } from "@/lib/finance";
 import { gold } from "@/lib/styles";
 import type { Activity } from "@/types/finance";
 import { ACTOR_COLOR, fmtWhen } from "@/components/admin/BookingHistory";
-import { PageHead, TableShell, Row, Cell, td, Btn, Pill, useAdminStyle } from "@/components/admin/ui";
+import { PageHead, TableShell, Row, Cell, td, Btn, Pill, useAdminStyle, usePaged, Pager } from "@/components/admin/ui";
 
 /** The part of an action before the dot, as the owner reads it. */
 const CATEGORIES: { value: string; label: string }[] = [
@@ -52,6 +52,7 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
   const [booking, setBooking] = useState("");
   const [words, setWords] = useState("");
   const [rows, setRows] = useState<Activity[]>([]);
+  const paged = usePaged(rows);
   const [more, setMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -114,7 +115,7 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
 
       <TableShell head={["When", "Who", "What happened", "Booking"]} minWidth={760}
         empty={!loading && rows.length === 0 && !error ? (filtersOn ? "Nothing matches these filters." : "Nothing recorded yet.") : undefined}>
-        {rows.map((a, i) => (
+        {paged.rows.map((a, i) => (
           <Row key={a.id} style={{ background: rowBg(i) }}>
             <Cell style={{ ...td, color: C.textS, whiteSpace: "nowrap", fontSize: 12.5 }}>{fmtWhen(a.at)}</Cell>
             <Cell style={td}><Pill color={ACTOR_COLOR[a.actor]}>{a.actor}</Pill></Cell>
@@ -128,6 +129,7 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
           </Row>
         ))}
       </TableShell>
+      <Pager {...paged} noun="entries" />
 
       <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
         {loading ? <span style={{ color: C.textS, fontSize: 13 }}>Loading…</span>

@@ -15,6 +15,7 @@
 //   ViewTabs       → Tabs (view switchers)
 //   Segmented      option pickers inside forms (radiogroup of buttons)
 
+import { useEffect, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { T } from "@/lib/theme";
@@ -286,6 +287,69 @@ export function Line({ label, value, strong, color }: { label: ReactNode; value:
  *  inset), so anything right-aligned at the foot of an admin page sits
  *  underneath it. Every such row reserves this much. */
 export const TOGGLE_CLEARANCE = 72;
+
+/** Rows per page in the admin lists. One number, so every table agrees. */
+export const PAGE_SIZE = 10;
+
+/** Slice a list into pages.
+ *
+ *  Keeps the page in range on its own: filtering or voiding rows can shrink
+ *  a list under the page you are standing on, and without this you would be
+ *  left looking at an empty table with no way back. */
+export function usePaged<T>(rows: T[], pageSize: number = PAGE_SIZE) {
+  const [page, setPage] = useState(1);
+  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const safe = Math.min(page, pages);
+  useEffect(() => { if (page !== safe) setPage(safe); }, [page, safe]);
+  const start = (safe - 1) * pageSize;
+  return {
+    rows: rows.slice(start, start + pageSize),
+    page: safe,
+    pages,
+    total: rows.length,
+    from: rows.length === 0 ? 0 : start + 1,
+    to: Math.min(start + pageSize, rows.length),
+    setPage,
+  };
+}
+
+/** The bar under a paged table. Renders nothing when everything already
+ *  fits, so a short list is not given furniture it does not need. */
+export function Pager({
+  page, pages, total, from, to, setPage, noun = "rows",
+}: {
+  page: number; pages: number; total: number; from: number; to: number;
+  setPage: (n: number) => void; noun?: string;
+}) {
+  const { C, cBr } = useAdminStyle();
+  if (pages <= 1) return null;
+  const step = (d: number) => setPage(Math.min(pages, Math.max(1, page + d)));
+  const btn = (disabled: boolean): CSSProperties => ({
+    minHeight: 34, padding: "0 12px", borderRadius: 7, fontSize: 12,
+    border: `1px solid ${cBr}`, background: "transparent",
+    color: disabled ? C.textXS : C.textB,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.5 : 1,
+  });
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 12, paddingRight: TOGGLE_CLEARANCE }}>
+      <span style={{ color: C.textS, fontSize: 12.5 }}>
+        Showing {from}–{to} of {total} {noun}
+      </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <button type="button" onClick={() => step(-1)} disabled={page <= 1} style={btn(page <= 1)} aria-label="Previous page">
+          ‹ Prev
+        </button>
+        <span style={{ color: C.textS, fontSize: 12.5, minWidth: 92, textAlign: "center" }} aria-live="polite">
+          Page {page} of {pages}
+        </span>
+        <button type="button" onClick={() => step(1)} disabled={page >= pages} style={btn(page >= pages)} aria-label="Next page">
+          Next ›
+        </button>
+      </div>
+    </div>
+  );
+}
 
 /** The summary figure under a table. One component so "Net total" and
  *  "Total owed" cannot drift apart in spacing or weight. */

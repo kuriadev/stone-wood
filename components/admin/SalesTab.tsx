@@ -43,7 +43,7 @@ import { RefundModal } from "@/components/admin/RefundModal";
 import { InvoiceModal } from "@/components/admin/InvoiceModal";
 import {
   PageHead, Figure, Segmented, TableShell, td, Btn, Pill, Modal, Label, Line, ErrorNote,
-  useAdminStyle, Row, Cell, STATUS_COLOR, FullSelect, ViewTabs, ConfirmDialog, TotalLine, TOGGLE_CLEARANCE,
+  useAdminStyle, Row, Cell, STATUS_COLOR, FullSelect, ViewTabs, ConfirmDialog, TotalLine, TOGGLE_CLEARANCE, usePaged, Pager,
 } from "@/components/admin/ui";
 
 type View = "Transactions" | "Payments" | "Receivables" | "Settlements" | "Clients" | "Expenses" | "Closing";
@@ -155,6 +155,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
     const s = q.toLowerCase().trim();
     return !s || p.guestName.toLowerCase().includes(s) || (p.bookingId ?? "").toLowerCase().includes(s) || p.reference.toLowerCase().includes(s);
   });
+  const paged = usePaged(rows);
   const net = round2(rows.filter((p) => !p.voided).reduce((s, p) => s + signedAmount(p), 0));
 
   const exportCsv = () => downloadCsv(`StoneWood_Transactions_${from}_to_${to}.csv`, [
@@ -202,7 +203,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
 
       <TableShell head={["Date", "Booking", "Guest", "Type", "Method", "Reference", "Amount", ""]} minWidth={860}
         empty={rows.length === 0 ? "No payments in this range." : undefined}>
-        {rows.map((p, i) => (
+        {paged.rows.map((p, i) => (
           <Row key={p.id} style={{ background: rowBg(i), opacity: p.voided ? 0.5 : 1 }}>
             <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(manilaDate(p.receivedAt))}<div style={{ color: C.textS, fontSize: 11.5 }}>{manilaTime(p.receivedAt)}</div></Cell>
             <Cell style={{ ...td, color: gold, fontFamily: "monospace" }}>{p.bookingId ?? "—"}</Cell>
@@ -221,6 +222,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
           </Row>
         ))}
       </TableShell>
+      <Pager {...paged} noun="payments" />
       <TotalLine label="Net total" value={fmt(net)} />
       {voiding && <VoidModal what={`${voiding.type} of ${fmt(voiding.amount)} from ${voiding.guestName}`} kind="payment" id={voiding.id} onClose={() => setVoiding(null)} />}
     </div>
@@ -278,6 +280,7 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
     // Receivables counts down to the next date money is due.
     .sort((a, b) => b.b.date.localeCompare(a.b.date));
 
+  const paged = usePaged(shown);
   const sum = (pick: (r: { b: Booking; m: BookingMoney }) => number) => round2(shown.reduce((n, r) => n + pick(r), 0));
   const expected = sum((r) => r.b.total);
   const collected = sum((r) => r.m.paid);
@@ -319,7 +322,7 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
           keys. Each says which status it means. */}
       <TableShell head={["Reference", "Guest", "Visit", "Booking status", "Payment status", "Total", "Paid", "Balance", "Penalty due", ""]} minWidth={1080}
         empty={shown.length === 0 ? (rows.length === 0 ? "No bookings yet." : "No bookings match this filter.") : undefined}>
-        {shown.map(({ b, m }, i) => (
+        {paged.rows.map(({ b, m }, i) => (
           <Row key={b.id} style={{ background: rowBg(i) }}>
             <Cell style={{ ...td, color: gold, fontFamily: "monospace" }}>
               {/* A TMP id is a booking this browser just made that the server
@@ -346,6 +349,7 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
           </Row>
         ))}
       </TableShell>
+      <Pager {...paged} noun="bookings" />
     </div>
   );
 }
@@ -363,6 +367,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
   const sorted = [...rows].sort((a, b) => a.b.date.localeCompare(b.b.date));
   const total = round2(rows.reduce((s, r) => s + r.m.due, 0));
   const refundTotal = round2(refunds.reduce((s, b) => s + (b.refundAmount ?? 0), 0));
+  const pagedRec = usePaged(sorted);
   return (
     <div>
       {/* Money the resort owes back comes first: a guest is waiting on it. */}
@@ -387,7 +392,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
       </p>
       <TableShell head={["Booking", "Guest", "Visit", "Status", "Total", "Paid", "Balance", "Penalty", "Owed", ""]} minWidth={940}
         empty={sorted.length === 0 ? "Nothing to collect. Every booking is paid up." : undefined}>
-        {sorted.map(({ b, m }, i) => (
+        {pagedRec.rows.map(({ b, m }, i) => (
           <Row key={b.id} style={{ background: rowBg(i) }}>
             <Cell style={{ ...td, color: gold, fontFamily: "monospace" }}>{b.id}</Cell>
             <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.contact}</div></Cell>
@@ -407,6 +412,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
           </Row>
         ))}
       </TableShell>
+      <Pager {...pagedRec} noun="bookings" />
       <TotalLine label="Total owed" value={fmt(total)} />
     </div>
   );
@@ -435,6 +441,7 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
   const unpaid = sum((r) => r.m.due);
   const sel = { ...inp, padding: "8px 10px", width: "auto" } as const;
 
+  const pagedSet = usePaged(settled);
   return (
     <div>
       <p style={{ color: C.textS, fontSize: 13, marginTop: 0 }}>
@@ -457,7 +464,7 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
       </div>
       <TableShell head={["Settled", "Booking", "Guest", "Stay", "Penalties", "Paid", "Unpaid", ""]} minWidth={940}
         empty={settled.length === 0 ? "No settled bookings match." : undefined}>
-        {settled.map(({ b, m, on }, i) => (
+        {pagedSet.rows.map(({ b, m, on }, i) => (
           <Row key={b.id} style={{ background: rowBg(i) }}>
             <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(on)}<div style={{ color: C.textS, fontSize: 11.5 }}>{manilaTime(b.settledAt!)}</div></Cell>
             <Cell style={{ ...td, color: gold, fontFamily: "monospace" }}>{b.id}</Cell>
@@ -473,6 +480,7 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
           </Row>
         ))}
       </TableShell>
+      <Pager {...pagedSet} noun="settlements" />
     </div>
   );
 }
@@ -506,12 +514,13 @@ function Clients({ bookings }: { bookings: Booking[] }) {
   const shown = clients.filter((c) => !s || c.name.toLowerCase().includes(s) || c.contact.includes(s) || c.email.toLowerCase().includes(s));
   const current = clients.find((c) => c.key === open);
 
+  const pagedCli = usePaged(shown);
   return (
     <div>
       <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search client name, phone or email" style={{ ...inp, marginBottom: 12 }} />
       <TableShell head={["Client", "Bookings", "Last visit", "Total paid", "Owed", ""]} minWidth={700}
         empty={shown.length === 0 ? "No clients match." : undefined}>
-        {shown.map((c, i) => (
+        {pagedCli.rows.map((c, i) => (
           <Row key={c.key} style={{ background: rowBg(i), cursor: "pointer" }} onClick={() => setOpen(c.key)}>
             <Cell style={{ ...td, color: C.textH }}>{c.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{c.contact}{c.email ? ` · ${c.email}` : ""}</div></Cell>
             <Cell style={{ ...td, color: C.textB }}>{c.bookings.length}</Cell>
@@ -522,6 +531,7 @@ function Clients({ bookings }: { bookings: Booking[] }) {
           </Row>
         ))}
       </TableShell>
+      <Pager {...pagedCli} noun="clients" />
 
       {current && (
         <Modal title={current.name} subtitle={`${current.contact}${current.email ? " · " + current.email : ""}`} onClose={() => setOpen(null)} width={820}>
@@ -574,6 +584,7 @@ function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void 
   const byCat = EXPENSE_CATEGORIES.map((c) => [c, round2(live.filter((e) => e.category === c).reduce((s, e) => s + e.amount, 0))] as const).filter(([, v]) => v > 0);
   const total = round2(live.reduce((s, e) => s + e.amount, 0));
 
+  const pagedExp = usePaged(rows);
   return (
     <div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
@@ -584,7 +595,7 @@ function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void 
         <div style={{ flex: "3 1 520px", minWidth: 0 }}>
         <TableShell head={["Date", "Category", "Description", "Method", "Amount", ""]} minWidth={640}
           empty={rows.length === 0 ? "No expenses recorded for this month." : undefined}>
-          {rows.map((e, i) => (
+          {pagedExp.rows.map((e, i) => (
             <Row key={e.id} style={{ background: rowBg(i), opacity: e.voided ? 0.5 : 1 }}>
               <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(e.spentOn)}</Cell>
               <Cell style={{ ...td, color: C.textB }}>{e.category}</Cell>
@@ -597,6 +608,7 @@ function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void 
             </Row>
           ))}
         </TableShell>
+        <Pager {...pagedExp} noun="expenses" />
         </div>
         <div style={{ background: soft, borderRadius: 10, padding: "12px 16px", flex: "1 1 240px" }}>
           <div style={{ color: C.textS, fontSize: 12.5, marginBottom: 6 }}>By category</div>
@@ -712,6 +724,7 @@ export function Closing({ onAct }: { onAct?: (action: CloseAction, b: Booking) =
 
   const pick = (d: string) => { setDate(d); setCounted(""); setOpeningFloat(""); setNotes(""); setError(""); };
 
+  const pagedClo = usePaged(ops.closings);
   return (
     <div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
@@ -807,7 +820,7 @@ export function Closing({ onAct }: { onAct?: (action: CloseAction, b: Booking) =
       <h4 style={{ color: C.textH, fontSize: 14, margin: "0 0 8px" }}>Past closings</h4>
       <TableShell head={["Day", "Received", "Expenses", "Net", "Expected cash", "Counted", "Difference", "Notes"]} minWidth={860}
         empty={ops.closings.length === 0 ? "No days closed yet." : undefined}>
-        {ops.closings.map((c, i) => (
+        {pagedClo.rows.map((c, i) => (
           <Row key={c.closingDate} style={{ background: rowBg(i), cursor: "pointer" }} onClick={() => pick(c.closingDate)}>
             <Cell style={{ ...td, color: C.textH, whiteSpace: "nowrap" }}>{fmtDate(c.closingDate)}</Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(c.totalCollected)}</Cell>
@@ -822,6 +835,7 @@ export function Closing({ onAct }: { onAct?: (action: CloseAction, b: Booking) =
           </Row>
         ))}
       </TableShell>
+      <Pager {...pagedClo} noun="days" />
     </div>
   );
 }
