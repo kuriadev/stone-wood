@@ -118,7 +118,14 @@ export function Admin({
   const [calMonth, setCalMonth] = useState(new Date());
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [autoArchiveEnabled, setAutoArchiveEnabled] = useState(true);
-  const [archivedMessages, setArchivedMessages] = useState<CustomerMessage[]>([]);
+  /* Inbox and archive are two views of ONE list, split on archivedAt.
+     They used to be two arrays, and archiving moved a message between them
+     in local state only: the collection's sync never saw an archivedAt
+     change, so nothing was persisted and the next poll put the message back
+     in the inbox while the archive kept its copy — the same message in both
+     lists, which is where the duplicate React key came from. */
+  const inboxMessages = customerMessages.filter((m) => !m.archivedAt);
+  const archivedMessages = customerMessages.filter((m) => m.archivedAt);
   const [csView, setCsView] = useState<"inbox" | "archive">("inbox");
   const [confirmArchiveMsg, setConfirmArchiveMsg] = useState<CustomerMessage | null>(null);
   // Live refresh for the Customer Service inbox.
@@ -175,11 +182,13 @@ export function Admin({
         return diffMonths >= 1;
       };
 
-      const toArchive = customerMessages.filter(isOld);
+      // Only what is still in the inbox: the collection now carries archived
+      // messages too, and re-stamping them would keep rewriting archivedAt.
+      const toArchive = customerMessages.filter((m) => !m.archivedAt && isOld(m));
       if (toArchive.length === 0) return;
       const ids = new Set(toArchive.map((m) => m.id));
-      setArchivedMessages((old) => [...toArchive, ...old.filter((m) => !ids.has(m.id))]);
-      setCustomerMessages((prev) => prev.filter((m) => !ids.has(m.id)));
+      const at = new Date().toISOString();
+      setCustomerMessages((prev) => prev.map((m) => (ids.has(m.id) ? { ...m, archivedAt: at } : m)));
       // Runs when auto-archive is switched on, as before, not on every poll.
     }, [autoArchiveEnabled]);
 
@@ -363,31 +372,16 @@ export function Admin({
     rd.readAsDataURL(file);
   };
   const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => { Array.from(e.target.files || []).forEach((f) => { const rd = new FileReader(); rd.onload = (ev) => { setGalleryImgs((g) => [...g, ev.target?.result as string]); toast("Photo added.", "success"); }; rd.readAsDataURL(f); }); };
-  const archiveMessage = async (msg: CustomerMessage) => {
-  try {
-    // remove from inbox
+  /* Stamping archivedAt is the whole operation: useDbCollection's sync
+     spots the change and PATCHes /api/customer-service, and the two views
+     re-derive themselves. */
+  const archiveMessage = (msg: CustomerMessage) => {
     setCustomerMessages((prev) =>
-      prev.filter((m) => m.id !== msg.id)
+      prev.map((m) => (m.id === msg.id ? { ...m, archivedAt: new Date().toISOString() } : m)),
     );
-
-    // add to archive
-    setArchivedMessages((prev) => [
-      {
-        ...msg,
-        archivedAt: new Date().toISOString(),
-      },
-      ...prev,
-    ]);
-
-    toast("Message archived.", "info");
-
     setConfirmArchiveMsg(null);
-  } catch (err) {
-    console.error(err);
-
-    toast("Failed to archive message.", "error");
-  }
-};
+    toast("Message archived.", "info");
+  };
 
   const goTab = (t: AdminTab) => { setTab(t); if (mob) setSideOpen(false); };
 
@@ -412,7 +406,7 @@ export function Admin({
     <>
                 {(
                   csView === "inbox"
-                    ? customerMessages
+                    ? inboxMessages
                     : archivedMessages
                 ).length === 0 ? (
                   <div
@@ -461,7 +455,7 @@ export function Admin({
                   >
                     {(
                       csView === "inbox"
-                        ? customerMessages
+                        ? inboxMessages
                         : archivedMessages
                     ).map((msg) => (
                       <div
@@ -1079,15 +1073,7 @@ export function Admin({
                       CANCEL
                     </AlertDialogCancel>
                     <AlertDialogAction
-                      onClick={() => {
-                        if (!confirmArchiveMsg) return;
-                        setArchivedMessages((prev) => [...prev, confirmArchiveMsg]);
-                        setCustomerMessages((prev) =>
-                          prev.filter((m) => m.id !== confirmArchiveMsg.id)
-                        );
-                        setConfirmArchiveMsg(null);
-                        toast("Message archived.", "info");
-                      }}
+                      onClick={() => { if (confirmArchiveMsg) archiveMessage(confirmArchiveMsg); }}
                       style={{ ...goldBtn, height: "auto" }}
                     >
                       ARCHIVE
@@ -1120,7 +1106,7 @@ export function Admin({
                       }}
                     >
                       {v === "inbox"
-                        ? `INBOX (${customerMessages.length})`
+                        ? `INBOX (${inboxMessages.length})`
                         : `ARCHIVE (${archivedMessages.length})`}
                     </TabsTrigger>
                   ))}
