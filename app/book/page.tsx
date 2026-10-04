@@ -127,6 +127,14 @@ export default function BookPage() {
     <div style={{ background: C.bg, minHeight: "100vh" }}>
       <Navbar page="Book Now" setPage={nav} />
       <BookNow
+        /* Keyed on the deep-linked package so picking one REMOUNTS Book Now.
+           Navigating to /book?pkg... from inside /book is a client-side
+           navigation: the props change but the component stays mounted, so
+           every useState initialiser below keeps its old value — the guest
+           stayed on step 1 instead of landing on the date step, and the
+           slot, guest count, tier and resource stayed on whatever the
+           custom visit had rather than what the package dictates. */
+        key={initialPackage?.code ?? "custom"}
         bookings={bookings}
         onBooked={() => void refreshAvailability()}
         rooms={rooms}
@@ -144,6 +152,7 @@ export default function BookPage() {
         initialPackage={initialPackage}
         eventPackages={eventPackages}
         onBookEventPackage={bookEventPackage}
+        onClearPackage={() => router.replace("/book")}
       />
       <Footer setPage={nav} />
       <ThemeToggle />

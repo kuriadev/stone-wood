@@ -103,6 +103,10 @@
     /** Called when a guest picks one. The page deep-links it exactly as the
      *  Packages page does, so no pricing rule lives in this component. */
     onBookEventPackage?: (pkg: ResortPackage) => void;
+    /** Drops the deep-linked package and returns to a plain booking. Step 1
+     *  is the generic visit chooser, which does not govern a package, so
+     *  "back" from the date step has to mean "leave this package". */
+    onClearPackage?: () => void;
   }
 
   export function BookNow({
@@ -116,6 +120,7 @@
     initialGuests, initialTier, initialPackage,
     eventPackages = [],
     onBookEventPackage,
+    onClearPackage,
   }: BookNowProps) {
     const { isDark } = useTheme();
     const C = T(isDark);
@@ -1105,7 +1110,7 @@
                       there is no room to pick (venue-only, or a package that
                       doesn't include one). */}
                   {navRow(
-                    { label: "BACK", onClick: () => setStep(1) },
+                    { label: "BACK", onClick: () => { if (isPackage) onClearPackage?.(); else setStep(1); } },
                     { label: "CONTINUE", onClick: () => setStep(showRoomPicker ? 4 : 5), disabled: !date || !dateOk },
                   )}
                 </div>
