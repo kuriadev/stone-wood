@@ -5,7 +5,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity } from "@/lib/activity.server";
-import { checkAdminCredentials, createSessionToken, sessionCookie } from "@/lib/auth";
+import { checkAdminCredentials, createSessionToken, sessionCookie, currentAdminUsername } from "@/lib/auth";
 import { rateLimit, tooManyRequests, resetRateLimit } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +42,10 @@ export async function POST(req: NextRequest) {
   // checkAdminCredentials return false, which would otherwise look exactly
   // like a wrong password and send someone hunting for a typo that is not
   // there. This is checked explicitly so the server log names the cause.
-  const configured = Boolean(process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD);
+  // Either source counts: a deployment that has saved credentials from the
+  // Admin account screen no longer needs the env vars set at all.
+  const configured = Boolean(process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD)
+    || Boolean(await currentAdminUsername());
   if (!configured) {
     console.error(
       "[/api/auth/login] ADMIN_USERNAME and/or ADMIN_PASSWORD is not set on this " +
@@ -56,7 +59,7 @@ export async function POST(req: NextRequest) {
   }
 
   const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
-  if (!checkAdminCredentials(username, password)) {
+  if (!(await checkAdminCredentials(username, password))) {
     await logActivity({ actor: "Guest", action: "security.login_failed", entity: "admin", summary: `A failed admin sign-in attempt (username "${username.slice(0, 40)}", from ${ip}).`, details: { ip } });
     // One message for both wrong username and wrong password — naming which
     // one was wrong confirms valid usernames to an attacker.

@@ -12,7 +12,8 @@
 // signed, httpOnly cookie it cannot read or forge, and the API routes that do
 // privileged work require that cookie.
 
-import { createHmac, timingSafeEqual, createHash, randomBytes } from "crypto";
+import { createHmac, timingSafeEqual, createHash, randomBytes, scryptSync } from "crypto";
+import { getSupabaseAdmin } from "@/lib/supabase";
 import { NextResponse, type NextRequest } from "next/server";
 
 export const SESSION_COOKIE = "sw_admin_session";
@@ -59,21 +60,63 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(ha, hb);
 }
 
-/** Check a submitted username/password against the env vars.
+/** Derive a password hash. scrypt is deliberately slow and memory-hard, so a
+ *  stolen table cannot be run through a dictionary at speed. Node ships it —
+ *  no dependency, nothing to keep patched. */
+export function hashPassword(password: string, salt: string): string {
+  return scryptSync(password, salt, 64).toString("base64");
+}
+
+export function newSalt(): string {
+  return randomBytes(16).toString("base64");
+}
+
+/** The credentials in force: the stored row if there is one, otherwise the
+ *  env vars. The table starts empty, so a deployment that never opens the
+ *  Admin account screen keeps behaving exactly as before. */
+async function currentCredentials(): Promise<
+  { username: string; hash: string; salt: string } | { username: string; plain: string } | null
+> {
+  try {
+    const { data, error } = await getSupabaseAdmin()
+      .from("admin_credentials")
+      .select("username, password_hash, password_salt")
+      .eq("id", 1)
+      .maybeSingle();
+    if (!error && data?.username) {
+      return { username: data.username, hash: data.password_hash, salt: data.password_salt };
+    }
+  } catch {
+    // The table may not exist yet (migration not applied). Fall through to
+    // the env vars rather than locking the owner out of their own admin.
+  }
+  const u = process.env.ADMIN_USERNAME ?? "";
+  const p = process.env.ADMIN_PASSWORD ?? "";
+  return u && p ? { username: u, plain: p } : null;
+}
+
+/** Check a submitted username/password.
  *
- *  Returns false when either env var is unset, so a misconfigured deploy
+ *  Returns false when nothing is configured, so a misconfigured deploy
  *  refuses everyone rather than accepting empty credentials. */
-export function checkAdminCredentials(username: string, password: string): boolean {
-  const expectedUser = process.env.ADMIN_USERNAME ?? "";
-  const expectedPass = process.env.ADMIN_PASSWORD ?? "";
-  if (!expectedUser || !expectedPass) return false;
+export async function checkAdminCredentials(username: string, password: string): Promise<boolean> {
+  const creds = await currentCredentials();
+  if (!creds) return false;
 
   // Both comparisons always run: returning early on a wrong username would
   // make a wrong-username response measurably faster than a wrong-password
   // one, which tells an attacker when they have found a valid username.
-  const userOk = safeEqual(username, expectedUser);
-  const passOk = safeEqual(password, expectedPass);
+  const userOk = safeEqual(username, creds.username);
+  const passOk = "hash" in creds
+    ? safeEqual(hashPassword(password, creds.salt), creds.hash)
+    : safeEqual(password, creds.plain);
   return userOk && passOk;
+}
+
+/** The username currently in force, for showing on the account screen. */
+export async function currentAdminUsername(): Promise<string> {
+  const creds = await currentCredentials();
+  return creds?.username ?? "";
 }
 
 export function createSessionToken(username: string): string {

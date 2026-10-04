@@ -21,6 +21,7 @@ import { OperationsTab } from "@/components/admin/OperationsTab";
 import { PackagesTab } from "@/components/admin/PackagesTab";
 import { PhotoSet } from "@/components/admin/PhotoSet";
 import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
+import { AccountModal } from "@/components/admin/AccountModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -117,6 +118,7 @@ export function Admin({
   const galleryFileRef = useRef<HTMLInputElement>(null);
   const [calMonth, setCalMonth] = useState(new Date());
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showAccount, setShowAccount] = useState(false);
   const [autoArchiveEnabled, setAutoArchiveEnabled] = useState(true);
   /* Inbox and archive are two views of ONE list, split on archivedAt.
      They used to be two arrays, and archiving moved a message between them
@@ -707,6 +709,26 @@ export function Admin({
             table sits under the button with no way to scroll it clear. */}
         <div style={{ flex: 1, padding: mob ? "20px 16px" : "40px", paddingBottom: mob ? 96 : 104, overflowY: "auto", minWidth: 0, background: adminBg }}>
 
+          {/* The signed-in admin, top right. Its own row above the page, so
+              it never competes with a tab's header actions for the corner. */}
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: mob ? 14 : 18 }}>
+            <button
+              type="button"
+              className="sw-gold-hover"
+              onClick={() => setShowAccount(true)}
+              aria-label="Admin account settings"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                minHeight: 38, padding: "0 14px", borderRadius: 999,
+                border: `1px solid ${cBr}`, background: "transparent",
+                color: C.textB, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              <Icon name="user" size={14} strokeWidth={1.8} />
+              Admin
+            </button>
+          </div>
+
           {/* DAILY OPERATIONS — the home screen */}
           {tab === "Operations" && (
             <OperationsTab bookings={bookings} setBookings={setBookings} rooms={rooms} packages={packages}
@@ -1288,6 +1310,13 @@ export function Admin({
       </div>
 
       {/* Logout Confirm */}
+      {showAccount && (
+        <AccountModal
+          onClose={() => setShowAccount(false)}
+          onSignedOut={() => { setShowAccount(false); onLogout(); }}
+        />
+      )}
+
       <AlertDialog open={showLogoutConfirm} onOpenChange={(open) => { if (!open) setShowLogoutConfirm(false); }}>
         <AlertDialogContent>
           <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#e55" }}><Icon name="lock" size={20} /></div>
