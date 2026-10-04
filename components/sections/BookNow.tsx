@@ -1659,27 +1659,86 @@
             hidden when there is only one photo. */}
         <Dialog open={!!roomPhoto} onOpenChange={(o) => { if (!o) setRoomPhoto(null); }}>
           <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto p-0 sm:max-w-[min(48rem,calc(100%-2rem))]">
-            {roomPhoto && (
-              <div className="flex flex-col">
-                <MediaGallery
-                  shots={roomShots(roomPhoto)}
-                  eyebrow="ROOM"
-                  compact
-                  title={
+            {roomPhoto && (() => {
+              const chosen = selRooms.includes(roomPhoto.id);
+              const taken = takenRooms.has(roomPhoto.id);
+              const shots = roomShots(roomPhoto);
+              return (
+                /* Photo beside the facts, not underneath them. The photo used
+                   to run the full width with the name burned into it and one
+                   cramped line below, which wasted the height and said the
+                   room's name twice. */
+                <div className="grid md:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+                  <MediaGallery
+                    shots={shots}
+                    title={null}
+                    className="min-h-[220px] md:min-h-[340px]"
+                  />
+
+                  <div style={{ display: "flex", flexDirection: "column", padding: mob ? "20px 20px 22px" : "26px 28px 28px", minWidth: 0 }}>
+                    <p style={{ color: C.goldInk, fontSize: 10.5, letterSpacing: 2.4, margin: "0 0 8px", fontWeight: 700 }}>ROOM</p>
                     <DialogTitle asChild>
-                      <div className="truncate font-serif text-[26px] leading-tight font-normal text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.6)]">
+                      <h3 style={{ color: C.textH, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: mob ? 24 : 28, fontWeight: 400, margin: "0 0 14px", lineHeight: 1.15 }}>
                         {roomPhoto.name}
-                      </div>
+                      </h3>
                     </DialogTitle>
-                  }
-                />
-                <DialogDescription asChild>
-                  <p style={{ color: C.textS, fontSize: 13.5, margin: 0, padding: "16px 24px 24px" }}>
-                    {roomPhoto.beds} · Up to {roomPhoto.capacity} guests · {fmt(roomPhoto.price)} per slot
-                  </p>
-                </DialogDescription>
-              </div>
-            )}
+
+                    {/* The room's own facts, one per line with its own icon,
+                        rather than a single run-on sentence. */}
+                    <ul style={{ listStyle: "none", margin: "0 0 16px", padding: 0, display: "grid", gap: 9 }}>
+                      {([
+                        { icon: "bed", text: roomPhoto.beds },
+                        { icon: "users", text: `Sleeps up to ${roomPhoto.capacity} guests` },
+                        { icon: "clock", text: `One ${SLOTS[slot].label.toLowerCase()} slot · ${SLOTS[slot].hours}` },
+                      ] as const).map((row) => (
+                        <li key={row.text} style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.textB, fontSize: 14, lineHeight: 1.5 }}>
+                          <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, marginTop: 2, flexShrink: 0 }}>
+                            <Icon name={row.icon as IconName} size={15} strokeWidth={1.6} />
+                          </span>
+                          {row.text}
+                        </li>
+                      ))}
+                    </ul>
+
+                    {roomPhoto.desc && (
+                      <DialogDescription asChild>
+                        <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: "0 0 18px" }}>
+                          {roomPhoto.desc}
+                        </p>
+                      </DialogDescription>
+                    )}
+
+                    {/* Price and the action sit at the foot however short the
+                        description is, so the panel never ends ragged. */}
+                    <div style={{ marginTop: "auto", borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 14 }}>
+                        <span style={{ color: C.goldInk, fontSize: 24, fontWeight: 700, lineHeight: 1 }}>
+                          {requiresRoom ? fmt(Math.round(roomPhoto.price * (1 - ROOM_BUNDLE_DISCOUNT_PCT))) : fmt(roomPhoto.price)}
+                        </span>
+                        <span style={{ color: C.textS, fontSize: 12.5 }}>per slot</span>
+                        {requiresRoom && (
+                          <span style={{ color: C.textXS, fontSize: 12, textDecoration: "line-through" }}>{fmt(roomPhoto.price)}</span>
+                        )}
+                      </div>
+
+                      {taken && !chosen ? (
+                        <p style={{ color: "#e07a7a", fontSize: 13, margin: 0 }}>
+                          Already booked on {fmtDate(date)}.
+                        </p>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => { toggleRoom(roomPhoto.id); setRoomPhoto(null); }}
+                          style={{ ...(chosen ? outBtn : goldBtn), color: chosen ? C.goldInk : undefined, width: "100%", minHeight: 48 }}
+                        >
+                          {chosen ? "REMOVE THIS ROOM" : "SELECT THIS ROOM"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </DialogContent>
         </Dialog>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { gold } from "@/lib/styles";
 
 export interface GalleryShot {
@@ -72,6 +72,25 @@ export function MediaGallery({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [many, shots.length]);
 
+  /* Swipe. Pointer events cover touch, pen and mouse-drag in one path, so a
+     phone gets the gesture it expects without a second touch-only branch.
+     The threshold keeps a sloppy tap from counting as a swipe, and a drag
+     that starts on an arrow or a thumbnail still delivers its click. */
+  const dragFrom = useRef<number | null>(null);
+  const SWIPE_MIN = 40;
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (!many || e.pointerType === "mouse" && e.button !== 0) return;
+    dragFrom.current = e.clientX;
+  };
+  const onPointerUp = (e: React.PointerEvent) => {
+    const from = dragFrom.current;
+    dragFrom.current = null;
+    if (from === null || !many) return;
+    const dx = e.clientX - from;
+    if (Math.abs(dx) < SWIPE_MIN) return;
+    step(dx < 0 ? 1 : -1);
+  };
+
   const arrow =
     "absolute top-1/2 z-[3] flex size-9 -translate-y-1/2 items-center justify-center " +
     "rounded-full border bg-black/40 text-lg backdrop-blur-sm transition hover:bg-black/60";
@@ -80,7 +99,10 @@ export function MediaGallery({
     <div className={`relative flex flex-col overflow-hidden bg-black/20 ${className}`}>
       <div
         className="relative flex-1 overflow-hidden bg-[#0a0806]"
-        style={{ minHeight: compact ? 230 : 280 }}
+        style={{ minHeight: compact ? 230 : 280, touchAction: many ? "pan-y" : undefined }}
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => { dragFrom.current = null; }}
       >
         {shots.map((g, i) => (
           <div

@@ -35,8 +35,7 @@ export function galleryHourLabel(i: number, total: number): string {
  */
 export function roomShots(room: { name: string; img: string; gallery?: string[] }): { src: string; label: string }[] {
   const srcs = room.gallery?.length ? room.gallery : room.img ? [room.img] : [];
-  return srcs.slice(0, GALLERY_MAX).map((src, i) => ({
-    src,
-    label: i === 0 ? room.name : room.name + " \u2014 photo " + (i + 1),
-  }));
+  // No caption. Every place that shows these frames already shows the room's
+  // name beside them, so labelling each frame printed the name twice.
+  return srcs.slice(0, GALLERY_MAX).map((src) => ({ src, label: "" }));
 }
