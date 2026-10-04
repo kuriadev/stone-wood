@@ -580,6 +580,27 @@
       transition: "border-color .18s, background .18s",
     });
 
+    /* The chosen-or-not circle on each room row. The gold border on the tile
+       says "selected" only once you compare one row against another; a
+       filled circle says it on the row itself. Decorative to a screen
+       reader — the button's aria-pressed already carries the state. Matches
+       tileStyle's `gold`, so the circle and the row agree. */
+    const pickCircle = (on: boolean) => (
+      <span
+        aria-hidden="true"
+        style={{
+          flexShrink: 0, width: 22, height: 22, borderRadius: "50%",
+          border: `2px solid ${on ? gold : C.border}`,
+          background: on ? gold : "transparent",
+          color: "#1a1000",
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          transition: "background .18s, border-color .18s",
+        }}
+      >
+        {on && <Icon name="check" size={13} strokeWidth={3} />}
+      </span>
+    );
+
     /* BACK on the left, the forward action given the wider half: the primary
        action is the one the guest is most likely to want. */
     const navRow = (back: { label: string; onClick: () => void }, fwd: { label: string; onClick: () => void; disabled?: boolean }) => (
@@ -1143,6 +1164,7 @@
                       onClick={() => selRooms.forEach((id) => toggleRoom(id))}
                       style={{ ...tileStyle(selRooms.length === 0), display: "flex", alignItems: "center", gap: 14, padding: "16px 18px" }}
                     >
+                      {pickCircle(selRooms.length === 0)}
                       <span style={{ flex: 1, minWidth: 0 }}>
                         <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 3 }}>No room needed</span>
                         <span style={{ display: "block", color: C.textS, fontSize: 12.5 }}>Continue with your pool reservation only.</span>
@@ -1166,6 +1188,7 @@
                           onClick={() => { if (!taken || sel) toggleRoom(r.id); }}
                           style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 14, background: "none", border: "none", padding: 0, textAlign: "left", cursor: taken && !sel ? "not-allowed" : "pointer", font: "inherit", color: "inherit" }}
                         >
+                          {pickCircle(sel)}
                           {/* alt="" because the room name sits right beside it: a
                               screen reader would otherwise read it twice. */}
                           {/* eslint-disable-next-line @next/next/no-img-element */}
