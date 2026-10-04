@@ -29,9 +29,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { FullSelect } from "@/components/admin/ui";
 import {
   Table,
   TableBody,
@@ -534,9 +534,9 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
 
           <div className="grid gap-4 sm:grid-cols-2">
             {/* Category */}
-            <div className="[&_[data-slot=native-select-wrapper]]:w-full">
+            <div>
               <Label htmlFor="item-category" className="mb-1.5 block text-[10.5px] tracking-[3px] text-muted-foreground">CATEGORY</Label>
-              <NativeSelect
+              <FullSelect
                 id="item-category"
                 value={form.category}
                 onChange={(e) => setF("category", e.target.value)}
@@ -546,7 +546,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
                 {catOpts.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
-              </NativeSelect>
+              </FullSelect>
             </div>
 
             {/* Item name */}

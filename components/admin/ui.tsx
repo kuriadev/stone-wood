@@ -430,10 +430,22 @@ export function ErrorNote({ children }: { children: ReactNode }) {
 /** NativeSelect that fills its column. The wrapper is w-fit by default, so
  *  a full-width select needs the wrapper widened (same trick InventoryTab
  *  uses). */
-export function FullSelect(props: React.ComponentProps<typeof NativeSelect>) {
+/** A select that fills its cell and keeps its value clear of the chevron.
+ *
+ *  Both fixes have to live here rather than at the call sites:
+ *
+ *  - The w-full override must sit on an ANCESTOR of the wrapper. NativeSelect
+ *    hands its own className to the <select>, while the element that is
+ *    `w-fit` is the wrapper around it, so the same selector passed as a prop
+ *    silently does nothing.
+ *  - paddingRight is applied AFTER the caller's style. Several callers pass a
+ *    `padding` shorthand, and an inline shorthand beats the `pr-9` class the
+ *    chevron relies on — which is how values ended up printed underneath the
+ *    arrow. Last writer wins, so the gap survives. */
+export function FullSelect({ style, ...rest }: React.ComponentProps<typeof NativeSelect>) {
   return (
     <div className="[&_[data-slot=native-select-wrapper]]:w-full">
-      <NativeSelect {...props} />
+      <NativeSelect {...rest} style={{ ...style, paddingRight: 38 }} />
     </div>
   );
 }

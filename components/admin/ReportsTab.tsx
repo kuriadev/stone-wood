@@ -10,7 +10,6 @@
 // the separate Analytics tab, whose charts now live at the bottom here.
 
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
 import { useMemo, useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
 import {
@@ -24,7 +23,7 @@ import type { Booking, BookingSlot } from "@/types/booking";
 import type { Room } from "@/types/room";
 import { gold } from "@/lib/styles";
 import { Panel, BarChart, ProgressRow } from "@/components/admin/charts";
-import { PageHead, Figure, Segmented, Btn, Line, useAdminStyle } from "@/components/admin/ui";
+import { PageHead, Figure, Segmented, Btn, Line, useAdminStyle, FullSelect} from "@/components/admin/ui";
 import { dayjs, DATE_FMT } from "@/lib/dayjs";
 
 type Period = "Month" | "Year" | "Custom";
@@ -165,9 +164,9 @@ ${pays.map((p) => `<Row><Cell>${escapeHtml(manilaDate(p.receivedAt))}</Cell><Cel
         </div>
         {period === "Month" && <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month" style={sel} />}
         {period === "Year" && (
-          <NativeSelect value={year} onChange={(e) => setYear(e.target.value)} aria-label="Year" style={sel}>
+          <FullSelect value={year} onChange={(e) => setYear(e.target.value)} aria-label="Year" style={sel}>
             {years.map((y) => <option key={y}>{y}</option>)}
-          </NativeSelect>
+          </FullSelect>
         )}
         {period === "Custom" && <>
           <Input type="date" value={cFrom} onChange={(e) => setCFrom(e.target.value)} aria-label="From" style={sel} />

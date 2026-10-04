@@ -23,7 +23,6 @@
 // the booking's full history.
 
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
 import { useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
 import { useOps } from "@/contexts/OpsContext";
@@ -47,8 +46,7 @@ import { DateChangeReview } from "@/components/admin/DateChangeReview";
 import { BookingHistory } from "@/components/admin/BookingHistory";
 import { choiceOpen, fmtDeadline, holdActive, withHolds } from "@/lib/rebooking";
 import {
-  PageHead, TableShell, td, Btn, Pill, Modal, Line, useAdminStyle, STATUS_COLOR, STATUS_LABEL, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewTabs, usePaged, Pager,
-} from "@/components/admin/ui";
+  PageHead, TableShell, td, Btn, Pill, Modal, Line, useAdminStyle, STATUS_COLOR, STATUS_LABEL, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewTabs, usePaged, Pager, FullSelect,} from "@/components/admin/ui";
 
 interface BookingsTabProps {
   bookings: Booking[];
@@ -147,13 +145,13 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
           <Icon name="search" size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: 0.45, color: C.textH }} />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, ID, email, phone, date or package" aria-label="Search bookings" style={{ ...sel, width: "100%", paddingLeft: 32 }} />
         </div>
-        <NativeSelect value={source} onChange={(e) => setSource(e.target.value as typeof source)} aria-label="Source" style={{ ...sel, paddingRight: 38 }}>
+        <FullSelect value={source} onChange={(e) => setSource(e.target.value as typeof source)} aria-label="Source" style={{ ...sel, paddingRight: 38 }}>
           <option value="All">All sources</option><option>Online</option><option>Walk-In</option>
-        </NativeSelect>
-        <NativeSelect value={slot} onChange={(e) => setSlot(e.target.value as typeof slot)} aria-label="Slot" style={{ ...sel, paddingRight: 38 }}>
+        </FullSelect>
+        <FullSelect value={slot} onChange={(e) => setSlot(e.target.value as typeof slot)} aria-label="Slot" style={{ ...sel, paddingRight: 38 }}>
           <option value="All">All slots</option>
           {(["Day", "Night", "WholeDay"] as BookingSlot[]).map((s) => <option key={s} value={s}>{SLOTS[s].label}</option>)}
-        </NativeSelect>
+        </FullSelect>
         <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Visit date from" style={sel} />
         <span style={{ color: C.textS, fontSize: 13 }}>to</span>
         <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Visit date to" style={sel} />

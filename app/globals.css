@@ -679,13 +679,6 @@ img {
   .sw-gold-hover:not(:disabled):active { transform: none; }
 }
 
-/* ── FULL-WIDTH NATIVE SELECT ── */
-/* NativeSelect's wrapper is `w-fit`, so a select in a grid or flex cell
-   shrinks to its longest option instead of filling the cell. The wrapper is
-   not reachable through the component's own className (that goes to the
-   <select>), so this is applied from an ancestor. */
-.sw-select-fill [data-slot="native-select-wrapper"] { width: 100%; }
-
 /* ── EVENT PACKAGE CARDS (Book Now, step 1) ── */
 /* The veil over the photo. Scoped to .sw-event-card, and triggered by
    focus-visible as well as hover so a keyboard user gets the same cue. */

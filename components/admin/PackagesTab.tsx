@@ -28,9 +28,9 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { FullSelect } from "@/components/admin/ui";
 
 interface PackagesTabProps {
   packages: ResortPackage[];
@@ -278,25 +278,25 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
               <div className="sm:col-span-3">
                 <div>
                   <Label htmlFor="pkg-resource" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">RESOURCE</Label>
-                  <NativeSelect id="pkg-resource" value={form.resource} onChange={(e) => setF("resource", e.target.value as BookingResource)} className="sw-input [&_[data-slot=native-select-wrapper]]:w-full" style={selS}>
+                  <FullSelect id="pkg-resource" value={form.resource} onChange={(e) => setF("resource", e.target.value as BookingResource)} className="sw-input" style={selS}>
                     {RESOURCES.map((r) => <option key={r} value={r}>{r}</option>)}
-                  </NativeSelect>
+                  </FullSelect>
                 </div>
               </div>
               <div className="sm:col-span-3">
                 <div>
                   <Label htmlFor="pkg-tier" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">TIER</Label>
-                  <NativeSelect id="pkg-tier" value={form.status} onChange={(e) => setF("status", e.target.value as BookingTier)} className="sw-input [&_[data-slot=native-select-wrapper]]:w-full" style={selS}>
+                  <FullSelect id="pkg-tier" value={form.status} onChange={(e) => setF("status", e.target.value as BookingTier)} className="sw-input" style={selS}>
                     {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </NativeSelect>
+                  </FullSelect>
                 </div>
               </div>
               <div className="sm:col-span-6">
                 <Label htmlFor="pkg-when" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">WHEN</Label>
-                <NativeSelect id="pkg-when" value={form.slotMode} onChange={(e) => setF("slotMode", e.target.value as PackageSlotMode)} className="sw-input [&_[data-slot=native-select-wrapper]]:w-full" style={selS}>
+                <FullSelect id="pkg-when" value={form.slotMode} onChange={(e) => setF("slotMode", e.target.value as PackageSlotMode)} className="sw-input" style={selS}>
                   <option value="Single">Day or Night — guest picks ({SLOTS.Day.hours} / {SLOTS.Night.hours})</option>
                   <option value="WholeDay">Whole Day ({SLOTS.WholeDay.hours})</option>
-                </NativeSelect>
+                </FullSelect>
               </div>
               <div className="sm:col-span-4">
                 <div>

@@ -21,7 +21,6 @@
 //                  income minus expenses
 
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useMemo, useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
@@ -180,20 +179,15 @@ function Transactions({ payments }: { payments: Payment[] }) {
           <span style={{ color: C.textS, fontSize: 13, flexShrink: 0 }}>to</span>
           <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To" style={{ ...sel, minWidth: 0, flex: 1 }} />
         </div>
-{/* The w-full override has to sit on an ANCESTOR: NativeSelect passes
-            its className to the <select>, while the element that is w-fit is
-            the wrapper around it. Put on the select itself, the selector was
-            hunting for the wrapper inside its own child and did nothing. */}
-        <div className="sw-select-fill" style={{ minWidth: 0 }}>
-          <NativeSelect value={type} onChange={(e) => setType(e.target.value)} aria-label="Type" style={{ ...sel, width: "100%" }}>
-            <option>All</option>{PAYMENT_TYPES.map((t) => <option key={t}>{t}</option>)}
-          </NativeSelect>
-        </div>
-        <div className="sw-select-fill" style={{ minWidth: 0 }}>
-          <NativeSelect value={method} onChange={(e) => setMethod(e.target.value)} aria-label="Method" style={{ ...sel, width: "100%" }}>
-            <option>All</option>{PAYMENT_METHODS.map((t) => <option key={t}>{t}</option>)}
-          </NativeSelect>
-        </div>
+{/* FullSelect carries the w-full override on an ancestor of the
+            wrapper, which is the only place it works: NativeSelect hands its
+            className to the <select>, not to the w-fit wrapper around it. */}
+        <FullSelect value={type} onChange={(e) => setType(e.target.value)} aria-label="Type" style={{ ...sel, width: "100%" }}>
+          <option>All</option>{PAYMENT_TYPES.map((t) => <option key={t}>{t}</option>)}
+        </FullSelect>
+        <FullSelect value={method} onChange={(e) => setMethod(e.target.value)} aria-label="Method" style={{ ...sel, width: "100%" }}>
+          <option>All</option>{PAYMENT_METHODS.map((t) => <option key={t}>{t}</option>)}
+        </FullSelect>
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Guest, booking or reference" className="sm:col-span-2 xl:flex-1" style={{ ...sel, width: "100%", minWidth: 0 }} />
         <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 6, alignItems: "center", minHeight: 36 }}>
           <Checkbox checked={showVoided} onCheckedChange={(v) => setShowVoided(v === true)} /> Show voided

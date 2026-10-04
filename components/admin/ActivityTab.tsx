@@ -14,12 +14,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
 import { downloadCsv, manilaDate } from "@/lib/finance";
 import { gold } from "@/lib/styles";
 import type { Activity } from "@/types/finance";
 import { ACTOR_COLOR, fmtWhen } from "@/components/admin/BookingHistory";
-import { PageHead, TableShell, Row, Cell, td, Btn, Pill, useAdminStyle, usePaged, Pager } from "@/components/admin/ui";
+import { PageHead, TableShell, Row, Cell, td, Btn, Pill, useAdminStyle, usePaged, Pager, FullSelect} from "@/components/admin/ui";
 
 /** The part of an action before the dot, as the owner reads it. */
 const CATEGORIES: { value: string; label: string }[] = [
@@ -102,9 +101,9 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14, alignItems: "center" }}>
         <Input value={words} onChange={(e) => setWords(e.target.value)} placeholder="Search the descriptions" aria-label="Search the activity" style={{ ...sel, flex: "1 1 220px" }} />
         <Input value={booking} onChange={(e) => setBooking(e.target.value)} placeholder="Booking ref, e.g. SW-10023" aria-label="Booking reference" style={{ ...sel, width: 190 }} />
-        <NativeSelect value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Kind of activity" style={{ ...sel, paddingRight: 38 }}>
+        <FullSelect value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Kind of activity" style={{ ...sel, paddingRight: 38 }}>
           {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-        </NativeSelect>
+        </FullSelect>
         <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From" style={sel} />
         <span style={{ color: C.textS, fontSize: 13 }}>to</span>
         <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To" style={sel} />
