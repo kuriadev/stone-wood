@@ -770,9 +770,14 @@
 
                 {/* Event packages. Previously reachable only from the Packages
                     page, so a guest already inside Book Now could not see
-                    them. Hidden entirely while a package booking is already in
-                    progress — there is nothing to choose at that point. */}
-                {!isPackage && onBookEventPackage && (
+                    them.
+
+                    Shown only once the guest has asked for the venue: a guest
+                    on "Resort visit only" has said they do not want a hall,
+                    and a catalogue of halls under that answer is noise. Also
+                    hidden while a package booking is already in progress —
+                    there is nothing left to choose at that point. */}
+                {!isPackage && onBookEventPackage && resource === "Pool+Venue" && (
                   <EventPackages
                     packages={eventPackages}
                     mob={mob}
