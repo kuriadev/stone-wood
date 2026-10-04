@@ -81,7 +81,13 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <TopLoader ref={loaderRef} />
-      <CursorDot />
+      {/* Home only. The trailing dot is a flourish for the page a visitor
+          lands on; behind it are booking forms, calendars and the admin
+          dashboard, where a circle drifting over dense tables and number
+          fields is a distraction rather than a welcome. Gated here rather
+          than inside CursorDot so the component stays a dumb effect and
+          nothing it listens to is even registered on other routes. */}
+      {pathname === "/" && <CursorDot />}
       {/*
         Keyed on the pathname so React swaps the subtree on every route
         change, which restarts the .sw-page entrance animation. Without the
