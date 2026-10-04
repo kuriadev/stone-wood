@@ -593,6 +593,15 @@ img {
    overrides the duration below, inline, to keep the travel speed constant
    however many copies that takes. */
 
+/* ── "WHY CHOOSE" CARDS (About) ── */
+/* These rules used to be a <style> block rendered inside every card, with
+   the selector `div:hover .hover-sweep`. That matches ANY hovered div that
+   contains the class, so the grid counted as a hover target and pointing at
+   one card ran the sweep on all three. Scoped to the card, and declared once
+   instead of three times. */
+.sw-why-card:hover .hover-sweep { left: 120%; }
+.sw-why-card:hover .icon-anim   { transform: scale(1.15) rotate(3deg); }
+
 /* ── SCROLL REVEAL ── */
 /* .sw-reveal and its data-sw-in state used to live here. Scroll reveals
    are now per-element via Motion — see components/common/Reveal.tsx. */

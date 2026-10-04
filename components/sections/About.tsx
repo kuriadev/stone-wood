@@ -249,9 +249,12 @@ export function About({
         <h2
           style={{
             fontFamily: "'Cormorant Garamond',Georgia,serif",
-            fontSize: 32,
+            fontSize: mob ? 26 : 32,
             color: C.textH,
-            marginBottom: 40,
+            marginBottom: mob ? 24 : 40,
+            /* The theme toggle floats over the right edge, so a full-width
+               centred heading had its last letter sitting underneath it. */
+            padding: mob ? "0 56px" : 0,
           }}
         >
           Why Choose StoneWood
@@ -261,13 +264,18 @@ export function About({
           style={{
             display: "grid",
             gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)",
-            // No reservation and no alignment override here any more: the
-            // cards no longer expand, so the row height is constant and
-            // nothing below this grid can be pushed. Default stretch keeps
-            // the three cards the same height as each other.
-            gap: 26,
-            maxWidth: 1100,
+            /* Two changes fix the wasted space this row used to show.
+               `alignItems: start` lets each card end where its text ends --
+               with stretch, the two short cards were padded out to match the
+               tallest and sat half empty. And the column is wider than the
+               1,100px it was: at that width the first card's bullets wrapped
+               to two lines each while the others fit on one, which is what
+               made it taller in the first place. */
+            alignItems: "start",
+            gap: mob ? 14 : 22,
+            maxWidth: 1240,
             margin: "0 auto",
+            padding: mob ? "0 20px" : 0,
           }}
         >
           {[
@@ -310,6 +318,7 @@ export function About({
             return (
               <div
         key={item.title}
+        className="sw-why-card"
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = "translateY(-8px) scale(1.025)";
           e.currentTarget.style.boxShadow = "0 25px 50px rgba(0,0,0,0.25)";
@@ -319,7 +328,7 @@ export function About({
           e.currentTarget.style.boxShadow = "none";
         }}
         style={{
-          padding: mob ? "26px 22px" : "30px 26px",
+          padding: mob ? "20px 18px" : "26px 24px",
           borderRadius: 16,
           background: C.bgCard,
           border: `1px solid ${C.border}`,
@@ -393,11 +402,11 @@ export function About({
         <div>
           <ul
             style={{
-              marginTop: 14,
+              margin: "12px 0 0",
               paddingLeft: 18,
               color: C.textB,
               fontSize: 14.5,
-              lineHeight: 1.7,
+              lineHeight: 1.6,
             }}
           >
             {item.details.map((d) => (
@@ -405,17 +414,6 @@ export function About({
             ))}
           </ul>
         </div>
-
-        {/* HOVER CSS */}
-        <style>{`
-          div:hover .hover-sweep {
-            left: 120%;
-          }
-
-          div:hover .icon-anim {
-            transform: scale(1.15) rotate(3deg);
-          }
-        `}</style>
       </div>
             );
           })}
