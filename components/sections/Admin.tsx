@@ -754,6 +754,17 @@ export function Admin({
                   else if (status === "Confirmed") { bg = isDark ? "#0f2018" : "#eafaf0"; col = "#4caf50"; border = "1px solid rgba(76,175,80,0.3)"; }
                   else if (status === "Completed") { bg = isDark ? "#0f1a2a" : "#e8f4fb"; col = "#4a9fd4"; border = "1px solid rgba(74,159,212,0.3)"; }
                   const dayBookings = bookingsOn(ds);
+                  /* History the admin cannot act on: a date already gone by
+                     whose bookings are all finished. The cell itself states
+                     the outcome, so a card repeating it is noise — and it
+                     covers the dates around it while being read.
+
+                     A past date with something still unresolved (a Pending
+                     booking nobody chased) keeps its card, because that is
+                     exactly when the detail is still wanted. */
+                  const settled = dayBookings.length > 0
+                    && dayBookings.every((bk) => bk.status === "Completed" || bk.status === "Cancelled");
+                  const showDayCard = dayBookings.length > 0 && !(isPast && settled);
                   /* Which weekday column and row this cell sits in: the column
                      decides whether the card centres or hugs an edge, the row
                      decides whether it opens downward or upward. */
@@ -794,7 +805,7 @@ export function Admin({
                       {d}
                       {status && <div style={{ fontSize: 11, marginTop: 3, opacity: 0.85, letterSpacing: 0.4, lineHeight: 1.2, overflowWrap: "anywhere" }}>{status.toUpperCase()}</div>}
 
-                      {hoverDay === ds && dayBookings.length > 0 && dayCard(ds, dayBookings, colIdx, cardAbove)}
+                      {hoverDay === ds && showDayCard && dayCard(ds, dayBookings, colIdx, cardAbove)}
                     </div>
                   );
                 })}
