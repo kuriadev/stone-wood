@@ -23,7 +23,7 @@ export function Footer({ setPage }: FooterProps) {
     <footer
       style={{
         background: isDark ? "#080706" : "#1a1410",
-        borderTop: `1px solid ${isDark ? "#1a1714" : "#1a1410"}`,
+        borderTop: `1px solid ${isDark ? "#2a2a2a" : "#1a1410"}`,
         padding: mob ? "48px 20px 28px" : "64px 24px 32px",
         position: "relative",
         overflow: "hidden",

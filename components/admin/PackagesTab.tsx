@@ -68,8 +68,8 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
   const [confirmDelete, setConfirmDelete] = useState<ResortPackage | null>(null);
   const [form, setForm] = useState(BLANK_FORM);
 
-  const cBg = isDark ? "#0c0b09" : "#ffffff";
-  const cBr = isDark ? "#1a1714" : "#e4ddd1";
+  const cBg = isDark ? "#121212" : "#ffffff";
+  const cBr = isDark ? "#2a2a2a" : "#e4ddd1";
   /* Delete stays red in both themes, but #e55 is a pale red: it reads on the
      dark card and washes out to about 3:1 on the white one. The ink follows
      the theme so the icon is legible either way. */

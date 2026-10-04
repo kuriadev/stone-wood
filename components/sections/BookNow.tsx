@@ -1230,7 +1230,7 @@
                 )}
 
                 {venueFee > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: isDark ? "#0a0806" : "#f5f0e8", border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: isDark ? "#121212" : "#f5f0e8", border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 12 }}>
                     <span style={{ color: C.textS, fontSize: 13.5 }}>Event Venue Rental</span>
                     <span style={{ color: C.goldInk, fontWeight: 700, fontSize: 14.5 }}>{fmt(venueFee)}</span>
                   </div>

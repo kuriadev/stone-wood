@@ -320,7 +320,7 @@ function PackageCard({
       style={{ background: C.bgCard2, borderColor: C.border, boxShadow: C.shadowCard }}
     >
       {/* Artwork. Always dark, so the bright gold and white type belong here. */}
-      <div className="relative min-h-[240px] overflow-hidden bg-[#0a0806] md:min-h-[380px]">
+      <div className="relative min-h-[240px] overflow-hidden bg-[#121212] md:min-h-[380px]">
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: `url(${shots[0].src})` }}

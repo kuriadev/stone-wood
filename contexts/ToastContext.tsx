@@ -47,7 +47,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
     (fn as (m: string, o?: Record<string, unknown>) => void)(msg, {
       style: {
-        background: "linear-gradient(135deg,#141210,#1a1714)",
+        background: "linear-gradient(135deg,#141210,#2a2a2a)",
         border: `1px solid ${ACCENT[type]}33`,
         borderLeft: `3px solid ${ACCENT[type]}`,
         color: "#e0e0e0",

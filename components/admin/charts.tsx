@@ -19,8 +19,8 @@ import { ChartTheme } from "@/components/admin/ChartTheme";
 
 function surface(isDark: boolean) {
   return {
-    bg: isDark ? "#0b0a08" : "#ffffff",
-    border: isDark ? "#1e1a14" : "#ebe5db",
+    bg: isDark ? "#121212" : "#ffffff",
+    border: isDark ? "#2a2a2a" : "#ebe5db",
     grid: isDark ? "#191510" : "#f0ebe2",
   };
 }

@@ -49,7 +49,7 @@ export function About({
       position: "absolute",
       inset: 0,
       background: isDark
-        ? "radial-gradient(circle at 50% 30%, rgba(201,168,76,0.12), transparent 60%), #070604"
+        ? "radial-gradient(circle at 50% 30%, rgba(201,168,76,0.12), transparent 60%), #121212"
         : "radial-gradient(circle at 50% 30%, rgba(201,168,76,0.18), transparent 60%), #f5efe6",
       transition: "all .6s ease",
     }}
@@ -127,7 +127,7 @@ export function About({
     fontWeight: 400,
     lineHeight: 1.1,
     marginBottom: 12,
-    color: isDark ? "#f8f4ee" : "#1a1a1a",
+    color: isDark ? "#f8f4ee" : "#1f1f1f",
     // No overflow:hidden here. It was presumably meant to mask the 20px
     // slide-up, but it clips horizontally too, and the italic "d" of
     // StoneWood leans past its inline-block advance width — so the final

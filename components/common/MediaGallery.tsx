@@ -98,7 +98,7 @@ export function MediaGallery({
   return (
     <div className={`relative flex flex-col overflow-hidden bg-black/20 ${className}`}>
       <div
-        className="relative flex-1 overflow-hidden bg-[#0a0806]"
+        className="relative flex-1 overflow-hidden bg-[#121212]"
         style={{ minHeight: compact ? 230 : 280, touchAction: many ? "pan-y" : undefined }}
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}

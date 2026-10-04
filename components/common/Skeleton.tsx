@@ -21,7 +21,7 @@ import { T } from "@/lib/theme";
  *     their collection is genuinely in flight, driven by the `loading` flags
  *     AppContext now exposes.
  *
- * Both are theme-aware. The old copies hardcoded `background: "#0b0a07"`,
+ * Both are theme-aware. The old copies hardcoded `background: "#121212"`,
  * so a visitor in light mode got a black flash before the page painted.
  */
 

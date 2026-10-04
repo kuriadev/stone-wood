@@ -129,7 +129,7 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
     const rows = (pairs: readonly (readonly [string, number | string])[]) =>
       pairs.map(([k, v]) => `<Row><Cell>${escapeHtml(String(k))}</Cell><Cell class="n">${typeof v === "number" ? escapeHtml(fmt(v)) : escapeHtml(v)}</Cell></Row>`).join("");
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>StoneWood report · ${escapeHtml(label)}</title>
-<style>body{font:13px/1.5 system-ui,sans-serif;color:#222;margin:32px}h1{font:400 26px Georgia,serif;margin:0}h2{font-size:15px;margin:22px 0 6px;border-bottom:1px solid #ccc;padding-bottom:4px}
+<style>body{font:13px/1.5 system-ui,sans-serif;color:#2a2a2a;margin:32px}h1{font:400 26px Georgia,serif;margin:0}h2{font-size:15px;margin:22px 0 6px;border-bottom:1px solid #ccc;padding-bottom:4px}
 table{border-collapse:collapse;width:100%}td,th{padding:4px 6px;border-bottom:1px solid #eee;text-align:left}.n{text-align:right;font-variant-numeric:tabular-nums}.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
 .muted{color:#777}</style></head><body>
 <h1>StoneWood Garden Private Pool</h1><div class="muted">Sales and bookings report · ${escapeHtml(label)} · generated ${escapeHtml(fmtDate(today))}</div>

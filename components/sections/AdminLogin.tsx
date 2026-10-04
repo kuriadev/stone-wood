@@ -60,7 +60,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
   // Surfaces. The page previously hardcoded a dark palette while still
   // rendering a ThemeToggle, so the toggle did nothing here. Reading the
   // theme makes the control honest.
-  const pageBg = isDark ? "#070604" : "#f7f3ec";
+  const pageBg = isDark ? "#121212" : "#f7f3ec";
   const cardBg = isDark ? "#0d0b08" : "#ffffff";
   const cardBorder = isDark ? "#1c1811" : "#e6dfd2";
   /* #6a5e4a measured 3.1:1 against this screen's surface -- under the 4.5

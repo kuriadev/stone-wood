@@ -45,11 +45,11 @@ export function useAdminStyle() {
     /** C.inp for shadcn Input / Textarea / NativeSelect: they carry a fixed
      *  h-9, so the app's padded fields need height back to auto. */
     inp: { ...C.inp, height: "auto" } as CSSProperties,
-    cBg: isDark ? "#0c0b09" : "#ffffff",
-    cBr: isDark ? "#1e1a14" : "#e4ddd1",
+    cBg: isDark ? "#121212" : "#ffffff",
+    cBr: isDark ? "#2a2a2a" : "#e4ddd1",
     soft: isDark ? "#11100d" : "#f7f3ec",
-    rowBg: (i: number) => (isDark ? (i % 2 === 0 ? "#0a0906" : "#080604") : (i % 2 === 0 ? "#ffffff" : "#faf7f2")),
-    head: isDark ? "#070604" : "#f5f0e8",
+    rowBg: (i: number) => (isDark ? (i % 2 === 0 ? "#121212" : "#121212") : (i % 2 === 0 ? "#ffffff" : "#faf7f2")),
+    head: isDark ? "#121212" : "#f5f0e8",
   };
 }
 

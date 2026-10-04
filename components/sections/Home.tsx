@@ -374,7 +374,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
       </div>
 
       {/* ── PACKAGES — click a card to expand it at centre screen ── */}
-      <div style={{ background: isDark ? "#080604" : "#f7f2ea", padding: mob ? "52px 20px" : "88px 24px", borderBottom: `1px solid ${C.border}` }}>
+      <div style={{ background: isDark ? "#121212" : "#f7f2ea", padding: mob ? "52px 20px" : "88px 24px", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ maxWidth: 1280, margin: "0 auto" }}>
 
           <Reveal style={{ textAlign: "center", marginBottom: mob ? 32 : 44 }}>
@@ -583,7 +583,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
       </Dialog>
 
       {/* ── RATES & FACILITIES (unchanged) ── */}
-      <div style={{ background: isDark ? "#0a0806" : "#fdf9f4", padding: mob ? "52px 20px" : "88px 24px", borderBottom: `1px solid ${C.border}` }}>
+      <div style={{ background: isDark ? "#121212" : "#fdf9f4", padding: mob ? "52px 20px" : "88px 24px", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
           <Reveal>
             <p style={eyebrow}>What&rsquo;s Included</p>
@@ -667,17 +667,17 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
       </div>
 
       {/* ── TESTIMONIALS — infinite marquee (unchanged) ── */}
-      <div style={{ background: isDark ? "#080604" : "#f5f0e8", padding: mob ? "52px 0" : "88px 0", overflow: "hidden" }}>
+      <div style={{ background: isDark ? "#121212" : "#f5f0e8", padding: mob ? "52px 0" : "88px 0", overflow: "hidden" }}>
         <Reveal style={{ textAlign: "center", marginBottom: mob ? 44 : 60, padding: "0 20px" }}>
           <p style={eyebrow}>Testimonials</p>
           <h2 style={h2}>What Our Guests Say</h2>
         </Reveal>
         <div style={{ position: "relative" }}>
-          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to right,${isDark ? "#080604" : "#f5f0e8"},transparent)`, zIndex: 2, pointerEvents: "none" }} />
-          <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to left,${isDark ? "#080604" : "#f5f0e8"},transparent)`, zIndex: 2, pointerEvents: "none" }} />
+          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to right,${isDark ? "#121212" : "#f5f0e8"},transparent)`, zIndex: 2, pointerEvents: "none" }} />
+          <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to left,${isDark ? "#121212" : "#f5f0e8"},transparent)`, zIndex: 2, pointerEvents: "none" }} />
           <div className="sw-marquee-track" style={{ animationDuration: `${marquee.seconds}s` }}>
             {[...marquee.cards, ...marquee.cards].map((r, i) => (
-              <div key={i} style={{ flexShrink: 0, width: mob ? 280 : 330, marginRight: 16, background: isDark ? "#0e0c09" : "#fff", border: `1px solid ${isDark ? "rgba(201,168,76,0.1)" : "rgba(201,168,76,0.15)"}`, borderRadius: 12, padding: "26px 24px", boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.35)" : "0 4px 16px rgba(100,70,20,0.08)" }}>
+              <div key={i} style={{ flexShrink: 0, width: mob ? 280 : 330, marginRight: 16, background: isDark ? "#1a1a1a" : "#fff", border: `1px solid ${isDark ? "rgba(201,168,76,0.1)" : "rgba(201,168,76,0.15)"}`, borderRadius: 12, padding: "26px 24px", boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.35)" : "0 4px 16px rgba(100,70,20,0.08)" }}>
                 <div aria-label={`${r.rating} out of 5 stars`} style={{ display: "flex", gap: 3, marginBottom: 12 }}>
                   {[1, 2, 3, 4, 5].map((n) => (
                     <span key={n} aria-hidden="true" style={{ color: n <= r.rating ? gold : C.border, fontSize: 14, lineHeight: 1 }}>&#9733;</span>

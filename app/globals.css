@@ -73,29 +73,29 @@
 
 .sw-dark {
   /* dark — mirrors T(true) */
-  --background: #0c0b09;
+  --background: #121212;
   --foreground: #f2ede6;
-  --card: #131210;
+  --card: #1f1f1f;
   --card-foreground: #f2ede6;
-  --popover: #131210;
+  --popover: #1f1f1f;
   --popover-foreground: #f2ede6;
   --primary: #c9a84c;
   --primary-foreground: #1a1000;
-  --secondary: #0f0e0b;
+  --secondary: #1a1a1a;
   --secondary-foreground: #c4b99a;
-  --muted: #0f0e0b;
+  --muted: #1a1a1a;
   --muted-foreground: #9b8e79;
-  --accent: #0f0e0b;
+  --accent: #1a1a1a;
   --accent-foreground: #c4b99a;
   --destructive: #e55;
-  --border: #242018;
-  --input: #2e2820;
+  --border: #2a2a2a;
+  --input: #333333;
   --ring: #c9a84c;
 
   --body: #c4b99a;
-  --faint: #847866;
+  --faint: #968a78;
   --accent-ink: #c9a84c;
-  --border-soft: #1a1814;
+  --border-soft: #242424;
 }
 
 /* ── Preflight, scoped to shadcn components only ──────────────────────
@@ -448,7 +448,7 @@ body {
   /* Dark is the default so the server-rendered HTML matches the app's
      default theme, and there is no flash before ThemeContext puts
      sw-dark/sw-light on <html>. */
-  background: #0b0a07;
+  background: #121212;
   font-family: 'Jost', system-ui, sans-serif;
   margin: 0;
   padding: 0;

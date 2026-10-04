@@ -53,7 +53,7 @@ const nav = (p: string) => {
   };
 
   // The gold wash behind the whole home page. Its second colour stop was
-  // hardcoded to #0b0a07, so it stayed dark under a light theme — and
+  // hardcoded to #121212, so it stayed dark under a light theme — and
   // because it spans the full page height and sits under the transparent
   // Navbar, light mode showed a black band across the header. About.tsx
   // already does this effect per theme; this now matches it.

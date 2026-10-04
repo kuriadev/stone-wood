@@ -76,8 +76,8 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
   };
 
   // Theme-driven values kept as inline only where CSS variables can't reach
-  const cBg  = isDark ? "#0b0a08" : "#ffffff";
-  const cBr  = isDark ? "#1e1a14" : "#e4ddd1";
+  const cBg  = isDark ? "#121212" : "#ffffff";
+  const cBr  = isDark ? "#2a2a2a" : "#e4ddd1";
   const inpS: React.CSSProperties = { ...C.inp, borderRadius: 4 };
 
   const filtered = items.filter(
@@ -208,7 +208,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
             <button
               key={c}
               style={{ padding: "7px 12px", fontSize: 11.5, fontWeight: "700", borderRadius: 20, cursor: "pointer", letterSpacing: 1, background: filterCat === c
-                  ? (c === "All" ? (isDark ? "#1a1a1a" : "#e8e8e8") : `${catC[c]}18`)
+                  ? (c === "All" ? (isDark ? "#1f1f1f" : "#e8e8e8") : `${catC[c]}18`)
                   : "transparent", color: filterCat === c
                   ? (c === "All" ? gold : catC[c])
                   : C.textS, border: `1px solid ${filterCat === c
@@ -310,7 +310,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
               aria-label="Inventory items"
             >
               <TableHeader>
-                <TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
+                <TableRow style={{ background: isDark ? "#121212" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
                   {["Category", "Item Name", "Qty", "Unit", "Min", "Status", "Notes", "Actions"].map((h) => (
                     <TableHead key={h} scope="col" style={{ padding: "11px 14px", fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap", fontWeight: "600", color: C.textXS }}>
                       {h}
@@ -345,7 +345,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
                       <TableCell style={{ padding: "11px 14px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <button
-                            style={{ width: 22, height: 22, borderRadius: 3, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: "0", background: isDark ? "#161616" : "#eee", border: `1px solid ${cBr}`, color: C.textS }}
+                            style={{ width: 22, height: 22, borderRadius: 3, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: "0", background: isDark ? "#1a1a1a" : "#eee", border: `1px solid ${cBr}`, color: C.textS }}
                             onClick={() => updateQty(item.id, -1)}
                             aria-label={`Decrease quantity of ${item.name}`}
                           >
@@ -358,7 +358,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
                             {item.qty}
                           </span>
                           <button
-                            style={{ width: 22, height: 22, borderRadius: 3, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: "0", background: isDark ? "#161616" : "#eee", border: `1px solid ${cBr}`, color: C.textS }}
+                            style={{ width: 22, height: 22, borderRadius: 3, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: "0", background: isDark ? "#1a1a1a" : "#eee", border: `1px solid ${cBr}`, color: C.textS }}
                             onClick={() => updateQty(item.id, 1)}
                             aria-label={`Increase quantity of ${item.name}`}
                           >
@@ -434,7 +434,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
           style={{ borderRadius: 10, overflow: "hidden", background: cBg, border: `1px solid ${cBr}`, boxShadow: C.shadowCard }}
         >
           <div
-            style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${cBr}`, background: isDark ? "#0a0806" : "#f5f0e8" }}
+            style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${cBr}`, background: isDark ? "#121212" : "#f5f0e8" }}
           >
             <Icon name="trash" size={16} />
             <span style={{ fontSize: 12.5, letterSpacing: 2, fontWeight: "700", color: C.textS }}>
@@ -450,7 +450,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
               aria-label="Archived inventory items"
             >
               <TableHeader>
-                <TableRow style={{ background: isDark ? "#070604" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
+                <TableRow style={{ background: isDark ? "#121212" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
                   {["Category", "Item Name", "Qty", "Unit", "Deleted On", "Action"].map((h) => (
                     <TableHead key={h} scope="col" style={{ padding: "11px 14px", fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap", fontWeight: "600", color: C.textXS }}>
                       {h}

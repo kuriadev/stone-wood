@@ -88,7 +88,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
           // the words, heavier at the edges so the text never fights the
           // photo for contrast.
           background: isDark
-            ? "radial-gradient(circle at 50% 42%, rgba(12,11,9,0.55), rgba(8,7,5,0.9))"
+            ? "radial-gradient(circle at 50% 42%, rgba(18,18,18,0.55), rgba(8,7,5,0.9))"
             : "radial-gradient(circle at 50% 42%, rgba(250,247,242,0.6), rgba(245,240,232,0.92))",
           backdropFilter: "blur(6px)",
           WebkitBackdropFilter: "blur(6px)",

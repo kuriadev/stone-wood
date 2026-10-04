@@ -69,7 +69,7 @@ export function PhotoSet({
   const replaceRef = useRef<HTMLInputElement>(null);
   const replacing = useRef<number>(-1);
 
-  const cBr = isDark ? "#1a1714" : "#e4ddd1";
+  const cBr = isDark ? "#2a2a2a" : "#e4ddd1";
   const full = photos.length >= max;
 
   const items = photos.map((src, i) => ({ src, caption: captions?.[i] ?? "" }));
@@ -143,7 +143,7 @@ export function PhotoSet({
               line does not drag its caption field out of line with its
               neighbours': the caption sits at the foot of every card. */}
           {items.map((item, i) => (
-            <li key={`${i}-${item.src.slice(-24)}`} style={{ position: "relative", display: "flex", flexDirection: "column", border: `1px solid ${cBr}`, borderRadius: 8, overflow: "hidden", background: isDark ? "#0c0b09" : "#faf7f1" }}>
+            <li key={`${i}-${item.src.slice(-24)}`} style={{ position: "relative", display: "flex", flexDirection: "column", border: `1px solid ${cBr}`, borderRadius: 8, overflow: "hidden", background: isDark ? "#121212" : "#faf7f1" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img loading="lazy" decoding="async" src={item.src} alt={`${noun} photo ${i + 1} of ${items.length}${i === 0 ? ", the cover" : ""}`} style={{ display: "block", width: "100%", height: thumbHeight, objectFit: "cover" }} />
               <span style={{ position: "absolute", top: 5, left: 5, padding: "2px 6px", borderRadius: 4, background: i === 0 ? "rgba(201,168,76,0.92)" : "rgba(0,0,0,0.62)", color: i === 0 ? "#1a1000" : "#fff", fontSize: 9.5, letterSpacing: 1.4, lineHeight: 1.5 }}>
@@ -173,7 +173,7 @@ export function PhotoSet({
                     display: "block", width: "calc(100% - 12px)", boxSizing: "border-box",
                     margin: "auto 6px 6px", padding: "0 8px", height: 34, flexShrink: 0,
                     border: `1px solid ${cBr}`, borderRadius: 6,
-                    background: isDark ? "#0a0806" : "#fff", color: C.textH,
+                    background: isDark ? "#121212" : "#fff", color: C.textH,
                     fontFamily: "inherit", fontSize: 12, lineHeight: "32px",
                   }}
                 />

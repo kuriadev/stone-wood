@@ -392,16 +392,16 @@ export function Admin({
   const goTab = (t: AdminTab) => { setTab(t); if (mob) setSideOpen(false); };
 
   const adminBg = isDark ? "#080706" : "#f2ede6";
-  const sideBg = isDark ? "#0a0906" : "#ffffff";
+  const sideBg = isDark ? "#121212" : "#ffffff";
   const sideBorder = isDark ? "#141210" : "#ede8df";
-  const cBg = isDark ? "#0c0b09" : "#ffffff";
-  const cBr = isDark ? "#1a1714" : "#e4ddd1";
+  const cBg = isDark ? "#121212" : "#ffffff";
+  const cBr = isDark ? "#2a2a2a" : "#e4ddd1";
   const inpS: React.CSSProperties = { ...C.inp, borderRadius: 6 };
   const sideS = (t: AdminTab): React.CSSProperties => ({
     padding: "11px 20px 11px 24px", cursor: "pointer", fontSize: 12.5, letterSpacing: 1.5,
     borderLeft: `2px solid ${tab === t ? gold : "transparent"}`,
     background: tab === t ? (isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.1)") : "transparent",
-    color: tab === t ? gold : (isDark ? "#4a4035" : "#9a8878"),
+    color: tab === t ? gold : (isDark ? "#8d8378" : "#7e6c5c"),
     display: "flex", alignItems: "center", gap: 10, transition: "all .15s",
   });
 
@@ -611,7 +611,7 @@ export function Admin({
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: gold, flexShrink: 0 }} />
                   <span style={{ color: isDark ? "#e0e0e0" : "#111", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, letterSpacing: 2 }}>STONEWOOD</span>
                 </div>
-                <div style={{ color: isDark ? "#333" : "#bbb", fontSize: 10.5, letterSpacing: 3, marginLeft: 16 }}>ADMIN PANEL</div>
+                <div style={{ color: isDark ? "#888888" : "#6c6c6c", fontSize: 10.5, letterSpacing: 3, marginLeft: 16 }}>ADMIN PANEL</div>
               </div>
             )}
             <div style={{ padding: "8px 0", flex: 1, overflowY: "auto" }}>
@@ -626,7 +626,7 @@ export function Admin({
                     gap: 10,
                   }}>
                   <span style={{
-                    color: isDark ? "#8f6a3d" : "#b08d57",
+                    color: isDark ? "#a68154" : "#896630",
                     fontSize: 10.5,
                     letterSpacing: 3.5,
                     fontWeight: 600,
@@ -699,7 +699,7 @@ export function Admin({
               ))}
             </div>
             <div style={{ padding: "16px 20px", borderTop: `1px solid ${sideBorder}` }}>
-              <button onClick={() => setShowLogoutConfirm(true)} style={{ width: "100%", background: "transparent", color: isDark ? "#444" : "#aaa", border: `1px solid ${isDark ? "#1a1a1a" : "#ddd"}`, padding: "9px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <button onClick={() => setShowLogoutConfirm(true)} style={{ width: "100%", background: "transparent", color: isDark ? "#888888" : "#6c6c6c", border: `1px solid ${isDark ? "#2a2a2a" : "#ddd"}`, padding: "9px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
                 SIGN OUT
               </button>
@@ -748,7 +748,7 @@ export function Admin({
                   const isPast = new Date(calMonth.getFullYear(), calMonth.getMonth(), d) < new Date(new Date().setHours(0, 0, 0, 0));
                   let bg = isDark ? "#111" : "#f0ede7", col = C.textB, border = `1px solid ${cBr}`;
                   let dim = false;
-                  if (isPast) { bg = isDark ? "#0c0b09" : "#f8f6f3"; col = C.textB; dim = true; }
+                  if (isPast) { bg = isDark ? "#121212" : "#f8f6f3"; col = C.textB; dim = true; }
                   else if (status === "Closed") { bg = isDark ? "#1a0a0a" : "#fff0f0"; col = "#e07070"; border = "1px solid rgba(229,85,85,0.3)"; }
                   else if (status === "Pending") { bg = isDark ? "#241f08" : "#fdf6dd"; col = "#f5c518"; border = "1px solid rgba(245,197,24,0.35)"; }
                   else if (status === "Confirmed") { bg = isDark ? "#0f2018" : "#eafaf0"; col = "#4caf50"; border = "1px solid rgba(76,175,80,0.3)"; }
