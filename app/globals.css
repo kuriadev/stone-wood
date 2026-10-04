@@ -593,6 +593,31 @@ img {
    overrides the duration below, inline, to keep the travel speed constant
    however many copies that takes. */
 
+/* ── EVENT PACKAGE CARDS (Book Now, step 1) ── */
+/* The veil over the photo. Scoped to .sw-event-card, and triggered by
+   focus-visible as well as hover so a keyboard user gets the same cue. */
+.sw-event-veil {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+.sw-event-card:hover .sw-event-veil,
+.sw-event-card:focus-visible .sw-event-veil { opacity: 1; }
+.sw-event-card { transition: border-color 0.25s ease, transform 0.25s ease; }
+.sw-event-card:hover { transform: translateY(-3px); }
+@media (prefers-reduced-motion: reduce) {
+  .sw-event-card, .sw-event-veil { transition: none; }
+  .sw-event-card:hover { transform: none; }
+}
+
 /* ── "WHY CHOOSE" CARDS (About) ── */
 /* These rules used to be a <style> block rendered inside every card, with
    the selector `div:hover .hover-sweep`. That matches ANY hovered div that

@@ -8,6 +8,8 @@
   import { gold, goldBtn, outBtn } from "@/lib/styles";
   import { fmt, fmtTimer, fmtDate, getPackageTier, checkBookingAvailability, getSharedPoolUsage, isRoomOpen, roomsTakenOn } from "@/lib/utils";
   import { roomShots } from "@/lib/gallery";
+  import { EventPackages } from "@/components/booking/EventPackages";
+  import type { ResortPackage } from "@/types/package";
   import { MediaGallery } from "@/components/common/MediaGallery";
   import { priceBooking, bookingLabel } from "@/lib/pricing";
   import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
@@ -95,6 +97,12 @@
      *  negotiable, so when this is set the whole guest/room/overtime/tier
      *  picker UI is hidden and the guest only picks a date. */
     initialPackage?: PackageDeepLink;
+    /** Event packages offered in step 1, so they can be booked without
+     *  leaving for the Packages page. Empty or omitted hides the section. */
+    eventPackages?: ResortPackage[];
+    /** Called when a guest picks one. The page deep-links it exactly as the
+     *  Packages page does, so no pricing rule lives in this component. */
+    onBookEventPackage?: (pkg: ResortPackage) => void;
   }
 
   export function BookNow({
@@ -106,6 +114,8 @@
     initialResource,
     initialSlot,
     initialGuests, initialTier, initialPackage,
+    eventPackages = [],
+    onBookEventPackage,
   }: BookNowProps) {
     const { isDark } = useTheme();
     const C = T(isDark);
@@ -757,6 +767,18 @@
                     ))}
                   </div>
                 </div>
+
+                {/* Event packages. Previously reachable only from the Packages
+                    page, so a guest already inside Book Now could not see
+                    them. Hidden entirely while a package booking is already in
+                    progress — there is nothing to choose at that point. */}
+                {!isPackage && onBookEventPackage && (
+                  <EventPackages
+                    packages={eventPackages}
+                    mob={mob}
+                    onBook={onBookEventPackage}
+                  />
+                )}
 
                 {navRow(
                   { label: "BACK TO HOME", onClick: () => onGoHome?.() },

@@ -21,6 +21,7 @@ import {
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ResortPackage } from "@/types/package";
+import { isEventPackage } from "@/lib/packages";
 import type { BookingResource, BookingTier } from "@/types/booking";
 
 /**
@@ -52,7 +53,7 @@ const TIERS: { key: TierKey; label: string; icon: IconName; tagline: string; blu
 /** Which tab a package belongs to: the venue packages are their own group,
  *  the pool ones split on whether the pool is shared or bought out. */
 const tierOf = (p: ResortPackage): TierKey =>
-  p.resource !== "Pool" ? "EVENTS" : p.status === "Exclusive" ? "EXCLUSIVE" : "SHARED";
+  isEventPackage(p) ? "EVENTS" : p.status === "Exclusive" ? "EXCLUSIVE" : "SHARED";
 
 interface PackageShowcaseProps {
   packages: ResortPackage[];

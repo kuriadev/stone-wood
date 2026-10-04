@@ -9,13 +9,16 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import type { PackageDeepLink } from "@/types/booking";
+import type { ResortPackage } from "@/types/package";
+import { isEventPackage } from "@/lib/packages";
+import { buildPackageBookingUrl } from "@/lib/utils";
 
 export default function BookPage() {
   const router = useRouter();
   const params = useSearchParams();
   const { isDark } = useTheme();
   const C = T(isDark);
-  const { bookings, refreshAvailability, rooms, closedDates, facilities } = useApp();
+  const { bookings, refreshAvailability, rooms, closedDates, facilities, packages } = useApp();
 
   // Support ?room=1 and ?date=2026-05-10 from Rooms page / Home calendar
   const preselectedRoom = params.get("room")
@@ -63,6 +66,31 @@ export default function BookPage() {
           slotMode: pkgSlotMode,
         }
       : undefined;
+
+  /* Event packages offered inside step 1. Same rule as the Packages page's
+     EVENTS tab, and inactive ones never reach a guest. */
+  const eventPackages = packages.filter((p) => p.active && isEventPackage(p));
+
+  /* Booking one is the same deep link the Packages page builds, so Book Now
+     reopens in package mode with the package's resource, tier, slot and
+     capacity — no second code path, and the server quote is unchanged. */
+  const bookEventPackage = (pkg: ResortPackage) => {
+    router.push(
+      buildPackageBookingUrl(
+        {
+          code: pkg.code,
+          title: pkg.title,
+          price: pkg.price,
+          listPrice: pkg.listPrice,
+          capacity: pkg.capacity,
+          requiresRoom: pkg.requiresRoom,
+          slotMode: pkg.slotMode,
+        },
+        pkg.resource,
+        pkg.status,
+      ),
+    );
+  };
 
   const nav = (p: string) => {
     const routes: Record<string, string> = {
@@ -114,6 +142,8 @@ export default function BookPage() {
         initialGuests={initialGuests}
         initialTier={initialTier}
         initialPackage={initialPackage}
+        eventPackages={eventPackages}
+        onBookEventPackage={bookEventPackage}
       />
       <Footer setPage={nav} />
       <ThemeToggle />
