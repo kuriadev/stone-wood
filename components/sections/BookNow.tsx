@@ -1729,7 +1729,13 @@
                         <button
                           type="button"
                           onClick={() => { toggleRoom(roomPhoto.id); setRoomPhoto(null); }}
-                          style={{ ...(chosen ? outBtn : goldBtn), color: chosen ? C.goldInk : undefined, width: "100%", minHeight: 48 }}
+                          /* Two whole styles, not a spread with a conditional
+                             `color`: `color: undefined` does not fall back to
+                             goldBtn's own near-black, it clears it, and the
+                             label inherited the dialog's white. */
+                          style={chosen
+                            ? { ...outBtn, color: C.goldInk, width: "100%", minHeight: 48 }
+                            : { ...goldBtn, width: "100%", minHeight: 48 }}
                         >
                           {chosen ? "REMOVE THIS ROOM" : "SELECT THIS ROOM"}
                         </button>
