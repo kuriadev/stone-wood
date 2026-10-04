@@ -153,7 +153,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
 
                 {/* BUTTON */}
                 <button
-                  className="sw-btn"
+                  className="sw-btn-out"
                   onClick={(e) => {
                     e.stopPropagation(); //  prevents modal opening
                     onAddToBooking(r.id);

@@ -166,7 +166,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
           <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Packages</h2>
           <p style={{ color: C.textS, fontSize: 13.5, margin: "6px 0 0" }}>Shown on the public Packages page and offered as deep links from Home and Walk-In.</p>
         </div>
-        <button onClick={openAdd} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD PACKAGE</button>
+        <button className="sw-btn" onClick={openAdd} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD PACKAGE</button>
       </div>
 
       {/* 1fr auto-rows equalises row heights on
@@ -196,8 +196,8 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   Cap) vary per package, which left these buttons 20px
                   apart between neighbouring cards. */}
               <div style={{ display: "flex", gap: 8, marginTop: "auto", paddingTop: 4 }}>
-                <button onClick={() => toggleActive(p)} style={{ ...outBtn, flex: 1, padding: "7px 10px", fontSize: 11.5, letterSpacing: 1 }}>{p.active ? "HIDE" : "SHOW"}</button>
-                <button onClick={() => openEdit(p)} style={{ ...outBtn, flex: 1, padding: "7px 10px", fontSize: 11.5, letterSpacing: 1 }}>EDIT</button>
+                <button className="sw-btn-out" onClick={() => toggleActive(p)} style={{ ...outBtn, flex: 1, padding: "7px 10px", fontSize: 11.5, letterSpacing: 1 }}>{p.active ? "HIDE" : "SHOW"}</button>
+                <button className="sw-btn-out" onClick={() => openEdit(p)} style={{ ...outBtn, flex: 1, padding: "7px 10px", fontSize: 11.5, letterSpacing: 1 }}>EDIT</button>
                 {/* An icon, not "DEL": the abbreviation had to be guessed at,
                     and the trash can is the one symbol nobody has to. Icon
                     only, so it needs a real accessible name -- and a title so

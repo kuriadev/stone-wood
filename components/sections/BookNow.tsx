@@ -608,10 +608,10 @@
         {/* outBtn paints its label in the raw brand gold, which is a
             surface colour: on the light theme that is 2.29:1 against
             white. goldInk is the text-safe step of the same gold. */}
-        <button onClick={back.onClick} style={{ ...outBtn, color: C.goldInk, flex: mob ? undefined : "1 1 0" }}>
+        <button className="sw-btn-out" onClick={back.onClick} style={{ ...outBtn, color: C.goldInk, flex: mob ? undefined : "1 1 0" }}>
           {back.label}
         </button>
-        <button
+        <button className="sw-btn"
           onClick={fwd.onClick}
           disabled={fwd.disabled}
           style={{ ...goldBtn, flex: mob ? undefined : "2 1 0", opacity: fwd.disabled ? 0.45 : 1, cursor: fwd.disabled ? "not-allowed" : "pointer" }}
@@ -1208,7 +1208,7 @@
                             looking at a room and choosing it are different
                             intentions, and a guest should be able to do the
                             first without committing to the second. */}
-                        <button
+                        <button className="sw-btn-out"
                           type="button"
                           onClick={() => setRoomPhoto(r)}
                           aria-label={`View a photo of ${r.name}`}
@@ -1439,7 +1439,7 @@
                     <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.3)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, fontSize: 28 }}>⏱</div>
                     <h3 style={{ color: "#e55", fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 22, fontWeight: 400, marginBottom: 10 }}>QR Code Expired</h3>
                     <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.8, marginBottom: 28, maxWidth: 320 }}>Your payment window has expired. Please go back and try again.</p>
-                    <button onClick={() => { setQrExpired(false); setQrRetryKey((k) => k + 1); }} style={{ ...goldBtn }}>TRY AGAIN</button>
+                    <button className="sw-btn" onClick={() => { setQrExpired(false); setQrRetryKey((k) => k + 1); }} style={{ ...goldBtn }}>TRY AGAIN</button>
                   </div>
                 )}
                 {/* The step used to open with a full-bleed GCash gradient bar,
@@ -1654,7 +1654,7 @@
                     ? <>No refunds. Nothing more is due at the resort, apart from any damage or extra hours.</>
                     : <>No refunds. The remaining balance of {fmt(fullTotal - dueNow)} is paid at the resort.</>}
                 </p>
-                <button
+                <button className="sw-btn"
                   onClick={() => onGoHome?.()}
                   style={{ ...goldBtn }}
                 >
@@ -1749,7 +1749,7 @@
                           Already booked on {fmtDate(date)}.
                         </p>
                       ) : (
-                        <button
+                        <button className={chosen ? "sw-btn-out" : "sw-btn"}
                           type="button"
                           onClick={() => { toggleRoom(roomPhoto.id); setRoomPhoto(null); }}
                           /* Two whole styles, not a spread with a conditional
@@ -1872,7 +1872,7 @@
               >
                 REVIEW DETAILS
               </Button>
-              <Button
+              <Button className="sw-btn"
                 disabled={!policyChecked}
                 onClick={() => { setShowGcashWarning(false); setPolicyChecked(false); setStep(6); }}
                 style={{ ...goldBtn, opacity: policyChecked ? 1 : 0.45, cursor: policyChecked ? "pointer" : "not-allowed" }}

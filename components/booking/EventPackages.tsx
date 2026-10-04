@@ -135,7 +135,7 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
           appears as a dead end. */}
       {(hidden > 0 || expanded) && (
         <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
-          <button
+          <button className="sw-btn-out"
             type="button"
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
@@ -213,10 +213,10 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
                 )}
 
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                  <button type="button" onClick={() => setOpen(null)} style={{ ...outBtn, color: C.goldInk, minHeight: 46 }}>
+                  <button className="sw-btn-out" type="button" onClick={() => setOpen(null)} style={{ ...outBtn, color: C.goldInk, minHeight: 46 }}>
                     CANCEL
                   </button>
-                  <button type="button" onClick={() => { const chosen = open; setOpen(null); onBook(chosen); }} style={{ ...goldBtn, minHeight: 46 }}>
+                  <button className="sw-btn" type="button" onClick={() => { const chosen = open; setOpen(null); onBook(chosen); }} style={{ ...goldBtn, minHeight: 46 }}>
                     ADD THIS EVENT <span aria-hidden="true">→</span>
                   </button>
                 </div>

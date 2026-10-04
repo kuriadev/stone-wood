@@ -210,7 +210,7 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
         {live ? (
           <>
-            <button
+            <button className="sw-btn"
               type="button"
               disabled={saving}
               onClick={() => void save(false)}
@@ -226,7 +226,7 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
               REOPEN THE SITE
             </button>
             {dirty && (
-              <button
+              <button className="sw-btn-out"
                 type="button"
                 disabled={saving}
                 onClick={() => void save(true)}

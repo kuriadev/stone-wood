@@ -266,7 +266,14 @@ export function Btn({
       type="button"
       variant={kind === "ghost" ? "outline" : "default"}
       size={size === "sm" ? "sm" : "default"}
-      className={[kind === "ghost" ? "sw-gold-hover" : "", className ?? ""].filter(Boolean).join(" ") || undefined}
+      /* Every kind answers to hover, each in its own language: the gold
+         primary lifts and deepens its glow, the quiet outline fills gold,
+         and a tinted button deepens its OWN colour — a red Void button
+         turning gold would say the wrong thing about what it does. */
+      className={[
+        kind === "primary" ? "sw-btn" : kind === "ghost" ? "sw-gold-hover" : "sw-btn-tint",
+        className ?? "",
+      ].filter(Boolean).join(" ") || undefined}
       {...rest}
       style={{ fontWeight: 600, ...look, ...style }}>
       {icon && <Icon name={icon} size={size === "sm" ? 13 : 15} />}

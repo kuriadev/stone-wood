@@ -223,7 +223,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
         </div>
 
         {/* Add button */}
-        <button
+        <button className="sw-btn"
           style={{ flexShrink: "0", ...goldBtn }}
           onClick={openAdd}
           aria-label="Add new inventory item"
@@ -601,7 +601,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
             >
               CANCEL
             </Button>
-            <Button
+            <Button className="sw-btn"
               style={{ ...goldBtn, height: "auto" }}
               onClick={saveItem}
               disabled={!form.name || !form.qty || !form.unit}

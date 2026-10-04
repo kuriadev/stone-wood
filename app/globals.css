@@ -530,6 +530,49 @@ img {
 .sw-light .sw-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 22px -8px rgba(160,118,30,0.50) !important; }
 .sw-btn:active { transform: translateY(0) scale(0.985); }
 
+/* The outline button. Same lift and timing as .sw-btn so the two read as one
+   family, but it fills with gold rather than throwing a gold shadow — an
+   outline button has no fill of its own to deepen. */
+.sw-btn-out {
+  transition: transform .2s cubic-bezier(.22,1,.36,1),
+              background-color .2s ease,
+              border-color .2s ease,
+              color .2s ease;
+}
+.sw-btn-out:not(:disabled):hover,
+.sw-btn-out:not(:disabled):focus-visible {
+  transform: translateY(-2px);
+  background-color: rgba(201,168,76,0.12) !important;
+  border-color: rgba(201,168,76,0.55) !important;
+}
+.sw-btn-out:not(:disabled):active { transform: translateY(0) scale(0.985); }
+
+/* Tinted admin buttons (green settle, red void, blue detail). They keep
+   their own colour and simply deepen, so the meaning of the colour survives
+   the hover. */
+.sw-btn-tint {
+  transition: transform .2s cubic-bezier(.22,1,.36,1), filter .2s ease;
+}
+.sw-btn-tint:not(:disabled):hover,
+.sw-btn-tint:not(:disabled):focus-visible {
+  transform: translateY(-2px);
+  filter: brightness(1.18) saturate(1.1);
+}
+.sw-btn-tint:not(:disabled):active { transform: translateY(0) scale(0.985); }
+.sw-btn-tint:disabled { transform: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .sw-btn-tint { transition: none; }
+  .sw-btn-tint:not(:disabled):hover { transform: none; }
+}
+
+/* A button that cannot be pressed should not pretend otherwise. */
+.sw-btn:disabled, .sw-btn-out:disabled { transform: none !important; box-shadow: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sw-btn, .sw-btn-out { transition: none; }
+  .sw-btn:hover, .sw-btn-out:not(:disabled):hover { transform: none; }
+}
+
 /* ── NAV / LINK TRANSITIONS ── */
 .sw-link     { transition: color .15s ease; }
 .sw-nav-link { transition: color .2s ease, border-color .2s ease; }
@@ -812,19 +855,9 @@ img {
   transition: transform .6s ease;
 }
 
-/* BUTTON FEEL  */
-.sw-btn {
-  transition: all 0.2s ease;
-}
-
-.sw-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(201,168,76,0.35);
-}
-
-.sw-btn:active {
-  transform: scale(0.96);
-}
+/* The duplicate .sw-btn block that used to sit here was removed: it came
+   after the real one, so it won, and it animated `all` — every property
+   that happens to change, layout included. See BUTTON HOVER above. */
 
 /* MODAL ANIMATIONS */
 @keyframes fadeIn {

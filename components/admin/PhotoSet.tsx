@@ -183,7 +183,7 @@ export function PhotoSet({
         </ul>
       )}
 
-      <Button
+      <Button className="sw-btn-out"
         id={`${idPrefix}-add-photo`}
         type="button"
         variant="outline"

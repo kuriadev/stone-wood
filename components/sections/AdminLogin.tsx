@@ -232,7 +232,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
             </Alert>
           )}
 
-          <Button
+          <Button className="sw-btn"
             onClick={() => void handle()}
             disabled={loading || !user || !pass}
             style={{

@@ -391,7 +391,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                 </Label>
                 <Input id="mb-email" type="email" {...registerLookup("email")} placeholder="Email used for booking" autoComplete="email" aria-invalid={!!lookupErrors.email} />
               </div>
-              <button
+              <button className="sw-btn"
                 type="submit"
                 disabled={looking}
                 style={{ ...goldBtn, opacity: looking ? 0.5 : 1, cursor: looking ? "wait" : "pointer", whiteSpace: "nowrap" }}
@@ -511,9 +511,9 @@ export function ManageBooking(_props: ManageBookingProps) {
                     </p>
                     {!picking ? (
                       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                        <button type="button" onClick={() => { setPicking(true); setNewDate(""); setDateError(null); }} style={{ ...goldBtn }}>PICK A NEW DATE</button>
+                        <button className="sw-btn" type="button" onClick={() => { setPicking(true); setNewDate(""); setDateError(null); }} style={{ ...goldBtn }}>PICK A NEW DATE</button>
                         {(found.heldAmount ?? 0) > 0 && (
-                          <button type="button" onClick={() => setShowRefundConfirm(true)} style={{ ...outBtn, color: C.goldInk, minHeight: 48 }}>REQUEST A REFUND</button>
+                          <button className="sw-btn-out" type="button" onClick={() => setShowRefundConfirm(true)} style={{ ...outBtn, color: C.goldInk, minHeight: 48 }}>REQUEST A REFUND</button>
                         )}
                       </div>
                     ) : (
@@ -521,8 +521,8 @@ export function ManageBooking(_props: ManageBookingProps) {
                         {picker}
                         {dateError && <p style={{ color: "#e07a7a", fontSize: 13, margin: 0 }}>{dateError}</p>}
                         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                          <button type="button" onClick={() => setPicking(false)} style={{ ...outBtn, color: C.goldInk, minHeight: 48 }}>BACK</button>
-                          <button type="button" disabled={!newDate || dateBusy} onClick={() => void confirmRebook()}
+                          <button className="sw-btn-out" type="button" onClick={() => setPicking(false)} style={{ ...outBtn, color: C.goldInk, minHeight: 48 }}>BACK</button>
+                          <button className="sw-btn" type="button" disabled={!newDate || dateBusy} onClick={() => void confirmRebook()}
                             style={{ ...goldBtn, opacity: !newDate || dateBusy ? 0.5 : 1, cursor: !newDate ? "not-allowed" : dateBusy ? "wait" : "pointer" }}>
                             {dateBusy ? "SAVING…" : newDate ? `CONFIRM ${fmtDate(newDate).toUpperCase()}` : "CHOOSE A DATE"}
                           </button>
@@ -666,7 +666,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                       {picker}
                       {dateError && <p style={{ color: "#e07a7a", fontSize: 13, margin: "12px 0 0" }}>{dateError}</p>}
                       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-                        <button type="button" disabled={!newDate || dateBusy} onClick={() => void requestDateChange()}
+                        <button className="sw-btn" type="button" disabled={!newDate || dateBusy} onClick={() => void requestDateChange()}
                           style={{ ...goldBtn, opacity: !newDate || dateBusy ? 0.45 : 1, cursor: !newDate ? "not-allowed" : dateBusy ? "wait" : "pointer" }}>
                           {dateBusy ? "SENDING…" : newDate ? <>REQUEST {fmtDate(newDate).toUpperCase()} <span aria-hidden="true">&rarr;</span></> : "CHOOSE A DATE"}
                         </button>
@@ -748,7 +748,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                             placeholder="For example: my contact number should be 0917 000 0000." />
                           {requestError && <p style={{ color: "#e07a7a", fontSize: 13, margin: "12px 0 0" }}>{requestError}</p>}
                           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-                            <button type="button" onClick={() => void sendRequest()} disabled={requestSending || requestText.trim().length < 10}
+                            <button className="sw-btn" type="button" onClick={() => void sendRequest()} disabled={requestSending || requestText.trim().length < 10}
                               style={{ ...goldBtn, opacity: requestSending || requestText.trim().length < 10 ? 0.45 : 1, cursor: requestSending ? "wait" : requestText.trim().length < 10 ? "not-allowed" : "pointer" }}>
                               {requestSending ? "SENDING…" : <>SEND REQUEST <span aria-hidden="true">&rarr;</span></>}
                             </button>
@@ -802,7 +802,7 @@ export function ManageBooking(_props: ManageBookingProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel style={{ ...outBtn, color: C.goldInk, minHeight: 48 }}>GO BACK</AlertDialogCancel>
-            <Button onClick={() => void confirmRefund()} disabled={dateBusy} style={{ ...goldBtn, minHeight: 48 }}>
+            <Button className="sw-btn" onClick={() => void confirmRefund()} disabled={dateBusy} style={{ ...goldBtn, minHeight: 48 }}>
               {dateBusy ? "SAVING…" : "YES, REFUND ME"}
             </Button>
           </AlertDialogFooter>

@@ -861,7 +861,7 @@ export function Admin({
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
                 <div><p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>ACCOMMODATIONS</p><h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Rooms</h2></div>
-                <button onClick={openAdd} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD ROOM</button>
+                <button className="sw-btn" onClick={openAdd} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD ROOM</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fill,minmax(280px,1fr))", gap: 20 }}>
                 {rooms.map((r) => (
@@ -880,7 +880,7 @@ export function Admin({
                       <p style={{ color: gold, fontSize: 12.5, marginBottom: 8 }}><Icon name="bed" size={12} style={{ marginRight: 5 }} />{r.beds}</p>
                       <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, marginBottom: 14 }}>{r.desc}</p>
                       <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={() => openEdit(r)} style={{ ...outBtn, flex: 1, padding: "8px 12px", fontSize: 11.5, letterSpacing: 1 }}>EDIT</button>
+                        <button className="sw-btn-out" onClick={() => openEdit(r)} style={{ ...outBtn, flex: 1, padding: "8px 12px", fontSize: 11.5, letterSpacing: 1 }}>EDIT</button>
                         <button onClick={() => setConfirmRemoveRoom(r)} style={{ flex: 1, background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "8px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>REMOVE</button>
                       </div>
                     </div>
@@ -905,7 +905,7 @@ export function Admin({
                 <div style={{ display: "flex", gap: 10 }}>
                   <input ref={galleryFileRef} type="file" accept="image/*" multiple onChange={handleGalleryUpload} style={{ display: "none" }} />
                   <input ref={galleryReplaceRef} type="file" accept="image/*" onChange={handleGalleryReplace} style={{ display: "none" }} />
-                  <button onClick={() => galleryFileRef.current?.click()} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD PHOTOS</button>
+                  <button className="sw-btn" onClick={() => galleryFileRef.current?.click()} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD PHOTOS</button>
                 </div>
               </div>
 
@@ -934,7 +934,7 @@ export function Admin({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={galleryImgs[0]} alt="" style={{ display: "block", width: "100%", height: mob ? 150 : 230, objectFit: "cover" }} />
                     <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0.05))" }} />
-                    <button
+                    <button className="sw-btn"
                       onClick={() => { replaceGalleryAt.current = 0; galleryReplaceRef.current?.click(); }}
                       aria-label="Replace the gallery hero photo"
                       style={{ ...goldBtn, position: "absolute", right: 12, bottom: 12, minHeight: 40, padding: "0 18px", fontSize: 11.5, letterSpacing: 1.4 }}
@@ -975,7 +975,7 @@ export function Admin({
                         </span>
 
                         <div style={{ position: "absolute", right: 8, top: 8, display: "flex", gap: 6 }}>
-                          <button
+                          <button className="sw-btn"
                             onClick={() => { replaceGalleryAt.current = i + 1; galleryReplaceRef.current?.click(); }}
                             aria-label={`Change the ${galleryHourLabel(i, galleryImgs.length - 1)} photo`}
                             title="Change this photo"
@@ -1269,7 +1269,7 @@ export function Admin({
                         >
                           CANCEL
                         </Button>
-                        <Button
+                        <Button className="sw-btn"
                           onClick={() => {
                             window.location.href = `mailto:${replyModal.email}?subject=Customer Service Response&body=${encodeURIComponent(
                               replyMessage
@@ -1390,7 +1390,7 @@ export function Admin({
           <Separator />
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowModal(false)} style={{ color: C.textS, borderColor: cBr, padding: 12, height: "auto", fontSize: 12.5, borderRadius: 6, letterSpacing: 1 }}>CANCEL</Button>
-            <Button onClick={saveRoom} style={{ ...goldBtn, borderRadius: 6, height: "auto" }}>SAVE ROOM</Button>
+            <Button className="sw-btn" onClick={saveRoom} style={{ ...goldBtn, borderRadius: 6, height: "auto" }}>SAVE ROOM</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
