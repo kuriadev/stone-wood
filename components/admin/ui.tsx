@@ -251,7 +251,7 @@ const TINT: Record<Exclude<BtnKind, "primary" | "ghost">, CSSProperties> = {
 };
 
 export function Btn({
-  kind = "ghost", size = "md", icon, children, style, ...rest
+  kind = "ghost", size = "md", icon, children, style, className, ...rest
 }: {
   kind?: BtnKind;
   size?: "sm" | "md";
@@ -262,7 +262,12 @@ export function Btn({
       : kind === "ghost" ? {}
         : TINT[kind];
   return (
-    <Button type="button" variant={kind === "ghost" ? "outline" : "default"} size={size === "sm" ? "sm" : "default"} {...rest}
+    <Button
+      type="button"
+      variant={kind === "ghost" ? "outline" : "default"}
+      size={size === "sm" ? "sm" : "default"}
+      className={[kind === "ghost" ? "sw-gold-hover" : "", className ?? ""].filter(Boolean).join(" ") || undefined}
+      {...rest}
       style={{ fontWeight: 600, ...look, ...style }}>
       {icon && <Icon name={icon} size={size === "sm" ? 13 : 15} />}
       {children}
@@ -337,13 +342,13 @@ export function Pager({
         Showing {from}–{to} of {total} {noun}
       </span>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <button type="button" onClick={() => step(-1)} disabled={page <= 1} style={btn(page <= 1)} aria-label="Previous page">
+        <button type="button" className="sw-gold-hover" onClick={() => step(-1)} disabled={page <= 1} style={btn(page <= 1)} aria-label="Previous page">
           ‹ Prev
         </button>
         <span style={{ color: C.textS, fontSize: 12.5, minWidth: 92, textAlign: "center" }} aria-live="polite">
           Page {page} of {pages}
         </span>
-        <button type="button" onClick={() => step(1)} disabled={page >= pages} style={btn(page >= pages)} aria-label="Next page">
+        <button type="button" className="sw-gold-hover" onClick={() => step(1)} disabled={page >= pages} style={btn(page >= pages)} aria-label="Next page">
           Next ›
         </button>
       </div>

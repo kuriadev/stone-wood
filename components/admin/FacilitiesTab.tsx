@@ -339,7 +339,7 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
           const m = bookingMoney(b, ops.payments, ops.damages);
           const prepared = ops.inspections.some((x) => x.bookingId === b.id && x.stage === "Preparation");
           return (
-            <Row key={b.id} style={{ background: rowBg(i), cursor: "pointer" }} onClick={() => setOpen(b)}>
+            <Row key={b.id} className="sw-click-row" style={{ background: rowBg(i) }} onClick={() => setOpen(b)}>
               <Cell style={td}>
                 <span style={{ color: C.textH, fontWeight: 600 }}>{b.name}</span>
                 <div style={{ color: C.textS, fontSize: 11.5 }}><span style={{ color: gold, fontFamily: "monospace" }}>{b.id}</span> · {b.guests} guests</div>
@@ -396,7 +396,7 @@ function Damages({ bookings }: { bookings: Booking[] }) {
       <TableShell head={["Date", "Guest", "Facility", "Item", "Qty × rate", "Penalty"]} minWidth={860}
         empty={rows.length === 0 ? (q ? "No damage records match." : "No damage recorded yet.") : undefined}>
         {pagedDmg.rows.map(({ d, b, at }, i) => (
-          <Row key={d.id} style={{ background: rowBg(i), cursor: b ? "pointer" : "default" }} onClick={() => b && setOpen(b)}>
+          <Row key={d.id} className={b ? "sw-click-row" : undefined} style={{ background: rowBg(i), cursor: b ? "pointer" : "default" }} onClick={() => b && setOpen(b)}>
             <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{at ? fmtDate(manilaDate(at)) : b ? fmtDate(b.date) : "—"}</Cell>
             <Cell style={td}>
               <span style={{ color: C.textH }}>{b?.name ?? "—"}</span>

@@ -521,7 +521,7 @@ function Clients({ bookings }: { bookings: Booking[] }) {
       <TableShell head={["Client", "Bookings", "Last visit", "Total paid", "Owed", ""]} minWidth={700}
         empty={shown.length === 0 ? "No clients match." : undefined}>
         {pagedCli.rows.map((c, i) => (
-          <Row key={c.key} style={{ background: rowBg(i), cursor: "pointer" }} onClick={() => setOpen(c.key)}>
+          <Row key={c.key} className="sw-click-row" style={{ background: rowBg(i) }} onClick={() => setOpen(c.key)}>
             <Cell style={{ ...td, color: C.textH }}>{c.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{c.contact}{c.email ? ` · ${c.email}` : ""}</div></Cell>
             <Cell style={{ ...td, color: C.textB }}>{c.bookings.length}</Cell>
             <Cell style={{ ...td, color: C.textB }}>{c.last ? fmtDate(c.last) : "—"}</Cell>
@@ -821,7 +821,7 @@ export function Closing({ onAct }: { onAct?: (action: CloseAction, b: Booking) =
       <TableShell head={["Day", "Received", "Expenses", "Net", "Expected cash", "Counted", "Difference", "Notes"]} minWidth={860}
         empty={ops.closings.length === 0 ? "No days closed yet." : undefined}>
         {pagedClo.rows.map((c, i) => (
-          <Row key={c.closingDate} style={{ background: rowBg(i), cursor: "pointer" }} onClick={() => pick(c.closingDate)}>
+          <Row key={c.closingDate} className="sw-click-row" style={{ background: rowBg(i) }} onClick={() => pick(c.closingDate)}>
             <Cell style={{ ...td, color: C.textH, whiteSpace: "nowrap" }}>{fmtDate(c.closingDate)}</Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(c.totalCollected)}</Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(c.totalExpenses)}</Cell>

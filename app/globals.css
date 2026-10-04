@@ -595,6 +595,47 @@ img {
    overrides the duration below, inline, to keep the travel speed constant
    however many copies that takes. */
 
+/* ── ADMIN HOVER AFFORDANCE ── */
+/* One gold wash, so anything an admin can press or open answers the same
+   way. Before this, a clickable table row looked exactly like a static one
+   and only the cursor gave it away — which a keyboard user never sees.
+   `:focus-visible` is included for that reason.
+
+   The timings are short and the movement is tiny: this is feedback on the
+   element under the pointer, not decoration. */
+
+/* Table rows that open something. */
+.sw-click-row {
+  transition: background-color .18s ease, box-shadow .18s ease;
+  cursor: pointer;
+}
+.sw-click-row:hover,
+.sw-click-row:focus-visible {
+  background-color: rgba(201, 168, 76, 0.09) !important;
+  /* A left edge rather than a border, so the row does not change height. */
+  box-shadow: inset 3px 0 0 var(--sw-gold, #c9a84c);
+  outline: none;
+}
+.sw-light .sw-click-row:hover,
+.sw-light .sw-click-row:focus-visible { background-color: rgba(201, 168, 76, 0.13) !important; }
+
+/* Quiet admin controls: the outline buttons, the pager, table row actions. */
+.sw-gold-hover {
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+}
+.sw-gold-hover:not(:disabled):hover,
+.sw-gold-hover:not(:disabled):focus-visible {
+  background-color: rgba(201, 168, 76, 0.12) !important;
+  border-color: rgba(201, 168, 76, 0.55) !important;
+  color: var(--sw-gold, #c9a84c) !important;
+}
+.sw-gold-hover:not(:disabled):active { transform: translateY(1px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sw-click-row, .sw-gold-hover { transition: none; }
+  .sw-gold-hover:not(:disabled):active { transform: none; }
+}
+
 /* ── FULL-WIDTH NATIVE SELECT ── */
 /* NativeSelect's wrapper is `w-fit`, so a select in a grid or flex cell
    shrinks to its longest option instead of filling the cell. The wrapper is
