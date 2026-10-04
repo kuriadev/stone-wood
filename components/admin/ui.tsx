@@ -289,8 +289,12 @@ export function TableShell({ head, children, minWidth = 720, empty, label }: { h
       <Table style={{ minWidth }} aria-label={label}>
         <TableHeader>
           <TableRow style={{ background: hBg, borderBottom: `1px solid ${cBr}` }}>
+            {/* Keyed on position, not on the label. A header row is a fixed
+                list that never reorders, and keying on the text meant any
+                table with two same-named columns threw a duplicate-key
+                warning and risked a dropped cell. */}
             {head.map((h, i) => (
-              <TableHead key={h || `c${i}`} scope="col" style={{ padding: "11px 12px", color: C.textS, fontSize: 11.5, fontWeight: 600, textAlign: "left", whiteSpace: "nowrap" }}>
+              <TableHead key={i} scope="col" style={{ padding: "11px 12px", color: C.textS, fontSize: 11.5, fontWeight: 600, textAlign: "left", whiteSpace: "nowrap" }}>
                 {h || <span className="sr-only">Actions</span>}
               </TableHead>
             ))}

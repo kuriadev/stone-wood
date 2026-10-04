@@ -301,7 +301,10 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
         />
       </div>
 
-      <TableShell head={["Booking", "Guest", "Visit", "Booking", "Payment", "Total", "Paid", "Balance", "Penalty due", ""]} minWidth={1020}
+      {/* Two columns were both headed "Booking" — the reference and the
+          booking's status — which read as a mistake and collided as React
+          keys. Each says which status it means. */}
+      <TableShell head={["Reference", "Guest", "Visit", "Booking status", "Payment status", "Total", "Paid", "Balance", "Penalty due", ""]} minWidth={1080}
         empty={shown.length === 0 ? (rows.length === 0 ? "No bookings yet." : "No bookings match this filter.") : undefined}>
         {shown.map(({ b, m }, i) => (
           <Row key={b.id} style={{ background: rowBg(i) }}>
