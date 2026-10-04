@@ -457,6 +457,24 @@ body {
   transition: background 0.2s ease;
 }
 
+/* Form controls do NOT inherit font-family from their parent — the browser
+   gives them its own UI font, which is why every <button> in the app was
+   rendering in Arial while the page around it was Satoshi. Tailwind's
+   preflight normally fixes this, and preflight is deliberately off here (the
+   app relies on browser default margins and box-sizing), so this one rule is
+   taken from it on its own.
+   Only the family: size and weight stay as the browser sets them, because
+   those do affect layout and the rest of preflight is still off. Anything
+   that genuinely wants another face — a booking reference in monospace —
+   sets it inline, and an inline style wins over this. */
+button,
+input,
+select,
+textarea,
+optgroup {
+  font-family: inherit;
+}
+
 /* This used to be the hardcoded value above and nothing ever changed it, so
    the `transition` was dead and the page stayed dark under a light theme.
    It was mostly hidden because each page paints its own wrapper over the
