@@ -80,7 +80,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
   /* Selects only. `C.inp` sets `padding` inline, which overrides the
      `pr-9` NativeSelect reserves for its chevron -- without this the arrow
      sits on top of the selected value. */
-  const selS: React.CSSProperties = { ...inpS, paddingRight: 38 };
+  const selS: React.CSSProperties = { ...inpS, paddingRight: 40 };
   const setF = (k: string, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
 
   const openAdd = () => {
@@ -164,9 +164,9 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
         <div>
           <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>RESORT PACKAGES</p>
           <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Packages</h2>
-          <p style={{ color: C.textS, fontSize: 13.5, margin: "6px 0 0" }}>Shown on the public Packages page and offered as deep links from Home and Walk-In.</p>
+          <p style={{ color: C.textS, fontSize: 13.5, margin: "8px 0 0" }}>Shown on the public Packages page and offered as deep links from Home and Walk-In.</p>
         </div>
-        <button className="sw-btn" onClick={openAdd} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD PACKAGE</button>
+        <button className="sw-btn" onClick={openAdd} style={{ ...goldBtn, padding: "12px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD PACKAGE</button>
       </div>
 
       {/* 1fr auto-rows equalises row heights on
@@ -178,26 +178,26 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
             <div style={{ position: "relative" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img loading="lazy" decoding="async" src={p.cover} alt={p.title} style={{ width: "100%", height: 130, objectFit: "cover", display: "block" }} />
-              <Badge variant="outline" style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.55)", color: gold, fontSize: 10.5, padding: "3px 8px", borderRadius: 20, letterSpacing: 1 }}>{p.status} · {p.resource}</Badge>
-              {!p.active && <Badge variant="outline" style={{ position: "absolute", top: 8, right: 8, background: "rgba(200,60,60,0.85)", color: "#fff", fontSize: 10.5, padding: "3px 8px", borderRadius: 20, letterSpacing: 1 }}>HIDDEN</Badge>}
+              <Badge variant="outline" style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.55)", color: gold, fontSize: 10.5, padding: "4px 8px", borderRadius: 20, letterSpacing: 1 }}>{p.status} · {p.resource}</Badge>
+              {!p.active && <Badge variant="outline" style={{ position: "absolute", top: 8, right: 8, background: "rgba(200,60,60,0.85)", color: "#fff", fontSize: 10.5, padding: "4px 8px", borderRadius: 20, letterSpacing: 1 }}>HIDDEN</Badge>}
             </div>
-            <div style={{ padding: "14px 16px", flex: 1, display: "flex", flexDirection: "column" }}>
+            <div style={{ padding: "16px 16px", flex: 1, display: "flex", flexDirection: "column" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                 <h4 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 16, fontWeight: 400, margin: 0 }}>{p.title}</h4>
                 <span style={{ color: gold, fontWeight: 700, fontSize: 14.5, whiteSpace: "nowrap" }}>{fmt(p.price)}</span>
               </div>
               <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5, marginBottom: 8 }}>{p.blurb}</p>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-                <Badge variant="outline" style={{ fontSize: 10.5, color: gold, border: `1px solid ${gold}55`, borderRadius: 20, padding: "2px 7px" }}>{p.slotMode === "WholeDay" ? "WHOLE DAY" : "DAY OR NIGHT"}</Badge>
-                {p.requiresRoom && <Badge variant="outline" style={{ fontSize: 10.5, color: gold, border: `1px solid ${gold}55`, borderRadius: 20, padding: "2px 7px" }}>ROOM REQUIRED</Badge>}
-                <Badge variant="outline" style={{ fontSize: 10.5, color: C.textS, border: `1px solid ${cBr}`, borderRadius: 20, padding: "2px 7px" }}>Cap {p.capacity}</Badge>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                <Badge variant="outline" style={{ fontSize: 10.5, color: gold, border: `1px solid ${gold}55`, borderRadius: 20, padding: "4px 8px" }}>{p.slotMode === "WholeDay" ? "WHOLE DAY" : "DAY OR NIGHT"}</Badge>
+                {p.requiresRoom && <Badge variant="outline" style={{ fontSize: 10.5, color: gold, border: `1px solid ${gold}55`, borderRadius: 20, padding: "4px 8px" }}>ROOM REQUIRED</Badge>}
+                <Badge variant="outline" style={{ fontSize: 10.5, color: C.textS, border: `1px solid ${cBr}`, borderRadius: 20, padding: "4px 8px" }}>Cap {p.capacity}</Badge>
               </div>
               {/* marginTop:auto — blurb length and the badge row (ROOM REQUIRED,
                   Cap) vary per package, which left these buttons 20px
                   apart between neighbouring cards. */}
               <div style={{ display: "flex", gap: 8, marginTop: "auto", paddingTop: 4 }}>
-                <button className="sw-btn-out" onClick={() => toggleActive(p)} style={{ ...outBtn, flex: 1, padding: "7px 10px", fontSize: 11.5, letterSpacing: 1 }}>{p.active ? "HIDE" : "SHOW"}</button>
-                <button className="sw-btn-out" onClick={() => openEdit(p)} style={{ ...outBtn, flex: 1, padding: "7px 10px", fontSize: 11.5, letterSpacing: 1 }}>EDIT</button>
+                <button className="sw-btn-out" onClick={() => toggleActive(p)} style={{ ...outBtn, flex: 1, padding: "8px 12px", fontSize: 11.5, letterSpacing: 1 }}>{p.active ? "HIDE" : "SHOW"}</button>
+                <button className="sw-btn-out" onClick={() => openEdit(p)} style={{ ...outBtn, flex: 1, padding: "8px 12px", fontSize: 11.5, letterSpacing: 1 }}>EDIT</button>
                 {/* An icon, not "DEL": the abbreviation had to be guessed at,
                     and the trash can is the one symbol nobody has to. Icon
                     only, so it needs a real accessible name -- and a title so
@@ -245,10 +245,10 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
               inside single columns -- RESOURCE and TIER shared one half, the
               three price fields shared the other -- so nothing lined up
               across rows and the leftover space read as random gaps. */}
-          <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-12">
+          <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-12">
 
               <div className="sm:col-span-6">
-                <Label htmlFor="pkg-title" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">TITLE</Label>
+                <Label htmlFor="pkg-title" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">TITLE</Label>
                 <Input id="pkg-title" value={form.title} onChange={(e) => setF("title", e.target.value)} placeholder="Pool + Room Package" className="sw-input" style={inpS} />
               </div>
               {/* The code had form state, was saved and was read back on edit,
@@ -256,7 +256,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   title in capitals, and an admin could not tell what a booking
                   would end up referencing. */}
               <div className="sm:col-span-6">
-                <Label htmlFor="pkg-code" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">CODE</Label>
+                <Label htmlFor="pkg-code" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">CODE</Label>
                 <Input
                   id="pkg-code"
                   value={form.code}
@@ -267,7 +267,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   aria-describedby="pkg-code-hint"
                   aria-invalid={codeTaken || undefined}
                 />
-                <p id="pkg-code-hint" style={{ color: codeTaken ? "#e55" : C.textS, fontSize: 12, margin: "5px 0 0", lineHeight: 1.6 }}>
+                <p id="pkg-code-hint" style={{ color: codeTaken ? "#e55" : C.textS, fontSize: 12, margin: "4px 0 0", lineHeight: 1.6 }}>
                   {codeTaken
                     ? `Another package already uses ${effectiveCode}. Codes must be unique.`
                     : editPkg
@@ -277,7 +277,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
               </div>
               <div className="sm:col-span-3">
                 <div>
-                  <Label htmlFor="pkg-resource" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">RESOURCE</Label>
+                  <Label htmlFor="pkg-resource" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">RESOURCE</Label>
                   <FullSelect id="pkg-resource" value={form.resource} onChange={(e) => setF("resource", e.target.value as BookingResource)} className="sw-input" style={selS}>
                     {RESOURCES.map((r) => <option key={r} value={r}>{r}</option>)}
                   </FullSelect>
@@ -285,14 +285,14 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
               </div>
               <div className="sm:col-span-3">
                 <div>
-                  <Label htmlFor="pkg-tier" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">TIER</Label>
+                  <Label htmlFor="pkg-tier" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">TIER</Label>
                   <FullSelect id="pkg-tier" value={form.status} onChange={(e) => setF("status", e.target.value as BookingTier)} className="sw-input" style={selS}>
                     {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </FullSelect>
                 </div>
               </div>
               <div className="sm:col-span-6">
-                <Label htmlFor="pkg-when" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">WHEN</Label>
+                <Label htmlFor="pkg-when" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">WHEN</Label>
                 <FullSelect id="pkg-when" value={form.slotMode} onChange={(e) => setF("slotMode", e.target.value as PackageSlotMode)} className="sw-input" style={selS}>
                   <option value="Single">Day or Night — guest picks ({SLOTS.Day.hours} / {SLOTS.Night.hours})</option>
                   <option value="WholeDay">Whole Day ({SLOTS.WholeDay.hours})</option>
@@ -300,19 +300,19 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
               </div>
               <div className="sm:col-span-4">
                 <div>
-                  <Label htmlFor="pkg-price" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">PRICE (₱)</Label>
+                  <Label htmlFor="pkg-price" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">PRICE (₱)</Label>
                   <Input type="number" min={0} id="pkg-price" value={form.price} onChange={(e) => setF("price", e.target.value)} className="sw-input" style={inpS} />
                 </div>
               </div>
               <div className="sm:col-span-4">
                 <div>
-                  <Label htmlFor="pkg-list" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">LIST PRICE</Label>
+                  <Label htmlFor="pkg-list" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">LIST PRICE</Label>
                   <Input type="number" min={0} id="pkg-list" value={form.listPrice} onChange={(e) => setF("listPrice", e.target.value)} placeholder="optional" className="sw-input" style={inpS} />
                 </div>
               </div>
               <div className="sm:col-span-4">
                 <div>
-                  <Label htmlFor="pkg-capacity" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">CAPACITY</Label>
+                  <Label htmlFor="pkg-capacity" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">CAPACITY</Label>
                   <Input type="number" min={1} id="pkg-capacity" value={form.capacity} onChange={(e) => setF("capacity", e.target.value)} className="sw-input" style={inpS} />
                 </div>
               </div>
@@ -334,7 +334,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                 );
               })()}
               <div className="sm:col-span-12">
-                <Label htmlFor="pkg-add-photo" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">PHOTOS</Label>
+                <Label htmlFor="pkg-add-photo" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">PHOTOS</Label>
                 <PhotoSet
                   photos={form.photos}
                   captions={form.captions}
@@ -345,25 +345,25 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                 />
               </div>
               <div className="sm:col-span-12">
-                <Label htmlFor="pkg-blurb" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">SHORT DESCRIPTION</Label>
-                <p style={{ color: C.textS, fontSize: 12, margin: "0 0 6px" }}>
+                <Label htmlFor="pkg-blurb" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">SHORT DESCRIPTION</Label>
+                <p style={{ color: C.textS, fontSize: 12, margin: "0 0 8px" }}>
                   One or two sentences under the package title, on the card the guest sees.
                 </p>
                 <Textarea id="pkg-blurb" value={form.blurb} onChange={(e) => setF("blurb", e.target.value)} rows={2} className="sw-input" style={{ ...inpS, resize: "none" }} />
               </div>
               <div className="sm:col-span-12">
-                <Label htmlFor="pkg-includes" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">INCLUDES (one per line)</Label>
+                <Label htmlFor="pkg-includes" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">INCLUDES (one per line)</Label>
                 <Textarea id="pkg-includes" value={form.includes} onChange={(e) => setF("includes", e.target.value)} rows={3} className="sw-input" style={{ ...inpS, resize: "none" }} />
               </div>
               <div className="sm:col-span-6">
-                <Label htmlFor="pkg-note" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">EXTRA NOTE (optional)</Label>
+                <Label htmlFor="pkg-note" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">EXTRA NOTE (optional)</Label>
                 <Input id="pkg-note" value={form.note} onChange={(e) => setF("note", e.target.value)} className="sw-input" style={inpS} />
               </div>
               {/* Was a div with onClick and a hand-drawn tick: not focusable,
                   not toggleable by keyboard, and invisible to a screen reader.
                   A real Checkbox inside a Label makes the whole sentence the
                   hit area and the accessible name, and the space bar works. */}
-              <Label htmlFor="pkg-requiresRoom" className="sm:col-span-6" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontWeight: 400, letterSpacing: 0, alignSelf: "end", minHeight: 46 }}>
+              <Label htmlFor="pkg-requiresRoom" className="sm:col-span-6" style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", fontWeight: 400, letterSpacing: 0, alignSelf: "end", minHeight: 46 }}>
                 <Checkbox
                   id="pkg-requiresRoom"
                   checked={form.requiresRoom}
@@ -376,7 +376,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   not toggleable by keyboard, and invisible to a screen reader.
                   A real Checkbox inside a Label makes the whole sentence the
                   hit area and the accessible name, and the space bar works. */}
-              <Label htmlFor="pkg-active" className="sm:col-span-12" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontWeight: 400, letterSpacing: 0, minHeight: 46 }}>
+              <Label htmlFor="pkg-active" className="sm:col-span-12" style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", fontWeight: 400, letterSpacing: 0, minHeight: 46 }}>
                 <Checkbox
                   id="pkg-active"
                   checked={form.active}
@@ -411,12 +411,12 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel style={{ color: C.textS, borderColor: cBr, padding: "10px 16px", height: "auto", fontSize: 12.5, borderRadius: 6 }}>
+            <AlertDialogCancel style={{ color: C.textS, borderColor: cBr, padding: "12px 16px", height: "auto", fontSize: 12.5, borderRadius: 6 }}>
               CANCEL
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={executeDelete}
-              style={{ background: "rgba(229,85,85,0.1)", color: "#e55", border: "1px solid rgba(229,85,85,0.3)", padding: "10px 16px", height: "auto", fontSize: 12.5, borderRadius: 6, fontWeight: 700 }}
+              style={{ background: "rgba(229,85,85,0.1)", color: "#e55", border: "1px solid rgba(229,85,85,0.3)", padding: "12px 16px", height: "auto", fontSize: 12.5, borderRadius: 6, fontWeight: 700 }}
             >
               REMOVE
             </AlertDialogAction>

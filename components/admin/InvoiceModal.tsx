@@ -19,7 +19,7 @@ import { Modal, Btn, Pill, useAdminStyle } from "@/components/admin/ui";
 function Head({ b }: { b: Booking }) {
   const slot = SLOTS[getBookingSlot(b)];
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 6 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 8 }}>
       <div>
         <div style={{ fontSize: 20, fontFamily: "'Satoshi',system-ui,sans-serif" }}>StoneWood Private Resort</div>
         <div style={{ fontSize: 12.5, opacity: 0.75 }}>Angono, Rizal · Statement of account</div>
@@ -44,12 +44,12 @@ export function InvoiceModal({ booking, onClose }: { booking: Booking; onClose: 
   return (
     <>
       <Modal title={`Invoice ${booking.id}`} subtitle={`${booking.name} · ${fmtDate(booking.date)}`} onClose={onClose} width={720}
-        footer={<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        footer={<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           {m.due > 0 ? <Pill color="#d4a800">{fmt(m.due)} due</Pill> : <Pill color="#2e9e4e">Paid in full</Pill>}
           <Btn kind="primary" icon="printer" onClick={() => window.print()}>Print</Btn>
         </div>}>
         <Head b={booking} />
-        <div style={{ background: soft, borderRadius: 10, padding: "4px 16px 12px", marginTop: 10 }}>
+        <div style={{ background: soft, borderRadius: 10, padding: "4px 16px 12px", marginTop: 12 }}>
           <BookingStatement booking={booking} />
         </div>
       </Modal>

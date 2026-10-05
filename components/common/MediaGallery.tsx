@@ -138,7 +138,7 @@ export function MediaGallery({
             </button>
 
             <div
-              className="absolute top-4 left-4 z-[3] rounded-full bg-black/45 px-2.5 py-1 font-mono text-[11.5px] tracking-widest text-white/80 backdrop-blur-sm"
+              className="absolute top-4 left-4 z-[3] rounded-full bg-black/45 px-3 py-1 font-mono text-[11.5px] tracking-widest text-white/80 backdrop-blur-sm"
               aria-live="polite"
             >
               {String(idx + 1).padStart(2, "0")} / {String(shots.length).padStart(2, "0")}
@@ -159,7 +159,7 @@ export function MediaGallery({
             {(shot?.kind || shot?.label) && (
               <div className="shrink-0 text-right">
                 {shot.kind && (
-                  <div className="mb-0.5 text-[10.5px] tracking-[2px]" style={{ color: gold }}>
+                  <div className="mb-1 text-[10.5px] tracking-[2px]" style={{ color: gold }}>
                     {shot.kind.toUpperCase()}
                   </div>
                 )}
@@ -171,7 +171,7 @@ export function MediaGallery({
       </div>
 
       {many && (
-        <div className="flex shrink-0 gap-1.5 overflow-x-auto px-5 pt-3 pb-1 sm:px-8">
+        <div className="flex shrink-0 gap-2 overflow-x-auto px-5 pt-3 pb-1 sm:px-8">
           {shots.map((g, i) => (
             <button
               key={(g.src || "") + i}

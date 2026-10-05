@@ -126,7 +126,7 @@ const submit = handleSubmit(async (values) => {
   return (
     <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "48px 20px" : "80px 24px" }}>
       <div style={{ maxWidth: 940, margin: "0 auto" }}>
-        <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 12.5, marginBottom: 10, textAlign: "center" }}>SUPPORT</p>
+        <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 12.5, marginBottom: 12, textAlign: "center" }}>SUPPORT</p>
         <h2 style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 32 : 52, color: C.textH, textAlign: "center", marginBottom: 12, fontWeight: 400, lineHeight: 1.1 }}>
           How can we help?
         </h2>
@@ -143,13 +143,13 @@ const submit = handleSubmit(async (values) => {
           ].map(([icon, label, val, sub]) => (
             <div
               key={label}
-              style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: "20px 14px", textAlign: "center", boxShadow: C.shadowCard, transition: "transform .2s ease,box-shadow .2s ease" }}
+              style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: "20px 16px", textAlign: "center", boxShadow: C.shadowCard, transition: "transform .2s ease,box-shadow .2s ease" }}
               onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = isDark ? "0 12px 32px rgba(0,0,0,0.45)" : "0 12px 32px rgba(100,70,10,0.12)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = C.shadowCard; }}
             >
               <div style={{ marginBottom: 8, color: C.goldInk, lineHeight: 0 }}><Icon name={icon as IconName} size={22} strokeWidth={1.5} /></div>
-              <div style={{ color: C.textS, fontSize: 10.5, letterSpacing: 2, marginBottom: 6 }}>{label.toUpperCase()}</div>
-              <div style={{ color: C.textB, fontSize: 13.5, fontWeight: 600, marginBottom: 6 }}>{val}</div>
+              <div style={{ color: C.textS, fontSize: 10.5, letterSpacing: 2, marginBottom: 8 }}>{label.toUpperCase()}</div>
+              <div style={{ color: C.textB, fontSize: 13.5, fontWeight: 600, marginBottom: 8 }}>{val}</div>
               <div style={{ color: C.textS, fontSize: 11.5, lineHeight: 1.5 }}>{sub}</div>
             </div>
           ))}
@@ -158,11 +158,11 @@ const submit = handleSubmit(async (values) => {
         {submitted ? (
           <div style={{ background: C.bgCard, border: `1px solid ${gold}44`, borderRadius: 12, padding: "52px 24px", textAlign: "center", boxShadow: C.shadow }}>
             <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg,${gold}22,${gold}11)`, border: `1px solid ${gold}44`, display: "flex", alignItems: "center", justifyContent: "center", color: C.goldInk, margin: "0 auto 20px" }}><Icon name="message" size={30} strokeWidth={1.5} /></div>
-            <h3 style={{ color: C.goldInk, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 26, marginBottom: 10, fontWeight: 400 }}>Message Received!</h3>
+            <h3 style={{ color: C.goldInk, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 26, marginBottom: 12, fontWeight: 400 }}>Message Received!</h3>
             <p style={{ color: C.textS, fontSize: 15, lineHeight: 1.8 }}>We'll respond within 24 hours.</p>
           </div>
         ) : (
-          <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "24px 18px" : "40px", boxShadow: C.shadow }}>
+          <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "24px 20px" : "40px", boxShadow: C.shadow }}>
             {/* Landscape from md: name, email and type share one row and the
                 message spans the full width beneath them. The form was four
                 stacked fields in a 680px column, which made a four-field
@@ -171,7 +171,7 @@ const submit = handleSubmit(async (values) => {
 
               {/* ── FULL NAME ── */}
               <div>
-                <Label htmlFor="cs-name" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">FULL NAME</Label>
+                <Label htmlFor="cs-name" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">FULL NAME</Label>
                 <Input
                   id="cs-name"
                   type="text"
@@ -199,7 +199,7 @@ const submit = handleSubmit(async (values) => {
 
               {/* ── EMAIL ADDRESS ── */}
               <div>
-                <Label htmlFor="cs-email" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">
+                <Label htmlFor="cs-email" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">
                   EMAIL ADDRESS <span style={{ color: "#e55", fontSize: 10.5 }}>*Gmail only</span>
                 </Label>
                 <Input
@@ -229,13 +229,13 @@ const submit = handleSubmit(async (values) => {
                   the old "Question" and "Booking Issue" options were being
                   silently discarded before staff ever saw them. */}
               <div className="md:col-span-3">
-                <span id="cs-type-label" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>
+                <span id="cs-type-label" className="mb-2 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>
                   HOW CAN WE HELP?
                 </span>
                 <div
                   role="radiogroup"
                   aria-labelledby="cs-type-label"
-                  style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, minmax(0,1fr))", gap: 8, border: `1px solid ${C.border}`, borderRadius: 10, padding: 6, background: C.bgCard2 }}
+                  style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, minmax(0,1fr))", gap: 8, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, background: C.bgCard2 }}
                 >
                   {([
                     ["Question", "Inquiry"],
@@ -270,7 +270,7 @@ const submit = handleSubmit(async (values) => {
 
               {/* ── MESSAGE ── */}
               <div className="md:col-span-3">
-                <Label htmlFor="cs-message" className="mb-1.5 block text-[11.5px] tracking-[2px] text-primary">
+                <Label htmlFor="cs-message" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">
                   MESSAGE <span style={{ color: C.textXS, fontSize: 10.5, fontWeight: 400, letterSpacing: 0 }}>(min. 10 characters)</span>
                 </Label>
                 <Textarea

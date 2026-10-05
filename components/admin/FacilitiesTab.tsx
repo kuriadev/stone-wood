@@ -75,7 +75,7 @@ export function FacilitiesTab({ facilities, bookings, mob }: FacilitiesTabProps)
       <PageHead title="Facility Management" mob={mob}
         subtitle="The resort's amenities and rooms, their condition, and every inspection and damage record. Preparing and checking out groups is done in Daily Operations." />
 
-      <p style={{ color: C.textS, fontSize: 13, margin: "-10px 0 18px" }}>
+      <p style={{ color: C.textS, fontSize: 13, margin: "-10px 0 20px" }}>
         {needsClean > 0 ? `${needsClean} need${needsClean === 1 ? "s" : ""} cleaning. ` : "Nothing waiting for cleaning. "}
         {down > 0 ? `${down} under maintenance (can't be booked).` : ""}
       </p>
@@ -119,7 +119,7 @@ function FacilityList({ facilities, mob }: { facilities: Facility[]; mob: boolea
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <section>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
           <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: 0 }}>Amenities <span style={{ color: C.textS, fontWeight: 400 }}>({active.length})</span></h3>
           <Btn kind="primary" icon="plus" onClick={() => setEdit("new")}>Add amenity</Btn>
         </div>
@@ -135,7 +135,7 @@ function FacilityList({ facilities, mob }: { facilities: Facility[]; mob: boolea
               <Cell style={{ ...td, color: C.textS }}>{f.showOnSite === false ? "Hidden" : "Shown"}</Cell>
               <Cell style={td}>{statusCell(f)}</Cell>
               <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
-                <div style={{ display: "inline-flex", gap: 6 }}>
+                <div style={{ display: "inline-flex", gap: 8 }}>
                   <Btn size="sm" icon="edit" onClick={() => setEdit(f)}>Edit</Btn>
                   {!isCoreAmenity(f) && <Btn size="sm" kind="red" onClick={() => setRetiring(f)}>Retire</Btn>}
                 </div>
@@ -144,10 +144,10 @@ function FacilityList({ facilities, mob }: { facilities: Facility[]; mob: boolea
           ))}
         </TableShell>
         {retired.length > 0 && (
-          <div style={{ marginTop: 10 }}>
+          <div style={{ marginTop: 12 }}>
             <Btn size="sm" onClick={() => setShowRetired((s) => !s)}>{showRetired ? "Hide" : "Show"} retired ({retired.length})</Btn>
             {showRetired && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
                 {retired.map((f) => (
                   <span key={f.id} style={{ display: "inline-flex", alignItems: "center", gap: 8, color: C.textS, fontSize: 13 }}>
                     <Icon name={facilityIcon(f)} size={14} />{f.name}
@@ -162,7 +162,7 @@ function FacilityList({ facilities, mob }: { facilities: Facility[]; mob: boolea
 
       <section>
         <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Rooms <span style={{ color: C.textS, fontWeight: 400 }}>({rooms.length})</span></h3>
-        <p style={{ color: C.textS, fontSize: 12.5, margin: "0 0 10px" }}>Rooms are added and renamed in the Rooms module. Here you keep their status and checklists.</p>
+        <p style={{ color: C.textS, fontSize: 12.5, margin: "0 0 12px" }}>Rooms are added and renamed in the Rooms module. Here you keep their status and checklists.</p>
         <TableShell head={["Room", "Last used by", "Status", ""]} minWidth={620}
           empty={rooms.length === 0 ? "No rooms." : undefined}>
           {rooms.map((f, i) => (
@@ -239,12 +239,12 @@ function FacilityModal({ facility, mob, onClose }: { facility: Facility | null; 
     <Modal title={isNew ? "Add amenity" : facility.name}
       subtitle={isNew ? "It appears in preparations and inspections for the bookings that use it, and on the website." : facility.lastUsedGuestName ? `Last used by ${facility.lastUsedGuestName} (${facility.lastUsedBookingId})` : "Not used yet"}
       onClose={onClose} width={820}
-      footer={<div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+      footer={<div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
         <Btn onClick={onClose}>Cancel</Btn>
         <Btn kind="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : isNew ? "Add amenity" : "Save"}</Btn>
       </div>}>
       {!isRoom && (
-        <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
           <div>
             <Label htmlFor="f-name">Name</Label>
             <Input id="f-name" value={name} disabled={core} onChange={(e) => setName(e.target.value)} placeholder="e.g. Kiddie Pool, Cottage 3" style={inp} />
@@ -264,7 +264,7 @@ function FacilityModal({ facility, mob, onClose }: { facility: Facility | null; 
           </div>
           <div style={{ gridColumn: "1 / -1" }}>
             <Label>Icon</Label>
-            <div role="radiogroup" aria-label="Icon" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            <div role="radiogroup" aria-label="Icon" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {AMENITY_ICONS.map((ic) => (
                 <button key={ic} type="button" role="radio" aria-checked={icon === ic} aria-label={ic} onClick={() => setIcon(ic)}
                   style={{ width: 38, height: 38, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
@@ -281,13 +281,13 @@ function FacilityModal({ facility, mob, onClose }: { facility: Facility | null; 
       )}
 
       {!isNew && (
-        <div style={{ marginBottom: 14 }}>
+        <div style={{ marginBottom: 16 }}>
           <Label>Status</Label>
           <Segmented<FacilityStatus> value={status} onChange={setStatus} size="sm"
             options={STATUSES.map((s) => ({ value: s, label: s }))} />
         </div>
       )}
-      <div style={{ marginBottom: 14 }}>
+      <div style={{ marginBottom: 16 }}>
         <Label htmlFor="f-notes">Notes (staff only)</Label>
         <Input id="f-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Pool filter needs replacing" style={inp} />
       </div>
@@ -329,9 +329,9 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
   const pagedChk = usePaged(shown);
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
         <p style={{ color: C.textS, fontSize: 13, margin: 0 }}>Every visit&apos;s preparation and check-out inspection. Click one to see the checklists, damage and payments.</p>
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search guest, booking or phone" aria-label="Search inspection records" style={{ ...inp, width: 260, padding: "8px 10px" }} />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search guest, booking or phone" aria-label="Search inspection records" style={{ ...inp, width: 260, padding: "8px 12px" }} />
       </div>
       <TableShell head={["Guest", "Visit", "Facilities", "Prepared", "Damage", "Settlement", ""]} minWidth={900}
         empty={shown.length === 0 ? (q ? "No visits match." : "No visits checked out yet.") : undefined}>
@@ -358,7 +358,7 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
       </TableShell>
       <Pager {...pagedChk} noun="bookings" />
       {done.length > 15 && (
-        <div style={{ textAlign: "center", marginTop: 10 }}>
+        <div style={{ textAlign: "center", marginTop: 12 }}>
           <Btn size="sm" onClick={() => setShowAll((s) => !s)}>{showAll ? "Show fewer" : `Show all ${done.length}`}</Btn>
         </div>
       )}
@@ -387,11 +387,11 @@ function Damages({ bookings }: { bookings: Booking[] }) {
   const pagedDmg = usePaged(rows);
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
         <p style={{ color: C.textS, fontSize: 13, margin: 0 }}>
           {rows.length} damaged item{rows.length === 1 ? "" : "s"} recorded · {fmt(total)} in penalties. Penalty = quantity × the rate list (+ any adjustment, with its reason).
         </p>
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search item, facility or guest" aria-label="Search damage records" style={{ ...inp, width: 260, padding: "8px 10px" }} />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search item, facility or guest" aria-label="Search damage records" style={{ ...inp, width: 260, padding: "8px 12px" }} />
       </div>
       <TableShell head={["Date", "Guest", "Facility", "Item", "Qty × rate", "Penalty"]} minWidth={860}
         empty={rows.length === 0 ? (q ? "No damage records match." : "No damage recorded yet.") : undefined}>
@@ -451,7 +451,7 @@ function DamageRates() {
     toast("Item added to the rate list.", "success");
   };
 
-  const cell = { ...inp, padding: "7px 9px" };
+  const cell = { ...inp, padding: "8px 8px" };
   return (
     <div>
       <p style={{ color: C.textS, fontSize: 13, marginTop: 0, maxWidth: 720 }}>
@@ -470,7 +470,7 @@ function DamageRates() {
                 <Input type="number" min={0} aria-label={`Rate for ${r.name}`} value={draft[r.id] ?? String(r.rate)} onChange={(e) => setDraft((d) => ({ ...d, [r.id]: e.target.value }))} style={cell} />
               </Cell>
               <Cell style={td}>
-                <label style={{ color: C.textS, fontSize: 12.5, display: "flex", gap: 6, alignItems: "center" }}>
+                <label style={{ color: C.textS, fontSize: 12.5, display: "flex", gap: 8, alignItems: "center" }}>
                   <Checkbox checked={r.active} onCheckedChange={(v) => toggle(r.id, v === true)} aria-label={`${r.name} in use`} /> {r.active ? "Yes" : "Retired"}
                 </label>
               </Cell>

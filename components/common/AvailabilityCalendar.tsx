@@ -140,7 +140,7 @@ export function AvailabilityCalendar({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 14,
+          marginBottom: 16,
         }}
       >
         <button
@@ -179,14 +179,14 @@ export function AvailabilityCalendar({
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(7,1fr)",
-          gap: 3,
+          gap: 4,
           marginBottom: 4,
         }}
       >
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
           <div
             key={d}
-            style={{ textAlign: "center", fontSize: 12, color: "rgba(238,232,220,0.45)", padding: "2px 0 8px" }}
+            style={{ textAlign: "center", fontSize: 12, color: "rgba(238,232,220,0.45)", padding: "4px 0 8px" }}
           >
             {d}
           </div>
@@ -200,7 +200,7 @@ export function AvailabilityCalendar({
         {!mounted
           ? /* Placeholder keeps the panel the same height before mount. */
             Array.from({ length: 35 }).map((_, i) => (
-              <div key={`ph${i}`} style={{ padding: "7px 2px", fontSize: 13.5, visibility: "hidden" }}>
+              <div key={`ph${i}`} style={{ padding: "8px 4px", fontSize: 13.5, visibility: "hidden" }}>
                 0
               </div>
             ))
@@ -278,7 +278,7 @@ export function AvailabilityCalendar({
               }
               style={{
                 textAlign: "center",
-                padding: "7px 2px",
+                padding: "8px 4px",
                 borderRadius: 10,
                 // Dimming the whole cell, rather than just muting its ink, is
                 // what makes a past date read as "not a thing you can press".

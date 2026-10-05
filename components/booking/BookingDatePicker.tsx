@@ -105,7 +105,7 @@ export function BookingDatePicker({
         background: C.bgCard,
         border: `1px solid ${C.border}`,
         borderRadius: 6,
-        padding: "16px 10px",
+        padding: "16px 12px",
       }}
     >
       <div
@@ -150,21 +150,21 @@ export function BookingDatePicker({
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(7,1fr)",
-          gap: 3,
+          gap: 4,
           marginBottom: 4,
         }}
       >
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
           <div
             key={d}
-            style={{ textAlign: "center", fontSize: 12, color: C.textS, padding: "2px 0 8px" }}
+            style={{ textAlign: "center", fontSize: 12, color: C.textS, padding: "4px 0 8px" }}
           >
             {d}
           </div>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: "minmax(44px,1fr)", gap: 2 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: "minmax(44px,1fr)", gap: 4 }}>
         {Array.from({ length: firstDay }).map((_, i) => (
           <div key={`e${i}`} />
         ))}
@@ -247,7 +247,7 @@ export function BookingDatePicker({
               }
               style={{
                 textAlign: "center",
-                padding: "2px",
+                padding: "4px",
                 borderRadius: 10,
                 // Dimming the whole cell, rather than just muting its ink, is
                 // what makes a past date read as "not a thing you can press".

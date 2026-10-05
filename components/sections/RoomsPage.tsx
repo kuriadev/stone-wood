@@ -54,7 +54,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
           fontSize: mob ? 28 : 46,
           color: C.textH,
           textAlign: "center",
-          marginBottom: 10,
+          marginBottom: 12,
         }}>
           Rooms & Sleeping Quarters
         </h2>
@@ -126,11 +126,11 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
                   <span style={{
                     fontSize: 12.5,
                     background: "rgba(0,0,0,0.4)",
-                    padding: "3px 8px",
+                    padding: "4px 8px",
                     borderRadius: 6,
                     color: "#fff",
                   }}>
-                    <Icon name="users" size={13} style={{ marginRight: 5 }} />{r.capacity} guests
+                    <Icon name="users" size={13} style={{ marginRight: 4 }} />{r.capacity} guests
                   </span>
 
                   <span style={{
@@ -146,7 +146,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
               {/* CONTENT */}
               <div style={{ padding: 20, flex: 1, display: "flex", flexDirection: "column" }}>
                 <h3 style={{ color: C.textH, fontSize: 18 }}>{r.name}</h3>
-                <p style={{ color: C.goldInk, fontSize: 13.5 }}><Icon name="bed" size={13} style={{ marginRight: 5 }} />{r.beds}</p>
+                <p style={{ color: C.goldInk, fontSize: 13.5 }}><Icon name="bed" size={13} style={{ marginRight: 4 }} />{r.beds}</p>
                 <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 16 }}>
                   {r.desc}
                 </p>
@@ -161,7 +161,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
                   style={{
                     ...outBtn,
                     width: "100%",
-                    padding: "11px",
+                    padding: "12px",
                     borderRadius: 8,
                     marginTop: "auto",
                   }}
@@ -213,7 +213,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
 
               <div className="mt-auto border-t border-border-soft p-6 pt-5">
                 <Button
-                  className="sw-btn h-auto w-full rounded-lg border border-accent-ink bg-transparent py-3.5 text-xs font-bold tracking-wider text-accent-ink hover:bg-accent-ink/10"
+                  className="sw-btn h-auto w-full rounded-lg border border-accent-ink bg-transparent py-4 text-xs font-bold tracking-wider text-accent-ink hover:bg-accent-ink/10"
                   onClick={() => onAddToBooking(activeRoom.id)}
                 >
                   ADD TO BOOKING

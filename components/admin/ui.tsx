@@ -18,6 +18,7 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
+import { SPACE, TAP_MIN } from "@/lib/spacing";
 import { T } from "@/lib/theme";
 import { gold } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
@@ -60,10 +61,10 @@ export const serif = "'Satoshi',system-ui,sans-serif";
 export function PageHead({ title, subtitle, action, mob }: { title: string; subtitle?: string; action?: ReactNode; mob?: boolean }) {
   const { C } = useAdminStyle();
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: SPACE.sm, flexWrap: "wrap", marginBottom: SPACE.xl }}>
       <div>
         <h2 style={{ color: C.textH, fontFamily: serif, fontSize: mob ? 24 : 30, fontWeight: 400, margin: 0 }}>{title}</h2>
-        {subtitle && <p style={{ color: C.textS, fontSize: 13.5, margin: "6px 0 0" }}>{subtitle}</p>}
+        {subtitle && <p style={{ color: C.textS, fontSize: 13.5, margin: "8px 0 0" }}>{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -145,9 +146,9 @@ export function Label({ children, htmlFor }: { children: ReactNode; htmlFor?: st
   if (!htmlFor) {
     // Heads a group of controls rather than one field: a <label> with no
     // control is an orphan (README → Accessibility notes).
-    return <p style={{ color: C.textB, fontSize: 12.5, fontWeight: 600, margin: "0 0 6px" }}>{children}</p>;
+    return <p style={{ color: C.textB, fontSize: 12.5, fontWeight: 600, margin: "0 0 8px" }}>{children}</p>;
   }
-  return <UiLabel htmlFor={htmlFor} style={{ color: C.textB, fontSize: 12.5, fontWeight: 600, display: "block", marginBottom: 6 }}>{children}</UiLabel>;
+  return <UiLabel htmlFor={htmlFor} style={{ color: C.textB, fontSize: 12.5, fontWeight: 600, display: "block", marginBottom: 8 }}>{children}</UiLabel>;
 }
 
 /** A choice between a few options inside a form (payment method, slot…). */
@@ -162,19 +163,19 @@ export function Segmented<V extends string>({
 }) {
   const { C, cBr } = useAdminStyle();
   return (
-    <div role="radiogroup" aria-label={label} style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+    <div role="radiogroup" aria-label={label} style={{ display: "flex", gap: SPACE.xs, flexWrap: "wrap" }}>
       {options.map((o) => {
         const on = o.value === value;
         return (
           <button key={o.value} type="button" role="radio" aria-checked={on} disabled={o.disabled} onClick={() => onChange(o.value)}
             style={{
-              flex: 1, minWidth: 0, padding: size === "sm" ? "7px 10px" : "9px 12px", fontSize: 12.5, fontWeight: 600,
+              flex: 1, minWidth: 0, padding: size === "sm" ? "8px 12px" : "12px 16px", fontSize: 12.5, fontWeight: 600,
               borderRadius: 7, cursor: o.disabled ? "not-allowed" : "pointer", opacity: o.disabled ? 0.4 : 1,
               background: on ? `${gold}1c` : "transparent", color: on ? gold : C.textS,
               border: `1px solid ${on ? gold + "66" : cBr}`, textAlign: "center",
             }}>
             <div>{o.label}</div>
-            {o.hint && <div style={{ fontSize: 10.5, fontWeight: 400, opacity: 0.75, marginTop: 2 }}>{o.hint}</div>}
+            {o.hint && <div style={{ fontSize: 10.5, fontWeight: 400, opacity: 0.75, marginTop: 4 }}>{o.hint}</div>}
           </button>
         );
       })}
@@ -199,7 +200,7 @@ export function ViewTabs<V extends string>({
           const on = v.value === value;
           return (
             <TabsTrigger key={v.value} value={v.value}
-              style={{ padding: "7px 16px", fontSize: 12.5, fontWeight: 600, borderRadius: 20, background: on ? `${gold}1c` : "transparent", color: on ? gold : C.textS, border: `1px solid ${on ? gold + "66" : cBr}`, boxShadow: "none", height: "auto", flex: "0 0 auto" }}>
+              style={{ padding: "8px 16px", fontSize: 12.5, fontWeight: 600, borderRadius: 20, background: on ? `${gold}1c` : "transparent", color: on ? gold : C.textS, border: `1px solid ${on ? gold + "66" : cBr}`, boxShadow: "none", height: "auto", flex: "0 0 auto" }}>
               {v.label}
             </TabsTrigger>
           );
@@ -212,7 +213,7 @@ export function ViewTabs<V extends string>({
 
 export function Pill({ children, color, style }: { children: ReactNode; color: string; style?: CSSProperties }) {
   return (
-    <Badge variant="outline" style={{ gap: 5, background: `${color}14`, color, border: `1px solid ${color}40`, fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 20, whiteSpace: "nowrap", ...style }}>
+    <Badge variant="outline" style={{ gap: 4, background: `${color}14`, color, border: `1px solid ${color}40`, fontSize: 11, fontWeight: 600, padding: "4px 8px", borderRadius: 20, whiteSpace: "nowrap", ...style }}>
       {children}
     </Badge>
   );
@@ -286,7 +287,7 @@ export function Btn({
 export function Line({ label, value, strong, color }: { label: ReactNode; value: ReactNode; strong?: boolean; color?: string }) {
   const { C } = useAdminStyle();
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "5px 0", fontSize: strong ? 15 : 13.5 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "4px 0", fontSize: strong ? 15 : 13.5 }}>
       <span style={{ color: strong ? C.textH : C.textS, fontWeight: strong ? 700 : 400 }}>{label}</span>
       <span style={{ color: color ?? (strong ? C.textH : C.textB), fontWeight: strong ? 700 : 500, fontVariantNumeric: "tabular-nums" }}>{value}</span>
     </div>
@@ -337,7 +338,7 @@ export function Pager({
   if (pages <= 1) return null;
   const step = (d: number) => setPage(Math.min(pages, Math.max(1, page + d)));
   const btn = (disabled: boolean): CSSProperties => ({
-    minHeight: 34, padding: "0 12px", borderRadius: 7, fontSize: 12,
+    minHeight: TAP_MIN, padding: `0 ${SPACE.sm}px`, borderRadius: 7, fontSize: 12,
     border: `1px solid ${cBr}`, background: "transparent",
     color: disabled ? C.textXS : C.textB,
     cursor: disabled ? "not-allowed" : "pointer",
@@ -368,7 +369,7 @@ export function Pager({
 export function TotalLine({ label, value }: { label: string; value: ReactNode }) {
   const { C } = useAdminStyle();
   return (
-    <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "baseline", gap: 8, marginTop: 14, paddingRight: TOGGLE_CLEARANCE, color: C.textS, fontSize: 13.5 }}>
+    <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "baseline", gap: 8, marginTop: 16, paddingRight: TOGGLE_CLEARANCE, color: C.textS, fontSize: 13.5 }}>
       {label}
       <strong style={{ color: C.textH, fontSize: 16, fontWeight: 700 }}>{value}</strong>
     </div>
@@ -387,7 +388,7 @@ export function TableShell({ head, children, minWidth = 720, empty, label }: { h
                 table with two same-named columns threw a duplicate-key
                 warning and risked a dropped cell. */}
             {head.map((h, i) => (
-              <TableHead key={i} scope="col" style={{ padding: "11px 12px", color: C.textS, fontSize: 11.5, fontWeight: 600, textAlign: "left", whiteSpace: "nowrap" }}>
+              <TableHead key={i} scope="col" style={{ padding: "12px 12px", color: C.textS, fontSize: 11.5, fontWeight: 600, textAlign: "left", whiteSpace: "nowrap" }}>
                 {h || <span className="sr-only">Actions</span>}
               </TableHead>
             ))}
@@ -404,16 +405,16 @@ export function TableShell({ head, children, minWidth = 720, empty, label }: { h
   );
 }
 
-export const td: CSSProperties = { padding: "10px 12px", fontSize: 13, verticalAlign: "middle", whiteSpace: "normal" };
+export const td: CSSProperties = { padding: SPACE.sm, fontSize: 13, verticalAlign: "middle", whiteSpace: "normal" };
 
 // ── Summary figure ────────────────────────────────────────────────────
 export function Figure({ label, value, note, color }: { label: string; value: ReactNode; note?: ReactNode; color?: string }) {
   const { C, cBg, cBr } = useAdminStyle();
   return (
-    <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "16px 18px", minWidth: 0 }}>
+    <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: `${SPACE.md}px ${SPACE.lg}px`, minWidth: 0 }}>
       <div style={{ color: C.textS, fontSize: 12.5, marginBottom: 8 }}>{label}</div>
       <div style={{ color: color ?? C.textH, fontSize: 24, fontWeight: 600, fontVariantNumeric: "tabular-nums", lineHeight: 1.1 }}>{value}</div>
-      {note && <div style={{ color: C.textS, fontSize: 12, marginTop: 6 }}>{note}</div>}
+      {note && <div style={{ color: C.textS, fontSize: 12, marginTop: 8 }}>{note}</div>}
     </div>
   );
 }
@@ -421,8 +422,8 @@ export function Figure({ label, value, note, color }: { label: string; value: Re
 export function ErrorNote({ children }: { children: ReactNode }) {
   if (!children) return null;
   return (
-    <p role="alert" style={{ color: "#e55", fontSize: 13, margin: "10px 0 0", display: "flex", gap: 6, alignItems: "flex-start" }}>
-      <Icon name="alert" size={14} style={{ marginTop: 2, flexShrink: 0, color: "#e55" }} />{children}
+    <p role="alert" style={{ color: "#e55", fontSize: 13, margin: "12px 0 0", display: "flex", gap: 8, alignItems: "flex-start" }}>
+      <Icon name="alert" size={14} style={{ marginTop: 4, flexShrink: 0, color: "#e55" }} />{children}
     </p>
   );
 }
@@ -445,7 +446,7 @@ export function ErrorNote({ children }: { children: ReactNode }) {
 export function FullSelect({ style, ...rest }: React.ComponentProps<typeof NativeSelect>) {
   return (
     <div className="[&_[data-slot=native-select-wrapper]]:w-full">
-      <NativeSelect {...rest} style={{ ...style, paddingRight: 38 }} />
+      <NativeSelect {...rest} style={{ ...style, paddingRight: 40 }} />
     </div>
   );
 }

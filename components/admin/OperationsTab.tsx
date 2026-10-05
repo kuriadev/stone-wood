@@ -326,17 +326,17 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
            `borderLeft` after it: React warns that updating one during a
            re-render while the other is set can leave the two out of step,
            and the left edge here is a status colour that changes. */
-        style={{ background: cBg, borderTop: `1px solid ${edge}`, borderRight: `1px solid ${edge}`, borderBottom: `1px solid ${edge}`, borderLeft: `3px solid ${color}`, borderRadius: 12, padding: "13px 15px", display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+        style={{ background: cBg, borderTop: `1px solid ${edge}`, borderRight: `1px solid ${edge}`, borderBottom: `1px solid ${edge}`, borderLeft: `3px solid ${color}`, borderRadius: 12, padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <button type="button" onClick={() => go("record", b)} title="Open the full reservation"
                 style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: C.textH, fontWeight: 600, fontSize: 15, textAlign: "left" }}>
                 {b.name}
               </button>
               {fresh && <Pill color={gold}>New</Pill>}
             </div>
-            <div style={{ color: C.textS, fontSize: 12, marginTop: 2 }}>
+            <div style={{ color: C.textS, fontSize: 12, marginTop: 4 }}>
               {b.date === today ? "Today" : fmtDate(b.date)} · {slot.label} ({slot.hours}){b.arrivalTime ? ` · arrives ${b.arrivalTime}` : ""}
             </div>
           </div>
@@ -367,25 +367,25 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         </div>
 
         <div style={{ color: C.textB, fontSize: 12.5, lineHeight: 1.6 }}>
-          <div><Icon name="users" size={12} style={{ marginRight: 6, verticalAlign: -1 }} />{b.guests} guest{b.guests === 1 ? "" : "s"} · {b.package}</div>
-          <div style={{ color: C.textS }}><Icon name="toolbox" size={12} style={{ marginRight: 6, verticalAlign: -1 }} />{usesText(b)}</div>
+          <div><Icon name="users" size={12} style={{ marginRight: 8, verticalAlign: -1 }} />{b.guests} guest{b.guests === 1 ? "" : "s"} · {b.package}</div>
+          <div style={{ color: C.textS }}><Icon name="toolbox" size={12} style={{ marginRight: 8, verticalAlign: -1 }} />{usesText(b)}</div>
         </div>
 
         {/* Where it stands: five steps, and the next one in words. */}
         <div>
-          <div aria-hidden style={{ display: "flex", gap: 3 }}>
+          <div aria-hidden style={{ display: "flex", gap: 4 }}>
             {steps.map((s) => (
               <span key={s.label} title={`${s.label}: ${s.done ? "done" : "not yet"}`}
                 style={{ flex: 1, height: 4, borderRadius: 2, background: s.done ? "#2e9e4e" : cBr }} />
             ))}
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 5, fontSize: 12, color: C.textB }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 4, fontSize: 12, color: C.textB }}>
             <span>{next}</span>
             <span style={{ color: C.textS, whiteSpace: "nowrap" }}>{steps.filter((s) => s.done).length} of 5</span>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {stage === "confirm" && (m.paid > 0
             ? <Pill color="#2e9e4e">{fmt(m.paid)} paid</Pill>
             : <Pill color="#d4a800">No payment yet</Pill>)}
@@ -404,7 +404,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
           {stage === "done" && (m.due > 0 ? <Pill color="#d4a800">{fmt(m.due)} unpaid</Pill> : <Pill color="#4a9fd4">Settled</Pill>)}
         </div>
 
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {/* The next step, full width: the one button to look for. */}
           <div style={{ flex: "1 1 160px", display: "grid" }}>{primary}</div>
           {secondary}
@@ -420,15 +420,15 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
   );
 
   const emptyNote = (text: ReactNode) => (
-    <p style={{ color: C.textS, fontSize: 13.5, margin: 0, padding: "22px 16px", border: `1px dashed ${cBr}`, borderRadius: 10, textAlign: "center" }}>{text}</p>
+    <p style={{ color: C.textS, fontSize: 13.5, margin: 0, padding: "24px 16px", border: `1px dashed ${cBr}`, borderRadius: 10, textAlign: "center" }}>{text}</p>
   );
 
   // ── End of day: daily liquidation ──────────────────────────────────
   const endOfDay = (
-    <section style={{ marginTop: 28, background: soft, borderRadius: 12, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+    <section style={{ marginTop: 28, background: soft, borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
       <div>
         <div style={{ color: C.textH, fontWeight: 600, fontSize: 15 }}>End of day</div>
-        <div style={{ color: C.textS, fontSize: 13, marginTop: 3 }}>
+        <div style={{ color: C.textS, fontSize: 13, marginTop: 4 }}>
           {fmt(collectedToday)} received − {fmt(spentToday)} spent = <strong style={{ color: C.textH }}>{fmt(round2(collectedToday - spentToday))}</strong> net today.
           {closedToday
             ? ` Closed at ${manilaTime(closedToday.closedAt)}.`
@@ -450,13 +450,13 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         {TODAY_COLUMNS.map((col) => {
           const list = todayCards.filter((c) => c.column === col.id);
           return (
-            <section key={col.id} aria-labelledby={`ops-col-${col.id}`} style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+            <section key={col.id} aria-labelledby={`ops-col-${col.id}`} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
               <div style={{ borderBottom: `2px solid ${col.color}55`, paddingBottom: 8 }}>
                 <h3 id={`ops-col-${col.id}`} style={{ color: C.textH, fontSize: 15.5, fontWeight: 600, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ width: 9, height: 9, borderRadius: "50%", background: col.color }} />{col.label}
                   <span style={{ color: C.textS, fontWeight: 400 }}>({list.length})</span>
                 </h3>
-                <div style={{ color: C.textS, fontSize: 12.5, marginTop: 3 }}>{col.hint}</div>
+                <div style={{ color: C.textS, fontSize: 12.5, marginTop: 4 }}>{col.hint}</div>
               </div>
               {list.length === 0 ? emptyNote(col.empty) : list.map(card)}
             </section>
@@ -464,7 +464,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         })}
       </div>
       {todayCards.length === 0 && (
-        <p style={{ color: C.textS, fontSize: 13.5, margin: "14px 0 0" }}>
+        <p style={{ color: C.textS, fontSize: 13.5, margin: "16px 0 0" }}>
           No groups today.{upcoming.length > 0 && <> {" "}
             <button type="button" onClick={() => setView("upcoming")} style={{ background: "none", border: "none", padding: 0, color: gold, cursor: "pointer", fontSize: 13.5 }}>
               See what&apos;s coming up <Icon name="arrow-right" size={13} style={{ verticalAlign: -2 }} />
@@ -489,7 +489,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
               const summary = [toConfirm && `${toConfirm} to confirm`, toPrep && `${toPrep} to prepare`].filter(Boolean).join(" · ") || "All ready";
               return (
                 <section key={d} aria-labelledby={`ops-day-${d}`}>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
                     <h3 id={`ops-day-${d}`} style={{ color: C.textH, fontSize: 15.5, fontWeight: 600, margin: 0 }}>{dayHeading(d, today)}</h3>
                     <span style={{ color: summary === "All ready" ? "#2e9e4e" : C.textS, fontSize: 12.5 }}>{summary}</span>
                   </div>
@@ -499,7 +499,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
             })}
           </div>
         )}
-      <p style={{ color: C.textS, fontSize: 12.5, margin: "18px 0 0" }}>
+      <p style={{ color: C.textS, fontSize: 12.5, margin: "20px 0 0" }}>
         Shows every booking still waiting for confirmation, and confirmed bookings for the next {PREPARE_HORIZON_DAYS} days. All bookings are in Bookings.
       </p>
     </>
@@ -531,7 +531,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         } />
 
       {/* ── At a glance ── */}
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))", gap: 12, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
         <Figure label="Still to arrive today" value={dueToday.length - arrivedToday}
           note={dueToday.length ? `${arrivedToday} of ${dueToday.length} group${dueToday.length === 1 ? "" : "s"} checked in` : "No bookings today"} />
         <Figure label="On site now" value={onSite.length} color={onSite.length ? "#2e9e4e" : undefined}
@@ -546,28 +546,28 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
 
       {/* ── Needs attention ── */}
       {ops.loaded && (attention.length === 0 ? (
-        <p style={{ display: "flex", alignItems: "center", gap: 8, color: "#2e9e4e", fontSize: 13.5, margin: "0 0 22px", padding: "11px 14px", borderRadius: 10, background: "rgba(46,158,78,0.08)" }}>
+        <p style={{ display: "flex", alignItems: "center", gap: 8, color: "#2e9e4e", fontSize: 13.5, margin: "0 0 24px", padding: "12px 16px", borderRadius: 10, background: "rgba(46,158,78,0.08)" }}>
           <Icon name="check-circle" size={16} />All caught up. Nothing needs your attention right now.
         </p>
       ) : (
-        <section aria-labelledby="ops-attention" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, marginBottom: 22, overflow: "hidden" }}>
+        <section aria-labelledby="ops-attention" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, marginBottom: 24, overflow: "hidden" }}>
           <h3 id="ops-attention" style={{ margin: 0, padding: "12px 16px", fontSize: 14.5, fontWeight: 600, color: C.textH, display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${cBr}` }}>
             <Icon name="alert" size={15} style={{ color: TONE[attention[0].tone] }} />
             Needs your attention
-            <span style={{ padding: "1px 8px", borderRadius: 10, fontSize: 12, background: `${TONE[attention[0].tone]}22`, color: TONE[attention[0].tone] }}>{attention.length}</span>
+            <span style={{ padding: "4px 8px", borderRadius: 10, fontSize: 12, background: `${TONE[attention[0].tone]}22`, color: TONE[attention[0].tone] }}>{attention.length}</span>
           </h3>
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {attentionShown.map((a, i) => (
-              <li key={a.key} style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "10px 16px", borderTop: i ? `1px solid ${cBr}` : "none", borderLeft: `3px solid ${TONE[a.tone]}` }}>
+              <li key={a.key} style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 16px", borderTop: i ? `1px solid ${cBr}` : "none", borderLeft: `3px solid ${TONE[a.tone]}` }}>
                 <Icon name={a.icon} size={15} style={{ color: TONE[a.tone], flexShrink: 0 }} />
                 <span style={{ flex: "1 1 240px", color: C.textB, fontSize: 13.5 }}>{a.text}</span>
-                <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{a.actions}</span>
+                <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{a.actions}</span>
               </li>
             ))}
           </ul>
           {attention.length > ATTENTION_SHOWN && (
             <button type="button" onClick={() => setAllAttention((v) => !v)}
-              style={{ width: "100%", padding: "9px", borderTop: `1px solid ${cBr}`, borderRight: "none", borderBottom: "none", borderLeft: "none", background: soft, color: C.textB, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+              style={{ width: "100%", padding: "8px", borderTop: `1px solid ${cBr}`, borderRight: "none", borderBottom: "none", borderLeft: "none", background: soft, color: C.textB, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
               {allAttention ? "Show fewer" : `Show ${attention.length - ATTENTION_SHOWN} more`}
             </button>
           )}
@@ -578,7 +578,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
       <div style={{ position: "relative", maxWidth: 420, marginBottom: 16 }}>
         <Icon name="search" size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: 0.5, color: C.textH }} />
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a guest by name, booking ID or phone" aria-label="Find a guest"
-          style={{ ...inp, padding: "8px 10px", paddingLeft: 32, paddingRight: q ? 34 : 10 }} />
+          style={{ ...inp, padding: "8px 12px", paddingLeft: 32, paddingRight: q ? 36 : 12 }} />
         {q && (
           <button type="button" onClick={() => setQ("")} aria-label="Clear search"
             style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.textS, cursor: "pointer", padding: 4, display: "inline-flex" }}>
@@ -626,14 +626,14 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
           <ConfirmDialog title="Accept this booking?" description={`${current.name} · ${current.id} · ${fmtDate(current.date)}`}
             onCancel={() => setOpen(null)} cancelLabel="Go back" width={520}
             confirm={<Btn kind="green" onClick={() => { updateStatus(current.id, "Confirmed"); toast(`Booking accepted for ${current.name}.`, "success"); setOpen(null); }}>Accept booking</Btn>}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {/* The payment check, in one place: what came in, against the total. */}
-              <div style={{ background: soft, borderRadius: 10, padding: "8px 14px" }}>
+              <div style={{ background: soft, borderRadius: 10, padding: "8px 16px" }}>
                 {pays.map((p) => (
                   <Line key={p.id} label={`${p.type} · ${p.method}${p.reference ? ` · ref ${p.reference}` : ""}`} value={fmt(p.amount)} color="#2e9e4e" />
                 ))}
                 {pays.length === 0 && <p style={{ color: "#d4a800", fontSize: 13.5, margin: "4px 0" }}>No payment has been recorded for it yet.</p>}
-                <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 2 }}>
+                <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}>
                   <Line label="Booking total" value={fmt(current.total)} />
                   <Line label="Balance due on arrival" value={fmt(m.balance)} strong />
                 </div>

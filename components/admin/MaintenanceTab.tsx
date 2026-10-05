@@ -81,11 +81,11 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
     background: C.bgCard,
     border: `1px solid ${C.border}`,
     borderRadius: 12,
-    padding: mob ? 18 : 24,
+    padding: mob ? 20 : 24,
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18, maxWidth: 860 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 860 }}>
       {/* Current state */}
       <div
         style={{
@@ -122,11 +122,11 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
         <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 2.5, margin: "0 0 4px" }}>
           WHAT SHOULD VISITORS BE TOLD?
         </p>
-        <p style={{ color: C.textS, fontSize: 13.5, margin: "0 0 18px" }}>
+        <p style={{ color: C.textS, fontSize: 13.5, margin: "0 0 20px" }}>
           This is the headline shown on the notice.
         </p>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {MAINTENANCE_REASON_LIST.map((r) => {
             const on = reason === r;
             return (
@@ -138,9 +138,9 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
                 style={{
                   textAlign: "left",
                   display: "flex",
-                  gap: 14,
+                  gap: 16,
                   alignItems: "flex-start",
-                  padding: mob ? "13px 14px" : "15px 18px",
+                  padding: mob ? "12px 16px" : "16px 20px",
                   borderRadius: 10,
                   cursor: "pointer",
                   fontFamily: "inherit",
@@ -156,7 +156,7 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
                     height: 16,
                     borderRadius: "50%",
                     flex: "none",
-                    marginTop: 3,
+                    marginTop: 4,
                     border: `1px solid ${on ? gold : C.border}`,
                     display: "flex",
                     alignItems: "center",
@@ -166,7 +166,7 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
                   {on && <span style={{ width: 8, height: 8, borderRadius: "50%", background: gold }} />}
                 </span>
                 <span>
-                  <span style={{ display: "block", color: on ? gold : C.textH, fontSize: 15, marginBottom: 3 }}>
+                  <span style={{ display: "block", color: on ? gold : C.textH, fontSize: 15, marginBottom: 4 }}>
                     {MAINTENANCE_REASONS[r].label}
                   </span>
                   <span style={{ display: "block", color: C.textS, fontSize: 13, lineHeight: 1.6 }}>
@@ -192,7 +192,7 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
             placeholder="e.g. We reopen on Monday, 5 October."
             aria-describedby="maintenance-message-hint"
             style={{
-              padding: "11px 14px",
+              padding: "12px 16px",
               height: "auto",
               borderRadius: 8,
               background: C.bgCard2,
@@ -200,7 +200,7 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
               fontSize: 14.5,
             }}
           />
-          <span id="maintenance-message-hint" style={{ display: "block", color: C.textXS, fontSize: 12, marginTop: 6 }}>
+          <span id="maintenance-message-hint" style={{ display: "block", color: C.textXS, fontSize: 12, marginTop: 8 }}>
             {message.length}/200 · shown under the headline
           </span>
         </div>
@@ -216,7 +216,7 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
               onClick={() => void save(false)}
               style={{
                 ...goldBtn,
-                padding: "13px 26px",
+                padding: "12px 28px",
                 borderRadius: 6,
                 letterSpacing: 1.5,
                 opacity: saving ? 0.5 : 1,
@@ -230,7 +230,7 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
                 type="button"
                 disabled={saving}
                 onClick={() => void save(true)}
-                style={{ ...outBtn, padding: "13px 22px", borderRadius: 6, opacity: saving ? 0.5 : 1 }}
+                style={{ ...outBtn, padding: "12px 24px", borderRadius: 6, opacity: saving ? 0.5 : 1 }}
               >
                 UPDATE THE NOTICE
               </button>
@@ -245,7 +245,7 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
               background: "#c0392b",
               color: "#fff",
               border: "none",
-              padding: "13px 26px",
+              padding: "12px 28px",
               borderRadius: 6,
               letterSpacing: 1.5,
               fontSize: 13,

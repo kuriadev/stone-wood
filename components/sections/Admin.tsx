@@ -306,18 +306,18 @@ export function Admin({
         border: `1px solid ${cBr}`,
         borderRadius: 10,
         boxShadow: isDark ? "0 18px 44px rgba(0,0,0,0.65)" : "0 18px 44px rgba(90,70,25,0.18)",
-        padding: "12px 14px",
+        padding: "12px 16px",
         // Never swallow a click meant for the date underneath.
         pointerEvents: "none",
       }}
     >
-      <div style={{ color: C.textXS, fontSize: 11, letterSpacing: 1.4, marginBottom: 9 }}>
+      <div style={{ color: C.textXS, fontSize: 11, letterSpacing: 1.4, marginBottom: 8 }}>
         {fmtDate(ds).toUpperCase()}
       </div>
       {list.map((bk, bi) => (
-        <div key={bk.id} style={{ marginTop: bi ? 10 : 0, paddingTop: bi ? 10 : 0, borderTop: bi ? `1px solid ${cBr}` : "none" }}>
-          <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600, marginBottom: 3 }}>{bk.name}</div>
-          <div style={{ color: C.textS, fontSize: 12, marginBottom: 6 }}>
+        <div key={bk.id} style={{ marginTop: bi ? 12 : 0, paddingTop: bi ? 12 : 0, borderTop: bi ? `1px solid ${cBr}` : "none" }}>
+          <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600, marginBottom: 4 }}>{bk.name}</div>
+          <div style={{ color: C.textS, fontSize: 12, marginBottom: 8 }}>
             {bk.guests} guests{typeof bk.package === "string" && bk.package ? ` · ${bk.package}` : ""}
           </div>
           <span style={{ color: statusTone(bk.status), fontSize: 11, fontWeight: 700, letterSpacing: 0.6 }}>
@@ -394,11 +394,11 @@ export function Admin({
   const cBr = isDark ? "#2a2a2a" : "#e4ddd1";
   const inpS: React.CSSProperties = { ...C.inp, borderRadius: 6 };
   const sideS = (t: AdminTab): React.CSSProperties => ({
-    padding: "11px 20px 11px 24px", cursor: "pointer", fontSize: 12.5, letterSpacing: 1.5,
+    padding: "12px 20px 12px 24px", cursor: "pointer", fontSize: 12.5, letterSpacing: 1.5,
     borderLeft: `2px solid ${tab === t ? gold : "transparent"}`,
     background: tab === t ? (isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.1)") : "transparent",
     color: tab === t ? gold : (isDark ? "#8d8378" : "#7e6c5c"),
-    display: "flex", alignItems: "center", gap: 10, transition: "all .15s",
+    display: "flex", alignItems: "center", gap: 12, transition: "all .15s",
   });
 
   // The inbox and the archive share one layout and differ only in which
@@ -428,7 +428,7 @@ export function Admin({
                       style={{
                         display: "flex",
                         justifyContent: "center",
-                        marginBottom: 14,
+                        marginBottom: 16,
                         color: C.textXS,
                         opacity: 0.6,
                       }}
@@ -466,7 +466,7 @@ export function Admin({
                           background: cBg,
                           border: `1px solid ${cBr}`,
                           borderRadius: 10,
-                          padding: "20px 22px",
+                          padding: "20px 24px",
                           boxShadow: C.shadowCard,
                         }}
                       >
@@ -475,7 +475,7 @@ export function Admin({
                             display: "flex",
                             justifyContent: "space-between",
                             alignItems: "flex-start",
-                            marginBottom: 10,
+                            marginBottom: 12,
                           }}
                         >
                           <div>
@@ -512,7 +512,7 @@ export function Admin({
                                 background: `${gold}18`,
                                 color: gold,
                                 fontSize: 10.5,
-                                padding: "3px 8px",
+                                padding: "4px 8px",
                                 borderRadius: 20,
                                 border: `1px solid ${gold}44`,
                                 letterSpacing: 1,
@@ -537,7 +537,7 @@ export function Admin({
                                 background: `${gold}18`,
                                 border: `1px solid ${gold}44`,
                                 color: gold,
-                                padding: "4px 10px",
+                                padding: "4px 12px",
                                 fontSize: 11.5,
                                 cursor: "pointer",
                                 borderRadius: 4,
@@ -556,7 +556,7 @@ export function Admin({
                                   background: "transparent",
                                   border: `1px solid ${cBr}`,
                                   color: C.textXS,
-                                  padding: "4px 10px",
+                                  padding: "4px 12px",
                                   fontSize: 11.5,
                                   cursor: "pointer",
                                   borderRadius: 4,
@@ -593,7 +593,7 @@ export function Admin({
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: gold }} />
             <span style={{ color: isDark ? "#e0e0e0" : "#111", fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 16, letterSpacing: 2 }}>STONEWOOD</span>
           </div>
-          <button onClick={() => setSideOpen((o) => !o)} style={{ background: "none", border: `1px solid ${cBr}`, color: isDark ? "#888" : "#666", cursor: "pointer", padding: "6px 10px", borderRadius: 3, fontSize: 14.5 }}>{<Icon name={sideOpen ? "x" : "menu"} size={16} />}</button>
+          <button onClick={() => setSideOpen((o) => !o)} style={{ background: "none", border: `1px solid ${cBr}`, color: isDark ? "#888" : "#666", cursor: "pointer", padding: "8px 12px", borderRadius: 3, fontSize: 14.5 }}>{<Icon name={sideOpen ? "x" : "menu"} size={16} />}</button>
         </div>
       )}
 
@@ -616,10 +616,10 @@ export function Admin({
 
                   {/* Section label + horizontal rule */}
                   <div style={{
-                    padding: gi === 0 ? "16px 24px 6px" : "20px 24px 6px",
+                    padding: gi === 0 ? "16px 24px 8px" : "20px 24px 8px",
                     display: "flex",
                     alignItems: "center",
-                    gap: 10,
+                    gap: 12,
                   }}>
                   <span style={{
                     color: isDark ? "#a68154" : "#896630",
@@ -662,7 +662,7 @@ export function Admin({
                         <Badge variant="outline" style={{
                           background: gold, color: "#000",
                           fontSize: 10.5, fontWeight: 700,
-                          borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
+                          borderRadius: 20, padding: "4px 8px", letterSpacing: 0,
                         }}>
                           {pendingCount}
                         </Badge>
@@ -673,7 +673,7 @@ export function Admin({
                         <Badge variant="outline" style={{
                           background: "#e0a020", color: "#000",
                           fontSize: 10.5, fontWeight: 700,
-                          borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
+                          borderRadius: 20, padding: "4px 8px", letterSpacing: 0,
                         }}>
                           {facilities.filter(f => f.status === "Needs Cleaning").length}
                         </Badge>
@@ -684,7 +684,7 @@ export function Admin({
                         <Badge variant="outline" style={{
                           background: "#4a9fd4", color: "#fff",
                           fontSize: 10.5, fontWeight: 700,
-                          borderRadius: 20, padding: "2px 7px", letterSpacing: 0,
+                          borderRadius: 20, padding: "4px 8px", letterSpacing: 0,
                         }}>
                           {customerMessages.length}
                         </Badge>
@@ -695,7 +695,7 @@ export function Admin({
               ))}
             </div>
             <div style={{ padding: "16px 20px", borderTop: `1px solid ${sideBorder}` }}>
-              <button onClick={() => setShowLogoutConfirm(true)} style={{ width: "100%", background: "transparent", color: isDark ? "#888888" : "#6c6c6c", border: `1px solid ${isDark ? "#2a2a2a" : "#ddd"}`, padding: "9px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <button onClick={() => setShowLogoutConfirm(true)} style={{ width: "100%", background: "transparent", color: isDark ? "#888888" : "#6c6c6c", border: `1px solid ${isDark ? "#2a2a2a" : "#ddd"}`, padding: "8px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
                 SIGN OUT
               </button>
@@ -711,7 +711,7 @@ export function Admin({
 
           {/* The signed-in admin, top right. Its own row above the page, so
               it never competes with a tab's header actions for the corner. */}
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: mob ? 14 : 18 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: mob ? 16 : 20 }}>
             <button
               type="button"
               className="sw-gold-hover"
@@ -719,7 +719,7 @@ export function Admin({
               aria-label="Admin account settings"
               style={{
                 display: "inline-flex", alignItems: "center", gap: 8,
-                minHeight: 38, padding: "0 14px", borderRadius: 999,
+                minHeight: 38, padding: "0 16px", borderRadius: 999,
                 border: `1px solid ${cBr}`, background: "transparent",
                 color: C.textB, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
               }}
@@ -745,16 +745,16 @@ export function Admin({
             <div>
               <div style={{ marginBottom: 28 }}>
                 <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>CALENDAR VIEW</p>
-                <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 6px" }}>Calendar</h2>
+                <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 8px" }}>Calendar</h2>
                 <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>Click a date to toggle it as closed.</p>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <button onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))} style={{ background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", borderRadius: 4, padding: "6px 14px", fontSize: 14.5 }}>‹</button>
+                <button onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))} style={{ background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", borderRadius: 4, padding: "8px 16px", fontSize: 14.5 }}>‹</button>
                 <span style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18 }}>{calMonth.toLocaleString("default", { month: "long", year: "numeric" })}</span>
-                <button onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))} style={{ background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", borderRadius: 4, padding: "6px 14px", fontSize: 14.5 }}>›</button>
+                <button onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))} style={{ background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", borderRadius: 4, padding: "8px 16px", fontSize: 14.5 }}>›</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: 8 }}>
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d} style={{ textAlign: "center", color: C.textXS, fontSize: 11.5, padding: "6px 0", letterSpacing: 1 }}>{d}</div>)}
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d} style={{ textAlign: "center", color: C.textXS, fontSize: 11.5, padding: "8px 0", letterSpacing: 1 }}>{d}</div>)}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: 24 }}>
                 {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
@@ -819,7 +819,7 @@ export function Admin({
                       transition: "all .15s", 
                       position: "relative" }}>
                       {d}
-                      {status && <div style={{ fontSize: 11, marginTop: 3, opacity: 0.85, letterSpacing: 0.4, lineHeight: 1.2, overflowWrap: "anywhere" }}>{status.toUpperCase()}</div>}
+                      {status && <div style={{ fontSize: 11, marginTop: 4, opacity: 0.85, letterSpacing: 0.4, lineHeight: 1.2, overflowWrap: "anywhere" }}>{status.toUpperCase()}</div>}
 
                       {hoverDay === ds && showDayCard && dayCard(ds, dayBookings, colIdx, cardAbove)}
                     </div>
@@ -828,7 +828,7 @@ export function Admin({
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
                 {[["Booked/Confirmed", "#4caf50"], ["Pending", "#f5c518"], ["Completed", "#4a9fd4"], ["Closed", "#e07070"]].map(([l, c]) => (
-                  <div key={l} style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: c }} /><span style={{ color: C.textS, fontSize: 12.5 }}>{l}</span></div>
+                  <div key={l} style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: c }} /><span style={{ color: C.textS, fontSize: 12.5 }}>{l}</span></div>
                 ))}
               </div>
 
@@ -860,14 +860,14 @@ export function Admin({
                           {rows.length === 0 ? (
                             <p style={{ color: C.textS, fontSize: 12.5, margin: 0 }}>None this month.</p>
                           ) : (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                               {rows.map((bk) => (
-                                <div key={bk.id} style={{ borderTop: `1px solid ${cBr}`, paddingTop: 10 }}>
-                                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                                <div key={bk.id} style={{ borderTop: `1px solid ${cBr}`, paddingTop: 12 }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                                     <span style={{ color: C.textH, fontSize: 13, fontWeight: 600, minWidth: 0, overflowWrap: "anywhere" }}>{bk.name}</span>
                                     <span style={{ color: tone, fontSize: 11.5, whiteSpace: "nowrap" }}>{fmtDate(bk.date)}</span>
                                   </div>
-                                  <div style={{ color: C.textS, fontSize: 12, marginTop: 3 }}>
+                                  <div style={{ color: C.textS, fontSize: 12, marginTop: 4 }}>
                                     {bk.guests} guests · {bk.id}
                                   </div>
                                 </div>
@@ -888,7 +888,7 @@ export function Admin({
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
                 <div><p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>ACCOMMODATIONS</p><h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Rooms</h2></div>
-                <button className="sw-btn" onClick={openAdd} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD ROOM</button>
+                <button className="sw-btn" onClick={openAdd} style={{ ...goldBtn, padding: "12px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD ROOM</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fill,minmax(280px,1fr))", gap: 20 }}>
                 {rooms.map((r) => (
@@ -898,14 +898,14 @@ export function Admin({
                       <img loading="lazy" decoding="async" src={r.img} alt={r.name} style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }} />
                       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top,rgba(0,0,0,0.5),transparent 60%)" }} />
                       <div style={{ position: "absolute", bottom: 10, left: 12, right: 12, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-                        <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 12.5, background: "rgba(0,0,0,0.4)", borderRadius: 4, padding: "2px 8px" }}><Icon name="users" size={11} style={{ marginRight: 4 }} />Up to {r.capacity}</span>
+                        <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 12.5, background: "rgba(0,0,0,0.4)", borderRadius: 4, padding: "4px 8px" }}><Icon name="users" size={11} style={{ marginRight: 4 }} />Up to {r.capacity}</span>
                         <span style={{ color: "#fff", fontSize: 16, fontWeight: 700 }}>{fmt(r.price)}<span style={{ fontSize: 10.5, opacity: 0.8 }}>/slot</span></span>
                       </div>
                     </div>
-                    <div style={{ padding: "16px 18px" }}>
+                    <div style={{ padding: "16px 20px" }}>
                       <h4 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 17, marginBottom: 4, fontWeight: 400 }}>{r.name}</h4>
-                      <p style={{ color: gold, fontSize: 12.5, marginBottom: 8 }}><Icon name="bed" size={12} style={{ marginRight: 5 }} />{r.beds}</p>
-                      <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, marginBottom: 14 }}>{r.desc}</p>
+                      <p style={{ color: gold, fontSize: 12.5, marginBottom: 8 }}><Icon name="bed" size={12} style={{ marginRight: 4 }} />{r.beds}</p>
+                      <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, marginBottom: 16 }}>{r.desc}</p>
                       <div style={{ display: "flex", gap: 8 }}>
                         <button className="sw-btn-out" onClick={() => openEdit(r)} style={{ ...outBtn, flex: 1, padding: "8px 12px", fontSize: 11.5, letterSpacing: 1 }}>EDIT</button>
                         <button onClick={() => setConfirmRemoveRoom(r)} style={{ flex: 1, background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "8px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>REMOVE</button>
@@ -923,16 +923,16 @@ export function Admin({
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
                 <div>
                   <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>MEDIA</p>
-                  <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 6px" }}>Gallery</h2>
+                  <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 8px" }}>Gallery</h2>
                   <p style={{ color: C.textS, fontSize: 13.5, margin: 0, maxWidth: 560 }}>
                     Every photo fills one named place on the site. Replace a slot to change that
                     picture, or move it to change which slot it fills.
                   </p>
                 </div>
-                <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ display: "flex", gap: 12 }}>
                   <input ref={galleryFileRef} type="file" accept="image/*" multiple onChange={handleGalleryUpload} style={{ display: "none" }} />
                   <input ref={galleryReplaceRef} type="file" accept="image/*" onChange={handleGalleryReplace} style={{ display: "none" }} />
-                  <button className="sw-btn" onClick={() => galleryFileRef.current?.click()} style={{ ...goldBtn, padding: "10px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD PHOTOS</button>
+                  <button className="sw-btn" onClick={() => galleryFileRef.current?.click()} style={{ ...goldBtn, padding: "12px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD PHOTOS</button>
                 </div>
               </div>
 
@@ -952,11 +952,11 @@ export function Admin({
                       The grid draws from GALLERY_SPANS and galleryHourLabel in
                       lib/gallery.ts -- the same source the real page uses, so
                       this preview cannot drift out of step with it. */}
-                  <p style={{ color: C.textXS, fontSize: 11, letterSpacing: 2, margin: "0 0 10px" }}>
+                  <p style={{ color: C.textXS, fontSize: 11, letterSpacing: 2, margin: "0 0 12px" }}>
                     HERO &mdash; /GALLERY BANNER AND THE /ABOUT PHOTO
                   </p>
                   <div
-                    style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: `1px solid ${gold}`, marginBottom: 26 }}
+                    style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: `1px solid ${gold}`, marginBottom: 28 }}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={galleryImgs[0]} alt="" style={{ display: "block", width: "100%", height: mob ? 150 : 230, objectFit: "cover" }} />
@@ -964,20 +964,20 @@ export function Admin({
                     <button className="sw-btn"
                       onClick={() => { replaceGalleryAt.current = 0; galleryReplaceRef.current?.click(); }}
                       aria-label="Replace the gallery hero photo"
-                      style={{ ...goldBtn, position: "absolute", right: 12, bottom: 12, minHeight: 40, padding: "0 18px", fontSize: 11.5, letterSpacing: 1.4 }}
+                      style={{ ...goldBtn, position: "absolute", right: 12, bottom: 12, minHeight: 40, padding: "0 20px", fontSize: 11.5, letterSpacing: 1.4 }}
                     >
                       CHANGE PHOTO
                     </button>
                   </div>
 
-                  <p style={{ color: C.textXS, fontSize: 11, letterSpacing: 2, margin: "0 0 10px" }}>
+                  <p style={{ color: C.textXS, fontSize: 11, letterSpacing: 2, margin: "0 0 12px" }}>
                     MOSAIC &mdash; CLICK A PHOTO TO CHANGE IT
                   </p>
                   <div
                     style={{
                       display: "grid",
                       gridTemplateColumns: mob ? "1fr 1fr" : "repeat(12, 1fr)",
-                      gap: 10,
+                      gap: 12,
                       alignItems: "start",
                     }}
                   >
@@ -997,11 +997,11 @@ export function Admin({
                         <img src={src} alt="" style={{ display: "block", width: "100%", height: "auto" }} />
 
                         {/* The same stamp the guest sees on that tile. */}
-                        <span style={{ position: "absolute", left: 10, bottom: 10, background: "rgba(0,0,0,0.6)", color: "#f2ede4", fontSize: 11, padding: "4px 9px", borderRadius: 999 }}>
+                        <span style={{ position: "absolute", left: 10, bottom: 10, background: "rgba(0,0,0,0.6)", color: "#f2ede4", fontSize: 11, padding: "4px 8px", borderRadius: 999 }}>
                           {galleryHourLabel(i, galleryImgs.length - 1)}
                         </span>
 
-                        <div style={{ position: "absolute", right: 8, top: 8, display: "flex", gap: 6 }}>
+                        <div style={{ position: "absolute", right: 8, top: 8, display: "flex", gap: 8 }}>
                           <button className="sw-btn"
                             onClick={() => { replaceGalleryAt.current = i + 1; galleryReplaceRef.current?.click(); }}
                             aria-label={`Change the ${galleryHourLabel(i, galleryImgs.length - 1)} photo`}
@@ -1023,7 +1023,7 @@ export function Admin({
                     ))}
                   </div>
 
-                  <p style={{ color: C.textS, fontSize: 12.5, margin: "18px 0 0" }}>
+                  <p style={{ color: C.textS, fontSize: 12.5, margin: "20px 0 0" }}>
                     Times are the photo&rsquo;s place in the day, not when it was taken &mdash; they
                     spread across 07:00 to 23:00 and re-count when a photo is added or removed.
                   </p>
@@ -1090,7 +1090,7 @@ export function Admin({
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel
-                      style={{ color: C.textS, borderColor: cBr, padding: 11, height: "auto", fontSize: 12.5, borderRadius: 6 }}
+                      style={{ color: C.textS, borderColor: cBr, padding: 12, height: "auto", fontSize: 12.5, borderRadius: 6 }}
                     >
                       CANCEL
                     </AlertDialogCancel>
@@ -1118,7 +1118,7 @@ export function Admin({
                       value={v}
                       className="rounded-full border data-[state=active]:shadow-none"
                       style={{
-                        padding: "8px 18px",
+                        padding: "8px 20px",
                         fontSize: 12.5,
                         fontWeight: 700,
                         cursor: "pointer",
@@ -1166,7 +1166,7 @@ export function Admin({
                       <div
                         style={{
                           display: "flex",
-                          gap: 10,
+                          gap: 12,
                           marginBottom: 16,
                         }}
                       >
@@ -1187,7 +1187,7 @@ export function Admin({
                               }
                             }}
                             style={{
-                              padding: "8px 14px",
+                              padding: "8px 16px",
                               borderRadius: 20,
                               cursor: "pointer",
                               fontSize: 12.5,
@@ -1214,14 +1214,14 @@ export function Admin({
                       </div>
 
                       {/* EMAIL */}
-                      <div style={{ marginBottom: 14 }}>
+                      <div style={{ marginBottom: 16 }}>
                         <Label
                           htmlFor="reply-email"
                           style={{
                             display: "block",
                             color: C.textXS,
                             fontSize: 11.5,
-                            marginBottom: 6,
+                            marginBottom: 8,
                             letterSpacing: 2,
                           }}
                         >
@@ -1233,7 +1233,7 @@ export function Admin({
                           value={replyModal.email}
                           disabled
                           style={{
-                            padding: "12px 14px",
+                            padding: "12px 16px",
                             height: "auto",
                             borderRadius: 8,
                             border: `1px solid ${cBr}`,
@@ -1252,7 +1252,7 @@ export function Admin({
                             display: "block",
                             color: C.textXS,
                             fontSize: 11.5,
-                            marginBottom: 6,
+                            marginBottom: 8,
                             letterSpacing: 2,
                           }}
                         >
@@ -1269,7 +1269,7 @@ export function Admin({
                           style={{
                             resize: "none",
                             height: "auto",
-                            padding: "14px",
+                            padding: "16px",
                             borderRadius: 8,
                             border: `1px solid ${cBr}`,
                             background: "transparent",
@@ -1284,7 +1284,7 @@ export function Admin({
                         <Button
                           variant="outline"
                           onClick={() => setReplyModal(null)}
-                          style={{ borderColor: cBr, color: C.textS, padding: "10px 16px", height: "auto", borderRadius: 6, fontSize: 12.5 }}
+                          style={{ borderColor: cBr, color: C.textS, padding: "12px 16px", height: "auto", borderRadius: 6, fontSize: 12.5 }}
                         >
                           CANCEL
                         </Button>
@@ -1295,7 +1295,7 @@ export function Admin({
                             )}`;
                             setReplyModal(null);
                           }}
-                          style={{ ...goldBtn, padding: "10px 18px", height: "auto" }}
+                          style={{ ...goldBtn, padding: "12px 20px", height: "auto" }}
                         >
                           SEND EMAIL
                         </Button>
@@ -1325,10 +1325,10 @@ export function Admin({
             <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>You will be returned to the main site.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel style={{ color: C.textS, borderColor: cBr, padding: "11px 16px", height: "auto", fontSize: 12.5, borderRadius: 6, letterSpacing: 1 }}>CANCEL</AlertDialogCancel>
+            <AlertDialogCancel style={{ color: C.textS, borderColor: cBr, padding: "12px 16px", height: "auto", fontSize: 12.5, borderRadius: 6, letterSpacing: 1 }}>CANCEL</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => { setShowLogoutConfirm(false); onLogout(); toast("Signed out.", "info"); }}
-              style={{ background: isDark ? "rgba(255,255,255,0.04)" : "#f5f0e8", color: C.textH, border: `1px solid ${cBr}`, padding: "11px 16px", height: "auto", fontSize: 12.5, fontWeight: 700, borderRadius: 6, letterSpacing: 2 }}
+              style={{ background: isDark ? "rgba(255,255,255,0.04)" : "#f5f0e8", color: C.textH, border: `1px solid ${cBr}`, padding: "12px 16px", height: "auto", fontSize: 12.5, fontWeight: 700, borderRadius: 6, letterSpacing: 2 }}
             >
               YES, SIGN OUT
             </AlertDialogAction>
@@ -1349,13 +1349,13 @@ export function Admin({
                   <strong style={{ color: C.textH }}>{confirmRemoveRoom.name}</strong> will be permanently removed from the system.
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <p style={{ color: "rgba(229,85,85,0.75)", fontSize: 13.5, margin: 0 }}><Icon name="alert" size={12} style={{ marginRight: 5 }} />This action cannot be undone.</p>
+              <p style={{ color: "rgba(229,85,85,0.75)", fontSize: 13.5, margin: 0 }}><Icon name="alert" size={12} style={{ marginRight: 4 }} />This action cannot be undone.</p>
               <Separator />
               <AlertDialogFooter>
-                <AlertDialogCancel style={{ color: C.textS, borderColor: cBr, padding: "11px 16px", height: "auto", fontSize: 12.5, borderRadius: 6, letterSpacing: 1 }}>CANCEL</AlertDialogCancel>
+                <AlertDialogCancel style={{ color: C.textS, borderColor: cBr, padding: "12px 16px", height: "auto", fontSize: 12.5, borderRadius: 6, letterSpacing: 1 }}>CANCEL</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => { deleteRoom(confirmRemoveRoom.id); setConfirmRemoveRoom(null); }}
-                  style={{ background: "rgba(229,85,85,0.10)", color: "#e55", border: "1px solid rgba(229,85,85,0.25)", padding: "11px 16px", height: "auto", fontSize: 12.5, fontWeight: 700, borderRadius: 6, letterSpacing: 2 }}
+                  style={{ background: "rgba(229,85,85,0.10)", color: "#e55", border: "1px solid rgba(229,85,85,0.25)", padding: "12px 16px", height: "auto", fontSize: 12.5, fontWeight: 700, borderRadius: 6, letterSpacing: 2 }}
                 >
                   YES, REMOVE
                 </AlertDialogAction>
@@ -1390,7 +1390,7 @@ export function Admin({
             <div className="grid gap-4 sm:grid-cols-2">
               {[["Room Name", "name", "text"], ["Bed Configuration", "beds", "text"], ["Max Capacity", "capacity", "number"], ["Price per Slot (₱)", "price", "number"]].map(([l, k, t]) => (
                 <div key={k}>
-                  <Label htmlFor={`room-${k}`} style={{ display: "block", color: C.textXS, fontSize: 10.5, letterSpacing: 3, marginBottom: 6 }}>{(l as string).toUpperCase()}</Label>
+                  <Label htmlFor={`room-${k}`} style={{ display: "block", color: C.textXS, fontSize: 10.5, letterSpacing: 3, marginBottom: 8 }}>{(l as string).toUpperCase()}</Label>
                   <Input
                     id={`room-${k}`}
                     type={t as string}
@@ -1401,7 +1401,7 @@ export function Admin({
                 </div>
               ))}
               <div className="sm:col-span-2">
-                <Label htmlFor="room-desc" style={{ display: "block", color: C.textXS, fontSize: 10.5, letterSpacing: 3, marginBottom: 6 }}>DESCRIPTION</Label>
+                <Label htmlFor="room-desc" style={{ display: "block", color: C.textXS, fontSize: 10.5, letterSpacing: 3, marginBottom: 8 }}>DESCRIPTION</Label>
                 <Textarea
                   id="room-desc"
                   value={rf.desc}

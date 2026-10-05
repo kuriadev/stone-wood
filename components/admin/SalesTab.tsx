@@ -103,7 +103,7 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
         }
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 22 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
         <Figure label="Collected today" value={fmt(collectedToday)} note={`${todayCount} payment${todayCount === 1 ? "" : "s"}`} color="#2e9e4e" />
         <Figure label="Collected this month" value={fmt(collectedMonth)} note={new Date(today).toLocaleString("en-PH", { month: "long", year: "numeric" })} />
         <Figure label="Net income this month" value={fmt(round2(collectedMonth - spentMonth))} note={`after ${fmt(spentMonth)} in expenses`} color={collectedMonth - spentMonth < 0 ? "#d44" : gold} />
@@ -165,7 +165,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
     ["", "", "", "", "", "", "Net total", net],
   ]);
 
-  const sel = { ...inp, padding: "8px 10px", width: "auto" } as const;
+  const sel = { ...inp, padding: "8px 12px", width: "auto" } as const;
   return (
     <div>
       {/* A grid that becomes the old single row only when there is width for
@@ -173,7 +173,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
           widths — a lone date input on its own line, the search box squeezed
           to its 200px minimum beside a stranded checkbox. Columns keep them
           aligned at every size, and the date pair stays together. */}
-      <div className="mb-3 grid grid-cols-1 items-center gap-2.5 sm:grid-cols-2 xl:flex xl:flex-wrap">
+      <div className="mb-3 grid grid-cols-1 items-center gap-3 sm:grid-cols-2 xl:flex xl:flex-wrap">
         <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
           <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From" style={{ ...sel, minWidth: 0, flex: 1 }} />
           <span style={{ color: C.textS, fontSize: 13, flexShrink: 0 }}>to</span>
@@ -189,7 +189,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
           <option>All</option>{PAYMENT_METHODS.map((t) => <option key={t}>{t}</option>)}
         </FullSelect>
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Guest, booking or reference" className="sm:col-span-2 xl:flex-1" style={{ ...sel, width: "100%", minWidth: 0 }} />
-        <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 6, alignItems: "center", minHeight: 36 }}>
+        <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 8, alignItems: "center", minHeight: 36 }}>
           <Checkbox checked={showVoided} onCheckedChange={(v) => setShowVoided(v === true)} /> Show voided
         </label>
         <Btn size="sm" icon="download" onClick={exportCsv}>Export</Btn>
@@ -286,13 +286,13 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
         Where every booking stands. Figures follow the filter below, and come from the payment records rather than the booking total.
       </p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginBottom: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginBottom: 16 }}>
         <Figure label="Booked value" value={fmt(expected)} note={`${shown.length} booking${shown.length === 1 ? "" : "s"}`} />
         <Figure label="Collected" value={fmt(collected)} color="#2e9e4e" />
         <Figure label="Outstanding" value={fmt(outstanding)} color={outstanding > 0 ? "#d4a800" : undefined} />
       </div>
 
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
         <Segmented<"All" | BookingMoney["state"]>
           value={state}
           onChange={setState}
@@ -333,7 +333,7 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
             <Cell style={{ ...td, color: m.balance > 0 ? "#d4a800" : C.textS }}>{fmt(m.balance)}</Cell>
             <Cell style={{ ...td, color: m.penaltyDue > 0 ? "#d44" : C.textS }}>{fmt(m.penaltyDue)}</Cell>
             <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
-              <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+              <div style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
                 {!b.id.startsWith("TMP-") && <Btn size="sm" icon="receipt" onClick={() => onInvoice(b.id)}>Invoice</Btn>}
                 {m.due > 0
                   ? <Btn size="sm" kind="green" icon="cash" onClick={() => onPay(b.id)}>Record</Btn>
@@ -366,7 +366,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
     <div>
       {/* Money the resort owes back comes first: a guest is waiting on it. */}
       {refunds.length > 0 && (
-        <div style={{ marginBottom: 22 }}>
+        <div style={{ marginBottom: 24 }}>
           <h4 style={{ color: "#e07a3a", fontSize: 14, margin: "0 0 8px" }}>Refunds owed to guests ({fmt(refundTotal)})</h4>
           <TableShell head={["Booking", "Guest", "Original visit", "Refund owed", ""]} minWidth={640}>
             {refunds.map((b, i) => (
@@ -398,7 +398,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
             <Cell style={{ ...td, color: m.penaltyDue > 0 ? "#d44" : C.textS }}>{fmt(m.penaltyDue)}</Cell>
             <Cell style={{ ...td, color: C.textH, fontWeight: 700 }}>{fmt(m.due)}</Cell>
             <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
-              <div style={{ display: "inline-flex", gap: 6 }}>
+              <div style={{ display: "inline-flex", gap: 8 }}>
                 <Btn size="sm" icon="receipt" onClick={() => onInvoice(b.id)}>Invoice</Btn>
                 <Btn size="sm" kind="green" icon="cash" onClick={() => onPay(b.id)}>Record</Btn>
               </div>
@@ -433,7 +433,7 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
   const charges = sum((r) => r.b.total + r.m.penaltyTotal);
   const paid = sum((r) => r.m.paid + r.m.penaltyPaid);
   const unpaid = sum((r) => r.m.due);
-  const sel = { ...inp, padding: "8px 10px", width: "auto" } as const;
+  const sel = { ...inp, padding: "8px 12px", width: "auto" } as const;
 
   const pagedSet = usePaged(settled);
   return (
@@ -441,7 +441,7 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
       <p style={{ color: C.textS, fontSize: 13, marginTop: 0 }}>
         Each booking settled in Daily Operations: the stay and any damage penalties, against what was paid. The daily cash count is under Daily liquidation.
       </p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginBottom: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginBottom: 16 }}>
         <Figure label="Settled bookings" value={settled.length} />
         <Figure label="Charges" value={fmt(charges)} />
         <Figure label="Paid" value={fmt(paid)} color="#2e9e4e" />
@@ -452,7 +452,7 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
         <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Settled from" style={sel} />
         <span style={{ color: C.textS, fontSize: 13 }}>to</span>
         <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Settled to" style={sel} />
-        <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 6, alignItems: "center" }}>
+        <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 8, alignItems: "center" }}>
           <Checkbox checked={onlyUnpaid} onCheckedChange={(v) => setOnlyUnpaid(v === true)} /> Only closed unpaid
         </label>
       </div>
@@ -529,7 +529,7 @@ function Clients({ bookings }: { bookings: Booking[] }) {
 
       {current && (
         <Modal title={current.name} subtitle={`${current.contact}${current.email ? " · " + current.email : ""}`} onClose={() => setOpen(null)} width={820}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 18 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 20 }}>
             <Figure label="Bookings" value={current.bookings.length} />
             <Figure label="Total paid" value={fmt(current.paid)} color="#2e9e4e" />
             <Figure label="Owed" value={fmt(current.owed)} color={current.owed > 0 ? "#d4a800" : undefined} />
@@ -551,8 +551,8 @@ function Clients({ bookings }: { bookings: Booking[] }) {
               );
             })}
           </TableShell>
-          <h4 style={{ color: C.textH, fontSize: 14, margin: "18px 0 8px" }}>Payments</h4>
-          <div style={{ background: soft, borderRadius: 8, padding: "6px 14px" }}>
+          <h4 style={{ color: C.textH, fontSize: 14, margin: "20px 0 8px" }}>Payments</h4>
+          <div style={{ background: soft, borderRadius: 8, padding: "8px 16px" }}>
             {livePayments(ops.payments).filter((p) => current.bookings.some((b) => b.id === p.bookingId)).map((p) => (
               <Line key={p.id} label={`${fmtDate(manilaDate(p.receivedAt))} · ${p.type} · ${p.method} · ${p.bookingId}`}
                 value={`${p.type === "Refund" ? "−" : ""}${fmt(p.amount)}`} color={p.type === "Refund" ? "#d44" : undefined} />
@@ -581,11 +581,11 @@ function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void 
   const pagedExp = usePaged(rows);
   return (
     <div>
-      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-        <Input type="month" value={monthStr} onChange={(e) => setMonthStr(e.target.value)} aria-label="Month" style={{ ...inp, width: "auto", padding: "8px 10px" }} />
+      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+        <Input type="month" value={monthStr} onChange={(e) => setMonthStr(e.target.value)} aria-label="Month" style={{ ...inp, width: "auto", padding: "8px 12px" }} />
         <Btn size="sm" icon="plus" onClick={onAdd}>Add expense</Btn>
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
         <div style={{ flex: "3 1 520px", minWidth: 0 }}>
         <TableShell head={["Date", "Category", "Description", "Method", "Amount", ""]} minWidth={640}
           empty={rows.length === 0 ? "No expenses recorded for this month." : undefined}>
@@ -605,10 +605,10 @@ function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void 
         <Pager {...pagedExp} noun="expenses" />
         </div>
         <div style={{ background: soft, borderRadius: 10, padding: "12px 16px", flex: "1 1 240px" }}>
-          <div style={{ color: C.textS, fontSize: 12.5, marginBottom: 6 }}>By category</div>
+          <div style={{ color: C.textS, fontSize: 12.5, marginBottom: 8 }}>By category</div>
           {byCat.map(([c, v]) => <Line key={c} label={c} value={fmt(v)} />)}
           {byCat.length === 0 && <p style={{ color: C.textS, fontSize: 13, margin: "4px 0" }}>Nothing spent yet.</p>}
-          <div style={{ borderTop: "1px solid rgba(150,130,100,0.25)", marginTop: 6, paddingTop: 4 }}>
+          <div style={{ borderTop: "1px solid rgba(150,130,100,0.25)", marginTop: 8, paddingTop: 4 }}>
             <Line label="Total" value={fmt(total)} strong />
           </div>
         </div>
@@ -635,7 +635,7 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
   };
   return (
     <Modal title="Add expense" subtitle="Money spent on running the resort" onClose={onClose} width={560}
-      footer={<div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+      footer={<div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
         <Btn onClick={onClose}>Cancel</Btn>
         <Btn kind="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save expense"}</Btn>
       </div>}>
@@ -721,9 +721,9 @@ export function Closing({ onAct }: { onAct?: (action: CloseAction, b: Booking) =
   const pagedClo = usePaged(ops.closings);
   return (
     <div>
-      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16 }}>
         <Label htmlFor="close-date">Day</Label>
-        <Input id="close-date" type="date" max={manilaDate()} value={date} onChange={(e) => pick(e.target.value)} style={{ ...inp, width: "auto", padding: "8px 10px" }} />
+        <Input id="close-date" type="date" max={manilaDate()} value={date} onChange={(e) => pick(e.target.value)} style={{ ...inp, width: "auto", padding: "8px 12px" }} />
         {existing && <Pill color="#2e9e4e">Closed at {manilaTime(existing.closedAt)}</Pill>}
       </div>
 
@@ -738,13 +738,13 @@ export function Closing({ onAct }: { onAct?: (action: CloseAction, b: Booking) =
           </p>
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {blockers.map(({ b, need }) => (
-              <li key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "8px 0", borderTop: `1px solid ${cBr}` }}>
+              <li key={b.id} style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "8px 0", borderTop: `1px solid ${cBr}` }}>
                 <span style={{ flex: "1 1 240px", fontSize: 13.5, color: C.textB }}>
                   <strong style={{ color: C.textH }}>{b.name}</strong> · {b.date === today ? "today" : fmtDate(b.date)} · <span style={{ color: "#d4a800" }}>{CLOSE_NEED[need].label}</span>
                   <span style={{ color: C.textS }}>: {CLOSE_NEED[need].todo}</span>
                 </span>
                 {onAct && (
-                  <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {need === "confirm" && <>
                       <Btn size="sm" kind="green" onClick={() => onAct("accept", b)}>Accept</Btn>
                       <Btn size="sm" kind="red" onClick={() => onAct("reject", b)}>Cancel</Btn>
@@ -764,21 +764,21 @@ export function Closing({ onAct }: { onAct?: (action: CloseAction, b: Booking) =
         </section>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 14, marginBottom: 22 }}>
-        <div style={{ background: soft, borderRadius: 10, padding: "14px 18px" }}>
-          <div style={{ color: C.textH, fontWeight: 600, marginBottom: 6 }}>Income and expenses</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 16, marginBottom: 24 }}>
+        <div style={{ background: soft, borderRadius: 10, padding: "16px 20px" }}>
+          <div style={{ color: C.textH, fontWeight: 600, marginBottom: 8 }}>Income and expenses</div>
           {MANUAL_METHODS.map((m) => <Line key={m} label={`Received by ${m}`} value={fmt(byMethod(m))} />)}
           <Line label="Received online (PayMongo)" value={fmt(byMethod("PayMongo"))} />
           <Line label="Total received" value={fmt(income)} strong />
           <Line label="Expenses" value={`− ${fmt(spent)}`} color="#d44" />
-          <div style={{ borderTop: "1px solid rgba(150,130,100,0.25)", marginTop: 6, paddingTop: 4 }}>
+          <div style={{ borderTop: "1px solid rgba(150,130,100,0.25)", marginTop: 8, paddingTop: 4 }}>
             <Line label="Net for the day" value={fmt(round2(income - spent))} strong color={income - spent < 0 ? "#d44" : "#2e9e4e"} />
           </div>
         </div>
 
-        <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "14px 18px" }}>
-          <div style={{ color: C.textH, fontWeight: 600, marginBottom: 10 }}>Cash count</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+        <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "16px 20px" }}>
+          <div style={{ color: C.textH, fontWeight: 600, marginBottom: 12 }}>Cash count</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
             <div>
               <Label htmlFor="float">Opening cash (float)</Label>
               <Input id="float" type="number" min={0} value={openingFloat} onChange={(e) => setOpeningFloat(e.target.value)} placeholder="0" style={inp} />
@@ -796,7 +796,7 @@ export function Closing({ onAct }: { onAct?: (action: CloseAction, b: Booking) =
             <Line label={diff === 0 ? "Balanced" : diff > 0 ? "Over by" : "Short by"} value={fmt(Math.abs(diff))} strong
               color={diff === 0 ? "#2e9e4e" : diff > 0 ? "#3a8fc4" : "#d44"} />
           )}
-          <div style={{ marginTop: 10 }}>
+          <div style={{ marginTop: 12 }}>
             <Label htmlFor="close-notes">Notes (optional)</Label>
             <Input id="close-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. ₱50 short, change given wrong" style={inp} />
           </div>

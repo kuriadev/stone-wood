@@ -82,7 +82,7 @@ export function RecordPaymentModal({
       onClose={onClose}
       width={620}
       footer={
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <Btn onClick={onClose}>Cancel</Btn>
           <Btn kind="primary" onClick={save} disabled={busy || !booking || max <= 0}>
             {busy ? "Saving…" : kind === "Refund" ? `Record refund of ${fmt(value)}` : `Record ${fmt(value)}`}
@@ -94,10 +94,10 @@ export function RecordPaymentModal({
         <div style={{ marginBottom: 16 }}>
           <Label htmlFor="pay-search">Booking</Label>
           <Input id="pay-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search guest name, booking ID or phone" style={inp} />
-          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto" }}>
+          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8, maxHeight: 220, overflowY: "auto" }}>
             {candidates.map(({ b, m }) => (
               <button key={b.id} type="button" onClick={() => { setPickedId(b.id); setAmount(""); }}
-                style={{ display: "flex", justifyContent: "space-between", gap: 10, textAlign: "left", padding: "9px 12px", borderRadius: 8, cursor: "pointer", background: pickedId === b.id ? "rgba(201,168,76,0.12)" : "transparent", border: `1px solid ${pickedId === b.id ? "rgba(201,168,76,0.5)" : cBr}`, color: C.textH }}>
+                style={{ display: "flex", justifyContent: "space-between", gap: 12, textAlign: "left", padding: "8px 12px", borderRadius: 8, cursor: "pointer", background: pickedId === b.id ? "rgba(201,168,76,0.12)" : "transparent", border: `1px solid ${pickedId === b.id ? "rgba(201,168,76,0.5)" : cBr}`, color: C.textH }}>
                 <span><strong style={{ fontWeight: 600 }}>{b.name}</strong> <span style={{ color: C.textS, fontSize: 12.5 }}>{b.id} · {b.date}</span></span>
                 <span style={{ color: m.due > 0 ? "#d4a800" : C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{m.due > 0 ? `${fmt(m.due)} owed` : "Paid in full"}</span>
               </button>
@@ -109,14 +109,14 @@ export function RecordPaymentModal({
 
       {booking && money && (
         <>
-          <div style={{ background: soft, borderRadius: 8, padding: "10px 14px", marginBottom: 16 }}>
+          <div style={{ background: soft, borderRadius: 8, padding: "12px 16px", marginBottom: 16 }}>
             <Line label="Booking total" value={fmt(booking.total)} />
             <Line label="Paid so far" value={fmt(money.paid)} />
             <Line label="Balance" value={fmt(money.balance)} color={money.balance > 0 ? "#d4a800" : undefined} />
             {(money.penaltyTotal > 0) && <Line label="Unpaid penalties" value={fmt(money.penaltyDue)} color={money.penaltyDue > 0 ? "#d44" : undefined} />}
           </div>
 
-          <div style={{ marginBottom: 14 }}>
+          <div style={{ marginBottom: 16 }}>
             <Label>What is this for?</Label>
             <Segmented<Kind>
               value={kind}
@@ -127,17 +127,17 @@ export function RecordPaymentModal({
                 { value: "Refund", label: "Refund", disabled: money.paid <= 0 },
               ]}
             />
-            <p style={{ color: C.textS, fontSize: 12, margin: "6px 0 0" }}>
+            <p style={{ color: C.textS, fontSize: 12, margin: "8px 0 0" }}>
               Saved as <strong style={{ color: C.textB }}>{type}</strong>.{kind === "Refund" ? " Refunds are subtracted from money collected." : ""}
             </p>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
             <div>
               <Label htmlFor="pay-amount">Amount (₱)</Label>
               <Input id="pay-amount" type="number" min={0} step="0.01" max={max} value={shownAmount}
                 onChange={(e) => setAmount(e.target.value)} style={inp} />
-              <p style={{ color: C.textS, fontSize: 12, margin: "5px 0 0" }}>Up to {fmt(max)}</p>
+              <p style={{ color: C.textS, fontSize: 12, margin: "4px 0 0" }}>Up to {fmt(max)}</p>
             </div>
             <div>
               <Label>Method</Label>
@@ -147,7 +147,7 @@ export function RecordPaymentModal({
           </div>
 
           {method !== "Cash" && (
-            <div style={{ marginBottom: 14 }}>
+            <div style={{ marginBottom: 16 }}>
               <Label htmlFor="pay-ref">{method} reference number</Label>
               <Input id="pay-ref" value={reference} onChange={(e) => setReference(e.target.value)} style={inp} />
             </div>

@@ -90,7 +90,7 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
     ...rows.map((a) => [fmtWhen(a.at), a.actor, a.action, a.bookingId ?? "", a.summary]),
   ]);
 
-  const sel = { ...inp, padding: "8px 10px", width: "auto" } as const;
+  const sel = { ...inp, padding: "8px 12px", width: "auto" } as const;
   const filtersOn = !!(from || to || category || booking || words);
 
   return (
@@ -98,10 +98,10 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
       <PageHead title="Activity" mob={mob} subtitle="Everything that happened, who did it and when. Entries can't be edited or deleted."
         action={<Btn icon="download" onClick={exportCsv} disabled={rows.length === 0}>Export</Btn>} />
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14, alignItems: "center" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" }}>
         <Input value={words} onChange={(e) => setWords(e.target.value)} placeholder="Search the descriptions" aria-label="Search the activity" style={{ ...sel, flex: "1 1 220px" }} />
         <Input value={booking} onChange={(e) => setBooking(e.target.value)} placeholder="Booking ref, e.g. SW-10023" aria-label="Booking reference" style={{ ...sel, width: 190 }} />
-        <FullSelect value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Kind of activity" style={{ ...sel, paddingRight: 38 }}>
+        <FullSelect value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Kind of activity" style={{ ...sel, paddingRight: 40 }}>
           {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
         </FullSelect>
         <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From" style={sel} />
@@ -130,7 +130,7 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
       </TableShell>
       <Pager {...paged} noun="entries" />
 
-      <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
+      <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
         {loading ? <span style={{ color: C.textS, fontSize: 13 }}>Loading…</span>
           : more && <Btn onClick={() => void load(rows[rows.length - 1]?.id)}>Load older</Btn>}
       </div>

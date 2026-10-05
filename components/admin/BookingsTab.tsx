@@ -118,7 +118,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
     setConfirm(null);
   };
 
-  const sel = { ...inp, padding: "8px 10px", width: "auto" } as const;
+  const sel = { ...inp, padding: "8px 12px", width: "auto" } as const;
 
   // One list layout for both tabs (the Archived tab just filters to
   // archived rows), rendered into each TabsContent like Customer Service.
@@ -132,7 +132,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
           const col = s === "All" ? gold : STATUS_COLOR[s];
           return (
             <button key={s} type="button" onClick={() => setStatus(s)} aria-pressed={on}
-              style={{ padding: "7px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 20, cursor: "pointer", background: on ? `${col}1c` : "transparent", color: on ? col : C.textS, border: `1px solid ${on ? col + "77" : cBr}` }}>
+              style={{ padding: "8px 16px", fontSize: 12.5, fontWeight: 600, borderRadius: 20, cursor: "pointer", background: on ? `${col}1c` : "transparent", color: on ? col : C.textS, border: `1px solid ${on ? col + "77" : cBr}` }}>
               {s === "All" ? s : STATUS_LABEL[s] ?? s} ({n})
             </button>
           );
@@ -140,15 +140,15 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
       </div>
 
       {/* Search + filters */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14, alignItems: "center" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" }}>
         <div style={{ position: "relative", flex: "1 1 260px" }}>
           <Icon name="search" size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: 0.45, color: C.textH }} />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, ID, email, phone, date or package" aria-label="Search bookings" style={{ ...sel, width: "100%", paddingLeft: 32 }} />
         </div>
-        <FullSelect value={source} onChange={(e) => setSource(e.target.value as typeof source)} aria-label="Source" style={{ ...sel, paddingRight: 38 }}>
+        <FullSelect value={source} onChange={(e) => setSource(e.target.value as typeof source)} aria-label="Source" style={{ ...sel, paddingRight: 40 }}>
           <option value="All">All sources</option><option>Online</option><option>Walk-In</option>
         </FullSelect>
-        <FullSelect value={slot} onChange={(e) => setSlot(e.target.value as typeof slot)} aria-label="Slot" style={{ ...sel, paddingRight: 38 }}>
+        <FullSelect value={slot} onChange={(e) => setSlot(e.target.value as typeof slot)} aria-label="Slot" style={{ ...sel, paddingRight: 40 }}>
           <option value="All">All slots</option>
           {(["Day", "Night", "WholeDay"] as BookingSlot[]).map((s) => <option key={s} value={s}>{SLOTS[s].label}</option>)}
         </FullSelect>
@@ -178,15 +178,15 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
               <Cell style={td}>
                 <Pill color={STATUS_COLOR[b.status]}>{STATUS_LABEL[b.status] ?? b.status}</Pill>
                 {ops.dateChanges.some((r) => r.bookingId === b.id && r.status === "Pending") && (
-                  <div style={{ color: "#d4a800", fontSize: 11.5, marginTop: 3 }}>Asks to change date</div>
+                  <div style={{ color: "#d4a800", fontSize: 11.5, marginTop: 4 }}>Asks to change date</div>
                 )}
                 {/* Where the day-of work stands; it is done in Daily Operations. */}
                 {b.status === "Confirmed" && (b.checkedInAt || b.checkedOutAt) && (
-                  <div style={{ color: C.textS, fontSize: 11.5, marginTop: 3 }}>{b.checkedOutAt ? "Checked out · to settle" : "Checked in"}</div>
+                  <div style={{ color: C.textS, fontSize: 11.5, marginTop: 4 }}>{b.checkedOutAt ? "Checked out · to settle" : "Checked in"}</div>
                 )}
               </Cell>
               <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
-                <div style={{ display: "inline-flex", gap: 5 }}>
+                <div style={{ display: "inline-flex", gap: 4 }}>
                   <Btn size="sm" onClick={() => setViewId(b.id)}>View</Btn>
                   {!b.archived && b.status === "Pending" && <>
                     <Btn size="sm" kind="green" onClick={() => setConfirm(b)}>Accept</Btn>
@@ -246,9 +246,9 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
               {finishStep(b) === "complete" && <Btn kind="primary" icon="check" onClick={() => { setViewId(null); setFinish({ kind: "complete", id: b.id }); }}>Complete stay{m.due > 0 ? ` · collect ${fmt(m.due)}` : ""}</Btn>}
               {finishStep(b) === "settle" && <Btn kind="primary" icon="receipt" onClick={() => { setViewId(null); setFinish({ kind: "settle", id: b.id }); }}>Settle{m.due > 0 ? ` · ${fmt(m.due)}` : ""}</Btn>}
             </div>}>
-            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 18 }}>
+            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 20 }}>
               <div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
                   {[["Visit", `${fmtDate(b.date)}`], ["Time", `${s.label} · ${s.hours}`], ["Contact", b.contact], ["Email", b.email || "—"], ["Guests", `${b.guests}`], ["Status", STATUS_LABEL[b.status] ?? b.status],
                     ...(b.checkedInAt ? [["Checked in", `${fmtDate(manilaDate(b.checkedInAt))}, ${manilaTime(b.checkedInAt)}`]] : []),
                     ...(b.checkedOutAt ? [["Checked out", `${fmtDate(manilaDate(b.checkedOutAt))}, ${manilaTime(b.checkedOutAt)}`]] : []),
@@ -261,18 +261,18 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                   ))}
                 </div>
                 {b.arrivalTime && <p style={{ color: C.textB, fontSize: 13, margin: "0 0 8px" }}>Arrival time: {b.arrivalTime}</p>}
-                <div style={{ border: `1px solid ${cBr}`, borderRadius: 10, padding: "10px 14px" }}>
+                <div style={{ border: `1px solid ${cBr}`, borderRadius: 10, padding: "12px 16px" }}>
                   <Line label={b.package} value={fmt(Math.max(0, b.total - overtimeFee))} />
                   {overtimeFee > 0 && <Line label={`Overtime (${b.overtime} hr)`} value={fmt(overtimeFee)} />}
                   {bookedRooms.map((r) => <Line key={r.id} label={r.name} value="included" />)}
                   <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}><Line label="Total" value={fmt(b.total)} strong /></div>
                 </div>
-                {b.notes && <p style={{ color: C.textS, fontSize: 13, marginTop: 10 }}>Notes: {b.notes}</p>}
-                {(b.status === "Cancelled" || b.status === "ResortCancelled") && b.cancelReason && <p style={{ color: "#d44", fontSize: 13, marginTop: 10 }}>Cancelled: {b.cancelReason}</p>}
+                {b.notes && <p style={{ color: C.textS, fontSize: 13, marginTop: 12 }}>Notes: {b.notes}</p>}
+                {(b.status === "Cancelled" || b.status === "ResortCancelled") && b.cancelReason && <p style={{ color: "#d44", fontSize: 13, marginTop: 12 }}>Cancelled: {b.cancelReason}</p>}
 
                 {/* What the guest is deciding, or what the resort owes them. */}
                 {b.status === "ResortCancelled" && (
-                  <div style={{ border: "1px solid #9a7bd055", background: "rgba(154,123,208,0.08)", borderRadius: 10, padding: "10px 14px", marginTop: 10, fontSize: 13, color: C.textB, lineHeight: 1.6 }}>
+                  <div style={{ border: "1px solid #9a7bd055", background: "rgba(154,123,208,0.08)", borderRadius: 10, padding: "12px 16px", marginTop: 12, fontSize: 13, color: C.textB, lineHeight: 1.6 }}>
                     <strong style={{ color: C.textH }}>Cancelled by the resort. Waiting for the guest.</strong><br />
                     {choiceOpen(b)
                       ? <>They can pick a new date or a refund until {fmtDeadline(b.choiceDeadline!)}. {fmt(b.heldAmount ?? 0)} is held for them.</>
@@ -280,7 +280,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                   </div>
                 )}
                 {b.refundStatus && (
-                  <div style={{ border: `1px solid ${b.refundStatus === "Owed" ? "#e07a3a66" : cBr}`, borderRadius: 10, padding: "10px 14px", marginTop: 10, fontSize: 13, color: C.textB }}>
+                  <div style={{ border: `1px solid ${b.refundStatus === "Owed" ? "#e07a3a66" : cBr}`, borderRadius: 10, padding: "12px 16px", marginTop: 12, fontSize: 13, color: C.textB }}>
                     <strong style={{ color: b.refundStatus === "Owed" ? "#e07a3a" : "#2e9e4e" }}>
                       {b.refundStatus === "Owed" ? `Refund owed: ${fmt(b.refundAmount ?? 0)}` : `Refund sent${b.refundSentAt ? ` ${fmtDate(manilaDate(b.refundSentAt))}` : ""}: ${fmt(b.refundAmount ?? 0)}`}
                     </strong>
@@ -291,7 +291,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                   </div>
                 )}
                 {request && (
-                  <div style={{ border: "1px solid #d4a80066", background: "rgba(212,168,0,0.06)", borderRadius: 10, padding: "10px 14px", marginTop: 10, fontSize: 13, color: C.textB, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <div style={{ border: "1px solid #d4a80066", background: "rgba(212,168,0,0.06)", borderRadius: 10, padding: "12px 16px", marginTop: 12, fontSize: 13, color: C.textB, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                     <span>
                       <strong style={{ color: C.textH }}>Asks to move to {fmtDate(request.toDate)}.</strong>{" "}
                       {holdActive(request) ? `Held until ${fmtDeadline(request.holdUntil!)}.` : "The hold ran out."}
@@ -301,7 +301,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                 )}
               </div>
               <div>
-                <div style={{ background: soft, borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
+                <div style={{ background: soft, borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}>
                   <Line label="Paid for the stay" value={fmt(m.paid)} />
                   <Line label={b.status === "Cancelled" ? "Balance (forfeited, not owed)" : "Balance"} value={fmt(b.status === "Cancelled" ? Math.max(0, b.total - m.paid) : m.balance)} color={m.balance > 0 ? "#d4a800" : undefined} />
                   {m.penaltyTotal > 0 && <Line label="Damage penalties" value={`${fmt(m.penaltyTotal)} (${fmt(m.penaltyDue)} unpaid)`} color="#d44" />}
@@ -309,10 +309,10 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                     <Line label="Still owed" value={fmt(m.due)} strong color={m.due > 0 ? "#d4a800" : "#2e9e4e"} />
                   </div>
                 </div>
-                <div style={{ color: C.textH, fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Payments</div>
+                <div style={{ color: C.textH, fontWeight: 600, fontSize: 14, marginBottom: 8 }}>Payments</div>
                 {pays.length === 0 && <p style={{ color: C.textS, fontSize: 13 }}>No payments recorded yet.</p>}
                 {pays.map((p) => (
-                  <div key={p.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "7px 0", borderBottom: `1px solid ${cBr}`, opacity: p.voided ? 0.5 : 1 }}>
+                  <div key={p.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderBottom: `1px solid ${cBr}`, opacity: p.voided ? 0.5 : 1 }}>
                     <div>
                       <div style={{ color: C.textH, fontSize: 13 }}>{p.type} · {p.method}{p.voided ? " · voided" : ""}</div>
                       <div style={{ color: C.textS, fontSize: 11.5 }}>{fmtDate(manilaDate(p.receivedAt))}, {manilaTime(p.receivedAt)}{p.reference ? ` · ref ${p.reference}` : ""}</div>
@@ -323,7 +323,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                 {livePayments(pays).length > 0 && <p style={{ color: C.textS, fontSize: 12, marginTop: 8 }}>To correct a payment, void it in Sales → Transactions.</p>}
               </div>
             </div>
-            <div style={{ marginTop: 18 }}><BookingHistory bookingId={b.id} /></div>
+            <div style={{ marginTop: 20 }}><BookingHistory bookingId={b.id} /></div>
           </Modal>
         );
       })()}

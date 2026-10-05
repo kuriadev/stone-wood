@@ -19,7 +19,7 @@ export const goldBtn: CSSProperties = {
   background: "linear-gradient(135deg,#c9a84c,#e8c56a)",
   color: "#1a1000",
   border: "none",
-  padding: "14px 30px",
+  padding: "16px 32px",
   // 46px clears the 44px HIG default control size on its own.
   minHeight: 46,
   display: "inline-flex",
@@ -43,7 +43,7 @@ export const outBtn: CSSProperties = {
   background: "transparent",
   color: gold,
   border: `1px solid ${gold}`,
-  padding: "14px 30px",
+  padding: "16px 32px",
   minHeight: 46,
   display: "inline-flex",
   alignItems: "center",

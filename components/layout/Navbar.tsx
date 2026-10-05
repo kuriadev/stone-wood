@@ -6,6 +6,7 @@ import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { SLOTS } from "@/lib/resort";
+import { TAP_MIN } from "@/lib/spacing";
 import {
   Sheet,
   SheetContent,
@@ -130,7 +131,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
           /* `top` lives in globals.css (.sw-skip / .sw-skip:focus) — an
              inline value here would outrank the :focus rule. */
           position: "absolute", left: 16, zIndex: 300,
-          background: gold, color: "#1a1000", padding: "10px 18px",
+          background: gold, color: "#1a1000", padding: "16px 20px",
           borderRadius: 6, fontSize: 13.5, letterSpacing: 1.5, fontWeight: 600,
           textDecoration: "none",
         }}
@@ -176,8 +177,8 @@ export function Navbar({ page, setPage }: NavbarProps) {
             onClick={() => go("Home")}
             aria-label="StoneWood — go to home"
             style={{
-              background: "none", border: "none", cursor: "pointer", padding: 0,
-              display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2,
+              background: "none", border: "none", cursor: "pointer", padding: "4px 0",
+              display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4,
             }}
           >
             <span
@@ -216,7 +217,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
                     aria-current={active ? "page" : undefined}
                     style={{
                       background: "none", border: "none", cursor: "pointer",
-                      padding: "6px 0", position: "relative",
+                      padding: "16px 0", position: "relative",
                       fontSize: 13, letterSpacing: 2, fontWeight: 500,
                       // "ABOUT US" is the only two-word label, so it is the
                       // first to break. Never let it wrap silently.
@@ -232,7 +233,10 @@ export function Navbar({ page, setPage }: NavbarProps) {
                     {/* Underline grows from centre — marks position, not decoration. */}
                     <span
                       style={{
-                        position: "absolute", left: 0, right: 0, bottom: 0, height: 1,
+                        /* The button pads 16px so the hit area clears 44px;
+                           the underline stays 8px under the text, where it
+                           was before, rather than riding the new bottom. */
+                        position: "absolute", left: 0, right: 0, bottom: 8, height: 1,
                         background: gold,
                         transform: active ? "scaleX(1)" : "scaleX(0)",
                         transformOrigin: "center",
@@ -264,8 +268,8 @@ export function Navbar({ page, setPage }: NavbarProps) {
                 aria-expanded={open}
                 style={{
                   background: "none", border: "none", cursor: "pointer",
-                  width: 40, height: 40, display: "flex", flexDirection: "column",
-                  alignItems: "center", justifyContent: "center", gap: 5, padding: 0,
+                  width: TAP_MIN, height: TAP_MIN, display: "flex", flexDirection: "column",
+                  alignItems: "center", justifyContent: "center", gap: 4, padding: 0,
                   // The Sheet renders its own close in this same corner, and
                   // that one is inside the focus trap, so it is the only one a
                   // keyboard user can reach. This fades out rather than
@@ -357,7 +361,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
               >
                 Manage a reservation
               </button>
-              <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 10, lineHeight: 1.7 }}>
+              <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 12, lineHeight: 1.7 }}>
                 Angono, Rizal · Day {SLOTS.Day.hours} · Night {SLOTS.Night.hours}
               </p>
             </div>

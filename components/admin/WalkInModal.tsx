@@ -166,9 +166,9 @@ export function WalkInModal({
     onClose();
   };
 
-  const col: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 14, minWidth: 0 };
+  const col: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 16, minWidth: 0 };
   const choice = (on: boolean): React.CSSProperties => ({
-    padding: "7px 12px", fontSize: 12.5, borderRadius: 7, cursor: "pointer",
+    padding: "8px 12px", fontSize: 12.5, borderRadius: 7, cursor: "pointer",
     background: on ? `${gold}1c` : "transparent", color: on ? gold : C.textS, border: `1px solid ${on ? gold + "66" : cBr}`,
   });
 
@@ -189,7 +189,7 @@ export function WalkInModal({
         </div>
       }
     >
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1.25fr 1fr", gap: 22 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1.25fr 1fr", gap: 24 }}>
         {/* ── Guest ── */}
         <div style={col}>
           <div>
@@ -219,8 +219,8 @@ export function WalkInModal({
           <div>
             <Label>Booking type</Label>
             <Segmented value={mode} onChange={(m) => { setMode(m); if (m === "Custom") setPkgId(null); }} options={[
-              { value: "Custom", label: <><Icon name="toolbox" size={13} style={{ marginRight: 6 }} />Custom tour</> },
-              { value: "Package", label: <><Icon name="gift" size={13} style={{ marginRight: 6 }} />Package</> },
+              { value: "Custom", label: <><Icon name="toolbox" size={13} style={{ marginRight: 8 }} />Custom tour</> },
+              { value: "Package", label: <><Icon name="gift" size={13} style={{ marginRight: 8 }} />Package</> },
             ]} />
           </div>
 
@@ -257,7 +257,7 @@ export function WalkInModal({
               </FullSelect>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "0.8fr 1.2fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "0.8fr 1.2fr", gap: 12 }}>
               <div>
                 <Label htmlFor="wi-guests">Guests</Label>
                 {/* An exclusive POOL buyout is the whole resort, so the count
@@ -275,7 +275,7 @@ export function WalkInModal({
                     { value: "Exclusive", label: "Exclusive" },
                   ]} />
                 ) : (
-                  <p style={{ color: C.textS, fontSize: 12.5, margin: "6px 0 0", lineHeight: 1.5 }}>
+                  <p style={{ color: C.textS, fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.5 }}>
                     No pool on this booking. The events venue is always exclusive.
                   </p>
                 )}
@@ -297,7 +297,7 @@ export function WalkInModal({
           {showRooms && (
             <div>
               <Label>{requiresRoom ? `Room (included, ${Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}% off)` : "Rooms (optional)"}</Label>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {bookableRooms.map((r) => {
                   const on = wf.rooms.includes(r.id);
                   const taken = takenRooms.has(r.id) && !on;
@@ -315,7 +315,7 @@ export function WalkInModal({
 
         {/* ── Price & payment ── */}
         <div style={col}>
-          <div style={{ background: soft, borderRadius: 10, padding: "12px 14px" }}>
+          <div style={{ background: soft, borderRadius: 10, padding: "12px 16px" }}>
             <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>{label} <span style={{ color: tier === "Exclusive" ? gold : "#2e9e4e", fontSize: 12, fontWeight: 500 }}>· {tier}</span></div>
             {/* One line per thing being charged. A single "pool" line read
                 wrong the moment the venue could be booked without one. */}
@@ -339,7 +339,7 @@ export function WalkInModal({
             )}
             {price.roomsFeeRaw > 0 && <Line label="Rooms" value={fmt(price.roomsFeeRaw)} />}
             {price.roomBundleDiscount > 0 && <Line label="Room discount" value={`−${fmt(price.roomBundleDiscount)}`} color="#2e9e4e" />}
-            <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 6, paddingTop: 4 }}>
+            <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 8, paddingTop: 4 }}>
               <Line label="Total" value={fmt(total)} strong />
             </div>
           </div>

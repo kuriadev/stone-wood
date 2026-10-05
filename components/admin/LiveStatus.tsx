@@ -41,7 +41,7 @@ export function LiveStatus() {
       : "Connecting…";
 
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 6px 5px 12px", borderRadius: 20, border: `1px solid ${live.failed ? "#d4a80066" : cBr}`, fontSize: 12.5, color: live.failed ? "#d4a800" : C.textS, whiteSpace: "nowrap" }}>
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 8px 4px 12px", borderRadius: 20, border: `1px solid ${live.failed ? "#d4a80066" : cBr}`, fontSize: 12.5, color: live.failed ? "#d4a800" : C.textS, whiteSpace: "nowrap" }}>
       {live.failed
         ? <Icon name="cloud-off" size={13} />
         : <span aria-hidden className={live.syncedAt ? "motion-safe:animate-pulse" : undefined} style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />}

@@ -154,13 +154,13 @@ export function StatCard({
         background: s.bg,
         border: `1px solid ${s.border}`,
         borderRadius: 14,
-        padding: mob ? "14px 14px" : "18px 20px",
+        padding: mob ? "16px 16px" : "20px 20px",
         boxShadow: isDark
           ? "0 1px 2px rgba(0,0,0,0.30)"
           : "0 1px 2px rgba(60,50,30,0.05), 0 8px 24px -16px rgba(60,50,30,0.12)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: mob ? 10 : 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: mob ? 12 : 16 }}>
         <div
           style={{
             width: 30,
@@ -189,7 +189,7 @@ export function StatCard({
         </span>
       </div>
 
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
         {/* Tabular numerals keep figures the same width, so columns of
             numbers line up instead of shifting as digits change. */}
         <span
@@ -292,8 +292,8 @@ export function ProgressRow({
   const C = T(isDark);
 
   return (
-    <div style={{ marginBottom: 15 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 7 }}>
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
         <span style={{ color: C.textB, fontSize: 14 }}>{label}</span>
         <span style={{ fontSize: 14, fontVariantNumeric: "tabular-nums" }}>
           <span style={{ color, fontWeight: 700 }}>{value}</span>{" "}

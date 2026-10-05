@@ -549,11 +549,11 @@
     const stepHead = (o: { eyebrow: string; title: string; note?: string; live?: boolean }) => (
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 12 }}>
         <div style={{ minWidth: 0 }}>
-          <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 9px", fontWeight: 700 }}>{o.eyebrow}</p>
+          <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 8px", fontWeight: 700 }}>{o.eyebrow}</p>
           <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 24 : 30, margin: 0, fontWeight: 400, lineHeight: 1.15 }}>{o.title}</h3>
         </div>
         {o.note && (
-          <div style={{ display: "flex", alignItems: "center", gap: 7, paddingTop: mob ? 0 : 22, color: o.live ? "#4caf50" : undefined }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: mob ? 0 : 24, color: o.live ? "#4caf50" : undefined }}>
             {o.live && <span className="sw-live-dot" aria-hidden="true" />}
             <span style={{ color: C.textS, fontSize: o.live ? 11 : 12.5, letterSpacing: o.live ? 1.3 : 0 }}>{o.note}</span>
           </div>
@@ -604,7 +604,7 @@
     /* BACK on the left, the forward action given the wider half: the primary
        action is the one the guest is most likely to want. */
     const navRow = (back: { label: string; onClick: () => void }, fwd: { label: string; onClick: () => void; disabled?: boolean }) => (
-      <div style={{ display: "flex", gap: 12, marginTop: 26, flexDirection: mob ? "column-reverse" : "row" }}>
+      <div style={{ display: "flex", gap: 12, marginTop: 28, flexDirection: mob ? "column-reverse" : "row" }}>
         {/* outBtn paints its label in the raw brand gold, which is a
             surface colour: on the light theme that is 2.29:1 against
             white. goldInk is the text-safe step of the same gold. */}
@@ -626,8 +626,8 @@
       <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "32px 16px" : "80px 24px" }}>
         <div style={{ maxWidth: 1080, margin: "0 auto" }}>
           <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 12.5, marginBottom: 8, textAlign: "center" }}>RESERVATIONS</p>
-          <h2 style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 30 : 46, color: C.textH, textAlign: "center", marginBottom: 10, fontWeight: 400, lineHeight: 1.1 }}>Create Your Stay</h2>
-          <p style={{ color: C.textS, fontSize: mob ? 14.5 : 16, textAlign: "center", margin: "0 0 10px" }}>
+          <h2 style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 30 : 46, color: C.textH, textAlign: "center", marginBottom: 12, fontWeight: 400, lineHeight: 1.1 }}>Create Your Stay</h2>
+          <p style={{ color: C.textS, fontSize: mob ? 14.5 : 16, textAlign: "center", margin: "0 0 12px" }}>
             A simple, secure booking in just a few steps.
           </p>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: mob ? 24 : 32 }}>
@@ -640,8 +640,8 @@
           {/* Progress. One track rather than six nodes: the guest reads
               position from how far the fill has travelled, and the fill
               animates between steps instead of jumping. */}
-          <div style={{ marginBottom: mob ? 26 : 38 }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 9 }}>
+          <div style={{ marginBottom: mob ? 28 : 40 }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
               <span style={{ color: C.textS, fontSize: 11, letterSpacing: 1.8 }}>
                 STEP {currentIdx + 1} OF {labels.length}
               </span>
@@ -682,7 +682,7 @@
                       // 44px keeps the hit area at the HIG default even though
                       // the label itself is one short line.
                       minHeight: 44,
-                      padding: "0 2px",
+                      padding: "0 4px",
                       background: "transparent",
                       border: "none",
                       textAlign: "center",
@@ -722,11 +722,11 @@
                   note: "LIVE AVAILABILITY CONNECTED",
                   live: true,
                 })}
-                <p style={{ color: C.textS, fontSize: 14.5, margin: "0 0 22px", lineHeight: 1.65, maxWidth: 560 }}>
+                <p style={{ color: C.textS, fontSize: 14.5, margin: "0 0 24px", lineHeight: 1.65, maxWidth: 560 }}>
                   Choose the time that works best for your group. You can still adjust the guest count and booking type in the next step.
                 </p>
 
-                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 16 }}>
                   {([
                     { id: "Day", icon: "sun" },
                     { id: "Night", icon: "moon" },
@@ -745,15 +745,15 @@
                         type="button"
                         aria-pressed={selected}
                         onClick={() => { setSlot(opt.id); if (opt.id === "WholeDay") setTierChoice("Exclusive"); }}
-                        style={{ ...tileStyle(selected), padding: mob ? "18px 18px" : "22px 20px" }}
+                        style={{ ...tileStyle(selected), padding: mob ? "20px 20px" : "24px 20px" }}
                       >
-                        <span style={{ display: "block", marginBottom: 14, color: C.goldInk, lineHeight: 0 }}>
+                        <span style={{ display: "block", marginBottom: 16, color: C.goldInk, lineHeight: 0 }}>
                           <Icon name={opt.icon as IconName} size={24} strokeWidth={1.6} />
                         </span>
-                        <span style={{ display: "block", color: C.textH, fontSize: 19, fontFamily: "'Satoshi',system-ui,sans-serif", marginBottom: 9 }}>
+                        <span style={{ display: "block", color: C.textH, fontSize: 19, fontFamily: "'Satoshi',system-ui,sans-serif", marginBottom: 8 }}>
                           {SLOTS[opt.id].label}
                         </span>
-                        <span style={{ display: "block", color: C.textB, fontSize: 12.5, fontWeight: 600, marginBottom: 5 }}>
+                        <span style={{ display: "block", color: C.textB, fontSize: 12.5, fontWeight: 600, marginBottom: 4 }}>
                           {SLOTS[opt.id].hours}
                         </span>
                         <span style={{ display: "block", color: goldSmall, fontSize: 12 }}>{price}</span>
@@ -765,10 +765,10 @@
                 {/* Events venue. Stated as two named choices rather than a
                     checkbox: "no venue" is a real, priced option, and a lone
                     checkbox left guests unsure whether they had opted in. */}
-                <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 26, paddingTop: 24, display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1fr) minmax(0,1.15fr)", gap: mob ? 18 : 28, alignItems: "center" }}>
+                <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 28, paddingTop: 24, display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1fr) minmax(0,1.15fr)", gap: mob ? 20 : 28, alignItems: "center" }}>
                   <div>
-                    <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 9px", fontWeight: 700 }}>EVENT BOOKING</p>
-                    <h4 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 20 : 23, margin: "0 0 9px", fontWeight: 400 }}>
+                    <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 8px", fontWeight: 700 }}>EVENT BOOKING</p>
+                    <h4 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 20 : 23, margin: "0 0 8px", fontWeight: 400 }}>
                       Need space for a celebration?
                     </h4>
                     <p style={{ color: C.textS, fontSize: 13, margin: 0, lineHeight: 1.6 }}>
@@ -787,7 +787,7 @@
                         onClick={() => setResource(opt.id)}
                         style={tileStyle(resource === opt.id)}
                       >
-                        <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 5 }}>{opt.title}</span>
+                        <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 4 }}>{opt.title}</span>
                         <span style={{ display: "block", color: C.textS, fontSize: 12, lineHeight: 1.5 }}>{opt.sub}</span>
                       </button>
                     ))}
@@ -833,7 +833,7 @@
                       the guest works inside, with the availability verdict
                       attached to it rather than floating after it. */}
                   <div
-                    style={{ marginBottom: 22, marginTop: 16, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "14px 12px 16px" : "22px 24px 20px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}
+                    style={{ marginBottom: 24, marginTop: 16, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "16px 12px 16px" : "24px 24px 20px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}
                     role="group"
                     aria-labelledby="booknow-date-label"
                   >
@@ -850,19 +850,19 @@
                     />
 
                     {date && !dateOk && (
-                      <p style={{ color: "#e07a7a", fontSize: 13, marginTop: 14, marginBottom: 0 }}>
+                      <p style={{ color: "#e07a7a", fontSize: 13, marginTop: 16, marginBottom: 0 }}>
                         {dateCapacity.reason ?? "This date is unavailable. Please choose another."}
                       </p>
                     )}
 
                     {date && dateOk && (
-                      <p style={{ color: "#6ec071", fontSize: 13, marginTop: 14, marginBottom: 0 }}>
+                      <p style={{ color: "#6ec071", fontSize: 13, marginTop: 16, marginBottom: 0 }}>
                         Available on {fmtDate(date)}. Your date is held only after payment.
                       </p>
                     )}
 
                     {date && resource !== "Venue" && tier === "Shared" && (
-                      <p style={{ color: C.textS, fontSize: 12.5, marginTop: 6, marginBottom: 0 }}>
+                      <p style={{ color: C.textS, fontSize: 12.5, marginTop: 8, marginBottom: 0 }}>
                         Shared: {sharedUsage.used} of {sharedUsage.max} spots taken for this {SLOTS[slot].label}.
                       </p>
                     )}
@@ -877,7 +877,7 @@
                       style={{
                         border: `1px solid ${gold}55`,
                         borderRadius: 10,
-                        padding: "18px 20px",
+                        padding: "20px 20px",
                         marginBottom: 24,
                         background: isDark ? "rgba(201,168,76,0.06)" : "rgba(201,168,76,0.08)",
                       }}
@@ -893,7 +893,7 @@
                       {/* A single-slot package: the guest chooses when. Availability
                           above is checked for the slot picked here. */}
                       {initialPackage!.slotMode !== "WholeDay" && (
-                        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
                           {(["Day", "Night"] as const).map((sl) => {
                             const active = slot === sl;
                             return (
@@ -902,14 +902,14 @@
                                 type="button"
                                 onClick={() => setSlot(sl)}
                                 style={{
-                                  flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer",
+                                  flex: 1, padding: "12px 8px", borderRadius: 8, cursor: "pointer",
                                   border: `1px solid ${active ? gold : cBr}`,
                                   background: active ? "rgba(201,168,76,0.15)" : "transparent",
                                   color: active ? gold : C.textS, textAlign: "left",
                                 }}
                               >
-                                <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: 0.8 }}><><Icon name={sl === "Day" ? "sun" : "moon"} size={13} style={{ marginRight: 5 }} />{sl === "Day" ? "DAY" : "NIGHT"}</></div>
-                                <div style={{ fontSize: 11.5, marginTop: 2, opacity: 0.8 }}>{SLOTS[sl].hours}</div>
+                                <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: 0.8 }}><><Icon name={sl === "Day" ? "sun" : "moon"} size={13} style={{ marginRight: 4 }} />{sl === "Day" ? "DAY" : "NIGHT"}</></div>
+                                <div style={{ fontSize: 11.5, marginTop: 4, opacity: 0.8 }}>{SLOTS[sl].hours}</div>
                               </button>
                             );
                           })}
@@ -921,7 +921,7 @@
                     style={{
                       display: "grid",
                       gridTemplateColumns: mob ? "1fr" : "1fr 1fr",
-                      gap: 14,
+                      gap: 16,
                       marginBottom: 24,
                     }}
                   >
@@ -930,7 +930,7 @@
                       style={{
                         border: `1px solid ${cBr}`,
                         borderRadius: 10,
-                        padding: "16px 18px",
+                        padding: "16px 20px",
                         background: isDark
                           ? "rgba(255,255,255,0.02)"
                           : "rgba(0,0,0,0.02)",
@@ -943,7 +943,7 @@
                           fontSize: 11.5,
                           letterSpacing: 2,
                           display: "block",
-                          marginBottom: 6,
+                          marginBottom: 8,
                         }}
                       >
                         NUMBER OF GUESTS
@@ -953,7 +953,7 @@
                         style={{
                           color: C.textS,
                           fontSize: 12.5,
-                          marginBottom: 14,
+                          marginBottom: 16,
                           opacity: 0.75,
                         }}
                       >
@@ -1034,16 +1034,16 @@
                         </p>
                       )}
                       {!guestsLocked && guests >= GUESTS_MAX && (
-                        <p style={{ color: "#e55", fontSize: 12.5, marginTop: 6 }}>
+                        <p style={{ color: "#e55", fontSize: 12.5, marginTop: 8 }}>
                           Maximum {GUESTS_MAX} guests per booking — please call us for larger groups.
                         </p>
                       )}
                       {resource === "Venue" || slot === "WholeDay" ? (
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 12, padding: "5px 10px", borderRadius: 20, background: "rgba(201,168,76,0.15)", border: `1px solid ${gold}66` }}>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 12, padding: "4px 12px", borderRadius: 20, background: "rgba(201,168,76,0.15)", border: `1px solid ${gold}66` }}>
                           <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 1, color: C.goldInk }}>{resource === "Venue" ? "🔒 EXCLUSIVE — VENUE RENTAL" : "🔒 EXCLUSIVE — WHOLE DAY"}</span>
                         </div>
                       ) : (
-                        <div style={{ marginTop: 14 }}>
+                        <div style={{ marginTop: 16 }}>
                           <p style={{ color: C.textS, fontSize: 11.5, letterSpacing: 1.5, marginBottom: 8 }}>
                             POOL ACCESS
                           </p>
@@ -1058,7 +1058,7 @@
                                   onClick={() => setTierChoice(opt)}
                                   style={{
                                     flex: 1,
-                                    padding: "8px 6px",
+                                    padding: "8px 8px",
                                     borderRadius: 8,
                                     cursor: "pointer",
                                     fontSize: 11.5,
@@ -1079,13 +1079,13 @@
                                     color: active ? gold : C.textS,
                                   }}
                                 >
-                                  <><Icon name={opt === "Exclusive" ? "lock" : "handshake"} size={12} style={{ marginRight: 5 }} />{opt === "Exclusive" ? "EXCLUSIVE" : "SHARED"}</>
+                                  <><Icon name={opt === "Exclusive" ? "lock" : "handshake"} size={12} style={{ marginRight: 4 }} />{opt === "Exclusive" ? "EXCLUSIVE" : "SHARED"}</>
                                   {isDefault ? " (SUGGESTED)" : ""}
                                 </button>
                               );
                             })}
                           </div>
-                          <p style={{ color: C.textS, fontSize: 11.5, marginTop: 6, opacity: 0.75, lineHeight: 1.5 }}>
+                          <p style={{ color: C.textS, fontSize: 11.5, marginTop: 8, opacity: 0.75, lineHeight: 1.5 }}>
                             {tier === "Exclusive"
                               ? `Whole-pool buyout, fixed at ${RESORT_MAX_CAPACITY} guests — no other group in your ${SLOTS[slot].label}. 5% off the flat rate.`
                               : `Pool shared with other groups in your ${SLOTS[slot].label} — billed per guest, up to ${RESORT_MAX_CAPACITY} guests in total.`}
@@ -1102,7 +1102,7 @@
                       style={{
                         border: `1px solid ${cBr}`,
                         borderRadius: 10,
-                        padding: "16px 18px",
+                        padding: "16px 20px",
                         background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
                       }}
                     >
@@ -1119,7 +1119,7 @@
                           ? `Ends at ${SLOTS.Night.end} sharp. ${QUIET_HOURS_POLICY}`
                           : `The resort is yours all day and night — no turnover in between. ${QUIET_HOURS_POLICY}`}
                       </p>
-                      <p style={{ color: C.goldInk, fontSize: 12.5, margin: "14px 0 0", paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+                      <p style={{ color: C.goldInk, fontSize: 12.5, margin: "16px 0 0", paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
                         Shared {fmt(SHARED_PER_HEAD_RATE)} / guest · Exclusive{" "}
                         {fmt(priceBooking({ resource: "Pool", tier: "Exclusive", slot, guests: 1, overtime: 0, roomPrices: [] }).total)}
                       </p>
@@ -1149,7 +1149,7 @@
                     ? `${Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}% off its normal rate.`
                     : "Skip this step if you only need the pool.",
                 })}
-                <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 20, marginBottom: 18 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 20, marginBottom: 20 }}>
                   {bookableRooms.length === 0 && (
                     <p style={{ color: C.textS, fontSize: 13.5 }}>No rooms are currently available — please check back later or call us.</p>
                   )}
@@ -1162,11 +1162,11 @@
                       type="button"
                       aria-pressed={selRooms.length === 0}
                       onClick={() => selRooms.forEach((id) => toggleRoom(id))}
-                      style={{ ...tileStyle(selRooms.length === 0), display: "flex", alignItems: "center", gap: 14, padding: "16px 18px" }}
+                      style={{ ...tileStyle(selRooms.length === 0), display: "flex", alignItems: "center", gap: 16, padding: "16px 20px" }}
                     >
                       {pickCircle(selRooms.length === 0)}
                       <span style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 3 }}>No room needed</span>
+                        <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 4 }}>No room needed</span>
                         <span style={{ display: "block", color: C.textS, fontSize: 12.5 }}>Continue with your pool reservation only.</span>
                       </span>
                       <span style={{ color: C.goldInk, fontSize: 15, fontFamily: "'Satoshi',system-ui,sans-serif", flexShrink: 0 }}>Included</span>
@@ -1179,14 +1179,14 @@
                     return (
                       <div
                         key={r.id}
-                        style={{ ...tileStyle(sel), opacity: taken && !sel ? 0.45 : 1, cursor: "default", padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, flexWrap: mob ? "wrap" : "nowrap" }}
+                        style={{ ...tileStyle(sel), opacity: taken && !sel ? 0.45 : 1, cursor: "default", padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: mob ? "wrap" : "nowrap" }}
                       >
                         <button
                           type="button"
                           aria-pressed={sel}
                           disabled={taken && !sel}
                           onClick={() => { if (!taken || sel) toggleRoom(r.id); }}
-                          style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 14, background: "none", border: "none", padding: 0, textAlign: "left", cursor: taken && !sel ? "not-allowed" : "pointer", font: "inherit", color: "inherit" }}
+                          style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 16, background: "none", border: "none", padding: 0, textAlign: "left", cursor: taken && !sel ? "not-allowed" : "pointer", font: "inherit", color: "inherit" }}
                         >
                           {pickCircle(sel)}
                           {/* alt="" because the room name sits right beside it: a
@@ -1194,9 +1194,9 @@
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img loading="lazy" decoding="async" src={r.img} alt="" style={{ width: 76, height: 50, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
                           <span style={{ flex: 1, minWidth: 0 }}>
-                            <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 3 }}>{r.name}</span>
+                            <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 4 }}>{r.name}</span>
                             <span style={{ display: "block", color: C.textS, fontSize: 12.5 }}>{r.beds} · Up to {r.capacity} guests</span>
-                            {taken && <span style={{ display: "block", color: "#e07a7a", fontSize: 12, marginTop: 3 }}>Already booked on {fmtDate(date)}</span>}
+                            {taken && <span style={{ display: "block", color: "#e07a7a", fontSize: 12, marginTop: 4 }}>Already booked on {fmtDate(date)}</span>}
                           </span>
                           <span style={{ textAlign: "right", flexShrink: 0 }}>
                             {requiresRoom && <span style={{ display: "block", color: C.textXS, fontSize: 12, textDecoration: "line-through" }}>{fmt(r.price)}</span>}
@@ -1230,7 +1230,7 @@
                 )}
 
                 {venueFee > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: isDark ? "#121212" : "#f5f0e8", border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", background: isDark ? "#121212" : "#f5f0e8", border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 12 }}>
                     <span style={{ color: C.textS, fontSize: 13.5 }}>Event Venue Rental</span>
                     <span style={{ color: C.goldInk, fontWeight: 700, fontSize: 14.5 }}>{fmt(venueFee)}</span>
                   </div>
@@ -1263,7 +1263,7 @@
                     width it actually needs. */}
                 <div className="mb-5 grid gap-4 md:grid-cols-2">
                   <div>
-                    <Label htmlFor="bn-name" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>FULL NAME</Label>
+                    <Label htmlFor="bn-name" className="mb-2 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>FULL NAME</Label>
                     <div style={{ position: "relative" }}>
                       <Input
                         id="bn-name"
@@ -1287,7 +1287,7 @@
                   </div>
 
                   <div>
-                    <Label htmlFor="bn-email" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>EMAIL ADDRESS</Label>
+                    <Label htmlFor="bn-email" className="mb-2 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>EMAIL ADDRESS</Label>
                     <Input
                       id="bn-email"
                       type="email"
@@ -1305,7 +1305,7 @@
                   </div>
 
                   <div>
-                    <Label htmlFor="bn-contact" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>CONTACT NUMBER</Label>
+                    <Label htmlFor="bn-contact" className="mb-2 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>CONTACT NUMBER</Label>
                     <div style={{ position: "relative" }}>
                       <Input
                         id="bn-contact"
@@ -1327,7 +1327,7 @@
                   </div>
 
                   <div className="md:col-span-2">
-                    <Label htmlFor="bn-notes" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>SPECIAL NOTES (OPTIONAL)</Label>
+                    <Label htmlFor="bn-notes" className="mb-2 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>SPECIAL NOTES (OPTIONAL)</Label>
                     <Textarea
                       id="bn-notes"
                       value={form.notes}
@@ -1347,7 +1347,7 @@
                 {/* Summary — an itemized liquidation rather than one lump
                     total, so a guest can see exactly what each peso is for
                     before paying. */}
-                <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "18px 16px" : "22px 24px", marginBottom: 4, background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
+                <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : "24px 24px", marginBottom: 4, background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
                   <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
                     <span style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.2, fontWeight: 700 }}>RESERVATION SUMMARY</span>
                     <span style={{ color: C.goldInk, fontSize: 24, fontFamily: "'Satoshi',system-ui,sans-serif" }}>{fmt(total)}</span>
@@ -1361,7 +1361,7 @@
                       ? rooms.filter((r) => selRooms.includes(r.id)).map((r) => r.name).join(", ")
                       : "No room add-on"],
                   ] as const).map(([l, v]) => (
-                    <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "11px 0", borderTop: `1px solid ${C.border}` }}>
+                    <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "12px 0", borderTop: `1px solid ${C.border}` }}>
                       <span style={{ color: C.textS, fontSize: 13 }}>{l}</span>
                       <span style={{ color: C.textB, fontSize: 13, fontWeight: 600, textAlign: "right" }}>{v}</span>
                     </div>
@@ -1371,7 +1371,7 @@
                       something the guest picked and saw priced; a discount is
                       not, so hiding it would make the total unexplainable. */}
                   {priceLines.filter((l) => l.discount).map((l) => (
-                    <div key={l.label} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "11px 0", borderTop: `1px solid ${C.border}` }}>
+                    <div key={l.label} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "12px 0", borderTop: `1px solid ${C.border}` }}>
                       <span style={{ color: "#6ec071", fontSize: 13 }}>{l.label}</span>
                       <span style={{ color: "#6ec071", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>-{fmt(l.amount)}</span>
                     </div>
@@ -1380,9 +1380,9 @@
                   {/* How much to pay now. A radio group of two cards: the 50%
                       deposit stays the default, and paying in full means
                       nothing is left to settle on arrival. */}
-                  <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 6, paddingTop: 14 }}>
-                    <div id="pay-plan-label" style={{ color: C.textS, fontSize: 12, letterSpacing: 1.6, fontWeight: 700, marginBottom: 10 }}>HOW MUCH TO PAY NOW</div>
-                    <div role="radiogroup" aria-labelledby="pay-plan-label" style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 10 }}>
+                  <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 8, paddingTop: 16 }}>
+                    <div id="pay-plan-label" style={{ color: C.textS, fontSize: 12, letterSpacing: 1.6, fontWeight: 700, marginBottom: 12 }}>HOW MUCH TO PAY NOW</div>
+                    <div role="radiogroup" aria-labelledby="pay-plan-label" style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12 }}>
                       {([
                         { full: false, title: "50% deposit", amount: down, note: `${fmt(total - down)} paid at the resort` },
                         { full: true, title: "Pay in full", amount: total, note: "Nothing to pay on arrival" },
@@ -1390,20 +1390,20 @@
                         const on = payFull === o.full;
                         return (
                           <button key={o.title} type="button" role="radio" aria-checked={on} onClick={() => setPayFull(o.full)}
-                            style={{ textAlign: "left", padding: "12px 14px", borderRadius: 10, cursor: "pointer", background: on ? "rgba(201,168,76,0.12)" : "transparent", border: `1px solid ${on ? gold : C.border}`, display: "flex", gap: 10, alignItems: "flex-start" }}>
-                            <span aria-hidden="true" style={{ width: 16, height: 16, borderRadius: "50%", border: `1.5px solid ${on ? gold : C.textS}`, marginTop: 2, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            style={{ textAlign: "left", padding: "12px 16px", borderRadius: 10, cursor: "pointer", background: on ? "rgba(201,168,76,0.12)" : "transparent", border: `1px solid ${on ? gold : C.border}`, display: "flex", gap: 12, alignItems: "flex-start" }}>
+                            <span aria-hidden="true" style={{ width: 16, height: 16, borderRadius: "50%", border: `1.5px solid ${on ? gold : C.textS}`, marginTop: 4, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                               {on && <span style={{ width: 8, height: 8, borderRadius: "50%", background: gold }} />}
                             </span>
                             <span style={{ minWidth: 0 }}>
                               <span style={{ display: "block", color: C.textH, fontSize: 13.5, fontWeight: 700 }}>{o.title} · {fmt(o.amount)}</span>
-                              <span style={{ display: "block", color: C.textS, fontSize: 12, marginTop: 2 }}>{o.note}</span>
+                              <span style={{ display: "block", color: C.textS, fontSize: 12, marginTop: 4 }}>{o.note}</span>
                             </span>
                           </button>
                         );
                       })}
                     </div>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginTop: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginTop: 16 }}>
                     <span style={{ color: C.textS, fontSize: 13 }}>Due now</span>
                     <span style={{ color: C.goldInk, fontSize: 13, fontWeight: 700 }}>{fmt(payFull ? total : down)}</span>
                   </div>
@@ -1413,7 +1413,7 @@
                   </div>
                 </div>
                 {!dateOk && (
-                  <p style={{ color: "#e55", fontSize: 13.5, marginBottom: 10 }}>
+                  <p style={{ color: "#e55", fontSize: 13.5, marginBottom: 12 }}>
                     ⚠ {describeDateProblem(date) ?? "That date is no longer available — please pick another."}
                   </p>
                 )}
@@ -1437,7 +1437,7 @@
                 {qrExpired && (
                   <div style={{ position: "absolute", inset: 0, background: isDark ? "rgba(6,5,4,0.96)" : "rgba(250,247,242,0.97)", zIndex: 10, borderRadius: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center" }}>
                     <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.3)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, fontSize: 28 }}>⏱</div>
-                    <h3 style={{ color: "#e55", fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 22, fontWeight: 400, marginBottom: 10 }}>QR Code Expired</h3>
+                    <h3 style={{ color: "#e55", fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 22, fontWeight: 400, marginBottom: 12 }}>QR Code Expired</h3>
                     <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.8, marginBottom: 28, maxWidth: 320 }}>Your payment window has expired. Please go back and try again.</p>
                     <button className="sw-btn" onClick={() => { setQrExpired(false); setQrRetryKey((k) => k + 1); }} style={{ ...goldBtn }}>TRY AGAIN</button>
                   </div>
@@ -1446,20 +1446,20 @@
                     which made this one screen look like a different site. It
                     now carries the same head as every other step, with the
                     countdown as a pill rather than a headline. */}
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 22 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 9px", fontWeight: 700 }}>SECURE PAYMENT</p>
+                    <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 8px", fontWeight: 700 }}>SECURE PAYMENT</p>
                     <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 24 : 30, margin: 0, fontWeight: 400, lineHeight: 1.15 }}>
                       {paidInFull ? "Pay in full" : "Pay the 50% reservation deposit"}
                     </h3>
                   </div>
-                  <div style={{ border: `1px solid ${qrSeconds <= 60 ? "#e07a7a" : C.border}`, borderRadius: 999, padding: "9px 16px", fontSize: 12.5, color: qrSeconds <= 60 ? "#e07a7a" : C.textS, whiteSpace: "nowrap", marginTop: mob ? 0 : 18 }}>
+                  <div style={{ border: `1px solid ${qrSeconds <= 60 ? "#e07a7a" : C.border}`, borderRadius: 999, padding: "8px 16px", fontSize: 12.5, color: qrSeconds <= 60 ? "#e07a7a" : C.textS, whiteSpace: "nowrap", marginTop: mob ? 0 : 20 }}>
                     Session expires in <strong style={{ color: qrSeconds <= 60 ? "#e07a7a" : C.textB, fontFamily: "monospace" }}>{fmtTimer(qrSeconds)}</strong>
                   </div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,0.85fr) minmax(0,1.15fr)", gap: mob ? 16 : 20, alignItems: "start" }}>
                   {/* QR */}
-                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "18px 16px" : "22px 20px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : "24px 20px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
                     {/* Real QR from PayMongo — unique to this payment intent.
                         Never render a placeholder here: a decorative QR that
                         cannot be paid is worse than an honest spinner. */}
@@ -1498,8 +1498,8 @@
                     </div>
                   </div>
                   {/* Order summary */}
-                  <div style={{ minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "18px 16px" : "22px 24px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
-                    <div style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.2, fontWeight: 700, marginBottom: 14 }}>ORDER SUMMARY</div>
+                  <div style={{ minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : "24px 24px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
+                    <div style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.2, fontWeight: 700, marginBottom: 16 }}>ORDER SUMMARY</div>
                     <div style={{ marginBottom: 16 }}>
                       {([
                         ["Guest", form.name || "\u2014"],
@@ -1508,13 +1508,13 @@
                         ["Guests", overtime > 0 ? `${guests} \u00b7 +${overtime}hr OT` : String(guests)],
                         ["Full total", fmt(serverQuote?.total ?? total)],
                       ] as const).map(([l, v]) => (
-                        <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "11px 0", borderBottom: `1px solid ${C.border}` }}>
+                        <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "12px 0", borderBottom: `1px solid ${C.border}` }}>
                           <span style={{ color: C.textS, fontSize: 13 }}>{l}</span>
                           <span style={{ color: C.textB, fontSize: 13, fontWeight: 600, textAlign: "right" }}>{v}</span>
                         </div>
                       ))}
                     </div>
-                    <p style={{ color: C.textS, fontSize: 12, lineHeight: 1.6, margin: "0 0 14px" }}>
+                    <p style={{ color: C.textS, fontSize: 12, lineHeight: 1.6, margin: "0 0 16px" }}>
                       Keep this page open while you pay.
                     </p>
                     {/* "I've completed payment" → shows confirm modal */}
@@ -1523,7 +1523,7 @@
                         Paid on the guest's say-so, whether or not any money
                         had moved. Confirmation now comes from PayMongo. */}
                     {paid ? (
-                      <div style={{ background: "rgba(0,169,82,0.10)", border: "1px solid rgba(0,169,82,0.35)", borderRadius: 8, padding: "14px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ background: "rgba(0,169,82,0.10)", border: "1px solid rgba(0,169,82,0.35)", borderRadius: 8, padding: "16px 16px", display: "flex", alignItems: "center", gap: 12 }}>
                         <span style={{ fontSize: 18 }}>✅</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ color: "#00a952", fontSize: 14.5, fontWeight: 700 }}>Payment received</div>
@@ -1542,7 +1542,7 @@
                         </div>
                       </div>
                     ) : (
-                      <div style={{ background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "16px 16px", display: "flex", alignItems: "center", gap: 12 }}>
                         <div style={{ width: 16, height: 16, border: "2px solid rgba(0,169,82,0.25)", borderTopColor: "#00a952", borderRadius: "50%", flexShrink: 0, animation: "sw-spin .8s linear infinite" }} />
                         <div>
                           <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600 }}>Waiting for your payment…</div>
@@ -1559,7 +1559,7 @@
                         href={qrData.testUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ display: "block", marginTop: 10, textAlign: "center", color: C.goldInk, fontSize: 12.5, letterSpacing: 1, textDecoration: "underline" }}
+                        style={{ display: "block", marginTop: 12, textAlign: "center", color: C.goldInk, fontSize: 12.5, letterSpacing: 1, textDecoration: "underline" }}
                       >
                         ⚡ TEST MODE — simulate a successful payment
                       </a>
@@ -1571,7 +1571,7 @@
                     has confirmed, there is a real payment to reconcile and
                     this is no longer the guest's to undo. */}
                 {!paid && (
-                  <div style={{ marginTop: 22, textAlign: "center" }}>
+                  <div style={{ marginTop: 24, textAlign: "center" }}>
                     <button
                       type="button"
                       onClick={() => setShowCancelPay(true)}
@@ -1603,14 +1603,14 @@
                 ready, via the button below or the nav. */}
             {step === 7 && (
               <div style={{ padding: "8px 0", textAlign: "center" }}>
-                <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(76,175,80,0.10)", border: "1px solid rgba(76,175,80,0.45)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, color: "#6ec071", margin: "0 auto 22px" }} aria-hidden="true">✓</div>
+                <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(76,175,80,0.10)", border: "1px solid rgba(76,175,80,0.45)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, color: "#6ec071", margin: "0 auto 24px" }} aria-hidden="true">✓</div>
                 <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.6, fontWeight: 700, margin: "0 0 12px" }}>{confirmedNow ? "RESERVATION CONFIRMED" : "RESERVATION RECEIVED"}</p>
                 {/* The guest's own name, because this is the one screen that is
                     addressed to them rather than about the booking. */}
-                <h3 style={{ color: C.textH, fontSize: mob ? 28 : 36, fontWeight: 400, margin: "0 0 14px", fontFamily: "'Satoshi',system-ui,sans-serif", lineHeight: 1.15 }}>
+                <h3 style={{ color: C.textH, fontSize: mob ? 28 : 36, fontWeight: 400, margin: "0 0 16px", fontFamily: "'Satoshi',system-ui,sans-serif", lineHeight: 1.15 }}>
                   Thank you{form.name ? `, ${form.name.split(" ")[0]}` : ""}.
                 </h3>
-                <p style={{ color: C.textS, fontSize: 14.5, margin: "0 auto 26px", lineHeight: 1.7, maxWidth: 520 }}>
+                <p style={{ color: C.textS, fontSize: 14.5, margin: "0 auto 28px", lineHeight: 1.7, maxWidth: 520 }}>
                   We received your {fmt(dueNow)} {paidInFull ? "payment, so your stay is fully paid" : "deposit"}.{" "}
                   {confirmedNow
                     ? <>Your reservation is confirmed. See you on {date ? fmtDate(date) : "your visit"}!</>
@@ -1618,17 +1618,17 @@
                 </p>
 
                 {/* Reference ID — prominent at top */}
-                <div style={{ background: isDark ? "rgba(201,168,76,0.07)" : "rgba(201,168,76,0.06)", border: `1px solid ${gold}66`, borderRadius: 12, padding: mob ? "20px 18px" : "24px 28px", margin: "0 auto 22px", maxWidth: 540, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                <div style={{ background: isDark ? "rgba(201,168,76,0.07)" : "rgba(201,168,76,0.06)", border: `1px solid ${gold}66`, borderRadius: 12, padding: mob ? "20px 20px" : "24px 28px", margin: "0 auto 24px", maxWidth: 540, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
                   <p style={{ color: C.textS, fontSize: 11, letterSpacing: 2.6, margin: 0 }}>YOUR REFERENCE ID</p>
                   <p style={{ color: C.goldInk, fontFamily: "monospace", fontSize: mob ? 28 : 34, fontWeight: 700, letterSpacing: 3, margin: 0 }}>{bookingId}</p>
                   <p style={{ color: C.textB, fontSize: 13, margin: 0 }}>Save this number for follow-ups and booking management.</p>
                 </div>
 
-                <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "18px 16px" : "22px 24px", margin: "0 auto 20px", maxWidth: 540, textAlign: "left", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
-                  <p style={{ color: C.textH, fontSize: 15, fontWeight: 700, margin: "0 0 14px" }}>What happens next</p>
+                <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : "24px 24px", margin: "0 auto 20px", maxWidth: 540, textAlign: "left", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
+                  <p style={{ color: C.textH, fontSize: 15, fontWeight: 700, margin: "0 0 16px" }}>What happens next</p>
                   {/* An ordered list, not numbered divs: these are steps in
                       sequence, and a screen reader should say so. */}
-                  <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10 }}>
+                  <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 12 }}>
                     {[
                       ...(confirmedNow
                         ? [
@@ -1642,14 +1642,14 @@
                           `You'll hear from them at ${form.email || "your email"} within 24 hours.`,
                         ]),
                     ].map((txt, i) => (
-                      <li key={txt} style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.textS, fontSize: 13, lineHeight: 1.6 }}>
+                      <li key={txt} style={{ display: "flex", gap: 12, alignItems: "flex-start", color: C.textS, fontSize: 13, lineHeight: 1.6 }}>
                         <span style={{ color: C.goldInk, flexShrink: 0, fontWeight: 700 }}>{i + 1}.</span>
                         <span>{txt}</span>
                       </li>
                     ))}
                   </ol>
                 </div>
-                <p style={{ color: C.textS, fontSize: 12.5, margin: "0 auto 22px", maxWidth: 540 }}>
+                <p style={{ color: C.textS, fontSize: 12.5, margin: "0 auto 24px", maxWidth: 540 }}>
                   {paidInFull
                     ? <>No refunds. Nothing more is due at the resort, apart from any damage or extra hours.</>
                     : <>No refunds. The remaining balance of {fmt(fullTotal - dueNow)} is paid at the resort.</>}
@@ -1698,24 +1698,24 @@
                     className="min-h-[220px] md:min-h-[340px]"
                   />
 
-                  <div style={{ display: "flex", flexDirection: "column", padding: mob ? "20px 20px 22px" : "26px 28px 28px", minWidth: 0 }}>
+                  <div style={{ display: "flex", flexDirection: "column", padding: mob ? "20px 20px 24px" : "28px 28px 28px", minWidth: 0 }}>
                     <p style={{ color: C.goldInk, fontSize: 10.5, letterSpacing: 2.4, margin: "0 0 8px", fontWeight: 700 }}>ROOM</p>
                     <DialogTitle asChild>
-                      <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 24 : 28, fontWeight: 400, margin: "0 0 14px", lineHeight: 1.15 }}>
+                      <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 24 : 28, fontWeight: 400, margin: "0 0 16px", lineHeight: 1.15 }}>
                         {roomPhoto.name}
                       </h3>
                     </DialogTitle>
 
                     {/* The room's own facts, one per line with its own icon,
                         rather than a single run-on sentence. */}
-                    <ul style={{ listStyle: "none", margin: "0 0 16px", padding: 0, display: "grid", gap: 9 }}>
+                    <ul style={{ listStyle: "none", margin: "0 0 16px", padding: 0, display: "grid", gap: 8 }}>
                       {([
                         { icon: "bed", text: roomPhoto.beds },
                         { icon: "users", text: `Sleeps up to ${roomPhoto.capacity} guests` },
                         { icon: "clock", text: `One ${SLOTS[slot].label.toLowerCase()} slot · ${SLOTS[slot].hours}` },
                       ] as const).map((row) => (
-                        <li key={row.text} style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.textB, fontSize: 14, lineHeight: 1.5 }}>
-                          <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, marginTop: 2, flexShrink: 0 }}>
+                        <li key={row.text} style={{ display: "flex", gap: 12, alignItems: "flex-start", color: C.textB, fontSize: 14, lineHeight: 1.5 }}>
+                          <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, marginTop: 4, flexShrink: 0 }}>
                             <Icon name={row.icon as IconName} size={15} strokeWidth={1.6} />
                           </span>
                           {row.text}
@@ -1725,7 +1725,7 @@
 
                     {roomPhoto.desc && (
                       <DialogDescription asChild>
-                        <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: "0 0 18px" }}>
+                        <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: "0 0 20px" }}>
                           {roomPhoto.desc}
                         </p>
                       </DialogDescription>
@@ -1734,7 +1734,7 @@
                     {/* Price and the action sit at the foot however short the
                         description is, so the panel never ends ragged. */}
                     <div style={{ marginTop: "auto", borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 14 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 16 }}>
                         <span style={{ color: C.goldInk, fontSize: 24, fontWeight: 700, lineHeight: 1 }}>
                           {requiresRoom ? fmt(Math.round(roomPhoto.price * (1 - ROOM_BUNDLE_DISCOUNT_PCT))) : fmt(roomPhoto.price)}
                         </span>
@@ -1814,7 +1814,7 @@
             <DialogHeader>
               {/* The mark is an outline, not a filled red warning: this is a
                   policy the guest has to read, not an error they have made. */}
-              <div style={{ width: 48, height: 48, borderRadius: "50%", border: `1.5px solid ${gold}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10, color: C.goldInk, fontSize: 22, fontWeight: 600, flexShrink: 0 }} aria-hidden="true">
+              <div style={{ width: 48, height: 48, borderRadius: "50%", border: `1.5px solid ${gold}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12, color: C.goldInk, fontSize: 22, fontWeight: 600, flexShrink: 0 }} aria-hidden="true">
                 !
               </div>
               <DialogTitle style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 26 : 32, fontWeight: 400, lineHeight: 1.15 }}>
@@ -1829,7 +1829,7 @@
                 version leaned on emoji to carry meaning, which a screen
                 reader announces as decoration and which carried no meaning
                 for anyone who could not place the pictogram. */}
-            <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "18px 16px" : "22px 24px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
+            <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : "24px 24px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
               <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2" style={{ margin: 0 }}>
                 {[
                   ["Cancellations", "If the resort has to cancel, you choose a free new date or a full refund. If you cancel, payments aren't refunded, but you can move your booking to another date once."],
@@ -1838,7 +1838,7 @@
                   ["Quiet hours", QUIET_HOURS_POLICY],
                 ].map(([title, body]) => (
                   <div key={title}>
-                    <dt style={{ color: C.textH, fontSize: 14, fontWeight: 700, marginBottom: 5 }}>{title}</dt>
+                    <dt style={{ color: C.textH, fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{title}</dt>
                     <dd style={{ color: C.textS, fontSize: 12.5, lineHeight: 1.6, margin: 0 }}>{body}</dd>
                   </div>
                 ))}
@@ -1850,7 +1850,7 @@
                 and the space bar toggles it. */}
             <Label
               htmlFor="gcash-policy-ack"
-              style={{ display: "flex", alignItems: "center", gap: 12, background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.025)", border: `1px solid ${policyChecked ? gold : C.border}`, borderRadius: 10, padding: "14px 16px", cursor: "pointer", transition: "border-color .18s", userSelect: "none" }}
+              style={{ display: "flex", alignItems: "center", gap: 12, background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.025)", border: `1px solid ${policyChecked ? gold : C.border}`, borderRadius: 10, padding: "16px 16px", cursor: "pointer", transition: "border-color .18s", userSelect: "none" }}
             >
               <Checkbox
                 id="gcash-policy-ack"
@@ -1868,7 +1868,7 @@
               <Button
                 variant="outline"
                 onClick={() => { setShowGcashWarning(false); setPolicyChecked(false); }}
-                style={{ color: C.goldInk, borderColor: gold, letterSpacing: 1.4, fontSize: 12.5, fontWeight: 700, minHeight: 48, padding: "0 22px" }}
+                style={{ color: C.goldInk, borderColor: gold, letterSpacing: 1.4, fontSize: 12.5, fontWeight: 700, minHeight: 48, padding: "0 24px" }}
               >
                 REVIEW DETAILS
               </Button>

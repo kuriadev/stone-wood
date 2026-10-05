@@ -145,7 +145,7 @@ ${pays.map((p) => `<Row><Cell>${escapeHtml(manilaDate(p.receivedAt))}</Cell><Cel
     w.document.open(); w.document.write(html); w.document.close();
   };
 
-  const sel = { ...inp, padding: "8px 10px", width: "auto" } as const;
+  const sel = { ...inp, padding: "8px 12px", width: "auto" } as const;
 
   return (
     <div>
@@ -156,7 +156,7 @@ ${pays.map((p) => `<Row><Cell>${escapeHtml(manilaDate(p.receivedAt))}</Cell><Cel
           <Btn kind="primary" icon="printer" onClick={print}>Print report</Btn>
         </div>} />
 
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
         <div style={{ width: 280 }}>
           <Segmented value={period} onChange={setPeriod} size="sm" options={[
             { value: "Month", label: "Month" }, { value: "Year", label: "Year" }, { value: "Custom", label: "Custom" },
@@ -175,19 +175,19 @@ ${pays.map((p) => `<Row><Cell>${escapeHtml(manilaDate(p.receivedAt))}</Cell><Cel
         </>}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
         <Figure label="Money received" value={fmt(collected)} note={`${pays.length} payment${pays.length === 1 ? "" : "s"}`} color="#2e9e4e" />
         <Figure label="Expenses" value={fmt(spent)} note={`${exps.length} expense${exps.length === 1 ? "" : "s"}`} />
         <Figure label="Net income" value={fmt(round2(collected - spent))} color={collected - spent < 0 ? "#d44" : gold} />
         <Figure label="Still owed" value={fmt(owed)} note="on bookings in this period" color={owed > 0 ? "#d4a800" : undefined} />
       </div>
 
-      <Panel title={period === "Year" ? `Money received per month (${year})` : "Money received per day"} style={{ marginBottom: 18 }}>
+      <Panel title={period === "Year" ? `Money received per month (${year})` : "Money received per day"} style={{ marginBottom: 20 }}>
         <BarChart data={series.map((s) => ({ label: s.label, value: s.money }))} color="#4caf50" height={210} mob={mob}
           formatValue={(v) => (v >= 1000 ? `₱${(v / 1000).toFixed(1)}k` : `₱${v}`)} />
       </Panel>
 
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 14, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 16, marginBottom: 20 }}>
         <div style={{ background: soft, borderRadius: 10, padding: "12px 16px" }}>
           <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Received by type</div>
           {byType.map(([t, v]) => <Line key={t} label={t} value={`${t === "Refund" && v > 0 ? "−" : ""}${fmt(v)}`} />)}
@@ -203,14 +203,14 @@ ${pays.map((p) => `<Row><Cell>${escapeHtml(manilaDate(p.receivedAt))}</Cell><Cel
         </div>
       </div>
 
-      <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: "26px 0 12px" }}>Bookings and guests</h3>
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 18 }}>
+      <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: "28px 0 12px" }}>Bookings and guests</h3>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
         <Figure label="Bookings" value={bks.length} note={`${kept.length} not cancelled`} />
         <Figure label="Guests" value={guests} />
         <Figure label="Walk-ins" value={kept.filter((b) => b.source === "Walk-In").length} />
         <Figure label="Cancellation rate" value={`${bks.length ? Math.round((statusCount[3][1] / bks.length) * 100) : 0}%`} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 20 }}>
         <Panel title="By status">
           {statusCount.map(([s, n]) => <ProgressRow key={s} label={s} value={n} pct={bks.length ? Math.round((n / bks.length) * 100) : 0} color={gold} />)}
         </Panel>

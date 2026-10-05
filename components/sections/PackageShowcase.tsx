@@ -150,11 +150,11 @@ export function PackageShowcase({ packages, onBookPackage, onFallbackBook, tierS
         </TabsList>
 
         {showTierIntro && (
-          <div style={{ textAlign: "center", margin: mob ? "34px 0 22px" : "48px 0 28px" }}>
-            <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.4, fontWeight: 700, margin: "0 0 10px" }}>
+          <div style={{ textAlign: "center", margin: mob ? "36px 0 24px" : "48px 0 28px" }}>
+            <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.4, fontWeight: 700, margin: "0 0 12px" }}>
               {String(groups.findIndex((g) => g.key === active.key) + 1).padStart(2, "0")} · {active.label.toUpperCase()}
             </p>
-            <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 26 : 34, fontWeight: 400, margin: "0 0 10px", lineHeight: 1.15 }}>
+            <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 26 : 34, fontWeight: 400, margin: "0 0 12px", lineHeight: 1.15 }}>
               {active.tagline}
             </h3>
             <p style={{ color: C.textS, fontSize: 13.5, margin: "0 auto", maxWidth: 480, lineHeight: 1.6 }}>
@@ -327,7 +327,7 @@ function PackageCard({
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/40" />
 
-        <div className="absolute top-4 left-4 z-[2] rounded-full bg-black/55 px-3 py-1.5 text-[11px] tracking-wide text-white/90 backdrop-blur-sm">
+        <div className="absolute top-4 left-4 z-[2] rounded-full bg-black/55 px-3 py-2 text-[11px] tracking-wide text-white/90 backdrop-blur-sm">
           {String(shots.length).padStart(2, "0")} photo{shots.length === 1 ? "" : "s"}
         </div>
 
@@ -340,7 +340,7 @@ function PackageCard({
         </Button>
 
         <div className="absolute right-5 bottom-5 left-5 z-[2]">
-          <p className="mb-1.5 text-[11px] tracking-[3px]" style={{ color: gold }}>PACKAGE</p>
+          <p className="mb-2 text-[11px] tracking-[3px]" style={{ color: gold }}>PACKAGE</p>
           <h3 className="font-serif text-[30px] leading-tight font-normal text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.6)] sm:text-4xl">
             {p.title}
           </h3>
@@ -386,7 +386,7 @@ function PackageCard({
               saving it used to show is still on the SAVE badge above, so
               nothing is lost by dropping the second number. */}
           <div className="pt-1">
-            <p className="mb-1.5 text-[11px] tracking-[2.5px]" style={{ color: C.textS }}>STARTING AT</p>
+            <p className="mb-2 text-[11px] tracking-[2.5px]" style={{ color: C.textS }}>STARTING AT</p>
             <span className="font-serif text-[40px] leading-none font-normal" style={{ color: C.textH }}>
               {fmt(p.price)}
             </span>
@@ -401,10 +401,10 @@ function PackageCard({
                 {p.includes.map((inc) => (
                   <li
                     key={inc}
-                    className="flex items-start gap-2.5 border-b py-2 text-[14.5px] leading-snug last:border-0"
+                    className="flex items-start gap-3 border-b py-2 text-[14.5px] leading-snug last:border-0"
                     style={{ borderColor: C.borderLight, color: C.textB }}
                   >
-                    <Icon name="check" size={13} style={{ color: C.goldInk, marginTop: 3, flexShrink: 0 }} />
+                    <Icon name="check" size={13} style={{ color: C.goldInk, marginTop: 4, flexShrink: 0 }} />
                     <span>{inc}</span>
                   </li>
                 ))}
@@ -432,7 +432,7 @@ function PackageCard({
 
           {p.note && (
             <p className="flex items-start gap-2 text-[12.5px]" style={{ color: C.textXS }}>
-              <Icon name="alert" size={12} style={{ marginTop: 2, flexShrink: 0 }} />
+              <Icon name="alert" size={12} style={{ marginTop: 4, flexShrink: 0 }} />
               <span>{p.note}</span>
             </p>
           )}

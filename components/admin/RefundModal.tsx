@@ -103,10 +103,10 @@ export function RefundModal({ booking, onClose }: { booking: Booking; onClose: (
         <Btn kind="primary" icon="receipt" disabled={busy} onClick={save}>{busy ? "Saving…" : `Record ${fmt(value)} refund`}</Btn>
       </div>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <p style={{ background: soft, borderRadius: 10, padding: "10px 14px", margin: 0, color: C.textB, fontSize: 13, lineHeight: 1.6 }}>
+        <p style={{ background: soft, borderRadius: 10, padding: "12px 16px", margin: 0, color: C.textB, fontSize: 13, lineHeight: 1.6 }}>
           <strong style={{ color: C.textH }}>{fmt(owed)}</strong> is owed to {booking.name}. Send it first (their number, {booking.contact}, is often their GCash), then record it here.
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div>
             <Label htmlFor="rf-amount">Amount sent</Label>
             <Input id="rf-amount" type="number" min={0} value={amount === "" ? String(owed) : amount} onChange={(e) => setAmount(e.target.value)} style={inp} />
@@ -129,7 +129,7 @@ export function RefundModal({ booking, onClose }: { booking: Booking; onClose: (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={receipt} alt="Refund receipt" style={{ display: "block", marginTop: 8, maxHeight: 180, borderRadius: 8 }} />
           )}
-          <p style={{ color: C.textS, fontSize: 12, margin: "6px 0 0" }}>The guest sees this on their booking page, which is the strongest proof the money was sent.</p>
+          <p style={{ color: C.textS, fontSize: 12, margin: "8px 0 0" }}>The guest sees this on their booking page, which is the strongest proof the money was sent.</p>
         </div>
         <ErrorNote>{error}</ErrorNote>
       </div>

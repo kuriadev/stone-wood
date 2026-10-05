@@ -127,7 +127,7 @@ export function PhotoSet({
 
   const chipS: React.CSSProperties = {
     display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
-    minHeight: 28, padding: "0 9px", borderRadius: 6, cursor: "pointer",
+    minHeight: 28, padding: "0 8px", borderRadius: 6, cursor: "pointer",
     border: `1px solid ${cBr}`, background: isDark ? "rgba(0,0,0,0.62)" : "rgba(255,255,255,0.92)",
     color: C.textH, fontSize: 10.5, letterSpacing: 1, lineHeight: 1,
   };
@@ -138,7 +138,7 @@ export function PhotoSet({
       <input ref={replaceRef} type="file" accept="image/*" onChange={(e) => { void replaceAt(e.target.files); e.target.value = ""; }} style={{ display: "none" }} />
 
       {items.length > 0 && (
-        <ul style={{ listStyle: "none", margin: "0 0 10px", padding: 0, display: "grid", gap: 8, gridTemplateColumns: `repeat(auto-fill,minmax(${withCaptions ? 166 : 112}px,1fr))` }}>
+        <ul style={{ listStyle: "none", margin: "0 0 12px", padding: 0, display: "grid", gap: 8, gridTemplateColumns: `repeat(auto-fill,minmax(${withCaptions ? 166 : 112}px,1fr))` }}>
           {/* Each card is a column, so one whose buttons wrap onto a second
               line does not drag its caption field out of line with its
               neighbours': the caption sits at the foot of every card. */}
@@ -146,10 +146,10 @@ export function PhotoSet({
             <li key={`${i}-${item.src.slice(-24)}`} style={{ position: "relative", display: "flex", flexDirection: "column", border: `1px solid ${cBr}`, borderRadius: 8, overflow: "hidden", background: isDark ? "#121212" : "#faf7f1" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img loading="lazy" decoding="async" src={item.src} alt={`${noun} photo ${i + 1} of ${items.length}${i === 0 ? ", the cover" : ""}`} style={{ display: "block", width: "100%", height: thumbHeight, objectFit: "cover" }} />
-              <span style={{ position: "absolute", top: 5, left: 5, padding: "2px 6px", borderRadius: 4, background: i === 0 ? "rgba(201,168,76,0.92)" : "rgba(0,0,0,0.62)", color: i === 0 ? "#1a1000" : "#fff", fontSize: 9.5, letterSpacing: 1.4, lineHeight: 1.5 }}>
+              <span style={{ position: "absolute", top: 5, left: 5, padding: "4px 8px", borderRadius: 4, background: i === 0 ? "rgba(201,168,76,0.92)" : "rgba(0,0,0,0.62)", color: i === 0 ? "#1a1000" : "#fff", fontSize: 9.5, letterSpacing: 1.4, lineHeight: 1.5 }}>
                 {i === 0 ? "COVER" : String(i + 1).padStart(2, "0")}
               </span>
-              <div style={{ display: "flex", gap: 5, padding: 6, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 4, padding: 8, flexWrap: "wrap" }}>
                 <button type="button" onClick={() => { replacing.current = i; replaceRef.current?.click(); }} style={chipS} aria-label={`Replace ${noun} photo ${i + 1}`}>
                   <Icon name="folder" size={10} />CHANGE
                 </button>
@@ -171,7 +171,7 @@ export function PhotoSet({
                   maxLength={60}
                   style={{
                     display: "block", width: "calc(100% - 12px)", boxSizing: "border-box",
-                    margin: "auto 6px 6px", padding: "0 8px", height: 34, flexShrink: 0,
+                    margin: "auto 8px 8px", padding: "0 8px", height: 34, flexShrink: 0,
                     border: `1px solid ${cBr}`, borderRadius: 6,
                     background: isDark ? "#121212" : "#fff", color: C.textH,
                     fontFamily: "inherit", fontSize: 12, lineHeight: "32px",
@@ -189,12 +189,12 @@ export function PhotoSet({
         variant="outline"
         disabled={full}
         onClick={() => addRef.current?.click()}
-        style={{ ...outBtn, width: "100%", padding: 11, height: "auto", fontSize: 12.5, borderRadius: 6, ...(full ? { opacity: 0.45, cursor: "not-allowed" } : {}) }}
+        style={{ ...outBtn, width: "100%", padding: 12, height: "auto", fontSize: 12.5, borderRadius: 6, ...(full ? { opacity: 0.45, cursor: "not-allowed" } : {}) }}
       >
-        <Icon name="folder" size={13} style={{ marginRight: 6 }} />
+        <Icon name="folder" size={13} style={{ marginRight: 8 }} />
         {items.length ? "ADD MORE PHOTOS" : "CHOOSE PHOTOS"}
       </Button>
-      <p style={{ color: C.textS, fontSize: 12, margin: "6px 0 0", lineHeight: 1.6 }}>
+      <p style={{ color: C.textS, fontSize: 12, margin: "8px 0 0", lineHeight: 1.6 }}>
         {full
           ? `${max} of ${max} photos — remove one to add another.`
           : `${items.length} of ${max} photos. The first is the cover guests see on the card; the rest they can page through.`}

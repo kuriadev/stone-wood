@@ -81,7 +81,7 @@ export function T(_isDark: boolean): ThemeColors {
       background: V("--sw-input-bg"),
       color: V("--sw-text-h"),
       border: `1px solid ${V("--sw-input-border")}`,
-      padding: "11px 14px",
+      padding: "12px 16px",
       fontSize: 13,
       borderRadius: 6,
       width: "100%",

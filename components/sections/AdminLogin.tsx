@@ -90,7 +90,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
     letterSpacing: 2,
     fontWeight: 500,
     display: "block",
-    marginBottom: 6,
+    marginBottom: 8,
   };
 
   return (
@@ -165,16 +165,16 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              marginBottom: 18,
+              marginBottom: 20,
             }}
           >
             <Icon name="lock" size={19} />
           </div>
 
-          <h2 style={{ color: C.textH, fontSize: 22, fontFamily: "'Satoshi',system-ui,sans-serif", fontWeight: 400, margin: "0 0 5px", letterSpacing: 0.4 }}>Sign In</h2>
+          <h2 style={{ color: C.textH, fontSize: 22, fontFamily: "'Satoshi',system-ui,sans-serif", fontWeight: 400, margin: "0 0 4px", letterSpacing: 0.4 }}>Sign In</h2>
           <p style={{ color: C.textS, fontSize: 14, margin: "0 0 28px", lineHeight: 1.6 }}>Enter your credentials to continue.</p>
 
-          <div style={{ marginBottom: 18 }}>
+          <div style={{ marginBottom: 20 }}>
             <Label htmlFor="admin-username" style={labelStyle}>USERNAME</Label>
             <Input
               id="admin-username"
@@ -190,7 +190,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
             />
           </div>
 
-          <div style={{ marginBottom: 26 }}>
+          <div style={{ marginBottom: 28 }}>
             <Label htmlFor="admin-password" style={labelStyle}>PASSWORD</Label>
             <div style={{ position: "relative" }}>
               <Input
@@ -225,7 +225,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
           {err && (
             <Alert
               variant="destructive"
-              style={{ background: "rgba(229,85,85,0.07)", border: "1px solid rgba(229,85,85,0.22)", borderRadius: 8, marginBottom: 18, color: "#e07070", fontSize: 13 }}
+              style={{ background: "rgba(229,85,85,0.07)", border: "1px solid rgba(229,85,85,0.22)", borderRadius: 8, marginBottom: 20, color: "#e07070", fontSize: 13 }}
             >
               <Icon name="alert" size={14} />
               <AlertDescription style={{ color: "#e07070", fontSize: 13 }}>{err}</AlertDescription>
@@ -239,7 +239,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
               ...goldBtn,
               width: "100%",
               height: "auto",
-              padding: 14,
+              padding: 16,
               opacity: !user || !pass ? 0.35 : 1,
               fontSize: 12,
               letterSpacing: 2.6,
@@ -248,7 +248,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: 9,
+              gap: 8,
             }}
           >
             {loading && (

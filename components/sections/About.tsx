@@ -112,7 +112,7 @@ export function About({
         letterSpacing: 4,
         fontSize: 12.5,
         color: C.goldInk,
-        marginBottom: 14,
+        marginBottom: 16,
         opacity: 0.8,
       }}
     >
@@ -150,7 +150,7 @@ export function About({
 <span
   style={{
     display: "inline-block",
-    marginLeft: "10px",
+    marginLeft: "12px",
     fontStyle: "italic",
     // An italic glyph's ink extends past its advance width. With
     // background-clip:text the gradient is painted only inside this
@@ -178,8 +178,8 @@ export function About({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: 10,
-        marginTop: 10,
+        gap: 12,
+        marginTop: 12,
       }}
     >
       <div
@@ -229,7 +229,7 @@ export function About({
         style={{
           maxWidth: 820,
           margin: "0 auto",
-          padding: mob ? "40px 20px" : "70px 24px",
+          padding: mob ? "40px 20px" : "72px 24px",
           textAlign: "center",
         }}
       >
@@ -272,7 +272,7 @@ export function About({
                to two lines each while the others fit on one, which is what
                made it taller in the first place. */
             alignItems: "start",
-            gap: mob ? 14 : 22,
+            gap: mob ? 16 : 24,
             maxWidth: 1240,
             margin: "0 auto",
             padding: mob ? "0 20px" : 0,
@@ -328,7 +328,7 @@ export function About({
           e.currentTarget.style.boxShadow = "none";
         }}
         style={{
-          padding: mob ? "20px 18px" : "26px 24px",
+          padding: mob ? "20px 20px" : "28px 24px",
           borderRadius: 16,
           background: C.bgCard,
           border: `1px solid ${C.border}`,
@@ -389,7 +389,7 @@ export function About({
           style={{
             fontSize: 14.5,
             color: C.textB,
-            marginTop: 10,
+            marginTop: 12,
           }}
         >
           {item.desc}
@@ -403,7 +403,7 @@ export function About({
           <ul
             style={{
               margin: "12px 0 0",
-              paddingLeft: 18,
+              paddingLeft: 20,
               color: C.textB,
               fontSize: 14.5,
               lineHeight: 1.6,
@@ -428,7 +428,7 @@ export function About({
           display: "grid",
           gridTemplateColumns: mob ? "1fr" : "1fr 1fr",
           alignItems: "stretch",
-          margin: mob ? "0 0 48px" : "0 0 70px",
+          margin: mob ? "0 0 48px" : "0 0 72px",
           background: C.bgCard,
         }}
       >
@@ -453,7 +453,7 @@ export function About({
             padding: mob ? "36px 24px" : "64px 72px",
           }}
         >
-          <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.6, fontWeight: 700, margin: "0 0 18px" }}>
+          <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.6, fontWeight: 700, margin: "0 0 20px" }}>
             FIND US
           </p>
           <h2
@@ -482,7 +482,7 @@ export function About({
       </section>
 
       {/* MAP */}
-      <section style={{ maxWidth: 1000, margin: "0 auto 70px" }}>
+      <section style={{ maxWidth: 1000, margin: "0 auto 72px" }}>
         <iframe
           src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3247.696684191124!2d121.16214595325307!3d14.531465178389032!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397c6d1d76ebad3%3A0x23993af9734ba069!2sStonewood%20Garden%20Private%20Pool!5e0!3m2!1sen!2sph!4v1776880886519!5m2!1sen!2sph"
           width="100%"
@@ -516,8 +516,8 @@ export function About({
         </h3>
 
         <div style={{ marginBottom: 20 }}>
-          <p style={{ color: C.textB }}><Icon name="phone" size={14} style={{ marginRight: 7 }} />+63 912 345 6789</p>
-          <p style={{ color: C.textB }}><Icon name="mail" size={14} style={{ marginRight: 7 }} />stonewoodresort.ph@gmail.com</p>
+          <p style={{ color: C.textB }}><Icon name="phone" size={14} style={{ marginRight: 8 }} />+63 912 345 6789</p>
+          <p style={{ color: C.textB }}><Icon name="mail" size={14} style={{ marginRight: 8 }} />stonewoodresort.ph@gmail.com</p>
         </div>
 
         {/* CTA BUTTON (FIXED LOGIC) */}

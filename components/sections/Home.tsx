@@ -208,7 +208,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
     letterSpacing: 4.5,
     fontWeight: 500,
     textTransform: "uppercase",
-    marginBottom: 14,
+    marginBottom: 16,
   };
   const h2: React.CSSProperties = {
     fontFamily: serif,
@@ -347,7 +347,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
         <div style={{ position: "relative", zIndex: 2, textAlign: "center", maxWidth: 720, width: "100%", marginTop: mob ? 8 : 24 }}>
           <h1
             className="hero-title sw-hero-title"
-            style={{ fontFamily: serif, fontSize: mob ? 44 : tab ? 64 : 82, color: "#fff", lineHeight: 1.04, margin: "0 0 22px", fontWeight: 400, letterSpacing: "-1px", textShadow: "0 2px 30px rgba(0,0,0,0.45)" }}
+            style={{ fontFamily: serif, fontSize: mob ? 44 : tab ? 64 : 82, color: "#fff", lineHeight: 1.04, margin: "0 0 24px", fontWeight: 400, letterSpacing: "-1px", textShadow: "0 2px 30px rgba(0,0,0,0.45)" }}
           >
             Where Stone<br />
             <span className="sw-hero-gold-text" style={{ fontStyle: "italic" }}>Meets the Woods</span>
@@ -389,11 +389,11 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
 
           {/* Duration windows — Day, Night and Whole Day. */}
           <Reveal
-            style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(200px,300px))", justifyContent: "center", gap: 1, background: C.border, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", marginBottom: mob ? 28 : 40, maxWidth: mob ? "100%" : 903, marginLeft: "auto", marginRight: "auto" }}
+            style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(200px,300px))", justifyContent: "center", gap: 4, background: C.border, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", marginBottom: mob ? 28 : 40, maxWidth: mob ? "100%" : 903, marginLeft: "auto", marginRight: "auto" }}
           >
             {DURATIONS.map((d) => (
-              <div key={d.label} style={{ background: C.bgCard2, padding: mob ? "18px 20px" : "22px 24px", textAlign: "center" }}>
-                <div style={{ color: C.textXS, fontSize: 11, letterSpacing: 2.5, marginBottom: 7 }}>{d.label.toUpperCase()}</div>
+              <div key={d.label} style={{ background: C.bgCard2, padding: mob ? "20px 20px" : "24px 24px", textAlign: "center" }}>
+                <div style={{ color: C.textXS, fontSize: 11, letterSpacing: 2.5, marginBottom: 8 }}>{d.label.toUpperCase()}</div>
                 <div style={{ color: C.goldInk, fontSize: mob ? 15 : 16, fontWeight: 500, letterSpacing: 0.3 }}>{d.window}</div>
               </div>
             ))}
@@ -501,20 +501,20 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                         whole tour/venue cost regardless of how many of the
                         included guests turn up. */}
                     <div>
-                      <div className="flex items-baseline gap-2.5">
+                      <div className="flex items-baseline gap-3">
                         <span className="font-serif text-[40px] leading-none font-normal text-foreground">{fmt(p.price)}</span>
                         {p.listPrice && (
                           <span className="text-[17px] text-faint line-through">{fmt(p.listPrice)}</span>
                         )}
                       </div>
                       {p.listPrice ? (
-                        <p className="mt-1.5 text-[12.5px] tracking-wide text-[#4caf50]">
+                        <p className="mt-2 text-[12.5px] tracking-wide text-[#4caf50]">
                           Bundle discount \u2014 you save {fmt(p.listPrice - p.price)}
                         </p>
                       ) : p.requiresRoom ? (
-                        <p className="mt-1.5 text-[12.5px] text-faint">Plus a room of your choice, at a discounted rate</p>
+                        <p className="mt-2 text-[12.5px] text-faint">Plus a room of your choice, at a discounted rate</p>
                       ) : (
-                        <p className="mt-1.5 text-[12.5px] text-faint">Flat price for up to {p.capacity} guests</p>
+                        <p className="mt-2 text-[12.5px] text-faint">Flat price for up to {p.capacity} guests</p>
                       )}
                     </div>
 
@@ -527,7 +527,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                       <p className="mb-3 text-[10.5px] tracking-[2.5px] text-faint">WHAT&apos;S INCLUDED</p>
                       <ul className="flex flex-col">
                         {p.includes.map((inc) => (
-                          <li key={inc} className="flex items-start gap-2 border-b border-border-soft py-2.5 last:border-0 last:pb-0">
+                          <li key={inc} className="flex items-start gap-2 border-b border-border-soft py-3 last:border-0 last:pb-0">
                             <Icon name="check" size={12} className="mt-1 shrink-0 text-accent-ink" />
                             <span className="text-[14.5px] leading-snug text-body">{inc}</span>
                           </li>
@@ -545,7 +545,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                         {(p.slotMode === "WholeDay" ? [SLOTS.WholeDay] : [SLOTS.Day, SLOTS.Night])
                           .map((sl) => ({ label: sl.label, window: sl.hours }))
                           .map((d) => (
-                            <li key={d.label} className="flex items-center justify-between gap-3 border-b border-border-soft py-2.5 last:border-0 last:pb-0">
+                            <li key={d.label} className="flex items-center justify-between gap-3 border-b border-border-soft py-3 last:border-0 last:pb-0">
                               <span className="text-[14.5px] text-body">{d.label}</span>
                               <span className="text-[13.5px] font-medium text-accent-ink">{d.window}</span>
                             </li>
@@ -557,7 +557,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                   {/* Action, pinned to the foot of the column. */}
                   <div className="mt-auto border-t border-border-soft p-6 pt-5 sm:px-7">
                     <Button
-                      className="sw-btn h-auto w-full rounded-lg py-3.5 text-[13.5px] tracking-[1.5px]"
+                      className="sw-btn h-auto w-full rounded-lg py-4 text-[13.5px] tracking-[1.5px]"
                       onClick={() => {
                         closePkg();
                         if (onBookPackage) {
@@ -594,14 +594,14 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 20, marginBottom: 48, maxWidth: 1100, margin: "0 auto 48px" }}>
             {PACKAGES.map((p, i) => (
               <Reveal key={p.id} className="sw-card"
-                style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: mob ? "22px 18px" : "28px 24px", textAlign: "left", boxShadow: C.shadowCard, display: "flex", flexDirection: "column", transitionDelay: `${i * 100}ms` }}>
+                style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: mob ? "24px 20px" : "28px 24px", textAlign: "left", boxShadow: C.shadowCard, display: "flex", flexDirection: "column", transitionDelay: `${i * 100}ms` }}>
                 <div style={{ marginBottom: 12, color: C.goldInk }}><Icon name={p.icon as IconName} size={28} strokeWidth={1.5} /></div>
-                <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18, marginBottom: 6 }}>{p.label}</h3>
-                <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 14, lineHeight: 1.6 }}>{p.desc}</p>
+                <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18, marginBottom: 8 }}>{p.label}</h3>
+                <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 16, lineHeight: 1.6 }}>{p.desc}</p>
                 <div style={{ color: C.goldInk, fontSize: 24, fontWeight: 700, marginBottom: 16 }}>{p.id === "wholeday" ? "" : "from "}{fmt(p.base)}<span style={{ color: C.textXS, fontSize: 13.5 }}> {p.unit}</span></div>
                 {p.details.map((d) => (
-                  <div key={d} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 7 }}>
-                    <Icon name="check" size={12} style={{ color: C.goldInk, marginTop: 3, flexShrink: 0 }} />
+                  <div key={d} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+                    <Icon name="check" size={12} style={{ color: C.goldInk, marginTop: 4, flexShrink: 0 }} />
                     <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5 }}>{d}</span>
                   </div>
                 ))}
@@ -648,18 +648,18 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                     strokeWidth="1.1"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    style={{ margin: "0 auto 18px", display: "block", opacity: 0.85 }}
+                    style={{ margin: "0 auto 20px", display: "block", opacity: 0.85 }}
                     aria-hidden="true"
                   >
                     {s.drawn}
                   </svg>
                 ) : (
-                  <Icon name={s.icon} size={38} strokeWidth={1.1} style={{ margin: "0 auto 18px", display: "block", opacity: 0.85, color: C.textH }} />
+                  <Icon name={s.icon} size={38} strokeWidth={1.1} style={{ margin: "0 auto 20px", display: "block", opacity: 0.85, color: C.textH }} />
                 )}
                 <div style={{ fontFamily: serif, fontSize: mob ? 16 : 18, color: C.textH, fontWeight: 400, lineHeight: 1.35 }}>
                   {s.name}
                 </div>
-                {s.desc && <div style={{ color: C.textS, fontSize: 13, lineHeight: 1.5, marginTop: 6 }}>{s.desc}</div>}
+                {s.desc && <div style={{ color: C.textS, fontSize: 13, lineHeight: 1.5, marginTop: 8 }}>{s.desc}</div>}
               </div>
             ))}
           </Reveal>
@@ -677,8 +677,8 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to left,${isDark ? "#121212" : "#f5f0e8"},transparent)`, zIndex: 2, pointerEvents: "none" }} />
           <div className="sw-marquee-track" style={{ animationDuration: `${marquee.seconds}s` }}>
             {[...marquee.cards, ...marquee.cards].map((r, i) => (
-              <div key={i} style={{ flexShrink: 0, width: mob ? 280 : 330, marginRight: 16, background: isDark ? "#1a1a1a" : "#fff", border: `1px solid ${isDark ? "rgba(201,168,76,0.1)" : "rgba(201,168,76,0.15)"}`, borderRadius: 12, padding: "26px 24px", boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.35)" : "0 4px 16px rgba(100,70,20,0.08)" }}>
-                <div aria-label={`${r.rating} out of 5 stars`} style={{ display: "flex", gap: 3, marginBottom: 12 }}>
+              <div key={i} style={{ flexShrink: 0, width: mob ? 280 : 330, marginRight: 16, background: isDark ? "#1a1a1a" : "#fff", border: `1px solid ${isDark ? "rgba(201,168,76,0.1)" : "rgba(201,168,76,0.15)"}`, borderRadius: 12, padding: "28px 24px", boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.35)" : "0 4px 16px rgba(100,70,20,0.08)" }}>
+                <div aria-label={`${r.rating} out of 5 stars`} style={{ display: "flex", gap: 4, marginBottom: 12 }}>
                   {[1, 2, 3, 4, 5].map((n) => (
                     <span key={n} aria-hidden="true" style={{ color: n <= r.rating ? gold : C.border, fontSize: 14, lineHeight: 1 }}>&#9733;</span>
                   ))}
@@ -706,17 +706,17 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(to right,transparent,${gold}66,transparent)` }} />
 
         <Reveal style={{ position: "relative", zIndex: 2, maxWidth: 620, margin: "0 auto" }}>
-          <p style={{ ...eyebrow, marginBottom: 18 }}>Angono, Rizal</p>
+          <p style={{ ...eyebrow, marginBottom: 20 }}>Angono, Rizal</p>
           <h2 style={{ ...h2, color: "#fff", marginBottom: 20 }}>
             The resort is yours<br />for the day
           </h2>
-          <p style={{ color: "rgba(238,232,220,0.78)", fontSize: mob ? 15 : 17, lineHeight: 1.85, fontWeight: 300, marginBottom: 34 }}>
+          <p style={{ color: "rgba(238,232,220,0.78)", fontSize: mob ? 15 : 17, lineHeight: 1.85, fontWeight: 300, marginBottom: 36 }}>
             Check an open date and reserve in a few minutes.
           </p>
           <button
             className="sw-btn"
             onClick={() => setPage("Book Now")}
-            style={{ ...goldBtn, padding: mob ? "14px 30px" : "16px 40px" }}
+            style={{ ...goldBtn, padding: mob ? "16px 32px" : "16px 40px" }}
           >
             BOOK YOUR STAY
           </button>

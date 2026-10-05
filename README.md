@@ -250,14 +250,40 @@ the availability calendar needs.
 
 ### Styling
 
-Three layers coexist:
+Three layers coexist, but they share one set of values.
 
 1. **Tailwind utility classes** — the system going forward.
 2. **Theme tokens** — `T(isDark)` in `lib/theme.ts` returns the colour set
-   (`textH`, `textB`, `textS`, `border`, `bgCard2`, `goldInk`…). The CSS custom
-   properties in `app/globals.css` mirror it.
+   (`textH`, `textB`, `textS`, `border`, `bgCard2`, `goldInk`…) as `var(--sw-*)`
+   references. The palette itself is authored once, in `app/globals.css`;
+   shadcn's names (`--background`, `--card`, …) are aliases of it. Nothing is
+   duplicated, so a colour is changed in exactly one place.
 3. **Inline `style={{}}`** — still widespread in `sections/` and `admin/`,
    being converted file by file.
+
+#### Spacing
+
+Every gap, pad and margin is a multiple of **4px**. The named steps and what
+each is for live in `lib/spacing.ts`; a literal already on the grid is fine as
+written.
+
+`app/globals.css` pins Tailwind's `--spacing` to `4px`. This matters: Tailwind
+sizes spacing in rem, and because this app sets `html { font-size: 17px }` for
+reading comfort, one step used to be 4.25px — so `p-4` came out at 17px next to
+a hand-written `padding: 16` that was exactly 16. The two systems were on two
+grids. They are now on one, and `className="p-4"` equals `padding: SPACE.md`.
+
+Spacing is px on purpose while type stays in rem: text should grow with the
+reader's font-size setting, a gap between two cards should not.
+
+Anything tappable clears **44px** (`TAP_MIN` in `lib/spacing.ts`), bought with
+padding rather than size wherever the control should still look small.
+
+Two deliberate exceptions: `lib/emailTemplate.ts` and the print stylesheet in
+`components/admin/ReportsTab.tsx` render in a mail client and the print dialog,
+so their spacing is left as it was. Browser default margins on `<p>` and
+`<h*>` are em-based and therefore off the grid — that is a consequence of
+preflight being off (see the note at the top of `app/globals.css`).
 
 Shared visual constants live in `lib/styles.ts`: `goldBtn` and `outBtn` are the
 two button looks used across the app. Call sites add layout (`flex`, `width`)

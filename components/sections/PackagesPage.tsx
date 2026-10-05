@@ -39,7 +39,7 @@ export function PackagesPage({ setPage, packages, onBookPackage }: PackagesPageP
           fontSize: mob ? 28 : 46,
           color: C.textH,
           textAlign: "center",
-          marginBottom: 10,
+          marginBottom: 12,
         }}>
           Choose Your Kind of Escape
         </h2>

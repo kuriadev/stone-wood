@@ -59,7 +59,7 @@ export function DateChangeReview({ request, booking, onClose }: { request: DateC
         <Btn kind="primary" icon="check" disabled={!!busy || !held} onClick={() => decide(true)}>{busy === "approve" ? "Saving…" : `Move to ${fmtDate(request.toDate)}`}</Btn>
       </div>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ background: soft, borderRadius: 10, padding: "8px 14px" }}>
+        <div style={{ background: soft, borderRadius: 10, padding: "8px 16px" }}>
           <Line label="Current date" value={`${fmtDate(request.fromDate)} · ${slot.label}`} />
           <Line label="Asks to move to" value={`${fmtDate(request.toDate)} · ${slot.label}`} strong />
           <Line label="Guests" value={String(booking.guests)} />

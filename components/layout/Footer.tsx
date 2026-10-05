@@ -57,7 +57,7 @@ export function Footer({ setPage }: FooterProps) {
               fontFamily: "'Satoshi',system-ui,sans-serif",
               fontSize: 24,
               letterSpacing: 4,
-              marginBottom: 14,
+              marginBottom: 16,
               fontWeight: 600,
             }}
           >
@@ -77,7 +77,7 @@ export function Footer({ setPage }: FooterProps) {
             <div
               key={l}
               onClick={() => setPage(l)}
-              style={{ color: "#6a5e4e", fontSize: 14.5, marginBottom: 9, cursor: "pointer", transition: "color .2s" }}
+              style={{ color: "#6a5e4e", fontSize: 14.5, marginBottom: 8, cursor: "pointer", transition: "color .2s" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = gold)}
               onMouseLeave={(e) => (e.currentTarget.style.color = "#6a5e4e")}
             >
@@ -98,7 +98,7 @@ export function Footer({ setPage }: FooterProps) {
             <div
               key={label}
               onClick={action}
-              style={{ color: "#6a5e4e", fontSize: 14.5, marginBottom: 9, cursor: "pointer", transition: "color .2s" }}
+              style={{ color: "#6a5e4e", fontSize: 14.5, marginBottom: 8, cursor: "pointer", transition: "color .2s" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = gold)}
               onMouseLeave={(e) => (e.currentTarget.style.color = "#6a5e4e")}
             >
@@ -114,7 +114,7 @@ export function Footer({ setPage }: FooterProps) {
           </div>
           {["22 Yakal cor. Ipil St. Doña Justa Village Phase, 2nd St, Angono, Rizal", "+63 912 345 6789", "stonewoodresort.ph@gmail.com", `Day ${SLOTS.Day.hours} · Night ${SLOTS.Night.hours}`].map(
             (c) => (
-              <div key={c} style={{ color: "#6a5e4e", fontSize: 14.5, marginBottom: 9 }}>
+              <div key={c} style={{ color: "#6a5e4e", fontSize: 14.5, marginBottom: 8 }}>
                 {c}
               </div>
             )
@@ -125,7 +125,7 @@ export function Footer({ setPage }: FooterProps) {
       <div
         style={{
           borderTop: "1px solid rgba(201,168,76,0.08)",
-          paddingTop: 22,
+          paddingTop: 24,
           textAlign: "center",
           color: "#4a4035",
           fontSize: 12.5,

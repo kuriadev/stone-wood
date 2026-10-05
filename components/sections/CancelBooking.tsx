@@ -292,11 +292,11 @@ export function ManageBooking(_props: ManageBookingProps) {
     background: C.bgCard,
     border: `1px solid ${C.border}`,
     borderRadius: 16,
-    padding: mob ? "22px 18px" : "32px 34px",
+    padding: mob ? "24px 20px" : "32px 36px",
     boxShadow: C.shadowCard,
   };
 
-  const microLabel: React.CSSProperties = { color: C.textS, fontSize: 10.5, letterSpacing: 1.8, margin: "0 0 6px" };
+  const microLabel: React.CSSProperties = { color: C.textS, fontSize: 10.5, letterSpacing: 1.8, margin: "0 0 8px" };
   const eyebrow: React.CSSProperties = { color: C.goldInk, fontSize: 11, letterSpacing: 2.2, fontWeight: 700, margin: 0 };
   const serif = "'Satoshi',system-ui,sans-serif";
 
@@ -327,7 +327,7 @@ export function ManageBooking(_props: ManageBookingProps) {
 
   /** The free-date calendar for this booking's own package and time slot. */
   const picker = found && (
-    <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "14px 12px" : "18px 20px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "16px 12px" : "20px 20px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
       <BookingDatePicker
         bookings={availability}
         closedDates={closedDates}
@@ -339,7 +339,7 @@ export function ManageBooking(_props: ManageBookingProps) {
         tier={getBookingTier(found)}
         slot={getBookingSlot(found)}
       />
-      <p style={{ color: C.textS, fontSize: 12.5, margin: "10px 0 0" }}>
+      <p style={{ color: C.textS, fontSize: 12.5, margin: "12px 0 0" }}>
         Same package and time slot ({SLOTS[getBookingSlot(found)].label}); your payment carries over.
       </p>
     </div>
@@ -350,8 +350,8 @@ export function ManageBooking(_props: ManageBookingProps) {
       <div style={{ maxWidth: 940, margin: "0 auto" }}>
 
         {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: mob ? 30 : 44 }}>
-          <p style={{ ...eyebrow, letterSpacing: 3.4, marginBottom: 14 }}>MANAGE BOOKING</p>
+        <div style={{ textAlign: "center", marginBottom: mob ? 32 : 44 }}>
+          <p style={{ ...eyebrow, letterSpacing: 3.4, marginBottom: 16 }}>MANAGE BOOKING</p>
           <h1 style={{ fontFamily: serif, fontSize: mob ? 32 : 52, color: C.textH, fontWeight: 400, margin: "0 0 12px", lineHeight: 1.1 }}>
             Your stay, in one place
           </h1>
@@ -363,7 +363,7 @@ export function ManageBooking(_props: ManageBookingProps) {
         {/* ── FIND ─────────────────────────────────────────────────────── */}
         {!(found && proof.t) && (
           <form onSubmit={handleFind} style={{ ...card, marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 22 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 24 }}>
               <span
                 aria-hidden="true"
                 style={{ width: 52, height: 52, borderRadius: "50%", background: `${gold}1a`, border: `1px solid ${gold}55`, display: "flex", alignItems: "center", justifyContent: "center", color: C.goldInk, flexShrink: 0 }}
@@ -378,15 +378,15 @@ export function ManageBooking(_props: ManageBookingProps) {
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr auto", gap: 14, alignItems: "end" }}>
+            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr auto", gap: 16, alignItems: "end" }}>
               <div>
-                <Label htmlFor="mb-ref" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>
+                <Label htmlFor="mb-ref" className="mb-2 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>
                   BOOKING REFERENCE
                 </Label>
                 <Input id="mb-ref" {...registerLookup("reference")} placeholder="Example: SW-00000" autoComplete="off" aria-invalid={!!lookupErrors.reference} />
               </div>
               <div>
-                <Label htmlFor="mb-email" className="mb-1.5 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>
+                <Label htmlFor="mb-email" className="mb-2 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>
                   EMAIL ADDRESS
                 </Label>
                 <Input id="mb-email" type="email" {...registerLookup("email")} placeholder="Email used for booking" autoComplete="email" aria-invalid={!!lookupErrors.email} />
@@ -406,7 +406,7 @@ export function ManageBooking(_props: ManageBookingProps) {
               </p>
             )}
 
-            <p style={{ display: "flex", alignItems: "center", gap: 7, color: C.textS, fontSize: 12, margin: "16px 0 0" }}>
+            <p style={{ display: "flex", alignItems: "center", gap: 8, color: C.textS, fontSize: 12, margin: "16px 0 0" }}>
               <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0 }}><Icon name="lock" size={13} strokeWidth={1.6} /></span>
               Your reservation information is encrypted and secure.
             </p>
@@ -467,14 +467,14 @@ export function ManageBooking(_props: ManageBookingProps) {
                   <p style={{ color: C.textB, fontSize: 13.5, fontWeight: 700, margin: "0 0 8px", fontFamily: "monospace" }}>{found.id}</p>
                   <Badge
                     variant="outline"
-                    style={{ background: `${statusColor(found.status)}1f`, color: statusColor(found.status), border: `1px solid ${statusColor(found.status)}59`, fontSize: 10.5, letterSpacing: 1.4, padding: "3px 10px", borderRadius: 999 }}
+                    style={{ background: `${statusColor(found.status)}1f`, color: statusColor(found.status), border: `1px solid ${statusColor(found.status)}59`, fontSize: 10.5, letterSpacing: 1.4, padding: "4px 12px", borderRadius: 999 }}
                   >
                     {statusLabel(found)}
                   </Badge>
                 </div>
               </div>
 
-              <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 24, paddingTop: 20, display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4, minmax(0,1fr))", gap: 18 }}>
+              <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 24, paddingTop: 20, display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4, minmax(0,1fr))", gap: 20 }}>
                 {([
                   ["TOTAL AMOUNT", fmt(found.total)],
                   ["PAID SO FAR", fmt(Math.max(0, paidNet))],
@@ -498,14 +498,14 @@ export function ManageBooking(_props: ManageBookingProps) {
             {/* ── THE RESORT CANCELLED: choose a new date or a refund ──────── */}
             {found.status === "ResortCancelled" && (
               <div style={{ ...card, marginBottom: 20, borderColor: "#9a7bd077" }}>
-                <p style={{ ...eyebrow, color: "#b49be0", marginBottom: 10 }}>THE RESORT HAD TO CANCEL</p>
-                <h3 style={{ color: C.textH, fontFamily: serif, fontSize: mob ? 22 : 28, fontWeight: 400, margin: "0 0 10px", lineHeight: 1.2 }}>
+                <p style={{ ...eyebrow, color: "#b49be0", marginBottom: 12 }}>THE RESORT HAD TO CANCEL</p>
+                <h3 style={{ color: C.textH, fontFamily: serif, fontSize: mob ? 22 : 28, fontWeight: 400, margin: "0 0 12px", lineHeight: 1.2 }}>
                   We&rsquo;re sorry. Choose a new date or a refund.
                 </h3>
-                {found.cancelReason && <p style={{ color: C.textB, fontSize: 14, lineHeight: 1.7, margin: "0 0 10px" }}>{found.cancelReason}</p>}
+                {found.cancelReason && <p style={{ color: C.textB, fontSize: 14, lineHeight: 1.7, margin: "0 0 12px" }}>{found.cancelReason}</p>}
                 {choosing ? (
                   <>
-                    <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: "0 0 18px" }}>
+                    <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: "0 0 20px" }}>
                       {(found.heldAmount ?? 0) > 0 && <>Your {fmt(found.heldAmount ?? 0)} is safe. </>}
                       Move your booking to any free date at no cost, or ask for a full refund. Please choose by <strong style={{ color: C.textH }}>{fmtDeadline(found.choiceDeadline!)}</strong>; after that we refund you.
                     </p>
@@ -517,7 +517,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                         )}
                       </div>
                     ) : (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                         {picker}
                         {dateError && <p style={{ color: "#e07a7a", fontSize: 13, margin: 0 }}>{dateError}</p>}
                         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -539,12 +539,12 @@ export function ManageBooking(_props: ManageBookingProps) {
             {/* ── REFUND ──────────────────────────────────────────────────── */}
             {found.refundStatus && (
               <div style={{ ...card, marginBottom: 20, borderColor: found.refundStatus === "Sent" ? "rgba(110,192,113,0.45)" : "#e07a3a66" }}>
-                <p style={{ ...eyebrow, color: found.refundStatus === "Sent" ? "#6ec071" : "#e8a070", marginBottom: 10 }}>
+                <p style={{ ...eyebrow, color: found.refundStatus === "Sent" ? "#6ec071" : "#e8a070", marginBottom: 12 }}>
                   {found.refundStatus === "Sent" ? "REFUND SENT" : "REFUND ON ITS WAY"}
                 </p>
                 {found.refundStatus === "Sent" ? (
                   <>
-                    <p style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.7, margin: "0 0 6px" }}>
+                    <p style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.7, margin: "0 0 8px" }}>
                       We sent your refund of <strong style={{ color: C.textH }}>{fmt(found.refundAmount ?? 0)}</strong>
                       {found.refundSentAt ? <> on {new Date(found.refundSentAt).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })}</> : null}
                       {lastRefund ? <> by {lastRefund.method}{lastRefund.reference ? <>, reference <span style={{ fontFamily: "monospace" }}>{lastRefund.reference}</span></> : null}</> : null}.
@@ -565,7 +565,7 @@ export function ManageBooking(_props: ManageBookingProps) {
             {/* ── A DATE CHANGE IN PROGRESS, OR JUST ANSWERED ─────────────── */}
             {pendingChange && (
               <div style={{ ...card, marginBottom: 20, borderColor: `${gold}66` }}>
-                <p style={{ ...eyebrow, marginBottom: 10 }}>DATE CHANGE REQUESTED</p>
+                <p style={{ ...eyebrow, marginBottom: 12 }}>DATE CHANGE REQUESTED</p>
                 <p style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.7, margin: 0 }}>
                   You asked to move to <strong style={{ color: C.textH }}>{fmtDate(pendingChange.toDate)}</strong>. It&rsquo;s held for you until {fmtDeadline(pendingChange.holdUntil!)} while the resort reviews it. Your booking stays on {fmtDate(found.date)} until then.
                 </p>
@@ -584,7 +584,7 @@ export function ManageBooking(_props: ManageBookingProps) {
               <div style={{ ...card, marginBottom: 20 }}>
                 <p style={{ ...eyebrow, marginBottom: 12 }}>PAYMENTS ON THIS BOOKING</p>
                 {payments.map((p, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 0", borderTop: i ? `1px solid ${C.border}` : "none" }}>
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "12px 0", borderTop: i ? `1px solid ${C.border}` : "none" }}>
                     <div>
                       <div style={{ color: C.textH, fontSize: 14 }}>{PAYMENT_LABEL[p.type] ?? p.type} · {p.method === "PayMongo" ? "Online (GCash QR)" : p.method}</div>
                       <div style={{ color: C.textS, fontSize: 12 }}>
@@ -604,12 +604,12 @@ export function ManageBooking(_props: ManageBookingProps) {
             <div style={card}>
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 20 }}>
                 <div>
-                  <p style={{ ...eyebrow, marginBottom: 9 }}>MANAGE YOUR RESERVATION</p>
+                  <p style={{ ...eyebrow, marginBottom: 8 }}>MANAGE YOUR RESERVATION</p>
                   <h3 style={{ color: C.textH, fontFamily: serif, fontSize: mob ? 22 : 28, fontWeight: 400, margin: 0, lineHeight: 1.15 }}>
                     What would you like to do?
                   </h3>
                 </div>
-                <a href="/customer" style={{ color: C.textS, fontSize: 12.5, textDecoration: "underline", paddingTop: mob ? 0 : 18 }}>
+                <a href="/customer" style={{ color: C.textS, fontSize: 12.5, textDecoration: "underline", paddingTop: mob ? 0 : 20 }}>
                   Contact support
                 </a>
               </div>
@@ -622,7 +622,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                 </p>
               ) : (
                 <>
-                  <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, minmax(0,1fr))", gap: 14 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, minmax(0,1fr))", gap: 16 }}>
                     {actions.map((a) => {
                       const on = action === a.key;
                       return (
@@ -637,7 +637,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                             background: on ? `${gold}12` : C.bgCard2,
                             border: `1px solid ${on ? gold : C.border}`,
                             borderRadius: 12,
-                            padding: "18px 18px",
+                            padding: "20px 20px",
                             cursor: a.disabled ? "not-allowed" : "pointer",
                             opacity: a.disabled ? 0.5 : 1,
                             textAlign: "left",
@@ -647,20 +647,20 @@ export function ManageBooking(_props: ManageBookingProps) {
                           <span style={{ display: "block", marginBottom: 12, color: a.key === "cancel" ? "#d68a8a" : C.goldInk, lineHeight: 0 }}>
                             <Icon name={a.icon} size={20} strokeWidth={1.6} />
                           </span>
-                          <span style={{ display: "block", color: C.textH, fontSize: 14, fontWeight: 700, marginBottom: 5 }}>{a.title}</span>
+                          <span style={{ display: "block", color: C.textH, fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{a.title}</span>
                           <span style={{ display: "block", color: C.textS, fontSize: 12, lineHeight: 1.5 }}>{a.disabled ?? a.sub}</span>
                         </button>
                       );
                     })}
                   </div>
 
-                  {action && <div style={{ borderTop: `1px solid ${C.border}`, margin: "26px 0 22px" }} />}
+                  {action && <div style={{ borderTop: `1px solid ${C.border}`, margin: "28px 0 24px" }} />}
 
                   {/* Change the date: pick a free one; the resort approves. */}
                   {action === "reschedule" && (
                     <>
-                      <p style={{ ...eyebrow, marginBottom: 10 }}>CHANGE THE DATE</p>
-                      <p style={{ color: C.textS, fontSize: 13, margin: "0 0 14px", lineHeight: 1.6 }}>
+                      <p style={{ ...eyebrow, marginBottom: 12 }}>CHANGE THE DATE</p>
+                      <p style={{ color: C.textS, fontSize: 13, margin: "0 0 16px", lineHeight: 1.6 }}>
                         Pick a free date. We hold it for you for {HOLD_HOURS} hours while the resort approves the change, and your booking stays on {fmtDate(found.date)} until then. You can change the date once.
                       </p>
                       {picker}
@@ -677,10 +677,10 @@ export function ManageBooking(_props: ManageBookingProps) {
                   {/* Cancellation */}
                   {action === "cancel" && !cancelDone && (
                     <>
-                      <p style={{ ...eyebrow, color: C.goldInk, marginBottom: 10 }}>CANCELLATION</p>
+                      <p style={{ ...eyebrow, color: C.goldInk, marginBottom: 12 }}>CANCELLATION</p>
                       {canMove && changesLeft > 0 && !pendingChange && (
-                        <p style={{ display: "flex", gap: 10, alignItems: "flex-start", border: `1px solid ${gold}66`, borderRadius: 10, padding: "14px 16px", color: C.textB, fontSize: 13, lineHeight: 1.6, margin: "0 0 16px" }}>
-                          <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, flexShrink: 0, marginTop: 2 }}><Icon name="calendar" size={15} strokeWidth={1.6} /></span>
+                        <p style={{ display: "flex", gap: 12, alignItems: "flex-start", border: `1px solid ${gold}66`, borderRadius: 10, padding: "16px 16px", color: C.textB, fontSize: 13, lineHeight: 1.6, margin: "0 0 16px" }}>
+                          <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, flexShrink: 0, marginTop: 4 }}><Icon name="calendar" size={15} strokeWidth={1.6} /></span>
                           <span>
                             Can&rsquo;t make it on {fmtDate(found.date)}? You can <button type="button" onClick={() => setAction("reschedule")} style={{ background: "none", border: "none", padding: 0, color: C.goldInk, textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>move it to another date</button> instead, once, and keep what you paid.
                           </span>
@@ -689,7 +689,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                       <p style={{ color: C.textS, fontSize: 13, margin: "0 0 16px" }}>
                         Help us understand why your plans changed. This step is optional.
                       </p>
-                      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4, minmax(0,1fr))", gap: 12, marginBottom: 18 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4, minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
                         {CANCEL_REASONS.map((r) => {
                           const on = cancelReason === r;
                           return (
@@ -701,10 +701,10 @@ export function ManageBooking(_props: ManageBookingProps) {
                         })}
                       </div>
 
-                      <div role="note" style={{ display: "flex", gap: 10, alignItems: "flex-start", border: "1px solid rgba(214,138,138,0.45)", background: "rgba(180,70,70,0.10)", borderRadius: 10, padding: "14px 16px", margin: "0 0 20px" }}>
-                        <span aria-hidden="true" style={{ color: dangerInk, lineHeight: 0, flexShrink: 0, marginTop: 2 }}><Icon name="shield-alert" size={15} strokeWidth={1.8} /></span>
+                      <div role="note" style={{ display: "flex", gap: 12, alignItems: "flex-start", border: "1px solid rgba(214,138,138,0.45)", background: "rgba(180,70,70,0.10)", borderRadius: 10, padding: "16px 16px", margin: "0 0 20px" }}>
+                        <span aria-hidden="true" style={{ color: dangerInk, lineHeight: 0, flexShrink: 0, marginTop: 4 }}><Icon name="shield-alert" size={15} strokeWidth={1.8} /></span>
                         <span style={{ fontSize: 12.5, lineHeight: 1.6 }}>
-                          <strong style={{ display: "block", color: dangerInk, fontSize: 13, letterSpacing: 0.3, marginBottom: 3 }}>No refunds when you cancel</strong>
+                          <strong style={{ display: "block", color: dangerInk, fontSize: 13, letterSpacing: 0.3, marginBottom: 4 }}>No refunds when you cancel</strong>
                           <span style={{ color: C.textS }}>
                             {paidNet > 0 ? <>The {fmt(paidNet)} already paid on this booking is not returned if you cancel.</> : <>Anything paid on this booking is not returned if you cancel.</>}
                             {" "}If the resort ever has to cancel, you choose a new date or a full refund.
@@ -712,7 +712,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                         </span>
                       </div>
 
-                      {cancelError && <p style={{ color: "#e07a7a", fontSize: 13, margin: "0 0 14px" }}>{cancelError}</p>}
+                      {cancelError && <p style={{ color: "#e07a7a", fontSize: 13, margin: "0 0 16px" }}>{cancelError}</p>}
 
                       <div style={{ display: "flex", justifyContent: "flex-end" }}>
                         <button type="button" onClick={() => setShowCancelConfirm(true)} disabled={cancelling}
@@ -732,8 +732,8 @@ export function ManageBooking(_props: ManageBookingProps) {
                   {/* Detail change: a message to the resort. */}
                   {action === "details" && (
                     <>
-                      <p style={{ ...eyebrow, marginBottom: 10 }}>GUEST DETAIL UPDATE</p>
-                      <p style={{ color: C.textS, fontSize: 13, margin: "0 0 14px" }}>
+                      <p style={{ ...eyebrow, marginBottom: 12 }}>GUEST DETAIL UPDATE</p>
+                      <p style={{ color: C.textS, fontSize: 13, margin: "0 0 16px" }}>
                         Tell us what needs correcting: a name, a phone number or an email address.
                       </p>
 
@@ -761,7 +761,7 @@ export function ManageBooking(_props: ManageBookingProps) {
               )}
             </div>
 
-            <p style={{ color: C.textS, fontSize: 12, textAlign: "center", margin: "22px auto 0", maxWidth: 620, lineHeight: 1.6 }}>
+            <p style={{ color: C.textS, fontSize: 12, textAlign: "center", margin: "24px auto 0", maxWidth: 620, lineHeight: 1.6 }}>
               If the resort has to cancel, you choose a free new date or a full refund. If you cancel, payments aren&rsquo;t refunded, but you can move your booking to another date once.
             </p>
           </>

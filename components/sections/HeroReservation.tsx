@@ -75,7 +75,7 @@ export function HeroReservation({
       style={{
         position: "relative",
         zIndex: 3,
-        marginTop: mob ? 28 : 34,
+        marginTop: mob ? 28 : 36,
         width: "100%",
         maxWidth: 1060,
         background: isDark ? "rgba(6,5,3,0.72)" : "rgba(10,7,3,0.72)",
@@ -92,12 +92,12 @@ export function HeroReservation({
         style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           gap: 16, flexWrap: "wrap",
-          padding: mob ? "20px 20px 18px" : "24px 30px 22px",
+          padding: mob ? "20px 20px 20px" : "24px 32px 24px",
           borderBottom: `1px solid rgba(201,168,76,${isDark ? "0.16" : "0.24"})`,
         }}
       >
         <div>
-          <p style={{ ...label, color: C.goldInk, fontWeight: 500, marginBottom: 6 }}>RESERVATIONS</p>
+          <p style={{ ...label, color: C.goldInk, fontWeight: 500, marginBottom: 8 }}>RESERVATIONS</p>
           <h2
             style={{
               fontFamily: "'Satoshi',system-ui,sans-serif",
@@ -118,7 +118,7 @@ export function HeroReservation({
         <div
           style={{
             flex: mob ? "none" : "1 1 58%",
-            padding: mob ? "20px 16px" : "24px 26px",
+            padding: mob ? "20px 16px" : "24px 28px",
             borderRight: mob ? undefined : `1px solid rgba(201,168,76,${isDark ? "0.16" : "0.24"})`,
             borderBottom: mob ? `1px solid rgba(201,168,76,${isDark ? "0.16" : "0.24"})` : undefined,
             minWidth: 0,
@@ -126,7 +126,7 @@ export function HeroReservation({
             flexDirection: "column",
           }}
         >
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
             <p style={{ fontSize: 14, color: "rgba(238,232,220,0.88)", margin: 0, fontWeight: 500 }}>
               Choose an available date
             </p>
@@ -147,14 +147,14 @@ export function HeroReservation({
         <div
           style={{
             flex: mob ? "none" : "1 1 42%",
-            padding: mob ? "20px 20px 22px" : "24px 30px 26px",
-            display: "flex", flexDirection: "column", gap: 18, minWidth: 0,
+            padding: mob ? "20px 20px 24px" : "24px 32px 28px",
+            display: "flex", flexDirection: "column", gap: 20, minWidth: 0,
           }}
         >
           <p style={{ ...label, margin: 0 }}>YOUR VISIT</p>
 
           {/* Selected date */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <span
               style={{
                 width: 44, height: 44, borderRadius: 12, flexShrink: 0,
@@ -165,7 +165,7 @@ export function HeroReservation({
               <Icon name="calendar" size={19} />
             </span>
             <div style={{ minWidth: 0 }}>
-              <p style={{ fontSize: 12, color: "rgba(238,232,220,0.6)", margin: "0 0 3px" }}>Selected date</p>
+              <p style={{ fontSize: 12, color: "rgba(238,232,220,0.6)", margin: "0 0 4px" }}>Selected date</p>
               <p
                 style={{
                   fontFamily: "'Satoshi',system-ui,sans-serif",
@@ -182,7 +182,7 @@ export function HeroReservation({
 
           {/* Visit type */}
           <div>
-            <p style={{ ...label, margin: "0 0 10px" }}>VISIT TYPE</p>
+            <p style={{ ...label, margin: "0 0 12px" }}>VISIT TYPE</p>
             <div
               role="radiogroup"
               aria-label="Visit type"
@@ -208,8 +208,8 @@ export function HeroReservation({
                       border: on ? `1px solid ${gold}55` : "1px solid transparent",
                       background: on ? `${gold}1f` : "transparent",
                       color: on ? "#fff" : "rgba(238,232,220,0.62)",
-                      padding: "6px 4px", textAlign: "center",
-                      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2,
+                      padding: "8px 4px", textAlign: "center",
+                      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
                     }}
                   >
                     <span style={{ fontSize: 13, fontWeight: on ? 600 : 400, lineHeight: 1.1 }}>
@@ -268,7 +268,7 @@ export function HeroReservation({
           {/* What it comes to */}
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
             <div>
-              <p style={{ fontSize: 14, color: "#fff", margin: "0 0 3px", fontWeight: 500 }}>
+              <p style={{ fontSize: 14, color: "#fff", margin: "0 0 4px", fontWeight: 500 }}>
                 {goesExclusive ? "Exclusive use" : "Shared pool"}
               </p>
               <p style={{ fontSize: 12, color: "rgba(238,232,220,0.55)", margin: 0 }}>
@@ -294,7 +294,7 @@ export function HeroReservation({
             CHECK AVAILABILITY <span aria-hidden="true">→</span>
           </Button>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, flexWrap: "wrap" }}>
             <Linkish onClick={onBrowseRooms}>Browse rooms</Linkish>
             <span aria-hidden="true" style={{ color: "rgba(238,232,220,0.25)" }}>|</span>
             <Linkish onClick={onManageBooking}>Manage booking</Linkish>

@@ -99,7 +99,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
             color: gold,
             fontSize: 11.5,
             letterSpacing: 4,
-            margin: "0 0 22px",
+            margin: "0 0 24px",
             fontFamily: "'Satoshi',system-ui,sans-serif",
           }}
         >
@@ -115,7 +115,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
             alignItems: "center",
             justifyContent: "center",
             flexWrap: "wrap",
-            gap: 18,
+            gap: 20,
             margin: 0,
             color: C.textH,
             fontFamily: "'Satoshi',system-ui,sans-serif",
@@ -138,7 +138,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
             fontSize: "clamp(14px, 1.9vw, 17px)",
             lineHeight: 1.7,
             maxWidth: 560,
-            margin: "22px 0 0",
+            margin: "24px 0 0",
           }}
         >
           {copy.body}
@@ -151,7 +151,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
               fontSize: "clamp(14px, 1.9vw, 17px)",
               lineHeight: 1.7,
               maxWidth: 560,
-              margin: "14px 0 0",
+              margin: "16px 0 0",
               padding: "12px 20px",
               border: `1px solid ${gold}44`,
               borderRadius: 10,
@@ -162,7 +162,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
           </p>
         )}
 
-        <div style={{ height: 1, width: 64, background: `${gold}55`, margin: "34px 0 18px" }} />
+        <div style={{ height: 1, width: 64, background: `${gold}55`, margin: "36px 0 20px" }} />
 
         <p style={{ color: C.textXS, fontSize: 12.5, letterSpacing: 1.5, margin: 0 }}>
           Angono, Rizal · This page updates by itself when we reopen.

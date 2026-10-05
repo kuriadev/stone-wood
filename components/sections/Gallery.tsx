@@ -151,7 +151,7 @@ export function Gallery({ galleryImgs }: GalleryProps) {
               color: C.goldInk,
               letterSpacing: 5,
               fontSize: 11.5,
-              margin: "0 0 14px",
+              margin: "0 0 16px",
               // Gold on a bright photo is the weakest pairing on this page;
               // the shadow keeps it readable whatever the hero image is.
               textShadow: "0 1px 12px rgba(0,0,0,0.85)",
@@ -166,7 +166,7 @@ export function Gallery({ galleryImgs }: GalleryProps) {
               lineHeight: 1.05,
               color: "#fff",
               fontWeight: 400,
-              margin: "0 0 18px",
+              margin: "0 0 20px",
               letterSpacing: "-0.5px",
               textShadow: "0 2px 30px rgba(0,0,0,0.45)",
             }}
@@ -198,7 +198,7 @@ export function Gallery({ galleryImgs }: GalleryProps) {
       <div style={{ maxWidth: 1600, margin: "0 auto", padding: mob ? "48px 20px 72px" : "88px 48px 112px" }}>
 
         {/* Section head: the label on the left, the line on the right. */}
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 24, flexWrap: "wrap", marginBottom: mob ? 26 : 40 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 24, flexWrap: "wrap", marginBottom: mob ? 28 : 40 }}>
           <p style={{ color: C.textS, fontSize: 11, letterSpacing: 2.6, margin: 0 }}>MORNING TO MIDNIGHT</p>
           <h2 style={{ color: C.textH, fontFamily: serif, fontSize: mob ? 26 : 38, fontWeight: 400, margin: 0, lineHeight: 1.15 }}>
             A quiet look inside your stay
@@ -213,7 +213,7 @@ export function Gallery({ galleryImgs }: GalleryProps) {
           style={{
             display: "grid",
             gridTemplateColumns: mob ? "1fr" : "repeat(12, 1fr)",
-            gap: mob ? 14 : 22,
+            gap: mob ? 16 : 24,
             alignItems: "start",
           }}
         >
@@ -256,7 +256,7 @@ export function Gallery({ galleryImgs }: GalleryProps) {
                   color: "#f2ede4",
                   fontSize: 11,
                   letterSpacing: 1,
-                  padding: "5px 10px",
+                  padding: "4px 12px",
                   borderRadius: 999,
                   lineHeight: 1.2,
                 }}
@@ -348,7 +348,7 @@ export function Gallery({ galleryImgs }: GalleryProps) {
               >
                 {selIdx + 1} / {galleryImgs.length}
                 {!mob && (
-                  <span style={{ display: "block", fontSize: 10.5, letterSpacing: 1.4, marginTop: 5, color: "rgba(246,241,232,0.35)" }}>
+                  <span style={{ display: "block", fontSize: 10.5, letterSpacing: 1.4, marginTop: 4, color: "rgba(246,241,232,0.35)" }}>
                     ← → TO BROWSE · ESC TO CLOSE
                   </span>
                 )}

@@ -84,10 +84,10 @@ export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onC
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div>
           <Label htmlFor="cancel-reason">Reason the guest reads</Label>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
             {PRESETS.map((p) => (
               <button key={p.label} type="button" onClick={() => setReason(p.text)} aria-pressed={reason === p.text}
-                style={{ padding: "4px 10px", borderRadius: 14, fontSize: 12, cursor: "pointer", border: `1px solid ${reason === p.text ? "#d4a80088" : cBr}`, background: reason === p.text ? "rgba(212,168,0,0.1)" : "transparent", color: C.textB }}>
+                style={{ padding: "4px 12px", borderRadius: 14, fontSize: 12, cursor: "pointer", border: `1px solid ${reason === p.text ? "#d4a80088" : cBr}`, background: reason === p.text ? "rgba(212,168,0,0.1)" : "transparent", color: C.textB }}>
                 {p.label}
               </button>
             ))}
@@ -96,7 +96,7 @@ export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onC
             placeholder="e.g. An emergency at the resort means we can't host your group on that date." style={{ ...inp, resize: "none" }} />
         </div>
 
-        <div style={{ background: soft, borderRadius: 10, padding: "10px 14px", fontSize: 13, color: C.textB, lineHeight: 1.6 }}>
+        <div style={{ background: soft, borderRadius: 10, padding: "12px 16px", fontSize: 13, color: C.textB, lineHeight: 1.6 }}>
           <strong style={{ color: C.textH, display: "block", marginBottom: 4 }}>What happens next</strong>
           The date opens up for other guests.{" "}
           {paid > 0 ? <>The <strong style={{ color: C.textH }}>{fmt(paid)}</strong> they paid stays with the booking. </> : null}

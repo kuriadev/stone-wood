@@ -88,7 +88,7 @@ export function AccountModal({ onClose, onSignedOut }: { onClose: () => void; on
       onClose={onClose}
       width={560}
       footer={
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <Btn onClick={onClose}>Cancel</Btn>
           <Btn kind="primary" icon="check" disabled={busy || !loaded} onClick={() => void save()}>
             {busy ? "Saving…" : "Save changes"}
@@ -105,7 +105,7 @@ export function AccountModal({ onClose, onSignedOut }: { onClose: () => void; on
 
         <div style={{ borderTop: `1px solid ${cBr}`, paddingTop: 16 }}>
           <Label htmlFor="acc-new">NEW PASSWORD</Label>
-          <p style={{ color: C.textS, fontSize: 12, margin: "0 0 6px" }}>
+          <p style={{ color: C.textS, fontSize: 12, margin: "0 0 8px" }}>
             At least {MIN_PASSWORD} characters. Leave both boxes empty to keep your current password and only change the username.
           </p>
           <Input id="acc-new" type={show ? "text" : "password"} value={newPassword}
@@ -129,8 +129,8 @@ export function AccountModal({ onClose, onSignedOut }: { onClose: () => void; on
             to fill in on the way past. */}
         <div style={{ borderTop: `1px solid ${cBr}`, paddingTop: 16 }}>
           <Label htmlFor="acc-current">CURRENT PASSWORD</Label>
-          <p style={{ color: C.textS, fontSize: 12, margin: "0 0 6px", display: "flex", gap: 7, alignItems: "flex-start" }}>
-            <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, marginTop: 2 }}>
+          <p style={{ color: C.textS, fontSize: 12, margin: "0 0 8px", display: "flex", gap: 8, alignItems: "flex-start" }}>
+            <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, marginTop: 4 }}>
               <Icon name="lock" size={13} strokeWidth={1.8} />
             </span>
             Required for any change here, even though you are already signed in.

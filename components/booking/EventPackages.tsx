@@ -57,14 +57,14 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
       : [];
 
   return (
-    <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 26, paddingTop: 24 }}>
-      <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 9px", fontWeight: 700 }}>
+    <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 28, paddingTop: 24 }}>
+      <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 8px", fontWeight: 700 }}>
         EVENT PACKAGES
       </p>
-      <h4 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 20 : 23, margin: "0 0 9px", fontWeight: 400 }}>
+      <h4 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 20 : 23, margin: "0 0 8px", fontWeight: 400 }}>
         Or book a ready-made celebration
       </h4>
-      <p style={{ color: C.textS, fontSize: 13, margin: "0 0 18px", lineHeight: 1.6, maxWidth: 560 }}>
+      <p style={{ color: C.textS, fontSize: 13, margin: "0 0 20px", lineHeight: 1.6, maxWidth: 560 }}>
         Fixed-price packages for the events hall. Choosing one replaces the visit above with that package.
       </p>
 
@@ -72,7 +72,7 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
         style={{
           listStyle: "none", margin: 0, padding: 0, display: "grid",
           gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))",
-          gap: 14,
+          gap: 16,
         }}
       >
         {shown.map((p) => (
@@ -109,18 +109,18 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
                      from the same rule applied fine. Inline wins outright. */
                   style={{ backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)" }}
                 >
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: "#fff", fontSize: 12.5, letterSpacing: 1.6, fontWeight: 600 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#fff", fontSize: 12.5, letterSpacing: 1.6, fontWeight: 600 }}>
                     <Icon name="search" size={14} strokeWidth={1.8} />
                     VIEW MORE
                   </span>
                 </span>
               </span>
 
-              <span style={{ display: "block", padding: "14px 16px 16px" }}>
-                <span style={{ display: "block", color: C.textH, fontSize: 16, fontFamily: "'Satoshi',system-ui,sans-serif", marginBottom: 6 }}>
+              <span style={{ display: "block", padding: "16px 16px 16px" }}>
+                <span style={{ display: "block", color: C.textH, fontSize: 16, fontFamily: "'Satoshi',system-ui,sans-serif", marginBottom: 8 }}>
                   {p.title}
                 </span>
-                <span style={{ display: "block", color: C.textS, fontSize: 12, lineHeight: 1.55, marginBottom: 10 }}>
+                <span style={{ display: "block", color: C.textS, fontSize: 12, lineHeight: 1.55, marginBottom: 12 }}>
                   {whenLabel(p)} · up to {p.capacity} guests
                 </span>
                 <span style={{ display: "block", color: C.textXS, fontSize: 9.5, letterSpacing: 1.6 }}>STARTING AT</span>
@@ -134,7 +134,7 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
       {/* Only offered when something is actually hidden, so the control never
           appears as a dead end. */}
       {(hidden > 0 || expanded) && (
-        <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
           <button className="sw-btn-out"
             type="button"
             onClick={() => setExpanded((v) => !v)}
@@ -145,7 +145,7 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
             }}
           >
             {expanded ? "SHOW FEWER" : `VIEW ALL ${packages.length} EVENTS`}
-            <Icon name={expanded ? "chevron-up" : "chevron-down"} size={14} style={{ marginLeft: 6 }} />
+            <Icon name={expanded ? "chevron-up" : "chevron-down"} size={14} style={{ marginLeft: 8 }} />
           </button>
         </div>
       )}
@@ -172,14 +172,14 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
                 }
               />
 
-              <div style={{ padding: mob ? "18px 20px 22px" : "22px 26px 26px" }}>
+              <div style={{ padding: mob ? "20px 20px 24px" : "24px 28px 28px" }}>
                 <DialogDescription asChild>
                   <p style={{ color: C.textS, fontSize: 14, lineHeight: 1.7, margin: "0 0 16px" }}>
                     {open.blurb}
                   </p>
                 </DialogDescription>
 
-                <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
                   <span style={{ color: C.textXS, fontSize: 10, letterSpacing: 1.8 }}>STARTING AT</span>
                   <span style={{ color: C.goldInk, fontSize: 26, fontWeight: 700, lineHeight: 1 }}>{fmt(open.price)}</span>
                   <span style={{ color: C.textS, fontSize: 12.5 }}>
@@ -190,10 +190,10 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
                 {open.includes.length > 0 && (
                   <>
                     <p style={{ color: C.textXS, fontSize: 10, letterSpacing: 1.8, margin: "0 0 8px" }}>WHAT&apos;S INCLUDED</p>
-                    <ul style={{ listStyle: "none", margin: "0 0 16px", padding: 0, display: "grid", gap: 7 }}>
+                    <ul style={{ listStyle: "none", margin: "0 0 16px", padding: 0, display: "grid", gap: 8 }}>
                       {open.includes.map((line) => (
-                        <li key={line} style={{ display: "flex", gap: 9, alignItems: "flex-start", color: C.textB, fontSize: 14, lineHeight: 1.55 }}>
-                          <span aria-hidden="true" style={{ color: gold, lineHeight: 0, marginTop: 3, flexShrink: 0 }}>
+                        <li key={line} style={{ display: "flex", gap: 8, alignItems: "flex-start", color: C.textB, fontSize: 14, lineHeight: 1.55 }}>
+                          <span aria-hidden="true" style={{ color: gold, lineHeight: 0, marginTop: 4, flexShrink: 0 }}>
                             <Icon name="check" size={13} strokeWidth={2} />
                           </span>
                           {line}
@@ -204,7 +204,7 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
                 )}
 
                 {open.note && (
-                  <p style={{ color: C.textS, fontSize: 12.5, margin: "0 0 18px", display: "flex", gap: 7, alignItems: "center" }}>
+                  <p style={{ color: C.textS, fontSize: 12.5, margin: "0 0 20px", display: "flex", gap: 8, alignItems: "center" }}>
                     <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0 }}>
                       <Icon name="info" size={13} strokeWidth={1.8} />
                     </span>
@@ -212,7 +212,7 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
                   </p>
                 )}
 
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
                   <button className="sw-btn-out" type="button" onClick={() => setOpen(null)} style={{ ...outBtn, color: C.goldInk, minHeight: 46 }}>
                     CANCEL
                   </button>
