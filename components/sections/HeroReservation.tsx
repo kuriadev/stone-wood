@@ -78,6 +78,10 @@ export function HeroReservation({
         marginTop: mob ? 28 : 36,
         width: "100%",
         maxWidth: 1060,
+        /* Dark in BOTH themes. Everything inside therefore uses fixed light
+           inks and the SURFACE gold -- never C.goldInk, which follows the
+           theme and turns dark olive here in light mode. Same rule as the
+           footer and the gallery lightbox. */
         background: isDark ? "rgba(6,5,3,0.72)" : "rgba(10,7,3,0.72)",
         border: `1px solid rgba(201,168,76,${isDark ? "0.28" : "0.4"})`,
         backdropFilter: "blur(20px)",
@@ -97,7 +101,7 @@ export function HeroReservation({
         }}
       >
         <div>
-          <p style={{ ...label, color: C.goldInk, fontWeight: 500, marginBottom: 8 }}>RESERVATIONS</p>
+          <p style={{ ...label, color: gold, fontWeight: 500, marginBottom: 8 }}>RESERVATIONS</p>
           <h2
             style={{
               fontFamily: "'Satoshi',system-ui,sans-serif",
@@ -158,7 +162,7 @@ export function HeroReservation({
             <span
               style={{
                 width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-                background: `${gold}18`, border: `1px solid ${gold}44`, color: C.goldInk,
+                background: `${gold}18`, border: `1px solid ${gold}44`, color: gold,
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}
             >
@@ -215,7 +219,7 @@ export function HeroReservation({
                     <span style={{ fontSize: 13, fontWeight: on ? 600 : 400, lineHeight: 1.1 }}>
                       {SLOTS[k].label}
                     </span>
-                    <span style={{ fontSize: 11, color: on ? C.goldInk : "rgba(238,232,220,0.45)", lineHeight: 1.1 }}>
+                    <span style={{ fontSize: 11, color: on ? gold : "rgba(238,232,220,0.45)", lineHeight: 1.1 }}>
                       {SLOTS[k].hours}
                     </span>
                   </button>
@@ -278,7 +282,7 @@ export function HeroReservation({
             <p
               style={{
                 fontFamily: "'Satoshi',system-ui,sans-serif",
-                fontSize: 24, color: C.goldInk, margin: 0, whiteSpace: "nowrap", fontWeight: 400,
+                fontSize: 24, color: gold, margin: 0, whiteSpace: "nowrap", fontWeight: 400,
               }}
             >
               from {fmt(goesExclusive ? exclusiveTotal : sharedTotal)}

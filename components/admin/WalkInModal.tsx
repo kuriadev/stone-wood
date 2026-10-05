@@ -169,7 +169,7 @@ export function WalkInModal({
   const col: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 16, minWidth: 0 };
   const choice = (on: boolean): React.CSSProperties => ({
     padding: "8px 12px", fontSize: 12.5, borderRadius: 7, cursor: "pointer",
-    background: on ? `${gold}1c` : "transparent", color: on ? gold : C.textS, border: `1px solid ${on ? gold + "66" : cBr}`,
+    background: on ? `${gold}1c` : "transparent", color: on ? C.goldInk : C.textS, border: `1px solid ${on ? gold + "66" : cBr}`,
   });
 
   return (
@@ -316,7 +316,7 @@ export function WalkInModal({
         {/* ── Price & payment ── */}
         <div style={col}>
           <div style={{ background: soft, borderRadius: 10, padding: "12px 16px" }}>
-            <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>{label} <span style={{ color: tier === "Exclusive" ? gold : "#2e9e4e", fontSize: 12, fontWeight: 500 }}>· {tier}</span></div>
+            <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>{label} <span style={{ color: tier === "Exclusive" ? C.goldInk : "#2e9e4e", fontSize: 12, fontWeight: 500 }}>· {tier}</span></div>
             {/* One line per thing being charged. A single "pool" line read
                 wrong the moment the venue could be booked without one. */}
             {isPkg ? (

@@ -302,7 +302,7 @@ export function ManageBooking(_props: ManageBookingProps) {
 
   /* The warning red. The pale pink the cancel controls use is legible on the
      dark card and washes out on the light one, so this follows the theme. */
-  const dangerInk = isDark ? "#e8b4b4" : "#a02c2c";
+  const dangerInk = C.dangerInk;   // the shared token, see --sw-danger-ink
 
   const slotHours = found?.slot ? SLOTS[found.slot as BookingSlot]?.hours : null;
   const paidNet = payments.reduce((s, p) => s + (p.type === "Refund" ? -p.amount : p.type === "Penalty" ? 0 : p.amount), 0);

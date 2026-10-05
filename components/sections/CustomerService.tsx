@@ -171,7 +171,7 @@ const submit = handleSubmit(async (values) => {
 
               {/* ── FULL NAME ── */}
               <div>
-                <Label htmlFor="cs-name" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">FULL NAME</Label>
+                <Label htmlFor="cs-name" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">FULL NAME</Label>
                 <Input
                   id="cs-name"
                   type="text"
@@ -199,8 +199,8 @@ const submit = handleSubmit(async (values) => {
 
               {/* ── EMAIL ADDRESS ── */}
               <div>
-                <Label htmlFor="cs-email" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">
-                  EMAIL ADDRESS <span style={{ color: "#e55", fontSize: 10.5 }}>*Gmail only</span>
+                <Label htmlFor="cs-email" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">
+                  EMAIL ADDRESS <span style={{ color: C.dangerInk, fontSize: 10.5 }}>*Gmail only</span>
                 </Label>
                 <Input
                   id="cs-email"
@@ -212,10 +212,10 @@ const submit = handleSubmit(async (values) => {
                   aria-invalid={touched.email && !emailOk}
                 />
                 {touched.email && form.email.length > 0 && !emailOk && (
-                  <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Must be a Gmail address (@gmail.com)</p>
+                  <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 4 }}>⚠ Must be a Gmail address (@gmail.com)</p>
                 )}
                 {touched.email && form.email.length === 0 && (
-                  <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Email address is required</p>
+                  <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 4 }}>⚠ Email address is required</p>
                 )}
                 {touched.email && emailOk && (
                   <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Valid Gmail address</p>
@@ -270,7 +270,7 @@ const submit = handleSubmit(async (values) => {
 
               {/* ── MESSAGE ── */}
               <div className="md:col-span-3">
-                <Label htmlFor="cs-message" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">
+                <Label htmlFor="cs-message" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">
                   MESSAGE <span style={{ color: C.textXS, fontSize: 10.5, fontWeight: 400, letterSpacing: 0 }}>(min. 10 characters)</span>
                 </Label>
                 <Textarea
@@ -290,7 +290,7 @@ const submit = handleSubmit(async (values) => {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
                   <span>
                     {touched.message && !messageOk && (
-                      <span style={{ color: "#e55", fontSize: 12.5 }}>⚠ Please write at least 10 characters</span>
+                      <span style={{ color: C.dangerInk, fontSize: 12.5 }}>⚠ Please write at least 10 characters</span>
                     )}
                     {touched.message && messageOk && (
                       <span style={{ color: "#4caf50", fontSize: 12.5 }}>✓ Good to go</span>

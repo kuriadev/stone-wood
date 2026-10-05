@@ -1,0 +1,41 @@
+-- Close the two public INSERT policies.
+--
+-- ── What was wrong ──────────────────────────────────────────────────
+-- `bookings` and `customer_messages` each carried `for insert with check
+-- (true)`, so the publishable key — which ships inside the JavaScript
+-- bundle and is readable by anyone who opens DevTools — could write rows
+-- straight into those tables over the PostgREST endpoint.
+--
+-- Verified, not assumed: posting `{}` to /rest/v1/bookings with the public
+-- key was refused with
+--     23502  null value in column "name" violates not-null constraint
+-- and NOT with a row-level-security error. A column constraint was the only
+-- thing standing in the way; a well-formed body would have been written.
+--
+-- That bypasses every check /api/bookings performs:
+--   • the server-side quote (lib/pricing.ts) that decides what is owed
+--   • the availability check that stops double-booking a date
+--   • the rate limit on booking creation
+--   • the payment intent the booking is supposed to be attached to
+-- A forged row could have claimed status 'Confirmed' on any date for any
+-- amount. `customer_messages` was the same door for inbox spam.
+--
+-- ── Why dropping them is safe ───────────────────────────────────────
+-- Nothing in the browser uses the anon client. Every importer of
+-- lib/supabase.ts outside app/api/ is a server-only module (auth.ts,
+-- bookingQuote.ts, *.server.ts), and no component imports it at all.
+-- Both insert paths — POST /api/bookings and POST /api/customer-service —
+-- call getSupabaseAdmin(), the service-role client, which bypasses RLS and
+-- is therefore untouched by this change.
+--
+-- After this, the publishable key can do exactly one thing: read the
+-- marketing tables (rooms, gallery, closed_dates, packages, site_settings).
+-- Guests still book and still send messages; those requests go through the
+-- Route Handlers, as they already did.
+
+drop policy if exists "anyone may create a booking" on public.bookings;
+drop policy if exists "anyone may send a message"  on public.customer_messages;
+
+-- Leave RLS on with no policy for these commands. With RLS enabled and no
+-- matching policy, PostgreSQL denies by default — which is what already
+-- protects SELECT, UPDATE and DELETE on both tables.

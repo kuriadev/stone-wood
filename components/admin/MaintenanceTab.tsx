@@ -166,7 +166,7 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
                   {on && <span style={{ width: 8, height: 8, borderRadius: "50%", background: gold }} />}
                 </span>
                 <span>
-                  <span style={{ display: "block", color: on ? gold : C.textH, fontSize: 15, marginBottom: 4 }}>
+                  <span style={{ display: "block", color: on ? C.goldInk : C.textH, fontSize: 15, marginBottom: 4 }}>
                     {MAINTENANCE_REASONS[r].label}
                   </span>
                   <span style={{ display: "block", color: C.textS, fontSize: 13, lineHeight: 1.6 }}>

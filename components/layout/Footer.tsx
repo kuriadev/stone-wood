@@ -22,6 +22,9 @@ export function Footer({ setPage }: FooterProps) {
   return (
     <footer
       style={{
+        /* Dark in both themes on purpose, so the text colours below are
+           single literals rather than isDark branches. They are contrast-
+           checked against #1a1410, the lighter of the two. */
         background: isDark ? "#080706" : "#1a1410",
         borderTop: `1px solid ${isDark ? "#2a2a2a" : "#1a1410"}`,
         padding: mob ? "48px 20px 28px" : "64px 24px 32px",
@@ -53,7 +56,7 @@ export function Footer({ setPage }: FooterProps) {
         <div>
           <div
             style={{
-              color: gold,
+              color: C.goldInk,
               fontFamily: "'Satoshi',system-ui,sans-serif",
               fontSize: 24,
               letterSpacing: 4,
@@ -63,23 +66,23 @@ export function Footer({ setPage }: FooterProps) {
           >
             STONEWOOD
           </div>
-          <p style={{ color: "#6a5e4e", fontSize: 14.5, lineHeight: 2, maxWidth: 300 }}>
+          <p style={{ color: "#9a8d7a", fontSize: 14.5, lineHeight: 2, maxWidth: 300 }}>
             A private resort experience in Angono, Rizal. Exclusive, intimate, and unforgettable.
           </p>
         </div>
 
         {/* Navigation */}
         <div>
-          <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 11, letterSpacing: 3, marginBottom: 16 }}>
+          <div style={{ color: "rgba(201,168,76,0.85)", fontSize: 11, letterSpacing: 3, marginBottom: 16 }}>
             NAVIGATION
           </div>
           {[...NAV, "Book Now"].map((l) => (
             <div
               key={l}
               onClick={() => setPage(l)}
-              style={{ color: "#6a5e4e", fontSize: 14.5, marginBottom: 8, cursor: "pointer", transition: "color .2s" }}
+              style={{ color: "#9a8d7a", fontSize: 14.5, marginBottom: 8, cursor: "pointer", transition: "color .2s" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = gold)}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "#6a5e4e")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "#9a8d7a")}
             >
               {l}
             </div>
@@ -88,7 +91,7 @@ export function Footer({ setPage }: FooterProps) {
 
         {/* Support */}
         <div>
-          <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 11, letterSpacing: 3, marginBottom: 16 }}>
+          <div style={{ color: "rgba(201,168,76,0.85)", fontSize: 11, letterSpacing: 3, marginBottom: 16 }}>
             SUPPORT
           </div>
           {[
@@ -98,9 +101,9 @@ export function Footer({ setPage }: FooterProps) {
             <div
               key={label}
               onClick={action}
-              style={{ color: "#6a5e4e", fontSize: 14.5, marginBottom: 8, cursor: "pointer", transition: "color .2s" }}
+              style={{ color: "#9a8d7a", fontSize: 14.5, marginBottom: 8, cursor: "pointer", transition: "color .2s" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = gold)}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "#6a5e4e")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "#9a8d7a")}
             >
               {label}
             </div>
@@ -109,12 +112,12 @@ export function Footer({ setPage }: FooterProps) {
 
         {/* Contact */}
         <div>
-          <div style={{ color: "rgba(201,168,76,0.6)", fontSize: 11, letterSpacing: 3, marginBottom: 16 }}>
+          <div style={{ color: "rgba(201,168,76,0.85)", fontSize: 11, letterSpacing: 3, marginBottom: 16 }}>
             CONTACT
           </div>
           {["22 Yakal cor. Ipil St. Doña Justa Village Phase, 2nd St, Angono, Rizal", "+63 912 345 6789", "stonewoodresort.ph@gmail.com", `Day ${SLOTS.Day.hours} · Night ${SLOTS.Night.hours}`].map(
             (c) => (
-              <div key={c} style={{ color: "#6a5e4e", fontSize: 14.5, marginBottom: 8 }}>
+              <div key={c} style={{ color: "#9a8d7a", fontSize: 14.5, marginBottom: 8 }}>
                 {c}
               </div>
             )
@@ -127,7 +130,7 @@ export function Footer({ setPage }: FooterProps) {
           borderTop: "1px solid rgba(201,168,76,0.08)",
           paddingTop: 24,
           textAlign: "center",
-          color: "#4a4035",
+          color: "#8a7d6a",
           fontSize: 12.5,
           letterSpacing: 1,
         }}

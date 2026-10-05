@@ -233,7 +233,8 @@ export function AvailabilityCalendar({
 
           // ── Available (default): green tint ─────────────────────────────
           let bg  = "rgba(76,175,80,0.12)";
-          let col = "#6ec071";
+          // 4.85:1 on the scrim this calendar sits on. #6ec071 was 3.44:1.
+          let col = "#9ade9a";
           let bdr = "1px solid rgba(76,175,80,0.28)";
           let cur: string = "pointer";
 
@@ -249,8 +250,14 @@ export function AvailabilityCalendar({
           let dim = false;
           if (isPast)   { bg = "rgba(255,255,255,0.04)"; col = "rgba(238,232,220,0.55)"; bdr = "1px solid rgba(255,255,255,0.06)"; cur = "default";     dim = true; }
           if (isBeyond) { bg = "rgba(255,255,255,0.04)"; col = "rgba(238,232,220,0.55)"; bdr = "1px solid rgba(255,255,255,0.06)"; cur = "not-allowed"; dim = true; }
-          if (isBooked) { bg = "rgba(200,200,200,0.42)"; col = "rgba(244,244,244,0.92)"; bdr = "1px solid rgba(210,210,210,0.5)"; cur = "not-allowed"; }
-          if (isClosed) { bg = "rgba(180,70,70,0.10)";   col = "rgba(214,138,138,0.75)"; bdr = "1px solid rgba(180,70,70,0.22)";  cur = "not-allowed"; }
+          /* Booked started as near-white ink on a 42% white chip: 3.63:1, too
+             low. Making the CHIP light fixed the number and broke the panel --
+             two solid white blocks shouted louder than any available date, so
+             the eye went straight to the dates you cannot have.
+             The ink is what gets lightened instead. A quiet dark chip, like
+             every other unavailable state, with near-white text on it. */
+          if (isBooked) { bg = "rgba(255,255,255,0.10)"; col = "rgba(245,242,236,0.95)"; bdr = "1px solid rgba(255,255,255,0.22)"; cur = "not-allowed"; }
+          if (isClosed) { bg = "rgba(180,70,70,0.10)";   col = "#f5c9c9"; bdr = "1px solid rgba(180,70,70,0.22)";  cur = "not-allowed"; }
           // The selection is the same green, stated louder: solid fill, a
           // brighter rim and white text. Keeping it in the green family means
           // "available" and "the one you picked" read as one idea rather than
@@ -315,9 +322,9 @@ export function AvailabilityCalendar({
         }}
       >
         {[
-          ["Available", "#6ec071"],
-          ["Booked",    "rgba(198,198,198,0.85)"],
-          ["Closed",    "rgba(214,138,138,0.75)"],
+          ["Available", "#9ade9a"],
+          ["Booked",    "rgba(245,242,236,0.95)"],
+          ["Closed",    "#f5c9c9"],
         ].map(([l, c]) => (
           <div key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />

@@ -398,7 +398,7 @@ export function Admin({
     padding: "12px 20px 12px 24px", cursor: "pointer", fontSize: 12.5, letterSpacing: 1.5,
     borderLeft: `2px solid ${tab === t ? gold : "transparent"}`,
     background: tab === t ? (isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.1)") : "transparent",
-    color: tab === t ? gold : (isDark ? "#8d8378" : "#7e6c5c"),
+    color: tab === t ? C.goldInk : (isDark ? "#8d8378" : "#7e6c5c"),
     display: "flex", alignItems: "center", gap: 12, transition: "all .15s",
   });
 
@@ -511,7 +511,7 @@ export function Admin({
                             <span
                               style={{
                                 background: `${gold}18`,
-                                color: gold,
+                                color: C.goldInk,
                                 fontSize: 10.5,
                                 padding: "4px 8px",
                                 borderRadius: 20,
@@ -537,7 +537,7 @@ export function Admin({
                               style={{
                                 background: `${gold}18`,
                                 border: `1px solid ${gold}44`,
-                                color: gold,
+                                color: C.goldInk,
                                 padding: "4px 12px",
                                 fontSize: 11.5,
                                 cursor: "pointer",
@@ -896,11 +896,11 @@ export function Admin({
                     </div>
                     <div style={{ padding: "16px 20px" }}>
                       <h4 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 17, marginBottom: 4, fontWeight: 400 }}>{r.name}</h4>
-                      <p style={{ color: gold, fontSize: 12.5, marginBottom: 8 }}><Icon name="bed" size={12} style={{ marginRight: 4 }} />{r.beds}</p>
+                      <p style={{ color: C.goldInk, fontSize: 12.5, marginBottom: 8 }}><Icon name="bed" size={12} style={{ marginRight: 4 }} />{r.beds}</p>
                       <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, marginBottom: 16 }}>{r.desc}</p>
                       <div style={{ display: "flex", gap: 8 }}>
                         <button className="sw-btn-out" onClick={() => openEdit(r)} style={{ ...outBtn, flex: 1, padding: "8px 12px", fontSize: 11.5, letterSpacing: 1 }}>EDIT</button>
-                        <button onClick={() => setConfirmRemoveRoom(r)} style={{ flex: 1, background: "rgba(229,85,85,0.06)", color: "#e55", border: "1px solid rgba(229,85,85,0.2)", padding: "8px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>REMOVE</button>
+                        <button onClick={() => setConfirmRemoveRoom(r)} style={{ flex: 1, background: "rgba(229,85,85,0.06)", color: C.dangerInk, border: "1px solid rgba(229,85,85,0.2)", padding: "8px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 6, letterSpacing: 1 }}>REMOVE</button>
                       </div>
                     </div>
                   </div>
@@ -1115,7 +1115,7 @@ export function Admin({
                         fontWeight: 700,
                         cursor: "pointer",
                         background: csView === v ? `${gold}18` : "transparent",
-                        color: csView === v ? gold : C.textS,
+                        color: csView === v ? C.goldInk : C.textS,
                         borderColor: csView === v ? `${gold}55` : cBr,
                       }}
                     >
@@ -1311,7 +1311,7 @@ export function Admin({
 
       <AlertDialog open={showLogoutConfirm} onOpenChange={(open) => { if (!open) setShowLogoutConfirm(false); }}>
         <AlertDialogContent>
-          <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#e55" }}><Icon name="lock" size={20} /></div>
+          <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: C.dangerInk }}><Icon name="lock" size={20} /></div>
           <AlertDialogHeader>
             <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18, fontWeight: 400 }}>Sign out?</AlertDialogTitle>
             <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>You will be returned to the main site.</AlertDialogDescription>
@@ -1334,7 +1334,7 @@ export function Admin({
           {confirmRemoveRoom && (
             <>
               {confirmRemoveRoom.img && <img loading="lazy" decoding="async" src={confirmRemoveRoom.img} alt={confirmRemoveRoom.name} style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 8 }} />}
-              <div style={{ width: 50, height: 50, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#e55" }}><Icon name="bed" size={22} /></div>
+              <div style={{ width: 50, height: 50, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: C.dangerInk }}><Icon name="bed" size={22} /></div>
               <AlertDialogHeader>
                 <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 20, fontWeight: 400 }}>Remove this room?</AlertDialogTitle>
                 <AlertDialogDescription style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.7 }}>
@@ -1347,7 +1347,7 @@ export function Admin({
                 <AlertDialogCancel style={{ color: C.textS, borderColor: cBr, padding: "12px 16px", height: "auto", fontSize: 12.5, borderRadius: 6, letterSpacing: 1 }}>CANCEL</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => { deleteRoom(confirmRemoveRoom.id); setConfirmRemoveRoom(null); }}
-                  style={{ background: "rgba(229,85,85,0.10)", color: "#e55", border: "1px solid rgba(229,85,85,0.25)", padding: "12px 16px", height: "auto", fontSize: 12.5, fontWeight: 700, borderRadius: 6, letterSpacing: 2 }}
+                  style={{ background: "rgba(229,85,85,0.10)", color: C.dangerInk, border: "1px solid rgba(229,85,85,0.25)", padding: "12px 16px", height: "auto", fontSize: 12.5, fontWeight: 700, borderRadius: 6, letterSpacing: 2 }}
                 >
                   YES, REMOVE
                 </AlertDialogAction>

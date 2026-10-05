@@ -631,7 +631,7 @@
             A simple, secure booking in just a few steps.
           </p>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: mob ? 24 : 32 }}>
-            <Icon name="clock" size={13} style={{ color: gold, opacity: 0.7, flexShrink: 0 }} />
+            <Icon name="clock" size={13} style={{ color: C.goldInk, opacity: 0.7, flexShrink: 0 }} />
             <span style={{ color: C.textS, fontSize: 14.5 }}>
               {SLOTS[slot].label}: <strong style={{ color: C.textB }}>{SLOTS[slot].hours}</strong>
             </span>
@@ -905,7 +905,7 @@
                                   flex: 1, padding: "12px 8px", borderRadius: 8, cursor: "pointer",
                                   border: `1px solid ${active ? gold : cBr}`,
                                   background: active ? "rgba(201,168,76,0.15)" : "transparent",
-                                  color: active ? gold : C.textS, textAlign: "left",
+                                  color: active ? C.goldInk : C.textS, textAlign: "left",
                                 }}
                               >
                                 <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: 0.8 }}><><Icon name={sl === "Day" ? "sun" : "moon"} size={13} style={{ marginRight: 4 }} />{sl === "Day" ? "DAY" : "NIGHT"}</></div>
@@ -1034,7 +1034,7 @@
                         </p>
                       )}
                       {!guestsLocked && guests >= GUESTS_MAX && (
-                        <p style={{ color: "#e55", fontSize: 12.5, marginTop: 8 }}>
+                        <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 8 }}>
                           Maximum {GUESTS_MAX} guests per booking — please call us for larger groups.
                         </p>
                       )}
@@ -1076,7 +1076,7 @@
                                     // availability — never selection.
                                     border: `1px solid ${active ? gold : cBr}`,
                                     background: active ? "rgba(201,168,76,0.15)" : "transparent",
-                                    color: active ? gold : C.textS,
+                                    color: active ? C.goldInk : C.textS,
                                   }}
                                 >
                                   <><Icon name={opt === "Exclusive" ? "lock" : "handshake"} size={12} style={{ marginRight: 4 }} />{opt === "Exclusive" ? "EXCLUSIVE" : "SHARED"}</>
@@ -1221,10 +1221,10 @@
                   })}
                 </div>
                 {!roomsFree && (
-                  <p style={{ color: "#e55", fontSize: 13.5, marginTop: -16, marginBottom: 20 }}>⚠ A room you picked is already booked on this date — please unselect it.</p>
+                  <p style={{ color: C.dangerInk, fontSize: 13.5, marginTop: -16, marginBottom: 20 }}>⚠ A room you picked is already booked on this date — please unselect it.</p>
                 )}
                 {requiresRoom && selRooms.length === 0 && (
-                  <p style={{ color: "#e55", fontSize: 13.5, marginTop: -16, marginBottom: 20 }}>⚠ Please pick a room to continue.</p>
+                  <p style={{ color: C.dangerInk, fontSize: 13.5, marginTop: -16, marginBottom: 20 }}>⚠ Please pick a room to continue.</p>
                 )}
                 </>
                 )}
@@ -1282,7 +1282,7 @@
                       </span>
                     </div>
                     {form.name && !isValidName(form.name) && (
-                      <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Please enter your full name (letters only)</p>
+                      <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 4 }}>⚠ Please enter your full name (letters only)</p>
                     )}
                   </div>
 
@@ -1299,7 +1299,7 @@
                       style={okField(Boolean(form.email) && isValidEmail(form.email))}
                     />
                     {form.email && !isValidEmail(form.email) && (
-                      <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Please enter a valid email address</p>
+                      <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 4 }}>⚠ Please enter a valid email address</p>
                     )}
 
                   </div>
@@ -1322,7 +1322,7 @@
                       <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 11.5, color: form.contact.length === 11 ? "#4caf50" : form.contact.length > 0 ? "#f5c518" : C.textS, fontWeight: 700, fontFamily: "monospace" }}>{form.contact.length}/11</span>
                     </div>
                     {form.contact.length > 0 && form.contact.length < 11 && <p style={{ color: "#f5c518", fontSize: 12.5, marginTop: 4 }}>⚠ Must be 11 digits</p>}
-                    {form.contact.length === 11 && !isValidPHNumber(form.contact) && <p style={{ color: "#e55", fontSize: 12.5, marginTop: 4 }}>⚠ Must start with 09</p>}
+                    {form.contact.length === 11 && !isValidPHNumber(form.contact) && <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 4 }}>⚠ Must start with 09</p>}
 
                   </div>
 
@@ -1413,7 +1413,7 @@
                   </div>
                 </div>
                 {!dateOk && (
-                  <p style={{ color: "#e55", fontSize: 13.5, marginBottom: 12 }}>
+                  <p style={{ color: C.dangerInk, fontSize: 13.5, marginBottom: 12 }}>
                     ⚠ {describeDateProblem(date) ?? "That date is no longer available — please pick another."}
                   </p>
                 )}
@@ -1437,7 +1437,7 @@
                 {qrExpired && (
                   <div style={{ position: "absolute", inset: 0, background: isDark ? "rgba(6,5,4,0.96)" : "rgba(250,247,242,0.97)", zIndex: 10, borderRadius: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center" }}>
                     <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.3)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, fontSize: 28 }}>⏱</div>
-                    <h3 style={{ color: "#e55", fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 22, fontWeight: 400, marginBottom: 12 }}>QR Code Expired</h3>
+                    <h3 style={{ color: C.dangerInk, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 22, fontWeight: 400, marginBottom: 12 }}>QR Code Expired</h3>
                     <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.8, marginBottom: 28, maxWidth: 320 }}>Your payment window has expired. Please go back and try again.</p>
                     <button className="sw-btn" onClick={() => { setQrExpired(false); setQrRetryKey((k) => k + 1); }} style={{ ...goldBtn }}>TRY AGAIN</button>
                   </div>
@@ -1530,7 +1530,7 @@
                           {!saveError && <div style={{ color: C.textS, fontSize: 12.5 }}>Saving your booking…</div>}
                           {saveError && (
                             <>
-                              <div style={{ color: "#e55", fontSize: 12.5, lineHeight: 1.6, margin: "4px 0 8px" }}>
+                              <div style={{ color: C.dangerInk, fontSize: 12.5, lineHeight: 1.6, margin: "4px 0 8px" }}>
                                 {saveError} Your payment is safe — retrying can't charge you twice.
                                 If this keeps failing, contact us and quote payment ref <span style={{ fontFamily: "monospace" }}>{qrData?.paymentIntentId}</span>.
                               </div>

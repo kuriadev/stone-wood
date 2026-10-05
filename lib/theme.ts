@@ -33,6 +33,7 @@ export interface ThemeColors {
   textS: string;
   textXS: string;
   goldInk: string;
+  dangerInk: string;
   inp: CSSProperties;
   navBg: string;
   shadow: string;
@@ -53,6 +54,7 @@ export const THEME_VARS = {
   textS: "--sw-text-s",
   textXS: "--sw-text-xs",
   goldInk: "--sw-gold-ink",
+  dangerInk: "--sw-danger-ink",
 } as const;
 
 /** Read a palette variable as an actual colour. Browser only — on the
@@ -77,6 +79,7 @@ export function T(_isDark: boolean): ThemeColors {
     textS: V("--sw-text-s"),
     textXS: V("--sw-text-xs"),
     goldInk: V("--sw-gold-ink"),
+    dangerInk: V("--sw-danger-ink"),
     inp: {
       background: V("--sw-input-bg"),
       color: V("--sw-text-h"),

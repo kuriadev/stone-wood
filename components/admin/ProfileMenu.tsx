@@ -101,7 +101,7 @@ export function ProfileMenu({ onAccountSettings, onSignOut }: ProfileMenuProps) 
         padding: `0 ${SPACE.sm}px`,
         borderRadius: 8,
         fontSize: 13.5,
-        color: opts?.danger ? "#e07a7a" : C.textB,
+        color: opts?.danger ? C.dangerInk : C.textB,
         cursor: "pointer",
       }}
     >

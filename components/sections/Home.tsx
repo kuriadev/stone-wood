@@ -705,7 +705,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
               <div key={i} style={{ flexShrink: 0, width: mob ? 280 : 330, marginRight: 16, background: isDark ? "#1a1a1a" : "#fff", border: `1px solid ${isDark ? "rgba(201,168,76,0.1)" : "rgba(201,168,76,0.15)"}`, borderRadius: 12, padding: "28px 24px", boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.35)" : "0 4px 16px rgba(100,70,20,0.08)" }}>
                 <div aria-label={`${r.rating} out of 5 stars`} style={{ display: "flex", gap: 4, marginBottom: 12 }}>
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <Icon key={n} name="star" size={14} filled={n <= r.rating} style={{ color: n <= r.rating ? gold : C.border }} />
+                    <Icon key={n} name="star" size={14} filled={n <= r.rating} style={{ color: n <= r.rating ? C.goldInk : C.border }} />
                   ))}
                 </div>
                 <p style={{ color: C.textB, fontSize: 16, lineHeight: 1.85, margin: "0 0 16px", fontStyle: "italic", fontFamily: serif }}>&ldquo;{r.message}&rdquo;</p>

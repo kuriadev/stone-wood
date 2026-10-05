@@ -412,7 +412,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
                   <Label htmlFor="co-amount">Amount received</Label>
                   {amount !== "" && paying !== toCollect && (
-                    <button type="button" onClick={() => setAmount("")} style={{ background: "none", border: "none", padding: 0, color: gold, fontSize: 12, cursor: "pointer" }}>
+                    <button type="button" onClick={() => setAmount("")} style={{ background: "none", border: "none", padding: 0, color: C.goldInk, fontSize: 12, cursor: "pointer" }}>
                       Use the full {fmt(toCollect)}
                     </button>
                   )}

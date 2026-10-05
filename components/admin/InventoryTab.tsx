@@ -376,7 +376,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
                       {/* Status */}
                       <TableCell style={{ padding: "12px 16px" }}>
                         {low
-                          ? <Badge variant="outline" style={{ background: "rgba(229, 85, 85, 0.08)", color: "#e55", fontSize: 10.5, padding: "4px 8px", borderRadius: 20, border: "1px solid rgba(229, 85, 85, 0.2)", letterSpacing: 1 }}>LOW STOCK</Badge>
+                          ? <Badge variant="outline" style={{ background: "rgba(229, 85, 85, 0.08)", color: C.dangerInk, fontSize: 10.5, padding: "4px 8px", borderRadius: 20, border: "1px solid rgba(229, 85, 85, 0.2)", letterSpacing: 1 }}>LOW STOCK</Badge>
                           : <Badge variant="outline" style={{ background: "rgba(76, 175, 80, 0.08)", color: "#4caf50", fontSize: 10.5, padding: "4px 8px", borderRadius: 20, border: "1px solid rgba(76, 175, 80, 0.2)", letterSpacing: 1 }}>OK</Badge>
                         }
                       </TableCell>
@@ -489,7 +489,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
           backdrop does not dismiss it. */}
       <AlertDialog open={!!confirmDelete} onOpenChange={(open) => { if (!open) setConfirmDelete(null); }}>
         <AlertDialogContent>
-          <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(229, 85, 85, 0.1)", border: "1px solid rgba(229, 85, 85, 0.2)", color: "#e55", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }} aria-hidden="true"><Icon name="trash" size={13} /></div>
+          <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(229, 85, 85, 0.1)", border: "1px solid rgba(229, 85, 85, 0.2)", color: C.dangerInk, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }} aria-hidden="true"><Icon name="trash" size={13} /></div>
           <AlertDialogHeader>
             <AlertDialogTitle style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18, fontWeight: 400, color: C.textH }}>
               Archive this item?
@@ -505,7 +505,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
               CANCEL
             </AlertDialogCancel>
             <AlertDialogAction
-              style={{ background: "rgba(229, 85, 85, 0.08)", color: "#e55", border: "1px solid rgba(229, 85, 85, 0.25)", padding: 12, height: "auto", fontSize: 12.5, fontWeight: 700, borderRadius: 6, letterSpacing: 1 }}
+              style={{ background: "rgba(229, 85, 85, 0.08)", color: C.dangerInk, border: "1px solid rgba(229, 85, 85, 0.25)", padding: 12, height: "auto", fontSize: 12.5, fontWeight: 700, borderRadius: 6, letterSpacing: 1 }}
               onClick={executeDelete}
             >
               YES, ARCHIVE

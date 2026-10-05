@@ -37,12 +37,16 @@ export const goldBtn: CSSProperties = {
 
 /** The secondary action. Same geometry and type as `goldBtn`; only the fill
  *  differs, so a BACK/CONTINUE pair reads as one control with two halves.
- *  `color` is the raw brand gold, which is a SURFACE colour -- call sites on
- *  a light background override it with `C.goldInk`. */
+ *
+ *  This used to paint its label in the raw brand gold -- a SURFACE colour --
+ *  and leave every call site to remember `color: C.goldInk` on a light
+ *  background. Most did; RoomsPage, PhotoSet and MaintenanceTab did not, and
+ *  their labels sat at 2.29:1 in light mode. The variable resolves per theme
+ *  on its own, so the call site cannot forget. */
 export const outBtn: CSSProperties = {
   background: "transparent",
-  color: gold,
-  border: `1px solid ${gold}`,
+  color: "var(--sw-gold-ink)",
+  border: "1px solid var(--sw-gold-ink)",
   padding: "16px 32px",
   minHeight: 46,
   display: "inline-flex",

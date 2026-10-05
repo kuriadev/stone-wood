@@ -193,7 +193,7 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
                     <ul style={{ listStyle: "none", margin: "0 0 16px", padding: 0, display: "grid", gap: 8 }}>
                       {open.includes.map((line) => (
                         <li key={line} style={{ display: "flex", gap: 8, alignItems: "flex-start", color: C.textB, fontSize: 14, lineHeight: 1.55 }}>
-                          <span aria-hidden="true" style={{ color: gold, lineHeight: 0, marginTop: 4, flexShrink: 0 }}>
+                          <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, marginTop: 4, flexShrink: 0 }}>
                             <Icon name="check" size={13} strokeWidth={2} />
                           </span>
                           {line}

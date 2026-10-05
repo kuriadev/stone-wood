@@ -165,7 +165,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
           const s = SLOTS[getBookingSlot(b)];
           return (
             <Row key={b.id} style={{ background: rowBg(i) }}>
-              <Cell style={{ ...td, color: gold, fontFamily: "monospace", whiteSpace: "nowrap" }}>{b.id.startsWith("TMP-") ? "Saving…" : b.id}</Cell>
+              <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace", whiteSpace: "nowrap" }}>{b.id.startsWith("TMP-") ? "Saving…" : b.id}</Cell>
               <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.contact}</div></Cell>
               <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}<div style={{ color: C.textS, fontSize: 11.5 }}>{s.label}</div></Cell>
               <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{b.package}</Cell>
@@ -232,7 +232,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
         const pays = ops.payments.filter((p) => p.bookingId === b.id);
         const request = ops.dateChanges.find((r) => r.bookingId === b.id && r.status === "Pending");
         return (
-          <Modal title={b.name} subtitle={<><span style={{ color: gold, fontFamily: "monospace" }}>{b.id}</span> · {b.source ?? "Online"} · booked {b.createdAt ? fmtDate(manilaDate(new Date(b.createdAt))) : "—"}</>}
+          <Modal title={b.name} subtitle={<><span style={{ color: C.goldInk, fontFamily: "monospace" }}>{b.id}</span> · {b.source ?? "Online"} · booked {b.createdAt ? fmtDate(manilaDate(new Date(b.createdAt))) : "—"}</>}
             onClose={() => setViewId(null)} width={900}
             footer={<div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
               {/* An emergency can stop the resort hosting a group, whatever

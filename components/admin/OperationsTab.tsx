@@ -466,7 +466,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
       {todayCards.length === 0 && (
         <p style={{ color: C.textS, fontSize: 13.5, margin: "16px 0 0" }}>
           No groups today.{upcoming.length > 0 && <> {" "}
-            <button type="button" onClick={() => setView("upcoming")} style={{ background: "none", border: "none", padding: 0, color: gold, cursor: "pointer", fontSize: 13.5 }}>
+            <button type="button" onClick={() => setView("upcoming")} style={{ background: "none", border: "none", padding: 0, color: C.goldInk, cursor: "pointer", fontSize: 13.5 }}>
               See what&apos;s coming up <Icon name="arrow-right" size={13} style={{ verticalAlign: -2 }} />
             </button></>}
         </p>

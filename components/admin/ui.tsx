@@ -171,7 +171,7 @@ export function Segmented<V extends string>({
             style={{
               flex: 1, minWidth: 0, padding: size === "sm" ? "8px 12px" : "12px 16px", fontSize: 12.5, fontWeight: 600,
               borderRadius: 7, cursor: o.disabled ? "not-allowed" : "pointer", opacity: o.disabled ? 0.4 : 1,
-              background: on ? `${gold}1c` : "transparent", color: on ? gold : C.textS,
+              background: on ? `${gold}1c` : "transparent", color: on ? C.goldInk : C.textS,
               border: `1px solid ${on ? gold + "66" : cBr}`, textAlign: "center",
             }}>
             <div>{o.label}</div>
@@ -200,7 +200,7 @@ export function ViewTabs<V extends string>({
           const on = v.value === value;
           return (
             <TabsTrigger key={v.value} value={v.value}
-              style={{ padding: "8px 16px", fontSize: 12.5, fontWeight: 600, borderRadius: 20, background: on ? `${gold}1c` : "transparent", color: on ? gold : C.textS, border: `1px solid ${on ? gold + "66" : cBr}`, boxShadow: "none", height: "auto", flex: "0 0 auto" }}>
+              style={{ padding: "8px 16px", fontSize: 12.5, fontWeight: 600, borderRadius: 20, background: on ? `${gold}1c` : "transparent", color: on ? C.goldInk : C.textS, border: `1px solid ${on ? gold + "66" : cBr}`, boxShadow: "none", height: "auto", flex: "0 0 auto" }}>
               {v.label}
             </TabsTrigger>
           );
@@ -248,7 +248,7 @@ type BtnKind = "primary" | "ghost" | "green" | "blue" | "red";
 const TINT: Record<Exclude<BtnKind, "primary" | "ghost">, CSSProperties> = {
   green: { background: "rgba(76,175,80,0.1)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.35)" },
   blue: { background: "rgba(74,159,212,0.1)", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.35)" },
-  red: { background: "rgba(229,85,85,0.08)", color: "#e55", border: "1px solid rgba(229,85,85,0.3)" },
+  red: { background: "rgba(229,85,85,0.08)", color: "var(--sw-danger-ink)", border: "1px solid rgba(229,85,85,0.3)" },
 };
 
 export function Btn({
@@ -422,8 +422,8 @@ export function Figure({ label, value, note, color }: { label: string; value: Re
 export function ErrorNote({ children }: { children: ReactNode }) {
   if (!children) return null;
   return (
-    <p role="alert" style={{ color: "#e55", fontSize: 13, margin: "12px 0 0", display: "flex", gap: 8, alignItems: "flex-start" }}>
-      <Icon name="alert" size={14} style={{ marginTop: 4, flexShrink: 0, color: "#e55" }} />{children}
+    <p role="alert" style={{ color: "var(--sw-danger-ink)", fontSize: 13, margin: "12px 0 0", display: "flex", gap: 8, alignItems: "flex-start" }}>
+      <Icon name="alert" size={14} style={{ marginTop: 4, flexShrink: 0, color: "var(--sw-danger-ink)" }} />{children}
     </p>
   );
 }

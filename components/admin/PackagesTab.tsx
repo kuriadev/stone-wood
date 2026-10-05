@@ -73,7 +73,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
   /* Delete stays red in both themes, but #e55 is a pale red: it reads on the
      dark card and washes out to about 3:1 on the white one. The ink follows
      the theme so the icon is legible either way. */
-  const dangerInk = isDark ? "#ff7b7b" : "#c62828";
+  const dangerInk = C.dangerInk;   // the shared token, see --sw-danger-ink
   const dangerBg = isDark ? "rgba(229,85,85,0.10)" : "rgba(198,40,40,0.06)";
   const dangerBorder = isDark ? "rgba(229,85,85,0.30)" : "rgba(198,40,40,0.30)";
   const inpS: React.CSSProperties = { ...C.inp, borderRadius: 6 };
@@ -184,12 +184,12 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
             <div style={{ padding: "16px 16px", flex: 1, display: "flex", flexDirection: "column" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                 <h4 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 16, fontWeight: 400, margin: 0 }}>{p.title}</h4>
-                <span style={{ color: gold, fontWeight: 700, fontSize: 14.5, whiteSpace: "nowrap" }}>{fmt(p.price)}</span>
+                <span style={{ color: C.goldInk, fontWeight: 700, fontSize: 14.5, whiteSpace: "nowrap" }}>{fmt(p.price)}</span>
               </div>
               <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5, marginBottom: 8 }}>{p.blurb}</p>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                <Badge variant="outline" style={{ fontSize: 10.5, color: gold, border: `1px solid ${gold}55`, borderRadius: 20, padding: "4px 8px" }}>{p.slotMode === "WholeDay" ? "WHOLE DAY" : "DAY OR NIGHT"}</Badge>
-                {p.requiresRoom && <Badge variant="outline" style={{ fontSize: 10.5, color: gold, border: `1px solid ${gold}55`, borderRadius: 20, padding: "4px 8px" }}>ROOM REQUIRED</Badge>}
+                <Badge variant="outline" style={{ fontSize: 10.5, color: C.goldInk, border: `1px solid ${gold}55`, borderRadius: 20, padding: "4px 8px" }}>{p.slotMode === "WholeDay" ? "WHOLE DAY" : "DAY OR NIGHT"}</Badge>
+                {p.requiresRoom && <Badge variant="outline" style={{ fontSize: 10.5, color: C.goldInk, border: `1px solid ${gold}55`, borderRadius: 20, padding: "4px 8px" }}>ROOM REQUIRED</Badge>}
                 <Badge variant="outline" style={{ fontSize: 10.5, color: C.textS, border: `1px solid ${cBr}`, borderRadius: 20, padding: "4px 8px" }}>Cap {p.capacity}</Badge>
               </div>
               {/* marginTop:auto — blurb length and the badge row (ROOM REQUIRED,
@@ -248,7 +248,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
           <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-12">
 
               <div className="sm:col-span-6">
-                <Label htmlFor="pkg-title" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">TITLE</Label>
+                <Label htmlFor="pkg-title" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">TITLE</Label>
                 <Input id="pkg-title" value={form.title} onChange={(e) => setF("title", e.target.value)} placeholder="Pool + Room Package" className="sw-input" style={inpS} />
               </div>
               {/* The code had form state, was saved and was read back on edit,
@@ -256,7 +256,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   title in capitals, and an admin could not tell what a booking
                   would end up referencing. */}
               <div className="sm:col-span-6">
-                <Label htmlFor="pkg-code" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">CODE</Label>
+                <Label htmlFor="pkg-code" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">CODE</Label>
                 <Input
                   id="pkg-code"
                   value={form.code}
@@ -267,7 +267,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   aria-describedby="pkg-code-hint"
                   aria-invalid={codeTaken || undefined}
                 />
-                <p id="pkg-code-hint" style={{ color: codeTaken ? "#e55" : C.textS, fontSize: 12, margin: "4px 0 0", lineHeight: 1.6 }}>
+                <p id="pkg-code-hint" style={{ color: codeTaken ? C.dangerInk : C.textS, fontSize: 12, margin: "4px 0 0", lineHeight: 1.6 }}>
                   {codeTaken
                     ? `Another package already uses ${effectiveCode}. Codes must be unique.`
                     : editPkg
@@ -277,7 +277,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
               </div>
               <div className="sm:col-span-3">
                 <div>
-                  <Label htmlFor="pkg-resource" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">RESOURCE</Label>
+                  <Label htmlFor="pkg-resource" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">RESOURCE</Label>
                   <FullSelect id="pkg-resource" value={form.resource} onChange={(e) => setF("resource", e.target.value as BookingResource)} className="sw-input" style={selS}>
                     {RESOURCES.map((r) => <option key={r} value={r}>{r}</option>)}
                   </FullSelect>
@@ -285,14 +285,14 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
               </div>
               <div className="sm:col-span-3">
                 <div>
-                  <Label htmlFor="pkg-tier" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">TIER</Label>
+                  <Label htmlFor="pkg-tier" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">TIER</Label>
                   <FullSelect id="pkg-tier" value={form.status} onChange={(e) => setF("status", e.target.value as BookingTier)} className="sw-input" style={selS}>
                     {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </FullSelect>
                 </div>
               </div>
               <div className="sm:col-span-6">
-                <Label htmlFor="pkg-when" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">WHEN</Label>
+                <Label htmlFor="pkg-when" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">WHEN</Label>
                 <FullSelect id="pkg-when" value={form.slotMode} onChange={(e) => setF("slotMode", e.target.value as PackageSlotMode)} className="sw-input" style={selS}>
                   <option value="Single">Day or Night — guest picks ({SLOTS.Day.hours} / {SLOTS.Night.hours})</option>
                   <option value="WholeDay">Whole Day ({SLOTS.WholeDay.hours})</option>
@@ -300,19 +300,19 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
               </div>
               <div className="sm:col-span-4">
                 <div>
-                  <Label htmlFor="pkg-price" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">PRICE (₱)</Label>
+                  <Label htmlFor="pkg-price" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">PRICE (₱)</Label>
                   <Input type="number" min={0} id="pkg-price" value={form.price} onChange={(e) => setF("price", e.target.value)} className="sw-input" style={inpS} />
                 </div>
               </div>
               <div className="sm:col-span-4">
                 <div>
-                  <Label htmlFor="pkg-list" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">LIST PRICE</Label>
+                  <Label htmlFor="pkg-list" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">LIST PRICE</Label>
                   <Input type="number" min={0} id="pkg-list" value={form.listPrice} onChange={(e) => setF("listPrice", e.target.value)} placeholder="optional" className="sw-input" style={inpS} />
                 </div>
               </div>
               <div className="sm:col-span-4">
                 <div>
-                  <Label htmlFor="pkg-capacity" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">CAPACITY</Label>
+                  <Label htmlFor="pkg-capacity" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">CAPACITY</Label>
                   <Input type="number" min={1} id="pkg-capacity" value={form.capacity} onChange={(e) => setF("capacity", e.target.value)} className="sw-input" style={inpS} />
                 </div>
               </div>
@@ -321,20 +321,20 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   the package dearer than booking the same thing by hand. */}
               {(() => {
                 const problem = pricingProblem(form.resource, form.status, form.slotMode === "WholeDay" ? "WholeDay" : "Day");
-                if (problem) return <p className="sm:col-span-12" style={{ color: "#e55", fontSize: 12.5, margin: 0 }}>{problem}</p>;
+                if (problem) return <p className="sm:col-span-12" style={{ color: C.dangerInk, fontSize: 12.5, margin: 0 }}>{problem}</p>;
                 const std = standardPackagePrice({ resource: form.resource, tier: form.status, slotMode: form.slotMode, capacity: Number(form.capacity) || 1 });
                 const price = Number(form.price);
                 return (
                   <p className="sm:col-span-12" style={{ color: C.textS, fontSize: 12.5, margin: 0, lineHeight: 1.6 }}>
-                    Standard price for this setup: <strong style={{ color: gold }}>{fmt(std.price)}</strong>
+                    Standard price for this setup: <strong style={{ color: C.goldInk }}>{fmt(std.price)}</strong>
                     {std.listPrice > std.price ? <> (regular {fmt(std.listPrice)})</> : null}
-                    {" "}<button type="button" onClick={() => { setF("price", String(std.price)); setF("listPrice", std.listPrice > std.price ? String(std.listPrice) : ""); }} style={{ background: "none", border: "none", color: gold, cursor: "pointer", textDecoration: "underline", fontSize: 12.5, padding: 0 }}>use it</button>
+                    {" "}<button type="button" onClick={() => { setF("price", String(std.price)); setF("listPrice", std.listPrice > std.price ? String(std.listPrice) : ""); }} style={{ background: "none", border: "none", color: C.goldInk, cursor: "pointer", textDecoration: "underline", fontSize: 12.5, padding: 0 }}>use it</button>
                     {form.price !== "" && price > std.price && <span style={{ color: "#f5c518" }}> · Your price is higher than booking this without the package.</span>}
                   </p>
                 );
               })()}
               <div className="sm:col-span-12">
-                <Label htmlFor="pkg-add-photo" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">PHOTOS</Label>
+                <Label htmlFor="pkg-add-photo" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">PHOTOS</Label>
                 <PhotoSet
                   photos={form.photos}
                   captions={form.captions}
@@ -345,18 +345,18 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                 />
               </div>
               <div className="sm:col-span-12">
-                <Label htmlFor="pkg-blurb" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">SHORT DESCRIPTION</Label>
+                <Label htmlFor="pkg-blurb" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">SHORT DESCRIPTION</Label>
                 <p style={{ color: C.textS, fontSize: 12, margin: "0 0 8px" }}>
                   One or two sentences under the package title, on the card the guest sees.
                 </p>
                 <Textarea id="pkg-blurb" value={form.blurb} onChange={(e) => setF("blurb", e.target.value)} rows={2} className="sw-input" style={{ ...inpS, resize: "none" }} />
               </div>
               <div className="sm:col-span-12">
-                <Label htmlFor="pkg-includes" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">INCLUDES (one per line)</Label>
+                <Label htmlFor="pkg-includes" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">INCLUDES (one per line)</Label>
                 <Textarea id="pkg-includes" value={form.includes} onChange={(e) => setF("includes", e.target.value)} rows={3} className="sw-input" style={{ ...inpS, resize: "none" }} />
               </div>
               <div className="sm:col-span-6">
-                <Label htmlFor="pkg-note" className="mb-2 block text-[11.5px] tracking-[2px] text-primary">EXTRA NOTE (optional)</Label>
+                <Label htmlFor="pkg-note" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">EXTRA NOTE (optional)</Label>
                 <Input id="pkg-note" value={form.note} onChange={(e) => setF("note", e.target.value)} className="sw-input" style={inpS} />
               </div>
               {/* Was a div with onClick and a hand-drawn tick: not focusable,
@@ -416,7 +416,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={executeDelete}
-              style={{ background: "rgba(229,85,85,0.1)", color: "#e55", border: "1px solid rgba(229,85,85,0.3)", padding: "12px 16px", height: "auto", fontSize: 12.5, borderRadius: 6, fontWeight: 700 }}
+              style={{ background: "rgba(229,85,85,0.1)", color: C.dangerInk, border: "1px solid rgba(229,85,85,0.3)", padding: "12px 16px", height: "auto", fontSize: 12.5, borderRadius: 6, fontWeight: 700 }}
             >
               REMOVE
             </AlertDialogAction>

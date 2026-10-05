@@ -268,7 +268,7 @@ function FacilityModal({ facility, mob, onClose }: { facility: Facility | null; 
               {AMENITY_ICONS.map((ic) => (
                 <button key={ic} type="button" role="radio" aria-checked={icon === ic} aria-label={ic} onClick={() => setIcon(ic)}
                   style={{ width: 38, height: 38, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                    background: icon === ic ? `${gold}1c` : "transparent", color: icon === ic ? gold : C.textS, border: `1px solid ${icon === ic ? gold + "88" : "rgba(150,130,100,0.3)"}` }}>
+                    background: icon === ic ? `${gold}1c` : "transparent", color: icon === ic ? C.goldInk : C.textS, border: `1px solid ${icon === ic ? gold + "88" : "rgba(150,130,100,0.3)"}` }}>
                   <Icon name={ic} size={17} />
                 </button>
               ))}
@@ -342,7 +342,7 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
             <Row key={b.id} className="sw-click-row" style={{ background: rowBg(i) }} onClick={() => setOpen(b)}>
               <Cell style={td}>
                 <span style={{ color: C.textH, fontWeight: 600 }}>{b.name}</span>
-                <div style={{ color: C.textS, fontSize: 11.5 }}><span style={{ color: gold, fontFamily: "monospace" }}>{b.id}</span> · {b.guests} guests</div>
+                <div style={{ color: C.textS, fontSize: 11.5 }}><span style={{ color: C.goldInk, fontFamily: "monospace" }}>{b.id}</span> · {b.guests} guests</div>
               </Cell>
               <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
               <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{usesText(b)}</Cell>
@@ -400,7 +400,7 @@ function Damages({ bookings }: { bookings: Booking[] }) {
             <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{at ? fmtDate(manilaDate(at)) : b ? fmtDate(b.date) : "—"}</Cell>
             <Cell style={td}>
               <span style={{ color: C.textH }}>{b?.name ?? "—"}</span>
-              <div style={{ color: gold, fontFamily: "monospace", fontSize: 11.5 }}>{d.bookingId}</div>
+              <div style={{ color: C.goldInk, fontFamily: "monospace", fontSize: 11.5 }}>{d.bookingId}</div>
             </Cell>
             <Cell style={{ ...td, color: C.textB }}>{d.facilityName}</Cell>
             <Cell style={td}>

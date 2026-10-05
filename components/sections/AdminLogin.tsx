@@ -132,7 +132,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
             style={{ display: "inline-flex", alignItems: "center", marginBottom: 12, transition: "opacity .2s" }}
           >
             <div style={{ width: 24, height: 1, background: `${gold}66` }} />
-            <span style={{ color: gold, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 24, letterSpacing: 5, fontWeight: 600 }}>STONEWOOD</span>
+            <span style={{ color: C.goldInk, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 24, letterSpacing: 5, fontWeight: 600 }}>STONEWOOD</span>
             <div style={{ width: 24, height: 1, background: `${gold}66` }} />
           </Button>
           <p style={{ color: labelCol, fontSize: 11, letterSpacing: 5, margin: 0 }}>ADMIN PORTAL</p>
@@ -161,7 +161,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
               borderRadius: 11,
               background: `${gold}14`,
               border: `1px solid ${gold}2e`,
-              color: gold,
+              color: C.goldInk,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -214,7 +214,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
                 onClick={() => setShow((s) => !s)}
                 aria-label={show ? "Hide password" : "Show password"}
                 title={show ? "Hide password" : "Show password"}
-                className="absolute top-1/2 right-1.5 size-8 -translate-y-1/2 hover:text-primary"
+                className="absolute top-1/2 right-1.5 size-8 -translate-y-1/2 hover:text-accent-ink"
                 style={{ color: labelCol }}
               >
                 <Icon name={show ? "eye-off" : "eye"} size={16} />

@@ -96,7 +96,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
       >
         <p
           style={{
-            color: gold,
+            color: C.goldInk,
             fontSize: 11.5,
             letterSpacing: 4,
             margin: "0 0 24px",

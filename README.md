@@ -38,24 +38,36 @@ Guests browse rooms and packages, check live availability, and reserve online wi
 
 | Concern | Library | Version | How it is used |
 |---|---|---|---|
-| Styling | Tailwind CSS | 4.3.3 | The styling system. Configured through `@tailwindcss/postcss`, **not** Vite. Preflight is deliberately off — see [Conventions](#conventions-that-are-load-bearing) |
+| Styling | Tailwind CSS | 4.3.3 | The styling system. Configured through `@tailwindcss/postcss`, **not** Vite. Preflight is on, with a compatibility bridge — see [Conventions](#conventions-that-are-load-bearing) |
 | Class merging | `clsx` + `tailwind-merge` | 2.1.1 / 3.7.0 | wrapped by `cn()` in `lib/cn.ts` |
 | Variants | `class-variance-authority` | 0.7.1 | variant definitions inside `components/ui/` |
 | Animation utilities | `tw-animate-css` | 1.4.0 | enter/exit keyframes for Radix components |
 | Component kit | shadcn/ui on Radix (`radix-ui`) | 1.6.7 | **25 components**, vendored as source in `components/ui/` — owned and edited here, not a dependency |
 | Carousel | `embla-carousel-react` | 8.6.0 | powers `components/ui/carousel.tsx` only |
-| Icons | `lucide-react` | 1.47.0 | never imported directly; accessed through `components/common/Icon.tsx` |
-| Motion | `motion` | 13.4.3 | Framer Motion, renamed. Accessed through `components/common/Reveal.tsx` |
+| Icons | `lucide-react` | 1.47.0 | never imported directly outside `components/ui/`; accessed through the registry in `components/common/Icon.tsx`. Outline only — the one `filled` usage is the rating star, where fill carries the value |
+| Motion | `motion` | 13.4.3 | Framer Motion, renamed. Loaded as `LazyMotion` + `domAnimation` in `components/layout/Providers.tsx` (`strict`), so `drag`, `pan` and `layout` never ship. Feature code uses the two primitives in `components/common/` — `Reveal.tsx` and `Coverflow.tsx` — never `motion/react` directly |
 | Forms | `react-hook-form` + `@hookform/resolvers` | 7.88.0 / 5.9.1 | Customer Service and Manage Booking. Book Now and the admin walk-in form use `useState` |
 | Toasts | `sonner` | 2.0.8 | behind `contexts/ToastContext.tsx`; call sites use `useToast()` |
 | Charts | `@mui/x-charts` (+ `@mui/material`, `@emotion/react`, `@emotion/styled`) | 9.14.0 / 9.4.0 / 11.x | admin analytics only, behind `components/admin/charts.tsx` |
 | Dates | `dayjs` | 1.11.23 | behind `lib/dayjs.ts`; no raw `new Date(string)` parsing |
 
+#### Design system
+
+Not libraries — the three token files every component reads. Each is the single
+place its kind of value is written.
+
+| Token set | Lives in | Covers |
+|---|---|---|
+| Colour | `app/globals.css` (`--sw-*`) → `lib/theme.ts` (`T(isDark)`) | Every surface, border and text colour, in both themes. shadcn's names (`--background`, `--card`, …) are aliases of the same palette, so a hand-written style and a shadcn component cannot disagree |
+| Spacing | `lib/spacing.ts` (`SPACE`, `TAP_MIN`) | A 4px grid. `app/globals.css` pins Tailwind's `--spacing` to `4px`, so `className="p-4"` and `padding: SPACE.md` are the same 16px |
+| Type | `app/globals.css` | Satoshi via Fontshare, with the `html { font-size: 17px }` base that spacing is deliberately decoupled from |
+
+
 ### Backend
 
 | Concern | Technology | Version | How it is used |
 |---|---|---|---|
-| API layer | Next.js Route Handlers | — | 25 endpoints under `app/api/**/route.ts` |
+| API layer | Next.js Route Handlers | — | **36 endpoints** under `app/api/**/route.ts` |
 | Database | Supabase (PostgreSQL) | — | 15 tables, Row Level Security enabled |
 | DB client | `@supabase/supabase-js` | 2.116.0 | two clients: anon (browser-safe) and service-role (server only) |
 | Schema validation | `zod` | 4.6.5 | `lib/schemas.ts`, layered over the primitives in `lib/validators.ts` |
@@ -64,11 +76,71 @@ Guests browse rooms and packages, check live availability, and reserve online wi
 | Auth | signed HTTP-only cookie | — | hand-rolled in `lib/auth.ts`; single admin account from env |
 | Rate limiting | in-memory | — | `lib/rateLimit.ts`, applied to public write endpoints |
 
+### How the stack fits together
+
+A parts list does not say how a booking actually gets made. This is the whole
+path, once, with the technology that owns each step.
+
+```
+Browser                         Vercel (Node)                  Supabase
+───────                         ─────────────                  ────────
+app/page.tsx                                                   
+  Server Component shell
+  └─ "use client" section ──┐
+     React 19 + Tailwind    │
+     contexts/AppContext ───┼── GET /api/rooms ──────────────▶ anon client
+       (fetch on mount)     │   app/api/rooms/route.ts         RLS: public read
+                            │                                         │
+  Book Now (BookNow.tsx)    │                                         ▼
+   ├─ lib/pricing.ts ◀──────┘   SAME module, both sides          rooms table
+   │    pure, no React/fetch         │
+   │    quotes the total             │
+   │                                 ▼
+   └─ POST /api/bookings ────▶ app/api/bookings/route.ts
+                                 ├─ zod (lib/schemas.ts)   reject bad shape
+                                 ├─ lib/rateLimit.ts       per-IP throttle
+                                 ├─ lib/pricing.ts         re-quote server side
+                                 ├─ service-role client ──────▶ bookings table
+                                 │    bypasses RLS                 (insert)
+                                 ├─ lib/paymongo.ts ──────▶ PayMongo REST
+                                 └─ nodemailer ───────────▶ Gmail SMTP
+                                      lib/emailTemplate.ts
+```
+
+Three things in that diagram are load-bearing:
+
+**`lib/pricing.ts` runs on both sides.** The browser quotes the total to show
+it; the Route Handler re-quotes it to charge it. Because it is the same pure
+module with no React, no `fetch` and no database, the two answers cannot
+diverge — which is why the purity rule is a rule and not a preference.
+
+**There are two database clients.** The anon client runs in the browser and is
+constrained by Row Level Security. The service-role client bypasses RLS
+entirely and exists only inside Route Handlers; it is never `NEXT_PUBLIC_`.
+
+**Validation happens server side regardless of the form.** `react-hook-form`
+and `zod` give the guest immediate feedback, but the Route Handler re-validates
+with the same schema. The client copy is a courtesy; the server copy is the
+check.
+
+### Data and state
+
+| Kind of state | Where it lives | Why |
+|---|---|---|
+| Server data (rooms, packages, bookings) | `contexts/AppContext.tsx` via `useDbCollection` | One fetch per collection, shared by every section, polled for live admin views |
+| Theme | `contexts/ThemeContext.tsx` → `sw-dark` / `sw-light` on `<html>` | A class, not React state, so CSS variables do the recolouring |
+| Toasts | `contexts/ToastContext.tsx` over `sonner` | Call sites use `useToast()` and never import sonner |
+| Form state | `react-hook-form` (Customer Service, Manage Booking) or `useState` (Book Now, walk-in) | The long booking flow is a wizard with cross-step rules, which RHF does not model more cleanly than plain state |
+| Viewport | `hooks/useWidth.ts` | One resize listener, shared; `mob = w < 768` is the breakpoint everywhere |
+
+There is deliberately **no Redux, Zustand or React Query**. The data set is
+small, mostly read-through, and already shared through one context.
+
 ### Tooling
 
 `eslint` 9 with `eslint-config-next` 15.3.1 · `@types/node` 20 · `@types/react` 19 · `@types/react-dom` 19 · `@types/nodemailer` 8.
 
-**21 runtime dependencies, 9 dev dependencies.**
+**22 runtime dependencies, 9 dev dependencies.** No state-management library, no ORM, no CSS-in-JS runtime, no UI framework beyond the vendored shadcn source.
 
 ---
 
@@ -325,6 +397,33 @@ Mappers translate snake_case DB rows to camelCase UI types in one place
 (`rowToBooking` / `bookingToRow`, `rowToRoom` / `roomToRow`, …), so column names
 never leak into components.
 
+### What the publishable key can do
+
+The Supabase publishable key ships inside the JavaScript bundle. Anyone can
+read it out of DevTools, so the question is not whether it leaks — it is what
+it is allowed to do when it does.
+
+Row Level Security is on for every table, and this was checked against the
+live database with the public key over PostgREST, not inferred from the
+migrations:
+
+| Tables | Public key can |
+|---|---|
+| `rooms`, `gallery`, `closed_dates`, `packages`, `site_settings` | read (marketing content and the maintenance banner) |
+| `bookings`, `customer_messages`, `payments`, `expenses`, `daily_closings`, `inventory`, `activity_log`, `date_change_requests`, `admin_credentials`, `facility_inspections`, `damage_records` | nothing — every read returns no rows |
+
+`bookings` and `customer_messages` used to also carry `for insert with check
+(true)`, which let the public key write rows straight into them over
+PostgREST — bypassing the server-side quote, the availability check, the rate
+limit and the payment intent. A forged row could have claimed `Confirmed` on
+any date for any amount. Both policies are dropped in
+`20261005120000_close_public_writes.sql`; guests still book through
+`POST /api/bookings`, which uses the service-role client and is unaffected by
+RLS.
+
+If you ever need the browser to write directly to a table, that is the moment
+to stop and add a Route Handler instead.
+
 ### Server-only modules
 
 Files suffixed `.server.ts` (`lib/ledger.server.ts`, `lib/inspection.server.ts`)
@@ -499,9 +598,24 @@ customer replies.
 
 These are not style preferences. Breaking one causes a real bug.
 
-**Tailwind preflight is off.** The app predates Tailwind and relies on browser
-default margins and `box-sizing` in places. Turning preflight on would reflow
-large parts of the UI.
+**Preflight is on, behind a bridge.** It used to be off, because the app
+predates Tailwind and was laid out against browser defaults — turning the
+reset on moved 130 computed styles, collapsed heading margins and took 80px
+off the home page. It is on now. What makes that safe is the **SW PREFLIGHT
+BRIDGE** block in `app/globals.css`: it restates the handful of UA defaults
+this app actually depends on (`line-height: normal`, heading weight and
+em-margins, paragraph margins, list markers and indent, the UA control
+font-size, button padding, baseline-aligned media).
+
+The bridge sits in `@layer base` *after* the preflight import, so it wins
+inside that layer and every utility still outranks it — a rule there only
+reaches an element that declares nothing itself. Nothing in it was guessed:
+each block exists because a computed style moved in a captured before/after
+of **3,235 elements across 9 pages in both themes**. With the bridge in
+place that diff is down to `border-style` on zero-width borders and a
+0.00001px rounding difference, and every page height is identical.
+
+If you add a rule there, measure first. If you remove one, measure after.
 
 **Inline `style` beats every Tailwind class.** A component that sets
 `padding` inline overrides `pr-9` from a utility class, which is exactly how
@@ -522,8 +636,18 @@ both the browser and the server, and that is what keeps the displayed total
 and the charged total identical.
 
 **Icons and motion have one entry point each.** Import `Icon` from
-`components/common/Icon.tsx` and animation from `components/common/Reveal.tsx`
-rather than `lucide-react` or `motion` directly.
+`components/common/Icon.tsx` rather than `lucide-react`. For animation, use a
+primitive from `components/common/` — `Reveal.tsx` to fade a block in,
+`Coverflow.tsx` for the 3D deck — rather than `motion/react` directly. This is
+enforced, not just asked for: `Providers.tsx` wraps the app in
+`<LazyMotion strict>`, so a stray `motion.*` throws instead of quietly pulling
+the full feature bundle back into the download. Inside those primitives, use
+`m.*`.
+
+**Icons are outline, at one weight per size.** The registry is Lucide's
+outline set; `filled` exists for exactly one case, the rating star, where the
+fill is carrying the value rather than decorating it. A filled glyph dropped
+into an outline row is the fastest way to stop looking like one icon set.
 
 **The testimonial marquee sizes itself.** The track holds a set of reviews
 twice and slides exactly one set's width. `Home.tsx` repeats the three real

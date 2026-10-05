@@ -1,21 +1,98 @@
-/* Tailwind WITHOUT preflight.
+/* Tailwind WITH preflight, plus a compatibility layer.
  *
- * `@import "tailwindcss"` pulls theme + preflight + utilities. Preflight is
- * Tailwind's global reset, and here it is not harmless: measured against a
- * captured baseline of 9 pages in both themes, importing it changed 130
- * computed styles — h3 dropped from 700 to 400 weight, heading margins
- * collapsed, buttons jumped 13px to 17px, and the home page lost 80px of
- * height. This app's 900 lines of CSS and ~1,600 inline styles were written
- * against browser defaults, not against Tailwind's reset.
+ * Preflight is Tailwind's global reset. It was left out for a long time
+ * because this app's CSS and its ~1,600 inline styles were written against
+ * browser defaults: turning it on changed 130 computed styles, collapsed
+ * heading margins, dropped h3 from 700 to 400 weight and took 80px off the
+ * home page.
  *
- * So the layers are imported individually and preflight is left out. shadcn
- * components still get every utility class they need; what they do not get
- * is a reset rewriting the rest of the site underneath them.
+ * It is on now, because the alternative was carrying that gap forever — a
+ * codebase where `@import "tailwindcss"` is the one thing you must not do.
+ * What makes it safe is the SW PREFLIGHT BRIDGE further down: the handful of
+ * browser defaults this app genuinely relies on are restated as explicit
+ * rules, so they are now a decision in this file rather than an inheritance
+ * from whatever the browser happened to do.
+ *
+ * The bridge was not guessed. Every rule in it exists because a computed
+ * style moved in a captured before/after of 3,235 elements across 9 pages
+ * in both themes.
  */
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "tw-animate-css";
+
+/* ════════════════════════════════════════════════════════════════════
+   SW PREFLIGHT BRIDGE
+
+   Preflight is on (above). These rules restate the browser defaults this
+   app's layout was actually written against, so turning the reset on did
+   not reflow the site.
+
+   This is in `@layer base`, after the preflight import, so it wins inside
+   that layer — and every Tailwind utility still outranks all of it. A rule
+   here only ever reaches an element that declares nothing itself, which is
+   exactly the set that was relying on the UA default.
+
+   Each block below corresponds to a measured difference. Nothing is here
+   on suspicion.
+   ════════════════════════════════════════════════════════════════════ */
+@layer base {
+  /* Preflight sets `line-height: 1.5` on html. At the 17px root that is
+     25.5px, and it reached 2,572 elements that had never asked for a line
+     height. The design sets its own wherever it cares. */
+  html {
+    line-height: normal;
+  }
+
+  /* Preflight flattens headings to `font: inherit` and `margin: 0`. The app
+     styles h2 and h3 heavily but leans on the default weight and the
+     em-based margins in places — h3 dropped from 700 to 400 without this. */
+  h1 { font-size: 2em;    margin-block: 0.67em; font-weight: bold; }
+  h2 { font-size: 1.5em;  margin-block: 0.83em; font-weight: bold; }
+  h3 { font-size: 1.17em; margin-block: 1em;    font-weight: bold; }
+  h4 {                    margin-block: 1.33em; font-weight: bold; }
+  h5 { font-size: 0.83em; margin-block: 1.67em; font-weight: bold; }
+  h6 { font-size: 0.67em; margin-block: 2.33em; font-weight: bold; }
+
+  /* Paragraph rhythm. 132 margins collapsed to zero without this. */
+  p, blockquote, figure, dl, pre {
+    margin-block: 1em;
+  }
+
+  /* Lists. Preflight removes the marker and the indent; the policy and
+     inclusion lists are plain <ul> and expect both. */
+  ul, ol {
+    margin-block: 1em;
+    padding-inline-start: 40px;
+  }
+  ul { list-style: disc outside; }
+  ol { list-style: decimal outside; }
+
+  /* Form controls. Preflight's `font: inherit` pulled buttons from the UA's
+     13.3333px up to the 17px root, which resized 76 of them. Anything that
+     sets its own size — every utility, every inline style — still wins. */
+  button, input, select, textarea, optgroup {
+    font-size: 13.3333px;
+  }
+
+  /* The UA's own button padding. 38 buttons here declare none and were
+     sized by it. */
+  button {
+    padding: 1px 6px;
+  }
+
+  /* Preflight lays media out as blocks aligned to the middle. This app
+     positions its images itself and was written against the inline
+     baseline. */
+  img, svg, video, canvas, audio, iframe, embed, object {
+    vertical-align: baseline;
+  }
+  iframe {
+    display: inline;
+  }
+}
 
 /* ════════════════════════════════════════════════════════════════════
    SHADCN / TAILWIND BRIDGE
@@ -57,11 +134,25 @@
   --sw-text-h: #1a1614;
   --sw-text-b: #3d3229;
   --sw-text-s: #6b5d4f;
-  --sw-text-xs: #7d7062;
+  /* The faintest text. #7d7062 cleared the page background but came out at
+     4.24:1 on the cream card (#f5f0e8), which is where most of it is used --
+     eyebrows and helper lines inside panels. */
+  --sw-text-xs: #736758;
   /* Gold for TEXT and ICONS. The brand gold collapses to 2.14:1 on the cream
      background, so this is the same hue darkened to clear 4.5:1. The SURFACE
-     gold (lib/styles.ts) is unchanged. */
-  --sw-gold-ink: #8a6d20;
+     gold (lib/styles.ts) is unchanged.
+
+     Darkened once more from #8a6d20: that value was calibrated against the
+     page background (#faf7f2) and cleared it, but on the cream CARD
+     (#f5f0e8) it came out at 4.24:1 — so eyebrows and inclusion lists on a
+     card were failing. #816420 clears 4.5 on every surface the app paints:
+     4.90 on the cream card, 5.20 on the page, 5.56 on white. */
+  --sw-gold-ink: #816420;
+  /* Danger as TEXT. #e55 was used raw in ~20 places; it reads fine on a dark
+     card and drops to about 3.4:1 on a white one, which is below the 4.5:1
+     a 13px error message needs. Like the gold, there is a surface red and a
+     text red, and this is the text one. */
+  --sw-danger-ink: #c62828;
   --sw-input-bg: #ffffff;
   --sw-input-border: #d6cfc4;
   --sw-input-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
@@ -81,6 +172,7 @@
   --sw-text-s: #9b8e79;
   --sw-text-xs: #968a78;
   --sw-gold-ink: #c9a84c;
+  --sw-danger-ink: #ff7b7b;
   --sw-input-bg: #1a1a1a;
   --sw-input-border: #333333;
   --sw-input-shadow: none;
@@ -158,14 +250,12 @@
   select[data-slot],
   [data-slot] textarea,
   textarea[data-slot] {
-    /* Preflight zeroes every UA border and shadcn is written assuming that;
-       we skip preflight, so form controls kept the UA's `2px outset`. On a
-       dark panel that bevel reads as a pale box -- it is what made the
-       dialog's close button look like a white square. Only these elements
-       carry a UA border, so this is the whole of what preflight did that
-       shadcn actually depends on. Anything setting a border via a utility
-       (`border`, as Button/Input variants do) still wins: utilities outrank
-       base. */
+    /* Preflight zeroes every UA border and shadcn is written assuming that.
+       This block predates preflight being enabled and is now belt and
+       braces -- preflight does the same thing. It is kept because it states
+       the dependency explicitly: shadcn's panels assume no UA bevel, and on
+       a dark panel that bevel reads as a pale box. Anything setting a border
+       via a utility still wins: utilities outrank base. */
     border-width: 0;
     border-style: solid;
 

@@ -331,7 +331,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
                       borderBottom: `1px solid ${C.borderLight}`,
                       fontFamily: "'Satoshi',system-ui,sans-serif",
                       fontSize: 24, fontWeight: 400,
-                      color: active ? gold : C.textH,
+                      color: active ? C.goldInk : C.textH,
                       // Links stagger in behind the panel. The panel now mounts
                       // on open rather than sitting hidden, so this is an
                       // entrance animation with a delay rather than a

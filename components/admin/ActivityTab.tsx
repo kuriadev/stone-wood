@@ -110,7 +110,7 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
         {filtersOn && <Btn size="sm" onClick={() => { setFrom(""); setTo(""); setCategory(""); setBooking(""); setWords(""); }}>Clear</Btn>}
       </div>
 
-      {error && <p style={{ color: "#e55", fontSize: 13.5 }}>{error}</p>}
+      {error && <p style={{ color: C.dangerInk, fontSize: 13.5 }}>{error}</p>}
 
       <TableShell head={["When", "Who", "What happened", "Booking"]} minWidth={760}
         empty={!loading && rows.length === 0 && !error ? (filtersOn ? "Nothing matches these filters." : "Nothing recorded yet.") : undefined}>
@@ -122,7 +122,7 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
             <Cell style={{ ...td, whiteSpace: "nowrap" }}>
               {a.bookingId
                 ? <button type="button" onClick={() => (onOpenBooking ? onOpenBooking(a.bookingId!) : setBooking(a.bookingId!))}
-                    style={{ background: "none", border: "none", padding: 0, color: gold, fontFamily: "monospace", cursor: "pointer", fontSize: 13 }}>{a.bookingId}</button>
+                    style={{ background: "none", border: "none", padding: 0, color: C.goldInk, fontFamily: "monospace", cursor: "pointer", fontSize: 13 }}>{a.bookingId}</button>
                 : <span style={{ color: C.textS }}>—</span>}
             </Cell>
           </Row>

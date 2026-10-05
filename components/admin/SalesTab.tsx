@@ -200,7 +200,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
         {paged.rows.map((p, i) => (
           <Row key={p.id} style={{ background: rowBg(i), opacity: p.voided ? 0.5 : 1 }}>
             <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(manilaDate(p.receivedAt))}<div style={{ color: C.textS, fontSize: 11.5 }}>{manilaTime(p.receivedAt)}</div></Cell>
-            <Cell style={{ ...td, color: gold, fontFamily: "monospace" }}>{p.bookingId ?? "—"}</Cell>
+            <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace" }}>{p.bookingId ?? "—"}</Cell>
             <Cell style={{ ...td, color: C.textH }}>{p.guestName}</Cell>
             <Cell style={td}><Pill color={TYPE_COLOR[p.type]}>{p.type}</Pill></Cell>
             <Cell style={{ ...td, color: C.textB }}>{p.method}</Cell>
@@ -318,7 +318,7 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
         empty={shown.length === 0 ? (rows.length === 0 ? "No bookings yet." : "No bookings match this filter.") : undefined}>
         {paged.rows.map(({ b, m }, i) => (
           <Row key={b.id} style={{ background: rowBg(i) }}>
-            <Cell style={{ ...td, color: gold, fontFamily: "monospace" }}>
+            <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace" }}>
               {/* A TMP id is a booking this browser just made that the server
                   has not numbered yet -- showing the placeholder would read
                   as a real reference. */}
@@ -371,7 +371,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
           <TableShell head={["Booking", "Guest", "Original visit", "Refund owed", ""]} minWidth={640}>
             {refunds.map((b, i) => (
               <Row key={b.id} style={{ background: rowBg(i) }}>
-                <Cell style={{ ...td, color: gold, fontFamily: "monospace" }}>{b.id}</Cell>
+                <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace" }}>{b.id}</Cell>
                 <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.contact}</div></Cell>
                 <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
                 <Cell style={{ ...td, color: "#e07a3a", fontWeight: 700 }}>{fmt(b.refundAmount ?? 0)}</Cell>
@@ -388,7 +388,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
         empty={sorted.length === 0 ? "Nothing to collect. Every booking is paid up." : undefined}>
         {pagedRec.rows.map(({ b, m }, i) => (
           <Row key={b.id} style={{ background: rowBg(i) }}>
-            <Cell style={{ ...td, color: gold, fontFamily: "monospace" }}>{b.id}</Cell>
+            <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace" }}>{b.id}</Cell>
             <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.contact}</div></Cell>
             <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
             <Cell style={td}><Pill color={STATUS_COLOR[b.status]}>{b.status}</Pill></Cell>
@@ -461,7 +461,7 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
         {pagedSet.rows.map(({ b, m, on }, i) => (
           <Row key={b.id} style={{ background: rowBg(i) }}>
             <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(on)}<div style={{ color: C.textS, fontSize: 11.5 }}>{manilaTime(b.settledAt!)}</div></Cell>
-            <Cell style={{ ...td, color: gold, fontFamily: "monospace" }}>{b.id}</Cell>
+            <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace" }}>{b.id}</Cell>
             <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>Visit {fmtDate(b.date)}</div></Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(b.total)}</Cell>
             <Cell style={{ ...td, color: m.penaltyTotal > 0 ? "#d44" : C.textS }}>{fmt(m.penaltyTotal)}</Cell>
@@ -540,7 +540,7 @@ function Clients({ bookings }: { bookings: Booking[] }) {
               const m = bookingMoney(b, ops.payments, ops.damages);
               return (
                 <Row key={b.id} style={{ background: rowBg(i) }}>
-                  <Cell style={{ ...td, color: gold, fontFamily: "monospace" }}>{b.id}</Cell>
+                  <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace" }}>{b.id}</Cell>
                   <Cell style={{ ...td, color: C.textB }}>{fmtDate(b.date)}</Cell>
                   <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{b.package}</Cell>
                   <Cell style={td}><Pill color={STATUS_COLOR[b.status]}>{b.status}</Pill></Cell>
