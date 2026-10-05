@@ -368,7 +368,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                 aria-hidden="true"
                 style={{ width: 52, height: 52, borderRadius: "50%", background: `${gold}1a`, border: `1px solid ${gold}55`, display: "flex", alignItems: "center", justifyContent: "center", color: C.goldInk, flexShrink: 0 }}
               >
-                <Icon name="calendar" size={22} strokeWidth={1.6} />
+                <Icon name="calendar" size={22} strokeWidth={1.5} />
               </span>
               <div style={{ minWidth: 0 }}>
                 <p style={{ ...eyebrow, marginBottom: 8 }}>FIND YOUR RESERVATION</p>
@@ -407,7 +407,7 @@ export function ManageBooking(_props: ManageBookingProps) {
             )}
 
             <p style={{ display: "flex", alignItems: "center", gap: 8, color: C.textS, fontSize: 12, margin: "16px 0 0" }}>
-              <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0 }}><Icon name="lock" size={13} strokeWidth={1.6} /></span>
+              <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0 }}><Icon name="lock" size={13} strokeWidth={1.5} /></span>
               Your reservation information is encrypted and secure.
             </p>
           </form>
@@ -645,7 +645,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                           }}
                         >
                           <span style={{ display: "block", marginBottom: 12, color: a.key === "cancel" ? "#d68a8a" : C.goldInk, lineHeight: 0 }}>
-                            <Icon name={a.icon} size={20} strokeWidth={1.6} />
+                            <Icon name={a.icon} size={20} strokeWidth={1.5} />
                           </span>
                           <span style={{ display: "block", color: C.textH, fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{a.title}</span>
                           <span style={{ display: "block", color: C.textS, fontSize: 12, lineHeight: 1.5 }}>{a.disabled ?? a.sub}</span>
@@ -680,7 +680,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                       <p style={{ ...eyebrow, color: C.goldInk, marginBottom: 12 }}>CANCELLATION</p>
                       {canMove && changesLeft > 0 && !pendingChange && (
                         <p style={{ display: "flex", gap: 12, alignItems: "flex-start", border: `1px solid ${gold}66`, borderRadius: 10, padding: "16px 16px", color: C.textB, fontSize: 13, lineHeight: 1.6, margin: "0 0 16px" }}>
-                          <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, flexShrink: 0, marginTop: 4 }}><Icon name="calendar" size={15} strokeWidth={1.6} /></span>
+                          <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, flexShrink: 0, marginTop: 4 }}><Icon name="calendar" size={15} strokeWidth={1.5} /></span>
                           <span>
                             Can&rsquo;t make it on {fmtDate(found.date)}? You can <button type="button" onClick={() => setAction("reschedule")} style={{ background: "none", border: "none", padding: 0, color: C.goldInk, textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>move it to another date</button> instead, once, and keep what you paid.
                           </span>
@@ -702,7 +702,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                       </div>
 
                       <div role="note" style={{ display: "flex", gap: 12, alignItems: "flex-start", border: "1px solid rgba(214,138,138,0.45)", background: "rgba(180,70,70,0.10)", borderRadius: 10, padding: "16px 16px", margin: "0 0 20px" }}>
-                        <span aria-hidden="true" style={{ color: dangerInk, lineHeight: 0, flexShrink: 0, marginTop: 4 }}><Icon name="shield-alert" size={15} strokeWidth={1.8} /></span>
+                        <span aria-hidden="true" style={{ color: dangerInk, lineHeight: 0, flexShrink: 0, marginTop: 4 }}><Icon name="shield-alert" size={15} strokeWidth={1.75} /></span>
                         <span style={{ fontSize: 12.5, lineHeight: 1.6 }}>
                           <strong style={{ display: "block", color: dangerInk, fontSize: 13, letterSpacing: 0.3, marginBottom: 4 }}>No refunds when you cancel</strong>
                           <span style={{ color: C.textS }}>

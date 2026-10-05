@@ -122,7 +122,7 @@ export function PackageShowcase({ packages, onBookPackage, onFallbackBook, tierS
                   }}
                 >
                   <span style={{ color: C.goldInk, lineHeight: 0 }}>
-                    <Icon name={g.icon} size={22} strokeWidth={1.6} />
+                    <Icon name={g.icon} size={22} strokeWidth={1.5} />
                   </span>
                   <span style={{ color: C.textH, fontSize: 17, fontFamily: "'Satoshi',system-ui,sans-serif" }}>
                     {g.label}

@@ -110,7 +110,7 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
                   style={{ backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)" }}
                 >
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#fff", fontSize: 12.5, letterSpacing: 1.6, fontWeight: 600 }}>
-                    <Icon name="search" size={14} strokeWidth={1.8} />
+                    <Icon name="search" size={14} strokeWidth={1.75} />
                     VIEW MORE
                   </span>
                 </span>
@@ -206,7 +206,7 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
                 {open.note && (
                   <p style={{ color: C.textS, fontSize: 12.5, margin: "0 0 20px", display: "flex", gap: 8, alignItems: "center" }}>
                     <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0 }}>
-                      <Icon name="info" size={13} strokeWidth={1.8} />
+                      <Icon name="info" size={13} strokeWidth={1.75} />
                     </span>
                     {open.note}
                   </p>

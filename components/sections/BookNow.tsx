@@ -631,7 +631,7 @@
             A simple, secure booking in just a few steps.
           </p>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: mob ? 24 : 32 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={gold} strokeWidth="2" style={{ opacity: 0.7, flexShrink: 0 }}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+            <Icon name="clock" size={13} style={{ color: gold, opacity: 0.7, flexShrink: 0 }} />
             <span style={{ color: C.textS, fontSize: 14.5 }}>
               {SLOTS[slot].label}: <strong style={{ color: C.textB }}>{SLOTS[slot].hours}</strong>
             </span>
@@ -748,7 +748,7 @@
                         style={{ ...tileStyle(selected), padding: mob ? "20px 20px" : "24px 20px" }}
                       >
                         <span style={{ display: "block", marginBottom: 16, color: C.goldInk, lineHeight: 0 }}>
-                          <Icon name={opt.icon as IconName} size={24} strokeWidth={1.6} />
+                          <Icon name={opt.icon as IconName} size={24} strokeWidth={1.5} />
                         </span>
                         <span style={{ display: "block", color: C.textH, fontSize: 19, fontFamily: "'Satoshi',system-ui,sans-serif", marginBottom: 8 }}>
                           {SLOTS[opt.id].label}
@@ -1716,7 +1716,7 @@
                       ] as const).map((row) => (
                         <li key={row.text} style={{ display: "flex", gap: 12, alignItems: "flex-start", color: C.textB, fontSize: 14, lineHeight: 1.5 }}>
                           <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, marginTop: 4, flexShrink: 0 }}>
-                            <Icon name={row.icon as IconName} size={15} strokeWidth={1.6} />
+                            <Icon name={row.icon as IconName} size={15} strokeWidth={1.5} />
                           </span>
                           {row.text}
                         </li>

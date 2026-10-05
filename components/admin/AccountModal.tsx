@@ -131,7 +131,7 @@ export function AccountModal({ onClose, onSignedOut }: { onClose: () => void; on
           <Label htmlFor="acc-current">CURRENT PASSWORD</Label>
           <p style={{ color: C.textS, fontSize: 12, margin: "0 0 8px", display: "flex", gap: 8, alignItems: "flex-start" }}>
             <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, marginTop: 4 }}>
-              <Icon name="lock" size={13} strokeWidth={1.8} />
+              <Icon name="lock" size={13} strokeWidth={1.75} />
             </span>
             Required for any change here, even though you are already signed in.
           </p>

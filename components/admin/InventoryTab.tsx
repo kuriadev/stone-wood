@@ -179,15 +179,11 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         {/* Search */}
         <div style={{ flex: "1", minWidth: 180, position: "relative", display: showArchive ? "none" : "block" }}>
-          <svg
-            style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: "0.35", pointerEvents: "none" }}
-            width="14" height="14" viewBox="0 0 24 24"
-            fill="none" stroke={C.textH} strokeWidth="2"
-            aria-hidden="true"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+          <Icon
+            name="search"
+            size={14}
+            style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.textH, opacity: 0.35, pointerEvents: "none" }}
+          />
           {/* Accessible label for search input */}
           <Label htmlFor="inventory-search" className="sr-only">Search inventory items</Label>
           <Input

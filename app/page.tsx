@@ -15,7 +15,7 @@ export default function HomePage() {
   const router = useRouter();
   const { isDark } = useTheme();
   const C = T(isDark);
-  const { bookings, closedDates, packages, skeleton } = useApp();
+  const { bookings, closedDates, packages, rooms, skeleton } = useApp();
   const [selectedDate, setSelectedDate] = useState("");
   const [page, setPage] = useState("Home");
   
@@ -79,6 +79,7 @@ const nav = (p: string) => {
         closedDates={closedDates}
         packages={packages}
         packagesLoading={skeleton.packages}
+        rooms={rooms}
       />
       <Footer setPage={nav} />
       <ThemeToggle />

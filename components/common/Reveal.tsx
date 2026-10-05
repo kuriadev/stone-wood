@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import type { CSSProperties, MouseEventHandler, ReactNode } from "react";
 
 /**
@@ -67,7 +67,7 @@ export function Reveal({
   // client that asked for it). The OS preference is honoured by
   // <MotionConfig reducedMotion="user"> in Providers instead.
   return (
-    <motion.div
+    <m.div
       className={className}
       style={style}
       onClick={onClick}
@@ -79,6 +79,6 @@ export function Reveal({
       transition={{ duration: 0.65, ease: EASE, delay }}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }

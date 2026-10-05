@@ -213,7 +213,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                     cursor: "pointer", borderRadius: 6, padding: 0,
                   }}
                 >
-                  <Icon name="trash" size={15} strokeWidth={1.8} />
+                  <Icon name="trash" size={15} strokeWidth={1.75} />
                 </button>
               </div>
             </div>

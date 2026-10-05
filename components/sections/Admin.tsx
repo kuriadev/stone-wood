@@ -22,6 +22,7 @@ import { PackagesTab } from "@/components/admin/PackagesTab";
 import { PhotoSet } from "@/components/admin/PhotoSet";
 import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
 import { AccountModal } from "@/components/admin/AccountModal";
+import { ProfileMenu } from "@/components/admin/ProfileMenu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -433,7 +434,7 @@ export function Admin({
                         opacity: 0.6,
                       }}
                     >
-                      <Icon name="message" size={30} strokeWidth={1.25} />
+                      <Icon name="message" size={30} strokeWidth={1.5} />
                     </div>
 
                     <p
@@ -679,14 +680,16 @@ export function Admin({
                         </Badge>
                       )}
 
-                      {/* Customer Service badge */}
-                      {t === "Customer Service" && customerMessages.length > 0 && (
+                      {/* Customer Service badge — the inbox only. Archiving a
+                          message is the admin saying it is dealt with, so a
+                          badge that kept counting it would never clear. */}
+                      {t === "Customer Service" && inboxMessages.length > 0 && (
                         <Badge variant="outline" style={{
                           background: "#4a9fd4", color: "#fff",
                           fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "4px 8px", letterSpacing: 0,
                         }}>
-                          {customerMessages.length}
+                          {inboxMessages.length}
                         </Badge>
                       )}
                     </div>
@@ -696,7 +699,7 @@ export function Admin({
             </div>
             <div style={{ padding: "16px 20px", borderTop: `1px solid ${sideBorder}` }}>
               <button onClick={() => setShowLogoutConfirm(true)} style={{ width: "100%", background: "transparent", color: isDark ? "#888888" : "#6c6c6c", border: `1px solid ${isDark ? "#2a2a2a" : "#ddd"}`, padding: "8px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+                <Icon name="logout" size={12} />
                 SIGN OUT
               </button>
             </div>
@@ -712,21 +715,10 @@ export function Admin({
           {/* The signed-in admin, top right. Its own row above the page, so
               it never competes with a tab's header actions for the corner. */}
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: mob ? 16 : 20 }}>
-            <button
-              type="button"
-              className="sw-gold-hover"
-              onClick={() => setShowAccount(true)}
-              aria-label="Admin account settings"
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 8,
-                minHeight: 38, padding: "0 16px", borderRadius: 999,
-                border: `1px solid ${cBr}`, background: "transparent",
-                color: C.textB, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
-              }}
-            >
-              <Icon name="user" size={14} strokeWidth={1.8} />
-              Admin
-            </button>
+            <ProfileMenu
+              onAccountSettings={() => setShowAccount(true)}
+              onSignOut={() => setShowLogoutConfirm(true)}
+            />
           </div>
 
           {/* DAILY OPERATIONS — the home screen */}

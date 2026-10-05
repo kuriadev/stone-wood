@@ -1,6 +1,6 @@
 "use client";
 
-import { MotionConfig } from "motion/react";
+import { LazyMotion, MotionConfig, domAnimation } from "motion/react";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ToastProvider } from "@/contexts/ToastContext";
 import { AppProvider } from "@/contexts/AppContext";
@@ -14,6 +14,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
     // that asked for reduced motion, so the two renders disagreed about
     // whether `initial` had been applied. Motion skips movement and keeps
     // the fade, which is what the media query is actually asking for.
+    // LazyMotion + `domAnimation` ships the animation, exit, inView, tap,
+    // focus and hover features and leaves out `drag`, `pan` and `layout`,
+    // which this app does not use — Coverflow swipes with pointer events for
+    // exactly that reason. `strict` makes a stray `motion.*` throw instead of
+    // silently pulling the full bundle back in; use `m.*` inside this tree.
+    <LazyMotion features={domAnimation} strict>
     <MotionConfig reducedMotion="user">
     <ThemeProvider>
       <ToastProvider>
@@ -23,5 +29,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
       </ToastProvider>
     </ThemeProvider>
     </MotionConfig>
+    </LazyMotion>
   );
 }

@@ -7,7 +7,7 @@ import {
   Check, CircleCheck, X, TriangleAlert, Users, Trash, Mail, Lock, Moon, Sun,
   Clock, Link as LinkIcon, Flag, Banknote, Download, FolderOpen, Menu, Search,
   Waves, Flame, CircleDot, Mic, Car, Tent,
-  Leaf, TreePalm, Sunrise, Phone, Star, ChevronUp, ChevronDown,
+  Leaf, TreePalm, Sunrise, Phone, Star, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   SunMoon, Handshake, Siren, Info, Circle, Bookmark,
   Plus, Minus, SquarePen, Pencil, LogOut, Eye, EyeOff,
   Wallet, Receipt, ClipboardCheck, LogIn, ShieldAlert, Printer, History, UserRound, CalendarClock,
@@ -94,6 +94,8 @@ const REGISTRY = {
   star: Star,
   "chevron-up": ChevronUp,
   "chevron-down": ChevronDown,
+  "chevron-left": ChevronLeft,
+  "chevron-right": ChevronRight,
 
   // Booking-flow controls.
   "sun-moon": SunMoon,   // Whole Day — both slots
@@ -124,6 +126,14 @@ interface IconProps {
   /** Pixel size for both width and height. */
   size?: number;
   strokeWidth?: number;
+  /** Fill the glyph instead of leaving it as an outline.
+   *
+   *  This app is outline-only by default and should stay that way: mixing
+   *  filled and outline icons in the same row is the single most common way
+   *  an icon set stops looking like a set. The exception this exists for is
+   *  a VALUE — the earned stars in a rating — where filled against outline
+   *  is carrying the meaning rather than decorating it. */
+  filled?: boolean;
   style?: CSSProperties;
   className?: string;
   /** Give this only when the icon is the sole content of a control. */
@@ -134,6 +144,7 @@ export function Icon({
   name,
   size = 16,
   strokeWidth = 1.75,
+  filled = false,
   style,
   className,
   title,
@@ -152,6 +163,7 @@ export function Icon({
     <Glyph
       size={size}
       strokeWidth={strokeWidth}
+      fill={filled ? "currentColor" : "none"}
       className={className}
       // Decorative by default: the surrounding text already names the thing.
       // A title makes it a labelled image for icon-only buttons.

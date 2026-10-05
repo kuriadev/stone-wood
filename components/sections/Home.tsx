@@ -30,10 +30,15 @@ import { Icon, type IconName } from "@/components/common/Icon";
 import { facilityIcon } from "@/lib/facilityUsage";
 import type { PublicAmenity } from "@/types/facility";
 import { Reveal } from "@/components/common/Reveal";
+import { RoomCoverflow } from "@/components/sections/RoomCoverflow";
+import type { Room } from "@/types/room";
 import { Badge } from "@/components/ui/badge";
 
 interface HomeProps {
   setPage: (p: string) => void;
+  /** Shown as a coverflow deck. Empty while the first fetch is in flight, and
+   *  the whole section is skipped then rather than rendering an empty deck. */
+  rooms: Room[];
   onBookWithDate: (d: string, opts?: { slot?: BookingSlot; guests?: number }) => void;
   bookings: Booking[];
   closedDates: string[];
@@ -163,7 +168,7 @@ const MARQUEE_REVIEWS = [
   { name: "Christian David Falcutila", rating: 3, when: "8 years ago", message: "Perfect place for Family bonding / Birthday celebration." },
 ];
 
-export function Home({ setPage, onBookWithDate, bookings, closedDates, packages, packagesLoading = false, onBookPackage }: HomeProps) {
+export function Home({ setPage, onBookWithDate, bookings, closedDates, packages, packagesLoading = false, onBookPackage, rooms }: HomeProps) {
   // Scroll reveals. Called here, not in the layout: the effect must run
   // after THIS page has hydrated or it mutates un-hydrated DOM.
 
@@ -608,7 +613,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                 {p.id === "room" && (
                   <button className="sw-btn" onClick={() => setPage("Rooms")} style={{ ...goldBtn, marginTop: "auto", width: "100%" }}>
                     <Icon name="bed" size={15} /> VIEW ROOMS
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
+                    <Icon name="arrow-right" size={13} />
                   </button>
                 )}
               </Reveal>
@@ -619,6 +624,26 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           <p style={{ color: C.textXS, fontSize: 14.5, marginTop: 8, lineHeight: 1.8 }}>Pay a 50% down payment to book, or pay in full. If the resort has to cancel, you choose a free new date or a full refund; if you cancel, payments aren't refunded, but you can move your booking once. {QUIET_HOURS_POLICY}</p>
         </div>
       </div>
+
+      {/* ── WHERE YOU'LL STAY — the rooms as a coverflow deck ── */}
+      {rooms.length > 0 && (
+        <div style={{ background: C.bg, padding: mob ? "60px 20px" : "104px 24px", overflow: "hidden" }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            <Reveal style={{ textAlign: "center", marginBottom: mob ? 44 : 64 }}>
+              <p style={eyebrow}>Accommodations</p>
+              <h2 style={h2}>Where You&rsquo;ll Stay</h2>
+            </Reveal>
+
+            <Reveal>
+              <RoomCoverflow
+                rooms={rooms}
+                onSelect={() => setPage("Rooms")}
+                ctaLabel="VIEW ROOMS"
+              />
+            </Reveal>
+          </div>
+        </div>
+      )}
 
       {/* ── OUR SERVICES — clean line-icon row ── */}
       <div style={{ background: isDark ? "#0b0907" : "#ffffff", padding: mob ? "60px 20px" : "104px 24px" }}>
@@ -680,7 +705,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
               <div key={i} style={{ flexShrink: 0, width: mob ? 280 : 330, marginRight: 16, background: isDark ? "#1a1a1a" : "#fff", border: `1px solid ${isDark ? "rgba(201,168,76,0.1)" : "rgba(201,168,76,0.15)"}`, borderRadius: 12, padding: "28px 24px", boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.35)" : "0 4px 16px rgba(100,70,20,0.08)" }}>
                 <div aria-label={`${r.rating} out of 5 stars`} style={{ display: "flex", gap: 4, marginBottom: 12 }}>
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <span key={n} aria-hidden="true" style={{ color: n <= r.rating ? gold : C.border, fontSize: 14, lineHeight: 1 }}>&#9733;</span>
+                    <Icon key={n} name="star" size={14} filled={n <= r.rating} style={{ color: n <= r.rating ? gold : C.border }} />
                   ))}
                 </div>
                 <p style={{ color: C.textB, fontSize: 16, lineHeight: 1.85, margin: "0 0 16px", fontStyle: "italic", fontFamily: serif }}>&ldquo;{r.message}&rdquo;</p>
