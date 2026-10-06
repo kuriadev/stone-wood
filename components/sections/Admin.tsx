@@ -399,7 +399,7 @@ export function Admin({
     borderLeft: `2px solid ${tab === t ? gold : "transparent"}`,
     background: tab === t ? (isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.1)") : "transparent",
     color: tab === t ? C.goldInk : (isDark ? "#8d8378" : "#7e6c5c"),
-    display: "flex", alignItems: "center", gap: 12, transition: "all .15s",
+    display: "flex", alignItems: "flex-start", gap: 12, transition: "all .15s",
   });
 
   // The inbox and the archive share one layout and differ only in which
@@ -586,7 +586,7 @@ export function Admin({
     </>
   );
   return (
-    <div style={{ background: adminBg, minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <div style={{ background: adminBg, height: "100dvh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
       {/* Mobile Top Bar */}
       {mob && (
         <div style={{ background: sideBg, borderBottom: `1px solid ${sideBorder}`, padding: "0 20px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 90 }}>
@@ -598,10 +598,10 @@ export function Admin({
         </div>
       )}
 
-      <div style={{ display: "flex", flex: 1 }}>
+      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         {/* Sidebar */}
         {(!mob || sideOpen) && (
-          <div style={{ width: mob ? "100%" : 220, background: sideBg, borderRight: mob ? "none" : `1px solid ${sideBorder}`, flexShrink: 0, display: "flex", flexDirection: "column", position: mob ? "fixed" : "relative", inset: mob ? "56px 0 0 0" : "auto", zIndex: mob ? 80 : 1, overflowY: "auto", boxShadow: isDark ? "none" : "2px 0 16px rgba(80,55,20,0.06)" }}>
+          <div style={{ width: mob ? "100%" : 220, background: sideBg, borderRight: mob ? "none" : `1px solid ${sideBorder}`, flexShrink: 0, display: "flex", flexDirection: "column", position: mob ? "fixed" : "relative", inset: mob ? "56px 0 0 0" : "auto", zIndex: mob ? 80 : 1, overflow: "hidden", boxShadow: isDark ? "none" : "2px 0 16px rgba(80,55,20,0.06)" }}>
             {!mob && (
               <div style={{ padding: "32px 24px 24px", borderBottom: `1px solid ${sideBorder}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -611,7 +611,7 @@ export function Admin({
                 <div style={{ color: isDark ? "#888888" : "#6c6c6c", fontSize: 10.5, letterSpacing: 3, marginLeft: 16 }}>ADMIN PANEL</div>
               </div>
             )}
-            <div style={{ padding: "8px 0", flex: 1, overflowY: "auto" }}>
+            <div className="sw-noscrollbar" style={{ padding: "8px 0", flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
               {SIDEBAR_GROUPS.map((group, gi) => (
                 <div key={group.label}>
 
@@ -656,7 +656,32 @@ export function Admin({
                         size={16}
                         style={{ opacity: tab === t ? 1 : 0.55, transition: "opacity .15s" }}
                       />
-                      <span style={{ flex: 1 }}>{(tabLabels[t] ?? t).toUpperCase()}</span>
+                      <span
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          /* "CUSTOMER SERVICE" and "DAILY OPERATIONS" measure
+                             144px and 135px in a 146px slot, so the long two
+                             word labels wrap while every single word one does
+                             not. This does not force or prevent that wrap —
+                             it makes it look deliberate when it happens: a
+                             16px line box, matching the icon, so the two
+                             lines sit tight and the single word items are
+                             unchanged. Widen the sidebar past ~250px and they
+                             will sit on one line again. */
+                          /* Capped so the two-word labels ALWAYS wrap and can
+                             never flip to one line. The widest single-word
+                             label is MAINTENANCE at 104px, so a 120px cap
+                             leaves every one of them untouched and catches
+                             only DAILY OPERATIONS (135px) and CUSTOMER
+                             SERVICE (144px). */
+                          maxWidth: 120,
+                          lineHeight: "16px",
+                          overflowWrap: "break-word",
+                        }}
+                      >
+                        {(tabLabels[t] ?? t).toUpperCase()}
+                      </span>
 
                       {/* Bookings badge */}
                       {t === "Operations" && pendingCount > 0 && (
@@ -664,6 +689,7 @@ export function Admin({
                           background: gold, color: "#000",
                           fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "4px 8px", letterSpacing: 0,
+                          flexShrink: 0, alignSelf: "flex-start", marginLeft: "auto",
                         }}>
                           {pendingCount}
                         </Badge>
@@ -675,6 +701,7 @@ export function Admin({
                           background: "#e0a020", color: "#000",
                           fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "4px 8px", letterSpacing: 0,
+                          flexShrink: 0, alignSelf: "flex-start", marginLeft: "auto",
                         }}>
                           {facilities.filter(f => f.status === "Needs Cleaning").length}
                         </Badge>
@@ -688,6 +715,7 @@ export function Admin({
                           background: "#4a9fd4", color: "#fff",
                           fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "4px 8px", letterSpacing: 0,
+                          flexShrink: 0, alignSelf: "flex-start", marginLeft: "auto",
                         }}>
                           {inboxMessages.length}
                         </Badge>
@@ -697,7 +725,7 @@ export function Admin({
                 </div>
               ))}
             </div>
-            <div style={{ padding: "16px 20px", borderTop: `1px solid ${sideBorder}` }}>
+            <div style={{ padding: "16px 20px", borderTop: `1px solid ${sideBorder}`, flexShrink: 0 }}>
               <button onClick={() => setShowLogoutConfirm(true)} style={{ width: "100%", background: "transparent", color: isDark ? "#888888" : "#6c6c6c", border: `1px solid ${isDark ? "#2a2a2a" : "#ddd"}`, padding: "8px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 <Icon name="logout" size={12} />
                 SIGN OUT
@@ -710,7 +738,7 @@ export function Admin({
         {/* paddingBottom leaves room for the theme toggle, which floats over
             the bottom-right corner. Without it the last row of any admin
             table sits under the button with no way to scroll it clear. */}
-        <div style={{ flex: 1, padding: mob ? "20px 16px" : "40px", paddingBottom: mob ? 96 : 104, overflowY: "auto", minWidth: 0, background: adminBg }}>
+        <div style={{ flex: 1, padding: mob ? "20px 16px" : "40px", paddingBottom: mob ? 96 : 104, overflowY: "auto", minHeight: 0, minWidth: 0, background: adminBg }}>
 
           {/* The signed-in admin, top right. Its own row above the page, so
               it never competes with a tab's header actions for the corner. */}

@@ -315,8 +315,22 @@ function PackageCard({
          tallest package. Without it a short package sat at the top of the
          track and the arrows -- centred on the track -- ended up below the
          card's own centre. It also gives the detail column the height its
-         mt-auto CTA needs to reach the foot. */
-      className="grid h-full overflow-hidden rounded-2xl border md:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)]"
+         mt-auto CTA needs to reach the foot.
+
+         h-full only equalises WITHIN a tier, because each tier is its own
+         carousel. Across tiers it did not: measured at 1600px, Exclusive and
+         Events both came out at 662px while Shared was 722px, because
+         "Barkada Pool + Room" carries one more inclusion and a blurb that
+         runs to two lines. Switching tabs visibly resized the card.
+
+         The floor below is the tallest natural height at each width, so a
+         tier can never render shorter than another:
+             1024px  Shared 742, Events 739, Exclusive 706  -> 742
+             1280px  Shared 722, Events 687, Exclusive 686  -> 722
+             1600px  Shared 722, both others 662            -> 722
+         Measured, not guessed. Below md the layout stacks and heights follow
+         content, which is correct there. */
+      className="grid h-full overflow-hidden rounded-2xl border md:min-h-[742px] md:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] xl:min-h-[722px]"
       style={{ background: C.bgCard2, borderColor: C.border, boxShadow: C.shadowCard }}
     >
       {/* Artwork. Always dark, so the bright gold and white type belong here. */}

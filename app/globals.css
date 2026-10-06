@@ -735,10 +735,24 @@ img {
 .sw-img { transition: transform .5s cubic-bezier(.22,1,.36,1), opacity .2s ease; }
 .sw-img:hover { transform: scale(1.04); }
 
+/* ── ADMIN SIDEBAR SCROLLING ──
+   The tab list scrolls when the window is short, but the scrollbar itself is
+   hidden: a 15px light bar down the edge of a dark sidebar reads as a seam in
+   the chrome rather than a control. Scrolling still works by wheel, trackpad,
+   keyboard and touch — only the bar is removed, not the overflow. */
+.sw-noscrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.sw-noscrollbar::-webkit-scrollbar { width: 0; height: 0; }
+
 /* ── ADMIN SIDEBAR HOVER ── */
-.sw-sidebar-item { transition: background .18s ease, color .18s ease, border-color .18s ease, padding-left .18s cubic-bezier(.22,1,.36,1); }
-.sw-dark  .sw-sidebar-item:hover { background: rgba(201,168,76,0.06) !important; padding-left: 28px !important; }
-.sw-light .sw-sidebar-item:hover { background: rgba(201,168,76,0.08) !important; padding-left: 28px !important; }
+/* The indent is a TRANSFORM, not padding.
+   Animating padding-left changed the label's available width mid-hover
+   (146px -> 142px), and "CUSTOMER SERVICE" measures 144px — so every hover
+   pushed it across the wrap threshold, re-flowed it from one line to two and
+   changed the row height. The sidebar visibly jumped. translateX moves the
+   same 4px on the compositor and cannot reflow anything. */
+.sw-sidebar-item { transition: background .18s ease, color .18s ease, border-color .18s ease, transform .18s cubic-bezier(.22,1,.36,1); }
+.sw-dark  .sw-sidebar-item:hover { background: rgba(201,168,76,0.06) !important; transform: translateX(4px); }
+.sw-light .sw-sidebar-item:hover { background: rgba(201,168,76,0.08) !important; transform: translateX(4px); }
 
 /* Note on reduced motion: these hover lifts are deliberately NOT disabled
    for it. The preference targets large, looping or self-starting motion —
