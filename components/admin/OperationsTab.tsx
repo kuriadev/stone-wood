@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
-import { opsBoard, closingBlockers, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, type OpsCard, type OpsView } from "@/lib/operations";
+import { opsBoard, closingBlockers, attentionTally, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, type OpsCard, type OpsView } from "@/lib/operations";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { bookingMoney, collectedBetween, expensesBetween, livePayments, manilaDate, manilaTime, round2, type BookingMoney } from "@/lib/finance";
 import { fmt, fmtDate, getBookingSlot, holdsDate } from "@/lib/utils";
@@ -240,7 +240,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         actions: <Btn size="sm" kind="primary" onClick={() => go("refund", b)}>Send refund</Btn> });
     } else if (choiceOpen(b, now.getTime())) {
       attention.push({ key: `waiting-${b.id}`, tone: "blue", icon: "clock",
-        text: <>{who} hasn&apos;t picked a new date or a refund yet for {b.id} (cancelled by the resort). They have until {fmtDeadline(b.choiceDeadline!)}.</>,
+        text: <>{who} hasn&apos;t picked a new date yet for {b.id} (cancelled by the resort). They have until {fmtDeadline(b.choiceDeadline!)}.</>,
         actions: <Btn size="sm" onClick={() => go("textagain", b)}>Text them</Btn> });
     }
   }
@@ -250,6 +250,23 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
       text: <>{waitingConfirm.length} upcoming booking{waitingConfirm.length === 1 ? " is" : "s are"} waiting for your confirmation.</>,
       actions: <Btn size="sm" onClick={() => { setQ(""); setView("upcoming"); }}>Review</Btn> });
   }
+  /* The sidebar badge counts the same board from lib/operations.ts, because
+     it has to show a number while this component is unmounted. Two rule sets
+     drift silently, so in development they are compared on every render: add
+     a row above without adding its rule there and this fires immediately. */
+  if (process.env.NODE_ENV !== "production") {
+    const tally = attentionTally({
+      bookings, inspections: ops.inspections, dateChanges: ops.dateChanges,
+      now, usedBy: (b) => facilitiesForBooking(b, facilities),
+    });
+    if (tally.total !== attention.length) {
+      console.warn(
+        `[OperationsTab] attention list has ${attention.length} rows but attentionTally() counts ${tally.total}. ` +
+        "The sidebar badge will be wrong — keep lib/operations.ts attentionTally in step with this list.",
+      );
+    }
+  }
+
   const rank = { red: 0, amber: 1, blue: 2 } as const;
   attention.sort((a, b) => rank[a.tone] - rank[b.tone]);
   const attentionShown = allAttention ? attention : attention.slice(0, ATTENTION_SHOWN);
@@ -505,6 +522,68 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
     </>
   );
 
+  /* ── Reschedules ───────────────────────────────────────────────────
+     Guests asking to move a booking. These already appear in "Needs your
+     attention", but that list empties as things are dealt with and a
+     request can sit for 48 hours — so they get a bucket of their own that
+     always shows the full queue.
+
+     The availability question is already settled before this point: the
+     guest could only pick a date that was free, and the chosen date is HELD
+     (withHolds() makes it count as taken for walk-ins, the calendar and any
+     other guest), so nothing can take it while the owner decides. Approving
+     re-checks it once more server-side. */
+  const pendingMoves = ops.dateChanges
+    .filter((r) => r.status === "Pending")
+    .map((r) => ({ r, b: find(r.bookingId) }))
+    .filter((x): x is { r: typeof x.r; b: Booking } => !!x.b)
+    .sort((a, b) => Date.parse(a.r.createdAt) - Date.parse(b.r.createdAt));
+
+  const reschedulePanel = pendingMoves.length === 0
+    ? emptyNote("No one is waiting on a date change.")
+    : (
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fill,minmax(340px,1fr))", gap: 12 }}>
+        {pendingMoves.map(({ r, b }) => {
+          const active = holdActive(r, now.getTime());
+          /* The visit date can pass while a request is still sitting here:
+             a request made the night before holds its date for 48 hours.
+             The server refuses to approve those, so say so up front rather
+             than letting the owner find out from an error. */
+          const datePassed = r.fromDate <= today;
+          const stale = !active || datePassed;
+          return (
+            <div key={r.id} style={{ background: cBg, border: `1px solid ${stale ? "#d4a80055" : cBr}`, borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: C.textH, fontSize: 14.5, fontWeight: 600 }}>{b.name}</div>
+                  <div style={{ color: C.textS, fontSize: 12.5, fontFamily: "monospace" }}>{b.id}</div>
+                </div>
+                <Pill color={stale ? "#e55" : "#d4a800"}>{datePassed ? "Visit date passed" : active ? "Awaiting you" : "Hold expired"}</Pill>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 13 }}>
+                <span style={{ color: C.textS }}>{fmtDate(r.fromDate)}</span>
+                <Icon name="arrow-right" size={14} style={{ color: C.goldInk }} />
+                <span style={{ color: C.textH, fontWeight: 600 }}>{fmtDate(r.toDate)}</span>
+              </div>
+
+              <div style={{ color: C.textXS, fontSize: 12 }}>
+                {datePassed
+                  ? <>{fmtDate(r.fromDate)} has already passed, so this can only be declined.</>
+                  : active
+                  ? <>Date held for them until {fmtDeadline(r.holdUntil!)}.</>
+                  : <>The 48-hour hold ran out, so the date was released.</>}
+              </div>
+
+              <Btn size="sm" kind="primary" onClick={() => setOpen({ kind: "datechange", reqId: r.id })}>
+                Review request
+              </Btn>
+            </div>
+          );
+        })}
+      </div>
+    );
+
   const donePanel = (
     <>
       {doneToday.length === 0 ? emptyNote("Nothing settled yet today.") : grid(doneToday)}
@@ -599,6 +678,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
           { value: "today", label: `Today (${todayCards.length})`, content: todayPanel },
           { value: "upcoming", label: `Coming up (${upcoming.length})`, content: upcomingPanel },
           { value: "done", label: `Done today (${doneToday.length})`, content: donePanel },
+          { value: "reschedule", label: `Reschedules (${pendingMoves.length})`, content: reschedulePanel },
         ]} />
       )}
 

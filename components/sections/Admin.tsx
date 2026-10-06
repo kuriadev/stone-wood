@@ -23,6 +23,9 @@ import { PhotoSet } from "@/components/admin/PhotoSet";
 import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
 import { AccountModal } from "@/components/admin/AccountModal";
 import { ProfileMenu } from "@/components/admin/ProfileMenu";
+import { attentionTally } from "@/lib/operations";
+import { facilitiesForBooking } from "@/lib/facilityUsage";
+import { useOps } from "@/contexts/OpsContext";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -120,6 +123,12 @@ export function Admin({
   const [calMonth, setCalMonth] = useState(new Date());
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
+  const ops = useOps();
+  const [opsNow, setOpsNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setOpsNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
   const [autoArchiveEnabled, setAutoArchiveEnabled] = useState(true);
   /* Inbox and archive are two views of ONE list, split on archivedAt.
      They used to be two arrays, and archiving moved a message between them
@@ -260,7 +269,14 @@ export function Admin({
   }
 };
 
-  const pendingCount = bookings.filter((b) => b.status === "Pending" && !b.archived).length;
+  /* The sidebar badge counts everything on the "Needs your attention" board,
+     not just unconfirmed bookings -- a refund owed or a guest waiting on a
+     date change is just as much a thing to go and do. The rules live in
+     lib/operations.ts so this and OperationsTab cannot disagree. */
+  const attention = attentionTally({
+    bookings, inspections: ops.inspections, dateChanges: ops.dateChanges,
+    now: opsNow, usedBy: (b) => facilitiesForBooking(b, facilities),
+  });
 
   // Calendar
   const daysInMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0).getDate();
@@ -388,6 +404,30 @@ export function Admin({
 
   const goTab = (t: AdminTab) => { setTab(t); if (mob) setSideOpen(false); };
 
+  /* Jumping from a message to the booking it is about.
+     Customer Service messages name a booking two ways: the reference is often
+     written into the text (the guest-detail form prefixes it), and failing
+     that the sender's email matches the one on the booking. Either is enough
+     to open the right record, so the owner does not have to copy a reference
+     between two tabs. */
+  const [focusBookingId, setFocusBookingId] = useState<string | null>(null);
+  const bookingForMessage = (msg: { message: string; email: string }): Booking | null => {
+    const ref = msg.message.match(/\bSW-\d{4,}\b/i)?.[0]?.toUpperCase();
+    if (ref) {
+      const byRef = bookings.find((b) => b.id.toUpperCase() === ref);
+      if (byRef) return byRef;
+    }
+    const mail = (msg.email ?? "").trim().toLowerCase();
+    if (!mail) return null;
+    // The most recent booking on that address: an old visit is rarely what
+    // the message is about.
+    const theirs = bookings
+      .filter((b) => (b.email ?? "").trim().toLowerCase() === mail)
+      .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+    return theirs[0] ?? null;
+  };
+  const openBooking = (id: string) => { setFocusBookingId(id); goTab("Bookings"); };
+
   const adminBg = isDark ? "#080706" : "#f2ede6";
   const sideBg = isDark ? "#121212" : "#ffffff";
   const sideBorder = isDark ? "#141210" : "#ede8df";
@@ -494,9 +534,40 @@ export function Admin({
                               style={{
                                 color: C.textXS,
                                 fontSize: 12.5,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                                flexWrap: "wrap",
                               }}
                             >
                               {msg.email} · {msg.date}
+                              {/* If this person has a booking, the owner can
+                                  open it straight from the message instead of
+                                  copying the reference into the Bookings tab. */}
+                              {(() => {
+                                const linked = bookingForMessage(msg);
+                                if (!linked) return null;
+                                return (
+                                  <>
+                                    <span aria-hidden="true">·</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => openBooking(linked.id)}
+                                      title={`Open ${linked.id} — ${fmtDate(linked.date)}`}
+                                      style={{
+                                        display: "inline-flex", alignItems: "center", gap: 4,
+                                        background: "transparent", border: `1px solid ${cBr}`,
+                                        borderRadius: 999, padding: "2px 10px", cursor: "pointer",
+                                        color: C.goldInk, fontSize: 12, fontFamily: "monospace",
+                                      }}
+                                    >
+                                      <Icon name="calendar" size={12} />
+                                      {linked.id} · {fmtDate(linked.date)}
+                                      <Icon name="arrow-right" size={12} />
+                                    </button>
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
 
@@ -684,14 +755,23 @@ export function Admin({
                       </span>
 
                       {/* Bookings badge */}
-                      {t === "Operations" && pendingCount > 0 && (
-                        <Badge variant="outline" style={{
-                          background: gold, color: "#000",
-                          fontSize: 10.5, fontWeight: 700,
-                          borderRadius: 20, padding: "4px 8px", letterSpacing: 0,
-                          flexShrink: 0, alignSelf: "flex-start", marginLeft: "auto",
-                        }}>
-                          {pendingCount}
+                      {t === "Operations" && attention.total > 0 && (
+                        <Badge
+                          variant="outline"
+                          aria-label={`${attention.total} ${attention.total === 1 ? "item needs" : "items need"} your attention`}
+                          style={{
+                            /* Red when something is overdue or money is owed,
+                               gold when it can wait. */
+                            background: attention.urgent > 0 ? "#e55" : gold,
+                            color: attention.urgent > 0 ? "#fff" : "#000",
+                            fontSize: 10.5, fontWeight: 700,
+                            borderRadius: 20, padding: "4px 8px", letterSpacing: 0,
+                            display: "inline-flex", alignItems: "center", gap: 4,
+                            flexShrink: 0, alignSelf: "flex-start", marginLeft: "auto",
+                          }}
+                        >
+                          <Icon name="alert" size={11} strokeWidth={2} />
+                          {attention.total}
                         </Badge>
                       )}
 
@@ -757,7 +837,8 @@ export function Admin({
 
           {/* BOOKINGS (online and walk-in) */}
           {tab === "Bookings" && (
-            <BookingsTab bookings={bookings} setBookings={setBookings} updateStatus={updateStatus} mob={mob} rooms={rooms} packages={packages} facilities={facilities} />
+            <BookingsTab bookings={bookings} setBookings={setBookings} updateStatus={updateStatus} mob={mob} rooms={rooms} packages={packages} facilities={facilities}
+              focusId={focusBookingId} onFocusHandled={() => setFocusBookingId(null)} />
           )}
 
           {/* OCCUPANCY */}

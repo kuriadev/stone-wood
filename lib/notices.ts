@@ -21,24 +21,30 @@ const visit = (b: Booking, date = b.date) => `${fmtDate(date)} (${SLOTS[getBooki
 const button = (link: string, label = "Open my booking") => ({ label, url: link });
 
 export const notices = {
-  /** The resort can't host the booking: pick a new date or a refund. */
+  /** The resort can't host the booking: the guest picks a new date.
+   *
+   *  StoneWood does not refund — the remedy is always another date, and that
+   *  holds when the cancellation is the resort's own. What the guest has paid
+   *  is kept against the booking and carries to whichever date they choose,
+   *  so none of this copy may offer money back. */
   resortCancelled(b: Booking, reason: string, link: string, deadline: string, held: number): NoticeText {
     return {
       email: {
         subject: `Your ${fmtDate(b.date)} booking was cancelled – ${b.id}`,
         title: "We had to cancel your booking",
-        tagline: "Choose a new date or a full refund",
+        tagline: "Choose another date",
         name: b.name,
         paragraphs: [
           `We're sorry. We can't host your booking on ${visit(b)}. Reason: ${reason}`,
           held > 0
-            ? `Your payment of ${fmt(held)} is safe. You can move your booking to another available date at no cost, or ask for a full refund. Please choose by ${fmtDeadline(deadline)}; after that we'll refund you.`
+            ? `Your payment of ${fmt(held)} is safe and stays with your booking. Please pick another available date by ${fmtDeadline(deadline)} and we'll move you across at no extra cost.`
             : `You can move your booking to another available date at no cost. Please choose by ${fmtDeadline(deadline)}.`,
+          `If none of the open dates suit you, reply to this email or call us and we'll find one together.`,
         ],
         rows: [["Booking", b.id], ["Original date", visit(b)], ...(held > 0 ? [["Payment held for you", fmt(held)] as [string, string]] : [])],
-        button: button(link, "Choose a new date or refund"),
+        button: button(link, "Choose a new date"),
       },
-      sms: `StoneWood Resort: Sorry, we had to cancel your ${fmtDate(b.date)} booking ${b.id}. ${reason} ${held > 0 ? `Your ${fmt(held)} is safe. ` : ""}Pick a new date${held > 0 ? " or a refund" : ""} by ${fmtDeadline(deadline)}: ${link}`,
+      sms: `StoneWood Resort: Sorry, we had to cancel your ${fmtDate(b.date)} booking ${b.id}. ${reason} ${held > 0 ? `Your ${fmt(held)} is safe and stays with the booking. ` : ""}Pick a new date by ${fmtDeadline(deadline)}: ${link}`,
     };
   },
 

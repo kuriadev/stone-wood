@@ -24,6 +24,7 @@ import { buildNoticeEmail } from "@/lib/emailTemplate";
 import { trySendMail } from "@/lib/mailer";
 import { logActivity } from "@/lib/activity.server";
 import { fmtDate } from "@/lib/utils";
+import { manilaDate } from "@/lib/finance";
 import type { BookingRow, DateChangeRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -75,6 +76,16 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (b.status !== "Confirmed" || b.checkedInAt) return no("This booking can no longer be moved.");
+    /* The same cut-off the guest route enforces, applied here too.
+       A request made the evening before a visit holds its date for 48 hours,
+       so the hold can still be live a day AFTER the visit was due. Without
+       this, approving such a request would move a booking whose date had
+       already come and gone -- a no-show quietly becoming a future booking.
+       The guest is told "date changes close on the day of your visit"; this
+       makes that true no matter who is clicking. */
+    if (b.date <= manilaDate()) {
+      return no("That visit date has already passed, so this booking can no longer be moved. Decline the request and book them in again if they still want to come.");
+    }
     const check = await checkMove(b, request.toDate);
     if (!check.ok) return no(`${check.error} Decline the request and let the guest pick another date.`);
 

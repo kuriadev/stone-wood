@@ -108,7 +108,9 @@ export function ManageBooking(_props: ManageBookingProps) {
   const [dateBusy, setDateBusy] = useState(false);
   const [dateError, setDateError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [showRefundConfirm, setShowRefundConfirm] = useState(false);
+  /* Asking to move a date is not undoable from here — the booking is held and
+     the owner is notified — so it gets a confirmation of its own. */
+  const [showMoveConfirm, setShowMoveConfirm] = useState(false);
 
   // ── Find ─────────────────────────────────────────────────────────────
   const runLookup = useCallback(async (ref: string, p: Proof) => {
@@ -177,7 +179,7 @@ export function ManageBooking(_props: ManageBookingProps) {
     return json;
   };
 
-  // ── After a resort cancellation: a new date, or a refund ─────────────
+  // ── After a resort cancellation: a new date. There is no refund. ────
   const confirmRebook = async () => {
     if (!found || !newDate || dateBusy) return;
     setDateBusy(true);
@@ -195,22 +197,6 @@ export function ManageBooking(_props: ManageBookingProps) {
     }
   };
 
-  const confirmRefund = async () => {
-    if (!found || dateBusy) return;
-    setDateBusy(true);
-    setDateError(null);
-    try {
-      await post("refund-request", {});
-      setShowRefundConfirm(false);
-      setNotice("Your refund is being arranged. You'll see the reference here when it's sent.");
-      await refresh();
-    } catch (err) {
-      setDateError(err instanceof Error ? err.message : "Could not record your choice.");
-      setShowRefundConfirm(false);
-    } finally {
-      setDateBusy(false);
-    }
-  };
 
   // ── Guest-requested date change ──────────────────────────────────────
   const requestDateChange = async () => {
@@ -495,26 +481,23 @@ export function ManageBooking(_props: ManageBookingProps) {
               </p>
             )}
 
-            {/* ── THE RESORT CANCELLED: choose a new date or a refund ──────── */}
+            {/* ── THE RESORT CANCELLED: choose a new date ──────────────────── */}
             {found.status === "ResortCancelled" && (
               <div style={{ ...card, marginBottom: 20, borderColor: "#9a7bd077" }}>
                 <p style={{ ...eyebrow, color: "#b49be0", marginBottom: 12 }}>THE RESORT HAD TO CANCEL</p>
                 <h3 style={{ color: C.textH, fontFamily: serif, fontSize: mob ? 22 : 28, fontWeight: 400, margin: "0 0 12px", lineHeight: 1.2 }}>
-                  We&rsquo;re sorry. Choose a new date or a refund.
+                  We&rsquo;re sorry. Let&rsquo;s find you another date.
                 </h3>
                 {found.cancelReason && <p style={{ color: C.textB, fontSize: 14, lineHeight: 1.7, margin: "0 0 12px" }}>{found.cancelReason}</p>}
                 {choosing ? (
                   <>
                     <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: "0 0 20px" }}>
-                      {(found.heldAmount ?? 0) > 0 && <>Your {fmt(found.heldAmount ?? 0)} is safe. </>}
-                      Move your booking to any free date at no cost, or ask for a full refund. Please choose by <strong style={{ color: C.textH }}>{fmtDeadline(found.choiceDeadline!)}</strong>; after that we refund you.
+                      {(found.heldAmount ?? 0) > 0 && <>Your {fmt(found.heldAmount ?? 0)} is safe and stays with this booking. </>}
+                      Move it to any free date at no extra cost. Please choose by <strong style={{ color: C.textH }}>{fmtDeadline(found.choiceDeadline!)}</strong>. If none of the open dates work for you, contact us and we&rsquo;ll sort one out together.
                     </p>
                     {!picking ? (
                       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                         <button className="sw-btn" type="button" onClick={() => { setPicking(true); setNewDate(""); setDateError(null); }} style={{ ...goldBtn }}>PICK A NEW DATE</button>
-                        {(found.heldAmount ?? 0) > 0 && (
-                          <button className="sw-btn-out" type="button" onClick={() => setShowRefundConfirm(true)} style={{ ...outBtn, color: C.goldInk, minHeight: 48 }}>REQUEST A REFUND</button>
-                        )}
                       </div>
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -531,7 +514,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                     )}
                   </>
                 ) : (
-                  <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>The time to choose has passed, so your refund is being arranged.</p>
+                  <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>The time to choose has passed. Please contact the resort and we&rsquo;ll arrange your new date together.</p>
                 )}
               </div>
             )}
@@ -617,7 +600,7 @@ export function ManageBooking(_props: ManageBookingProps) {
               {closed || found.checkedInAt ? (
                 <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: 0 }}>
                   {found.status === "ResortCancelled"
-                    ? "Use the choice above: a new date or a refund."
+                    ? "Use the choice above to pick a new date."
                     : `This reservation is ${found.checkedInAt && !closed ? "under way" : found.status.toLowerCase()}, so there is nothing left to change here. Contact support if you think that is wrong.`}
                 </p>
               ) : (
@@ -663,10 +646,58 @@ export function ManageBooking(_props: ManageBookingProps) {
                       <p style={{ color: C.textS, fontSize: 13, margin: "0 0 16px", lineHeight: 1.6 }}>
                         Pick a free date. We hold it for you for {HOLD_HOURS} hours while the resort approves the change, and your booking stays on {fmtDate(found.date)} until then. You can change the date once.
                       </p>
+
+                      {/* The policy, stated before the choice rather than after
+                          it. Only the dates in green can be picked, and the
+                          calendar already hides anything taken or held. */}
+                      <div style={{ border: `1px solid ${gold}55`, background: `${gold}0f`, borderRadius: 10, padding: 16, margin: "0 0 20px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                        <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, flexShrink: 0, marginTop: 4 }}><Icon name="info" size={15} strokeWidth={1.5} /></span>
+                        <div style={{ color: C.textB, fontSize: 13, lineHeight: 1.65 }}>
+                          <strong style={{ display: "block", color: C.textH, marginBottom: 4 }}>Before you choose a new date</strong>
+                          <ul style={{ margin: 0, paddingLeft: 18 }}>
+                            <li>Moving your date is <strong>free</strong> — there is no rescheduling fee, and everything you have paid carries over.</li>
+                            <li>This is a change of date only. <strong>It is not a refund</strong>, and what you have paid cannot be returned.</li>
+                            <li>The resort checks the date you pick is still open and then approves or declines it, so <strong>please watch your email</strong> — we send the answer to {found.email || "the address on your booking"}.</li>
+                            <li>You can move a booking <strong>once</strong>.</li>
+                          </ul>
+                        </div>
+                      </div>
+
                       {picker}
+
+                      {/* What is actually changing, and what it costs. */}
+                      {newDate && (
+                        <div style={{ marginTop: 20, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, background: C.bgCard2 }}>
+                          <p style={{ ...eyebrow, margin: "0 0 12px" }}>YOUR REQUEST</p>
+                          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+                            <div>
+                              <div style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 1 }}>CURRENT DATE</div>
+                              <div style={{ color: C.textS, fontSize: 15, textDecoration: "line-through" }}>{fmtDate(found.date)}</div>
+                            </div>
+                            <Icon name="arrow-right" size={16} style={{ color: C.goldInk }} />
+                            <div>
+                              <div style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 1 }}>NEW DATE</div>
+                              <div style={{ color: C.textH, fontSize: 15, fontWeight: 600 }}>{fmtDate(newDate)}</div>
+                            </div>
+                          </div>
+                          <div style={{ borderTop: `1px solid ${C.borderLight}`, paddingTop: 12, display: "grid", gap: 6 }}>
+                            {([
+                              ["Rescheduling fee", "Free", false],
+                              ["Already paid", fmt(paidNet), false],
+                              [closed ? "Balance" : "Balance on arrival", closed ? "—" : fmt(balance), true],
+                            ] as [string, string, boolean][]).map(([k, v, strong]) => (
+                              <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13.5 }}>
+                                <span style={{ color: C.textS }}>{k}</span>
+                                <span style={{ color: strong ? C.textH : C.textB, fontWeight: strong ? 600 : 400 }}>{v}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {dateError && <p style={{ color: "#e07a7a", fontSize: 13, margin: "12px 0 0" }}>{dateError}</p>}
                       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-                        <button className="sw-btn" type="button" disabled={!newDate || dateBusy} onClick={() => void requestDateChange()}
+                        <button className="sw-btn" type="button" disabled={!newDate || dateBusy} onClick={() => setShowMoveConfirm(true)}
                           style={{ ...goldBtn, opacity: !newDate || dateBusy ? 0.45 : 1, cursor: !newDate ? "not-allowed" : dateBusy ? "wait" : "pointer" }}>
                           {dateBusy ? "SENDING…" : newDate ? <>REQUEST {fmtDate(newDate).toUpperCase()} <span aria-hidden="true">&rarr;</span></> : "CHOOSE A DATE"}
                         </button>
@@ -707,7 +738,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                           <strong style={{ display: "block", color: dangerInk, fontSize: 13, letterSpacing: 0.3, marginBottom: 4 }}>No refunds when you cancel</strong>
                           <span style={{ color: C.textS }}>
                             {paidNet > 0 ? <>The {fmt(paidNet)} already paid on this booking is not returned if you cancel.</> : <>Anything paid on this booking is not returned if you cancel.</>}
-                            {" "}If the resort ever has to cancel, you choose a new date or a full refund.
+                            {" "}If the resort ever has to cancel, we move you to another date of your choosing.
                           </span>
                         </span>
                       </div>
@@ -762,7 +793,7 @@ export function ManageBooking(_props: ManageBookingProps) {
             </div>
 
             <p style={{ color: C.textS, fontSize: 12, textAlign: "center", margin: "24px auto 0", maxWidth: 620, lineHeight: 1.6 }}>
-              If the resort has to cancel, you choose a free new date or a full refund. If you cancel, payments aren&rsquo;t refunded, but you can move your booking to another date once.
+              We don&rsquo;t issue refunds. If the resort has to cancel, we move you to another date of your choosing at no cost. If you cancel, payments aren&rsquo;t refunded &mdash; but you can move your booking to another date once.
             </p>
           </>
         )}
@@ -790,24 +821,30 @@ export function ManageBooking(_props: ManageBookingProps) {
       </AlertDialog>
 
       {/* Refund instead of a new date, after a resort cancellation. */}
-      <AlertDialog open={showRefundConfirm} onOpenChange={(open) => { if (!open) setShowRefundConfirm(false); }}>
+      {/* Confirming the date change. The request notifies the owner and
+          holds the date, so it asks once before sending. */}
+      <AlertDialog open={showMoveConfirm} onOpenChange={(open) => { if (!open) setShowMoveConfirm(false); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle style={{ color: C.textH, fontFamily: serif, fontSize: 24, fontWeight: 400 }}>
-              Request a refund?
+              Ask to move to {newDate ? fmtDate(newDate) : "this date"}?
             </AlertDialogTitle>
             <AlertDialogDescription style={{ color: C.textS, fontSize: 14, lineHeight: 1.7 }}>
-              Your booking {found?.id} stays cancelled and the resort refunds you {fmt(found?.heldAmount ?? 0)}. You&rsquo;ll see the reference here once it&rsquo;s sent.
+              {found ? <>Your booking {found.id} stays on {fmtDate(found.date)} until the resort approves this. </> : null}
+              We hold {newDate ? fmtDate(newDate) : "the date"} for you for {HOLD_HOURS} hours while they check it.
+              There is no fee, and nothing you have paid is refunded &mdash; the date moves instead.
+              We will email you the answer{found?.email ? <> at {found.email}</> : null}.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel style={{ ...outBtn, color: C.goldInk, minHeight: 48 }}>GO BACK</AlertDialogCancel>
-            <Button className="sw-btn" onClick={() => void confirmRefund()} disabled={dateBusy} style={{ ...goldBtn, minHeight: 48 }}>
-              {dateBusy ? "SAVING…" : "YES, REFUND ME"}
+            <Button className="sw-btn" onClick={() => { setShowMoveConfirm(false); void requestDateChange(); }} disabled={dateBusy} style={{ ...goldBtn, minHeight: 48 }}>
+              {dateBusy ? "SENDING…" : "YES, SEND REQUEST"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </div>
   );
 }

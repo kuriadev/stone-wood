@@ -23,7 +23,7 @@
 // the booking's full history.
 
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
 import { useOps } from "@/contexts/OpsContext";
 import { bookingMoney, manilaDate, manilaTime, livePayments } from "@/lib/finance";
@@ -43,6 +43,7 @@ import { CheckoutModal, SettleModal } from "@/components/admin/InspectionModals"
 import { ResortCancelDialog, type UpdateStatus } from "@/components/admin/ResortCancelDialog";
 import { RefundModal } from "@/components/admin/RefundModal";
 import { DateChangeReview } from "@/components/admin/DateChangeReview";
+import { EditGuestModal } from "@/components/admin/EditGuestModal";
 import { BookingHistory } from "@/components/admin/BookingHistory";
 import { choiceOpen, fmtDeadline, holdActive, withHolds } from "@/lib/rebooking";
 import {
@@ -52,6 +53,10 @@ interface BookingsTabProps {
   bookings: Booking[];
   setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
   updateStatus: UpdateStatus;
+  /** Open this booking's detail panel on arrival — set when the owner jumps
+   *  here from a Customer Service message. */
+  focusId?: string | null;
+  onFocusHandled?: () => void;
   mob: boolean;
   rooms: Room[];
   packages: ResortPackage[];
@@ -60,7 +65,9 @@ interface BookingsTabProps {
 
 const STATUSES = ["All", "Pending", "Confirmed", "Completed", "ResortCancelled", "Cancelled"] as const;
 
-export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, packages, facilities }: BookingsTabProps) {
+export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, packages, facilities, focusId, onFocusHandled }: BookingsTabProps) {
+  /* Correcting a guest's own details on a booking that already exists. */
+  const [editId, setEditId] = useState<string | null>(null);
   const { C, rowBg, cBr, soft, inp } = useAdminStyle();
   const { toast } = useToast();
   const ops = useOps();
@@ -75,6 +82,14 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
 
   const [walkIn, setWalkIn] = useState(false);
   const [viewId, setViewId] = useState<string | null>(null);
+
+  /* Arriving from a message. The id is cleared once consumed so reopening
+     this tab later does not pop the same booking again. */
+  useEffect(() => {
+    if (!focusId) return;
+    if (bookings.some((b) => b.id === focusId)) setViewId(focusId);
+    onFocusHandled?.();
+  }, [focusId, bookings, onFocusHandled]);
   const [payFor, setPayFor] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Booking | null>(null);
   /** "Cancel (resort can't host)", for a pending or a confirmed booking. */
@@ -232,7 +247,19 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
         const pays = ops.payments.filter((p) => p.bookingId === b.id);
         const request = ops.dateChanges.find((r) => r.bookingId === b.id && r.status === "Pending");
         return (
-          <Modal title={b.name} subtitle={<><span style={{ color: C.goldInk, fontFamily: "monospace" }}>{b.id}</span> · {b.source ?? "Online"} · booked {b.createdAt ? fmtDate(manilaDate(new Date(b.createdAt))) : "—"}</>}
+          <Modal title={<span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              {b.name}
+              <button
+                type="button"
+                aria-label={`Edit ${b.name}'s details`}
+                title="Edit guest details"
+                onClick={() => setEditId(b.id)}
+                style={{ background: "none", border: "none", padding: 4, borderRadius: 6, cursor: "pointer", color: C.textS, lineHeight: 0 }}
+              >
+                <Icon name="edit" size={15} />
+              </button>
+            </span>}
+            subtitle={<><span style={{ color: C.goldInk, fontFamily: "monospace" }}>{b.id}</span> · {b.source ?? "Online"} · booked {b.createdAt ? fmtDate(manilaDate(new Date(b.createdAt))) : "—"}</>}
             onClose={() => setViewId(null)} width={900}
             footer={<div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
               {/* An emergency can stop the resort hosting a group, whatever
@@ -346,6 +373,13 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
       {refundFor && <RefundModal booking={bookings.find((x) => x.id === refundFor.id) ?? refundFor} onClose={() => setRefundFor(null)} />}
       {reviewing && bookings.find((x) => x.id === reviewing.bookingId) && (
         <DateChangeReview request={reviewing} booking={bookings.find((x) => x.id === reviewing.bookingId)!} onClose={() => setReviewReq(null)} />
+      )}
+      {editId && bookings.find((x) => x.id === editId) && (
+        <EditGuestModal
+          booking={bookings.find((x) => x.id === editId)!}
+          onClose={() => setEditId(null)}
+          onSaved={(patch) => setBookings((prev) => prev.map((x) => (x.id === editId ? { ...x, ...patch } : x)))}
+        />
       )}
 
       {archiveOf && (

@@ -14,6 +14,7 @@ import { getSupabaseAdmin, rowToBooking } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { sanitizeNotes } from "@/lib/validators";
+import * as schemas from "@/lib/schemas";
 import { loadGuestBooking, sweepExpired } from "@/lib/rebooking.server";
 import { GUEST_CHANGES_ALLOWED } from "@/lib/rebooking";
 import { manilaDate } from "@/lib/finance";
@@ -120,7 +121,19 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     }
 
     // An allow-list, not a spread: a PATCH must never be able to rewrite the
-    // id, the created_at, or the guest's own details.
+    // id or the created_at.
+    //
+    // The guest's CONTACT details are editable — people mistype their own
+    // phone number and ask the resort to fix it, and the alternative was
+    // cancelling and rebooking. Each one is run through the same schema the
+    // booking form uses, so the admin cannot save something the guest could
+    // not have typed, and every change is written to the activity log.
+    //
+    // What is still NOT editable here: date, guests, package, resource, tier
+    // and anything else that decides what is owed or what is free. Those
+    // change the price or the availability, so they go through their own
+    // flows (the date-change request, a walk-in, a refund) where the money
+    // and the calendar are recomputed rather than left behind.
     const cur = await getSupabaseAdmin().from("bookings").select("*").eq("id", id).maybeSingle();
     if (cur.error) throw new Error(cur.error.message);
     if (!cur.data) return NextResponse.json({ success: false, error: "Booking not found." }, { status: 404 });
@@ -139,6 +152,27 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       }
       patch.status = body.status;
     }
+    // ── The guest's own contact details ──
+    const detailErrors: string[] = [];
+    if (body.name !== undefined) {
+      const r = schemas.guestName.safeParse(body.name);
+      if (!r.success) detailErrors.push("Enter the guest's full name.");
+      else patch.name = r.data;
+    }
+    if (body.contact !== undefined) {
+      const r = schemas.phoneNumber.safeParse(body.contact);
+      if (!r.success) detailErrors.push("Enter a valid PH mobile number (09XXXXXXXXX).");
+      else patch.contact = r.data;
+    }
+    if (body.email !== undefined) {
+      const r = schemas.email.safeParse(body.email);
+      if (!r.success) detailErrors.push("Enter a valid email address.");
+      else patch.email = r.data;
+    }
+    if (detailErrors.length) {
+      return NextResponse.json({ success: false, error: detailErrors[0] }, { status: 400 });
+    }
+
     if (body.paymentProof !== undefined) patch.payment_proof = !!body.paymentProof;
     if (body.cancelReason !== undefined) patch.cancel_reason = sanitizeNotes(String(body.cancelReason)).slice(0, 500) || null;
     if (body.notes !== undefined) patch.notes = sanitizeNotes(String(body.notes));
@@ -177,6 +211,18 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       logs.push({ action: after.archived ? "booking.archived" : "booking.restored", summary: `${after.archived ? "Archived" : "Restored"} ${who}.` });
     }
     if (after.notes !== before.notes) logs.push({ action: "booking.notes", summary: `Edited the notes on ${who}.` });
+    /* Who the booking is for. Without this a details-only edit produced an
+       empty `logs` array and nothing was written at all — the one kind of
+       change where you most want a record of what it used to say. */
+    const detailFields: [keyof BookingRow, string][] = [["name", "name"], ["contact", "contact number"], ["email", "email"]];
+    const edited = detailFields.filter(([k]) => after[k] !== before[k]);
+    if (edited.length) {
+      logs.push({
+        action: "booking.details",
+        summary: `Edited the ${edited.map(([, label]) => label).join(", ")} on ${who}. ` +
+          edited.map(([k, label]) => `${label}: ${String(before[k] ?? "—")} → ${String(after[k] ?? "—")}`).join("; "),
+      });
+    }
     const diff = changes(before as unknown as Record<string, unknown>, after as unknown as Record<string, unknown>, ["archived_at", "confirmed_at", "cancelled_at"]);
     await logActivity(logs.map((l) => ({ actor: "Admin" as const, bookingId: after.id, entity: "booking", entityId: after.id, details: { changes: diff }, ...l })));
 

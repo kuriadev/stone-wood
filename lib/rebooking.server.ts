@@ -159,13 +159,18 @@ export async function sweepExpired(force = false): Promise<void> {
     for (const row of (choices.data ?? []) as BookingRow[]) {
       const b = rowToBooking(row);
       const held = b.heldAmount ?? 0;
+      /* No refund is created here. StoneWood does not refund, so a guest who
+         misses the window has not become a creditor — their payment stays
+         held against the booking and the owner arranges a date with them.
+         This used to stamp refund_status "Owed" and zero held_amount, which
+         manufactured a debt the resort had no policy to pay. */
       const done = await db.from("bookings")
-        .update({ status: "Cancelled", refund_status: held > 0 ? "Owed" : null, refund_amount: held, held_amount: 0 })
+        .update({ status: "Cancelled" })
         .eq("id", b.id).eq("status", "ResortCancelled").select("id").maybeSingle();
       if (done.data) {
         logs.push({
           actor: "System", action: "booking.choice_expired", bookingId: b.id, entity: "booking", entityId: b.id,
-          summary: `${b.name} didn't choose within ${GUEST_CHOICE_DAYS} days. ${held > 0 ? `A refund of ${fmt(held)} is now owed.` : "The booking is cancelled."}`,
+          summary: `${b.name} didn't pick a new date within ${GUEST_CHOICE_DAYS} days, so ${b.id} is cancelled.${held > 0 ? ` ${fmt(held)} is still held against it — contact them to agree a date.` : ""}`,
         });
       }
     }

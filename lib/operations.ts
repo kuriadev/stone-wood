@@ -24,7 +24,8 @@
 //   done       settled today
 
 import type { Booking } from "@/types/booking";
-import type { Inspection } from "@/types/finance";
+import type { Inspection, DateChange } from "@/types/finance";
+import { choiceOpen, holdActive } from "@/lib/rebooking";
 import { manilaDate } from "@/lib/finance";
 import { getOccupancyWindow } from "@/lib/occupancy";
 
@@ -58,7 +59,10 @@ export interface OpsCard {
   column: TodayColumn | null;
 }
 
-export type OpsView = "today" | "upcoming" | "done";
+/* "reschedule" has no OpsCard of its own: it lists date-change REQUESTS,
+   which belong to a booking rather than being one. placeOf() never returns
+   it — OperationsTab builds that panel straight from ops.dateChanges. */
+export type OpsView = "today" | "upcoming" | "done" | "reschedule";
 export type TodayColumn = "arriving" | "onsite" | "settle";
 
 export const TODAY_COLUMNS: { id: TodayColumn; label: string; hint: string; empty: string; color: string }[] = [
@@ -155,4 +159,65 @@ export function closingBlockers(bookings: Booking[], date: string): CloseBlocker
       need: b.status === "Pending" ? "confirm" : b.checkedOutAt ? "settle" : b.checkedInAt ? "checkout" : "arrival",
     }))
     .sort((x, y) => order.indexOf(x.need) - order.indexOf(y.need) || x.b.date.localeCompare(y.b.date));
+}
+
+// ── How many things need the owner's attention ──────────────────────
+//
+// OperationsTab renders the "Needs your attention" list with its wording and
+// its buttons. The sidebar badge needs the same COUNT while that tab is not
+// even mounted, so the rules live here, once, and both read them.
+//
+// Keep this in step with the list in OperationsTab: that file asserts the two
+// agree in development, so a rule added there without one here fails loudly
+// rather than quietly leaving the badge short.
+export interface AttentionTally {
+  /** Everything waiting, whatever its urgency. */
+  total: number;
+  /** The red ones: overdue, unconfirmed on the day, refunds owed. */
+  urgent: number;
+}
+
+export function attentionTally(args: {
+  bookings: Booking[];
+  inspections: Inspection[];
+  dateChanges: DateChange[];
+  now: Date;
+  /** `facilitiesForBooking` from lib/facilityUsage, passed in so this module
+   *  stays free of that dependency. */
+  usedBy: (b: Booking) => { id: number; status: string }[];
+}): AttentionTally {
+  const { bookings, inspections, dateChanges, now, usedBy } = args;
+  const today = manilaDate(now);
+  const cards = opsBoard(bookings, inspections, now);
+  let total = 0;
+  let urgent = 0;
+  const add = (red: boolean) => { total++; if (red) urgent++; };
+
+  for (const c of cards) {
+    const b = c.b;
+    if (c.overdue) add(true);
+    if (c.timeUp && c.endsAt) add(true);
+    if (c.stage === "confirm" && c.view === "today") add(b.date < today);
+    if (c.stage === "arriving" && !c.overdue && !c.prepared) add(false);
+    if (c.stage === "settle" && b.checkedOutAt && manilaDate(b.checkedOutAt) < today) add(false);
+    if (c.view === "today" && (c.column === "arriving" || c.column === "onsite")) {
+      for (const f of usedBy(b)) if (f.status === "Under Maintenance") add(false);
+    }
+  }
+
+  const byId = new Map(bookings.map((b) => [b.id, b]));
+  for (const r of dateChanges) {
+    if (r.status !== "Pending") continue;
+    if (!byId.has(r.bookingId)) continue;
+    add(!holdActive(r, now.getTime()));
+  }
+
+  for (const b of bookings) {
+    if (b.refundStatus === "Owed") add(true);
+    else if (choiceOpen(b, now.getTime())) add(false);
+  }
+
+  if (cards.some((c) => c.view === "upcoming" && c.stage === "confirm")) add(false);
+
+  return { total, urgent };
 }
