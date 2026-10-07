@@ -16,7 +16,11 @@ import type { CustomerMessageRow } from "@/types/database";
 export const dynamic = "force-dynamic";
 
 const MESSAGE_MAX = 2000;
-const VALID_TYPES = ["Inquiry", "Complaint", "Feedback", "Suggestion", "Other"];
+/* "Refund" is its own kind so the owner can see at a glance which
+   messages are about money. Refunds are only ever possible when the RESORT
+   cancelled, and they are arranged by hand — no guest-facing button issues
+   one (see /api/bookings/[id]/refund-request, retired). */
+const VALID_TYPES = ["Inquiry", "Complaint", "Feedback", "Suggestion", "Refund", "Other"];
 
 export async function GET(req: NextRequest) {
   const denied = requireAdmin(req);

@@ -20,6 +20,18 @@ export interface NoticeText {
 const visit = (b: Booking, date = b.date) => `${fmtDate(date)} (${SLOTS[getBookingSlot(b)].label})`;
 const button = (link: string, label = "Open my booking") => ({ label, url: link });
 
+/** The refund page for a booking, derived from the guest link so this file
+ *  needs no base-URL config of its own. */
+function refundUrl(link: string, id: string): string {
+  try {
+    const u = new URL("/customer/refund", link);
+    u.searchParams.set("booking", id);
+    return u.toString();
+  } catch {
+    return `/customer/refund?booking=${encodeURIComponent(id)}`;
+  }
+}
+
 export const notices = {
   /** The resort can't host the booking: the guest picks a new date.
    *
@@ -40,9 +52,23 @@ export const notices = {
             ? `Your payment of ${fmt(held)} is safe and stays with your booking. Please pick another available date by ${fmtDeadline(deadline)} and we'll move you across at no extra cost.`
             : `You can move your booking to another available date at no cost. Please choose by ${fmtDeadline(deadline)}.`,
           `If none of the open dates suit you, reply to this email or call us and we'll find one together.`,
+          // The resort cancelled, so a refund is on the table — arranged by a
+          // person through Customer Service, never issued automatically.
+          `Would you rather have your money back? Because this cancellation was ours, you can request a refund instead of a new date.`,
         ],
         rows: [["Booking", b.id], ["Original date", visit(b)], ...(held > 0 ? [["Payment held for you", fmt(held)] as [string, string]] : [])],
         button: button(link, "Choose a new date"),
+        // Offered only when there is money to give back, and styled as the
+        // quieter option: a new date is what the resort would rather do.
+        ...(held > 0
+          ? {
+              secondaryButton: {
+                label: "Request a refund",
+                url: refundUrl(link, b.id),
+                note: "We'll ask for your GCash number and arrange it with you.",
+              },
+            }
+          : {}),
       },
       sms: `StoneWood Resort: Sorry, we had to cancel your ${fmtDate(b.date)} booking ${b.id}. ${reason} ${held > 0 ? `Your ${fmt(held)} is safe and stays with the booking. ` : ""}Pick a new date by ${fmtDeadline(deadline)}: ${link}`,
     };

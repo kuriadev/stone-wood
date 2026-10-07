@@ -139,6 +139,26 @@ export function Admin({
   const inboxMessages = customerMessages.filter((m) => !m.archivedAt);
   const archivedMessages = customerMessages.filter((m) => m.archivedAt);
   const [csView, setCsView] = useState<"inbox" | "archive">("inbox");
+  /* Filtering the inbox by what the message is about. The values are the ones
+     /api/customer-service stores; "Question" on the guest form is saved as
+     "Inquiry", and anything it does not recognise falls back to "Other", so
+     Other is kept as a bucket rather than dropping those messages. */
+  const CS_TYPES = ["Inquiry", "Feedback", "Complaint", "Refund", "Suggestion", "Other"] as const;
+  /* The stored values are what /api/customer-service writes; these are what
+     the owner reads. "Inquiry" is what the guest form saves for "Question",
+     and "Complaint" for "Concern", so the admin never sees a word the guest
+     was not shown. */
+  const CS_LABELS: Record<string, string> = {
+    Inquiry: "Question", Feedback: "Feedback", Complaint: "Concern",
+    Refund: "Request for Refund", Suggestion: "Suggestion", Other: "Other",
+  };
+  /* The four the owner asked to see as sections. These always show, even at
+     zero, so the row reads as a set of filters rather than appearing and
+     vanishing with the post. The rest only appear once something lands. */
+  const CS_ALWAYS = ["Inquiry", "Feedback", "Complaint", "Refund"];
+  const [csType, setCsType] = useState<string>("All");
+  const csBase = csView === "inbox" ? inboxMessages : archivedMessages;
+  const csList = csType === "All" ? csBase : csBase.filter((m) => (m.type ?? "Other") === csType);
   const [confirmArchiveMsg, setConfirmArchiveMsg] = useState<CustomerMessage | null>(null);
   // Live refresh for the Customer Service inbox.
   //
@@ -447,11 +467,39 @@ export function Admin({
   // render it.
   const messagesPanel = (
     <>
-                {(
-                  csView === "inbox"
-                    ? inboxMessages
-                    : archivedMessages
-                ).length === 0 ? (
+                {/* What the message is about. Counts come from the list being
+                    shown, so switching to the archive recounts rather than
+                    advertising inbox numbers against archived messages. */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                  {(["All", ...CS_TYPES] as string[]).map((key) => {
+                    const n = key === "All"
+                      ? csBase.length
+                      : csBase.filter((m) => (m.type ?? "Other") === key).length;
+                    if (key !== "All" && key !== csType && n === 0 && !CS_ALWAYS.includes(key)) return null;
+                    const on = csType === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setCsType(key)}
+                        style={{
+                          minHeight: 36, padding: "0 14px", borderRadius: 999, cursor: "pointer",
+                          border: `1px solid ${on ? gold + "66" : cBr}`,
+                          background: on ? `${gold}1c` : "transparent",
+                          color: on ? C.goldInk : C.textS,
+                          fontSize: 12.5, fontWeight: on ? 600 : 400,
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                        }}
+                      >
+                        {key === "All" ? "All" : CS_LABELS[key] ?? key}
+                        <span style={{ color: on ? C.goldInk : C.textXS, fontSize: 11.5 }}>{n}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {csList.length === 0 ? (
                   <div
                     style={{
                       background: cBg,
@@ -496,11 +544,7 @@ export function Admin({
                       gap: 12,
                     }}
                   >
-                    {(
-                      csView === "inbox"
-                        ? inboxMessages
-                        : archivedMessages
-                    ).map((msg) => (
+                    {csList.map((msg) => (
                       <div
                         key={msg.id}
                         style={{
@@ -590,7 +634,7 @@ export function Admin({
                                 letterSpacing: 1,
                               }}
                             >
-                              {msg.type.toUpperCase()}
+                              {(CS_LABELS[msg.type] ?? msg.type).toUpperCase()}
                             </span>
                             {/* REPLY BUTTON */}
                             <button

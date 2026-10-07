@@ -55,6 +55,7 @@ export function CustomerService({ onSubmitMessage }: CustomerServiceProps) {
     defaultValues: { name: "", email: "", type: "Inquiry", message: "" },
   });
 
+
   // Watched values keep the per-field hints below working unchanged — they
   // read `form.x` exactly as before, so only the plumbing moved.
   const form = watch();

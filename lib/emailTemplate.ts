@@ -495,6 +495,10 @@ export interface Notice {
   paragraphs: string[];
   rows?: [string, string][];
   button?: { label: string; url: string };
+  /** A second, quieter action under the main one. Outlined rather than
+   *  filled so it reads as the alternative, not a rival call to action —
+   *  used for "request a refund" under "choose a new date". */
+  secondaryButton?: { label: string; url: string; note?: string };
 }
 
 export function buildNoticeEmail(n: Notice): { subject: string; html: string } {
@@ -536,6 +540,15 @@ export function buildNoticeEmail(n: Notice): { subject: string; html: string } {
                   </td>
                 </tr>
               </table>` : ""}
+              ${n.secondaryButton ? `
+              <table cellpadding="0" cellspacing="0" style="margin:16px auto 4px;">
+                <tr>
+                  <td style="border:1px solid #c9a84c;border-radius:6px;">
+                    <a href="${escapeHtml(n.secondaryButton.url)}" style="display:inline-block;padding:11px 24px;color:#8a6d20;font-size:12.5px;font-weight:700;letter-spacing:1px;text-decoration:none;">${escapeHtml(n.secondaryButton.label)}</a>
+                  </td>
+                </tr>
+              </table>
+              ${n.secondaryButton.note ? `<p style="margin:10px 0 0;color:#8a7a5a;font-size:12px;line-height:1.6;text-align:center;">${escapeHtml(n.secondaryButton.note)}</p>` : ""}` : ""}
             </td>
           </tr>
           <tr>

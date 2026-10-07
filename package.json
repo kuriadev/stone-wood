@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check:chars": "node scripts/check-control-chars.mjs",
+    "prebuild": "node scripts/check-control-chars.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

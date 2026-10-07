@@ -496,9 +496,30 @@ export function ManageBooking(_props: ManageBookingProps) {
                       Move it to any free date at no extra cost. Please choose by <strong style={{ color: C.textH }}>{fmtDeadline(found.choiceDeadline!)}</strong>. If none of the open dates work for you, contact us and we&rsquo;ll sort one out together.
                     </p>
                     {!picking ? (
+                      <>
                       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                         <button className="sw-btn" type="button" onClick={() => { setPicking(true); setNewDate(""); setDateError(null); }} style={{ ...goldBtn }}>PICK A NEW DATE</button>
                       </div>
+
+                      {/* The resort cancelled, so a refund IS possible here —
+                          but it is arranged by a person, not issued by a
+                          button. This points at the unlisted refund page. */}
+                      <p style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.textS, fontSize: 13, lineHeight: 1.65, margin: "20px 0 0" }}>
+                        <Icon name="info" size={14} strokeWidth={1.5} style={{ color: C.goldInk, marginTop: 3, flexShrink: 0 }} />
+                        <span>
+                          Would you rather have your money back? Because we cancelled this booking, you can
+                          request a refund — please contact our customer service and we&rsquo;ll arrange it.
+                        </span>
+                      </p>
+                      <a
+                        href={`/customer/refund?booking=${encodeURIComponent(found.id)}`}
+                        className="sw-btn-out"
+                        style={{ ...outBtn, minHeight: 48, marginTop: 12, textDecoration: "none", display: "inline-flex" }}
+                      >
+                        <Icon name="message" size={15} />
+                        CUSTOMER SERVICE
+                      </a>
+                      </>
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                         {picker}

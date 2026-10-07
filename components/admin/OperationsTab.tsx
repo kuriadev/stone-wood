@@ -54,6 +54,7 @@ import { LiveStatus } from "@/components/admin/LiveStatus";
 import { ResortCancelDialog, type UpdateStatus } from "@/components/admin/ResortCancelDialog";
 import { RefundModal } from "@/components/admin/RefundModal";
 import { DateChangeReview } from "@/components/admin/DateChangeReview";
+import { MoveBookingModal } from "@/components/admin/MoveBookingModal";
 import { TextGuest } from "@/components/admin/TextGuest";
 import { choiceOpen, fmtDeadline, holdActive, withHolds } from "@/lib/rebooking";
 import { notices } from "@/lib/notices";
@@ -73,6 +74,7 @@ interface OperationsTabProps {
 type Open =
   | { kind: "prep" | "checkout" | "settle" | "record" | "pay"; id: string }
   | { kind: "accept" | "reject" | "noshow" | "refund" | "textagain"; id: string }
+  | { kind: "move"; id: string }
   | { kind: "datechange"; reqId: number }
   | { kind: "walkin" };
 
@@ -366,6 +368,13 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" style={{ minWidth: 200 }}>
               <DropdownMenuItem onSelect={() => go("record", b)}><Icon name="eye" />Full details</DropdownMenuItem>
+              {/* Moving a date by hand is offered only on "Coming up": a
+                  booking arriving today or already on site is past the point
+                  where changing its date means anything, and the server
+                  refuses it anyway. */}
+              {c.view === "upcoming" && (
+                <DropdownMenuItem onSelect={() => go("move", b)}><Icon name="edit" />Change the date</DropdownMenuItem>
+              )}
               {canPay && <DropdownMenuItem onSelect={() => go("pay", b)}><Icon name="cash" />Record a payment</DropdownMenuItem>}
               {canPrep && <DropdownMenuItem onSelect={() => go("prep", b)}><Icon name="clipboard-check" />{c.prepared ? "Edit preparation" : "Prepare facilities"}</DropdownMenuItem>}
               {stage === "arriving" && !c.overdue && <DropdownMenuItem onSelect={() => go("checkout", b)}><Icon name="check" />Complete stay in one step</DropdownMenuItem>}
@@ -539,8 +548,25 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
     .filter((x): x is { r: typeof x.r; b: Booking } => !!x.b)
     .sort((a, b) => Date.parse(a.r.createdAt) - Date.parse(b.r.createdAt));
 
-  const reschedulePanel = pendingMoves.length === 0
-    ? emptyNote("No one is waiting on a date change.")
+  /* Everything already settled. Two routes land here and both matter:
+     a guest date change the owner approved or declined, and a date the guest
+     picked themselves after the resort cancelled on them — that one is
+     written straight in as Approved by /api/bookings/[id]/rebook, because a
+     guest the resort let down does not then queue for permission.
+     Filtering this panel to Pending hid that second kind entirely, which is
+     why reschedules appeared to vanish. */
+  const decidedMoves = ops.dateChanges
+    .filter((r) => r.status !== "Pending")
+    .map((r) => ({ r, b: find(r.bookingId) }))
+    .filter((x): x is { r: typeof x.r; b: Booking } => !!x.b)
+    .sort((a, b) => Date.parse(b.r.decidedAt ?? b.r.createdAt) - Date.parse(a.r.decidedAt ?? a.r.createdAt))
+    .slice(0, 12);
+
+  const decidedTone = (status: string) =>
+    status === "Approved" ? "#6ec071" : status === "Declined" ? "#e55" : "#9a8e79";
+
+  const pendingGrid = pendingMoves.length === 0
+    ? null
     : (
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fill,minmax(340px,1fr))", gap: 12 }}>
         {pendingMoves.map(({ r, b }) => {
@@ -583,6 +609,37 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         })}
       </div>
     );
+
+  const reschedulePanel = (
+    <>
+      <h3 style={{ color: C.textH, fontSize: 13.5, fontWeight: 600, margin: "0 0 12px" }}>
+        Waiting on you{pendingMoves.length > 0 ? ` (${pendingMoves.length})` : ""}
+      </h3>
+      {pendingMoves.length === 0 ? emptyNote("No one is waiting on a date change.") : pendingGrid}
+
+      <h3 style={{ color: C.textH, fontSize: 13.5, fontWeight: 600, margin: "28px 0 12px" }}>
+        Recently rescheduled
+      </h3>
+      {decidedMoves.length === 0 ? emptyNote("No date changes have been settled yet.") : (
+        <div style={{ display: "grid", gap: 8 }}>
+          {decidedMoves.map(({ r, b }) => (
+            <div key={r.id} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <Pill color={decidedTone(r.status)}>{r.status}</Pill>
+              <span style={{ color: C.textH, fontSize: 13.5, fontWeight: 600 }}>{b.name}</span>
+              <span style={{ color: C.textS, fontSize: 12.5, fontFamily: "monospace" }}>{b.id}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                <span style={{ color: C.textS }}>{fmtDate(r.fromDate)}</span>
+                <Icon name="arrow-right" size={13} style={{ color: C.goldInk }} />
+                <span style={{ color: C.textH }}>{fmtDate(r.toDate)}</span>
+              </span>
+              {r.note && <span style={{ color: C.textXS, fontSize: 12 }}>{r.note}</span>}
+              <Btn size="sm" style={{ marginLeft: "auto" }} onClick={() => go("record", b)}>View booking</Btn>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
 
   const donePanel = (
     <>
@@ -683,6 +740,13 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
       )}
 
       {/* ── The module tools each button opens ── */}
+      {open?.kind === "move" && current && (
+        <MoveBookingModal
+          booking={current}
+          onClose={() => setOpen(null)}
+          onMoved={(b) => setBookings((prev) => prev.map((x) => (x.id === b.id ? { ...x, ...b } : x)))}
+        />
+      )}
       {open?.kind === "prep" && current && <PrepModal booking={current} facilities={facilities} onClose={() => setOpen(null)} />}
       {open?.kind === "checkout" && current && (
         <CheckoutModal booking={current} facilities={facilities} mob={mob} onClose={() => setOpen(null)} />
