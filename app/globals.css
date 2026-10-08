@@ -658,6 +658,7 @@ img {
 .sw-dark .sw-card:hover,
 .sw-dark .sw-room-card:hover,
 .sw-dark .sw-amenity:hover,
+.sw-dark .lux-room-card:hover,
 .sw-dark .sw-review-card:hover {
   transform: translateY(-4px);
   /* !important because the resting shadow is an inline style on every card;
@@ -669,6 +670,7 @@ img {
 .sw-light .sw-card:hover,
 .sw-light .sw-room-card:hover,
 .sw-light .sw-amenity:hover,
+.sw-light .lux-room-card:hover,
 .sw-light .sw-review-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 18px 44px -14px rgba(90,64,20,0.30),
@@ -1016,13 +1018,15 @@ img {
     border-color .45s ease;
 }
 
-.lux-room-card:hover {
-  transform: translateY(-8px) scale(1.015);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
-  /* !important because the resting border is an inline style, and
-     inline beats a class. Same reason .sw-btn:hover marks its shadow. */
-  border-color: rgba(201, 168, 76, 0.45) !important;
-}
+/* The room card deliberately has no hover transform of its own. It lifts
+   -4px from the shared `.sw-card:hover` rule above, exactly like every other
+   card — one elevation language rather than two.
+
+   A `.lux-room-card:hover { transform: ... }` rule used to sit here trying
+   for a bigger lift, and it never applied: `.sw-dark .lux-room-card:hover`
+   is more specific, so the shared value always won. It was dead CSS that
+   read as intent. The photo zoom below is a different element, so that one
+   does apply. */
 
 /* The photo scales a touch more than the card, so it reads as parallax
    rather than the whole tile growing. `overflow: hidden` on the frame keeps

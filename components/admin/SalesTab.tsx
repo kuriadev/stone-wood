@@ -572,9 +572,17 @@ function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void 
   const { C, rowBg, soft, inp } = useAdminStyle();
   const [monthStr, setMonthStr] = useState(manilaDate().slice(0, 7));
   const [voiding, setVoiding] = useState<Expense | null>(null);
+  /* Voided expenses are hidden by default, the same way the Payments table
+     already hides voided payments. The row is never deleted — an expense
+     ledger you can delete from is not evidence of anything — but a mistake
+     from last week should not sit in the list forever. Tick the box to audit
+     what was voided and why. */
+  const [showVoided, setShowVoided] = useState(false);
   const { from, to } = monthRange(`${monthStr}-01`);
-  const rows = expenses.filter((e) => e.spentOn >= from && e.spentOn <= to);
-  const live = liveExpenses(rows);
+  const inMonth = expenses.filter((e) => e.spentOn >= from && e.spentOn <= to);
+  const rows = showVoided ? inMonth : inMonth.filter((e) => !e.voided);
+  const voidedCount = inMonth.length - inMonth.filter((e) => !e.voided).length;
+  const live = liveExpenses(inMonth);
   const byCat = EXPENSE_CATEGORIES.map((c) => [c, round2(live.filter((e) => e.category === c).reduce((s, e) => s + e.amount, 0))] as const).filter(([, v]) => v > 0);
   const total = round2(live.reduce((s, e) => s + e.amount, 0));
 
@@ -584,6 +592,12 @@ function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void 
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
         <Input type="month" value={monthStr} onChange={(e) => setMonthStr(e.target.value)} aria-label="Month" style={{ ...inp, width: "auto", padding: "8px 12px" }} />
         <Btn size="sm" icon="plus" onClick={onAdd}>Add expense</Btn>
+        {voidedCount > 0 && (
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 8, color: C.textS, fontSize: 12.5, cursor: "pointer", marginLeft: "auto" }}>
+            <Checkbox checked={showVoided} onCheckedChange={(v) => setShowVoided(v === true)} />
+            Show voided ({voidedCount})
+          </label>
+        )}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
         <div style={{ flex: "3 1 520px", minWidth: 0 }}>

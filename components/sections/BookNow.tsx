@@ -625,7 +625,18 @@
 
     /* BACK on the left, the forward action given the wider half: the primary
        action is the one the guest is most likely to want. */
-    const navRow = (back: { label: string; onClick: () => void }, fwd: { label: string; onClick: () => void; disabled?: boolean }) => (
+    /* `reason` says WHY the forward button is dead.
+       A greyed-out Continue with nothing next to it leaves the guest to work
+       out what is missing by inspection — and because a disabled button is
+       skipped by the tab order and announces nothing, a screen reader user
+       gets no hint at all. The reason renders under the row and is tied to
+       the button with aria-describedby, so it is read out rather than just
+       being visible. */
+    const navRow = (
+      back: { label: string; onClick: () => void },
+      fwd: { label: string; onClick: () => void; disabled?: boolean; reason?: string },
+    ) => (
+      <>
       <div style={{ display: "flex", gap: 12, marginTop: 28, flexDirection: mob ? "column-reverse" : "row" }}>
         {/* outBtn paints its label in the raw brand gold, which is a
             surface colour: on the light theme that is 2.29:1 against
@@ -636,11 +647,18 @@
         <button className="sw-btn"
           onClick={fwd.onClick}
           disabled={fwd.disabled}
+          aria-describedby={fwd.disabled && fwd.reason ? "sw-nav-reason" : undefined}
           style={{ ...goldBtn, flex: mob ? undefined : "2 1 0", opacity: fwd.disabled ? 0.45 : 1, cursor: fwd.disabled ? "not-allowed" : "pointer" }}
         >
           {fwd.label} <span aria-hidden="true">&rarr;</span>
         </button>
       </div>
+      {fwd.disabled && fwd.reason && (
+        <p id="sw-nav-reason" style={{ color: C.textS, fontSize: 13, textAlign: mob ? "left" : "right", margin: "10px 0 0" }}>
+          {fwd.reason}
+        </p>
+      )}
+      </>
     );
 
 
@@ -862,7 +880,7 @@
 
                 {navRow(
                   { label: "BACK TO HOME", onClick: () => onGoHome?.() },
-                  { label: "CONTINUE", onClick: () => setStep(3), disabled: resourceClosed(resource) },
+                  { label: "CONTINUE", onClick: () => setStep(3), disabled: resourceClosed(resource), reason: "That part of the resort is closed. Choose another option above." },
                 )}
               </div>
             )}
@@ -1202,7 +1220,7 @@
                       doesn't include one). */}
                   {navRow(
                     { label: "BACK", onClick: () => { if (isPackage) onClearPackage?.(); else setStep(1); } },
-                    { label: "CONTINUE", onClick: () => setStep(showRoomPicker ? 4 : 5), disabled: !date || !dateOk },
+                    { label: "CONTINUE", onClick: () => setStep(showRoomPicker ? 4 : 5), disabled: !date || !dateOk, reason: !date ? "Choose a date from the calendar to continue." : "That date can’t take your group size. Try another date, or lower the number of guests." },
                   )}
                 </div>
               )}
@@ -1314,7 +1332,7 @@
 
                 {navRow(
                   { label: "BACK", onClick: () => setStep(3) },
-                  { label: "CONTINUE", onClick: () => setStep(5), disabled: (requiresRoom && selRooms.length === 0) || !roomsFree },
+                  { label: "CONTINUE", onClick: () => setStep(5), disabled: (requiresRoom && selRooms.length === 0) || !roomsFree, reason: requiresRoom && selRooms.length === 0 ? "This package includes a room — pick one to continue." : "A room you picked is taken on that date. Choose another." },
                 )}
               </div>
             )}
