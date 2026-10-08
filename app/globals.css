@@ -995,25 +995,52 @@ img {
   border-radius: 999px;
 }
 
-/* CARD HOVER  */
-.lux-room-card:hover {
-  transform: translateY(-8px) scale(1.015);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+/* ── ROOM / PACKAGE CARD HOVER ──
+   The card lifts, the photo pushes in behind it, and the frame warms to
+   gold. Three small moves on one curve rather than one big one.
+
+   Two things that were wrong here:
+
+   1. The transition lived on the :hover rule, so it only applied on the way
+      IN. Leaving the card snapped straight back with no easing, which is
+      what made the effect feel abrupt rather than smooth. A transition
+      belongs on the base rule, where it covers both directions.
+
+   2. The card's own transition was an inline `all .4s`, which animates every
+      property that happens to change — including layout ones. It is now an
+      explicit list, so only compositor-friendly properties move. */
+.lux-room-card {
+  transition:
+    transform .45s cubic-bezier(.22, 1, .36, 1),
+    box-shadow .45s cubic-bezier(.22, 1, .36, 1),
+    border-color .45s ease;
 }
 
-/* IMAGE ZOOM  */
-.lux-room-card:hover .sw-img {
-  transform: scale(1.08);
-  transition: transform .6s ease;
+.lux-room-card:hover {
+  transform: translateY(-8px) scale(1.015);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  /* !important because the resting border is an inline style, and
+     inline beats a class. Same reason .sw-btn:hover marks its shadow. */
+  border-color: rgba(201, 168, 76, 0.45) !important;
 }
+
+/* The photo scales a touch more than the card, so it reads as parallax
+   rather than the whole tile growing. `overflow: hidden` on the frame keeps
+   it inside the corners. */
+.lux-room-card:hover .sw-img,
+.lux-room-card:hover .room-img {
+  transform: scale(1.06);
+}
+
 
 /* The zoom transition for .room-img lives here rather than inline on the
    card, because both the Rooms page and the Packages page use this class.
    It was previously an inline style on RoomsPage only, so the Packages
    cards got the :hover scale with no transition and snapped to full zoom
    instantly. Defining it once keeps the two pages from drifting again. */
-.room-img {
-  transition: transform .6s ease;
+.room-img,
+.sw-img {
+  transition: transform .6s cubic-bezier(.22, 1, .36, 1);
 }
 
 /* The duplicate .sw-btn block that used to sit here was removed: it came

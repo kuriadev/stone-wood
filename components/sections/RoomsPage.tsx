@@ -71,8 +71,13 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
           gap: 28,
         }}>
           {rooms.map((r) => (
-            <Reveal
-              key={r.id}
+            /* Reveal is a Motion element and writes `transform` inline as it
+               animates in. An inline style beats every class, so a :hover
+               transform on this node was silently dead — the card never
+               lifted. The entrance stays here; the card surface and its
+               hover move to a plain div inside, where CSS can reach them. */
+            <Reveal key={r.id} style={{ display: "flex" }}>
+            <div
               className="lux-room-card"
               onClick={() => setActiveRoom(r)}
               style={{
@@ -82,11 +87,11 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
                 overflow: "hidden",
                 boxShadow: C.shadowCard,
                 cursor: "pointer",
-                transition: "all .4s cubic-bezier(.22,1,.36,1)",
                 // See PackagesPage: column layout so the button can sit at the
                 // bottom of every card regardless of description length.
                 display: "flex",
                 flexDirection: "column",
+                flex: 1,
               }}
             >
               {/* IMAGE */}
@@ -169,6 +174,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
                   ADD TO BOOKING
                 </button>
               </div>
+            </div>
             </Reveal>
           ))}
         </div>
@@ -224,12 +230,6 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
         </DialogContent>
       </Dialog>
 
-      {/* STYLES */}
-      <style jsx>{`
-        .lux-room-card:hover .room-img {
-          transform: scale(1.05);
-        }
-      `}</style>
     </div>
   );
 }

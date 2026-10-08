@@ -601,8 +601,13 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
 
           <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 20, marginBottom: 48, maxWidth: 1100, margin: "0 auto 48px" }}>
             {PACKAGES.map((p, i) => (
-              <Reveal key={p.id} className="sw-card"
-                style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: mob ? "24px 20px" : "28px 24px", textAlign: "left", boxShadow: C.shadowCard, display: "flex", flexDirection: "column", transitionDelay: `${i * 100}ms` }}>
+              /* The hover lift has to sit on a plain element: Reveal is a
+                 Motion component and writes `transform` inline, which beats
+                 the .sw-card:hover rule and left the lift dead. Entrance
+                 outside, card surface and hover inside. */
+              <Reveal key={p.id} style={{ display: "flex", transitionDelay: `${i * 100}ms` }}>
+              <div className="sw-card"
+                style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: mob ? "24px 20px" : "28px 24px", textAlign: "left", boxShadow: C.shadowCard, display: "flex", flexDirection: "column", flex: 1 }}>
                 <div style={{ marginBottom: 12, color: C.goldInk }}><Icon name={p.icon as IconName} size={28} strokeWidth={1.5} /></div>
                 <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18, marginBottom: 8 }}>{p.label}</h3>
                 <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 16, lineHeight: 1.6 }}>{p.desc}</p>
@@ -619,6 +624,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                     <Icon name="arrow-right" size={13} />
                   </button>
                 )}
+              </div>
               </Reveal>
             ))}
 
