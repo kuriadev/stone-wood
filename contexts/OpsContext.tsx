@@ -67,6 +67,8 @@ interface OpsState extends OpsData {
   voidExpense: (id: number, reason: string) => Promise<Result>;
   closeDay: (c: { date: string; openingFloat: number; countedCash: number; notes: string }) => Promise<Result>;
   saveRate: (r: { id?: number; name?: string; category?: string; unit?: string; rate?: number; active?: boolean }) => Promise<Result>;
+  /** Delete an item from the damage rate list for good. */
+  deleteRate: (id: number) => Promise<Result>;
   savePreparation: (p: { bookingId: string; items: InspectionItem[]; notes: string }) => Promise<Result>;
   /** The group arrived (or, with undo, the tap was a mistake). */
   checkIn: (bookingId: string, undo?: boolean) => Promise<Result>;
@@ -85,6 +87,11 @@ interface OpsState extends OpsData {
   resortCancel: (bookingId: string, reason: string) => Promise<Result>;
   /** Approve or decline a guest's date-change request. */
   decideDateChange: (id: number, approve: boolean, note: string) => Promise<Result>;
+  /** Overtime, extra guests or a room taken on the day: raises the total. */
+  addCharge: (bookingId: string, c: { kind: string; hours?: number; guests?: number; roomId?: number }) => Promise<Result>;
+  /** After a resort cancellation the guest asked for their money back: the
+   *  booking is cancelled and what was held becomes a refund to send. */
+  chooseRefund: (bookingId: string) => Promise<Result>;
   /** The link that opens a guest's booking page, for a text message. */
   guestLink: (bookingId: string) => Promise<string | null>;
   /** Note in the activity log that the owner texted the guest. */
@@ -241,6 +248,7 @@ export function OpsProvider({ children }: { children: ReactNode }) {
     closeDay: (c) => act(call("/api/closings", "POST", c)),
     saveRate: ({ id, ...rest }) =>
       act(id === undefined ? call("/api/damage-rates", "POST", rest) : call(`/api/damage-rates?id=${id}`, "PATCH", rest)),
+    deleteRate: (id) => act(call(`/api/damage-rates?id=${id}`, "DELETE")),
     savePreparation: (p) => act(call("/api/inspections", "POST", p), { facilities: true }),
     checkIn: (bookingId, undo = false) => act(call("/api/checkin", "POST", { bookingId, undo }), { bookings: true, facilities: true }),
     checkout: (c) => act(call("/api/checkout", "POST", c), { bookings: true, facilities: true }),
@@ -249,6 +257,10 @@ export function OpsProvider({ children }: { children: ReactNode }) {
       act(call(`/api/bookings/${encodeURIComponent(bookingId)}/resort-cancel`, "POST", { reason }), { bookings: true }),
     decideDateChange: (id, approve, note) =>
       act(call(`/api/date-changes?id=${id}`, "PATCH", { action: approve ? "approve" : "decline", note }), { bookings: true }),
+    addCharge: (bookingId, c) =>
+      act(call(`/api/bookings/${encodeURIComponent(bookingId)}/charge`, "POST", c), { bookings: true, facilities: true }),
+    chooseRefund: (bookingId) =>
+      act(call(`/api/bookings/${encodeURIComponent(bookingId)}/refund-request`, "POST", {}), { bookings: true }),
     guestLink: async (bookingId) => {
       const r = await call(`/api/guest-link?id=${encodeURIComponent(bookingId)}`, "GET");
       return r.ok && typeof r.data?.link === "string" ? r.data.link : null;

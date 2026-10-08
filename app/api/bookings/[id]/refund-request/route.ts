@@ -1,28 +1,41 @@
-// ── POST /api/bookings/[id]/refund-request → RETIRED (no-refund policy)
+// ── POST /api/bookings/[id]/refund-request → the guest chose a refund  (admin)
 //
-// StoneWood does not refund. When the resort has to cancel a booking the
-// remedy is another date, and what the guest has paid stays with the booking
-// and carries across — see POST /api/bookings/[id]/rebook, which is the only
-// choice the guest is now offered.
+// After the resort cancels, a guest who wants their money back instead of a
+// new date says so to the owner by call or chat (the cancellation email and
+// their booking page list the owner's contacts). The owner records it here:
+// the booking is cancelled, what the guest paid becomes a refund OWED, and a
+// new date they had picked is withdrawn (chooseRefund in
+// lib/rebooking.server.ts). The owner then sends the money and records it
+// with "Send refund", which tells the guest it was sent.
 //
-// The route is kept rather than deleted because links to it went out in
-// cancellation emails before the policy was settled. A guest following an old
-// link gets an explanation and is pointed back at their booking page; a 404
-// would read as a broken site.
-//
-// Money still LEAVES the resort sometimes — a goodwill payment, a disputed
-// damage charge — and that is recorded by the owner through
-// POST /api/payments (type "Refund"), so Sales and the daily cash count still
-// balance. What no longer exists is a way for a guest to demand one.
+// This route used to be the guest's own "request a refund" button. That was
+// retired so refunds are always arranged with a person; it is now admin-only.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { getSupabaseAdmin, rowToBooking } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth";
+import { chooseRefund } from "@/lib/rebooking.server";
+import type { BookingRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
-const GONE =
-  "We don't issue refunds — your payment stays with your booking and moves with it. " +
-  "Please pick another date on your booking page, or contact us and we'll find one together.";
+type Ctx = { params: Promise<{ id: string }> };
 
-export async function POST(_req: NextRequest) {
-  return NextResponse.json({ success: false, error: GONE }, { status: 410 });
+export async function POST(req: NextRequest, { params }: Ctx) {
+  const denied = requireAdmin(req);
+  if (denied) return denied;
+
+  const { id } = await params;
+  try {
+    const { data, error } = await getSupabaseAdmin().from("bookings").select("*").eq("id", id).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return NextResponse.json({ success: false, error: "That booking no longer exists." }, { status: 404 });
+
+    const r = await chooseRefund(rowToBooking(data as BookingRow));
+    if (!r.ok) return NextResponse.json({ success: false, error: r.error }, { status: 409 });
+    return NextResponse.json({ success: true, booking: r.booking, owed: r.owed });
+  } catch (err) {
+    console.error("[/api/bookings/[id]/refund-request POST]", err);
+    return NextResponse.json({ success: false, error: "Could not record the refund." }, { status: 500 });
+  }
 }

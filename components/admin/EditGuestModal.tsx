@@ -111,7 +111,7 @@ export function EditGuestModal({ booking, onSaved, onClose }: EditGuestModalProp
           <span>
             This changes who the booking is for. The date, guest count and package
             stay as they are — those affect the price and the calendar, so they
-            have their own tools. Every edit is recorded in Activity.
+            have their own tools. Every edit is recorded in the Audit Log.
           </span>
         </p>
 

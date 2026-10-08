@@ -133,4 +133,7 @@ export interface Booking {
     amount: number;
     reference?: string;
   };
+  /** Client → server only, on a walk-in create: the package it was sold as,
+   *  so the server can price it from the package's own price. Never stored. */
+  walkInPackageCode?: string;
 }

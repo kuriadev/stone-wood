@@ -1,6 +1,7 @@
 // ── GET    /api/facilities      → list              (admin only)
 // ── POST   /api/facilities      → add an amenity    (admin only)
 // ── PATCH  /api/facilities?id=  → update / retire   (admin only)
+// ── DELETE /api/facilities?id=  → remove an amenity (admin only)
 //
 // Needs migrations 20260923090000 and 20260929120000.
 //
@@ -9,10 +10,13 @@
 // something a guest should be able to read. The public amenities list reads
 // its few safe columns through /api/amenities instead.
 //
-// The owner adds amenities here; rooms come from the Rooms module. There is
-// no DELETE: an amenity is RETIRED (active = false), because old inspections
-// and damage records name it. The pool and the events venue can be neither
-// renamed nor retired — booking availability looks them up by name.
+// The owner adds amenities here; rooms come from the Rooms module. An
+// amenity can be RETIRED (active = false: hidden, and restorable any time)
+// or REMOVED for good. Removing is safe for the records: inspections and
+// damage records store the amenity's name, not a link to this row, so they
+// read the same afterwards, and the audit log keeps a copy of what was
+// removed. The pool and the events venue can be neither renamed, retired
+// nor removed — booking availability looks them up by name.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server";
@@ -173,5 +177,44 @@ export async function PATCH(req: NextRequest) {
   } catch (err) {
     console.error("[/api/facilities PATCH]", err);
     return NextResponse.json({ success: false, error: "Could not update that facility." }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const denied = requireAdmin(req);
+  if (denied) return denied;
+
+  const id = Number(req.nextUrl.searchParams.get("id"));
+  if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "A numeric facility id is required." }, { status: 400 });
+
+  try {
+    const db = getSupabaseAdmin();
+    const cur = await db.from("facilities").select("*").eq("id", id).maybeSingle();
+    if (cur.error) throw new Error(cur.error.message);
+    if (!cur.data) return NextResponse.json({ success: false, error: "Facility not found." }, { status: 404 });
+    const row = cur.data as FacilityRow;
+
+    if (row.category !== "Amenity") return NextResponse.json({ success: false, error: "Remove a room from the Rooms module." }, { status: 400 });
+    if (isCore(row.name)) return NextResponse.json({ success: false, error: `${row.name} can't be removed: bookings check its availability by name. Set it Under Maintenance to stop bookings instead.` }, { status: 400 });
+    // A group has it right now: its check-out inspection still needs it.
+    if (row.status === "In Use") return NextResponse.json({ success: false, error: `A group is using ${row.name} right now. Remove it after they check out.` }, { status: 409 });
+
+    const { data, error } = await db.from("facilities").delete().eq("id", id).neq("status", "In Use").select("id").maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return NextResponse.json({ success: false, error: "That amenity just changed. Refresh and try again." }, { status: 409 });
+
+    await logActivity({
+      actor: "Admin", action: "facility.removed", entity: "facility", entityId: id,
+      summary: `Removed the amenity "${row.name}" for good. Past inspections and damage records still name it.`,
+      // What it was, since the row itself is gone.
+      details: { removed: {
+        name: row.name, area: row.area, description: row.description, show_on_site: row.show_on_site, active: row.active,
+        before_use_checklist: row.before_use_checklist, after_use_checklist: row.after_use_checklist,
+      } },
+    });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[/api/facilities DELETE]", err);
+    return NextResponse.json({ success: false, error: "Could not remove that amenity." }, { status: 500 });
   }
 }

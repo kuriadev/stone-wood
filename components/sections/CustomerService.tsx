@@ -20,7 +20,7 @@ import {
   NAME_MAX,
 } from "@/lib/validators";
 import type { CustomerMessage } from "@/types/admin";
-import { SLOTS } from "@/lib/resort";
+import { SLOTS, RESORT_CONTACT } from "@/lib/resort";
 import { Icon, type IconName } from "@/components/common/Icon";
 
 interface CustomerServiceProps {
@@ -138,8 +138,8 @@ const submit = handleSubmit(async (values) => {
         {/* Contact cards */}
         <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 12, marginBottom: 36 }}>
           {[
-            ["phone", "Call Us", "+63 912 345 6789", "For urgent booking assistance"],
-            ["mail", "Email Us", "stonewoodresort.ph@gmail.com", "Replies typically arrive within one business day"],
+            ["phone", "Call Us", RESORT_CONTACT.phone, "For urgent booking assistance"],
+            ["mail", "Email Us", RESORT_CONTACT.email, "Replies typically arrive within one business day"],
             ["clock", "Guest Hours", `${SLOTS.Day.start} – ${SLOTS.Night.end}`, "Daily, including weekends"],
           ].map(([icon, label, val, sub]) => (
             <div

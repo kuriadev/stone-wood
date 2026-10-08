@@ -28,6 +28,7 @@ import { choiceOpen, fmtDeadline, holdActive, HOLD_HOURS } from "@/lib/rebooking
 import type { Booking, BookingSlot } from "@/types/booking";
 import type { DateChange } from "@/types/finance";
 import { Icon, type IconName } from "@/components/common/Icon";
+import { ResortContact } from "@/components/common/ResortContact";
 import { Badge } from "@/components/ui/badge";
 import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
 
@@ -179,14 +180,14 @@ export function ManageBooking(_props: ManageBookingProps) {
     return json;
   };
 
-  // ── After a resort cancellation: a new date. There is no refund. ────
+  // ── After a resort cancellation: pick a new date, the resort confirms it.
   const confirmRebook = async () => {
     if (!found || !newDate || dateBusy) return;
     setDateBusy(true);
     setDateError(null);
     try {
       await post("rebook", { date: newDate });
-      setNotice(`Your booking is confirmed for ${fmtDate(newDate)}. We've sent the details to you.`);
+      setNotice(`We've sent ${fmtDate(newDate)} to the resort. It's held for you for ${HOLD_HOURS} hours while they confirm it, and we'll email you the answer.`);
       setPicking(false);
       setNewDate("");
       await refresh();
@@ -295,6 +296,17 @@ export function ManageBooking(_props: ManageBookingProps) {
   const balance = found ? Math.max(0, found.total - paidNet) : 0;
   const pendingChange = dateChanges.find((r) => r.status === "Pending" && holdActive(r));
   const lastDecided = dateChanges.find((r) => r.requestedBy === "Guest" && (r.status === "Declined" || r.status === "Expired"));
+  /* After a resort cancellation the guest's pick waits for the resort too.
+     `rebookPending`: their pick, held while the resort confirms it.
+     `rebookTurnedDown`: their latest pick since this cancellation, if the
+     resort declined it or didn't answer in time (they choose again). */
+  const resortCancelled = found?.status === "ResortCancelled";
+  const rebookPending = resortCancelled ? pendingChange : undefined;
+  const latestRebook = resortCancelled
+    ? dateChanges.find((r) => r.requestedBy === "Resort" && (!found?.cancelledAt || Date.parse(r.createdAt) >= Date.parse(found.cancelledAt)))
+    : undefined;
+  const rebookTurnedDown = !rebookPending && latestRebook && (latestRebook.status === "Declined" || latestRebook.status === "Expired")
+    ? latestRebook : undefined;
   const lastRefund = [...payments].reverse().find((p) => p.type === "Refund");
   const choosing = !!found && choiceOpen(found);
   const canMove = !!found && found.status === "Confirmed" && !found.checkedInAt && !!today && found.date > today;
@@ -489,11 +501,29 @@ export function ManageBooking(_props: ManageBookingProps) {
                   We&rsquo;re sorry. Let&rsquo;s find you another date.
                 </h3>
                 {found.cancelReason && <p style={{ color: C.textB, fontSize: 14, lineHeight: 1.7, margin: "0 0 12px" }}>{found.cancelReason}</p>}
-                {choosing ? (
+                {rebookPending ? (
+                  /* They've picked; the resort confirms it before it's final. */
+                  <div style={{ border: `1px solid ${gold}66`, background: `${gold}0f`, borderRadius: 10, padding: 16 }}>
+                    <p style={{ ...eyebrow, marginBottom: 8 }}>WAITING FOR THE RESORT</p>
+                    <p style={{ color: C.textB, fontSize: 14, lineHeight: 1.7, margin: 0 }}>
+                      You picked <strong style={{ color: C.textH }}>{fmtDate(rebookPending.toDate)}</strong>. We&rsquo;re holding it for you
+                      until {fmtDeadline(rebookPending.holdUntil!)} while the resort confirms it, and we&rsquo;ll email you the answer
+                      {found.email ? <> at {found.email}</> : null}.
+                      {(found.heldAmount ?? 0) > 0 && <> Your {fmt(found.heldAmount ?? 0)} stays with this booking.</>}
+                    </p>
+                  </div>
+                ) : choosing ? (
                   <>
+                    {rebookTurnedDown && (
+                      <p role="status" style={{ color: C.textB, fontSize: 13.5, lineHeight: 1.7, margin: "0 0 12px", borderLeft: "3px solid #e8a070", paddingLeft: 12 }}>
+                        {rebookTurnedDown.status === "Declined"
+                          ? <>The resort couldn&rsquo;t confirm {fmtDate(rebookTurnedDown.toDate)}.{rebookTurnedDown.note ? ` ${rebookTurnedDown.note}` : ""} Please pick another date.</>
+                          : <>The resort wasn&rsquo;t able to confirm {fmtDate(rebookTurnedDown.toDate)} in time, so the date wasn&rsquo;t kept. Please pick again.</>}
+                      </p>
+                    )}
                     <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: "0 0 20px" }}>
                       {(found.heldAmount ?? 0) > 0 && <>Your {fmt(found.heldAmount ?? 0)} is safe and stays with this booking. </>}
-                      Move it to any free date at no extra cost. Please choose by <strong style={{ color: C.textH }}>{fmtDeadline(found.choiceDeadline!)}</strong>. If none of the open dates work for you, contact us and we&rsquo;ll sort one out together.
+                      Move it to any free date at no extra cost; the resort confirms the date you pick. Please choose by <strong style={{ color: C.textH }}>{fmtDeadline(found.choiceDeadline!)}</strong>. If none of the open dates work for you, contact us and we&rsquo;ll sort one out together.
                     </p>
                     {!picking ? (
                       <>
@@ -502,23 +532,21 @@ export function ManageBooking(_props: ManageBookingProps) {
                       </div>
 
                       {/* The resort cancelled, so a refund IS possible here —
-                          but it is arranged by a person, not issued by a
-                          button. This points at the unlisted refund page. */}
-                      <p style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.textS, fontSize: 13, lineHeight: 1.65, margin: "20px 0 0" }}>
-                        <Icon name="info" size={14} strokeWidth={1.5} style={{ color: C.goldInk, marginTop: 3, flexShrink: 0 }} />
-                        <span>
-                          Would you rather have your money back? Because we cancelled this booking, you can
-                          request a refund — please contact our customer service and we&rsquo;ll arrange it.
-                        </span>
-                      </p>
-                      <a
-                        href={`/customer/refund?booking=${encodeURIComponent(found.id)}`}
-                        className="sw-btn-out"
-                        style={{ ...outBtn, minHeight: 48, marginTop: 12, textDecoration: "none", display: "inline-flex" }}
-                      >
-                        <Icon name="message" size={15} />
-                        CUSTOMER SERVICE
-                      </a>
+                          but it is arranged with the owner over a call or a
+                          chat, not issued by a button or a form. */}
+                      {(found.heldAmount ?? 0) > 0 && (
+                        <>
+                          <p style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.textS, fontSize: 13, lineHeight: 1.65, margin: "20px 0 12px" }}>
+                            <Icon name="info" size={14} strokeWidth={1.5} style={{ color: C.goldInk, marginTop: 3, flexShrink: 0 }} />
+                            <span>
+                              Would you rather have your money back? Because we cancelled this booking, you can have
+                              your {fmt(found.heldAmount ?? 0)} refunded instead. Call or message us with your
+                              reference <strong style={{ color: C.textH }}>{found.id}</strong> and we&rsquo;ll arrange it with you.
+                            </span>
+                          </p>
+                          <ResortContact mailSubject={`Refund request – ${found.id}`} />
+                        </>
+                      )}
                       </>
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -528,14 +556,25 @@ export function ManageBooking(_props: ManageBookingProps) {
                           <button className="sw-btn-out" type="button" onClick={() => setPicking(false)} style={{ ...outBtn, color: C.goldInk, minHeight: 48 }}>BACK</button>
                           <button className="sw-btn" type="button" disabled={!newDate || dateBusy} onClick={() => void confirmRebook()}
                             style={{ ...goldBtn, opacity: !newDate || dateBusy ? 0.5 : 1, cursor: !newDate ? "not-allowed" : dateBusy ? "wait" : "pointer" }}>
-                            {dateBusy ? "SAVING…" : newDate ? `CONFIRM ${fmtDate(newDate).toUpperCase()}` : "CHOOSE A DATE"}
+                            {dateBusy ? "SENDING…" : newDate ? `REQUEST ${fmtDate(newDate).toUpperCase()}` : "CHOOSE A DATE"}
                           </button>
                         </div>
                       </div>
                     )}
                   </>
                 ) : (
-                  <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>The time to choose has passed. Please contact the resort and we&rsquo;ll arrange your new date together.</p>
+                  /* Their time to pick here ran out. Nothing is lost: the
+                     booking stays with the resort to sort out, by a call or
+                     a chat, as a new date or (since we cancelled) a refund. */
+                  <>
+                    <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: "0 0 12px" }}>
+                      The time to pick a date here has passed, but nothing is lost.
+                      {(found.heldAmount ?? 0) > 0 && <> Your {fmt(found.heldAmount ?? 0)} is still held for you.</>}
+                      {" "}Call or message us with your reference <strong style={{ color: C.textH }}>{found.id}</strong> and we&rsquo;ll set a new date with you
+                      {(found.heldAmount ?? 0) > 0 ? <>, or arrange your refund if you&rsquo;d rather have your money back</> : null}.
+                    </p>
+                    <ResortContact mailSubject={`New date for ${found.id}`} />
+                  </>
                 )}
               </div>
             )}
@@ -567,7 +606,8 @@ export function ManageBooking(_props: ManageBookingProps) {
             )}
 
             {/* ── A DATE CHANGE IN PROGRESS, OR JUST ANSWERED ─────────────── */}
-            {pendingChange && (
+            {/* A resort-cancelled guest's pick is shown in the block above. */}
+            {pendingChange && !resortCancelled && (
               <div style={{ ...card, marginBottom: 20, borderColor: `${gold}66` }}>
                 <p style={{ ...eyebrow, marginBottom: 12 }}>DATE CHANGE REQUESTED</p>
                 <p style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.7, margin: 0 }}>
@@ -621,7 +661,7 @@ export function ManageBooking(_props: ManageBookingProps) {
               {closed || found.checkedInAt ? (
                 <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: 0 }}>
                   {found.status === "ResortCancelled"
-                    ? "Use the choice above to pick a new date."
+                    ? choosing ? "Use the choice above to pick a new date." : "See the note above about your new date."
                     : `This reservation is ${found.checkedInAt && !closed ? "under way" : found.status.toLowerCase()}, so there is nothing left to change here. Contact support if you think that is wrong.`}
                 </p>
               ) : (
@@ -814,7 +854,7 @@ export function ManageBooking(_props: ManageBookingProps) {
             </div>
 
             <p style={{ color: C.textS, fontSize: 12, textAlign: "center", margin: "24px auto 0", maxWidth: 620, lineHeight: 1.6 }}>
-              We don&rsquo;t issue refunds. If the resort has to cancel, we move you to another date of your choosing at no cost. If you cancel, payments aren&rsquo;t refunded &mdash; but you can move your booking to another date once.
+              If the resort has to cancel, you choose a free new date or a full refund. If you cancel, payments aren&rsquo;t refunded &mdash; but you can move your booking to another date once.
             </p>
           </>
         )}

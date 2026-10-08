@@ -25,7 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useMemo, useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
 import { useApp } from "@/contexts/AppContext";
-import { closingBlockers, CLOSE_NEED } from "@/lib/operations";
+import { closingBlockers, unclosedDays, CLOSE_NEED } from "@/lib/operations";
 import { Icon } from "@/components/common/Icon";
 import { useToast } from "@/contexts/ToastContext";
 import {
@@ -678,13 +678,20 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
 /** What a closing checklist button asks Daily Operations to open. */
 export type CloseAction = "accept" | "reject" | "checkout" | "noshow" | "settle";
 
-export function Closing({ onAct }: { onAct?: (action: CloseAction, b: Booking) => void } = {}) {
+export function Closing({ onAct, initialDate }: {
+  onAct?: (action: CloseAction, b: Booking) => void;
+  /** Open on this day instead of today: a past day left unclosed. */
+  initialDate?: string;
+} = {}) {
   const { C, soft, rowBg, cBg, cBr, inp } = useAdminStyle();
   const ops = useOps();
   const { bookings } = useApp();
   const { toast } = useToast();
   const today = manilaDate();
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(initialDate ?? today);
+  // Other past days still waiting for a count, so they can be done in one sitting.
+  const stillOpen = unclosedDays({ payments: ops.payments, expenses: ops.expenses, closings: ops.closings, today })
+    .filter((d) => d !== date);
   const existing = ops.closings.find((c) => c.closingDate === date);
   const blockers = closingBlockers(bookings, date);
   const [openingFloat, setOpeningFloat] = useState("");
@@ -700,16 +707,43 @@ export function Closing({ onAct }: { onAct?: (action: CloseAction, b: Booking) =
   const cashOut = round2(dayExp.filter((e) => e.method === "Cash").reduce((s, e) => s + e.amount, 0));
   const income = round2(dayPays.reduce((s, p) => s + signedAmount(p), 0));
   const spent = round2(dayExp.reduce((s, e) => s + e.amount, 0));
-  const floatNum = Number(openingFloat) || 0;
+  /* Where the drawer's cash came from (and went): every cash payment, cash
+     refund and cash expense recorded for the day, so the owner can match
+     the count to real entries. Money only counts as cash when it was
+     recorded with "Cash" as the method, which is what the walk-in, Record
+     payment, check-out, settle and expense windows start on. */
+  const CASH_TYPE: Record<string, string> = {
+    Downpayment: "Down payment", Balance: "Balance", Full: "Paid in full", Penalty: "Damage penalty", Refund: "Refund paid out",
+  };
+  const cashEntries = [
+    ...dayPays.filter((p) => p.method === "Cash").map((p) => ({
+      key: `p${p.id}`, sortKey: p.receivedAt, when: manilaTime(p.receivedAt), amount: signedAmount(p),
+      what: CASH_TYPE[p.type] ?? p.type,
+      who: `${p.guestName}${p.bookingId ? ` · ${p.bookingId}` : ""}`,
+      note: p.notes,
+    })),
+    ...dayExp.filter((e) => e.method === "Cash").map((e) => ({
+      key: `e${e.id}`, sortKey: `${e.spentOn}T23:59:59`, when: "", amount: -e.amount,
+      what: `Expense · ${e.category}`, who: e.description, note: "",
+    })),
+  ].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+  /* Nothing went through the drawer: no cash payment, refund or expense.
+     There is nothing to count, so the day closes without one (the server
+     then expects ₱0 and records ₱0). */
+  const noCash = !dayPays.some((p) => p.method === "Cash") && !dayExp.some((e) => e.method === "Cash");
+  const floatNum = noCash ? 0 : Number(openingFloat) || 0;
   const expected = round2(floatNum + cashIn - cashOut);
-  const diff = counted === "" ? null : round2(Number(counted) - expected);
+  const diff = noCash || counted === "" ? null : round2(Number(counted) - expected);
 
   const save = async () => {
     setError("");
     if (blockers.length > 0) return setError("Finish the bookings listed above first.");
-    if (counted === "" || Number(counted) < 0) return setError("Enter the cash you counted in the drawer.");
+    if (!noCash && (counted === "" || Number(counted) < 0)) {
+      return setError("Count the bills and coins in the cash box and enter the total in “Cash in the box now”.");
+    }
     setBusy(true);
-    const r = await ops.closeDay({ date, openingFloat: floatNum, countedCash: Number(counted), notes });
+    const r = await ops.closeDay({ date, openingFloat: floatNum, countedCash: noCash ? 0 : Number(counted), notes });
     setBusy(false);
     if (!r.ok) return setError(r.error);
     toast(`${fmtDate(date)} closed.`, "success");
@@ -718,7 +752,57 @@ export function Closing({ onAct }: { onAct?: (action: CloseAction, b: Booking) =
 
   const pick = (d: string) => { setDate(d); setCounted(""); setOpeningFloat(""); setNotes(""); setError(""); };
 
-  const pagedClo = usePaged(ops.closings);
+  /* The daily report, worked out live for every day money moved: nothing has
+     to be "closed" for it to exist. A closing adds only the cash count. The
+     figures are always the ledger's current ones, so a payment voided after
+     a count shows up here; the count is then flagged as out of date. */
+  const days = useMemo(() => {
+    const live = livePayments(ops.payments);
+    const liveExp = liveExpenses(ops.expenses);
+    const map = new Map<string, { date: string; income: number; spent: number; cashIn: number; cashOut: number }>();
+    const row = (date: string) => {
+      let r = map.get(date);
+      if (!r) { r = { date, income: 0, spent: 0, cashIn: 0, cashOut: 0 }; map.set(date, r); }
+      return r;
+    };
+    for (const p of live) {
+      const r = row(manilaDate(p.receivedAt));
+      r.income += signedAmount(p);
+      if (p.method === "Cash") r.cashIn += signedAmount(p);
+    }
+    for (const e of liveExp) {
+      const r = row(e.spentOn);
+      r.spent += e.amount;
+      if (e.method === "Cash") r.cashOut += e.amount;
+    }
+    for (const c of ops.closings) row(c.closingDate);
+    const closingOf = new Map(ops.closings.map((c) => [c.closingDate, c]));
+    return [...map.values()]
+      .map((r) => ({
+        ...r,
+        income: round2(r.income), spent: round2(r.spent), cashIn: round2(r.cashIn), cashOut: round2(r.cashOut),
+        closing: closingOf.get(r.date),
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [ops.payments, ops.expenses, ops.closings]);
+  const pagedDays = usePaged(days);
+
+  const cashCheck = (d: (typeof days)[number]): { text: string; color: string } => {
+    const c = d.closing;
+    const hadCash = d.cashIn !== 0 || d.cashOut !== 0;
+    if (!c) {
+      if (!hadCash) return { text: "No cash to count", color: C.textS };
+      return d.date === today ? { text: "Count at day's end", color: C.textS } : { text: "Not counted yet", color: "#d4a800" };
+    }
+    // Recorded cash changed after the count (e.g. a payment voided since).
+    if (round2(c.openingFloat + d.cashIn - d.cashOut) !== c.expectedCash) return { text: "Changed since counted, count again", color: "#d4a800" };
+    if (!hadCash && c.countedCash === 0) return { text: "No cash to count", color: C.textS };
+    return c.difference === 0
+      ? { text: `Balanced · ${fmt(c.countedCash)}`, color: "#2e9e4e" }
+      : c.difference > 0
+        ? { text: `Over by ${fmt(c.difference)}`, color: "#3a8fc4" }
+        : { text: `Short by ${fmt(-c.difference)}`, color: "#d44" };
+  };
   return (
     <div>
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16 }}>
@@ -726,6 +810,14 @@ export function Closing({ onAct }: { onAct?: (action: CloseAction, b: Booking) =
         <Input id="close-date" type="date" max={manilaDate()} value={date} onChange={(e) => pick(e.target.value)} style={{ ...inp, width: "auto", padding: "8px 12px" }} />
         {existing && <Pill color="#2e9e4e">Closed at {manilaTime(existing.closedAt)}</Pill>}
       </div>
+
+      {stillOpen.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "-4px 0 16px", fontSize: 13, color: C.textS }}>
+          <Icon name="alert" size={14} style={{ color: "#d4a800" }} />
+          Also not closed yet:
+          {stillOpen.map((d) => <Btn key={d} size="sm" onClick={() => pick(d)}>{fmtDate(d)}</Btn>)}
+        </div>
+      )}
 
       {blockers.length > 0 && (
         <section aria-labelledby="close-blockers" style={{ border: "1px solid #d4a80066", background: "rgba(212,168,0,0.06)", borderRadius: 10, padding: "12px 16px", marginBottom: 16 }}>
@@ -777,59 +869,112 @@ export function Closing({ onAct }: { onAct?: (action: CloseAction, b: Booking) =
         </div>
 
         <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "16px 20px" }}>
-          <div style={{ color: C.textH, fontWeight: 600, marginBottom: 12 }}>Cash count</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-            <div>
-              <Label htmlFor="float">Opening cash (float)</Label>
-              <Input id="float" type="number" min={0} value={openingFloat} onChange={(e) => setOpeningFloat(e.target.value)} placeholder="0" style={inp} />
-            </div>
-            <div>
-              <Label htmlFor="counted">Cash counted now</Label>
-              <Input id="counted" type="number" min={0} value={counted} onChange={(e) => setCounted(e.target.value)} style={inp} />
-            </div>
-          </div>
-          <Line label="Opening cash" value={fmt(floatNum)} />
-          <Line label="+ Cash received" value={fmt(cashIn)} />
-          <Line label="− Cash spent" value={fmt(cashOut)} />
-          <Line label="Expected in the drawer" value={fmt(expected)} strong />
-          {diff !== null && (
-            <Line label={diff === 0 ? "Balanced" : diff > 0 ? "Over by" : "Short by"} value={fmt(Math.abs(diff))} strong
-              color={diff === 0 ? "#2e9e4e" : diff > 0 ? "#3a8fc4" : "#d44"} />
+          <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Cash count</div>
+          {noCash ? (
+            /* A count only means something when cash changed hands. */
+            <p style={{ color: C.textS, fontSize: 13, lineHeight: 1.6, margin: "0 0 4px", display: "flex", gap: 8, alignItems: "flex-start" }}>
+              <Icon name="check-circle" size={15} style={{ color: "#2e9e4e", flexShrink: 0, marginTop: 2 }} />
+              <span>No cash went in or out of the cash box on {date === today ? "this day" : fmtDate(date)}, so there&apos;s nothing to count and nothing to close. Its report is already in Daily reports below.</span>
+            </p>
+          ) : (
+            <>
+              <p style={{ color: C.textS, fontSize: 12.5, lineHeight: 1.6, margin: "0 0 12px" }}>
+                Count the money in the resort&apos;s cash box (wherever the cash guests pay is kept) and enter the total below. The system checks it against what should be there, so missing or extra cash shows up the same day.
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                <div>
+                  <Label htmlFor="float">Cash at the start (optional)</Label>
+                  <Input id="float" type="number" min={0} value={openingFloat} onChange={(e) => setOpeningFloat(e.target.value)} placeholder="0" style={inp} aria-describedby="float-hint" />
+                  <p id="float-hint" style={{ color: C.textXS, fontSize: 11.5, margin: "4px 0 0", lineHeight: 1.5 }}>Change money already in the box that morning. Leave blank if it was empty.</p>
+                </div>
+                <div>
+                  <Label htmlFor="counted">Cash in the box now</Label>
+                  <Input id="counted" type="number" min={0} value={counted} onChange={(e) => setCounted(e.target.value)} style={inp} aria-describedby="counted-hint" />
+                  <p id="counted-hint" style={{ color: C.textXS, fontSize: 11.5, margin: "4px 0 0", lineHeight: 1.5 }}>Count every bill and coin and enter the total.</p>
+                  {/* The usual case is a box that matches: one tap fills in
+                      what the records expect, so the owner only types a
+                      number when it's different. It is still the owner
+                      saying "I checked and it's there", never the system
+                      assuming it: filling this in by itself would make every
+                      day balance and hide missing cash. */}
+                  {counted === "" && (
+                    <Btn size="sm" icon="check" style={{ marginTop: 8 }} onClick={() => setCounted(String(expected))}>
+                      The box has exactly {fmt(expected)}
+                    </Btn>
+                  )}
+                </div>
+              </div>
+              <Line label="Cash at the start" value={fmt(floatNum)} />
+              <Line label="+ Cash received" value={fmt(cashIn)} />
+              <Line label="− Cash spent" value={fmt(cashOut)} />
+              <Line label="Should be in the box" value={fmt(expected)} strong />
+              {diff !== null && (
+                <Line label={diff === 0 ? "Balanced" : diff > 0 ? "Over by" : "Short by"} value={fmt(Math.abs(diff))} strong
+                  color={diff === 0 ? "#2e9e4e" : diff > 0 ? "#3a8fc4" : "#d44"} />
+              )}
+
+              {/* Every entry behind "Cash received" and "Cash spent". */}
+              <details style={{ marginTop: 12, borderTop: `1px solid ${cBr}`, paddingTop: 8 }}>
+                <summary style={{ cursor: "pointer", color: C.textH, fontSize: 13, fontWeight: 600, padding: "4px 0" }}>
+                  Where the cash came from ({cashEntries.length} entr{cashEntries.length === 1 ? "y" : "ies"})
+                </summary>
+                <ul style={{ listStyle: "none", margin: "4px 0 0", padding: 0 }}>
+                  {cashEntries.map((x) => (
+                    <li key={x.key} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: `1px solid ${cBr}`, fontSize: 12.5 }}>
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ color: C.textH, fontWeight: 600 }}>{x.what}</span>
+                        {x.when && <span style={{ color: C.textS }}> · {x.when}</span>}
+                        <span style={{ display: "block", color: C.textS }}>{x.who}{x.note ? ` · ${x.note}` : ""}</span>
+                      </span>
+                      <span style={{ color: x.amount < 0 ? "#d44" : "#2e9e4e", fontWeight: 600, whiteSpace: "nowrap" }}>
+                        {x.amount < 0 ? "−" : "+"}{fmt(Math.abs(x.amount))}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p style={{ color: C.textXS, fontSize: 11.5, margin: "8px 0 0", lineHeight: 1.5 }}>
+                  Recorded as Cash by mistake? Void it in Sales → Transactions (or Expenses) and record it again with the right method.
+                </p>
+              </details>
+            </>
           )}
-          <div style={{ marginTop: 12 }}>
-            <Label htmlFor="close-notes">Notes (optional)</Label>
-            <Input id="close-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. ₱50 short, change given wrong" style={inp} />
-          </div>
-          <ErrorNote>{error}</ErrorNote>
-          {/* Same clearance: this is the page's last row, right-aligned,
-              and the toggle floats over that corner. */}
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12, paddingRight: TOGGLE_CLEARANCE }}>
-            <Btn kind="primary" disabled={busy || blockers.length > 0} onClick={save}>
-              {busy ? "Saving…" : blockers.length > 0 ? "Finish the bookings above first" : existing ? "Close this day again" : "Close the day"}
-            </Btn>
-          </div>
+          {/* A day with no cash has nothing to close: its report is already
+              in Daily reports below, so there is no count to save. */}
+          {!noCash && <>
+            <div style={{ marginTop: 12 }}>
+              <Label htmlFor="close-notes">Notes (optional)</Label>
+              <Input id="close-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. ₱50 short, change given wrong" style={inp} />
+            </div>
+            <ErrorNote>{error}</ErrorNote>
+            {/* Same clearance: this is the page's last row, right-aligned,
+                and the toggle floats over that corner. */}
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12, paddingRight: TOGGLE_CLEARANCE }}>
+              <Btn kind="primary" disabled={busy || blockers.length > 0} onClick={save}>
+                {busy ? "Saving…" : blockers.length > 0 ? "Finish the bookings above first" : existing ? "Count again" : "Save the cash count"}
+              </Btn>
+            </div>
+          </>}
         </div>
       </div>
 
-      <h4 style={{ color: C.textH, fontSize: 14, margin: "0 0 8px" }}>Past closings</h4>
-      <TableShell head={["Day", "Received", "Expenses", "Net", "Expected cash", "Counted", "Difference", "Notes"]} minWidth={860}
-        empty={ops.closings.length === 0 ? "No days closed yet." : undefined}>
-        {pagedClo.rows.map((c, i) => (
-          <Row key={c.closingDate} className="sw-click-row" style={{ background: rowBg(i) }} onClick={() => pick(c.closingDate)}>
-            <Cell style={{ ...td, color: C.textH, whiteSpace: "nowrap" }}>{fmtDate(c.closingDate)}</Cell>
-            <Cell style={{ ...td, color: C.textB }}>{fmt(c.totalCollected)}</Cell>
-            <Cell style={{ ...td, color: C.textB }}>{fmt(c.totalExpenses)}</Cell>
-            <Cell style={{ ...td, color: C.textH, fontWeight: 600 }}>{fmt(round2(c.totalCollected - c.totalExpenses))}</Cell>
-            <Cell style={{ ...td, color: C.textB }}>{fmt(c.expectedCash)}</Cell>
-            <Cell style={{ ...td, color: C.textB }}>{fmt(c.countedCash)}</Cell>
-            <Cell style={{ ...td, color: c.difference === 0 ? "#2e9e4e" : c.difference > 0 ? "#3a8fc4" : "#d44", fontWeight: 600 }}>
-              {c.difference === 0 ? "Balanced" : `${c.difference > 0 ? "+" : "−"}${fmt(Math.abs(c.difference))}`}
-            </Cell>
-            <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{c.notes || "—"}</Cell>
+      <h4 style={{ color: C.textH, fontSize: 14, margin: "0 0 4px" }}>Daily reports</h4>
+      <p style={{ color: C.textS, fontSize: 12.5, margin: "0 0 8px" }}>
+        Built automatically from every payment and expense as it&apos;s recorded. The only step left to a person is counting the cash on days cash changed hands.
+      </p>
+      <TableShell head={["Day", "Received", "Expenses", "Net", "Cash check", "Notes"]} minWidth={760}
+        empty={days.length === 0 ? "No money has been recorded yet." : undefined}>
+        {pagedDays.rows.map((d, i) => (
+          <Row key={d.date} className="sw-click-row" style={{ background: rowBg(i) }} onClick={() => pick(d.date)}>
+            <Cell style={{ ...td, color: C.textH, whiteSpace: "nowrap" }}>{d.date === today ? "Today" : fmtDate(d.date)}</Cell>
+            <Cell style={{ ...td, color: C.textB }}>{fmt(d.income)}</Cell>
+            <Cell style={{ ...td, color: C.textB }}>{fmt(d.spent)}</Cell>
+            <Cell style={{ ...td, color: C.textH, fontWeight: 600 }}>{fmt(round2(d.income - d.spent))}</Cell>
+            <Cell style={{ ...td, fontWeight: 600, color: cashCheck(d).color }}>{cashCheck(d).text}</Cell>
+            <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{d.closing?.notes || "—"}</Cell>
           </Row>
         ))}
       </TableShell>
-      <Pager {...pagedClo} noun="days" />
+      <Pager {...pagedDays} noun="days" />
     </div>
   );
 }

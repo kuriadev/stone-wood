@@ -1,26 +1,10 @@
-import { randomInt } from "crypto";
 import { escapeHtml, sanitizeHeaderValue } from "@/lib/escapeHtml";
-import { SLOTS, QUIET_HOURS_POLICY } from "@/lib/resort";
+import { SLOTS, QUIET_HOURS_POLICY, RESORT_CONTACT, contactChannels } from "@/lib/resort";
 import { getBookingSlot } from "@/lib/utils";
 import { OVERTIME_RATE } from "@/lib/validators";
 
 import type { Booking } from "@/types/booking";
 import { dayjs, DATE_FMT } from "@/lib/dayjs";
-
-
-export function generateOTP(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous chars (0,O,1,I)
-  // randomInt, not Math.random: Math.random is a fast PRNG, not a secure one.
-  // Its internal state is recoverable from a handful of outputs, and this code
-  // is the guest's check-in credential — a predictable one lets someone claim
-  // a booking that is not theirs.
-  const pick = () => chars[randomInt(chars.length)];
-  let otp = "SW-";
-  for (let i = 0; i < 4; i++) otp += pick();
-  otp += "-";
-  for (let i = 0; i < 4; i++) otp += pick();
-  return otp; // e.g. SW-X4K2-9MBR
-}
 
 /** Absolute base URL for links inside an email. The cancellation link was
  *  hardcoded to http://localhost:3000, so every confirmation sent from a
@@ -118,7 +102,7 @@ export function buildBookingReceivedEmail(booking: Booking): { subject: string; 
                   <td style="background:#fffaf0;border:1px solid #e2d5b0;border-left:4px solid #c9a84c;border-radius:0 8px 8px 0;padding:20px;">
                     <p style="margin:0 0 8px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;">What Happens Next</p>
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">Our team reviews your reservation and confirms your date.</p>
-                    <p style="margin:0;color:#4a3a28;font-size:13px;line-height:1.7;">You will get a second email with your check-in code once it is confirmed. <strong>This email is not a confirmation</strong>, so please wait for that one before travelling.</p>
+                    <p style="margin:0;color:#4a3a28;font-size:13px;line-height:1.7;">You will get a second email once it is confirmed. <strong>This email is not a confirmation</strong>, so please wait for that one before travelling.</p>
                   </td>
                 </tr>
               </table>
@@ -295,7 +279,7 @@ export function buildRejectionEmail(booking: Booking, reason: string, money?: Re
   return { subject, html };
 }
 
-export function buildReceiptEmail(booking: Booking, otp: string): { subject: string; html: string } {
+export function buildReceiptEmail(booking: Booking): { subject: string; html: string } {
   const subject = `✅ Booking Confirmed – ${sanitizeHeaderValue(booking.id, 40)} | StoneWood Resort`;
 
   // The booking's own stored total is the source of truth. The receipt
@@ -338,7 +322,7 @@ export function buildReceiptEmail(booking: Booking, otp: string): { subject: str
                 Dear <strong>${escapeHtml(booking.name)}</strong>,
               </p>
               <p style="margin:0 0 28px;color:#5a4a35;font-size:14px;line-height:1.8;">
-                We're delighted to confirm your reservation at <strong>StoneWood Resort</strong>. Please find your booking details and one-time access code below.
+                We're delighted to confirm your reservation at <strong>StoneWood Resort</strong>. Please find your booking details below.
               </p>
 
               <!-- Booking ID badge -->
@@ -407,22 +391,8 @@ export function buildReceiptEmail(booking: Booking, otp: string): { subject: str
                 </tr>
               </table>
 
-              <!-- OTP Section -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin:32px 0;">
-                <tr>
-                  <td style="background:linear-gradient(135deg,#1a1108,#2d1f0a);border-radius:10px;padding:28px 24px;text-align:center;">
-                    <p style="margin:0 0 6px;color:#c9a84c;font-size:10px;letter-spacing:4px;text-transform:uppercase;">One-Time Access Code</p>
-                    <p style="margin:0 0 16px;color:#8a7060;font-size:12px;line-height:1.6;">Present this code upon arrival. Valid for this booking only.</p>
-                    <div style="display:inline-block;background:#0d0a05;border:2px solid #c9a84c;border-radius:8px;padding:14px 28px;">
-                      <p style="margin:0;color:#f0e6cc;font-size:28px;font-family:monospace;font-weight:700;letter-spacing:6px;">${otp}</p>
-                    </div>
-                    <p style="margin:16px 0 0;color:#6a5a45;font-size:11px;">⚠ This code is unique and can only be used once. Do not share it.</p>
-                  </td>
-                </tr>
-              </table>
-
               <!-- What to bring -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 28px;">
                 <tr>
                   <td style="background:#faf5e8;border:1px solid #e2d5b0;border-radius:8px;padding:20px;">
                     <p style="margin:0 0 12px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;">Reminders</p>
@@ -431,7 +401,7 @@ export function buildReceiptEmail(booking: Booking, otp: string): { subject: str
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">🔇 ${QUIET_HOURS_POLICY}</p>
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">💳 ${booking.downpayment >= booking.total ? "Your stay is fully paid. Nothing more is due on arrival." : booking.package === "On-Site Reservation" ? "Pay the full balance on arrival." : `The remaining balance of ${fmt(booking.total - booking.downpayment)} is paid at the resort.`}</p>
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">📅 If the resort has to cancel, you choose a free new date or a full refund. If you cancel, payments aren't refunded, but you can move your booking to another date once from your booking page.</p>
-                    <p style="margin:0;color:#4a3a28;font-size:13px;line-height:1.7;">📞 For questions, contact us at our resort hotline.</p>
+                    <p style="margin:0;color:#4a3a28;font-size:13px;line-height:1.7;">📞 For questions, call or text us at <strong>${escapeHtml(RESORT_CONTACT.phone)}</strong> or email ${escapeHtml(RESORT_CONTACT.email)}.</p>
                   </td>
                 </tr>
               </table>
@@ -495,10 +465,11 @@ export interface Notice {
   paragraphs: string[];
   rows?: [string, string][];
   button?: { label: string; url: string };
-  /** A second, quieter action under the main one. Outlined rather than
-   *  filled so it reads as the alternative, not a rival call to action —
-   *  used for "request a refund" under "choose a new date". */
-  secondaryButton?: { label: string; url: string; note?: string };
+  /** A panel under the button with the owner's phone, Viber, Messenger
+   *  and email, for a next step that is a conversation rather than a
+   *  click: a refund after a resort cancellation is arranged that way.
+   *  `mailSubject` pre-fills the email link. */
+  contact?: { title: string; note: string; mailSubject?: string };
 }
 
 export function buildNoticeEmail(n: Notice): { subject: string; html: string } {
@@ -540,15 +511,23 @@ export function buildNoticeEmail(n: Notice): { subject: string; html: string } {
                   </td>
                 </tr>
               </table>` : ""}
-              ${n.secondaryButton ? `
-              <table cellpadding="0" cellspacing="0" style="margin:16px auto 4px;">
+              ${n.contact ? `
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 4px;">
                 <tr>
-                  <td style="border:1px solid #c9a84c;border-radius:6px;">
-                    <a href="${escapeHtml(n.secondaryButton.url)}" style="display:inline-block;padding:11px 24px;color:#8a6d20;font-size:12.5px;font-weight:700;letter-spacing:1px;text-decoration:none;">${escapeHtml(n.secondaryButton.label)}</a>
+                  <td style="background:#faf5e8;border:1px solid #e2d5b0;border-radius:8px;padding:20px 24px;">
+                    <p style="margin:0 0 6px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;">${escapeHtml(n.contact.title)}</p>
+                    <p style="margin:0 0 12px;color:#4a3a28;font-size:13px;line-height:1.7;">${escapeHtml(n.contact.note)}</p>
+                    <table width="100%" cellpadding="0" cellspacing="0">${contactChannels(n.contact.mailSubject).map((c) => `
+                      <tr>
+                        <td style="padding:7px 0;border-top:1px solid #ece2c8;color:#8a6d3b;font-size:12px;width:40%;">${escapeHtml(c.label)}</td>
+                        <td style="padding:7px 0;border-top:1px solid #ece2c8;font-size:13px;font-weight:600;">${c.href
+                          ? `<a href="${escapeHtml(c.href)}" style="color:#2a1f0e;text-decoration:underline;">${escapeHtml(c.value)}</a>`
+                          : `<span style="color:#2a1f0e;">${escapeHtml(c.value)}</span>`}</td>
+                      </tr>`).join("")}
+                    </table>
                   </td>
                 </tr>
-              </table>
-              ${n.secondaryButton.note ? `<p style="margin:10px 0 0;color:#8a7a5a;font-size:12px;line-height:1.6;text-align:center;">${escapeHtml(n.secondaryButton.note)}</p>` : ""}` : ""}
+              </table>` : ""}
             </td>
           </tr>
           <tr>

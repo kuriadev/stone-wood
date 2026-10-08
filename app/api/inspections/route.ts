@@ -1,7 +1,10 @@
 // ── POST /api/inspections → save a PREPARATION check          (admin only)
 //
 // Done before a group arrives: the owner ticks the before-use checklist of
-// every facility the reservation will use. A booking has ONE preparation:
+// every facility the reservation will use. It opens the day before the
+// visit and closes at check-in (prepBlocked in lib/operations.ts): ticked
+// any earlier, other groups would use the facilities in between. A booking
+// has ONE preparation:
 // saving again updates it (with the new time) rather than adding another
 // record. Every item must be ticked, or the notes must say why not.
 // Saving puts any facility
@@ -18,6 +21,8 @@ import { requireAdmin } from "@/lib/auth";
 import { cleanText } from "@/lib/money";
 import { cleanItems } from "@/lib/inspection.server";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
+import { prepBlocked } from "@/lib/operations";
+import { manilaDate } from "@/lib/finance";
 import type { BookingRow, FacilityRow, InspectionRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +48,9 @@ export async function POST(req: NextRequest) {
     if (booking.status === "Cancelled" || booking.status === "ResortCancelled" || booking.status === "Completed") {
       return NextResponse.json({ success: false, error: `This booking is already ${booking.status.toLowerCase()}.` }, { status: 409 });
     }
+    // Only from the day before the visit until check-in (lib/operations.ts).
+    const blocked = prepBlocked(booking, manilaDate());
+    if (blocked) return NextResponse.json({ success: false, error: blocked }, { status: 409 });
 
     const facilities = (fs.data as FacilityRow[]).map(rowToFacility);
     const used = facilitiesForBooking(booking, facilities);

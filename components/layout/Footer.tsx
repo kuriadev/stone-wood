@@ -6,7 +6,7 @@ import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold } from "@/lib/styles";
 import { NAV } from "@/lib/constants";
-import { SLOTS } from "@/lib/resort";
+import { SLOTS, RESORT_CONTACT } from "@/lib/resort";
 
 interface FooterProps {
   setPage: (p: string) => void;
@@ -115,7 +115,7 @@ export function Footer({ setPage }: FooterProps) {
           <div style={{ color: "rgba(201,168,76,0.85)", fontSize: 11, letterSpacing: 3, marginBottom: 16 }}>
             CONTACT
           </div>
-          {["22 Yakal cor. Ipil St. Doña Justa Village Phase, 2nd St, Angono, Rizal", "+63 912 345 6789", "stonewoodresort.ph@gmail.com", `Day ${SLOTS.Day.hours} · Night ${SLOTS.Night.hours}`].map(
+          {["22 Yakal cor. Ipil St. Doña Justa Village Phase, 2nd St, Angono, Rizal", RESORT_CONTACT.phone, RESORT_CONTACT.email, `Day ${SLOTS.Day.hours} · Night ${SLOTS.Night.hours}`].map(
             (c) => (
               <div key={c} style={{ color: "#9a8d7a", fontSize: 14.5, marginBottom: 8 }}>
                 {c}

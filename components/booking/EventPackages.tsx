@@ -1,13 +1,14 @@
 "use client";
 
-/* Event packages, offered inside the booking flow.
+/* Packages, offered inside the booking flow.
  *
  * Until now the only way to buy one was the Packages page: a guest who had
  * already started Book Now had no way to see them. This is that same
- * catalogue, at the point in step 1 where a guest is thinking about the
- * events hall.
+ * catalogue, in step 1, filtered to what the guest just chose: the resort
+ * packages under "Resort visit", the event packages once the events hall is
+ * in the booking.
  *
- * "Add this event" does not invent any pricing. It hands the package back to
+ * "Add this package" does not invent any pricing. It hands the package back to
  * the page, which deep-links through buildPackageBookingUrl() -- the exact
  * route the Packages page uses -- so Book Now reopens in package mode with
  * the resource, tier, slot and capacity the package dictates, and the server
@@ -28,23 +29,52 @@ import type { ResortPackage } from "@/types/package";
 /** How many cards show before "View all". Three fills one desktop row. */
 const PREVIEW_COUNT = 3;
 
+/** "events": packages that use the hall. "resort": pool-only packages. */
+export type StepPackageKind = "events" | "resort";
+
 interface EventPackagesProps {
+  kind: StepPackageKind;
   packages: ResortPackage[];
   mob: boolean;
   onBook: (pkg: ResortPackage) => void;
 }
 
+/** The words that change with the kind; the layout is the same for both. */
+const COPY: Record<StepPackageKind, {
+  eyebrow: string; heading: string; lede: string; plural: string; single: string; add: string; photoKind: string;
+}> = {
+  events: {
+    eyebrow: "EVENT PACKAGES",
+    heading: "Or book a ready-made celebration",
+    lede: "Fixed-price packages for the events hall. Choosing one replaces the visit above with that package.",
+    plural: "EVENTS",
+    single: "EVENT PACKAGE",
+    add: "ADD THIS EVENT",
+    photoKind: "Venue",
+  },
+  resort: {
+    eyebrow: "RESORT PACKAGES",
+    heading: "Or book a ready-made package",
+    lede: "Fixed-price packages for a resort visit. Choosing one replaces the visit above with that package.",
+    plural: "PACKAGES",
+    single: "RESORT PACKAGE",
+    add: "ADD THIS PACKAGE",
+    photoKind: "Pool",
+  },
+};
+
 /** "Day or Night" / the whole-day hours — what the guest is choosing between. */
 const whenLabel = (p: ResortPackage): string =>
   p.slotMode === "WholeDay" ? SLOTS.WholeDay.hours : "Day or Night";
 
-export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
+export function EventPackages({ kind, packages, mob, onBook }: EventPackagesProps) {
   const { isDark } = useTheme();
   const C = T(isDark);
+  const copy = COPY[kind];
   const [expanded, setExpanded] = useState(false);
   const [open, setOpen] = useState<ResortPackage | null>(null);
 
-  // Nothing to offer: the admin may have deactivated every event package.
+  // Nothing to offer: the admin may have deactivated every package of this kind.
   if (packages.length === 0) return null;
 
   const shown = expanded ? packages : packages.slice(0, PREVIEW_COUNT);
@@ -53,19 +83,19 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
   const shots = open?.gallery?.length
     ? open.gallery
     : open
-      ? [{ src: open.cover, label: open.title, kind: "Venue" }]
+      ? [{ src: open.cover, label: open.title, kind: copy.photoKind }]
       : [];
 
   return (
     <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 28, paddingTop: 24 }}>
       <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 8px", fontWeight: 700 }}>
-        EVENT PACKAGES
+        {copy.eyebrow}
       </p>
       <h4 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 20 : 23, margin: "0 0 8px", fontWeight: 400 }}>
-        Or book a ready-made celebration
+        {copy.heading}
       </h4>
       <p style={{ color: C.textS, fontSize: 13, margin: "0 0 20px", lineHeight: 1.6, maxWidth: 560 }}>
-        Fixed-price packages for the events hall. Choosing one replaces the visit above with that package.
+        {copy.lede}
       </p>
 
       <ul
@@ -144,7 +174,7 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
               fontSize: 11.5, letterSpacing: 1.4, borderRadius: 8,
             }}
           >
-            {expanded ? "SHOW FEWER" : `VIEW ALL ${packages.length} EVENTS`}
+            {expanded ? "SHOW FEWER" : `VIEW ALL ${packages.length} ${copy.plural}`}
             <Icon name={expanded ? "chevron-up" : "chevron-down"} size={14} style={{ marginLeft: 8 }} />
           </button>
         </div>
@@ -161,7 +191,7 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
             <div className="flex flex-col">
               <MediaGallery
                 shots={shots}
-                eyebrow="EVENT PACKAGE"
+                eyebrow={copy.single}
                 compact
                 title={
                   <DialogTitle asChild>
@@ -217,7 +247,7 @@ export function EventPackages({ packages, mob, onBook }: EventPackagesProps) {
                     CANCEL
                   </button>
                   <button className="sw-btn" type="button" onClick={() => { const chosen = open; setOpen(null); onBook(chosen); }} style={{ ...goldBtn, minHeight: 46 }}>
-                    ADD THIS EVENT <span aria-hidden="true">→</span>
+                    {copy.add} <span aria-hidden="true">→</span>
                   </button>
                 </div>
               </div>

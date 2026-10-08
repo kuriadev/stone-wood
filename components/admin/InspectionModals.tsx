@@ -447,7 +447,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
                 </>
               )}
               <p style={{ color: C.textS, fontSize: 12, margin: 0 }}>
-                The stay balance is paid first, then any damage. Each goes into Sales as its own payment{method === "Cash" ? ", and counts toward today's cash drawer" : ""}.
+                The stay balance is paid first, then any damage. Each goes into Sales as its own payment{method === "Cash" ? ", and goes into today's cash box" : ""}.
               </p>
             </div>
           ) : (

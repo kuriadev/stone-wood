@@ -6,6 +6,7 @@ import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
+import { packageValue } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { Badge } from "@/components/ui/badge";
@@ -174,7 +175,7 @@ export function PackageShowcase({ packages, onBookPackage, onFallbackBook, tierS
               onBook={(p) => {
                 if (onBookPackage) {
                   onBookPackage(
-                    { code: p.code, title: p.title, price: p.price, listPrice: p.listPrice, capacity: p.capacity, requiresRoom: p.requiresRoom, slotMode: p.slotMode },
+                    { code: p.code, title: p.title, price: p.price, listPrice: packageValue(p).compare, capacity: p.capacity, requiresRoom: p.requiresRoom, slotMode: p.slotMode },
                     p.resource,
                     p.status,
                   );
@@ -376,13 +377,13 @@ function PackageCard({
             >
               {p.status.toUpperCase()}
             </Badge>
-            {p.listPrice && (
+            {packageValue(p).save > 0 && (
               <Badge
                 variant="outline"
                 className="rounded-full px-3 py-1 text-[11px] tracking-[1.5px]"
                 style={{ background: "rgba(76,175,80,0.10)", color: "#4caf50", borderColor: "rgba(76,175,80,0.35)" }}
               >
-                SAVE {fmt(p.listPrice - p.price)}
+                SAVE {fmt(packageValue(p).save)}
               </Badge>
             )}
             {p.requiresRoom && (

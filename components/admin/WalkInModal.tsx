@@ -159,6 +159,8 @@ export function WalkInModal({
       resource,
       tier,
       initialPayment: payChoice === "None" ? undefined : { type: payChoice, method, amount: payNow, reference: reference.trim() },
+      // The server prices the walk-in itself; it needs to know the package.
+      walkInPackageCode: pkg?.code,
     }]);
     toast(payChoice === "None"
       ? `Walk-in saved for ${wf.name}. It stays Pending until they pay.`

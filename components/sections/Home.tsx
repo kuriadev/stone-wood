@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
 import type { ResortPackage } from "@/types/package";
+import { packageValue } from "@/lib/pricing";
 import { srcSetFor, SIZES, imageAt } from "@/lib/img";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { facilityIcon } from "@/lib/facilityUsage";
@@ -287,8 +288,8 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
   const facilityRow = useMemo(() => {
     const drawn = new Map(SERVICES.map((sv) => [sv.name, sv.icon]));
     return amenities && amenities.length > 0
-      ? amenities.map((a) => ({ name: a.name, desc: a.description, drawn: drawn.get(a.name), icon: facilityIcon({ icon: a.icon, category: "Amenity" }) }))
-      : SERVICES.map((sv) => ({ name: sv.name, desc: "", drawn: sv.icon, icon: "toolbox" as const }));
+      ? amenities.map((a) => ({ name: a.name, desc: a.description, drawn: drawn.get(a.name), icon: facilityIcon({ icon: a.icon, category: "Amenity" }), closed: !!a.underMaintenance }))
+      : SERVICES.map((sv) => ({ name: sv.name, desc: "", drawn: sv.icon, icon: "toolbox" as const, closed: false }));
   }, [amenities]);
 
   const ratesHeaderRef = useRef<HTMLDivElement>(null);
@@ -508,13 +509,15 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                     <div>
                       <div className="flex items-baseline gap-3">
                         <span className="font-serif text-[40px] leading-none font-normal text-foreground">{fmt(p.price)}</span>
-                        {p.listPrice && (
-                          <span className="text-[17px] text-faint line-through">{fmt(p.listPrice)}</span>
+                        {packageValue(p).compare && (
+                          <span className="text-[17px] text-faint line-through">{fmt(packageValue(p).compare!)}</span>
                         )}
                       </div>
-                      {p.listPrice ? (
+                      {/* Against booking the same thing yourself in Book Now,
+                          not a pre-discount total nobody pays. */}
+                      {packageValue(p).save > 0 ? (
                         <p className="mt-2 text-[12.5px] tracking-wide text-[#4caf50]">
-                          Bundle discount \u2014 you save {fmt(p.listPrice - p.price)}
+                          You save {fmt(packageValue(p).save)} compared with booking it yourself
                         </p>
                       ) : p.requiresRoom ? (
                         <p className="mt-2 text-[12.5px] text-faint">Plus a room of your choice, at a discounted rate</p>
@@ -567,7 +570,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                         closePkg();
                         if (onBookPackage) {
                           onBookPackage(
-                            { code: p.code, title: p.title, price: p.price, listPrice: p.listPrice, capacity: p.capacity, requiresRoom: p.requiresRoom, slotMode: p.slotMode },
+                            { code: p.code, title: p.title, price: p.price, listPrice: packageValue(p).compare, capacity: p.capacity, requiresRoom: p.requiresRoom, slotMode: p.slotMode },
                             p.resource,
                             p.status
                           );
@@ -662,6 +665,9 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
             }}
           >
             {facilityRow.map((s) => (
+              /* Under Maintenance in Facility Management: dimmed and labelled,
+                 so a guest knows before booking (the pool and the venue
+                 can't be booked while it lasts). */
               <div key={s.name} style={{ textAlign: "center" }}>
                 {s.drawn ? (
                   <svg
@@ -673,18 +679,23 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                     strokeWidth="1.1"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    style={{ margin: "0 auto 20px", display: "block", opacity: 0.85 }}
+                    style={{ margin: "0 auto 20px", display: "block", opacity: s.closed ? 0.35 : 0.85 }}
                     aria-hidden="true"
                   >
                     {s.drawn}
                   </svg>
                 ) : (
-                  <Icon name={s.icon} size={38} strokeWidth={1.1} style={{ margin: "0 auto 20px", display: "block", opacity: 0.85, color: C.textH }} />
+                  <Icon name={s.icon} size={38} strokeWidth={1.1} style={{ margin: "0 auto 20px", display: "block", opacity: s.closed ? 0.35 : 0.85, color: C.textH }} />
                 )}
                 <div style={{ fontFamily: serif, fontSize: mob ? 16 : 18, color: C.textH, fontWeight: 400, lineHeight: 1.35 }}>
                   {s.name}
                 </div>
                 {s.desc && <div style={{ color: C.textS, fontSize: 13, lineHeight: 1.5, marginTop: 8 }}>{s.desc}</div>}
+                {s.closed && (
+                  <div style={{ display: "inline-block", marginTop: 12, padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(224,122,58,0.5)", color: isDark ? "#e8a070" : "#a8481a", fontSize: 11.5, whiteSpace: "nowrap" }}>
+                    Under maintenance
+                  </div>
+                )}
               </div>
             ))}
           </Reveal>

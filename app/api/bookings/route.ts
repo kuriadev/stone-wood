@@ -27,12 +27,14 @@ import { getSupabaseAdmin, rowToBooking, bookingToRow, missingNewColumn, without
 import { isAdminRequest, requireAdmin } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { isValidEmail, isValidPHNumber, sanitizeName, sanitizeNotes, NAME_MIN, NAME_MAX, OVERTIME_MAX } from "@/lib/validators";
-import { buildBookingReceivedEmail, buildReceiptEmail, generateOTP } from "@/lib/emailTemplate";
+import { buildBookingReceivedEmail, buildReceiptEmail } from "@/lib/emailTemplate";
 import { logActivity } from "@/lib/activity.server";
-import { fmtDate } from "@/lib/utils";
+import { fmtDate, getPackageTier } from "@/lib/utils";
+import { priceBooking, pricingProblem } from "@/lib/pricing";
 import { trySendMail } from "@/lib/mailer";
 import { getPaymentStatus } from "@/lib/paymongo";
 import { quoteBooking } from "@/lib/bookingQuote";
+import { checkFits } from "@/lib/rebooking.server";
 import { fmt } from "@/lib/utils";
 import type { BookingRow } from "@/types/database";
 import type { Booking, BookingResource, BookingSlot, BookingSource, BookingTier } from "@/types/booking";
@@ -194,7 +196,7 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
     // slow Gmail must not turn a saved, paid booking into an error.
     // Confirmed: the confirmation itself. Flagged: the "received, being
     // reviewed" email, since the owner still has to look at it.
-    const { subject, html } = confirmedNow ? buildReceiptEmail(saved, generateOTP()) : buildBookingReceivedEmail(saved);
+    const { subject, html } = confirmedNow ? buildReceiptEmail(saved) : buildBookingReceivedEmail(saved);
     const emailed = await trySendMail({ to: saved.email, subject, html }, `${confirmedNow ? "booking-confirmed" : "booking-received"} ${saved.id}`);
 
     await logActivity([
@@ -245,8 +247,43 @@ async function createWalkIn(body: Record<string, unknown>) {
       return NextResponse.json({ success: false, error: "Guest count must be at least 1." }, { status: 400 });
     }
 
-    const total = Math.max(0, Math.min(Number(b.total) || 0, 1_000_000));
+    // Priced here from the database's own package and room prices, with the
+    // same priceBooking the walk-in window and Book Now use, rather than
+    // taken from the screen. The total decides the balance every later
+    // payment is checked against, so it has to be the real one.
+    const db0 = getSupabaseAdmin();
+    const slotIn: BookingSlot = SLOTS.includes(b.slot as BookingSlot) ? (b.slot as BookingSlot) : "Day";
+    const resourceIn: BookingResource = RESOURCES.includes(b.resource as BookingResource) ? (b.resource as BookingResource) : "Pool";
+    const tierIn: BookingTier = TIERS.includes(b.tier as BookingTier) ? (b.tier as BookingTier) : getPackageTier(Math.round(guests));
+    const overtimeIn = slotIn === "Day" ? Math.min(OVERTIME_MAX, Math.max(0, Math.round(Number(b.overtime) || 0))) : 0;
+    const roomIds = Array.isArray(b.rooms) ? b.rooms.map(Number).filter(Number.isFinite) : [];
+    const notOffered = pricingProblem(resourceIn, tierIn, slotIn);
+    if (notOffered) return NextResponse.json({ success: false, error: notOffered }, { status: 400 });
+    let pkg: { price: number; requiresRoom: boolean } | null = null;
+    if (typeof b.walkInPackageCode === "string" && b.walkInPackageCode) {
+      const p = await db0.from("packages").select("price, requires_room, active").eq("code", b.walkInPackageCode).maybeSingle();
+      if (p.error) throw new Error(p.error.message);
+      if (!p.data || !(p.data as { active: boolean }).active) {
+        return NextResponse.json({ success: false, error: "That package is no longer offered." }, { status: 409 });
+      }
+      const row = p.data as { price: number; requires_room: boolean };
+      pkg = { price: Number(row.price), requiresRoom: !!row.requires_room };
+    }
+    const roomRows = roomIds.length ? await db0.from("rooms").select("id, price").in("id", roomIds) : { data: [], error: null };
+    if (roomRows.error) throw new Error(roomRows.error.message);
+    const roomPrices = (roomRows.data as { id: number; price: number }[]).map((r) => Number(r.price));
+    const total = priceBooking({ pkg, resource: resourceIn, tier: tierIn, slot: slotIn, guests: Math.round(guests), overtime: overtimeIn, roomPrices }).total;
     const downpayment = Math.ceil(total / 2);
+
+    // The same check the walk-in window shows, enforced here too: the pool
+    // or the events venue Under Maintenance, a full pool, a taken slot or
+    // room. The window can be stale (another tab, a guest booking online
+    // meanwhile), and the server is what decides.
+    const fits = await checkFits({
+      ...(b as Booking), id: "", date: String(b.date), guests: Math.round(guests),
+      resource: resourceIn, tier: tierIn, slot: slotIn, overtime: overtimeIn, rooms: roomIds,
+    });
+    if (!fits.ok) return NextResponse.json({ success: false, error: fits.error }, { status: 409 });
     // The money taken at the desk decides the status: any payment makes it
     // a real reservation (Confirmed); none leaves it Pending until the guest
     // pays. The booking itself stores the REQUIRED down payment (50%); what

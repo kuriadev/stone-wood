@@ -10,6 +10,13 @@
 // A request whose 48-hour hold ran out can't be approved: the date wasn't
 // kept for the guest, so they ask again (it doesn't use up their change).
 //
+// The same queue holds a REBOOK: the date a guest picked after the resort
+// cancelled on them (POST /api/bookings/[id]/rebook). Approving it moves the
+// booking AND confirms it again; declining it (or a hold that runs out)
+// leaves it cancelled and gives the guest a fresh window to pick another
+// date (reopenChoice). Its old date has usually passed, which is fine: the
+// visit was called off, so only the new date matters.
+//
 // The response carries the guest's text message and link, for "Text the
 // guest".
 
@@ -17,8 +24,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToBooking, rowToDateChange } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import { cleanText } from "@/lib/money";
-import { checkMove, moveBooking, guestLinkFor } from "@/lib/rebooking.server";
-import { holdActive } from "@/lib/rebooking";
+import { checkMove, moveBooking, guestLinkFor, reopenChoice } from "@/lib/rebooking.server";
+import { holdActive, isRebookRequest, fmtDeadline, REBOOK_NOTE } from "@/lib/rebooking";
 import { notices } from "@/lib/notices";
 import { buildNoticeEmail } from "@/lib/emailTemplate";
 import { trySendMail } from "@/lib/mailer";
@@ -54,10 +61,31 @@ export async function PATCH(req: NextRequest) {
     if (!bk.data) return no("That booking no longer exists.", 404);
     const b = rowToBooking(bk.data as BookingRow);
     const now = new Date().toISOString();
+    const rebook = isRebookRequest(request, b);
 
     if (approve && !holdActive(request)) {
       await db.from("date_change_requests").update({ status: "Expired", decided_at: now }).eq("id", id).eq("status", "Pending");
-      return no("The 48-hour hold ran out, so the date wasn't kept. Ask the guest to request it again.");
+      if (rebook) await reopenChoice(b.id);
+      return no(rebook
+        ? "The 48-hour hold ran out, so the date wasn't kept. The guest can pick a date again from their booking page."
+        : "The 48-hour hold ran out, so the date wasn't kept. Ask the guest to request it again.");
+    }
+
+    if (!approve && rebook) {
+      const done = await db.from("date_change_requests").update({ status: "Declined", decided_at: now, note })
+        .eq("id", id).eq("status", "Pending").select("id").maybeSingle();
+      if (!done.data) return no("This request just changed. Refresh and try again.");
+      const reopened = await reopenChoice(b.id);
+      if (!reopened?.choiceDeadline) return no("This booking just changed. Refresh and try again.");
+      const link = guestLinkFor(reopened);
+      const n = notices.rebookDeclined(reopened, request.toDate, note, reopened.choiceDeadline, link);
+      if (reopened.email) await trySendMail({ to: reopened.email, ...buildNoticeEmail(n.email) }, `rebook-declined ${reopened.id}`);
+      await logActivity({
+        actor: "Admin", action: "date_change.declined", bookingId: b.id, entity: "date_change", entityId: id,
+        summary: `Declined ${fmtDate(request.toDate)} for ${b.name} (${b.id}, cancelled by the resort). They can pick another date until ${fmtDeadline(reopened.choiceDeadline)}.${note ? ` Reason: ${note}` : ""}`,
+        details: { from: request.fromDate, to: request.toDate, note, rebook: true },
+      });
+      return NextResponse.json({ success: true, guestLink: link, sms: n.sms });
     }
 
     if (!approve) {
@@ -73,6 +101,25 @@ export async function PATCH(req: NextRequest) {
         details: { from: request.fromDate, to: request.toDate, note },
       });
       return NextResponse.json({ success: true, guestLink: link, sms: n.sms });
+    }
+
+    if (rebook) {
+      if (b.checkedInAt) return no("This booking can no longer be moved.");
+      const check = await checkMove(b, request.toDate);
+      if (!check.ok) return no(`${check.error} Decline it and the guest can pick another date.`);
+      const saved = await moveBooking(b, request.toDate, { status: "Confirmed", confirmed_at: now, choice_deadline: null, held_amount: 0 });
+      if (!saved) return no("This booking just changed. Refresh and try again.");
+      await db.from("date_change_requests").update({ status: "Approved", decided_at: now, note: REBOOK_NOTE }).eq("id", id);
+
+      const link = guestLinkFor(saved);
+      const n = notices.rebooked(saved, request.fromDate, link);
+      if (saved.email) await trySendMail({ to: saved.email, ...buildNoticeEmail(n.email) }, `rebooked ${saved.id}`);
+      await logActivity({
+        actor: "Admin", action: "booking.rebooked", bookingId: saved.id, entity: "date_change", entityId: id,
+        summary: `Approved ${saved.name}'s new date after the resort cancelled: ${fmtDate(request.fromDate)} → ${fmtDate(request.toDate)}. ${saved.id} is confirmed again.`,
+        details: { from: request.fromDate, to: request.toDate, rebook: true },
+      });
+      return NextResponse.json({ success: true, booking: saved, guestLink: link, sms: n.sms });
     }
 
     if (b.status !== "Confirmed" || b.checkedInAt) return no("This booking can no longer be moved.");

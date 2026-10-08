@@ -2,9 +2,10 @@
 
 /* /customer/refund — unlisted on purpose.
  *
- * A refund is only possible when the resort cancelled, so this page is
- * reached from the cancellation email and from the guest's own booking page,
- * never from the public nav. See components/sections/RefundRequest.tsx. */
+ * A refund is only possible when the resort cancelled, and it is arranged
+ * with the owner by call or chat. This page just lists their contacts; it is
+ * kept for cancellation emails sent before that change, which link here.
+ * See components/sections/RefundRequest.tsx. */
 
 import { Suspense } from "react";
 import { useRouter } from "next/navigation";

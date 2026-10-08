@@ -1,11 +1,17 @@
-// ── POST  /api/damage-rates      → add an item to the rate list  (admin only)
-// ── PATCH /api/damage-rates?id=  → change its price, or retire it (admin only)
+// ── POST   /api/damage-rates      → add an item to the rate list  (admin only)
+// ── PATCH  /api/damage-rates?id=  → change its price, or retire it (admin only)
+// ── DELETE /api/damage-rates?id=  → delete it for good            (admin only)
 //
 // The owner's price list for damaged property. Automatic penalties are
-// quantity × the rate here. Items are retired (active = false) instead of
-// deleted, so a penalty recorded last month still points at a real item.
-// Changing a rate never touches penalties already recorded: each damage
-// record keeps the unit rate it was charged at.
+// quantity × the rate here. Changing a rate never touches penalties already
+// recorded: each damage record keeps the item name and the unit rate it was
+// charged at.
+//
+// An item can be retired (active = false: hidden from check-out, and
+// restorable) or deleted for good. Deleting is safe for the records for the
+// same reason: a damage record only loses its link to the list (rate_id is
+// set to null by the database), never its name, rate or amount. The audit
+// log keeps a copy of what was deleted.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server";
@@ -79,5 +85,27 @@ export async function PATCH(req: NextRequest) {
   } catch (err) {
     console.error("[/api/damage-rates PATCH]", err);
     return NextResponse.json({ success: false, error: "Could not update the item." }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const denied = requireAdmin(req);
+  if (denied) return denied;
+  const id = Number(req.nextUrl.searchParams.get("id"));
+  if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "An item id is required." }, { status: 400 });
+  try {
+    const { data, error } = await getSupabaseAdmin().from("damage_rates").delete().eq("id", id).select().maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return NextResponse.json({ success: false, error: "Item not found." }, { status: 404 });
+    const gone = data as DamageRateRow;
+    await logActivity({
+      actor: "Admin", action: "rate.removed", entity: "damage_rate", entityId: id,
+      summary: `Deleted "${gone.name}" from the damage rate list. Damage records already charged for it are kept.`,
+      details: { removed: { name: gone.name, category: gone.category, unit: gone.unit, rate: Number(gone.rate), active: gone.active } },
+    });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[/api/damage-rates DELETE]", err);
+    return NextResponse.json({ success: false, error: "Could not delete the item." }, { status: 500 });
   }
 }

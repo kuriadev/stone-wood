@@ -8,9 +8,9 @@
 //
 //   • the date is freed and their payment stays with the booking
 //   • they're emailed, and the owner can text them from the next screen
-//   • on their booking page they pick a new date (confirmed at once) or a
-//     refund, within GUEST_CHOICE_DAYS; no answer by then means a refund is
-//     owed
+//   • on their booking page they pick a new date within GUEST_CHOICE_DAYS;
+//     it comes to Daily Operations → Reschedules for the owner to approve
+//   • a refund instead is arranged with the owner by call or chat
 //
 // So a paying guest is never just "rejected" and left wondering where
 // their money went. (/api/bookings/[id]/resort-cancel does the work.)
@@ -100,8 +100,8 @@ export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onC
           <strong style={{ color: C.textH, display: "block", marginBottom: 4 }}>What happens next</strong>
           The date opens up for other guests.{" "}
           {paid > 0 ? <>The <strong style={{ color: C.textH }}>{fmt(paid)}</strong> they paid stays with the booking. </> : null}
-          {booking.name} gets {GUEST_CHOICE_DAYS} days to pick a new date{paid > 0 ? " or a full refund" : ""} on their booking page. A new date is confirmed straight away; a refund shows up here for you to send.
-          {paid > 0 && <> If they don&apos;t answer in time, the refund is owed.</>}
+          {booking.name} gets {GUEST_CHOICE_DAYS} days to pick a new date on their booking page. The date they pick comes to Daily Operations → Reschedules for you to approve before it&apos;s confirmed.
+          {paid > 0 && <> If they&apos;d rather have a refund, they&apos;ll call or message you to arrange it.</>}
         </div>
         <ErrorNote>{error}</ErrorNote>
       </div>

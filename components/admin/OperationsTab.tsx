@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
-import { opsBoard, closingBlockers, attentionTally, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, type OpsCard, type OpsView } from "@/lib/operations";
+import { opsBoard, closingBlockers, attentionTally, unclosedDays, prepBlocked, prepOpensOn, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, type OpsCard, type OpsView } from "@/lib/operations";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { bookingMoney, collectedBetween, expensesBetween, livePayments, manilaDate, manilaTime, round2, type BookingMoney } from "@/lib/finance";
 import { fmt, fmtDate, getBookingSlot, holdsDate } from "@/lib/utils";
@@ -53,10 +53,12 @@ import { RecordPaymentModal } from "@/components/admin/RecordPaymentModal";
 import { LiveStatus } from "@/components/admin/LiveStatus";
 import { ResortCancelDialog, type UpdateStatus } from "@/components/admin/ResortCancelDialog";
 import { RefundModal } from "@/components/admin/RefundModal";
+import { AddChargeModal } from "@/components/admin/AddChargeModal";
+import { ChooseRefundDialog } from "@/components/admin/ChooseRefundDialog";
 import { DateChangeReview } from "@/components/admin/DateChangeReview";
 import { MoveBookingModal } from "@/components/admin/MoveBookingModal";
 import { TextGuest } from "@/components/admin/TextGuest";
-import { choiceOpen, fmtDeadline, holdActive, withHolds } from "@/lib/rebooking";
+import { choiceOpen, choiceExpired, fmtDeadline, holdActive, isRebookRequest, withHolds } from "@/lib/rebooking";
 import { notices } from "@/lib/notices";
 import { Closing } from "@/components/admin/SalesTab";
 import { PageHead, Btn, Pill, Modal, ConfirmDialog, Label, Line, Figure, ViewTabs, useAdminStyle } from "@/components/admin/ui";
@@ -72,8 +74,8 @@ interface OperationsTabProps {
 }
 
 type Open =
-  | { kind: "prep" | "checkout" | "settle" | "record" | "pay"; id: string }
-  | { kind: "accept" | "reject" | "noshow" | "refund" | "textagain"; id: string }
+  | { kind: "prep" | "checkout" | "settle" | "record" | "pay" | "charge"; id: string }
+  | { kind: "accept" | "reject" | "noshow" | "refund" | "textagain" | "refundchoice"; id: string }
   | { kind: "move"; id: string }
   | { kind: "datechange"; reqId: number }
   | { kind: "walkin" };
@@ -128,6 +130,9 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
   // Its own flag rather than part of `open`: the closing window stays open
   // underneath while a booking on its checklist is finished on top of it.
   const [closing, setClosing] = useState(false);
+  /** The day the closing window opens on: today, or a past day left open. */
+  const [closeDate, setCloseDate] = useState<string | undefined>(undefined);
+  const openClosing = (date?: string) => { setCloseDate(date); setClosing(true); };
 
   const cards = useMemo(() => opsBoard(bookings, ops.inspections, now), [bookings, ops.inspections, now]);
   const moneyById = useMemo(
@@ -152,6 +157,9 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
   const closedToday = ops.closings.find((c) => c.closingDate === today);
   /** What still has to be finished before today can be closed. */
   const toFinish = closingBlockers(bookings, today).length;
+  /** Did any cash go through the drawer today? Only then is there a count. */
+  const cashToday = ops.payments.some((p) => !p.voided && p.method === "Cash" && manilaDate(p.receivedAt) === today)
+    || ops.expenses.some((e) => !e.voided && e.method === "Cash" && e.spentOn === today);
 
   const find = (id: string) => bookings.find((b) => b.id === id) ?? null;
   const current = open && "id" in open ? find(open.id) : null;
@@ -220,14 +228,18 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
       }
     }
   }
-  // A guest asking to move their booking: the date is held for them.
+  // A guest asking to move their booking, or picking a new date after the
+  // resort cancelled: either way the date is held until you answer.
   for (const r of ops.dateChanges) {
     if (r.status !== "Pending") continue;
     const b = find(r.bookingId);
     if (!b) continue;
     const active = holdActive(r, now.getTime());
     attention.push({ key: `move-${r.id}`, tone: active ? "amber" : "red", icon: "calendar",
-      text: <><strong style={{ color: C.textH }}>{b.name}</strong> asks to move {b.id} from {fmtDate(r.fromDate)} to {fmtDate(r.toDate)}.{" "}
+      text: <><strong style={{ color: C.textH }}>{b.name}</strong>{" "}
+        {isRebookRequest(r, b)
+          ? <>picked {fmtDate(r.toDate)} for {b.id} after the resort cancelled {fmtDate(r.fromDate)}.</>
+          : <>asks to move {b.id} from {fmtDate(r.fromDate)} to {fmtDate(r.toDate)}.</>}{" "}
         {active ? <>Held for them until {fmtDeadline(r.holdUntil!)}.</> : <>The 48-hour hold ran out.</>}</>,
       actions: <Btn size="sm" kind="primary" onClick={() => setOpen({ kind: "datechange", reqId: r.id })}>Review</Btn> });
   }
@@ -243,8 +255,32 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
     } else if (choiceOpen(b, now.getTime())) {
       attention.push({ key: `waiting-${b.id}`, tone: "blue", icon: "clock",
         text: <>{who} hasn&apos;t picked a new date yet for {b.id} (cancelled by the resort). They have until {fmtDeadline(b.choiceDeadline!)}.</>,
-        actions: <Btn size="sm" onClick={() => go("textagain", b)}>Text them</Btn> });
+        actions: <>
+          <Btn size="sm" onClick={() => go("textagain", b)}>Text them</Btn>
+          <Btn size="sm" kind="red" onClick={() => go("refundchoice", b)}>Refund instead</Btn>
+        </> });
+    } else if (choiceExpired(b, ops.dateChanges.some((r) => r.bookingId === b.id && r.status === "Pending"), now.getTime())) {
+      // Their time to pick online ran out. The booking waits on the owner
+      // now: agree a date or a refund with them, then record it here.
+      attention.push({ key: `expired-${b.id}`, tone: "red", icon: "clock",
+        text: <>{who} didn&apos;t pick a new date for {b.id} in time (cancelled by the resort).{(b.heldAmount ?? 0) > 0 ? <> {fmt(b.heldAmount ?? 0)} is still held for them.</> : null} Contact them to agree a new date or a refund.</>,
+        actions: <>
+          <Btn size="sm" kind="primary" onClick={() => go("move", b)}>Set a new date</Btn>
+          <Btn size="sm" kind="red" onClick={() => go("refundchoice", b)}>Refund instead</Btn>
+        </> });
     }
+  }
+  // Past days that needed a cash count and never got one (unclosedDays in
+  // lib/operations.ts). One row for all of them; the button opens the
+  // closing window on the oldest, which lists anything still to finish.
+  const unclosed = unclosedDays({ payments: ops.payments, expenses: ops.expenses, closings: ops.closings, today });
+  if (unclosed.length > 0) {
+    const first = unclosed[0];
+    attention.push({ key: "unclosed-days", tone: unclosed.length > 1 ? "red" : "amber", icon: "wallet",
+      text: unclosed.length === 1
+        ? <>{first === manilaDate(new Date(now.getTime() - 86_400_000)) ? "Yesterday" : fmtDate(first)} wasn&apos;t closed. Count the cash box and close it so the records match the money in it.</>
+        : <>{unclosed.length} days weren&apos;t closed: {unclosed.map(fmtDate).join(", ")}. Close each one, oldest first, so every cash count is right.</>,
+      actions: <Btn size="sm" kind="primary" onClick={() => openClosing(first)}>Close {fmtDate(first)}</Btn> });
   }
   const waitingConfirm = upcoming.filter((c) => c.stage === "confirm");
   if (waitingConfirm.length > 0) {
@@ -260,6 +296,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
     const tally = attentionTally({
       bookings, inspections: ops.inspections, dateChanges: ops.dateChanges,
       now, usedBy: (b) => facilitiesForBooking(b, facilities),
+      payments: ops.payments, expenses: ops.expenses, closings: ops.closings,
     });
     if (tally.total !== attention.length) {
       console.warn(
@@ -292,14 +329,17 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
     ];
     const next =
       stage === "confirm" ? "Next: check the payment, then accept"
-        : stage === "prepare" ? (c.prepared ? `Ready. Next: check in on ${fmtDate(b.date)}` : "Next: prepare the facilities")
+        : stage === "prepare" ? (c.prepared ? `Ready. Next: check in on ${fmtDate(b.date)}`
+          : prepBlocked(b, today) ? `Next: prepare the facilities from ${fmtDate(prepOpensOn(b))}` : "Next: prepare the facilities")
           : stage === "arriving" ? (c.overdue ? "Next: complete the stay, or mark a no-show" : "Next: check in when they arrive")
             : stage === "onsite" ? (m.due > 0 ? `Next: check out and collect ${fmt(m.due)}` : "Next: check out as they leave")
               : stage === "settle" ? (m.due > 0 ? `Next: collect ${fmt(m.due)} and settle` : "Next: settle to complete")
                 : `Completed${b.settledAt ? ` at ${manilaTime(b.settledAt)}` : ""}`;
 
     const canPay = (stage === "confirm" || stage === "prepare" || stage === "arriving" || stage === "onsite") && m.due > 0;
-    const canPrep = stage === "prepare" || stage === "arriving";
+    // Opens the day before the visit; the server refuses it earlier too.
+    const prepClosed = prepBlocked(b, today);
+    const canPrep = (stage === "prepare" || stage === "arriving") && !prepClosed;
 
     let primary: ReactNode = null;
     let secondary: ReactNode = null;
@@ -309,9 +349,11 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         secondary = <Btn kind="red" icon="x" onClick={() => go("reject", b)}>Cancel</Btn>;
         break;
       case "prepare":
-        primary = c.prepared
-          ? <Btn icon="clipboard-check" onClick={() => go("prep", b)}>View / edit preparation</Btn>
-          : <Btn kind="primary" icon="clipboard-check" onClick={() => go("prep", b)}>Prepare facilities</Btn>;
+        primary = !canPrep
+          ? <Btn icon="clipboard-check" disabled title={prepClosed ?? undefined}>Prepare from {fmtDate(prepOpensOn(b))}</Btn>
+          : c.prepared
+            ? <Btn icon="clipboard-check" onClick={() => go("prep", b)}>View / edit preparation</Btn>
+            : <Btn kind="primary" icon="clipboard-check" onClick={() => go("prep", b)}>Prepare facilities</Btn>;
         break;
       case "arriving":
         // A past date the owner never tapped through: the group most likely
@@ -376,6 +418,8 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
                 <DropdownMenuItem onSelect={() => go("move", b)}><Icon name="edit" />Change the date</DropdownMenuItem>
               )}
               {canPay && <DropdownMenuItem onSelect={() => go("pay", b)}><Icon name="cash" />Record a payment</DropdownMenuItem>}
+              {/* Overtime, extra guests or a room taken on the day, up to settling. */}
+              {stage !== "done" && <DropdownMenuItem onSelect={() => go("charge", b)}><Icon name="plus" />Add a charge (overtime, guests, room)</DropdownMenuItem>}
               {canPrep && <DropdownMenuItem onSelect={() => go("prep", b)}><Icon name="clipboard-check" />{c.prepared ? "Edit preparation" : "Prepare facilities"}</DropdownMenuItem>}
               {stage === "arriving" && !c.overdue && <DropdownMenuItem onSelect={() => go("checkout", b)}><Icon name="check" />Complete stay in one step</DropdownMenuItem>}
               {stage === "arriving" && c.overdue && <DropdownMenuItem disabled={busy} onSelect={() => checkIn(b)}><Icon name="log-in" />Check in only</DropdownMenuItem>}
@@ -457,14 +501,16 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         <div style={{ color: C.textS, fontSize: 13, marginTop: 4 }}>
           {fmt(collectedToday)} received − {fmt(spentToday)} spent = <strong style={{ color: C.textH }}>{fmt(round2(collectedToday - spentToday))}</strong> net today.
           {closedToday
-            ? ` Closed at ${manilaTime(closedToday.closedAt)}.`
-            : toFinish > 0
-              ? ` ${toFinish} booking${toFinish === 1 ? "" : "s"} to finish before the day can be closed.`
-              : " Every booking is finished. Ready to close."}
+            ? ` Cash counted at ${manilaTime(closedToday.closedAt)}.`
+            : !cashToday
+              ? " No cash went in or out of the cash box today, so there's nothing to count. The day's report builds itself."
+              : toFinish > 0
+                ? ` ${toFinish} booking${toFinish === 1 ? "" : "s"} to finish before the cash can be counted.`
+                : " Every booking is finished. Count the cash box to close the day."}
         </div>
       </div>
-      <Btn kind={closedToday || toFinish > 0 ? "ghost" : "primary"} icon="wallet" onClick={() => setClosing(true)}>
-        {closedToday ? "View closing" : toFinish > 0 ? `Close the day · ${toFinish} to finish` : "Count cash & close the day"}
+      <Btn kind={closedToday || toFinish > 0 || !cashToday ? "ghost" : "primary"} icon="wallet" onClick={() => openClosing()}>
+        {closedToday ? "View cash count" : !cashToday ? "View today's report" : toFinish > 0 ? `Close the day · ${toFinish} to finish` : "Count cash & close the day"}
       </Btn>
     </section>
   );
@@ -532,10 +578,13 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
   );
 
   /* ── Reschedules ───────────────────────────────────────────────────
-     Guests asking to move a booking. These already appear in "Needs your
-     attention", but that list empties as things are dealt with and a
-     request can sit for 48 hours — so they get a bucket of their own that
-     always shows the full queue.
+     Every date change waiting on the owner, of two kinds:
+       • a confirmed guest asking to move their booking (once per booking)
+       • a guest the resort cancelled on, picking their new date
+     Both need approving, so the owner always knows what moves where. These
+     already appear in "Needs your attention", but that list empties as
+     things are dealt with and a request can sit for 48 hours — so they get
+     a bucket of their own that always shows the full queue.
 
      The availability question is already settled before this point: the
      guest could only pick a date that was free, and the chosen date is HELD
@@ -548,13 +597,10 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
     .filter((x): x is { r: typeof x.r; b: Booking } => !!x.b)
     .sort((a, b) => Date.parse(a.r.createdAt) - Date.parse(b.r.createdAt));
 
-  /* Everything already settled. Two routes land here and both matter:
-     a guest date change the owner approved or declined, and a date the guest
-     picked themselves after the resort cancelled on them — that one is
-     written straight in as Approved by /api/bookings/[id]/rebook, because a
-     guest the resort let down does not then queue for permission.
-     Filtering this panel to Pending hid that second kind entirely, which is
-     why reschedules appeared to vanish. */
+  /* Everything already settled: either kind of request once the owner
+     answered it (or its hold ran out), plus dates the owner moved by hand
+     (requestedBy "Resort", written in as Approved by
+     /api/bookings/[id]/move). */
   const decidedMoves = ops.dateChanges
     .filter((r) => r.status !== "Pending")
     .map((r) => ({ r, b: find(r.bookingId) }))
@@ -571,11 +617,13 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fill,minmax(340px,1fr))", gap: 12 }}>
         {pendingMoves.map(({ r, b }) => {
           const active = holdActive(r, now.getTime());
+          const rebook = isRebookRequest(r, b);
           /* The visit date can pass while a request is still sitting here:
              a request made the night before holds its date for 48 hours.
              The server refuses to approve those, so say so up front rather
-             than letting the owner find out from an error. */
-          const datePassed = r.fromDate <= today;
+             than letting the owner find out from an error. A rebook's old
+             date was called off by the resort, so it passing is no matter. */
+          const datePassed = !rebook && r.fromDate <= today;
           const stale = !active || datePassed;
           return (
             <div key={r.id} style={{ background: cBg, border: `1px solid ${stale ? "#d4a80055" : cBr}`, borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -588,12 +636,13 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 13 }}>
-                <span style={{ color: C.textS }}>{fmtDate(r.fromDate)}</span>
+                <span style={{ color: C.textS, textDecoration: rebook ? "line-through" : undefined }}>{fmtDate(r.fromDate)}</span>
                 <Icon name="arrow-right" size={14} style={{ color: C.goldInk }} />
                 <span style={{ color: C.textH, fontWeight: 600 }}>{fmtDate(r.toDate)}</span>
               </div>
 
               <div style={{ color: C.textXS, fontSize: 12 }}>
+                {rebook && <>New date after the resort cancelled. Approving confirms the booking again. </>}
                 {datePassed
                   ? <>{fmtDate(r.fromDate)} has already passed, so this can only be declined.</>
                   : active
@@ -662,7 +711,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <LiveStatus />
             <Btn icon="plus" onClick={() => setOpen({ kind: "walkin" })}>New walk-in</Btn>
-            <Btn kind={closedToday ? "ghost" : "primary"} icon="wallet" onClick={() => setClosing(true)}>{closedToday ? "Day closed" : "Close the day"}</Btn>
+            <Btn kind={closedToday ? "ghost" : "primary"} icon="wallet" onClick={() => openClosing()}>{closedToday ? "Day closed" : "Close the day"}</Btn>
           </div>
         } />
 
@@ -758,8 +807,8 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         <WalkInModal bookings={withHolds(bookings, ops.dateChanges)} setBookings={setBookings} rooms={rooms} packages={packages} facilities={facilities} mob={mob} onClose={() => setOpen(null)} />
       )}
       {closing && (
-        <Modal title="Daily liquidation" subtitle="Finish the day's bookings, then count the cash drawer and close the day." onClose={() => setClosing(false)} width={1000}>
-          <Closing onAct={(action, b) => go(action, b)} />
+        <Modal title="Daily liquidation" subtitle="Finish the day's bookings, then count the cash box and close the day." onClose={() => setClosing(false)} width={1000}>
+          <Closing initialDate={closeDate} onAct={(action, b) => go(action, b)} />
         </Modal>
       )}
 
@@ -791,6 +840,10 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
       })()}
       {open?.kind === "reject" && current && <ResortCancelDialog booking={current} onClose={() => setOpen(null)} />}
       {open?.kind === "refund" && current && <RefundModal booking={current} onClose={() => setOpen(null)} />}
+      {open?.kind === "charge" && current && <AddChargeModal booking={current} onClose={() => setOpen(null)} />}
+      {open?.kind === "refundchoice" && current && (
+        <ChooseRefundDialog booking={current} onClose={() => setOpen(null)} onDone={(nb) => setOpen({ kind: "refund", id: nb.id })} />
+      )}
       {open?.kind === "textagain" && current && <TextAgain booking={current} onClose={() => setOpen(null)} />}
       {open?.kind === "datechange" && reviewing && find(reviewing.bookingId) && (
         <DateChangeReview request={reviewing} booking={find(reviewing.bookingId)!} onClose={() => setOpen(null)} />

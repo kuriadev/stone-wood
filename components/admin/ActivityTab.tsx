@@ -1,6 +1,9 @@
 "use client";
 
-// ── Activity: everything that happened, in one place
+// ── Audit Log: everything that happened, in one place
+//
+// (The tab id is still "Activity", and the table activity_log; only the
+// name the owner reads changed.)
 //
 // The activity log, newest first: bookings made, confirmed, moved and
 // cancelled; payments, refunds and voids; check-ins, inspections and
@@ -9,8 +12,9 @@
 // the system), and what, in a sentence. The log can't be edited or deleted
 // (the database refuses), which is what makes it an audit trail.
 //
-// Filters: a date range, a kind of activity, a booking reference, and words
-// in the description. Export downloads what's shown as a spreadsheet.
+// Filters: a date range, who did it, a kind of activity, a booking
+// reference, and words in the description. Export downloads what's shown as
+// a spreadsheet.
 
 import { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
@@ -43,11 +47,21 @@ const CATEGORIES: { value: string; label: string }[] = [
   { value: "security", label: "Sign-ins" },
 ];
 
+/** Who did it: the owner, a guest on the website, or the system itself
+ *  (a deadline passing, an online payment arriving). */
+const ACTORS: { value: "" | Activity["actor"]; label: string }[] = [
+  { value: "", label: "Anyone" },
+  { value: "Admin", label: "The owner (Admin)" },
+  { value: "Guest", label: "Guests" },
+  { value: "System", label: "The system" },
+];
+
 export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBooking?: (id: string) => void }) {
   const { C, rowBg, inp } = useAdminStyle();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [category, setCategory] = useState("");
+  const [actor, setActor] = useState("");
   const [booking, setBooking] = useState("");
   const [words, setWords] = useState("");
   const [rows, setRows] = useState<Activity[]>([]);
@@ -63,21 +77,22 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
     if (from) p.set("from", from);
     if (to) p.set("to", to);
     if (category) p.set("category", category);
+    if (actor) p.set("actor", actor);
     if (booking.trim()) p.set("booking", booking.trim().toUpperCase());
     if (words.trim()) p.set("q", words.trim());
     if (before) p.set("before", String(before));
     try {
       const res = await fetch(`/api/activity?${p}`);
       const j = await res.json();
-      if (!j?.success) throw new Error(j?.error ?? "Couldn't load the activity log.");
+      if (!j?.success) throw new Error(j?.error ?? "Couldn't load the audit log.");
       setRows((r) => (before ? [...r, ...(j.activity as Activity[])] : (j.activity as Activity[])));
       setMore(!!j.more);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't load the activity log.");
+      setError(e instanceof Error ? e.message : "Couldn't load the audit log.");
     } finally {
       setLoading(false);
     }
-  }, [from, to, category, booking, words]);
+  }, [from, to, category, actor, booking, words]);
 
   // Reload when a filter changes; typing in the text boxes waits a moment.
   useEffect(() => {
@@ -85,29 +100,32 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
     return () => clearTimeout(t);
   }, [load]);
 
-  const exportCsv = () => downloadCsv(`StoneWood_Activity_${manilaDate()}.csv`, [
+  const exportCsv = () => downloadCsv(`StoneWood_Audit_Log_${manilaDate()}.csv`, [
     ["When", "Who", "Action", "Booking", "What happened"],
     ...rows.map((a) => [fmtWhen(a.at), a.actor, a.action, a.bookingId ?? "", a.summary]),
   ]);
 
   const sel = { ...inp, padding: "8px 12px", width: "auto" } as const;
-  const filtersOn = !!(from || to || category || booking || words);
+  const filtersOn = !!(from || to || category || actor || booking || words);
 
   return (
     <div>
-      <PageHead title="Activity" mob={mob} subtitle="Everything that happened, who did it and when. Entries can't be edited or deleted."
+      <PageHead title="Audit Log" mob={mob} subtitle="Everything that happened, who did it and when. Entries can't be edited or deleted."
         action={<Btn icon="download" onClick={exportCsv} disabled={rows.length === 0}>Export</Btn>} />
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" }}>
-        <Input value={words} onChange={(e) => setWords(e.target.value)} placeholder="Search the descriptions" aria-label="Search the activity" style={{ ...sel, flex: "1 1 220px" }} />
+        <Input value={words} onChange={(e) => setWords(e.target.value)} placeholder="Search the descriptions" aria-label="Search the audit log" style={{ ...sel, flex: "1 1 220px" }} />
         <Input value={booking} onChange={(e) => setBooking(e.target.value)} placeholder="Booking ref, e.g. SW-10023" aria-label="Booking reference" style={{ ...sel, width: 190 }} />
+        <FullSelect value={actor} onChange={(e) => setActor(e.target.value)} aria-label="Who did it" style={{ ...sel, paddingRight: 40 }}>
+          {ACTORS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+        </FullSelect>
         <FullSelect value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Kind of activity" style={{ ...sel, paddingRight: 40 }}>
           {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
         </FullSelect>
         <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From" style={sel} />
         <span style={{ color: C.textS, fontSize: 13 }}>to</span>
         <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To" style={sel} />
-        {filtersOn && <Btn size="sm" onClick={() => { setFrom(""); setTo(""); setCategory(""); setBooking(""); setWords(""); }}>Clear</Btn>}
+        {filtersOn && <Btn size="sm" onClick={() => { setFrom(""); setTo(""); setCategory(""); setActor(""); setBooking(""); setWords(""); }}>Clear</Btn>}
       </div>
 
       {error && <p style={{ color: C.dangerInk, fontSize: 13.5 }}>{error}</p>}

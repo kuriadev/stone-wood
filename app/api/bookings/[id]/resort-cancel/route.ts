@@ -5,9 +5,12 @@
 // For an emergency, bad weather, a repair: any time until the group checks
 // in, whatever the guest has paid. The booking becomes "ResortCancelled":
 // its date is freed at once, what the guest paid stays with the booking,
-// and the guest has GUEST_CHOICE_DAYS to pick a new date (confirmed at
-// once, no approval) or ask for a refund. No answer by then means a refund
-// is owed (see sweepExpired). The guest is never simply told "rejected".
+// and the guest has GUEST_CHOICE_DAYS to pick a new date, which the owner
+// approves in Daily Operations → Reschedules (see /api/bookings/[id]/rebook).
+// A refund instead is arranged with the owner by call or chat. No pick by
+// the deadline only closes the guest's picker; the booking stays here, with
+// the payment held, until the owner sets the agreed date (/move) or records
+// the refund (see sweepExpired). The guest is never simply told "rejected".
 //
 // The guest is emailed here. The response also carries the text message
 // and the link to their booking page, so the owner can text them with one

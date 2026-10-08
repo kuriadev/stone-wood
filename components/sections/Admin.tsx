@@ -88,10 +88,12 @@ const SIDEBAR_GROUPS = [
   { label: "TODAY",        tabs: ["Operations"] },
   { label: "RESERVATIONS", tabs: ["Bookings", "Occupancy"] },
   { label: "FACILITIES",   tabs: ["Facilities", "Inventory"] },
-  { label: "FINANCE",      tabs: ["Sales", "Reports", "Activity"] },
+  { label: "FINANCE",      tabs: ["Sales", "Reports"] },
   { label: "MANAGEMENT",   tabs: ["Rooms", "Packages", "Gallery"] },
   { label: "SUPPORT",      tabs: ["Customer Service"] },
   { label: "SITE",         tabs: ["Maintenance"] },
+  // Everything done in the system, not just money, so not under Finance.
+  { label: "RECORDS",      tabs: ["Activity"] },
 ];
 
 // ── Admin Component ───────────────────────────────────────────────────────────
@@ -249,10 +251,10 @@ export function Admin({
   const tabs: AdminTab[] = ["Operations", "Bookings", "Occupancy", "Facilities", "Inventory", "Sales", "Reports", "Activity", "Rooms", "Packages", "Gallery", "Customer Service", "Maintenance"];
   // Icon per tab. Names resolve against the stroke set in ./Icon, so the
   // sidebar inherits the theme instead of rendering OS colour emoji.
-  /* What the sidebar prints. The key stays "Occupancy" because that string
-     is the tab id every switch in this file routes on; only the label the
-     staff read changes. */
-  const tabLabels: Record<string, string> = { Occupancy: "Calendar", Operations: "Daily Operations" };
+  /* What the sidebar prints. The keys stay "Occupancy" and "Activity"
+     because those strings are the tab ids every switch in this file routes
+     on; only the label the staff read changes. */
+  const tabLabels: Record<string, string> = { Occupancy: "Calendar", Operations: "Daily Operations", Activity: "Audit Log" };
 
   const tabIcons: Record<AdminTab, IconName> = {
     Operations: "clipboard-check", Bookings: "clipboard", Sales: "wallet",
@@ -296,6 +298,7 @@ export function Admin({
   const attention = attentionTally({
     bookings, inspections: ops.inspections, dateChanges: ops.dateChanges,
     now: opsNow, usedBy: (b) => facilitiesForBooking(b, facilities),
+    payments: ops.payments, expenses: ops.expenses, closings: ops.closings,
   });
 
   // Calendar
@@ -1195,7 +1198,7 @@ export function Admin({
           {/* REPORTS */}
           {tab === "Reports" && <ReportsTab bookings={bookings} rooms={rooms} mob={mob} />}
 
-          {/* ACTIVITY — the audit trail */}
+          {/* AUDIT LOG (tab id "Activity") */}
           {tab === "Activity" && <ActivityTab mob={mob} />}
 
           {/* CUSTOMER SERVICE */}

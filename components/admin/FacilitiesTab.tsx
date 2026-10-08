@@ -8,7 +8,7 @@
 // is where the facilities themselves and their records are kept:
 //
 //   Facilities         every amenity and room: status, checklists, and
-//                      for amenities, add / edit / retire. What the owner
+//                      for amenities, add / edit / retire / remove. What the owner
 //                      adds here also appears on the public website.
 //   Inspections        each visit's preparation and check-out record
 //   Damage records     every damaged item and the penalty it carried
@@ -28,6 +28,7 @@ import { bookingMoney, manilaDate } from "@/lib/finance";
 import { fmt, fmtDate } from "@/lib/utils";
 import type { Booking } from "@/types/booking";
 import type { AmenityArea, Facility, FacilityStatus } from "@/types/facility";
+import type { DamageRate } from "@/types/finance";
 import { gold } from "@/lib/styles";
 import { Icon } from "@/components/common/Icon";
 import { VisitRecord } from "@/components/admin/InspectionModals";
@@ -81,7 +82,7 @@ export function FacilitiesTab({ facilities, bookings, mob }: FacilitiesTabProps)
       </p>
 
       <ViewTabs<View> value={view} onChange={setView} views={[
-        { value: "Facilities", label: "Facilities", content: <FacilityList facilities={facilities} mob={mob} /> },
+        { value: "Facilities", label: "Facilities", content: <FacilityList facilities={facilities} bookings={bookings} mob={mob} /> },
         { value: "Inspections", label: "Inspection records", content: <Inspections bookings={bookings} facilities={facilities} /> },
         { value: "Damages", label: "Damage records", content: <Damages bookings={bookings} /> },
         { value: "Rates", label: "Damage rates", content: <DamageRates /> },
@@ -91,18 +92,73 @@ export function FacilitiesTab({ facilities, bookings, mob }: FacilitiesTabProps)
 }
 
 // ── Facilities: amenities (owner-managed) and rooms ───────────────────
-function FacilityList({ facilities, mob }: { facilities: Facility[]; mob: boolean }) {
+//
+// "Needs Cleaning" is set by check-out and cleared on its own when the next
+// reservation that uses the facility is prepared. What no upcoming booking
+// uses (a room nobody has rented since, the venue in a pool-only week)
+// would wait indefinitely, so the owner can tick any of them, or all, and
+// mark them cleaned in one go (/api/facilities/cleaned).
+function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; bookings: Booking[]; mob: boolean }) {
   const { C, rowBg } = useAdminStyle();
   const { reloadFacilities } = useApp();
   const { toast } = useToast();
   const [edit, setEdit] = useState<Facility | "new" | null>(null);
   const [retiring, setRetiring] = useState<Facility | null>(null);
+  /** Remove for good (DELETE), as opposed to retiring, which can be undone. */
+  const [removing, setRemoving] = useState<Facility | null>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
   const [showRetired, setShowRetired] = useState(false);
+  const [picked, setPicked] = useState<Set<number>>(() => new Set());
+  const [confirmClean, setConfirmClean] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
 
   const amenities = facilities.filter((f) => f.category === "Amenity");
   const active = amenities.filter((f) => f.active !== false);
   const retired = amenities.filter((f) => f.active === false);
   const rooms = facilities.filter((f) => f.category === "Room");
+
+  const dirty = [...active, ...rooms].filter((f) => f.status === "Needs Cleaning");
+  // Only ids still waiting count: a reload can clean one out from under a tick.
+  const chosen = dirty.filter((f) => picked.has(f.id));
+  const allChosen = dirty.length > 0 && chosen.length === dirty.length;
+  const toggle = (id: number, on: boolean) => setPicked((s) => {
+    const n = new Set(s);
+    if (on) n.add(id); else n.delete(id);
+    return n;
+  });
+
+  /* The next live booking that uses each facility waiting to be cleaned:
+     preparing it is what clears the flag on its own. */
+  const nextUse = useMemo(() => {
+    const today = manilaDate();
+    const upcoming = bookings
+      .filter((b) => (b.status === "Confirmed" || b.status === "Pending") && !b.archived && !b.id.startsWith("TMP-") && !b.checkedInAt && b.date >= today)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const map = new Map<number, Booking>();
+    for (const b of upcoming) {
+      for (const f of facilitiesForBooking(b, facilities)) {
+        if (f.status === "Needs Cleaning" && !map.has(f.id)) map.set(f.id, b);
+      }
+    }
+    return map;
+  }, [bookings, facilities]);
+
+  const markCleaned = async () => {
+    setCleaning(true);
+    const r = await send("/api/facilities/cleaned", "POST", { ids: chosen.map((f) => f.id) });
+    setCleaning(false);
+    if (!r.ok) return toast(r.error, "error");
+    await reloadFacilities();
+    toast(`${chosen.length === 1 ? chosen[0].name : `${chosen.length} facilities`} marked as cleaned.`, "success");
+    setPicked(new Set());
+    setConfirmClean(false);
+  };
+
+  /* A tick box for each facility waiting to be cleaned, in front of its
+     name. Other rows get a same-sized gap so the names stay lined up. */
+  const tick = (f: Facility) => dirty.length === 0 ? null : f.status === "Needs Cleaning"
+    ? <Checkbox checked={picked.has(f.id)} onCheckedChange={(v) => toggle(f.id, v === true)} aria-label={`Select ${f.name}`} style={{ marginRight: 12, verticalAlign: -3 }} />
+    : <span aria-hidden style={{ display: "inline-block", width: 16, marginRight: 12 }} />;
 
   const setActive = async (f: Facility, on: boolean) => {
     const r = await send(`/api/facilities?id=${f.id}`, "PATCH", { active: on });
@@ -112,12 +168,51 @@ function FacilityList({ facilities, mob }: { facilities: Facility[]; mob: boolea
     setRetiring(null);
   };
 
-  const statusCell = (f: Facility) => (
-    <Pill color={F_COLOR[f.status]}><span style={{ width: 7, height: 7, borderRadius: "50%", background: F_COLOR[f.status] }} />{f.status}</Pill>
-  );
+  const remove = async (f: Facility) => {
+    setRemoveBusy(true);
+    const r = await send(`/api/facilities?id=${f.id}`, "DELETE", {});
+    setRemoveBusy(false);
+    if (!r.ok) return toast(r.error, "error");
+    await reloadFacilities();
+    toast(`${f.name} removed. Past inspections and damage records still name it.`, "info");
+    setRemoving(null);
+  };
+
+  const statusCell = (f: Facility) => {
+    const next = f.status === "Needs Cleaning" ? nextUse.get(f.id) : undefined;
+    return (
+      <>
+        <Pill color={F_COLOR[f.status]}><span style={{ width: 7, height: 7, borderRadius: "50%", background: F_COLOR[f.status] }} />{f.status}</Pill>
+        {f.status === "Needs Cleaning" && (
+          <div style={{ color: C.textS, fontSize: 11.5, marginTop: 4 }}>
+            {next ? `Cleared when ${next.id} (${fmtDate(next.date)}) is prepared` : "No upcoming booking uses it"}
+          </div>
+        )}
+      </>
+    );
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      {dirty.length > 0 && (
+        <div role="region" aria-label="Mark facilities as cleaned"
+          style={{ border: `1px solid ${F_COLOR["Needs Cleaning"]}55`, background: `${F_COLOR["Needs Cleaning"]}0d`, borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 12, color: C.textH, fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}>
+            <Checkbox
+              checked={allChosen ? true : chosen.length > 0 ? "indeterminate" : false}
+              onCheckedChange={() => setPicked(allChosen ? new Set() : new Set(dirty.map((f) => f.id)))}
+            />
+            Select all that need cleaning ({dirty.length})
+          </label>
+          <span style={{ color: C.textS, fontSize: 12.5, flex: "1 1 260px" }}>
+            Preparing a reservation marks the facilities it uses as cleaned on its own. Tick the rest here once they&apos;re clean.
+          </span>
+          <Btn kind="primary" icon="check" disabled={chosen.length === 0} onClick={() => setConfirmClean(true)}>
+            {chosen.length === 0 ? "Mark as cleaned" : `Mark ${chosen.length} as cleaned`}
+          </Btn>
+        </div>
+      )}
+
       <section>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
           <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: 0 }}>Amenities <span style={{ color: C.textS, fontWeight: 400 }}>({active.length})</span></h3>
@@ -128,8 +223,9 @@ function FacilityList({ facilities, mob }: { facilities: Facility[]; mob: boolea
           {active.map((f, i) => (
             <Row key={f.id} style={{ background: rowBg(i) }}>
               <Cell style={td}>
+                {tick(f)}
                 <span style={{ color: C.textH, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 8 }}><Icon name={facilityIcon(f)} size={15} />{f.name}</span>
-                {f.description && <div style={{ color: C.textS, fontSize: 12 }}>{f.description}</div>}
+                {f.description && <div style={{ color: C.textS, fontSize: 12, marginLeft: dirty.length ? 28 : 0 }}>{f.description}</div>}
               </Cell>
               <Cell style={{ ...td, color: C.textB }}>{AREA_LABEL[amenityArea(f)]}</Cell>
               <Cell style={{ ...td, color: C.textS }}>{f.showOnSite === false ? "Hidden" : "Shown"}</Cell>
@@ -137,7 +233,10 @@ function FacilityList({ facilities, mob }: { facilities: Facility[]; mob: boolea
               <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                 <div style={{ display: "inline-flex", gap: 8 }}>
                   <Btn size="sm" icon="edit" onClick={() => setEdit(f)}>Edit</Btn>
-                  {!isCoreAmenity(f) && <Btn size="sm" kind="red" onClick={() => setRetiring(f)}>Retire</Btn>}
+                  {!isCoreAmenity(f) && <>
+                    <Btn size="sm" onClick={() => setRetiring(f)}>Retire</Btn>
+                    <Btn size="sm" kind="red" onClick={() => setRemoving(f)}>Remove</Btn>
+                  </>}
                 </div>
               </Cell>
             </Row>
@@ -152,6 +251,7 @@ function FacilityList({ facilities, mob }: { facilities: Facility[]; mob: boolea
                   <span key={f.id} style={{ display: "inline-flex", alignItems: "center", gap: 8, color: C.textS, fontSize: 13 }}>
                     <Icon name={facilityIcon(f)} size={14} />{f.name}
                     <Btn size="sm" onClick={() => setActive(f, true)}>Restore</Btn>
+                    <Btn size="sm" kind="red" onClick={() => setRemoving(f)}>Remove</Btn>
                   </span>
                 ))}
               </div>
@@ -167,7 +267,7 @@ function FacilityList({ facilities, mob }: { facilities: Facility[]; mob: boolea
           empty={rooms.length === 0 ? "No rooms." : undefined}>
           {rooms.map((f, i) => (
             <Row key={f.id} style={{ background: rowBg(i) }}>
-              <Cell style={{ ...td, color: C.textH, fontWeight: 600 }}><Icon name="bed" size={15} style={{ marginRight: 8, verticalAlign: -2 }} />{f.name}</Cell>
+              <Cell style={{ ...td, color: C.textH, fontWeight: 600 }}>{tick(f)}<Icon name="bed" size={15} style={{ marginRight: 8, verticalAlign: -2 }} />{f.name}</Cell>
               <Cell style={{ ...td, color: C.textS }}>{f.lastUsedGuestName ? `${f.lastUsedGuestName} (${f.lastUsedBookingId})` : "—"}</Cell>
               <Cell style={td}>{statusCell(f)}</Cell>
               <Cell style={{ ...td, textAlign: "right" }}><Btn size="sm" icon="edit" onClick={() => setEdit(f)}>Edit</Btn></Cell>
@@ -176,12 +276,36 @@ function FacilityList({ facilities, mob }: { facilities: Facility[]; mob: boolea
         </TableShell>
       </section>
 
+      {confirmClean && chosen.length > 0 && (
+        <ConfirmDialog title={`Mark ${chosen.length === 1 ? chosen[0].name : `${chosen.length} facilities`} as cleaned?`} onCancel={() => setConfirmClean(false)}
+          confirm={<Btn kind="primary" icon="check" disabled={cleaning} onClick={() => void markCleaned()}>{cleaning ? "Saving…" : "Mark as cleaned"}</Btn>}>
+          <p style={{ color: C.textS, fontSize: 14, margin: "0 0 8px" }}>
+            {chosen.length === 1 ? "It" : "They"}&apos;ll show as Available. Only do this once {chosen.length === 1 ? "it's" : "they're"} actually clean.
+          </p>
+          {chosen.length > 1 && <p style={{ color: C.textB, fontSize: 13, margin: 0 }}>{chosen.map((f) => f.name).join(", ")}</p>}
+        </ConfirmDialog>
+      )}
       {edit && <FacilityModal facility={edit === "new" ? null : edit} mob={mob} onClose={() => setEdit(null)} />}
       {retiring && (
         <ConfirmDialog title={`Retire ${retiring.name}?`} onCancel={() => setRetiring(null)}
           confirm={<Btn kind="red" onClick={() => setActive(retiring, false)}>Retire</Btn>}>
           <p style={{ color: C.textS, fontSize: 14, margin: 0 }}>
             It stops appearing in new preparations and inspections and on the website. Past inspections and damage records that name it are kept, and you can restore it any time.
+          </p>
+        </ConfirmDialog>
+      )}
+      {removing && (
+        <ConfirmDialog title={`Remove ${removing.name} for good?`} onCancel={() => setRemoving(null)}
+          confirm={<>
+            {removing.active !== false && <Btn disabled={removeBusy} onClick={() => { setRetiring(removing); setRemoving(null); }}>Retire instead</Btn>}
+            <Btn kind="red" disabled={removeBusy} onClick={() => void remove(removing)}>{removeBusy ? "Removing…" : "Remove"}</Btn>
+          </>}>
+          <p style={{ color: C.textS, fontSize: 14, margin: "0 0 8px" }}>
+            It&apos;s deleted from the facilities list, new preparations and inspections, and the website. This can&apos;t be undone.
+          </p>
+          <p style={{ color: C.textS, fontSize: 14, margin: 0 }}>
+            Past inspections and damage records keep its name, and the Audit Log records what was removed.
+            {removing.active !== false && <> If you might use it again, retire it instead: that hides it and can be undone.</>}
           </p>
         </ConfirmDialog>
       )}
@@ -430,6 +554,9 @@ function DamageRates() {
   const [draft, setDraft] = useState<Record<number, string>>({});
   const [adding, setAdding] = useState({ name: "", category: "Furniture", unit: "pc", rate: "" });
   const [error, setError] = useState("");
+  /** Delete for good, as opposed to unticking "In use", which retires it. */
+  const [deleting, setDeleting] = useState<DamageRate | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const categories = useMemo(() => Array.from(new Set(["Furniture", "Pool", "Room", "Amenity", ...ops.damageRates.map((r) => r.category)])), [ops.damageRates]);
 
   const saveRate = async (id: number) => {
@@ -442,6 +569,15 @@ function DamageRates() {
   const toggle = async (id: number, active: boolean) => {
     const r = await ops.saveRate({ id, active });
     if (!r.ok) setError(r.error);
+  };
+  const remove = async (item: DamageRate) => {
+    setDeleteBusy(true);
+    const r = await ops.deleteRate(item.id);
+    setDeleteBusy(false);
+    if (!r.ok) return toast(r.error, "error");
+    setDraft((d) => { const n = { ...d }; delete n[item.id]; return n; });
+    setDeleting(null);
+    toast(`"${item.name}" deleted. Damage records already charged for it are kept.`, "info");
   };
   const add = async () => {
     setError("");
@@ -474,7 +610,12 @@ function DamageRates() {
                   <Checkbox checked={r.active} onCheckedChange={(v) => toggle(r.id, v === true)} aria-label={`${r.name} in use`} /> {r.active ? "Yes" : "Retired"}
                 </label>
               </Cell>
-              <Cell style={{ ...td, textAlign: "right" }}>{edited && <Btn size="sm" kind="green" onClick={() => saveRate(r.id)}>Save</Btn>}</Cell>
+              <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                <div style={{ display: "inline-flex", gap: 8 }}>
+                  {edited && <Btn size="sm" kind="green" onClick={() => saveRate(r.id)}>Save</Btn>}
+                  <Btn size="sm" kind="red" icon="trash" aria-label={`Delete ${r.name}`} onClick={() => setDeleting(r)}>Delete</Btn>
+                </div>
+              </Cell>
             </Row>
           );
         })}
@@ -492,6 +633,21 @@ function DamageRates() {
         </Row>
       </TableShell>
       <ErrorNote>{error}</ErrorNote>
+      {deleting && (
+        <ConfirmDialog title={`Delete "${deleting.name}" for good?`} onCancel={() => setDeleting(null)}
+          confirm={<>
+            {deleting.active && <Btn disabled={deleteBusy} onClick={() => { void toggle(deleting.id, false); setDeleting(null); }}>Retire instead</Btn>}
+            <Btn kind="red" disabled={deleteBusy} onClick={() => void remove(deleting)}>{deleteBusy ? "Deleting…" : "Delete"}</Btn>
+          </>}>
+          <p style={{ color: C.textS, fontSize: 14, margin: "0 0 8px" }}>
+            It&apos;s removed from the rate list and can&apos;t be picked at check-out any more. This can&apos;t be undone.
+          </p>
+          <p style={{ color: C.textS, fontSize: 14, margin: 0 }}>
+            Damage records already charged for it keep their item name, rate and amount, and the Audit Log records what was deleted.
+            {deleting.active && <> To hide it but keep it for later, retire it instead.</>}
+          </p>
+        </ConfirmDialog>
+      )}
     </div>
   );
 }

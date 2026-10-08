@@ -42,7 +42,10 @@ import { LiveStatus } from "@/components/admin/LiveStatus";
 import { CheckoutModal, SettleModal } from "@/components/admin/InspectionModals";
 import { ResortCancelDialog, type UpdateStatus } from "@/components/admin/ResortCancelDialog";
 import { RefundModal } from "@/components/admin/RefundModal";
+import { AddChargeModal } from "@/components/admin/AddChargeModal";
+import { ChooseRefundDialog } from "@/components/admin/ChooseRefundDialog";
 import { DateChangeReview } from "@/components/admin/DateChangeReview";
+import { MoveBookingModal } from "@/components/admin/MoveBookingModal";
 import { EditGuestModal } from "@/components/admin/EditGuestModal";
 import { BookingHistory } from "@/components/admin/BookingHistory";
 import { choiceOpen, fmtDeadline, holdActive, withHolds } from "@/lib/rebooking";
@@ -95,6 +98,10 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
   /** "Cancel (resort can't host)", for a pending or a confirmed booking. */
   const [turnDown, setTurnDown] = useState<Booking | null>(null);
   const [refundFor, setRefundFor] = useState<Booking | null>(null);
+  const [chargeFor, setChargeFor] = useState<Booking | null>(null);
+  const [refundChoice, setRefundChoice] = useState<Booking | null>(null);
+  /** "Set a new date": the date agreed with a guest the resort cancelled. */
+  const [newDateFor, setNewDateFor] = useState<Booking | null>(null);
   const [reviewReq, setReviewReq] = useState<number | null>(null);
   const reviewing = reviewReq === null ? null : ops.dateChanges.find((r) => r.id === reviewReq) ?? null;
   const [archiveOf, setArchiveOf] = useState<Booking | null>(null);
@@ -269,6 +276,13 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                 <Btn kind="red" icon="x" onClick={() => { setViewId(null); setTurnDown(b); }} style={{ marginRight: "auto" }}>Cancel (resort can&apos;t host)</Btn>
               )}
               {b.refundStatus === "Owed" && <Btn kind="primary" icon="cash" onClick={() => { setViewId(null); setRefundFor(b); }}>Send refund · {fmt(b.refundAmount ?? 0)}</Btn>}
+              {/* The guest asked the owner for their money back instead of a new date. */}
+              {b.status === "ResortCancelled" && <Btn kind="red" icon="cash" onClick={() => { setViewId(null); setRefundChoice(b); }}>Guest chose a refund</Btn>}
+              {/* The date agreed with them by call or chat. A date they picked
+                  themselves is answered with Review instead. */}
+              {b.status === "ResortCancelled" && !request && <Btn kind="primary" icon="calendar" onClick={() => { setViewId(null); setNewDateFor(b); }}>Set a new date</Btn>}
+              {/* Overtime, extra guests or a room taken on the day, until it is settled. */}
+              {!b.archived && (b.status === "Confirmed" || b.status === "Pending") && <Btn icon="plus" onClick={() => { setViewId(null); setChargeFor(b); }}>Add a charge</Btn>}
               {m.due > 0 && b.status !== "Cancelled" && <Btn kind={finishStep(b) ? "ghost" : "green"} icon="cash" onClick={() => setPayFor(b.id)}>Record payment</Btn>}
               {finishStep(b) === "complete" && <Btn kind="primary" icon="check" onClick={() => { setViewId(null); setFinish({ kind: "complete", id: b.id }); }}>Complete stay{m.due > 0 ? ` · collect ${fmt(m.due)}` : ""}</Btn>}
               {finishStep(b) === "settle" && <Btn kind="primary" icon="receipt" onClick={() => { setViewId(null); setFinish({ kind: "settle", id: b.id }); }}>Settle{m.due > 0 ? ` · ${fmt(m.due)}` : ""}</Btn>}
@@ -300,10 +314,12 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                 {/* What the guest is deciding, or what the resort owes them. */}
                 {b.status === "ResortCancelled" && (
                   <div style={{ border: "1px solid #9a7bd055", background: "rgba(154,123,208,0.08)", borderRadius: 10, padding: "12px 16px", marginTop: 12, fontSize: 13, color: C.textB, lineHeight: 1.6 }}>
-                    <strong style={{ color: C.textH }}>Cancelled by the resort. Waiting for the guest.</strong><br />
-                    {choiceOpen(b)
-                      ? <>They can pick a new date or a refund until {fmtDeadline(b.choiceDeadline!)}. {fmt(b.heldAmount ?? 0)} is held for them.</>
-                      : <>Their time to choose has passed; the refund becomes owed.</>}
+                    <strong style={{ color: C.textH }}>{request ? "Cancelled by the resort. The guest picked a new date." : choiceOpen(b) ? "Cancelled by the resort. Waiting for the guest." : "Cancelled by the resort. Agree a new date or a refund with the guest."}</strong><br />
+                    {request
+                      ? <>It needs your approval below. {fmt(b.heldAmount ?? 0)} is held for them.</>
+                      : choiceOpen(b)
+                        ? <>They can pick a new date until {fmtDeadline(b.choiceDeadline!)}; you approve it before it&apos;s confirmed. {fmt(b.heldAmount ?? 0)} is held for them. If they call or message you for a refund instead, use <strong>Guest chose a refund</strong> below.</>
+                        : <>Their time to pick a date online has passed. {fmt(b.heldAmount ?? 0)} is still held for them. Call or message them, then use <strong>Set a new date</strong> for the date you agree, or <strong>Guest chose a refund</strong> if they want their money back.</>}
                   </div>
                 )}
                 {b.refundStatus && (
@@ -320,7 +336,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                 {request && (
                   <div style={{ border: "1px solid #d4a80066", background: "rgba(212,168,0,0.06)", borderRadius: 10, padding: "12px 16px", marginTop: 12, fontSize: 13, color: C.textB, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                     <span>
-                      <strong style={{ color: C.textH }}>Asks to move to {fmtDate(request.toDate)}.</strong>{" "}
+                      <strong style={{ color: C.textH }}>{b.status === "ResortCancelled" ? `Picked ${fmtDate(request.toDate)} as the new date.` : `Asks to move to ${fmtDate(request.toDate)}.`}</strong>{" "}
                       {holdActive(request) ? `Held until ${fmtDeadline(request.holdUntil!)}.` : "The hold ran out."}
                     </span>
                     <Btn size="sm" kind="primary" onClick={() => { setViewId(null); setReviewReq(request.id); }}>Review</Btn>
@@ -371,6 +387,15 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
       )}
       {turnDown && <ResortCancelDialog booking={turnDown} onClose={() => setTurnDown(null)} />}
       {refundFor && <RefundModal booking={bookings.find((x) => x.id === refundFor.id) ?? refundFor} onClose={() => setRefundFor(null)} />}
+      {chargeFor && <AddChargeModal booking={bookings.find((x) => x.id === chargeFor.id) ?? chargeFor} onClose={() => setChargeFor(null)} />}
+      {newDateFor && (
+        <MoveBookingModal
+          booking={bookings.find((x) => x.id === newDateFor.id) ?? newDateFor}
+          onClose={() => setNewDateFor(null)}
+          onMoved={(nb) => setBookings((prev) => prev.map((x) => (x.id === nb.id ? { ...x, ...nb } : x)))}
+        />
+      )}
+      {refundChoice && <ChooseRefundDialog booking={refundChoice} onClose={() => setRefundChoice(null)} onDone={(nb) => { setRefundChoice(null); setRefundFor(nb); }} />}
       {reviewing && bookings.find((x) => x.id === reviewing.bookingId) && (
         <DateChangeReview request={reviewing} booking={bookings.find((x) => x.id === reviewing.bookingId)!} onClose={() => setReviewReq(null)} />
       )}

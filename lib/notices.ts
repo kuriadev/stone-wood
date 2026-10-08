@@ -20,25 +20,13 @@ export interface NoticeText {
 const visit = (b: Booking, date = b.date) => `${fmtDate(date)} (${SLOTS[getBookingSlot(b)].label})`;
 const button = (link: string, label = "Open my booking") => ({ label, url: link });
 
-/** The refund page for a booking, derived from the guest link so this file
- *  needs no base-URL config of its own. */
-function refundUrl(link: string, id: string): string {
-  try {
-    const u = new URL("/customer/refund", link);
-    u.searchParams.set("booking", id);
-    return u.toString();
-  } catch {
-    return `/customer/refund?booking=${encodeURIComponent(id)}`;
-  }
-}
-
 export const notices = {
   /** The resort can't host the booking: the guest picks a new date.
    *
-   *  StoneWood does not refund — the remedy is always another date, and that
-   *  holds when the cancellation is the resort's own. What the guest has paid
-   *  is kept against the booking and carries to whichever date they choose,
-   *  so none of this copy may offer money back. */
+   *  What the guest has paid is kept against the booking and carries to
+   *  whichever date they choose. Because the cancellation is the resort's
+   *  own, they may have it back instead — but only by talking to the owner,
+   *  so the email lists the owner's contacts rather than a refund button. */
   resortCancelled(b: Booking, reason: string, link: string, deadline: string, held: number): NoticeText {
     return {
       email: {
@@ -52,20 +40,18 @@ export const notices = {
             ? `Your payment of ${fmt(held)} is safe and stays with your booking. Please pick another available date by ${fmtDeadline(deadline)} and we'll move you across at no extra cost.`
             : `You can move your booking to another available date at no cost. Please choose by ${fmtDeadline(deadline)}.`,
           `If none of the open dates suit you, reply to this email or call us and we'll find one together.`,
-          // The resort cancelled, so a refund is on the table — arranged by a
-          // person through Customer Service, never issued automatically.
-          `Would you rather have your money back? Because this cancellation was ours, you can request a refund instead of a new date.`,
         ],
         rows: [["Booking", b.id], ["Original date", visit(b)], ...(held > 0 ? [["Payment held for you", fmt(held)] as [string, string]] : [])],
         button: button(link, "Choose a new date"),
-        // Offered only when there is money to give back, and styled as the
-        // quieter option: a new date is what the resort would rather do.
+        // The resort cancelled, so a refund is on the table — but it is
+        // arranged with the owner over a call or chat, never by a button.
+        // Offered only when there is money to give back.
         ...(held > 0
           ? {
-              secondaryButton: {
-                label: "Request a refund",
-                url: refundUrl(link, b.id),
-                note: "We'll ask for your GCash number and arrange it with you.",
+              contact: {
+                title: "Prefer a refund?",
+                note: `Because this cancellation was ours, you can have your ${fmt(held)} back instead of a new date. Call or message us with your booking reference ${b.id} and we'll arrange it with you.`,
+                mailSubject: `Refund request – ${b.id}`,
               },
             }
           : {}),
@@ -74,7 +60,47 @@ export const notices = {
     };
   },
 
-  /** The guest picked a new date after a resort cancellation. */
+  /** The guest picked a new date after a resort cancellation; the owner
+   *  has to approve it. The booking is still cancelled until then. */
+  rebookRequested(b: Booking, toDate: string, holdUntil: string, link: string): NoticeText {
+    return {
+      email: {
+        subject: `We got your new date – ${b.id}`,
+        title: "We got your new date",
+        tagline: "The resort will confirm it soon",
+        name: b.name,
+        paragraphs: [
+          `You picked ${visit(b, toDate)} for booking ${b.id}. We're holding that date for you until ${fmtDeadline(holdUntil)} while the resort confirms it, and we'll email you the answer.`,
+        ],
+        rows: [["Booking", b.id], ["Cancelled date", visit(b)], ["Your new date", visit(b, toDate)]],
+        button: button(link, "Check my booking"),
+      },
+      sms: `StoneWood Resort: We got your new date for ${b.id}: ${fmtDate(toDate)}. We'll confirm it by ${fmtDeadline(holdUntil)}. ${link}`,
+    };
+  },
+
+  /** The owner declined that new date, or didn't answer before the hold
+   *  ran out (`note` says which). The guest picks again by `deadline`. */
+  rebookDeclined(b: Booking, toDate: string, note: string, deadline: string, link: string): NoticeText {
+    return {
+      email: {
+        subject: `Please pick another date – ${b.id}`,
+        title: "Please pick another date",
+        tagline: `We couldn't confirm ${fmtDate(toDate)}`,
+        name: b.name,
+        paragraphs: [
+          `We're sorry, we couldn't confirm ${visit(b, toDate)} for booking ${b.id}.${note ? ` ${note}` : ""}`,
+          `Your payment still stays with your booking. Please pick another available date by ${fmtDeadline(deadline)}, or call us and we'll find one together.`,
+        ],
+        rows: [["Booking", b.id], ["Pick a date by", fmtDeadline(deadline)]],
+        button: button(link, "Choose another date"),
+      },
+      sms: `StoneWood Resort: Sorry, we couldn't confirm ${fmtDate(toDate)} for ${b.id}.${note ? ` ${note}` : ""} Please pick another date by ${fmtDeadline(deadline)}: ${link}`,
+    };
+  },
+
+  /** The owner approved the date the guest picked after a resort
+   *  cancellation. */
   rebooked(b: Booking, oldDate: string, link: string): NoticeText {
     return {
       email: {

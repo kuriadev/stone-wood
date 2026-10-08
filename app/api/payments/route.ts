@@ -24,7 +24,7 @@ import { loadBookingLedger } from "@/lib/ledger.server";
 import { parseAmount, cleanText } from "@/lib/money";
 import { fmt, fmtDate } from "@/lib/utils";
 import { logActivity } from "@/lib/activity.server";
-import { guestLinkFor } from "@/lib/rebooking.server";
+import { guestLinkFor, chooseRefund } from "@/lib/rebooking.server";
 import { notices } from "@/lib/notices";
 import { buildNoticeEmail } from "@/lib/emailTemplate";
 import { trySendMail } from "@/lib/mailer";
@@ -80,6 +80,12 @@ export async function POST(req: NextRequest) {
     const received = typeof body.receivedAt === "string" && !Number.isNaN(Date.parse(body.receivedAt))
       ? new Date(body.receivedAt).toISOString()
       : new Date().toISOString();
+    // Money can't arrive on a day that hasn't happened: it would sit in a
+    // future day's report and cash count. (A few minutes' leeway covers a
+    // device clock that runs slightly fast.)
+    if (Date.parse(received) > Date.now() + 10 * 60_000) {
+      return NextResponse.json({ success: false, error: "A payment can't be dated in the future." }, { status: 400 });
+    }
 
     const { data, error } = await getSupabaseAdmin().from("payments").insert({
       booking_id: booking.id,
@@ -121,21 +127,30 @@ export async function POST(req: NextRequest) {
     let refundDone = false;
     let guestLink: string | undefined;
     let sms: string | undefined;
-    if (type === "Refund" && booking.refundStatus === "Owed") {
-      const after = await loadBookingLedger(booking.id);
+    /* A refund recorded straight onto a booking the resort cancelled means
+       the guest chose a refund: close the booking first (chooseRefund), so
+       it stops saying the money is held and stops offering a new date, then
+       finish it below like any refund owed. */
+    let refundOf = booking;
+    if (type === "Refund" && booking.status === "ResortCancelled") {
+      const chosen = await chooseRefund(booking, { notify: false });
+      if (chosen.ok) refundOf = chosen.booking;
+    }
+    if (type === "Refund" && refundOf.refundStatus === "Owed") {
+      const after = await loadBookingLedger(refundOf.id);
       const refunded = (after?.payments ?? []).filter((p) => p.type === "Refund" && !p.voided).reduce((s, p) => s + p.amount, 0);
       const receipt = typeof body.receipt === "string" && /^data:image\/(png|jpe?g|webp);base64,/.test(body.receipt) && body.receipt.length <= 2_000_000
         ? body.receipt : null;
-      refundDone = refunded >= (booking.refundAmount ?? 0);
+      refundDone = refunded >= (refundOf.refundAmount ?? 0);
       const patch: Record<string, unknown> = {};
       if (refundDone) Object.assign(patch, { refund_status: "Sent", refund_sent_at: new Date().toISOString() });
       if (receipt) patch.refund_receipt = receipt;
-      if (Object.keys(patch).length) await getSupabaseAdmin().from("bookings").update(patch).eq("id", booking.id);
+      if (Object.keys(patch).length) await getSupabaseAdmin().from("bookings").update(patch).eq("id", refundOf.id);
       if (refundDone) {
-        guestLink = guestLinkFor(booking);
-        const n = notices.refundSent(booking, refunded, method, reference, guestLink);
+        guestLink = guestLinkFor(refundOf);
+        const n = notices.refundSent(refundOf, refunded, method, reference, guestLink);
         sms = n.sms;
-        if (booking.email) await trySendMail({ to: booking.email, ...buildNoticeEmail(n.email) }, `refund-sent ${booking.id}`);
+        if (refundOf.email) await trySendMail({ to: refundOf.email, ...buildNoticeEmail(n.email) }, `refund-sent ${refundOf.id}`);
       }
     }
 

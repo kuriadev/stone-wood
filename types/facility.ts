@@ -41,10 +41,13 @@ export interface Facility {
   afterUseChecklist?: string[];
 }
 
-/** What the public website gets: no status, notes or checklists. */
+/** What the public website gets: no notes, checklists or full status. */
 export interface PublicAmenity {
   id: number;
   name: string;
   icon: string;
   description: string;
+  /** Set Under Maintenance in Facility Management. The only part of the
+   *  status a guest sees: "In Use" or "Needs Cleaning" is staff business. */
+  underMaintenance: boolean;
 }

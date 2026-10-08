@@ -2,9 +2,9 @@
 // ── POST /api/activity → note something done outside the app   (admin only)
 //
 // GET filters: from, to (YYYY-MM-DD, Manila days), category (the part of
-// the action before the dot: booking, payment, room…), booking (a
-// reference), q (words in the summary), before (an id, to load older
-// rows), limit (up to 200).
+// the action before the dot: booking, payment, room…), actor (Admin, Guest
+// or System), booking (a reference), q (words in the summary), before (an
+// id, to load older rows), limit (up to 200).
 //
 // POST accepts only actions the app can't see on its own, such as the
 // owner texting a guest from their phone. Everything else is logged by the
@@ -29,12 +29,14 @@ export async function GET(req: NextRequest) {
     let q = getSupabaseAdmin().from("activity_log").select("*").order("id", { ascending: false }).limit(limit + 1);
     const booking = p.get("booking")?.trim();
     const category = p.get("category")?.trim();
+    const actor = p.get("actor");
     const from = p.get("from");
     const to = p.get("to");
     const words = cleanText(p.get("q"), 80).replace(/[%,()]/g, " ").trim();
     const before = Number(p.get("before"));
     if (booking) q = q.eq("booking_id", booking);
     if (category && /^[a-z_]+$/.test(category)) q = q.like("action", `${category}.%`);
+    if (actor === "Admin" || actor === "Guest" || actor === "System") q = q.eq("actor", actor);
     if (isDateStr(from)) q = q.gte("at", `${from}T00:00:00+08:00`);
     if (isDateStr(to)) q = q.lt("at", new Date(new Date(`${to}T00:00:00+08:00`).getTime() + 86_400_000).toISOString());
     if (words) q = q.ilike("summary", `%${words}%`);
@@ -46,7 +48,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, activity: rows.slice(0, limit).map(rowToActivity), more: rows.length > limit });
   } catch (err) {
     console.error("[/api/activity GET]", err);
-    return NextResponse.json({ success: false, error: "Could not load the activity log. Has the latest migration been run?" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Could not load the audit log. Has the latest migration been run?" }, { status: 500 });
   }
 }
 

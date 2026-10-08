@@ -12,6 +12,7 @@ import type { PackageDeepLink } from "@/types/booking";
 import type { ResortPackage } from "@/types/package";
 import { isEventPackage } from "@/lib/packages";
 import { buildPackageBookingUrl } from "@/lib/utils";
+import { packageValue } from "@/lib/pricing";
 
 export default function BookPage() {
   const router = useRouter();
@@ -67,21 +68,23 @@ export default function BookPage() {
         }
       : undefined;
 
-  /* Event packages offered inside step 1. Same rule as the Packages page's
-     EVENTS tab, and inactive ones never reach a guest. */
+  /* Packages offered inside step 1, split by the same rule as the Packages
+     page's EVENTS tab: hall packages under the venue choices, pool-only ones
+     under "Resort visit". Inactive ones never reach a guest. */
   const eventPackages = packages.filter((p) => p.active && isEventPackage(p));
+  const resortPackages = packages.filter((p) => p.active && !isEventPackage(p));
 
   /* Booking one is the same deep link the Packages page builds, so Book Now
      reopens in package mode with the package's resource, tier, slot and
      capacity — no second code path, and the server quote is unchanged. */
-  const bookEventPackage = (pkg: ResortPackage) => {
+  const bookPackage = (pkg: ResortPackage) => {
     router.push(
       buildPackageBookingUrl(
         {
           code: pkg.code,
           title: pkg.title,
           price: pkg.price,
-          listPrice: pkg.listPrice,
+          listPrice: packageValue(pkg).compare,
           capacity: pkg.capacity,
           requiresRoom: pkg.requiresRoom,
           slotMode: pkg.slotMode,
@@ -151,7 +154,8 @@ export default function BookPage() {
         initialTier={initialTier}
         initialPackage={initialPackage}
         eventPackages={eventPackages}
-        onBookEventPackage={bookEventPackage}
+        resortPackages={resortPackages}
+        onBookPackage={bookPackage}
         onClearPackage={() => router.replace("/book")}
       />
       <Footer setPage={nav} />

@@ -10,6 +10,7 @@ import { Footer } from "@/components/layout/Footer";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { CardGridSkeleton } from "@/components/common/Skeleton";
 import { buildPackageBookingUrl } from "@/lib/utils";
+import { packageValue } from "@/lib/pricing";
 
 export default function PackagesRoute() {
   const router = useRouter();
@@ -66,7 +67,7 @@ export default function PackagesRoute() {
                   code: pkg.code,
                   title: pkg.title,
                   price: pkg.price,
-                  listPrice: pkg.listPrice,
+                  listPrice: packageValue(pkg).compare,
                   capacity: pkg.capacity,
                   requiresRoom: pkg.requiresRoom,
                   slotMode: pkg.slotMode,

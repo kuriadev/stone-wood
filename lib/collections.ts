@@ -132,8 +132,10 @@ export const COLLECTIONS = {
     // Kept live by the admin panel's sync (OpsContext), with bookings.
     load: () =>
       getJson<Facility[]>("/api/facilities", (j) => j.facilities as Facility[] | undefined),
-    // Facilities are never created or deleted from the UI, only updated, so
-    // this patches changed rows and does nothing else.
+    // Amenities are added and removed through their own calls (POST and
+    // DELETE /api/facilities, then a reload), never by this diff, so this
+    // patches changed rows and does nothing else. A row missing from `next`
+    // is never taken as "delete it".
     sync: async (prev: Facility[], next: Facility[]) => {
       const prevById = new Map(prev.map((f) => [f.id, f]));
       for (const f of next) {

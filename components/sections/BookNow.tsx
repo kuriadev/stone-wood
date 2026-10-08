@@ -6,7 +6,7 @@
   import { useToast } from "@/contexts/ToastContext";
   import { T } from "@/lib/theme";
   import { gold, goldBtn, outBtn } from "@/lib/styles";
-  import { fmt, fmtTimer, fmtDate, getPackageTier, checkBookingAvailability, getSharedPoolUsage, isRoomOpen, roomsTakenOn } from "@/lib/utils";
+  import { fmt, fmtTimer, fmtDate, getPackageTier, checkBookingAvailability, getSharedPoolUsage, isRoomOpen, isPoolOpen, isVenueOpen, roomsTakenOn } from "@/lib/utils";
   import { roomShots } from "@/lib/gallery";
   import { EventPackages } from "@/components/booking/EventPackages";
   import type { ResortPackage } from "@/types/package";
@@ -97,12 +97,15 @@
      *  negotiable, so when this is set the whole guest/room/overtime/tier
      *  picker UI is hidden and the guest only picks a date. */
     initialPackage?: PackageDeepLink;
-    /** Event packages offered in step 1, so they can be booked without
-     *  leaving for the Packages page. Empty or omitted hides the section. */
+    /** Packages offered in step 1, so they can be booked without leaving
+     *  for the Packages page: the event ones (they use the hall) under the
+     *  two venue choices, the pool-only ones under "Resort visit". Empty or
+     *  omitted hides the section. */
     eventPackages?: ResortPackage[];
+    resortPackages?: ResortPackage[];
     /** Called when a guest picks one. The page deep-links it exactly as the
      *  Packages page does, so no pricing rule lives in this component. */
-    onBookEventPackage?: (pkg: ResortPackage) => void;
+    onBookPackage?: (pkg: ResortPackage) => void;
     /** Drops the deep-linked package and returns to a plain booking. Step 1
      *  is the generic visit chooser, which does not govern a package, so
      *  "back" from the date step has to mean "leave this package". */
@@ -119,7 +122,8 @@
     initialSlot,
     initialGuests, initialTier, initialPackage,
     eventPackages = [],
-    onBookEventPackage,
+    resortPackages = [],
+    onBookPackage,
     onClearPackage,
   }: BookNowProps) {
     const { isDark } = useTheme();
@@ -220,6 +224,24 @@
         setGuests(RESORT_MAX_CAPACITY);
       }
     }, [isPackage, resource, tier]);
+
+    // The pool or the events venue set Under Maintenance in Facility
+    // Management can't be booked: the server refuses it
+    // (checkBookingAvailability), and step 1 says so on the choices rather
+    // than letting a guest get as far as the date first.
+    const poolClosed = !isPoolOpen(facilities);
+    const venueClosed = !isVenueOpen(facilities);
+    const resourceClosed = (r: BookingResource) => (r !== "Venue" && poolClosed) || (r !== "Pool" && venueClosed);
+    // Step 1 never sits on a closed choice: it moves to the first open one.
+    useEffect(() => {
+      const closed = (r: BookingResource) => (r !== "Venue" && poolClosed) || (r !== "Pool" && venueClosed);
+      if (isPackage || step !== 1 || !closed(resource)) return;
+      const open = (["Pool", "Pool+Venue", "Venue"] as const).find((r) => !closed(r));
+      if (open) {
+        setResource(open);
+        if (open === "Venue") setSelRooms([]);
+      }
+    }, [isPackage, step, resource, poolClosed, venueClosed]);
 
     // isWithinBookingWindow also rejects past dates and malformed strings, so
     // a stale preselected date (deep link, or a tab left open past midnight)
@@ -735,10 +757,13 @@
                     const selected = slot === opt.id;
                     // Priced through priceBooking rather than written out, so
                     // these lines cannot drift from what the guest is charged.
+                    // Venue-only is a flat hall rental, not a per-guest pool rate.
                     const excl = opt.id === "WholeDay";
-                    const price = excl
-                      ? `Exclusive · ${fmt(priceBooking({ resource: "Pool", tier: "Exclusive", slot: opt.id, guests: 1, overtime: 0, roomPrices: [] }).total)}`
-                      : `From ${fmt(SHARED_PER_HEAD_RATE)} per guest`;
+                    const price = resource === "Venue"
+                      ? `Venue · ${fmt(priceBooking({ resource: "Venue", tier: "Exclusive", slot: opt.id, guests: 1, overtime: 0, roomPrices: [] }).total)}`
+                      : excl
+                        ? `Exclusive · ${fmt(priceBooking({ resource: "Pool", tier: "Exclusive", slot: opt.id, guests: 1, overtime: 0, roomPrices: [] }).total)}`
+                        : `From ${fmt(SHARED_PER_HEAD_RATE)} per guest`;
                     return (
                       <button
                         key={opt.id}
@@ -762,58 +787,82 @@
                   })}
                 </div>
 
-                {/* Events venue. Stated as two named choices rather than a
-                    checkbox: "no venue" is a real, priced option, and a lone
-                    checkbox left guests unsure whether they had opted in. */}
-                <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 28, paddingTop: 24, display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1fr) minmax(0,1.15fr)", gap: mob ? 20 : 28, alignItems: "center" }}>
-                  <div>
-                    <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 8px", fontWeight: 700 }}>EVENT BOOKING</p>
-                    <h4 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 20 : 23, margin: "0 0 8px", fontWeight: 400 }}>
-                      Need space for a celebration?
-                    </h4>
-                    <p style={{ color: C.textS, fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-                      Events are handled separately from your pool visit so pricing and setup remain clear.
+                {/* What is being booked: the pool, the events venue, or both.
+                    Three named choices rather than a checkbox: each is a real,
+                    priced option. Venue-only (a party, a seminar, a Zumba
+                    class) used to be reachable only from a package link; the
+                    server, pricing and availability already handled it. */}
+                <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 28, paddingTop: 24 }}>
+                  <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 8px", fontWeight: 700 }}>WHAT YOU&rsquo;RE BOOKING</p>
+                  <h4 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 20 : 23, margin: "0 0 8px", fontWeight: 400 }}>
+                    The pool, the events venue, or both?
+                  </h4>
+                  <p style={{ color: C.textS, fontSize: 13, margin: "0 0 16px", lineHeight: 1.6 }}>
+                    Book a resort visit, rent the events venue on its own, or have both together.
+                  </p>
+                  {(poolClosed || venueClosed) && (
+                    <p role="status" style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.textB, fontSize: 13, lineHeight: 1.6, margin: "0 0 16px", borderLeft: "3px solid #e07a3a", paddingLeft: 12 }}>
+                      <Icon name="toolbox" size={15} strokeWidth={1.5} style={{ color: "#e07a3a", marginTop: 2, flexShrink: 0 }} />
+                      <span>
+                        {poolClosed && venueClosed
+                          ? "The pool and the events venue are both under maintenance, so nothing can be booked right now. Please check back soon."
+                          : poolClosed
+                            ? "The pool is under maintenance, so only the events venue can be booked right now."
+                            : "The events venue is under maintenance, so only resort visits can be booked right now."}
+                      </span>
                     </p>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  )}
+                  <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 12 }}>
                     {([
-                      { id: "Pool", title: "Resort visit only", sub: "No event venue" },
-                      { id: "Pool+Venue", title: "Add Events Venue", sub: `Private hall · +${fmt(EVENT_VENUE_RATE)} per slot` },
-                    ] as const).map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        aria-pressed={resource === opt.id}
-                        onClick={() => setResource(opt.id)}
-                        style={tileStyle(resource === opt.id)}
-                      >
-                        <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 4 }}>{opt.title}</span>
-                        <span style={{ display: "block", color: C.textS, fontSize: 12, lineHeight: 1.5 }}>{opt.sub}</span>
-                      </button>
-                    ))}
+                      { id: "Pool", title: "Resort visit", sub: "Pool & amenities · no events venue" },
+                      { id: "Pool+Venue", title: "Resort visit + Events Venue", sub: `Pool and the private hall · +${fmt(EVENT_VENUE_RATE)} per slot` },
+                      { id: "Venue", title: "Events Venue only", sub: `Private hall, no pool · ${fmt(EVENT_VENUE_RATE)} per slot` },
+                    ] as const).map((opt) => {
+                      const closed = resourceClosed(opt.id);
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          aria-pressed={resource === opt.id}
+                          disabled={closed}
+                          // A venue-only booking takes no rooms; drop any picked
+                          // earlier (or preselected from a room's page) so they
+                          // are neither priced nor sent.
+                          onClick={() => { setResource(opt.id); if (opt.id === "Venue") setSelRooms([]); }}
+                          style={{ ...tileStyle(resource === opt.id && !closed), ...(closed ? { opacity: 0.5, cursor: "not-allowed" } : null) }}
+                        >
+                          <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 4 }}>{opt.title}</span>
+                          <span style={{ display: "block", color: closed ? (isDark ? "#e8a070" : "#a8481a") : C.textS, fontSize: 12, lineHeight: 1.5 }}>{closed ? "Under maintenance" : opt.sub}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Event packages. Previously reachable only from the Packages
+                {/* Packages. Previously reachable only from the Packages
                     page, so a guest already inside Book Now could not see
                     them.
 
-                    Shown only once the guest has asked for the venue: a guest
-                    on "Resort visit only" has said they do not want a hall,
-                    and a catalogue of halls under that answer is noise. Also
-                    hidden while a package booking is already in progress —
-                    there is nothing left to choose at that point. */}
-                {!isPackage && onBookEventPackage && resource === "Pool+Venue" && (
+                    They follow the answer above: "Resort visit" shows the
+                    pool-only packages, either venue choice shows the event
+                    packages. A guest on "Resort visit" has said they do not
+                    want a hall, so hall packages there would be noise. Hidden
+                    while a package booking is already in progress, since
+                    there is nothing left to choose. Keyed on the kind so
+                    switching resets "view all" and any open detail. */}
+                {!isPackage && onBookPackage && (
                   <EventPackages
-                    packages={eventPackages}
+                    key={resource === "Pool" ? "resort" : "events"}
+                    kind={resource === "Pool" ? "resort" : "events"}
+                    packages={(resource === "Pool" ? resortPackages : eventPackages).filter((p) => !resourceClosed(p.resource))}
                     mob={mob}
-                    onBook={onBookEventPackage}
+                    onBook={onBookPackage}
                   />
                 )}
 
                 {navRow(
                   { label: "BACK TO HOME", onClick: () => onGoHome?.() },
-                  { label: "CONTINUE", onClick: () => setStep(3) },
+                  { label: "CONTINUE", onClick: () => setStep(3), disabled: resourceClosed(resource) },
                 )}
               </div>
             )}
@@ -837,6 +886,20 @@
                     role="group"
                     aria-labelledby="booknow-date-label"
                   >
+                    {/* Reached without step 1 (a package, a deep link): say
+                        so before a date is picked, not after. */}
+                    {resourceClosed(resource) && (
+                      <p role="status" style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.textB, fontSize: 13, lineHeight: 1.6, margin: "0 0 16px", borderLeft: "3px solid #e07a3a", paddingLeft: 12 }}>
+                        <Icon name="toolbox" size={15} strokeWidth={1.5} style={{ color: "#e07a3a", marginTop: 2, flexShrink: 0 }} />
+                        <span>
+                          {resource !== "Venue" && poolClosed && (resource === "Pool" || !venueClosed)
+                            ? "The pool is under maintenance, so this can't be booked right now. Please check back soon."
+                            : resource !== "Pool" && venueClosed && (resource === "Venue" || !poolClosed)
+                              ? "The events venue is under maintenance, so this can't be booked right now. Please check back soon."
+                              : "The pool and the events venue are under maintenance, so this can't be booked right now. Please check back soon."}
+                        </span>
+                      </p>
+                    )}
                     <BookingDatePicker
                       bookings={bookings}
                       closedDates={closedDates}
@@ -1120,8 +1183,15 @@
                           : `The resort is yours all day and night — no turnover in between. ${QUIET_HOURS_POLICY}`}
                       </p>
                       <p style={{ color: C.goldInk, fontSize: 12.5, margin: "16px 0 0", paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
-                        Shared {fmt(SHARED_PER_HEAD_RATE)} / guest · Exclusive{" "}
-                        {fmt(priceBooking({ resource: "Pool", tier: "Exclusive", slot, guests: 1, overtime: 0, roomPrices: [] }).total)}
+                        {resource === "Venue" ? (
+                          <>Events venue only, no pool · {fmt(priceBooking({ resource: "Venue", tier: "Exclusive", slot, guests: 1, overtime: 0, roomPrices: [] }).total)} flat</>
+                        ) : (
+                          <>
+                            Shared {fmt(SHARED_PER_HEAD_RATE)} / guest · Exclusive{" "}
+                            {fmt(priceBooking({ resource: "Pool", tier: "Exclusive", slot, guests: 1, overtime: 0, roomPrices: [] }).total)}
+                            {resource === "Pool+Venue" && <> · plus the events venue, {fmt(EVENT_VENUE_RATE)} per slot</>}
+                          </>
+                        )}
                       </p>
                     </div>
                   </div>

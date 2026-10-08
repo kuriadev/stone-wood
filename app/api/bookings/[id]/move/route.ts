@@ -18,6 +18,12 @@
 // already Approved) so it appears in Daily Operations → Reschedules beside
 // the guest-initiated ones. One place shows every date change, whoever made
 // it — which is the whole point of that section.
+//
+// It also books a guest the RESORT cancelled onto the date agreed with them
+// by call or chat ("Set a new date"): the booking moves and is confirmed
+// again, with what they paid carried over, exactly as approving their own
+// pick does. That is the way out once their time to pick online has passed.
+// A date they already picked is answered in Reschedules instead.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
@@ -29,7 +35,7 @@ import { notices } from "@/lib/notices";
 import { buildNoticeEmail } from "@/lib/emailTemplate";
 import { trySendMail } from "@/lib/mailer";
 import { logActivity } from "@/lib/activity.server";
-import { fmtDate } from "@/lib/utils";
+import { fmt, fmtDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -55,37 +61,50 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const { rowToBooking } = await import("@/lib/supabase");
     const b = rowToBooking(cur.data as never);
 
-    if (b.status !== "Confirmed" && b.status !== "Pending") {
+    const rebook = b.status === "ResortCancelled";
+    if (b.status !== "Confirmed" && b.status !== "Pending" && !rebook) {
       return no(`A ${b.status.toLowerCase()} booking can't be moved.`);
     }
     if (b.checkedInAt) return no("This group has already checked in.");
-    // Same cut-off the guest and approval routes enforce: a visit that has
-    // been and gone is not rescheduled, it is rebooked.
-    if (b.date <= manilaDate()) {
+    if (rebook) {
+      const picked = await db.from("date_change_requests").select("to_date")
+        .eq("booking_id", b.id).eq("status", "Pending").maybeSingle();
+      if (picked.error) throw new Error(picked.error.message);
+      if (picked.data) {
+        return no(`${b.name} already picked ${fmtDate((picked.data as { to_date: string }).to_date)}. Approve or decline it in Reschedules first.`);
+      }
+    } else if (b.date <= manilaDate()) {
+      // Same cut-off the guest and approval routes enforce: a visit that has
+      // been and gone is not rescheduled, it is rebooked. (A resort-cancelled
+      // booking's old date was called off, so only the new date matters.)
       return no("That visit date has already passed. Take a new booking instead.");
     }
 
     const check = await checkMove(b, date);
     if (!check.ok) return no(check.error);
 
-    const saved = await moveBooking(b, date);
+    const now = new Date().toISOString();
+    const saved = await moveBooking(b, date, rebook
+      ? { status: "Confirmed", confirmed_at: now, choice_deadline: null, held_amount: 0 }
+      : {});
     if (!saved) return no("This booking just changed. Refresh and try again.");
 
-    const now = new Date().toISOString();
     await db.from("date_change_requests").insert({
       booking_id: b.id, from_date: b.date, to_date: date,
       requested_by: "Resort", status: "Approved", decided_at: now,
-      note: note || "Moved by the resort.",
+      note: note || (rebook ? "New date agreed with the guest after the resort cancelled." : "Moved by the resort."),
     });
 
     const link = guestLinkFor(saved);
-    const n = notices.dateChangeApproved(saved, b.date, link);
-    if (saved.email) await trySendMail({ to: saved.email, ...buildNoticeEmail(n.email) }, `booking-moved ${saved.id}`);
+    const n = rebook ? notices.rebooked(saved, b.date, link) : notices.dateChangeApproved(saved, b.date, link);
+    if (saved.email) await trySendMail({ to: saved.email, ...buildNoticeEmail(n.email) }, `${rebook ? "rebooked" : "booking-moved"} ${saved.id}`);
 
     await logActivity({
-      actor: "Admin", action: "booking.moved", bookingId: saved.id, entity: "booking", entityId: saved.id,
-      summary: `Moved ${saved.id} (${saved.name}) from ${fmtDate(b.date)} to ${fmtDate(date)} by hand.${note ? ` Reason: ${note}` : ""}`,
-      details: { from: b.date, to: date, note },
+      actor: "Admin", action: rebook ? "booking.rebooked" : "booking.moved", bookingId: saved.id, entity: "booking", entityId: saved.id,
+      summary: rebook
+        ? `Set a new date for ${saved.id} (${saved.name}) after the resort cancelled ${fmtDate(b.date)}: ${fmtDate(date)}. It is confirmed again${(b.heldAmount ?? 0) > 0 ? `, with the ${fmt(b.heldAmount ?? 0)} they paid carried over` : ""}.${note ? ` Note: ${note}` : ""}`
+        : `Moved ${saved.id} (${saved.name}) from ${fmtDate(b.date)} to ${fmtDate(date)} by hand.${note ? ` Reason: ${note}` : ""}`,
+      details: { from: b.date, to: date, note, ...(rebook ? { rebook: true } : {}) },
     });
 
     return NextResponse.json({ success: true, booking: saved, sms: n.sms });

@@ -149,6 +149,32 @@ export function standardPackagePrice(p: {
   return { price: b.tourBase, listPrice: b.poolFee + b.venueFee };
 }
 
+/** What a package is worth next to building the same booking by hand in
+ *  Book Now, which any guest can now do (pool, venue or both).
+ *
+ *    diy        what that booking costs on its own (before any room)
+ *    save       how much less the package costs; 0 when it doesn't
+ *    compare    the price to show struck through: `diy`, only when the
+ *               package really is cheaper
+ *
+ *  This replaced the admin-typed list price on the public pages. That was
+ *  the pre-discount total (₱6,000 for a private pool), but booking it
+ *  yourself already gets the same discount (₱5,700), so "SAVE ₱300" on a
+ *  package at ₱5,700 claimed a saving that didn't exist. The 8% room
+ *  discount (requiresRoom) is on top and isn't counted here: it depends on
+ *  which room the guest picks. */
+export function packageValue(p: {
+  resource: BookingResource;
+  status: BookingTier;
+  slotMode: "Single" | "WholeDay";
+  capacity: number;
+  price: number;
+}): { diy: number; save: number; compare?: number } {
+  const diy = standardPackagePrice({ resource: p.resource, tier: p.status, slotMode: p.slotMode, capacity: p.capacity }).price;
+  const save = Math.max(0, diy - p.price);
+  return { diy, save, compare: save > 0 ? diy : undefined };
+}
+
 /** The label stored on the booking and shown on receipts. */
 export function bookingLabel(opts: {
   packageTitle?: string;

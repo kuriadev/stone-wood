@@ -47,6 +47,9 @@ export function MoveBookingModal({ booking, onMoved, onClose }: MoveBookingModal
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [confirming, setConfirming] = useState(false);
+  /* A booking the resort cancelled gets the date agreed with the guest and
+     is confirmed again (POST /move does both), rather than just moving. */
+  const rebook = booking.status === "ResortCancelled";
 
   // A date another guest is holding is not free, so the calendar must see it.
   const withHeld = withHolds(bookings, ops.dateChanges);
@@ -66,7 +69,7 @@ export function MoveBookingModal({ booking, onMoved, onClose }: MoveBookingModal
         setConfirming(false);
         return;
       }
-      toast(`${booking.id} moved to ${fmtDate(date)}.`, "success");
+      toast(rebook ? `${booking.id} is confirmed again for ${fmtDate(date)}.` : `${booking.id} moved to ${fmtDate(date)}.`, "success");
       onMoved(json.booking as Booking);
       onClose();
     } catch {
@@ -79,7 +82,7 @@ export function MoveBookingModal({ booking, onMoved, onClose }: MoveBookingModal
 
   return (
     <Modal
-      title="Move this booking"
+      title={rebook ? "Set a new date" : "Move this booking"}
       subtitle={`${booking.name} · ${booking.id}`}
       onClose={onClose}
       width={620}
@@ -90,12 +93,12 @@ export function MoveBookingModal({ booking, onMoved, onClose }: MoveBookingModal
             <div style={{ display: "flex", gap: SPACE.xs }}>
               <Btn kind="ghost" onClick={() => setConfirming(false)} disabled={busy}>Back</Btn>
               <Btn kind="primary" icon="check" onClick={() => void move()} disabled={busy}>
-                {busy ? "Moving…" : `Yes, move to ${fmtDate(date)}`}
+                {busy ? "Saving…" : rebook ? `Yes, confirm for ${fmtDate(date)}` : `Yes, move to ${fmtDate(date)}`}
               </Btn>
             </div>
           ) : (
             <Btn kind="primary" icon="calendar" disabled={!date || busy} onClick={() => setConfirming(true)}>
-              {date ? `Move to ${fmtDate(date)}` : "Pick a date"}
+              {date ? `${rebook ? "Set" : "Move to"} ${fmtDate(date)}` : "Pick a date"}
             </Btn>
           )}
         </div>
@@ -115,10 +118,15 @@ export function MoveBookingModal({ booking, onMoved, onClose }: MoveBookingModal
 
         {confirming ? (
           <p style={{ color: C.textB, fontSize: 13.5, lineHeight: 1.7, margin: 0 }}>
-            This moves <strong style={{ color: C.textH }}>{booking.id}</strong> to{" "}
-            <strong style={{ color: C.textH }}>{fmtDate(date)}</strong> straight away and emails{" "}
-            {booking.email ? <strong style={{ color: C.textH }}>{booking.email}</strong> : "the guest"} to tell them.
-            The payment carries over and the preparation checklist resets for the new date.
+            {rebook
+              ? <>This books <strong style={{ color: C.textH }}>{booking.id}</strong> on{" "}
+                  <strong style={{ color: C.textH }}>{fmtDate(date)}</strong> and confirms it again straight away, then emails{" "}
+                  {booking.email ? <strong style={{ color: C.textH }}>{booking.email}</strong> : "the guest"} to tell them.
+                  What they paid carries over. Only do this for a date you agreed with them.</>
+              : <>This moves <strong style={{ color: C.textH }}>{booking.id}</strong> to{" "}
+                  <strong style={{ color: C.textH }}>{fmtDate(date)}</strong> straight away and emails{" "}
+                  {booking.email ? <strong style={{ color: C.textH }}>{booking.email}</strong> : "the guest"} to tell them.
+                  The payment carries over and the preparation checklist resets for the new date.</>}
           </p>
         ) : (
           <>
@@ -129,8 +137,8 @@ export function MoveBookingModal({ booking, onMoved, onClose }: MoveBookingModal
               onSelectDate={(d) => { setDate(d); setError(""); }}
             />
             <div>
-              <Label>WHY (OPTIONAL — SHOWS IN ACTIVITY AND RESCHEDULES)</Label>
-              <Input value={note} onChange={(e) => setNote(e.target.value)} style={inp} placeholder="Guest called to move it" />
+              <Label>WHY (OPTIONAL — SHOWS IN THE AUDIT LOG AND RESCHEDULES)</Label>
+              <Input value={note} onChange={(e) => setNote(e.target.value)} style={inp} placeholder={rebook ? "Agreed with the guest on Messenger" : "Guest called to move it"} />
             </div>
             <p style={{ color: C.textXS, fontSize: 12, margin: 0, lineHeight: 1.6 }}>
               Only free dates can be picked — the server checks availability again

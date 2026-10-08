@@ -24,16 +24,17 @@
 //   done       settled today
 
 import type { Booking } from "@/types/booking";
-import type { Inspection, DateChange } from "@/types/finance";
-import { choiceOpen, holdActive } from "@/lib/rebooking";
+import type { Inspection, DateChange, Payment, Expense, DailyClosing } from "@/types/finance";
+import { choiceOpen, choiceExpired, holdActive } from "@/lib/rebooking";
 import { manilaDate } from "@/lib/finance";
 import { getOccupancyWindow } from "@/lib/occupancy";
+import { fmtDate } from "@/lib/utils";
 
 export type OpsStage = "confirm" | "prepare" | "arriving" | "onsite" | "settle" | "done";
 
 export const OPS_STAGES: { id: OpsStage; label: string; hint: string; color: string }[] = [
   { id: "confirm", label: "To confirm", hint: "New reservations. Check the payment, then accept or reject.", color: "#d4a800" },
-  { id: "prepare", label: "To prepare", hint: "Confirmed and coming up. Prepare the facilities before they arrive.", color: "#9a7bd0" },
+  { id: "prepare", label: "To prepare", hint: "Confirmed and coming up. Preparation opens the day before each visit.", color: "#9a7bd0" },
   { id: "arriving", label: "Arriving", hint: "Due today. Check them in when the group arrives.", color: "#3a8fc4" },
   { id: "onsite", label: "On site", hint: "Checked in. Inspect the facilities, collect what's owed and check them out when they leave.", color: "#2e9e4e" },
   { id: "settle", label: "To settle", hint: "Checked out without paying everything. Collect the rest, then settle.", color: "#e07a3a" },
@@ -42,6 +43,36 @@ export const OPS_STAGES: { id: OpsStage; label: string; hint: string; color: str
 
 /** How far ahead "To prepare" looks. */
 export const PREPARE_HORIZON_DAYS = 14;
+
+// ── When a booking can be prepared ───────────────────────────────────
+//
+// The preparation checklist (pool clean, rooms made up) only means
+// something close to the visit: other groups use the same pool and rooms
+// in between, so a checklist ticked two weeks ahead says nothing about the
+// day. Every booking therefore follows one rule, which the server enforces
+// too (/api/inspections):
+//
+//   opens    PREP_OPENS_DAYS_BEFORE day(s) before the visit date
+//   closes   when the group checks in, or once the visit date has passed
+//
+// A booking further out still shows under "To prepare", with the date its
+// preparation opens instead of a button.
+
+/** Preparation opens this many days before the visit date. */
+export const PREP_OPENS_DAYS_BEFORE = 1;
+
+/** The first day (YYYY-MM-DD, Manila) a booking's facilities can be prepared. */
+export function prepOpensOn(b: Pick<Booking, "date">): string {
+  return addDays(b.date, -PREP_OPENS_DAYS_BEFORE);
+}
+
+/** Why a booking can't be prepared on `today`, or null when it can. */
+export function prepBlocked(b: Pick<Booking, "date" | "checkedInAt">, today: string): string | null {
+  if (b.checkedInAt) return "This group has already checked in, so preparation is closed.";
+  if (b.date < today) return `The visit date (${fmtDate(b.date)}) has passed, so it can no longer be prepared.`;
+  if (today < prepOpensOn(b)) return `Preparation opens on ${fmtDate(prepOpensOn(b))}, the day before the visit.`;
+  return null;
+}
 
 export interface OpsCard {
   b: Booking;
@@ -161,6 +192,47 @@ export function closingBlockers(bookings: Booking[], date: string): CloseBlocker
     .sort((x, y) => order.indexOf(x.need) - order.indexOf(y.need) || x.b.date.localeCompare(y.b.date));
 }
 
+// ── Days nobody closed ───────────────────────────────────────────────
+//
+// Closing the day (counting the cash drawer) is a step the owner has to
+// remember. The Night Tour ends at midnight, so the natural time to close a
+// day is the next morning, which is exactly when it's easy to forget. Every
+// PAST day that needed a count and has none is chased in "Needs your
+// attention" (and the sidebar badge) until it is closed.
+//
+// A day needs a count only when cash moved through the drawer: a cash
+// payment (or cash refund) or a cash expense. A day with only GCash, bank or
+// online payments, or nothing at all, has nothing to count and is never
+// asked for. (A group visiting doesn't by itself make one due: unfinished
+// bookings are chased in their own rows, and closing would only record ₱0.)
+
+/** How far back an unclosed day is still chased. */
+export const UNCLOSED_LOOKBACK_DAYS = 14;
+
+/** Past days (oldest first) that need closing and haven't been. */
+export function unclosedDays(args: {
+  payments: Payment[];
+  expenses: Expense[];
+  closings: DailyClosing[];
+  today: string;
+}): string[] {
+  const { payments, expenses, closings, today } = args;
+  const from = addDays(today, -UNCLOSED_LOOKBACK_DAYS);
+  const closed = new Set(closings.map((c) => c.closingDate));
+  const due = new Set<string>();
+  const add = (d: string) => { if (d >= from && d < today && !closed.has(d)) due.add(d); };
+  for (const d of cashDays(payments, expenses)) add(d);
+  return [...due].sort();
+}
+
+/** Every day (YYYY-MM-DD, Manila) on which cash went in or out of the drawer. */
+function cashDays(payments: Payment[], expenses: Expense[]): Set<string> {
+  const days = new Set<string>();
+  for (const p of payments) if (!p.voided && p.method === "Cash") days.add(manilaDate(p.receivedAt));
+  for (const e of expenses) if (!e.voided && e.method === "Cash") days.add(e.spentOn);
+  return days;
+}
+
 // ── How many things need the owner's attention ──────────────────────
 //
 // OperationsTab renders the "Needs your attention" list with its wording and
@@ -173,7 +245,9 @@ export function closingBlockers(bookings: Booking[], date: string): CloseBlocker
 export interface AttentionTally {
   /** Everything waiting, whatever its urgency. */
   total: number;
-  /** The red ones: overdue, unconfirmed on the day, refunds owed. */
+  /** The red ones: overdue, unconfirmed on the day, refunds owed, a
+   *  resort-cancelled guest whose time to pick ran out, two or more days
+   *  left unclosed. */
   urgent: number;
 }
 
@@ -185,8 +259,12 @@ export function attentionTally(args: {
   /** `facilitiesForBooking` from lib/facilityUsage, passed in so this module
    *  stays free of that dependency. */
   usedBy: (b: Booking) => { id: number; status: string }[];
+  /** For the "days not closed" reminder (unclosedDays). */
+  payments: Payment[];
+  expenses: Expense[];
+  closings: DailyClosing[];
 }): AttentionTally {
-  const { bookings, inspections, dateChanges, now, usedBy } = args;
+  const { bookings, inspections, dateChanges, now, usedBy, payments, expenses, closings } = args;
   const today = manilaDate(now);
   const cards = opsBoard(bookings, inspections, now);
   let total = 0;
@@ -212,12 +290,18 @@ export function attentionTally(args: {
     add(!holdActive(r, now.getTime()));
   }
 
+  const picked = new Set(dateChanges.filter((r) => r.status === "Pending").map((r) => r.bookingId));
   for (const b of bookings) {
     if (b.refundStatus === "Owed") add(true);
     else if (choiceOpen(b, now.getTime())) add(false);
+    else if (choiceExpired(b, picked.has(b.id), now.getTime())) add(true);
   }
 
   if (cards.some((c) => c.view === "upcoming" && c.stage === "confirm")) add(false);
+
+  // One row for every unclosed day together; red once more than one slipped.
+  const unclosed = unclosedDays({ payments, expenses, closings, today });
+  if (unclosed.length > 0) add(unclosed.length > 1);
 
   return { total, urgent };
 }

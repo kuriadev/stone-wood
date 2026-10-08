@@ -54,6 +54,46 @@ export const QUIET_HOURS_START = "10:00 PM";
 /** One-line policy, reused on the booking policy screen and the site. */
 export const QUIET_HOURS_POLICY = `Quiet hours start at ${QUIET_HOURS_START} — videoke and speakers off.`;
 
+// ── How guests reach the owner ─────────────────────────────────────────
+//
+// PLACEHOLDERS: swap in the owner's real number, email and Facebook page
+// before launch. The footer, Customer Service, the guest's booking page and
+// the cancellation email all read these, so one edit here updates them all.
+//
+// A refund after the resort cancels is arranged over a call or a chat with
+// the owner, not through a form, so these are what the guest is shown
+// instead of a "request a refund" button.
+export const RESORT_CONTACT = {
+  /** Calls and texts. */
+  phone: "+63 912 345 6789",
+  viber: "+63 912 345 6789",
+  email: "stonewoodresort.ph@gmail.com",
+  /** The page's Messenger chat link (m.me/<page username>). */
+  messenger: "https://m.me/stonewoodresort",
+};
+
+export interface ContactChannel {
+  kind: "phone" | "viber" | "messenger" | "email";
+  label: string;
+  value: string;
+  /** tel:, mailto: or https:. Viber has none: its viber:// links are
+   *  stripped by most mail apps and do nothing on a computer without it. */
+  href?: string;
+}
+
+/** The owner's contact details, in the order a guest should try them.
+ *  `subject` pre-fills the email, e.g. with the booking reference. */
+export function contactChannels(subject?: string): ContactChannel[] {
+  const tel = RESORT_CONTACT.phone.replace(/[^\d+]/g, "");
+  const mailto = `mailto:${RESORT_CONTACT.email}${subject ? `?subject=${encodeURIComponent(subject)}` : ""}`;
+  return [
+    { kind: "phone", label: "Call or text", value: RESORT_CONTACT.phone, href: `tel:${tel}` },
+    { kind: "viber", label: "Viber", value: RESORT_CONTACT.viber },
+    { kind: "messenger", label: "Messenger", value: RESORT_CONTACT.messenger.replace(/^https?:\/\//, ""), href: RESORT_CONTACT.messenger },
+    { kind: "email", label: "Email", value: RESORT_CONTACT.email, href: mailto },
+  ];
+}
+
 /** Single slots a booking actually occupies. A Day booking with overtime
  *  runs into the evening, so it holds the Night slot as well. */
 export function occupiedSlots(slot: BookingSlot, overtime = 0): Array<"Day" | "Night"> {

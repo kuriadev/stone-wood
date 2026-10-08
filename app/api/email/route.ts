@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logActivity } from "@/lib/activity.server";
 import nodemailer from "nodemailer";
-import { buildReceiptEmail, buildRejectionEmail, generateOTP, type RejectionMoney } from "@/lib/emailTemplate";
+import { buildReceiptEmail, buildRejectionEmail, type RejectionMoney } from "@/lib/emailTemplate";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { isValidEmail } from "@/lib/validators";
@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   // Only an admin confirms or rejects a booking. Unauthenticated, this route
   // sent attacker-supplied content to an attacker-supplied address from the
-  // resort's Gmail account, and handed back the check-in OTP for free.
+  // resort's Gmail account.
   const denied = requireAdmin(req);
   if (denied) return denied;
 
@@ -42,11 +42,9 @@ export async function POST(req: NextRequest) {
     // ── Build the correct email based on type ────────────────────────────────
     let subject: string;
     let html: string;
-    let otp: string | null = null;
 
     if (type === "confirmed") {
-      otp = generateOTP();
-      ({ subject, html } = buildReceiptEmail(booking, otp));
+      ({ subject, html } = buildReceiptEmail(booking));
     } else {
       // Only well-formed money details reach the template; anything else
       // falls back to the generic line.
@@ -82,7 +80,7 @@ export async function POST(req: NextRequest) {
       actor: "Admin", action: type === "confirmed" ? "email.confirmation" : "email.rejection", bookingId: booking.id ?? null, entity: "booking", entityId: booking.id,
       summary: `Emailed the ${type === "confirmed" ? "booking confirmation" : "cancellation notice"} for ${booking.id} to ${booking.email}.`,
     });
-    return NextResponse.json({ success: true, ...(otp ? { otp } : {}) }, { status: 200 });
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (err) {
     // `detail: String(err)` used to go back to the caller. An SMTP failure
     // names the host and the account it authenticated as; that stays in the

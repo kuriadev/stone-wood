@@ -8,7 +8,7 @@ import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
 import type { ResortPackage } from "@/types/package";
 import type { BookingResource, BookingTier, PackageSlotMode } from "@/types/booking";
-import { pricingProblem, standardPackagePrice } from "@/lib/pricing";
+import { pricingProblem, packageValue } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
 import { GALLERY_MAX } from "@/lib/validators";
 import { Icon } from "@/components/common/Icon";
@@ -298,39 +298,53 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   <option value="WholeDay">Whole Day ({SLOTS.WholeDay.hours})</option>
                 </FullSelect>
               </div>
-              <div className="sm:col-span-4">
+              <div className="sm:col-span-6">
                 <div>
                   <Label htmlFor="pkg-price" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">PRICE (₱)</Label>
                   <Input type="number" min={0} id="pkg-price" value={form.price} onChange={(e) => setF("price", e.target.value)} className="sw-input" style={inpS} />
                 </div>
               </div>
-              <div className="sm:col-span-4">
-                <div>
-                  <Label htmlFor="pkg-list" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">LIST PRICE</Label>
-                  <Input type="number" min={0} id="pkg-list" value={form.listPrice} onChange={(e) => setF("listPrice", e.target.value)} placeholder="optional" className="sw-input" style={inpS} />
-                </div>
-              </div>
-              <div className="sm:col-span-4">
+              {/* No "list price" box any more: the struck-through price guests
+                  see is worked out from what Book Now charges for the same
+                  thing (packageValue), so it can't claim a saving that isn't
+                  real. */}
+              <div className="sm:col-span-6">
                 <div>
                   <Label htmlFor="pkg-capacity" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">CAPACITY</Label>
                   <Input type="number" min={1} id="pkg-capacity" value={form.capacity} onChange={(e) => setF("capacity", e.target.value)} className="sw-input" style={inpS} />
                 </div>
               </div>
-              {/* What the standard rules give for this setup, so a promo
-                  price is a deliberate choice — never an accident that makes
-                  the package dearer than booking the same thing by hand. */}
+              {/* What a guest pays for the same setup in Book Now, where the
+                  pool, the venue or both can be booked freely. A package
+                  should beat that, or offer something Book Now can't. */}
               {(() => {
                 const problem = pricingProblem(form.resource, form.status, form.slotMode === "WholeDay" ? "WholeDay" : "Day");
                 if (problem) return <p className="sm:col-span-12" style={{ color: C.dangerInk, fontSize: 12.5, margin: 0 }}>{problem}</p>;
-                const std = standardPackagePrice({ resource: form.resource, tier: form.status, slotMode: form.slotMode, capacity: Number(form.capacity) || 1 });
                 const price = Number(form.price);
+                const v = packageValue({ resource: form.resource, status: form.status, slotMode: form.slotMode, capacity: Number(form.capacity) || 1, price });
+                const priced = form.price !== "";
                 return (
-                  <p className="sm:col-span-12" style={{ color: C.textS, fontSize: 12.5, margin: 0, lineHeight: 1.6 }}>
-                    Standard price for this setup: <strong style={{ color: C.goldInk }}>{fmt(std.price)}</strong>
-                    {std.listPrice > std.price ? <> (regular {fmt(std.listPrice)})</> : null}
-                    {" "}<button type="button" onClick={() => { setF("price", String(std.price)); setF("listPrice", std.listPrice > std.price ? String(std.listPrice) : ""); }} style={{ background: "none", border: "none", color: C.goldInk, cursor: "pointer", textDecoration: "underline", fontSize: 12.5, padding: 0 }}>use it</button>
-                    {form.price !== "" && price > std.price && <span style={{ color: "#f5c518" }}> · Your price is higher than booking this without the package.</span>}
-                  </p>
+                  <div className="sm:col-span-12" style={{ fontSize: 12.5, lineHeight: 1.6 }}>
+                    {/* The rule: a package costs at least what Book Now charges
+                        for the same setup, plus the extras it includes. A
+                        cheaper copy of a Book Now setup only lowers the real
+                        price, because guests would take it every time. */}
+                    <p style={{ color: C.textS, margin: 0 }}>
+                      The same setup in Book Now costs <strong style={{ color: C.goldInk }}>{fmt(v.diy)}</strong>.
+                      {priced && price > v.diy && <> This package adds <strong style={{ color: C.textH }}>{fmt(price - v.diy)}</strong> for its extras; list them under Includes.</>}
+                      {form.requiresRoom && <> The room is 8% off on top.</>}
+                    </p>
+                    {priced && v.save > 0 && (
+                      <p style={{ color: "#f5c518", margin: "4px 0 0" }}>
+                        This is {fmt(v.save)} cheaper than booking the same thing in Book Now, so guests may pick it just for the discount. Price it at {fmt(v.diy)} or more and add extras instead, unless the discount is a deliberate promo.
+                      </p>
+                    )}
+                    {priced && price === v.diy && !form.requiresRoom && (
+                      <p style={{ color: "#f5c518", margin: "4px 0 0" }}>
+                        Guests can book exactly this in Book Now for the same price. Add extras Book Now can&apos;t give (setup, decorations, equipment, early access) and price them in, or it adds nothing.
+                      </p>
+                    )}
+                  </div>
                 );
               })()}
               <div className="sm:col-span-12">

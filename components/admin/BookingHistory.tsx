@@ -41,7 +41,7 @@ export function BookingHistory({ bookingId }: { bookingId: string }) {
       <p style={{ color: C.textH, fontWeight: 600, fontSize: 14, margin: "0 0 8px" }}>History</p>
       {error && <p style={{ color: C.textS, fontSize: 13, margin: 0 }}>{error}</p>}
       {!error && rows === null && <p style={{ color: C.textS, fontSize: 13, margin: 0 }}>Loading…</p>}
-      {rows && rows.length === 0 && <p style={{ color: C.textS, fontSize: 13, margin: 0 }}>Nothing recorded yet. History starts from when the activity log was switched on.</p>}
+      {rows && rows.length === 0 && <p style={{ color: C.textS, fontSize: 13, margin: 0 }}>Nothing recorded yet. History starts from when the audit log was switched on.</p>}
       {rows && rows.length > 0 && (
         <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
           {[...rows].reverse().map((a) => (
