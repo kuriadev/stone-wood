@@ -1,16 +1,49 @@
 "use client";
 
+/* The booking calendar.
+ *
+ * A stay can run over more than one day, and it is picked HERE rather than
+ * through a separate "staying more than one day?" control: click the first
+ * day, then click the last. A single click followed by Continue is still a
+ * one-day booking, so the common case costs nothing extra.
+ *
+ * Two rules keep a range honest, and both are enforced by disabling tiles
+ * rather than by complaining afterwards:
+ *
+ *   • it may not run past MAX_STAY_DAYS;
+ *   • it may not jump over a booked or closed day — the stay has to be a
+ *     run of days the resort can actually give you.
+ *
+ * So while a range is being picked, everything beyond the first obstacle is
+ * simply not clickable, and the guest cannot build a selection the server
+ * would then reject.
+ */
+
 import { useState, useMemo } from "react";
 import { T } from "@/lib/theme";
-import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS } from "@/lib/validators";
-import { checkBookingAvailability, holdsDate } from "@/lib/utils";
+import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS, MAX_STAY_DAYS } from "@/lib/validators";
+import { checkBookingAvailability, holdsDate, fmtDate } from "@/lib/utils";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
+
+/** `ds` shifted by `n` days, in UTC so it cannot drift across a timezone. */
+const addDays = (ds: string, n: number) =>
+  new Date(Date.parse(`${ds}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 interface BookingDatePickerProps {
   bookings: Booking[];
   closedDates?: string[];
+  /** First day of the stay. */
   selectedDate: string;
-  onSelectDate: (ds: string) => void;
+  /** Last day. Empty, or equal to the first, means a one-day booking. */
+  endDate?: string;
+  /** Called with the whole stay every time the selection changes. For a
+   *  single-date picker, both arguments are the same day. */
+  onSelectRange: (from: string, to: string) => void;
+  /** One date only, no range. Moving an existing booking uses this: the
+   *  guest picks a new FIRST day and the stay keeps the length it already
+   *  has (shiftStay in lib/rebooking.server.ts), so letting them redraw the
+   *  length here would quietly change what they are paying for. */
+  single?: boolean;
   isDark: boolean;
   /** Guest count for the booking being made, so a "Shared" date with room
    *  left is still shown as available instead of flatly "booked". */
@@ -28,7 +61,9 @@ export function BookingDatePicker({
   bookings,
   closedDates = [],
   selectedDate,
-  onSelectDate,
+  endDate = "",
+  onSelectRange,
+  single = false,
   isDark,
   guests = 1,
   resource = "Pool",
@@ -43,6 +78,11 @@ export function BookingDatePicker({
   const [calMonth, setCalMonth] = useState(
     new Date(today.getFullYear(), today.getMonth(), 1)
   );
+  /* True once a first day is down and the next click sets the last day.
+     While it is false, a click starts a new stay. */
+  const [picking, setPicking] = useState(false);
+  const [hover, setHover] = useState("");
+
   // A date is "full" for this request when checkBookingAvailability says so —
   // not merely because some other (Shared) booking already exists on it.
   const fullDates = useMemo(() => {
@@ -54,6 +94,47 @@ export function BookingDatePicker({
     return full;
   }, [bookings, guests, resource, tier, slot]);
   const closedSet = useMemo(() => new Set(closedDates), [closedDates]);
+
+  const maxStr = toDateStr(maxDate);
+
+  /* The furthest day this stay may reach: MAX_STAY_DAYS long at most, and
+     stopping short of the first booked or closed day, so a range can never
+     straddle one. Null when no stay is being picked. */
+  const rangeLimit = useMemo(() => {
+    if (single || !picking || !selectedDate) return null;
+    let last = selectedDate;
+    for (let i = 1; i < MAX_STAY_DAYS; i++) {
+      const next = addDays(selectedDate, i);
+      if (next > maxStr) break;
+      if (fullDates.has(next) || closedSet.has(next)) break;
+      last = next;
+    }
+    return last;
+  }, [single, picking, selectedDate, fullDates, closedSet, maxStr]);
+
+  /* What the stay looks like right now, including the day being hovered
+     while the last day is still being chosen. */
+  const previewEnd =
+    picking && hover && selectedDate && hover > selectedDate && rangeLimit && hover <= rangeLimit
+      ? hover
+      : endDate && endDate > selectedDate ? endDate : selectedDate;
+
+  const stayDays = selectedDate && previewEnd
+    ? Math.round((Date.parse(`${previewEnd}T00:00:00Z`) - Date.parse(`${selectedDate}T00:00:00Z`)) / 86_400_000) + 1
+    : 0;
+
+  const pick = (ds: string) => {
+    if (single) { onSelectRange(ds, ds); return; }
+    // Starting again: no stay in progress, or a day on/before the first one.
+    if (!picking || !selectedDate || ds <= selectedDate) {
+      onSelectRange(ds, ds);
+      setPicking(true);
+      return;
+    }
+    onSelectRange(selectedDate, ds);
+    setPicking(false);
+  };
+
   const year = calMonth.getFullYear();
   const month = calMonth.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -164,7 +245,10 @@ export function BookingDatePicker({
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: "minmax(44px,1fr)", gap: 4 }}>
+      <div
+        style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: "minmax(44px,1fr)", gap: 4 }}
+        onMouseLeave={() => setHover("")}
+      >
         {Array.from({ length: firstDay }).map((_, i) => (
           <div key={`e${i}`} />
         ))}
@@ -187,8 +271,16 @@ export function BookingDatePicker({
           const bookable = !isPast && !isBeyond;
           const isBooked = bookable && fullDates.has(ds);
           const isClosed = bookable && closedSet.has(ds);
-          const isSel = selectedDate === ds;
-          const disabled = isPast || isBeyond || isBooked || isClosed;
+          /* Out of reach of the stay being picked: too far ahead, or past a
+             booked day the stay cannot jump. Still available in itself, so
+             it is dimmed rather than painted as taken — clicking elsewhere
+             starts a new stay there. */
+          const beyondStay = !!rangeLimit && bookable && ds > rangeLimit && ds > selectedDate;
+          const isStart = !!selectedDate && ds === selectedDate;
+          const isEnd = !!previewEnd && previewEnd !== selectedDate && ds === previewEnd;
+          const inRange = !!selectedDate && !!previewEnd && ds > selectedDate && ds < previewEnd;
+          const disabled = isPast || isBeyond || isBooked || isClosed || beyondStay;
+
           /* Same palette as AvailabilityCalendar on the home page, with light
              equivalents added: these two calendars are the same control and a
              guest moving from the hero card to /book should not meet a second
@@ -223,17 +315,38 @@ export function BookingDatePicker({
             bdr = `1px solid ${isDark ? "rgba(180,70,70,0.22)" : "rgba(180,70,70,0.25)"}`;
             cur = "not-allowed";
           }
-          /* The selection is the available green stated louder, not a second
-             accent colour: "open" and "the one you picked" are one idea. */
-          if (isSel) { bg = "#2b6b30"; col = "#ffffff"; bdr = "1px solid #5cb85c"; }
+          if (beyondStay) { cur = "not-allowed"; dim = true; }
+          /* The stay is the available green stated louder: its two ends are
+             solid, the nights between them a band. "Open", "the days you
+             picked" and "the edges of your stay" are one idea at three
+             strengths, not three accent colours. */
+          if (inRange) {
+            bg = isDark ? "rgba(76,175,80,0.30)" : "#bfe3c6";
+            col = isDark ? "#d9f2db" : "#15532a";
+            bdr = `1px solid ${isDark ? "rgba(76,175,80,0.45)" : "rgba(76,175,80,0.5)"}`;
+          }
+          if (isStart || isEnd) { bg = "#2b6b30"; col = "#ffffff"; bdr = "1px solid #5cb85c"; dim = false; }
+
+          const label = isStart && previewEnd !== selectedDate
+            ? " — first day of your stay"
+            : isEnd ? " — last day of your stay"
+            : inRange ? " — part of your stay"
+            : isBooked ? " — booked"
+            : isClosed ? " — closed"
+            : isPast || isBeyond ? " — unavailable"
+            : beyondStay ? ` — too far for one stay (up to ${MAX_STAY_DAYS} days)`
+            : " — available";
+
           return (
             <button
               key={d}
               type="button"
-              onClick={() => !disabled && onSelectDate(ds)}
+              onClick={() => !disabled && pick(ds)}
+              onMouseEnter={() => setHover(ds)}
+              onFocus={() => setHover(ds)}
               disabled={disabled}
-              aria-label={`${ds}${isBooked ? " — booked" : isClosed ? " — closed" : isPast || isBeyond ? " — unavailable" : " — available"}`}
-              aria-pressed={isSel}
+              aria-label={`${ds}${label}`}
+              aria-pressed={isStart || isEnd || inRange}
               title={
                 isPast
                   ? "Past date"
@@ -243,6 +356,10 @@ export function BookingDatePicker({
                   ? "Booked"
                   : isClosed
                   ? "Not available"
+                  : beyondStay
+                  ? `A stay can run for up to ${MAX_STAY_DAYS} days in a row`
+                  : picking && !single
+                  ? "Click to make this your last day"
                   : "Available"
               }
               style={{
@@ -257,7 +374,7 @@ export function BookingDatePicker({
                 color: col,
                 fontSize: 14,
                 cursor: cur,
-                fontWeight: isSel ? 700 : 400,
+                fontWeight: isStart || isEnd ? 700 : 400,
                 userSelect: "none",
                 width: "100%",
                 fontFamily: "inherit",
@@ -269,6 +386,28 @@ export function BookingDatePicker({
           );
         })}
       </div>
+
+      {/* ── What to do next, and what is picked ── */}
+      <p
+        aria-live="polite"
+        style={{
+          color: stayDays > 1 ? C.goldInk : C.textS,
+          fontSize: 12.5,
+          lineHeight: 1.6,
+          textAlign: "center",
+          margin: "12px 0 0",
+        }}
+      >
+        {single
+          ? (selectedDate ? <>{fmtDate(selectedDate)} selected.</> : <>Click the date you would like to move to.</>)
+          : !selectedDate
+          ? <>Click a date to start. You can book up to <strong>{MAX_STAY_DAYS} days</strong> in a row — click your first day, then your last.</>
+          : picking
+          ? <>Now click your <strong>last day</strong>, up to {MAX_STAY_DAYS} days. Or click {fmtDate(selectedDate)} again to stay just the one day.</>
+          : stayDays > 1
+          ? <><strong>{stayDays} days</strong> booked: {fmtDate(selectedDate)} to {fmtDate(previewEnd)}. Each day is charged.</>
+          : <>{fmtDate(selectedDate)} — one day. Click another date to stay up to {MAX_STAY_DAYS} days.</>}
+      </p>
 
       <div
         style={{

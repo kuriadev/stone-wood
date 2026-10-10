@@ -9,8 +9,14 @@ export type PaymentMethod = "PayMongo" | "Cash" | "GCash" | "Bank Transfer";
 export const PAYMENT_TYPES: PaymentType[] = ["Downpayment", "Balance", "Full", "Penalty", "Refund"];
 export const PAYMENT_METHODS: PaymentMethod[] = ["PayMongo", "Cash", "GCash", "Bank Transfer"];
 /** Methods staff can pick by hand. PayMongo payments only ever come from
- *  the online checkout, never from the admin form. */
-export const MANUAL_METHODS: Exclude<PaymentMethod, "PayMongo">[] = ["Cash", "GCash", "Bank Transfer"];
+ *  the online checkout, never from the admin form.
+ *
+ *  The resort takes money two ways: cash, and QR Ph — the online checkout
+ *  (stored as "PayMongo") or a QR Ph wallet scanned at the desk (stored as
+ *  "GCash"). A bank transfer is not accepted, so it is no longer offered
+ *  anywhere. "Bank Transfer" stays in the PaymentMethod union because
+ *  records entered before that decision must still read back and report. */
+export const MANUAL_METHODS: Exclude<PaymentMethod, "PayMongo" | "Bank Transfer">[] = ["Cash", "GCash"];
 
 /** What the front desk can actually take from a guest standing there. A bank
  *  transfer does not settle at the counter, so it is not offered as a way of

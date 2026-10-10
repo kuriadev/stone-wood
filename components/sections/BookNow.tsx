@@ -6,7 +6,7 @@
   import { useToast } from "@/contexts/ToastContext";
   import { T } from "@/lib/theme";
   import { gold, goldBtn, outBtn } from "@/lib/styles";
-  import { fmt, fmtTimer, fmtDate, getPackageTier, checkBookingAvailability, getSharedPoolUsage, isRoomOpen, isPoolOpen, isVenueOpen, roomsTakenOn } from "@/lib/utils";
+  import { fmt, fmtTimer, fmtDate, getPackageTier, checkBookingAvailability, checkRangeAvailability, datesBetween, daysInRange, getSharedPoolUsage, isRoomOpen, isPoolOpen, isVenueOpen, roomsTakenInRange } from "@/lib/utils";
   import { roomShots } from "@/lib/gallery";
   import { EventPackages } from "@/components/booking/EventPackages";
   import type { ResortPackage } from "@/types/package";
@@ -31,6 +31,7 @@
     clamp,
     NAME_MAX,
     NOTES_MAX,
+    MAX_STAY_DAYS,
     GUESTS_MIN,
     GUESTS_MAX,
     OVERTIME_MAX,
@@ -142,6 +143,14 @@
     const [slot, setSlot] = useState<BookingSlot>(initialPackage?.slotMode === "WholeDay" ? "WholeDay" : (initialSlot ?? "Day"));
     const [step, setStep] = useState(initialResource ? 3 : 1);
     const [date, setDate] = useState(preselectedDate || "");
+    /* A stay can run over several days. `endDate` is the LAST day,
+       inclusive; empty, or the same as the first, means a single day.
+       Both come from the calendar itself — the guest clicks a first day and
+       then a last one — so there is no separate "more than one day?"
+       control to find and tick. */
+    const [endDate, setEndDate] = useState("");
+    const lastDay = endDate && endDate > date ? endDate : date;
+    const stayDays = date ? Math.max(1, daysInRange(date, lastDay)) : 1;
     const [guests, setGuests] = useState(initialPackage?.capacity ?? initialGuests ?? 10);
     // Guests don't choose overtime any more: staff add it at the resort when
     // the Night slot is free (max 2 hrs). Kept at 0 so every price and
@@ -249,12 +258,21 @@
     // checkBookingAvailability checks whichever resource(s) this booking
     // actually uses — the pool's running Shared headcount, the venue's
     // single-booking calendar, or both.
-    const dateCapacity = date ? checkBookingAvailability(date, slot, guests, tier, resource, bookings, facilities) : { ok: true };
+    const dateCapacity: { ok: boolean; reason?: string } = date
+      ? checkRangeAvailability(date, lastDay, slot, guests, tier, resource, bookings, facilities)
+      : { ok: true };
+    /* Every day of the stay has to be open and within the booking window,
+       not just the first. The server checks the same thing again. */
+    const stayDates = date ? datesBetween(date, lastDay) : [];
+    const shutDay = stayDates.find((d) => closedSet.has(d));
+    const outsideWindow = stayDates.find((d) => !isWithinBookingWindow(d));
     const dateOk =
       !!date &&
-      isWithinBookingWindow(date) &&
+      stayDates.length >= 1 &&
+      stayDates.length <= MAX_STAY_DAYS &&
+      !outsideWindow &&
       dateCapacity.ok &&
-      !closedSet.has(date);
+      !shutDay;
     // Whole Day is always exclusive, so the shared readout is per single slot.
     const sharedUsage = date && slot !== "WholeDay" ? getSharedPoolUsage(date, bookings, slot) : { used: 0, max: 0 };
     // An Exclusive buyout fixes the guest count to the resort's full
@@ -274,7 +292,7 @@
     // guest on the chosen date are shown but can't be picked.
     const bookableRooms = rooms.filter((r) => isRoomOpen(r.id, facilities));
     // Rooms are rented per slot, so only a clash in the same slot counts.
-    const takenRooms = date ? roomsTakenOn(date, slot, bookings) : new Set<number>();
+    const takenRooms = date ? roomsTakenInRange(date, lastDay, slot, bookings) : new Set<number>();
     const showRoomPicker = (!isPackage && resource !== "Venue") || (isPackage && requiresRoom);
     const selectedRoomDetails = selRooms.map((rid) => rooms.find((r) => r.id === rid)).filter((r): r is Room => !!r);
     // Same function the server uses to set the QR amount (lib/pricing), so
@@ -291,6 +309,7 @@
       guests,
       overtime,
       roomPrices: selectedRoomDetails.map((r) => r.price),
+      days: stayDays,
     });
     // Everything the server needs to re-check and re-price this booking.
     const draft = {
@@ -298,6 +317,7 @@
       resource, tier, slot, guests, overtime,
       rooms: selRooms,
       date,
+      endDate: lastDay,
       name: form.name, email: form.email, contact: form.contact, notes: form.notes,
       payFull,
     };
@@ -922,7 +942,8 @@
                       bookings={bookings}
                       closedDates={closedDates}
                       selectedDate={date}
-                      onSelectDate={(ds) => setDate(ds)}
+                      endDate={endDate}
+                      onSelectRange={(from, to) => { setDate(from); setEndDate(to === from ? "" : to); }}
                       isDark={isDark}
                       guests={guests}
                       resource={resource}
@@ -930,9 +951,26 @@
                       slot={slot}
                     />
 
+                    {/* The stay itself is picked on the calendar above: a
+                        first click sets the first day, a second the last.
+                        This is only the consequence of that choice. */}
+                    {stayDays > 1 && dateOk && (
+                      <p style={{ marginTop: 16, marginBottom: 0, color: C.textB, fontSize: 13, lineHeight: 1.6 }}>
+                        Your {SLOTS[slot].label.toLowerCase()} is booked on each of{" "}
+                        <strong style={{ color: C.textH }}>{stayDays} days</strong>, {fmtDate(date)} to {fmtDate(lastDay)}.
+                        Every day is charged — the total below is for the whole stay.
+                      </p>
+                    )}
+
                     {date && !dateOk && (
                       <p style={{ color: "#e07a7a", fontSize: 13, marginTop: 16, marginBottom: 0 }}>
-                        {dateCapacity.reason ?? "This date is unavailable. Please choose another."}
+                        {outsideWindow
+                          ? (describeDateProblem(outsideWindow) ?? "One of those days can't be booked.")
+                          : shutDay
+                            ? `The resort is closed on ${fmtDate(shutDay)}.`
+                            : stayDates.length > MAX_STAY_DAYS
+                              ? `A booking can run for at most ${MAX_STAY_DAYS} days. Please contact us for a longer stay.`
+                              : dateCapacity.reason ?? "This date is unavailable. Please choose another."}
                       </p>
                     )}
 
@@ -1197,7 +1235,7 @@
                         {slot === "Day"
                           ? `Want to stay a little later? Up to ${OVERTIME_MAX} hrs of overtime (${fmt(OVERTIME_RATE)}/hr) can be arranged at the resort when no Night group is booked — ${TURNOVER_WINDOW} is otherwise cleaning time.`
                           : slot === "Night"
-                          ? `Ends at ${SLOTS.Night.end} sharp. ${QUIET_HOURS_POLICY}`
+                          ? `The resort is yours for the whole night — ${SLOTS.Night.start} until ${SLOTS.Night.end} the next morning. ${QUIET_HOURS_POLICY}`
                           : `The resort is yours all day and night — no turnover in between. ${QUIET_HOURS_POLICY}`}
                       </p>
                       <p style={{ color: C.goldInk, fontSize: 12.5, margin: "16px 0 0", paddingTop: 12, borderTop: `1px solid ${C.border}` }}>

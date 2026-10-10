@@ -31,6 +31,9 @@ export interface BookingRow {
   contact: string;
   email: string;
   date: string;
+  /** Added by 20261010120000_multi_day_bookings.sql. A trigger fills it with
+   *  `date` when an insert leaves it out, so it is never null. */
+  end_date: string;
   guests: number;
   package: string;
   rooms: number[];

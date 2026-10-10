@@ -719,6 +719,10 @@ export function Closing({ onAct, initialDate }: {
   const dayExp = liveExpenses(ops.expenses).filter((e) => e.spentOn === date);
   const byMethod = (m: string) => round2(dayPays.filter((p) => p.method === m).reduce((s, p) => s + signedAmount(p), 0));
   const cashIn = byMethod("Cash");
+  /* Anything that is neither QR Ph nor cash: GCash and Bank Transfer rows
+     from before the resort settled on those two methods. Kept out of the
+     named lines but still counted, so the day's total is never short. */
+  const otherIn = round2(dayPays.filter((p) => p.method !== "PayMongo" && p.method !== "Cash").reduce((s, p) => s + signedAmount(p), 0));
   const cashOut = round2(dayExp.filter((e) => e.method === "Cash").reduce((s, e) => s + e.amount, 0));
   const income = round2(dayPays.reduce((s, p) => s + signedAmount(p), 0));
   const spent = round2(dayExp.reduce((s, e) => s + e.amount, 0));
@@ -874,8 +878,14 @@ export function Closing({ onAct, initialDate }: {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 16, marginBottom: 24 }}>
         <div style={{ background: soft, borderRadius: 10, padding: "16px 20px" }}>
           <div style={{ color: C.textH, fontWeight: 600, marginBottom: 8 }}>Income and expenses</div>
-          {MANUAL_METHODS.map((m) => <AmountRow key={m} label={`Received by ${m}`} value={fmt(byMethod(m))} />)}
-          <AmountRow label="Received online (PayMongo)" value={fmt(byMethod("PayMongo"))} />
+          {/* The resort takes money two ways: QR Ph (the online checkout and
+              any QR Ph wallet, recorded as "PayMongo") and cash at the desk.
+              Older rows entered as GCash or Bank Transfer are folded into one
+              "Other" line, shown only when it is not zero, so the lines above
+              always add up to Total received. */}
+          <AmountRow label="Received by QR Ph" value={fmt(byMethod("PayMongo"))} />
+          <AmountRow label="Received by Cash" value={fmt(cashIn)} />
+          {otherIn !== 0 && <AmountRow label="Received by other (older records)" value={fmt(otherIn)} />}
           <AmountRow label="Total received" value={fmt(income)} strong />
           <AmountRow label="Expenses" value={`− ${fmt(spent)}`} color="#d44" />
           <div style={{ borderTop: "1px solid rgba(150,130,100,0.25)", marginTop: 8, paddingTop: 4 }}>

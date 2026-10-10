@@ -51,7 +51,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { getPackageTier, checkBookingAvailability, isRoomOpen, roomsTakenOn } from "@/lib/utils";
+import { getPackageTier, checkBookingAvailability, isRoomOpen, roomsTakenOn, bookingCoversDate, bookingDates } from "@/lib/utils";
 import { priceBooking, bookingLabel } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
 import { sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail, RESORT_MAX_CAPACITY, ROOM_BUNDLE_DISCOUNT_PCT, OVERTIME_MAX, OVERTIME_RATE, GALLERY_MAX } from "@/lib/validators";
@@ -314,7 +314,8 @@ export function Admin({
      groups -- but the cell can only colour itself once, so it shows the
      first. The card and the lists below show every one of them. */
   const bookingsOn = (ds: string) =>
-    bookings.filter((b) => b.date === ds && holdsDate(b));
+    // A booking can span days, so a date is "booked" anywhere in its range.
+    bookings.filter((b) => bookingCoversDate(b, ds) && holdsDate(b));
 
   /* The detail card the Calendar shows on hover/focus.
 
@@ -365,7 +366,7 @@ export function Admin({
   const getDateStatus = (d: number) => {
     const ds = `${calMonth.getFullYear()}-${String(calMonth.getMonth() + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     if (closedDates.includes(ds)) return "Closed";
-    return bookings.find((x) => x.date === ds)?.status || null;
+    return bookings.find((x) => bookingCoversDate(x, ds))?.status || null;
   };
   const toggleClosed = (ds: string) => { setClosedDates((p) => p.includes(ds) ? p.filter((x) => x !== ds) : [...p, ds]); toast("Date availability updated.", "info"); };
 
@@ -845,11 +846,16 @@ export function Admin({
                 </div>
               ))}
             </div>
-            <div style={{ padding: "16px 20px", borderTop: `1px solid ${sideBorder}`, flexShrink: 0 }}>
-              <button onClick={() => setShowLogoutConfirm(true)} style={{ width: "100%", background: "transparent", color: isDark ? "#888888" : "#6c6c6c", border: `1px solid ${isDark ? "#2a2a2a" : "#ddd"}`, padding: "8px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                <Icon name="logout" size={12} />
-                SIGN OUT
-              </button>
+            {/* The signed-in admin. This was a bare SIGN OUT button, which
+                spent the sidebar's one permanent slot on the action you want
+                least often. The account menu holds sign-out along with the
+                username, password and theme. */}
+            <div style={{ padding: "12px 16px", borderTop: `1px solid ${sideBorder}`, flexShrink: 0 }}>
+              <ProfileMenu
+                variant="sidebar"
+                onAccountSettings={() => setShowAccount(true)}
+                onSignOut={() => setShowLogoutConfirm(true)}
+              />
             </div>
           </div>
         )}
@@ -860,19 +866,10 @@ export function Admin({
             table sits under the button with no way to scroll it clear. */}
         <div style={{ flex: 1, padding: mob ? "20px 16px" : "40px", paddingBottom: mob ? 96 : 104, overflowY: "auto", minHeight: 0, minWidth: 0, background: adminBg }}>
 
-          {/* The signed-in admin, top right. Its own row above the page, so
-              it never competes with a tab's header actions for the corner. */}
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: mob ? 16 : 20 }}>
-            <ProfileMenu
-              onAccountSettings={() => setShowAccount(true)}
-              onSignOut={() => setShowLogoutConfirm(true)}
-            />
-          </div>
-
-          {/* DAILY OPERATIONS — the home screen */}
+          {/* DASHBOARD — the home screen */}
           {tab === "Operations" && (
             <OperationsTab bookings={bookings} setBookings={setBookings} rooms={rooms} packages={packages}
-              facilities={facilities} updateStatus={updateStatus} mob={mob} />
+              facilities={facilities} updateStatus={updateStatus} mob={mob} onGoTab={goTab} />
           )}
 
           {/* BOOKINGS (online and walk-in) */}
@@ -979,7 +976,9 @@ export function Admin({
               {(() => {
                 const key = `${calMonth.getFullYear()}-${String(calMonth.getMonth() + 1).padStart(2, "0")}`;
                 const inMonth = bookings
-                  .filter((b) => b.date.startsWith(key) && holdsDate(b))
+                  // Any stay touching this month, including one that
+                  // started in the previous one.
+                  .filter((b) => holdsDate(b) && bookingDates(b).some((d) => d.startsWith(key)))
                   .sort((a, b) => a.date.localeCompare(b.date));
                 const groups: { label: string; match: string }[] = [
                   { label: statusLabel("Confirmed"), match: "Confirmed" },

@@ -28,7 +28,7 @@ import type { Inspection, DateChange, Payment, Expense, DailyClosing } from "@/t
 import { choiceOpen, choiceExpired, holdActive } from "@/lib/rebooking";
 import { manilaDate } from "@/lib/finance";
 import { getOccupancyWindow } from "@/lib/occupancy";
-import { fmtDate } from "@/lib/utils";
+import { fmtDate, bookingEndDate } from "@/lib/utils";
 
 export type OpsStage = "confirm" | "prepare" | "arriving" | "onsite" | "settle" | "done";
 
@@ -66,10 +66,12 @@ export function prepOpensOn(b: Pick<Booking, "date">): string {
   return addDays(b.date, -PREP_OPENS_DAYS_BEFORE);
 }
 
-/** Why a booking can't be prepared on `today`, or null when it can. */
-export function prepBlocked(b: Pick<Booking, "date" | "checkedInAt">, today: string): string | null {
+/** Why a booking can't be prepared on `today`, or null when it can.
+ *  A stay running over several days can still be prepared on any of them —
+ *  what closes preparation is the LAST day passing, not the first. */
+export function prepBlocked(b: Pick<Booking, "date" | "endDate" | "checkedInAt">, today: string): string | null {
   if (b.checkedInAt) return "This group has already checked in, so preparation is closed.";
-  if (b.date < today) return `The visit date (${fmtDate(b.date)}) has passed, so it can no longer be prepared.`;
+  if (bookingEndDate(b) < today) return `The visit date (${fmtDate(b.date)}) has passed, so it can no longer be prepared.`;
   if (today < prepOpensOn(b)) return `Preparation opens on ${fmtDate(prepOpensOn(b))}, the day before the visit.`;
   return null;
 }
@@ -131,6 +133,8 @@ export function opsStage(b: Booking, today: string): OpsStage | null {
   // Confirmed
   if (b.checkedOutAt) return "settle";
   if (b.checkedInAt) return "onsite";
+  // Current from the first day of the stay until the last: a group booked
+  // 10–12 October is still today's work on the 11th, not an overdue one.
   if (b.date <= today) return "arriving";
   if (b.date <= addDays(today, PREPARE_HORIZON_DAYS)) return "prepare";
   return null;
@@ -148,10 +152,13 @@ export function opsBoard(bookings: Booking[], inspections: Inspection[], now: Da
       b,
       stage,
       prepared: prepared.has(b.id),
-      overdue: stage === "arriving" && b.date < today,
+      // Only late once the WHOLE stay is behind us.
+      overdue: stage === "arriving" && bookingEndDate(b) < today,
       timeUp: !!w && now.getTime() >= w.end.getTime(),
       endsAt: w?.end ?? null,
-      ...placeOf(stage, b.date, today),
+      // Mid-stay, the card belongs to today's board, so the date handed to
+      // placeOf is clamped into the stay rather than left on day one.
+      ...placeOf(stage, b.date <= today && today <= bookingEndDate(b) ? today : b.date, today),
     });
   }
   // Earliest visit first; within a day, walk-ins with an arrival time first.
@@ -184,7 +191,9 @@ export interface CloseBlocker { b: Booking; need: CloseNeed }
 export function closingBlockers(bookings: Booking[], date: string): CloseBlocker[] {
   const order = Object.keys(CLOSE_NEED) as CloseNeed[];
   return bookings
-    .filter((b) => !b.archived && !b.id.startsWith("TMP-") && b.date <= date && (b.status === "Pending" || b.status === "Confirmed"))
+    // A stay that runs past `date` is not finished yet and is not supposed
+    // to be, so it cannot hold the cash count hostage.
+    .filter((b) => !b.archived && !b.id.startsWith("TMP-") && bookingEndDate(b) <= date && (b.status === "Pending" || b.status === "Confirmed"))
     .map((b): CloseBlocker => ({
       b,
       need: b.status === "Pending" ? "confirm" : b.checkedOutAt ? "settle" : b.checkedInAt ? "checkout" : "arrival",

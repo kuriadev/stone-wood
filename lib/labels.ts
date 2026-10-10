@@ -17,9 +17,9 @@ import type { AdminTab } from "@/types/admin";
 export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
   // Paid online (or entered by staff) and waiting for the admin to accept.
   Pending: "Awaiting approval",
-  Confirmed: "Confirmed",
+  Confirmed: "Confirmed booking",
   // Checked out; the stay is over.
-  Completed: "Stay completed",
+  Completed: "Completed booking",
   Cancelled: "Cancelled",
   // The resort could not host it; the guest picks a new date or a refund.
   ResortCancelled: "Guest choosing new date",
@@ -80,7 +80,7 @@ export const paymentLine = (p: { type: string; method: string }) => `${payTypeLa
  * screen's heading PRINT — one name per screen, the same in both places.
  */
 export const ADMIN_TAB_LABEL: Record<AdminTab, string> = {
-  Operations: "Today's Tasks",          // arrivals, preparation, check-out, closing, cash count
+  Operations: "Dashboard",              // the home screen: today's work, money and quick actions
   Bookings: "All Bookings",
   Occupancy: "Booking Calendar",
   Facilities: "Facilities & Inspections",

@@ -13,8 +13,10 @@ export interface SlotInfo {
   label: string;
   start: string;
   end: string;
-  /** "7:00 AM – 5:00 PM" */
+  /** "7:00 AM – 5:00 PM", or "7:00 PM – 5:00 AM (next day)". */
   hours: string;
+  /** True when the slot ends after midnight, on the following morning. */
+  endsNextDay: boolean;
   /** How many single slots this covers — Whole Day is Day + Night. */
   span: 1 | 2;
   /** 24-hour clock, for the live occupancy count. 24 = midnight. */
@@ -31,15 +33,35 @@ const hourLabel = (h: number): string => {
 const slot = (id: BookingSlot, label: string, startHour: number, endHour: number, span: 1 | 2): SlotInfo => {
   const start = hourLabel(startHour);
   const end = hourLabel(endHour);
-  return { id, label, start, end, hours: `${start} – ${end}`, span, startHour, endHour };
+  // Hours past 24 are the small hours of the NEXT morning. hourLabel wraps
+  // them (29 ⇒ 5:00 AM) and Date.setHours rolls the day over on its own, so
+  // an overnight slot needs no special arithmetic anywhere else.
+  const endsNextDay = endHour > 24;
+  return {
+    id, label, start, end, endsNextDay,
+    hours: `${start} – ${end}${endsNextDay ? " (next day)" : ""}`,
+    span, startHour, endHour,
+  };
 };
 
 // The one place the resort's hours are set. Change a number here and every
 // page, the booking flow and the live occupancy count follow.
+// ── The Night Tour is an OVERNIGHT slot ──
+//
+// It used to stop at midnight, which meant a group paid for five hours and
+// then had to leave in the dark. It now holds the resort for the whole
+// night and gives it back at 5 AM, which is what guests were asking for.
+//
+// 5 AM is not arbitrary: the Day Tour starts at 7, so ending there leaves
+// the same two-hour turnover in the morning that 5–7 PM already gives
+// between the Day and Night groups. That is what keeps the night group's
+// stay from eating into the next morning's booking — the resort is empty
+// and cleanable from 5 to 7 every morning, exactly as it is from 5 to 7
+// every evening. Shorten this gap and the two groups meet.
 export const SLOTS: Record<BookingSlot, SlotInfo> = {
   Day: slot("Day", "Day Tour", 7, 17, 1),        // 7:00 AM – 5:00 PM
-  Night: slot("Night", "Night Tour", 19, 24, 1), // 7:00 PM – 12:00 AM
-  WholeDay: slot("WholeDay", "Whole Day", 7, 24, 2),
+  Night: slot("Night", "Night Tour", 19, 29, 1), // 7:00 PM – 5:00 AM next day
+  WholeDay: slot("WholeDay", "Whole Day", 7, 29, 2), // 7:00 AM – 5:00 AM next day
 };
 
 /** The two bookable single slots, in order. */
@@ -47,6 +69,11 @@ export const SINGLE_SLOTS: BookingSlot[] = ["Day", "Night"];
 
 /** 5–7 PM: cleaning and turnover between the Day and Night groups. */
 export const TURNOVER_WINDOW = "5:00 – 7:00 PM";
+
+/** 5–7 AM: cleaning and turnover after the Night group leaves, before the
+ *  next morning's Day Tour. The mirror of TURNOVER_WINDOW, and the reason
+ *  an overnight booking does not block the following day. */
+export const MORNING_TURNOVER_WINDOW = "5:00 – 7:00 AM";
 
 /** Videoke and speakers off from this time — keeps the neighbours happy. */
 export const QUIET_HOURS_START = "10:00 PM";

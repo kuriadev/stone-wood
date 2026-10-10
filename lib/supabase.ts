@@ -136,6 +136,7 @@ export const rowToBooking = (b: BookingRow): Booking => ({
   contact: b.contact,
   email: b.email,
   date: b.date,
+  endDate: b.end_date ?? b.date,
   guests: b.guests,
   package: b.package,
   rooms: b.rooms ?? [],
@@ -181,6 +182,9 @@ export const bookingToRow = (b: Booking): Omit<BookingRow,
   contact: b.contact,
   email: b.email,
   date: b.date,
+  // Never shorter than the start date, so a bad client payload cannot
+  // write a range the availability checks would read backwards.
+  end_date: b.endDate && b.endDate > b.date ? b.endDate : b.date,
   guests: b.guests,
   package: b.package,
   rooms: b.rooms,

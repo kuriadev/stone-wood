@@ -18,7 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useEffect, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
 import { fmt } from "@/lib/utils";
-import { getPackageTier, checkBookingAvailability, isRoomOpen, roomsTakenOn } from "@/lib/utils";
+import { getPackageTier, checkRangeAvailability, isRoomOpen, roomsTakenInRange, daysInRange, fmtDate } from "@/lib/utils";
+import { MAX_STAY_DAYS } from "@/lib/validators";
 import { priceBooking, bookingLabel } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
 import { manilaDate } from "@/lib/finance";
@@ -53,9 +54,14 @@ export function WalkInModal({
 
   const [wf, setWf] = useState({
     name: "", contact: "", email: "", guests: "10",
-    slot: "Day" as BookingSlot, rooms: [] as number[], date: manilaDate(), notes: "",
+    slot: "Day" as BookingSlot, rooms: [] as number[], date: manilaDate(), endDate: "", notes: "",
   });
   const set = (k: keyof typeof wf, v: unknown) => setWf((f) => ({ ...f, [k]: v }));
+  /* Last day of the stay, inclusive. Blank or earlier than the start means
+     a single day, which is what a walk-in almost always is. */
+  const lastDay = wf.endDate && wf.endDate > wf.date ? wf.endDate : wf.date;
+  const stayDays = wf.date ? Math.max(1, daysInRange(wf.date, lastDay)) : 1;
+  const stayTooLong = stayDays > MAX_STAY_DAYS;
 
   const [mode, setMode] = useState<"Custom" | "Package">("Custom");
   const [pkgId, setPkgId] = useState<number | null>(null);
@@ -77,7 +83,7 @@ export function WalkInModal({
      slot as it stands. Availability, pricing and the saved record all still
      take the figure -- it is simply always zero here. */
   const overtime = 0;
-  const takenRooms = roomsTakenOn(wf.date, slot, bookings, overtime);
+  const takenRooms = roomsTakenInRange(wf.date, lastDay, slot, bookings, overtime);
   const showRooms = (!isPkg || requiresRoom) && usesPool;
   const toggleRoom = (id: number) => {
     if (requiresRoom) set("rooms", wf.rooms.includes(id) ? [] : [id]);
@@ -101,13 +107,14 @@ export function WalkInModal({
   }, [tier, isPkg, usesPool]);
 
   const capacity = wf.date
-    ? checkBookingAvailability(wf.date, slot, guests, tier, resource, bookings, facilities, overtime)
+    ? checkRangeAvailability(wf.date, lastDay, slot, guests, tier, resource, bookings, facilities, overtime)
     : { ok: true as const };
   const selectedRooms = wf.rooms.map((id) => rooms.find((r) => r.id === id)).filter((r): r is Room => !!r);
   const price = priceBooking({
     pkg: isPkg ? { price: pkg!.price, requiresRoom } : null,
     resource, tier, slot, guests, overtime,
     roomPrices: selectedRooms.map((r) => r.price),
+    days: stayDays,
   });
   const total = price.total;
   const down = Math.ceil(total / 2);
@@ -144,6 +151,7 @@ export function WalkInModal({
       contact: sanitizeContact(wf.contact),
       email: wf.email.trim(),
       date: wf.date || manilaDate(),
+      endDate: lastDay,
       guests: guests || 1,
       package: label,
       rooms: wf.rooms,
@@ -187,7 +195,7 @@ export function WalkInModal({
             {" · "}
             {payChoice === "None" ? "nothing collected yet" : <>collecting <strong style={{ color: "#2e9e4e" }}>{fmt(payNow)}</strong> now by {method}</>}
           </div>
-          <ActionButton kind="primary" icon="check" onClick={save}>Save reservation</ActionButton>
+          <ActionButton kind="primary" icon="check" onClick={save} disabled={stayTooLong}>Save reservation</ActionButton>
         </div>
       }
     >
@@ -207,8 +215,22 @@ export function WalkInModal({
             <Input id="wi-email" value={wf.email} onChange={(e) => set("email", e.target.value)} placeholder="example@email.com" style={inp} />
           </div>
           <div>
-            <Label htmlFor="wi-date">Date</Label>
+            <Label htmlFor="wi-date">First day</Label>
             <Input id="wi-date" type="date" value={wf.date} onChange={(e) => set("date", e.target.value)} style={inp} />
+          </div>
+          <div>
+            {/* Blank is the normal case: one day. Filling it in books the
+                same slot on every day up to and including that date, and
+                charges for each of them. */}
+            <Label htmlFor="wi-end-date">Last day (leave blank for one day)</Label>
+            <Input id="wi-end-date" type="date" min={wf.date} value={wf.endDate} onChange={(e) => set("endDate", e.target.value)} style={inp} />
+            <p style={{ color: stayTooLong ? "#d44" : C.textS, fontSize: 12, margin: "6px 0 0", lineHeight: 1.5 }}>
+              {stayTooLong
+                ? `A booking can run for at most ${MAX_STAY_DAYS} days.`
+                : stayDays > 1
+                  ? `${stayDays} days, ${fmtDate(wf.date)} to ${fmtDate(lastDay)}. Every day is charged.`
+                  : "One day."}
+            </p>
           </div>
           <div>
             <Label htmlFor="wi-notes">Notes (optional)</Label>

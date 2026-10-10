@@ -23,9 +23,10 @@ interface GalleryProps {
  * The gallery told as one day at the resort, 7am to midnight.
  *
  * The times and the places are the real ones, not invented atmosphere: the
- * chapters sit inside the Day Tour (7:00 AM – 5:00 PM) and Night Tour
- * (7:00 PM – 12:00 AM) windows quoted on the Home page, and every location
- * named is a facility that actually exists in INIT_FACILITIES.
+ * chapters sit inside the Day Tour and Night Tour windows quoted on the Home
+ * page, and every location named is a facility that actually exists in
+ * INIT_FACILITIES. (The Night Tour now runs to 5 AM — see SLOTS in
+ * lib/resort.ts — so this narrative stops well inside it.)
  *
  * The photo set is admin-editable and can be any length, so chapters take
  * contiguous slices of whatever is there rather than mapping to fixed

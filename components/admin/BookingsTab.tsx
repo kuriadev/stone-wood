@@ -28,7 +28,7 @@ import { useEffect, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
 import { useOps } from "@/contexts/OpsContext";
 import { bookingMoney, manilaDate, manilaTime, livePayments } from "@/lib/finance";
-import { fmt, fmtDate, getBookingSlot } from "@/lib/utils";
+import { fmt, fmtDate, getBookingSlot, stayLabel, stayRange, bookingDays } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
 import { OVERTIME_RATE } from "@/lib/validators";
 import type { Booking, BookingSlot } from "@/types/booking";
@@ -190,7 +190,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
             <Row key={b.id} style={{ background: rowBg(i) }}>
               <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace", whiteSpace: "nowrap" }}>{b.id.startsWith("TMP-") ? "Saving…" : b.id}</Cell>
               <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.contact}</div></Cell>
-              <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}<div style={{ color: C.textS, fontSize: 11.5 }}>{s.label}</div></Cell>
+              <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{stayRange(b)}<div style={{ color: C.textS, fontSize: 11.5 }}>{s.label}{bookingDays(b) > 1 ? ` · ${bookingDays(b)} days` : ""}</div></Cell>
               <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{b.package}</Cell>
               <Cell style={td}><StatusBadge color={b.source === "Walk-In" ? "#3a8fc4" : gold}>{b.source ?? "Online"}</StatusBadge></Cell>
               <Cell style={{ ...td, color: C.textH, fontWeight: 600, whiteSpace: "nowrap" }}>{fmt(b.total)}</Cell>
@@ -291,7 +291,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
             <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 20 }}>
               <div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-                  {[["Visit", `${fmtDate(b.date)}`], ["Time", `${s.label} · ${s.hours}`], ["Contact", b.contact], ["Email", b.email || "—"], ["Guests", `${b.guests}`], ["Status", bookingStatusLabel(b)],
+                  {[["Visit", stayLabel(b)], ["Time", `${s.label} · ${s.hours}`], ["Contact", b.contact], ["Email", b.email || "—"], ["Guests", `${b.guests}`], ["Status", bookingStatusLabel(b)],
                     ...(b.checkedInAt ? [["Checked in", `${fmtDate(manilaDate(b.checkedInAt))}, ${manilaTime(b.checkedInAt)}`]] : []),
                     ...(b.checkedOutAt ? [["Checked out", `${fmtDate(manilaDate(b.checkedOutAt))}, ${manilaTime(b.checkedOutAt)}`]] : []),
                     ...(b.settledAt ? [["Settled", `${fmtDate(manilaDate(b.settledAt))}, ${manilaTime(b.settledAt)}`]] : []),

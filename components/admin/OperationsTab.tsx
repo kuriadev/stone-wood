@@ -39,8 +39,8 @@ import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { opsBoard, closingBlockers, attentionTally, unclosedDays, prepBlocked, prepOpensOn, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, type OpsCard, type OpsView } from "@/lib/operations";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
-import { bookingMoney, collectedBetween, expensesBetween, livePayments, manilaDate, manilaTime, round2, type BookingMoney } from "@/lib/finance";
-import { fmt, fmtDate, getBookingSlot, holdsDate } from "@/lib/utils";
+import { bookingMoney, collectedBetween, expensesBetween, livePayments, manilaDate, manilaTime, monthRange, round2, type BookingMoney } from "@/lib/finance";
+import { fmt, fmtDate, getBookingSlot, holdsDate, bookingDays, bookingEndDate } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
 import { gold } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
@@ -62,7 +62,10 @@ import { TextGuest } from "@/components/admin/TextGuest";
 import { choiceOpen, choiceExpired, fmtDeadline, holdActive, isRebookRequest, withHolds } from "@/lib/rebooking";
 import { notices } from "@/lib/notices";
 import { Closing } from "@/components/admin/SalesTab";
-import { AdminPageHeader, ActionButton, StatusBadge, Modal, ConfirmDialog, Label, AmountRow, StatCard, ViewSwitcherTabs, useAdminStyle } from "@/components/admin/ui";
+import { ActionButton, StatusBadge, Modal, ConfirmDialog, Label, AmountRow, ViewSwitcherTabs, useAdminStyle } from "@/components/admin/ui";
+import { BarChart } from "@/components/admin/charts";
+import { TAP_MIN } from "@/lib/spacing";
+import type { AdminTab } from "@/types/admin";
 
 interface OperationsTabProps {
   bookings: Booking[];
@@ -72,6 +75,10 @@ interface OperationsTabProps {
   facilities: Facility[];
   updateStatus: UpdateStatus;
   mob: boolean;
+  /** Send the admin to another admin screen. The dashboard links out to
+   *  Reports, Payments & Expenses and the rest rather than duplicating
+   *  them. */
+  onGoTab?: (t: AdminTab) => void;
 }
 
 type Open =
@@ -79,11 +86,23 @@ type Open =
   | { kind: "accept" | "reject" | "noshow" | "refund" | "textagain" | "refundchoice"; id: string }
   | { kind: "move"; id: string }
   | { kind: "datechange"; reqId: number }
-  | { kind: "walkin" };
+  | { kind: "walkin" }
+  | { kind: "paynew" };
 
 /** Something late or about to be, for the "Needs attention" list. */
 interface Attention {
   key: string;
+  /** Which list it belongs to.
+   *
+   *  urgent   — the resort is losing money, breaking a promise or cannot
+   *             close the day until this is done. It blocks other work.
+   *  reminder — true and worth knowing, but nothing is broken if it waits
+   *             an hour: a group arriving later whose facilities are not
+   *             ticked yet, a guest still inside their own deadline.
+   *
+   *  The split is deliberate and not the same as `tone`: a colour says how
+   *  loud a row looks, this says which half of the dashboard it lives in. */
+  kind: "urgent" | "reminder";
   /** red: already late. amber: needs doing today. blue: worth knowing. */
   tone: "red" | "amber" | "blue";
   icon: IconName;
@@ -112,7 +131,7 @@ function dayHeading(date: string, today: string): string {
   return days === 1 ? `Tomorrow · ${long}` : long;
 }
 
-export function OperationsTab({ bookings, setBookings, rooms, packages, facilities, updateStatus, mob }: OperationsTabProps) {
+export function OperationsTab({ bookings, setBookings, rooms, packages, facilities, updateStatus, mob, onGoTab }: OperationsTabProps) {
   const { C, cBg, cBr, soft, inp } = useAdminStyle();
   const ops = useOps();
   const { toast } = useToast();
@@ -127,7 +146,12 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
   const [open, setOpen] = useState<Open | null>(null);
   const [reason, setReason] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [allAttention, setAllAttention] = useState(false);
+  const [allUrgent, setAllUrgent] = useState(false);
+  const [allReminders, setAllReminders] = useState(false);
+  /* Reminders the admin has waved away. Session-only and never persisted:
+     a reminder describes a live condition, so hiding it must not outlive
+     the screen or it would quietly bury something still true. */
+  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   // Its own flag rather than part of `open`: the closing window stays open
   // underneath while a booking on its checklist is finished on top of it.
   const [closing, setClosing] = useState(false);
@@ -191,7 +215,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
     const { b } = c;
     const who = <strong style={{ color: C.textH }}>{b.name}</strong>;
     if (c.overdue) {
-      attention.push({ key: `late-${b.id}`, tone: "red", icon: "alert",
+      attention.push({ key: `late-${b.id}`, kind: "urgent", tone: "red", icon: "alert",
         text: <>{who} was due on {fmtDate(b.date)} and was never checked in. Complete the stay if they came, or mark a no-show.</>,
         actions: <>
           <ActionButton size="sm" kind="primary" onClick={() => go("checkout", b)}>Complete stay</ActionButton>
@@ -199,12 +223,12 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         </> });
     }
     if (c.timeUp && c.endsAt) {
-      attention.push({ key: `time-${b.id}`, tone: "red", icon: "clock",
+      attention.push({ key: `time-${b.id}`, kind: "urgent", tone: "red", icon: "clock",
         text: <>{who}&apos;s booked time ended at {localTime(c.endsAt)}, {duration(now.getTime() - c.endsAt.getTime())} ago.</>,
         actions: <ActionButton size="sm" kind="primary" onClick={() => go("checkout", b)}>Check out</ActionButton> });
     }
     if (c.stage === "confirm" && c.view === "today") {
-      attention.push({ key: `confirm-${b.id}`, tone: b.date < today ? "red" : "amber", icon: "clipboard",
+      attention.push({ key: `confirm-${b.id}`, kind: "urgent", tone: b.date < today ? "red" : "amber", icon: "clipboard",
         text: <>{who}&apos;s booking for {b.date === today ? "today" : fmtDate(b.date)} isn&apos;t confirmed yet.</>,
         actions: <>
           <ActionButton size="sm" kind="primary" onClick={() => go("accept", b)}>Review</ActionButton>
@@ -212,18 +236,18 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         </> });
     }
     if (c.stage === "arriving" && !c.overdue && !c.prepared) {
-      attention.push({ key: `prep-${b.id}`, tone: "amber", icon: "clipboard-check",
+      attention.push({ key: `prep-${b.id}`, kind: "reminder", tone: "amber", icon: "clipboard-check",
         text: <>{who} arrives today, but the facilities haven&apos;t been prepared.</>,
         actions: <ActionButton size="sm" kind="primary" onClick={() => go("prep", b)}>Prepare for arrival</ActionButton> });
     }
     if (c.stage === "settle" && b.checkedOutAt && manilaDate(b.checkedOutAt) < today) {
-      attention.push({ key: `settle-${b.id}`, tone: "amber", icon: "receipt",
+      attention.push({ key: `settle-${b.id}`, kind: "urgent", tone: "amber", icon: "receipt",
         text: <>{who} checked out on {fmtDate(manilaDate(b.checkedOutAt))} and the booking hasn&apos;t been closed.</>,
         actions: <ActionButton size="sm" kind="primary" onClick={() => go("settle", b)}>Collect & close</ActionButton> });
     }
     if (c.view === "today" && (c.column === "arriving" || c.column === "onsite")) {
       for (const f of facilitiesForBooking(b, facilities).filter((x) => x.status === "Under Maintenance")) {
-        attention.push({ key: `maint-${b.id}-${f.id}`, tone: "amber", icon: "toolbox",
+        attention.push({ key: `maint-${b.id}-${f.id}`, kind: "reminder", tone: "amber", icon: "toolbox",
           text: <><strong style={{ color: C.textH }}>{f.name}</strong> is under maintenance, but {who}&apos;s booking uses it.</>,
           actions: <ActionButton size="sm" onClick={() => go("record", b)}>View booking</ActionButton> });
       }
@@ -236,7 +260,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
     const b = find(r.bookingId);
     if (!b) continue;
     const active = holdActive(r, now.getTime());
-    attention.push({ key: `move-${r.id}`, tone: active ? "amber" : "red", icon: "calendar",
+    attention.push({ key: `move-${r.id}`, kind: active ? "reminder" : "urgent", tone: active ? "amber" : "red", icon: "calendar",
       text: <><strong style={{ color: C.textH }}>{b.name}</strong>{" "}
         {isRebookRequest(r, b)
           ? <>picked {fmtDate(r.toDate)} for {b.id} after the resort cancelled {fmtDate(r.fromDate)}.</>
@@ -250,11 +274,11 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
   for (const b of bookings) {
     const who = <strong style={{ color: C.textH }}>{b.name}</strong>;
     if (b.refundStatus === "Owed") {
-      attention.push({ key: `refund-${b.id}`, tone: "red", icon: "cash",
+      attention.push({ key: `refund-${b.id}`, kind: "urgent", tone: "red", icon: "cash",
         text: <>{who} is owed a refund of {fmt(b.refundAmount ?? 0)} ({b.id}). Send it and record the reference.</>,
         actions: <ActionButton size="sm" kind="primary" onClick={() => go("refund", b)}>Send refund</ActionButton> });
     } else if (choiceOpen(b, now.getTime())) {
-      attention.push({ key: `waiting-${b.id}`, tone: "blue", icon: "clock",
+      attention.push({ key: `waiting-${b.id}`, kind: "reminder", tone: "blue", icon: "clock",
         text: <>{who} hasn&apos;t picked a new date yet for {b.id} (cancelled by the resort). They have until {fmtDeadline(b.choiceDeadline!)}.</>,
         actions: <>
           <ActionButton size="sm" onClick={() => go("textagain", b)}>Text them</ActionButton>
@@ -263,7 +287,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
     } else if (choiceExpired(b, ops.dateChanges.some((r) => r.bookingId === b.id && r.status === "Pending"), now.getTime())) {
       // Their time to pick online ran out. The booking waits on the owner
       // now: agree a date or a refund with them, then record it here.
-      attention.push({ key: `expired-${b.id}`, tone: "red", icon: "clock",
+      attention.push({ key: `expired-${b.id}`, kind: "urgent", tone: "red", icon: "clock",
         text: <>{who} didn&apos;t pick a new date for {b.id} in time (cancelled by the resort).{(b.heldAmount ?? 0) > 0 ? <> {fmt(b.heldAmount ?? 0)} is still held for them.</> : null} Contact them to agree a new date or a refund.</>,
         actions: <>
           <ActionButton size="sm" kind="primary" onClick={() => go("move", b)}>Set a new date</ActionButton>
@@ -277,7 +301,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
   const unclosed = unclosedDays({ payments: ops.payments, expenses: ops.expenses, closings: ops.closings, today });
   if (unclosed.length > 0) {
     const first = unclosed[0];
-    attention.push({ key: "unclosed-days", tone: unclosed.length > 1 ? "red" : "amber", icon: "wallet",
+    attention.push({ key: "unclosed-days", kind: "urgent", tone: unclosed.length > 1 ? "red" : "amber", icon: "wallet",
       text: unclosed.length === 1
         ? <>{first === manilaDate(new Date(now.getTime() - 86_400_000)) ? "Yesterday" : fmtDate(first)} wasn&apos;t closed. Count the cash box and close it so the records match the money in it.</>
         : <>{unclosed.length} days weren&apos;t closed: {unclosed.map(fmtDate).join(", ")}. Close each one, oldest first, so every cash count is right.</>,
@@ -285,7 +309,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
   }
   const waitingConfirm = upcoming.filter((c) => c.stage === "confirm");
   if (waitingConfirm.length > 0) {
-    attention.push({ key: "confirm-upcoming", tone: "blue", icon: "info",
+    attention.push({ key: "confirm-upcoming", kind: "reminder", tone: "blue", icon: "info",
       text: <>{waitingConfirm.length} upcoming booking{waitingConfirm.length === 1 ? " is" : "s are"} waiting for your confirmation.</>,
       actions: <ActionButton size="sm" onClick={() => { setQ(""); setView("upcoming"); }}>Review</ActionButton> });
   }
@@ -309,7 +333,15 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
 
   const rank = { red: 0, amber: 1, blue: 2 } as const;
   attention.sort((a, b) => rank[a.tone] - rank[b.tone]);
-  const attentionShown = allAttention ? attention : attention.slice(0, ATTENTION_SHOWN);
+  /* Two lists, one source. The split happens here rather than at each
+     push, so `attention.length` stays the number the sidebar badge is
+     checked against just above. */
+  const urgent = attention.filter((a) => a.kind === "urgent");
+  const allReminderRows = attention.filter((a) => a.kind === "reminder");
+  const reminders = allReminderRows.filter((a) => !dismissed.has(a.key));
+  const hiddenReminders = allReminderRows.length - reminders.length;
+  const urgentShown = allUrgent ? urgent : urgent.slice(0, ATTENTION_SHOWN);
+  const remindersShown = allReminders ? reminders : reminders.slice(0, ATTENTION_SHOWN);
 
   // ── One reservation ────────────────────────────────────────────────
   const card = (c: OpsCard) => {
@@ -399,7 +431,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
               {fresh && <StatusBadge color={gold}>New</StatusBadge>}
             </div>
             <div style={{ color: C.textS, fontSize: 12, marginTop: 4 }}>
-              {b.date === today ? "Today" : fmtDate(b.date)} · {slot.label} ({slot.hours}){b.arrivalTime ? ` · arrives ${b.arrivalTime}` : ""}
+              {b.date === today ? "Today" : fmtDate(b.date)}{bookingDays(b) > 1 ? ` – ${fmtDate(bookingEndDate(b))} (${bookingDays(b)} days)` : ""} · {slot.label} ({slot.hours}){b.arrivalTime ? ` · arrives ${b.arrivalTime}` : ""}
             </div>
           </div>
           <DropdownMenu modal={false}>
@@ -698,6 +730,231 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
     </>
   );
 
+  // ── Dashboard figures ──────────────────────────────────────────────
+  /* Everything the four cards read. They answer, in order: who is still
+     coming, who is here, what money is still owed today, and whether the
+     day is up or down. */
+  const arrivingNow = todayCards.filter((c) => c.column === "arriving");
+  const readyToArrive = arrivingNow.filter((c) => c.prepared).length;
+  const expectedGuests = dueToday.reduce((n, b) => n + (b.guests || 0), 0);
+  const owedToday = round2(todayCards.reduce((n, c) => n + money(c.b).due, 0));
+  const owedTodayCount = todayCards.filter((c) => money(c.b).due > 0).length;
+  const netToday = round2(collectedToday - spentToday);
+
+  const month = monthRange(today);
+  const receivedMonth = collectedBetween(ops.payments, month.from, month.to);
+  const spentMonth = expensesBetween(ops.expenses, month.from, month.to);
+  /* One bar per day of the month so far. It stops at today, so the chart is
+     not a row of empty future days.
+     The dates are built from `today`'s own string rather than by stepping a
+     Date object: `today` is already a Manila date, and local Date arithmetic
+     on a machine in another timezone slides the first and last bar by a
+     day. */
+  const monthChart = useMemo(() => {
+    const prefix = today.slice(0, 8);
+    const dayOfMonth = Number(today.slice(8, 10));
+    return Array.from({ length: dayOfMonth }, (_, i) => {
+      const iso = `${prefix}${String(i + 1).padStart(2, "0")}`;
+      return { label: String(i + 1), value: collectedBetween(ops.payments, iso) };
+    });
+  }, [today, ops.payments]);
+
+  /** One headline figure: icon tile, label, and a badge for its state. */
+  const dashStat = (o: { icon: IconName; label: string; value: ReactNode; note: ReactNode; badge?: string; badgeColor?: string; color?: string }) => (
+    <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 12, padding: "14px 16px", minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span aria-hidden style={{ width: 32, height: 32, borderRadius: 9, background: soft, border: `1px solid ${cBr}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: o.color ?? C.goldInk, flexShrink: 0 }}>
+          <Icon name={o.icon} size={16} />
+        </span>
+        <span style={{ flex: 1, minWidth: 0, color: C.textS, fontSize: 12.5 }}>{o.label}</span>
+        {o.badge && (
+          <span style={{ fontSize: 10.5, fontWeight: 700, borderRadius: 20, padding: "3px 8px", whiteSpace: "nowrap", background: `${o.badgeColor ?? C.textS}22`, color: o.badgeColor ?? C.textS }}>{o.badge}</span>
+        )}
+      </div>
+      <div style={{ color: o.color ?? C.textH, fontSize: mob ? 22 : 27, fontWeight: 600, lineHeight: 1.15 }}>{o.value}</div>
+      <div style={{ color: C.textXS, fontSize: 12 }}>{o.note}</div>
+    </div>
+  );
+
+  const statsRow = (
+    <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
+      {dashStat({
+        icon: "calendar", label: "Still arriving",
+        value: dueToday.length - arrivedToday,
+        badge: arrivingNow.length ? `${readyToArrive} ready` : undefined,
+        badgeColor: readyToArrive === arrivingNow.length ? "#2e9e4e" : "#d4a800",
+        note: dueToday.length ? `${expectedGuests} expected guest${expectedGuests === 1 ? "" : "s"}` : "No bookings today",
+      })}
+      {dashStat({
+        icon: "users", label: "Guests at the resort", value: headcount,
+        color: onSite.length ? "#2e9e4e" : undefined,
+        badge: onSite.length ? "Checked in" : undefined, badgeColor: "#2e9e4e",
+        note: `${onSite.length} current booking${onSite.length === 1 ? "" : "s"}`,
+      })}
+      {dashStat({
+        icon: "wallet", label: "Payments still needed", value: fmt(owedToday),
+        color: owedToday > 0 ? "#d4a800" : undefined,
+        badge: owedToday > 0 ? "Due today" : undefined, badgeColor: "#d4a800",
+        note: owedToday > 0 ? `From ${owedTodayCount} booking${owedTodayCount === 1 ? "" : "s"}` : "Nothing owed today",
+      })}
+      {dashStat({
+        icon: "cash", label: "Money left today", value: fmt(netToday),
+        color: netToday < 0 ? "#d44" : "#2e9e4e",
+        badge: netToday < 0 ? "Negative" : "Positive", badgeColor: netToday < 0 ? "#d44" : "#2e9e4e",
+        note: `${fmt(collectedToday)} received · ${fmt(spentToday)} spent`,
+      })}
+    </div>
+  );
+
+  const showMore = (label: string, onClick: () => void) => (
+    <button type="button" onClick={onClick}
+      style={{ width: "100%", padding: 8, borderTop: `1px solid ${cBr}`, borderRight: "none", borderBottom: "none", borderLeft: "none", background: soft, color: C.textB, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+      {label}
+    </button>
+  );
+
+  // ── Do these first: the work that blocks other work ────────────────
+  const urgentPanel = urgent.length === 0 ? (
+    <section style={{ display: "flex", alignItems: "center", gap: 10, padding: 16, borderRadius: 12, background: "rgba(46,158,78,0.08)", border: "1px solid rgba(46,158,78,0.3)" }}>
+      <Icon name="check-circle" size={18} style={{ color: "#2e9e4e", flexShrink: 0 }} />
+      <span style={{ color: C.textB, fontSize: 13.5 }}>
+        <strong style={{ color: C.textH }}>Nothing urgent.</strong> Everything that had to be done right now is done.
+      </span>
+    </section>
+  ) : (
+    <section aria-labelledby="dash-urgent" style={{ border: "1px solid #d4444055", borderRadius: 12, background: cBg, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: `1px solid ${cBr}` }}>
+        <Icon name="alert" size={16} style={{ color: TONE.red, flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h3 id="dash-urgent" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Do these first</h3>
+          <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>These tasks must be done before other work</div>
+        </div>
+        <span style={{ padding: "4px 8px", borderRadius: 10, fontSize: 11.5, whiteSpace: "nowrap", background: `${TONE.red}22`, color: TONE.red }}>
+          {urgent.length} to do
+        </span>
+      </div>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        {urgentShown.map((a, i) => (
+          <li key={a.key} style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 16px", borderTop: i ? `1px solid ${cBr}` : "none", borderLeft: `3px solid ${TONE[a.tone]}` }}>
+            <Icon name={a.icon} size={15} style={{ color: TONE[a.tone], flexShrink: 0 }} />
+            <span style={{ flex: "1 1 220px", color: C.textB, fontSize: 13.5 }}>{a.text}</span>
+            <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{a.actions}</span>
+          </li>
+        ))}
+      </ul>
+      {urgent.length > ATTENTION_SHOWN && showMore(allUrgent ? "Show fewer" : `Show ${urgent.length - ATTENTION_SHOWN} more`, () => setAllUrgent((v) => !v))}
+    </section>
+  );
+
+  // ── Reminders: true, but nothing breaks if they wait ───────────────
+  const reminderPanel = (
+    <section aria-labelledby="dash-reminders" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: `1px solid ${cBr}` }}>
+        <Icon name="flag" size={16} style={{ color: C.goldInk, flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h3 id="dash-reminders" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Reminders</h3>
+          <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>Helpful notes for today</div>
+        </div>
+        {reminders.length > 0 && (
+          <span style={{ padding: "4px 8px", borderRadius: 10, fontSize: 11.5, background: `${gold}22`, color: C.goldInk }}>{reminders.length}</span>
+        )}
+      </div>
+      {reminders.length === 0 ? (
+        <p style={{ color: C.textS, fontSize: 13, margin: 0, padding: 16 }}>
+          {hiddenReminders > 0 ? "All of today's notes have been set aside." : "No notes for today."}
+        </p>
+      ) : (
+        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+          {remindersShown.map((a, i) => (
+            <li key={a.key} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 16px", borderTop: i ? `1px solid ${cBr}` : "none" }}>
+              <Icon name={a.icon} size={15} style={{ color: TONE[a.tone], flexShrink: 0, marginTop: 2 }} />
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+                <span style={{ color: C.textB, fontSize: 13 }}>{a.text}</span>
+                <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{a.actions}</span>
+              </div>
+              {/* Set aside for this session only. The row comes back on the
+                  next load if the thing it describes is still true. */}
+              <button type="button" aria-label="Set this reminder aside" title="Set aside until the page is reloaded"
+                onClick={() => setDismissed((prev) => new Set(prev).add(a.key))}
+                style={{ background: "none", border: "none", padding: 4, cursor: "pointer", color: C.textXS, flexShrink: 0, display: "inline-flex" }}>
+                <Icon name="x" size={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {reminders.length > ATTENTION_SHOWN && showMore(allReminders ? "Show fewer" : `Show ${reminders.length - ATTENTION_SHOWN} more`, () => setAllReminders((v) => !v))}
+      {hiddenReminders > 0 && showMore(`Bring back ${hiddenReminders} set aside`, () => setDismissed(new Set()))}
+    </section>
+  );
+
+  // ── Quick tasks ────────────────────────────────────────────────────
+  const quickTask = (icon: IconName, title: string, sub: string, onClick: () => void) => (
+    <button type="button" onClick={onClick} className="sw-gold-hover"
+      style={{ display: "flex", alignItems: "center", gap: 10, minHeight: TAP_MIN, padding: 12, borderRadius: 10, border: `1px solid ${cBr}`, background: "transparent", cursor: "pointer", textAlign: "left", minWidth: 0 }}>
+      <span aria-hidden style={{ width: 30, height: 30, borderRadius: 8, background: soft, display: "inline-flex", alignItems: "center", justifyContent: "center", color: C.goldInk, flexShrink: 0 }}>
+        <Icon name={icon} size={15} />
+      </span>
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: "block", color: C.textH, fontSize: 13, fontWeight: 600 }}>{title}</span>
+        <span style={{ display: "block", color: C.textS, fontSize: 11.5 }}>{sub}</span>
+      </span>
+    </button>
+  );
+
+  const quickPanel = (
+    <section aria-labelledby="dash-quick" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, overflow: "hidden" }}>
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${cBr}` }}>
+        <h3 id="dash-quick" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Quick tasks</h3>
+        <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>Start a common task</div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: 16 }}>
+        {quickTask("plus", "Walk-in", "Create booking", () => setOpen({ kind: "walkin" }))}
+        {quickTask("cash", "Payment", "Add guest payment", () => setOpen({ kind: "paynew" }))}
+        {quickTask("receipt", "Cost", "Add money spent", () => onGoTab?.("Sales"))}
+        {quickTask("clipboard-check", "Facility check", "Make sure things are ready", () => onGoTab?.("Facilities"))}
+      </div>
+    </section>
+  );
+
+  // ── Money summary ──────────────────────────────────────────────────
+  const monthName = new Date(`${today}T00:00:00`).toLocaleDateString("en-PH", { month: "long", year: "numeric" });
+  const leftMonth = round2(receivedMonth - spentMonth);
+  const moneyFigure = (label: string, value: string, note: ReactNode, color?: string) => (
+    <div style={{ minWidth: 0 }}>
+      <div style={{ color: C.textS, fontSize: 12 }}>{label}</div>
+      <div style={{ color: color ?? C.textH, fontSize: mob ? 20 : 24, fontWeight: 600, marginTop: 2 }}>{value}</div>
+      <div style={{ color: C.textXS, fontSize: 11.5, marginTop: 2 }}>{note}</div>
+    </div>
+  );
+  const moneyPanel = (
+    <section aria-labelledby="dash-money" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 16px", borderBottom: `1px solid ${cBr}` }}>
+        <Icon name="bar-chart" size={16} style={{ color: C.goldInk, flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h3 id="dash-money" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Money summary</h3>
+          <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>{monthName} · includes today&apos;s money</div>
+        </div>
+        {onGoTab && (
+          <button type="button" onClick={() => onGoTab("Reports")}
+            style={{ background: "none", border: "none", padding: 4, color: C.goldInk, fontSize: 12.5, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            View full report <Icon name="arrow-right" size={13} />
+          </button>
+        )}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(3,minmax(0,1fr))", gap: 16, padding: 16 }}>
+        {moneyFigure("Money received this month", fmt(receivedMonth), "Includes today's payments", "#2e9e4e")}
+        {moneyFigure("Money spent this month", fmt(spentMonth), receivedMonth > 0 ? `${Math.round((spentMonth / receivedMonth) * 100)}% of the money received` : "No income yet this month")}
+        {moneyFigure("Money left this month", fmt(leftMonth),
+          leftMonth < 0 ? "More was spent than received" : "Money received is higher than money spent",
+          leftMonth < 0 ? "#d44" : "#2e9e4e")}
+      </div>
+      <div style={{ padding: "0 16px 16px" }}>
+        <BarChart data={monthChart} color={gold} formatValue={fmt} height={mob ? 130 : 170} mob={mob} />
+      </div>
+    </section>
+  );
+
   // ── Search ─────────────────────────────────────────────────────────
   const needle = q.trim().toLowerCase();
   const results = needle
@@ -706,88 +963,92 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
 
   return (
     <div>
-      <AdminPageHeader title={adminTabLabel("Operations")} mob={mob}
-        subtitle={new Date(`${today}T00:00:00`).toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-        action={
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <LiveStatus />
-            <ActionButton icon="plus" onClick={() => setOpen({ kind: "walkin" })}>New walk-in</ActionButton>
-            <ActionButton kind={closedToday ? "ghost" : "primary"} icon="wallet" onClick={() => openClosing()}>{closedToday ? "Day closed" : "Close the day"}</ActionButton>
-          </div>
-        } />
-
-      {/* ── At a glance ── */}
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
-        <StatCard label="Still to arrive today" value={dueToday.length - arrivedToday}
-          note={dueToday.length ? `${arrivedToday} of ${dueToday.length} group${dueToday.length === 1 ? "" : "s"} checked in` : "No bookings today"} />
-        <StatCard label="On site now" value={onSite.length} color={onSite.length ? "#2e9e4e" : undefined}
-          note={`${headcount} guest${headcount === 1 ? "" : "s"}`} />
-        <StatCard label="Balance to collect" value={toSettle.length} color={toSettle.length ? "#e07a3a" : undefined}
-          note={toSettle.length ? `${fmt(toSettleDue)} to collect` : "Nothing waiting"} />
-        <StatCard label="Collected today" value={fmt(collectedToday)}
-          note={closedToday ? `Day closed at ${manilaTime(closedToday.closedAt)}` : `${fmt(spentToday)} spent`} />
+      {/* ── Today, and what the admin can start from here ── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ color: C.textXS, fontSize: 11, letterSpacing: 3, margin: 0, textTransform: "uppercase" }}>
+            {new Date(`${today}T00:00:00`).toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+          </p>
+          <h1 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 26 : 34, fontWeight: 400, margin: "6px 0 0" }}>
+            {adminTabLabel("Operations")}
+          </h1>
+          <p style={{ color: C.textS, fontSize: 13.5, margin: "6px 0 0" }}>See what needs to be done at StoneWood today.</p>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <LiveStatus />
+          <ActionButton icon="plus" onClick={() => setOpen({ kind: "walkin" })}>New walk-in</ActionButton>
+          <ActionButton kind={closedToday ? "ghost" : "primary"} icon="wallet" onClick={() => openClosing()}>{closedToday ? "Day closed" : "Close the day"}</ActionButton>
+        </div>
       </div>
+
+      {statsRow}
 
       {!ops.loaded && ops.loading && <p style={{ color: C.textS, fontSize: 13 }}>Loading inspections and payments…</p>}
 
-      {/* ── Needs attention ── */}
-      {ops.loaded && (attention.length === 0 ? (
-        <p style={{ display: "flex", alignItems: "center", gap: 8, color: "#2e9e4e", fontSize: 13.5, margin: "0 0 24px", padding: "12px 16px", borderRadius: 10, background: "rgba(46,158,78,0.08)" }}>
-          <Icon name="check-circle" size={16} />All caught up. Nothing needs your attention right now.
-        </p>
-      ) : (
-        <section aria-labelledby="ops-attention" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, marginBottom: 24, overflow: "hidden" }}>
-          <h3 id="ops-attention" style={{ margin: 0, padding: "12px 16px", fontSize: 14.5, fontWeight: 600, color: C.textH, display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${cBr}` }}>
-            <Icon name="alert" size={15} style={{ color: TONE[attention[0].tone] }} />
-            Needs your attention
-            <span style={{ padding: "4px 8px", borderRadius: 10, fontSize: 12, background: `${TONE[attention[0].tone]}22`, color: TONE[attention[0].tone] }}>{attention.length}</span>
-          </h3>
-          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {attentionShown.map((a, i) => (
-              <li key={a.key} style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 16px", borderTop: i ? `1px solid ${cBr}` : "none", borderLeft: `3px solid ${TONE[a.tone]}` }}>
-                <Icon name={a.icon} size={15} style={{ color: TONE[a.tone], flexShrink: 0 }} />
-                <span style={{ flex: "1 1 240px", color: C.textB, fontSize: 13.5 }}>{a.text}</span>
-                <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{a.actions}</span>
-              </li>
-            ))}
-          </ul>
-          {attention.length > ATTENTION_SHOWN && (
-            <button type="button" onClick={() => setAllAttention((v) => !v)}
-              style={{ width: "100%", padding: "8px", borderTop: `1px solid ${cBr}`, borderRight: "none", borderBottom: "none", borderLeft: "none", background: soft, color: C.textB, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
-              {allAttention ? "Show fewer" : `Show ${attention.length - ATTENTION_SHOWN} more`}
+      {/* ── What to do now, and what merely to know ──
+          Two lists rather than one, because a stack that mixed "a guest is
+          owed a refund" with "a group arriving at six is not ticked off yet"
+          made every row look equally late. */}
+      {ops.loaded && (
+        <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1.9fr) minmax(0,1fr)", gap: 16, alignItems: "start", marginBottom: 20 }}>
+          {urgentPanel}
+          {reminderPanel}
+        </div>
+      )}
+
+      {/* ── Today's guests: the same three stages, in one place ── */}
+      <section aria-labelledby="dash-bookings" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, overflow: "hidden", marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 16px", borderBottom: `1px solid ${cBr}` }}>
+          <Icon name="users" size={16} style={{ color: C.goldInk, flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h3 id="dash-bookings" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Guest bookings today</h3>
+            <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>Check them in, check them out, and collect what is owed</div>
+          </div>
+          {onGoTab && (
+            <button type="button" onClick={() => onGoTab("Occupancy")}
+              style={{ background: "none", border: "none", padding: 4, color: C.goldInk, fontSize: 12.5, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              Open booking calendar <Icon name="arrow-right" size={13} />
             </button>
           )}
-        </section>
-      ))}
+        </div>
 
-      {/* ── Find a guest ── */}
-      <div style={{ position: "relative", maxWidth: 420, marginBottom: 16 }}>
-        <Icon name="search" size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: 0.5, color: C.textH }} />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a guest by name, booking ID or phone" aria-label="Find a guest"
-          style={{ ...inp, padding: "8px 12px", paddingLeft: 32, paddingRight: q ? 36 : 12 }} />
-        {q && (
-          <button type="button" onClick={() => setQ("")} aria-label="Clear search"
-            style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.textS, cursor: "pointer", padding: 4, display: "inline-flex" }}>
-            <Icon name="x" size={14} />
-          </button>
-        )}
+        <div style={{ padding: 16 }}>
+          {/* ── Find a guest ── */}
+          <div style={{ position: "relative", maxWidth: 420, marginBottom: 16 }}>
+            <Icon name="search" size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: 0.5, color: C.textH }} />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a guest by name, booking ID or phone" aria-label="Find a guest"
+              style={{ ...inp, padding: "8px 12px", paddingLeft: 32, paddingRight: q ? 36 : 12 }} />
+            {q && (
+              <button type="button" onClick={() => setQ("")} aria-label="Clear search"
+                style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.textS, cursor: "pointer", padding: 4, display: "inline-flex" }}>
+                <Icon name="x" size={14} />
+              </button>
+            )}
+          </div>
+
+          {needle ? (
+            <section aria-label="Search results">
+              <p style={{ color: C.textS, fontSize: 13, margin: "0 0 12px" }}>
+                {results.length ? `${results.length} match${results.length === 1 ? "" : "es"}` : "No match among today's work and the next two weeks. Search every booking in Bookings."}
+              </p>
+              {results.length > 0 && grid(results)}
+            </section>
+          ) : (
+            <ViewSwitcherTabs<OpsView> value={view} onChange={setView} views={[
+              { value: "today", label: `Today (${todayCards.length})`, content: todayPanel },
+              { value: "upcoming", label: `Coming up (${upcoming.length})`, content: upcomingPanel },
+              { value: "done", label: `Done today (${doneToday.length})`, content: donePanel },
+              { value: "reschedule", label: `Date changes (${pendingMoves.length})`, content: reschedulePanel },
+            ]} />
+          )}
+        </div>
+      </section>
+
+      {/* ── Start something, and the month's money ── */}
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1fr) minmax(0,1.9fr)", gap: 16, alignItems: "start" }}>
+        {quickPanel}
+        {moneyPanel}
       </div>
-
-      {needle ? (
-        <section aria-label="Search results">
-          <p style={{ color: C.textS, fontSize: 13, margin: "0 0 12px" }}>
-            {results.length ? `${results.length} match${results.length === 1 ? "" : "es"}` : "No match among today's work and the next two weeks. Search every booking in Bookings."}
-          </p>
-          {results.length > 0 && grid(results)}
-        </section>
-      ) : (
-        <ViewSwitcherTabs<OpsView> value={view} onChange={setView} views={[
-          { value: "today", label: `Today (${todayCards.length})`, content: todayPanel },
-          { value: "upcoming", label: `Coming up (${upcoming.length})`, content: upcomingPanel },
-          { value: "done", label: `Done today (${doneToday.length})`, content: donePanel },
-          { value: "reschedule", label: `Reschedules (${pendingMoves.length})`, content: reschedulePanel },
-        ]} />
-      )}
 
       {/* ── The module tools each button opens ── */}
       {open?.kind === "move" && current && (
@@ -804,6 +1065,8 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
       {open?.kind === "settle" && current && <SettleModal booking={current} onClose={() => setOpen(null)} />}
       {open?.kind === "record" && current && <VisitRecord booking={current} onClose={() => setOpen(null)} />}
       {open?.kind === "pay" && current && <RecordPaymentModal bookings={bookings} bookingId={current.id} onClose={() => setOpen(null)} />}
+      {/* Same window, no booking chosen yet: the admin picks one inside. */}
+      {open?.kind === "paynew" && <RecordPaymentModal bookings={bookings} onClose={() => setOpen(null)} />}
       {open?.kind === "walkin" && (
         <WalkInModal bookings={withHolds(bookings, ops.dateChanges)} setBookings={setBookings} rooms={rooms} packages={packages} facilities={facilities} mob={mob} onClose={() => setOpen(null)} />
       )}

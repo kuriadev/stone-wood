@@ -11,18 +11,20 @@
 
 import { getSupabaseAdmin, rowToBooking, rowToFacility, rowToPackage, rowToRoom } from "@/lib/supabase";
 import {
-  checkBookingAvailability,
+  checkRangeAvailability,
+  daysInRange,
+  fmtDate,
   isRoomOpen,
-  roomsTakenOn,
+  roomsTakenInRange,
 } from "@/lib/utils";
 import { priceBooking, bookingLabel, pricingProblem, type PriceBreakdown } from "@/lib/pricing";
 import {
   GUESTS_MIN, GUESTS_MAX, RESORT_MAX_CAPACITY,
   isValidEmail, isValidName, isValidPHNumber,
   sanitizeName, sanitizeContact, sanitizeNotes,
-  isWithinBookingWindow, describeDateProblem,
+  isWithinBookingWindow, describeDateProblem, MAX_STAY_DAYS,
 } from "@/lib/validators";
-import { heldBookings } from "@/lib/rebooking.server";
+import { bookingsOverlapping } from "@/lib/rebooking.server";
 import type { BookingRow, FacilityRow, PackageRow, RoomRow } from "@/types/database";
 import type { BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 
@@ -39,6 +41,8 @@ export interface BookingDraft {
   overtime: number;
   rooms: number[];
   date: string;
+  /** Last day of the stay; equal to `date` for a one-day booking. */
+  endDate: string;
   name: string;
   email: string;
   contact: string;
@@ -81,16 +85,35 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
   if (!isValidEmail(email)) return bad("A valid email address is required.");
   if (!isValidPHNumber(contact)) return bad("A valid PH mobile number (09XXXXXXXXX) is required.");
 
-  // ── Date ────────────────────────────────────────────────────────
+  // ── The stay ────────────────────────────────────────────────────
+  // One booking can run over several days: `date` is the first and
+  // `endDate` the last, inclusive. A guest who sends neither, or the same
+  // day twice, is booking a single day — which is every booking made
+  // before this existed.
   const date = String(d.date ?? "");
   if (!isWithinBookingWindow(date)) return bad(describeDateProblem(date) ?? "That date can't be booked.");
 
+  const endDate = typeof d.endDate === "string" && d.endDate ? d.endDate : date;
+  if (endDate !== date) {
+    if (endDate < date) return bad("The last day of the stay must be on or after the first.");
+    if (!isWithinBookingWindow(endDate)) return bad(describeDateProblem(endDate) ?? "That last day can't be booked.");
+  }
+  const stayDays = daysInRange(date, endDate);
+  if (stayDays < 1) return bad("Choose the days of the stay.");
+  if (stayDays > MAX_STAY_DAYS) {
+    return bad(`A booking can run for at most ${MAX_STAY_DAYS} days. Please contact the resort for a longer stay.`);
+  }
+
   const db = getSupabaseAdmin();
 
+  // Every day of the stay has to be open, not just the first.
   const { data: closed, error: closedErr } = await db
-    .from("closed_dates").select("date").eq("date", date).maybeSingle();
+    .from("closed_dates").select("date").gte("date", date).lte("date", endDate).order("date");
   if (closedErr) throw new Error(closedErr.message);
-  if (closed) return bad("The resort is closed on that date.", 409);
+  if (closed && closed.length > 0) {
+    const shut = (closed as { date: string }[])[0].date;
+    return bad(stayDays > 1 ? `The resort is closed on ${fmtDate(shut)}.` : "The resort is closed on that date.", 409);
+  }
 
   // ── What is being booked ────────────────────────────────────────
   // Older pages sent tourType ("Night Tour"); newer ones send slot.
@@ -154,40 +177,43 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
   }
 
   // ── Rooms, facilities and the date's other bookings ─────────────
-  const [roomsRes, facRes, bookedRes] = await Promise.all([
+  const [roomsRes, facRes, overlap] = await Promise.all([
     roomIds.length
       ? db.from("rooms").select("*").in("id", roomIds)
       : Promise.resolve({ data: [] as RoomRow[], error: null }),
     db.from("facilities").select("*"),
-    db.from("bookings").select("*").eq("date", date).not("status", "in", "(Cancelled,ResortCancelled)"),
+    bookingsOverlapping(date, endDate),
   ]);
   if (roomsRes.error) throw new Error(roomsRes.error.message);
   if (facRes.error) throw new Error(facRes.error.message);
-  if (bookedRes.error) throw new Error(bookedRes.error.message);
+  if (!overlap.rangeSupported && stayDays > 1) {
+    return bad("Multi-day bookings are not switched on yet. Please book one day at a time, or contact the resort.", 409);
+  }
 
   const rooms = (roomsRes.data as RoomRow[]).map(rowToRoom);
   if (rooms.length !== roomIds.length) return bad("One of the chosen rooms no longer exists.", 409);
 
   const facilities = (facRes.data as FacilityRow[]).map(rowToFacility);
-  // A date a guest is waiting to move to is held for them (48 hours), so
-  // it counts as booked here too.
-  const sameDay = [...(bookedRes.data as BookingRow[]).map(rowToBooking), ...(await heldBookings({ date }))];
+  // Everyone occupying any day of the stay, holds included.
+  const sameDay = overlap.others;
 
   // ── Availability ────────────────────────────────────────────────
   let available = true;
   let unavailableReason: string | undefined;
 
-  const capacity = checkBookingAvailability(date, slot, guests, tier, resource, sameDay, facilities, overtime);
+  const capacity = checkRangeAvailability(date, endDate, slot, guests, tier, resource, sameDay, facilities, overtime);
   if (!capacity.ok) {
     available = false;
     unavailableReason = capacity.reason;
   }
-  const taken = roomsTakenOn(date, slot, sameDay, overtime);
+  const taken = roomsTakenInRange(date, endDate, slot, sameDay, overtime);
   const clash = rooms.find((r) => taken.has(r.id));
   const closedRoom = rooms.find((r) => !isRoomOpen(r.id, facilities));
   if (available && clash) {
     available = false;
-    unavailableReason = `${clash.name} is already booked that date.`;
+    unavailableReason = stayDays > 1
+      ? `${clash.name} is already booked on one of those dates.`
+      : `${clash.name} is already booked that date.`;
   } else if (available && closedRoom) {
     available = false;
     unavailableReason = `${closedRoom.name} is closed for maintenance.`;
@@ -202,6 +228,7 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
     guests,
     overtime,
     roomPrices: rooms.map((r) => r.price),
+    days: stayDays,
   });
 
   const packageLabel = bookingLabel({
@@ -218,7 +245,7 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
         packageCode: pkg?.code,
         resource, tier, slot, guests, overtime,
         rooms: rooms.map((r) => r.id),
-        date, name, email, contact, notes,
+        date, endDate, name, email, contact, notes,
         payFull: d.payFull === true,
       },
       packageLabel,

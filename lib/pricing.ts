@@ -49,6 +49,10 @@ export interface PriceInput {
   overtime: number;
   /** The chosen rooms' own per-slot prices. */
   roomPrices: number[];
+  /** How many days the stay runs for. 1 (the default) is a single day.
+   *  The tour and the rooms are charged for each day; overtime is not,
+   *  because staff add it once, on the day it actually happened. */
+  days?: number;
 }
 
 export interface PriceBreakdown {
@@ -70,6 +74,10 @@ export interface PriceBreakdown {
   down: number;
   /** How many single slots are paid for (Whole Day = 2). */
   slots: 1 | 2;
+  /** Days charged for. */
+  days: number;
+  /** What one day of the stay costs, before overtime. */
+  perDay: number;
   /** Kept for screens that still show one "tour" line: pool + venue. */
   tourBase: number;
 }
@@ -84,6 +92,10 @@ export function pricingProblem(resource: BookingResource, tier: BookingTier, slo
 
 export function priceBooking(input: PriceInput): PriceBreakdown {
   const { pkg, resource, slot, guests, overtime, roomPrices } = input;
+  // A stay repeats the same day, so it is priced a day at a time and then
+  // multiplied. Discounts are worked out per day and multiplied too, which
+  // keeps every line consistent with the total instead of rounding twice.
+  const days = Math.max(1, Math.floor(input.days ?? 1));
   const slots = SLOTS[slot].span;
   const usesPool = resource !== "Venue";
   const usesVenue = resource !== "Pool";
@@ -112,20 +124,23 @@ export function priceBooking(input: PriceInput): PriceBreakdown {
   // owner may set a promo price on top in the Packages tab.
   const stayFee = pkg ? pkg.price : poolFee + venueFee - bundleDiscount - exclusiveDiscount;
 
-  const total = stayFee + overtimeFee + roomsFee;
+  const perDay = stayFee + roomsFee;
+  const total = perDay * days + overtimeFee;
   return {
-    poolFee: pkg ? 0 : poolFee,
-    venueFee: pkg ? 0 : venueFee,
-    exclusiveDiscount: pkg ? 0 : exclusiveDiscount,
-    bundleDiscount: pkg ? 0 : bundleDiscount,
+    poolFee: pkg ? 0 : poolFee * days,
+    venueFee: pkg ? 0 : venueFee * days,
+    exclusiveDiscount: pkg ? 0 : exclusiveDiscount * days,
+    bundleDiscount: pkg ? 0 : bundleDiscount * days,
     overtimeFee,
-    roomsFeeRaw,
-    roomBundleDiscount,
-    roomsFee,
+    roomsFeeRaw: roomsFeeRaw * days,
+    roomBundleDiscount: roomBundleDiscount * days,
+    roomsFee: roomsFee * days,
     total,
     down: Math.ceil(total / 2),
     slots,
-    tourBase: stayFee,
+    days,
+    perDay,
+    tourBase: stayFee * days,
   };
 }
 

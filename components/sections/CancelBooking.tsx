@@ -22,7 +22,7 @@ import { useApp } from "@/contexts/AppContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
-import { fmt, fmtDate, getBookingSlot, getBookingResource, getBookingTier } from "@/lib/utils";
+import { fmt, fmtDate, getBookingSlot, getBookingResource, getBookingTier, stayLabel } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
 import { choiceOpen, fmtDeadline, holdActive, HOLD_HOURS } from "@/lib/rebooking";
 import type { Booking, BookingSlot } from "@/types/booking";
@@ -330,7 +330,8 @@ export function ManageBooking(_props: ManageBookingProps) {
         bookings={availability}
         closedDates={closedDates}
         selectedDate={newDate}
-        onSelectDate={(d) => { setNewDate(d); setDateError(null); }}
+        single
+        onSelectRange={(d) => { setNewDate(d); setDateError(null); }}
         isDark={isDark}
         guests={found.guests}
         resource={getBookingResource(found)}
@@ -449,7 +450,7 @@ export function ManageBooking(_props: ManageBookingProps) {
 
                 <div>
                   <p style={microLabel}>DATE</p>
-                  <p style={{ color: C.textB, fontSize: 13.5, fontWeight: 600, margin: 0 }}>{fmtDate(found.date)}</p>
+                  <p style={{ color: C.textB, fontSize: 13.5, fontWeight: 600, margin: 0 }}>{stayLabel(found)}</p>
                 </div>
                 <div>
                   <p style={microLabel}>TIME SLOT</p>

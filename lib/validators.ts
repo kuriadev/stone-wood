@@ -114,6 +114,12 @@ export const OVERTIME_RATE = 500;
 /** How far ahead a guest may reserve. */
 export const BOOKING_WINDOW_MONTHS = 3;
 
+/** The most days one booking may run for. A stay is a run of day-use days
+ *  (lib/occupancy.ts). Three is the resort's limit: a longer booking ties up
+ *  the pool for a week and is arranged with the owner directly instead.
+ *  Every message that quotes the limit reads it from here. */
+export const MAX_STAY_DAYS = 3;
+
 // ════════════════════════════════════════════════════════════════════
 // DATES
 // All helpers work on "YYYY-MM-DD" strings in LOCAL time, via the

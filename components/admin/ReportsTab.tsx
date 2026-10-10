@@ -9,6 +9,7 @@
 // both the old Reports tab, which counted booking totals as revenue, and
 // the separate Analytics tab, whose charts now live at the bottom here.
 
+import { statusLabel, bookingStatusLabel, payTypeLabel, payMethodLabel, adminTabLabel } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { useMemo, useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
@@ -23,7 +24,7 @@ import type { Booking, BookingSlot } from "@/types/booking";
 import type { Room } from "@/types/room";
 import { gold } from "@/lib/styles";
 import { Panel, BarChart, ProgressRow } from "@/components/admin/charts";
-import { PageHead, Figure, Segmented, Btn, Line, useAdminStyle, FullSelect} from "@/components/admin/ui";
+import { AdminPageHeader, StatCard, ChoiceButtons, ActionButton, AmountRow, useAdminStyle, FullSelect} from "@/components/admin/ui";
 import { dayjs, DATE_FMT } from "@/lib/dayjs";
 
 type Period = "Month" | "Year" | "Custom";
@@ -147,7 +148,7 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
 
   const print = () => {
     const rows = (pairs: readonly (readonly [string, number | string])[]) =>
-      pairs.map(([k, v]) => `<Row><Cell>${escapeHtml(String(k))}</Cell><Cell class="n">${typeof v === "number" ? escapeHtml(fmt(v)) : escapeHtml(v)}</Cell></Row>`).join("");
+      pairs.map(([k, v]) => `<tr><td>${escapeHtml(String(k))}</td><td class="n">${typeof v === "number" ? escapeHtml(fmt(v)) : escapeHtml(v)}</td></tr>`).join("");
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>StoneWood report · ${escapeHtml(label)}</title>
 <style>body{font:13px/1.5 system-ui,sans-serif;color:#2a2a2a;margin:32px}h1{font:400 26px Georgia,serif;margin:0}h2{font-size:15px;margin:22px 0 6px;border-bottom:1px solid #ccc;padding-bottom:4px}
 table{border-collapse:collapse;width:100%}td,th{padding:4px 6px;border-bottom:1px solid #eee;text-align:left}.n{text-align:right;font-variant-numeric:tabular-nums}.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
@@ -155,11 +156,17 @@ table{border-collapse:collapse;width:100%}td,th{padding:4px 6px;border-bottom:1p
 <h1>StoneWood Garden Private Pool</h1><div class="muted">Sales and bookings report · ${escapeHtml(label)} · generated ${escapeHtml(fmtDate(today))}</div>
 <h2>Summary</h2><table>${rows([["Money received", collected], ["Expenses", spent], ["Net income", round2(collected - spent)], ["Still owed on these bookings", owed]])}</table>
 <div class="grid"><div><h2>Received</h2><table>${rows([...summary, ["Total received", collected]])}</table>
-<h2>Received by method</h2><table>${rows(byMethod)}</table></div>
-<div><h2>Expenses by category</h2><table>${byCat.length ? rows(byCat) : "<Row><Cell class='muted'>None</Cell></Row>"}</table>
-<h2>Bookings</h2><table>${rows([["Total bookings", String(bks.length)], ["Guests (not cancelled)", String(guests)], ...statusCount.map(([s, n]) => [s, String(n)] as const)])}</table></div></div>
-<h2>Payments</h2><table><Row><th>Date</th><th>Booking</th><th>Guest</th><th>Type</th><th>Method</th><th class="n">Amount</th></Row>
-${pays.map((p) => `<Row><Cell>${escapeHtml(manilaDate(p.receivedAt))}</Cell><Cell>${escapeHtml(p.bookingId ?? "")}</Cell><Cell>${escapeHtml(p.guestName)}</Cell><Cell>${p.type}</Cell><Cell>${p.method}</Cell><Cell class="n">${escapeHtml((p.type === "Refund" ? "−" : "") + fmt(p.amount))}</Cell></Row>`).join("") || "<Row><Cell class='muted' colspan='6'>No payments in this period.</Cell></Row>"}</table>
+<h2>Payment Method</h2><table>${rows(byMethod)}</table></div>
+<div><h2>Expenses by category</h2><table>${byCat.length ? rows(byCat) : "<tr><td class='muted'>None</td></tr>"}</table>
+<h2>Bookings</h2><table>${rows([["Total bookings", String(bks.length)], ["Guests (not cancelled)", String(guests)], ...statusCount.map(([s, n]) => [statusLabel(s), String(n)] as const)])}</table></div></div>
+<h2>Reservations (${bks.length})</h2><table><tr><th>Booking</th><th>Guest</th><th>Contact</th><th>Visit</th><th>Time</th><th>Package</th><th class="n">Guests</th><th class="n">Total</th><th class="n">Paid</th><th class="n">Owed</th><th>Status</th></tr>
+${bks.map((b) => {
+      const m = bookingMoney(b, ops.payments, ops.damages);
+      return `<tr><td>${escapeHtml(b.id)}</td><td>${escapeHtml(b.name)}</td><td>${escapeHtml(b.contact)}</td><td>${escapeHtml(fmtDate(b.date))}</td><td>${escapeHtml(SLOTS[getBookingSlot(b)].label)}</td><td>${escapeHtml(String(b.package))}</td><td class="n">${b.guests}</td><td class="n">${escapeHtml(fmt(b.total))}</td><td class="n">${escapeHtml(fmt(m.paid))}</td><td class="n">${escapeHtml(fmt(m.due))}</td><td>${escapeHtml(bookingStatusLabel(b))}</td></tr>`;
+    }).join("") || "<tr><td class='muted' colspan='11'>No reservations in this period.</td></tr>"}
+${bks.length ? `<tr><td colspan="7"><strong>Totals</strong></td><td class="n"><strong>${escapeHtml(fmt(round2(bks.reduce((n, b) => n + b.total, 0))))}</strong></td><td class="n"><strong>${escapeHtml(fmt(round2(bks.reduce((n, b) => n + bookingMoney(b, ops.payments, ops.damages).paid, 0))))}</strong></td><td class="n"><strong>${escapeHtml(fmt(round2(bks.reduce((n, b) => n + bookingMoney(b, ops.payments, ops.damages).due, 0))))}</strong></td><td></td></tr>` : ""}</table>
+<h2>Payments</h2><table><tr><th>Date</th><th>Booking</th><th>Guest</th><th>Type</th><th>Method</th><th class="n">Amount</th></tr>
+${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${escapeHtml(p.bookingId ?? "")}</td><td>${escapeHtml(p.guestName)}</td><td>${escapeHtml(payTypeLabel(p.type))}</td><td>${escapeHtml(payMethodLabel(p.method))}</td><td class="n">${escapeHtml((p.type === "Refund" ? "−" : "") + fmt(p.amount))}</td></tr>`).join("") || "<tr><td class='muted' colspan='6'>No payments in this period.</td></tr>"}</table>
 <script>window.onload=()=>window.print()</script></body></html>`;
     const w = window.open("", "_blank");
     if (!w) return;
@@ -170,16 +177,16 @@ ${pays.map((p) => `<Row><Cell>${escapeHtml(manilaDate(p.receivedAt))}</Cell><Cel
 
   return (
     <div>
-      <PageHead title="Reports" mob={mob} subtitle={`Summary for ${label}.`}
+      <AdminPageHeader title={adminTabLabel("Reports")} mob={mob} subtitle={`Summary for ${label}.`}
         action={<div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Btn icon="download" onClick={exportMoney}>Sales CSV</Btn>
-          <Btn icon="download" onClick={exportBookings}>Bookings CSV</Btn>
-          <Btn kind="primary" icon="printer" onClick={print}>Print report</Btn>
+          <ActionButton icon="download" onClick={exportMoney}>Sales CSV</ActionButton>
+          <ActionButton icon="download" onClick={exportBookings}>Bookings CSV</ActionButton>
+          <ActionButton kind="primary" icon="printer" onClick={print}>Print report</ActionButton>
         </div>} />
 
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
         <div style={{ width: 280 }}>
-          <Segmented value={period} onChange={setPeriod} size="sm" options={[
+          <ChoiceButtons value={period} onChange={setPeriod} size="sm" options={[
             { value: "Month", label: "Month" }, { value: "Year", label: "Year" }, { value: "Custom", label: "Custom" },
           ]} />
         </div>
@@ -197,10 +204,10 @@ ${pays.map((p) => `<Row><Cell>${escapeHtml(manilaDate(p.receivedAt))}</Cell><Cel
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
-        <Figure label="Money received" value={fmt(collected)} note={`${pays.length} payment${pays.length === 1 ? "" : "s"}`} color="#2e9e4e" />
-        <Figure label="Expenses" value={fmt(spent)} note={`${exps.length} expense${exps.length === 1 ? "" : "s"}`} />
-        <Figure label="Net income" value={fmt(round2(collected - spent))} color={collected - spent < 0 ? "#d44" : gold} />
-        <Figure label="Still owed" value={fmt(owed)} note="on bookings in this period" color={owed > 0 ? "#d4a800" : undefined} />
+        <StatCard label="Money received" value={fmt(collected)} note={`${pays.length} payment${pays.length === 1 ? "" : "s"}`} color="#2e9e4e" />
+        <StatCard label="Expenses" value={fmt(spent)} note={`${exps.length} expense${exps.length === 1 ? "" : "s"}`} />
+        <StatCard label="Net income" value={fmt(round2(collected - spent))} color={collected - spent < 0 ? "#d44" : gold} />
+        <StatCard label="Still owed" value={fmt(owed)} note="on bookings in this period" color={owed > 0 ? "#d4a800" : undefined} />
       </div>
 
       <Panel title={period === "Year" ? `Money received per month (${year})` : "Money received per day"} style={{ marginBottom: 20 }}>
@@ -211,32 +218,32 @@ ${pays.map((p) => `<Row><Cell>${escapeHtml(manilaDate(p.receivedAt))}</Cell><Cel
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 16, marginBottom: 20 }}>
         <div style={{ background: soft, borderRadius: 10, padding: "12px 16px" }}>
           <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Summary</div>
-          {summary.map(([t, v]) => <Line key={t} label={t} value={v < 0 ? `−${fmt(-v)}` : fmt(v)} />)}
+          {summary.map(([t, v]) => <AmountRow key={t} label={t} value={v < 0 ? `−${fmt(-v)}` : fmt(v)} />)}
           {summary.length === 0 && <p style={{ color: C.textS, fontSize: 13, margin: "4px 0" }}>No payments in this period.</p>}
           <div style={{ borderTop: `1px solid ${C.border}`, margin: "8px 0 4px" }} />
-          <Line label="Total received" value={fmt(collected)} strong />
+          <AmountRow label="Total received" value={fmt(collected)} strong />
         </div>
         <div style={{ background: soft, borderRadius: 10, padding: "12px 16px" }}>
-          <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Received by method</div>
-          {byMethod.map(([m, v]) => <Line key={m} label={m} value={fmt(v)} />)}
+          <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Payment Method</div>
+          {byMethod.map(([m, v]) => <AmountRow key={m} label={m} value={fmt(v)} />)}
         </div>
         <div style={{ background: soft, borderRadius: 10, padding: "12px 16px" }}>
           <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Expenses by category</div>
-          {byCat.map(([c, v]) => <Line key={c} label={c} value={fmt(v)} />)}
+          {byCat.map(([c, v]) => <AmountRow key={c} label={c} value={fmt(v)} />)}
           {byCat.length === 0 && <p style={{ color: C.textS, fontSize: 13, margin: "4px 0" }}>No expenses in this period.</p>}
         </div>
       </div>
 
       <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: "28px 0 12px" }}>Bookings and guests</h3>
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
-        <Figure label="Bookings" value={bks.length} note={`${kept.length} not cancelled`} />
-        <Figure label="Guests" value={guests} />
-        <Figure label="Walk-ins" value={kept.filter((b) => b.source === "Walk-In").length} />
-        <Figure label="Cancellation rate" value={`${bks.length ? Math.round((statusCount[3][1] / bks.length) * 100) : 0}%`} />
+        <StatCard label="Bookings" value={bks.length} note={`${kept.length} not cancelled`} />
+        <StatCard label="Guests" value={guests} />
+        <StatCard label="Walk-ins" value={kept.filter((b) => b.source === "Walk-In").length} />
+        <StatCard label="Cancellation rate" value={`${bks.length ? Math.round((statusCount[3][1] / bks.length) * 100) : 0}%`} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 20 }}>
         <Panel title="By status">
-          {statusCount.map(([s, n]) => <ProgressRow key={s} label={s} value={n} pct={bks.length ? Math.round((n / bks.length) * 100) : 0} color={gold} />)}
+          {statusCount.map(([s, n]) => <ProgressRow key={s} label={statusLabel(s)} value={n} pct={bks.length ? Math.round((n / bks.length) * 100) : 0} color={gold} />)}
         </Panel>
         <Panel title="By slot">
           {slotCount.map(([s, n]) => <ProgressRow key={s} label={`${SLOTS[s].label} (${SLOTS[s].hours})`} value={n} pct={kept.length ? Math.round((n / kept.length) * 100) : 0} color={gold} />)}

@@ -291,7 +291,7 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     resource: "Pool+Venue", status: "Exclusive", slotMode: "WholeDay", capacity: POOL_CAPACITY,
     active: true, cover: RESORT_WIDE_PHOTO,
     gallery: [{ label: "Full Resort", src: RESORT_WIDE_PHOTO, kind: "Resort" }, { label: "Events Venue", src: VENUE_PHOTO, kind: "Venue" }, { label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" }],
-    blurb: "Everything, all day: the private pool and the events hall from morning until midnight. Best for weddings, debuts and big celebrations.",
+    blurb: "Everything, all day and all night: the private pool and the events hall from morning through to 5 AM the next day. Best for weddings, debuts and big celebrations.",
     includes: [`Exclusive pool for up to ${POOL_CAPACITY} guests`, "Exclusive events venue", `${SLOTS.WholeDay.hours}`, "All resort amenities"],
     note: "Best for big events",
   },

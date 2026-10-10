@@ -105,8 +105,65 @@ export function bookingHeldSlots(b: Booking): Array<"Day" | "Night"> {
  *  its old date is free for others from the moment it's cancelled. */
 export const holdsDate = (b: Pick<Booking, "status">) => b.status !== "Cancelled" && b.status !== "ResortCancelled";
 
+/* ── A booking can span several days ─────────────────────────────────
+ *
+ * `date` is the first day and `endDate` the last, inclusive. A stay is a
+ * run of DAY-USE days — the same slot repeated — not an overnight stay;
+ * lib/occupancy.ts explains why that distinction matters here.
+ *
+ * Every capacity and clash check in this file goes through `liveOn`, so
+ * teaching that one function about ranges is what makes the pool, the
+ * venue and the rooms all refuse a double booking on day two of a stay. */
+
+/** The last date a booking occupies. Older rows have no end date ⇒ one day. */
+export const bookingEndDate = (b: Pick<Booking, "date" | "endDate">): string =>
+  b.endDate && b.endDate > b.date ? b.endDate : b.date;
+
+/** Does this booking occupy `date`? True anywhere in its range. */
+export const bookingCoversDate = (b: Pick<Booking, "date" | "endDate">, date: string): boolean =>
+  date >= b.date && date <= bookingEndDate(b);
+
+/** Every date from `from` to `to` inclusive, as YYYY-MM-DD.
+ *  Built in UTC so it cannot drift a day on a machine outside Manila. */
+export function datesBetween(from: string, to: string): string[] {
+  const out: string[] = [];
+  const end = Date.parse(`${to}T00:00:00Z`);
+  let t = Date.parse(`${from}T00:00:00Z`);
+  if (!Number.isFinite(t) || !Number.isFinite(end) || end < t) return out;
+  while (t <= end) {
+    out.push(new Date(t).toISOString().slice(0, 10));
+    t += 86_400_000;
+  }
+  return out;
+}
+
+/** Every date a booking occupies. */
+export const bookingDates = (b: Pick<Booking, "date" | "endDate">): string[] =>
+  datesBetween(b.date, bookingEndDate(b));
+
+/** How many days a stay is charged for. One for a single-day booking. */
+export const bookingDays = (b: Pick<Booking, "date" | "endDate">): number =>
+  Math.max(1, bookingDates(b).length);
+
+/** A stay as people read it: "October 10, 2026" for one day, or
+ *  "October 10 – 12, 2026 (3 days)" for a run of them. */
+export function stayLabel(b: Pick<Booking, "date" | "endDate">): string {
+  const last = bookingEndDate(b);
+  if (last === b.date) return fmtDate(b.date);
+  return `${fmtDate(b.date)} – ${fmtDate(last)} (${bookingDays(b)} days)`;
+}
+
+/** The short form for a tight cell: "Oct 10 – Oct 12". */
+export function stayRange(b: Pick<Booking, "date" | "endDate">): string {
+  const last = bookingEndDate(b);
+  return last === b.date ? fmtDate(b.date) : `${fmtDate(b.date)} – ${fmtDate(last)}`;
+}
+
+/** How many days a from/to range covers. 0 when the range is invalid. */
+export const daysInRange = (from: string, to: string): number => datesBetween(from, to).length;
+
 const liveOn = (date: string, bookings: Booking[]) =>
-  bookings.filter((b) => b.date === date && holdsDate(b));
+  bookings.filter((b) => bookingCoversDate(b, date) && holdsDate(b));
 
 /** Live pool-capacity readout for one slot of a date — e.g. "Shared: 22 of
  *  30 spots taken". Only counts Shared, pool-using bookings in that slot. */
@@ -278,6 +335,40 @@ export function checkBookingAvailability(
     if (!venue.ok) return venue;
   }
   return { ok: true };
+}
+
+/** The same check across every day of a stay. A range is only bookable
+ *  when each of its days is, so this stops at the first day that is not and
+ *  names it — "Oct 11: the pool is fully booked" is actionable, a bare
+ *  "not available" is not. */
+export function checkRangeAvailability(
+  from: string,
+  to: string,
+  slot: BookingSlot,
+  guests: number,
+  tier: BookingTier,
+  resource: BookingResource,
+  bookings: Booking[],
+  facilities?: Facility[],
+  overtime = 0
+): { ok: boolean; reason?: string; date?: string } {
+  const days = datesBetween(from, to);
+  if (days.length === 0) return { ok: false, reason: "The last day must be on or after the first day." };
+  for (const d of days) {
+    const r = checkBookingAvailability(d, slot, guests, tier, resource, bookings, facilities, overtime);
+    if (!r.ok) return { ok: false, reason: days.length > 1 ? `${fmtDate(d)}: ${r.reason}` : r.reason, date: d };
+  }
+  return { ok: true };
+}
+
+/** Rooms taken on ANY day of a range, so a room free on day one but taken
+ *  on day two cannot be sold for the whole stay. */
+export function roomsTakenInRange(from: string, to: string, slot: BookingSlot, bookings: Booking[], overtime = 0): Set<number> {
+  const taken = new Set<number>();
+  for (const d of datesBetween(from, to)) {
+    for (const r of roomsTakenOn(d, slot, bookings, overtime)) taken.add(r);
+  }
+  return taken;
 }
 
 /** Rooms already taken on `date` during `slot` by another (non-cancelled)

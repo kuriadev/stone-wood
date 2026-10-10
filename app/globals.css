@@ -1193,7 +1193,11 @@ img {
    :focus-visible only fires for keyboard focus, so mouse users see
    nothing change. */
 :focus-visible {
-  outline: 2px solid #c9a84c;
+  /* The same token as the ACCESSIBILITY LAYER ring at the end of this file.
+     The literal #c9a84c is the SURFACE gold: 2.1:1 on cream, so in light mode
+     this fallback ring was almost invisible. This rule now only catches
+     anything the layer's selector list misses. */
+  outline: 2px solid var(--sw-gold-ink);
   outline-offset: 3px;
   border-radius: 4px;
 }

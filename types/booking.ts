@@ -68,6 +68,14 @@ export interface Booking {
   contact: string;
   email: string;
   date: string;
+  /** Last date of the stay, for a booking that runs over more than one day.
+   *
+   *  A stay is a RUN OF DAY-USE DAYS, not an overnight stay: the guest has
+   *  the same slot on each date from `date` to `endDate` inclusive, and the
+   *  resort still turns the rooms over between slots (lib/occupancy.ts).
+   *  Undefined, or equal to `date`, means a one-day booking — which is what
+   *  every record written before this existed is. */
+  endDate?: string;
   guests: number;
   package: BookingPackage | string;
   rooms: number[];

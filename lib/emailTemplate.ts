@@ -15,6 +15,16 @@ function fmt(n: number) {
   return `₱${Number(n).toLocaleString()}`;
 }
 
+/** The stay as the guest reads it in an email: one date, or the range and
+ *  how many days it runs for. Bookings written before multi-day existed
+ *  have no end date and read exactly as they always did. */
+function formatStay(b: { date: string; endDate?: string }) {
+  const last = b.endDate && b.endDate > b.date ? b.endDate : b.date;
+  if (last === b.date) return formatDate(b.date);
+  const days = Math.round((Date.parse(`${last}T00:00:00Z`) - Date.parse(`${b.date}T00:00:00Z`)) / 86_400_000) + 1;
+  return `${formatDate(b.date)} – ${formatDate(last)} (${days} days)`;
+}
+
 function formatDate(ds: string) {
   // Explicit format rather than toLocaleDateString("en-PH"): a mail template
   // is rendered on whatever host the server runs on, whose ICU data decides
@@ -83,7 +93,7 @@ export function buildBookingReceivedEmail(booking: Booking): { subject: string; 
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
                 ${[
                   ["Full Name", booking.name],
-                  ["Date of Visit", formatDate(booking.date)],
+                  ["Date of Visit", formatStay(booking)],
                   ["Package", booking.package],
                   ["Number of Guests", `${escapeHtml(booking.guests)} pax`],
                   ["Total Amount", fmt(booking.total)],
@@ -218,7 +228,7 @@ export function buildRejectionEmail(booking: Booking, reason: string, money?: Re
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
                 ${[
                   ["Full Name", booking.name],
-                  ["Date of Visit", formatDate(booking.date)],
+                  ["Date of Visit", formatStay(booking)],
                   ["Package", booking.package],
                   ["Number of Guests", `${escapeHtml(booking.guests)} pax`],
                   ["Total Amount", fmt(booking.total)],
@@ -343,7 +353,7 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
                   ["Contact Number", booking.contact],
                   ["Email Address", booking.email],
                   ["Number of Guests", `${escapeHtml(booking.guests)} pax`],
-                  ["Date of Visit", formatDate(booking.date)],
+                  ["Date of Visit", formatStay(booking)],
                   ["Package", booking.package],
                   ...(booking.overtime ? [["Overtime", `${escapeHtml(booking.overtime)} hour(s)`]] : []),
                   ["Payment Method", booking.package === "On-Site Reservation" ? "On-Site (Pay on Arrival)" : "GCash (Online Payment)"],

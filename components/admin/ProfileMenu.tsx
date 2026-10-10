@@ -1,6 +1,13 @@
 "use client";
 
-/* The signed-in admin, top right of every admin screen.
+/* The signed-in admin.
+ *
+ * It lives at the FOOT OF THE SIDEBAR, where it replaced a bare "SIGN OUT"
+ * button: signing out is one account action among several, so it belongs in
+ * the account menu rather than taking the only permanent slot down there.
+ * `variant="sidebar"` is that full-width card (avatar, name, role, chevron);
+ * `variant="bar"` is the original compact pill, kept for any header that
+ * still wants one.
  *
  * This replaces a pill that did one thing — open the account modal — with the
  * menu that pattern is normally the entry point to: who you are signed in as,
@@ -36,9 +43,16 @@ const STROKE = 1.75;
 interface ProfileMenuProps {
   onAccountSettings: () => void;
   onSignOut: () => void;
+  /** "sidebar": a full-width card at the foot of the nav. "bar": a compact
+   *  pill for a page header. */
+  variant?: "sidebar" | "bar";
 }
 
-export function ProfileMenu({ onAccountSettings, onSignOut }: ProfileMenuProps) {
+/** What the account is, under the username. Not a stored role — there is one
+ *  account and it belongs to whoever runs the resort. */
+const ROLE = "Resort manager";
+
+export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar" }: ProfileMenuProps) {
   const { isDark, toggle } = useTheme();
   const C = T(isDark);
 
@@ -113,9 +127,52 @@ export function ProfileMenu({ onAccountSettings, onSignOut }: ProfileMenuProps) 
     </DropdownMenuItem>
   );
 
+  const sidebarTrigger = (
+    <button
+      type="button"
+      className="sw-gold-hover"
+      aria-label={`Account menu for ${username}`}
+      style={{
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        gap: SPACE.sm,
+        minHeight: TAP_MIN,
+        padding: `${SPACE.xs}px ${SPACE.sm}px`,
+        borderRadius: 12,
+        border: `1px solid ${C.border}`,
+        background: "transparent",
+        color: C.textB,
+        cursor: "pointer",
+        textAlign: "left",
+      }}
+    >
+      {avatar(34)}
+      <span style={{ minWidth: 0, flex: 1 }}>
+        <span
+          style={{
+            display: "block",
+            color: C.textH,
+            fontSize: 13.5,
+            fontWeight: 600,
+            letterSpacing: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {username}
+        </span>
+        <span style={{ display: "block", color: C.textS, fontSize: 11.5, letterSpacing: 0 }}>{ROLE}</span>
+      </span>
+      <Icon name="chevron-down" size={15} strokeWidth={STROKE} style={{ flexShrink: 0 }} />
+    </button>
+  );
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
+        {variant === "sidebar" ? sidebarTrigger : (
         <button
           type="button"
           className="sw-gold-hover"
@@ -148,10 +205,12 @@ export function ProfileMenu({ onAccountSettings, onSignOut }: ProfileMenuProps) 
           </span>
           <Icon name="chevron-down" size={14} strokeWidth={STROKE} />
         </button>
+        )}
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
-        align="end"
+        align={variant === "sidebar" ? "start" : "end"}
+        side={variant === "sidebar" ? "top" : "bottom"}
         sideOffset={8}
         style={{
           minWidth: 248,
@@ -185,7 +244,7 @@ export function ProfileMenu({ onAccountSettings, onSignOut }: ProfileMenuProps) 
             >
               {username}
             </div>
-            <div style={{ color: C.textS, fontSize: 12 }}>Administrator</div>
+            <div style={{ color: C.textS, fontSize: 12 }}>{ROLE}</div>
           </div>
         </div>
 

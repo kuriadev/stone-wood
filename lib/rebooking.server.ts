@@ -17,6 +17,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { getSupabaseAdmin, rowToBooking, rowToFacility } from "@/lib/supabase";
 import {
   checkBookingAvailability, roomsTakenOn, isRoomOpen,
+  bookingEndDate, bookingDays, checkRangeAvailability, roomsTakenInRange, fmtDate,
   getBookingSlot, getBookingResource, getBookingTier, fmt,
 } from "@/lib/utils";
 import { isWithinBookingWindow, describeDateProblem } from "@/lib/validators";
@@ -92,7 +93,60 @@ export async function heldBookings(opts: { date?: string; fromDate?: string; exc
   const rows = (data ?? []) as unknown as { id: number; to_date: string; booking_id: string; bookings: BookingRow | null }[];
   return rows
     .filter((r) => r.bookings && r.booking_id !== opts.excludeBookingId)
-    .map((r) => ({ ...rowToBooking(r.bookings as BookingRow), id: `HOLD-${r.id}`, date: r.to_date, status: "Confirmed" as const }));
+    .map((r) => {
+      const b = rowToBooking(r.bookings as BookingRow);
+      // The hold is for the whole stay: a 3-day booking asking to move to
+      // the 20th holds the 20th, 21st and 22nd, not just the 20th.
+      return { ...b, ...shiftStay(b, r.to_date), id: `HOLD-${r.id}`, status: "Confirmed" as const };
+    });
+}
+
+/** Move a stay to a new first day, keeping how long it runs.
+ *  A one-day booking just lands on the new date. */
+export function shiftStay(b: Pick<Booking, "date" | "endDate">, date: string): { date: string; endDate: string } {
+  const length = bookingDays(b);
+  const endDate = length <= 1
+    ? date
+    : new Date(Date.parse(`${date}T00:00:00Z`) + (length - 1) * 86_400_000).toISOString().slice(0, 10);
+  return { date, endDate };
+}
+
+/* ── Everyone occupying any day of a range ──────────────────────────
+ *
+ * A booking spans `date`..`end_date`, so "who else is booked" is an
+ * OVERLAP question, not an equality one: two ranges overlap when each
+ * starts on or before the other ends.
+ *
+ * `rangeSupported` is false when the database has not had
+ * 20261010120000_multi_day_bookings.sql applied yet. The query then falls
+ * back to matching start dates, which is exactly right for the one-day
+ * bookings that are all such a database can hold — so the site keeps
+ * working, and the callers refuse only the multi-day part. */
+export async function bookingsOverlapping(
+  from: string,
+  to: string,
+  opts: { excludeBookingId?: string } = {},
+): Promise<{ others: Booking[]; rangeSupported: boolean }> {
+  const db = getSupabaseAdmin();
+  const base = () => {
+    let q = db.from("bookings").select("*").not("status", "in", FREED_STATUS_LIST);
+    if (opts.excludeBookingId) q = q.neq("id", opts.excludeBookingId);
+    return q;
+  };
+
+  let rangeSupported = true;
+  let { data, error } = await base().lte("date", to).gte("end_date", from);
+  if (error && /end_date/i.test(error.message)) {
+    rangeSupported = false;
+    ({ data, error } = await base().gte("date", from).lte("date", to));
+  }
+  if (error) throw new Error(error.message);
+
+  // A date another guest is waiting to move to is held for them.
+  const holds = (await heldBookings({ fromDate: from, excludeBookingId: opts.excludeBookingId }))
+    .filter((h) => h.date >= from && h.date <= to);
+
+  return { others: [...(data as BookingRow[]).map(rowToBooking), ...holds], rangeSupported };
 }
 
 // ── Can this booking move to that date? ─────────────────────────────
@@ -102,10 +156,20 @@ export async function checkMove(b: Booking, date: string): Promise<{ ok: true } 
   if (date === b.date) return no("Your booking is already on that date.");
   if (!isWithinBookingWindow(date)) return no(describeDateProblem(date) ?? "That date can't be booked.");
 
-  const closed = await getSupabaseAdmin().from("closed_dates").select("date").eq("date", date).maybeSingle();
+  // Moving a stay moves all of it, so every day of the new range has to be
+  // inside the booking window and open.
+  const moved = shiftStay(b, date);
+  if (moved.endDate !== moved.date && !isWithinBookingWindow(moved.endDate)) {
+    return no(describeDateProblem(moved.endDate) ?? "That stay would run past the booking window.");
+  }
+  const closed = await getSupabaseAdmin().from("closed_dates").select("date")
+    .gte("date", moved.date).lte("date", moved.endDate).order("date").limit(1);
   if (closed.error) throw new Error(closed.error.message);
-  if (closed.data) return no("The resort is closed on that date.");
-  return checkFits({ ...b, date });
+  if (closed.data && closed.data.length > 0) {
+    const shut = (closed.data as { date: string }[])[0].date;
+    return no(moved.endDate === moved.date ? "The resort is closed on that date." : `The resort is closed on ${fmtDate(shut)}.`);
+  }
+  return checkFits({ ...b, ...moved });
 }
 
 /** Does this booking, exactly as given (its date, guests, overtime, rooms),
@@ -117,22 +181,24 @@ export async function checkMove(b: Booking, date: string): Promise<{ ok: true } 
 export async function checkFits(b: Booking): Promise<{ ok: true } | { ok: false; error: string }> {
   const no = (error: string) => ({ ok: false as const, error });
   const db = getSupabaseAdmin();
-  const [sameDay, fac, holds] = await Promise.all([
-    db.from("bookings").select("*").eq("date", b.date).neq("id", b.id).not("status", "in", FREED_STATUS_LIST),
+  const last = bookingEndDate(b);
+  const [overlap, fac] = await Promise.all([
+    bookingsOverlapping(b.date, last, { excludeBookingId: b.id }),
     db.from("facilities").select("*"),
-    heldBookings({ date: b.date, excludeBookingId: b.id }),
   ]);
-  if (sameDay.error) throw new Error(sameDay.error.message);
   if (fac.error) throw new Error(fac.error.message);
+  if (!overlap.rangeSupported && last !== b.date) {
+    return no("Multi-day bookings need the database update (20261010120000_multi_day_bookings.sql) to be applied first.");
+  }
 
-  const others = [...(sameDay.data as BookingRow[]).map(rowToBooking), ...holds];
+  const others = overlap.others;
   const facilities = (fac.data as FacilityRow[]).map(rowToFacility);
   const slot = getBookingSlot(b);
   const overtime = b.overtime ?? 0;
-  const capacity = checkBookingAvailability(b.date, slot, b.guests, getBookingTier(b), getBookingResource(b), others, facilities, overtime);
+  const capacity = checkRangeAvailability(b.date, last, slot, b.guests, getBookingTier(b), getBookingResource(b), others, facilities, overtime);
   if (!capacity.ok) return no(capacity.reason ?? "That date is no longer available.");
-  const taken = roomsTakenOn(b.date, slot, others, overtime);
-  if ((b.rooms ?? []).some((r) => taken.has(r))) return no("A room in your booking is already taken that date.");
+  const taken = roomsTakenInRange(b.date, last, slot, others, overtime);
+  if ((b.rooms ?? []).some((r) => taken.has(r))) return no("A room in your booking is already taken on one of those dates.");
   if ((b.rooms ?? []).some((r) => !isRoomOpen(r, facilities))) return no("A room in your booking is closed for maintenance.");
   return { ok: true };
 }
@@ -142,8 +208,11 @@ export async function checkFits(b: Booking): Promise<{ ok: true } | { ok: false;
  *  new one. */
 export async function moveBooking(b: Booking, date: string, extra: Record<string, unknown> = {}): Promise<Booking | null> {
   const db = getSupabaseAdmin();
+  // end_date moves with the start, or the row would fail the
+  // end_date >= date constraint the moment a multi-day stay is pushed back.
+  const moved = shiftStay(b, date);
   const { data, error } = await db.from("bookings")
-    .update({ date, ...extra })
+    .update({ date: moved.date, end_date: moved.endDate, ...extra })
     .eq("id", b.id).eq("status", b.status).is("checked_in_at", null)
     .select().maybeSingle();
   if (error) throw new Error(error.message);

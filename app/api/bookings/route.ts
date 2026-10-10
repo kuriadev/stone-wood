@@ -35,7 +35,8 @@ import { trySendMail } from "@/lib/mailer";
 import { getPaymentStatus } from "@/lib/paymongo";
 import { quoteBooking } from "@/lib/bookingQuote";
 import { checkFits } from "@/lib/rebooking.server";
-import { fmt } from "@/lib/utils";
+import { daysInRange, fmt } from "@/lib/utils";
+import { MAX_STAY_DAYS } from "@/lib/validators";
 import type { BookingRow } from "@/types/database";
 import type { Booking, BookingResource, BookingSlot, BookingSource, BookingTier } from "@/types/booking";
 
@@ -142,6 +143,7 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
       email: d.email,
       contact: d.contact,
       date: d.date,
+      endDate: d.endDate,
       guests: d.guests,
       package: quote.packageLabel,
       rooms: d.rooms,
@@ -242,6 +244,26 @@ async function createWalkIn(body: Record<string, unknown>) {
     if (!b.date || !/^\d{4}-\d{2}-\d{2}$/.test(String(b.date))) {
       return NextResponse.json({ success: false, error: "A valid date is required." }, { status: 400 });
     }
+    // A walk-in can be booked over several days too. Unset or equal to the
+    // start means one day, which is what every older record is.
+    const startDate = String(b.date);
+    const endDate = typeof b.endDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(b.endDate) ? b.endDate : startDate;
+    if (endDate < startDate) {
+      return NextResponse.json({ success: false, error: "The last day of the stay must be on or after the first." }, { status: 400 });
+    }
+    const stayDays = daysInRange(startDate, endDate);
+    if (stayDays < 1 || stayDays > MAX_STAY_DAYS) {
+      return NextResponse.json({ success: false, error: `A booking can run for at most ${MAX_STAY_DAYS} days.` }, { status: 400 });
+    }
+    if (stayDays > 1) {
+      // Every day of the stay has to be open, not just the first.
+      const shut = await getSupabaseAdmin().from("closed_dates").select("date")
+        .gte("date", startDate).lte("date", endDate).order("date").limit(1);
+      if (shut.error) throw new Error(shut.error.message);
+      if (shut.data && shut.data.length > 0) {
+        return NextResponse.json({ success: false, error: `The resort is closed on ${(shut.data as { date: string }[])[0].date}.` }, { status: 409 });
+      }
+    }
     const guests = Number(b.guests);
     if (!Number.isFinite(guests) || guests < 1) {
       return NextResponse.json({ success: false, error: "Guest count must be at least 1." }, { status: 400 });
@@ -272,7 +294,7 @@ async function createWalkIn(body: Record<string, unknown>) {
     const roomRows = roomIds.length ? await db0.from("rooms").select("id, price").in("id", roomIds) : { data: [], error: null };
     if (roomRows.error) throw new Error(roomRows.error.message);
     const roomPrices = (roomRows.data as { id: number; price: number }[]).map((r) => Number(r.price));
-    const total = priceBooking({ pkg, resource: resourceIn, tier: tierIn, slot: slotIn, guests: Math.round(guests), overtime: overtimeIn, roomPrices }).total;
+    const total = priceBooking({ pkg, resource: resourceIn, tier: tierIn, slot: slotIn, guests: Math.round(guests), overtime: overtimeIn, roomPrices, days: stayDays }).total;
     const downpayment = Math.ceil(total / 2);
 
     // The same check the walk-in window shows, enforced here too: the pool
@@ -280,7 +302,7 @@ async function createWalkIn(body: Record<string, unknown>) {
     // room. The window can be stale (another tab, a guest booking online
     // meanwhile), and the server is what decides.
     const fits = await checkFits({
-      ...(b as Booking), id: "", date: String(b.date), guests: Math.round(guests),
+      ...(b as Booking), id: "", date: startDate, endDate, guests: Math.round(guests),
       resource: resourceIn, tier: tierIn, slot: slotIn, overtime: overtimeIn, rooms: roomIds,
     });
     if (!fits.ok) return NextResponse.json({ success: false, error: fits.error }, { status: 409 });
@@ -305,6 +327,8 @@ async function createWalkIn(body: Record<string, unknown>) {
       name,
       email,
       contact,
+      date: startDate,
+      endDate,
       guests: Math.round(guests),
       total,
       downpayment,
