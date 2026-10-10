@@ -19,7 +19,7 @@ import { SLOTS, TURNOVER_WINDOW } from "@/lib/resort";
 import { fmt, fmtDate, getBookingSlot, roomsTakenOn } from "@/lib/utils";
 import { OVERTIME_MAX, OVERTIME_RATE, SHARED_PER_HEAD_RATE } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
-import { Btn, ErrorNote, FullSelect, Label, Line, Modal, Segmented, useAdminStyle } from "@/components/admin/ui";
+import { ActionButton, ErrorNote, FullSelect, Label, AmountRow, Modal, ChoiceButtons, useAdminStyle } from "@/components/admin/ui";
 
 const KIND_LABEL: Record<ChargeKind, string> = { overtime: "Overtime", guests: "Extra guests", room: "A room" };
 
@@ -61,10 +61,10 @@ export function AddChargeModal({ booking, onClose }: { booking: Booking; onClose
   return (
     <Modal title="Add a charge" subtitle={`${booking.name} · ${booking.id} · ${fmtDate(booking.date)}, ${SLOTS[slot].label}`} onClose={onClose} width={560}
       footer={<div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-        <Btn onClick={onClose}>Cancel</Btn>
-        <Btn kind="primary" icon="plus" disabled={busy || !priced.ok} onClick={() => void save()}>
+        <ActionButton onClick={onClose}>Cancel</ActionButton>
+        <ActionButton kind="primary" icon="plus" disabled={busy || !priced.ok} onClick={() => void save()}>
           {busy ? "Saving…" : priced.ok ? `Add ${fmt(priced.amount)}` : "Add charge"}
-        </Btn>
+        </ActionButton>
       </div>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <p style={{ color: C.textS, fontSize: 13, margin: 0, lineHeight: 1.6 }}>
@@ -73,7 +73,7 @@ export function AddChargeModal({ booking, onClose }: { booking: Booking; onClose
 
         <div>
           <Label>What for</Label>
-          <Segmented<ChargeKind> value={kind} onChange={(k) => { setKind(k); setError(""); }} size="sm" label="What for"
+          <ChoiceButtons<ChargeKind> value={kind} onChange={(k) => { setKind(k); setError(""); }} size="sm" label="What for"
             options={kinds.map((k) => ({ value: k, label: KIND_LABEL[k], disabled: !!blocked[k], hint: blocked[k] ?? undefined }))} />
           {blocked[kind] && <p style={{ color: C.textS, fontSize: 12.5, margin: "8px 0 0" }}>{blocked[kind]}</p>}
         </div>
@@ -81,7 +81,7 @@ export function AddChargeModal({ booking, onClose }: { booking: Booking; onClose
         {kind === "overtime" && !blocked.overtime && (
           <div>
             <Label>Hours</Label>
-            <Segmented<string> value={hours} onChange={setHours} size="sm" label="Hours"
+            <ChoiceButtons<string> value={hours} onChange={setHours} size="sm" label="Hours"
               options={Array.from({ length: hoursLeft }, (_, i) => String(i + 1)).map((h) => ({ value: h, label: `${h} hr` }))} />
             <p style={{ color: C.textS, fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.6 }}>
               {fmt(OVERTIME_RATE)} per hour after {SLOTS.Day.end}. It uses the cleaning time ({TURNOVER_WINDOW}), so it&apos;s only possible when no Night group is booked that day.
@@ -116,9 +116,9 @@ export function AddChargeModal({ booking, onClose }: { booking: Booking; onClose
 
         {priced.ok && (
           <div style={{ background: soft, borderRadius: 10, padding: "8px 16px" }}>
-            <Line label={`Charge: ${priced.label}`} value={`+ ${fmt(priced.amount)}`} />
-            <Line label="New booking total" value={fmt(booking.total + priced.amount)} />
-            <Line label="To collect from the guest" value={fmt(due + priced.amount)} strong />
+            <AmountRow label={`Charge: ${priced.label}`} value={`+ ${fmt(priced.amount)}`} />
+            <AmountRow label="New booking total" value={fmt(booking.total + priced.amount)} />
+            <AmountRow label="To collect from the guest" value={fmt(due + priced.amount)} strong />
           </div>
         )}
         <ErrorNote>{error}</ErrorNote>

@@ -20,6 +20,7 @@
 //   Daily liquidation  end-of-day cash count vs. expected, and the day's
 //                  income minus expenses
 
+import { statusLabel, bookingStatusLabel, moneyLabel, payTypeLabel, payMethodLabel, paymentLine, adminTabLabel } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useMemo, useState } from "react";
@@ -41,8 +42,8 @@ import { RecordPaymentModal } from "@/components/admin/RecordPaymentModal";
 import { RefundModal } from "@/components/admin/RefundModal";
 import { InvoiceModal } from "@/components/admin/InvoiceModal";
 import {
-  PageHead, Figure, Segmented, TableShell, td, Btn, Pill, Modal, Label, Line, ErrorNote,
-  useAdminStyle, Row, Cell, STATUS_COLOR, FullSelect, ViewTabs, ConfirmDialog, TotalLine, TOGGLE_CLEARANCE, usePaged, Pager,
+  AdminPageHeader, StatCard, ChoiceButtons, TableShell, td, ActionButton, StatusBadge, Modal, Label, AmountRow, ErrorNote,
+  useAdminStyle, Row, Cell, STATUS_COLOR, FullSelect, ViewSwitcherTabs, ConfirmDialog, TotalRow, TOGGLE_CLEARANCE, usePaged, Pager,
 } from "@/components/admin/ui";
 
 type View = "Transactions" | "Payments" | "Receivables" | "Settlements" | "Clients" | "Expenses" | "Closing";
@@ -91,28 +92,28 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
 
   return (
     <div>
-      <PageHead
-        title="Sales"
+      <AdminPageHeader
+        title={adminTabLabel("Sales")}
         subtitle="Money actually received and spent, from the payment records."
         mob={mob}
         action={
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn icon="minus" onClick={() => setAddExpense(true)}>Add expense</Btn>
-            <Btn kind="primary" icon="plus" onClick={() => setPayFor({})}>Record payment</Btn>
+            <ActionButton icon="minus" onClick={() => setAddExpense(true)}>Add expense</ActionButton>
+            <ActionButton kind="primary" icon="plus" onClick={() => setPayFor({})}>Record payment</ActionButton>
           </div>
         }
       />
 
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
-        <Figure label="Collected today" value={fmt(collectedToday)} note={`${todayCount} payment${todayCount === 1 ? "" : "s"}`} color="#2e9e4e" />
-        <Figure label="Collected this month" value={fmt(collectedMonth)} note={new Date(today).toLocaleString("en-PH", { month: "long", year: "numeric" })} />
-        <Figure label="Net income this month" value={fmt(round2(collectedMonth - spentMonth))} note={`after ${fmt(spentMonth)} in expenses`} color={collectedMonth - spentMonth < 0 ? "#d44" : gold} />
-        <Figure label="Still to collect" value={fmt(owed)} note={`${receivables.length} booking${receivables.length === 1 ? "" : "s"} with a balance or penalty`} color={owed > 0 ? "#d4a800" : undefined} />
+        <StatCard label="Collected today" value={fmt(collectedToday)} note={`${todayCount} payment${todayCount === 1 ? "" : "s"}`} color="#2e9e4e" />
+        <StatCard label="Collected this month" value={fmt(collectedMonth)} note={new Date(today).toLocaleString("en-PH", { month: "long", year: "numeric" })} />
+        <StatCard label="Net income this month" value={fmt(round2(collectedMonth - spentMonth))} note={`after ${fmt(spentMonth)} in expenses`} color={collectedMonth - spentMonth < 0 ? "#d44" : gold} />
+        <StatCard label="Still to collect" value={fmt(owed)} note={`${receivables.length} booking${receivables.length === 1 ? "" : "s"} with a balance or penalty`} color={owed > 0 ? "#d4a800" : undefined} />
       </div>
 
       {!ops.loaded && ops.loading && <p style={{ color: "#8a7a66", fontSize: 13 }}>Loading payment records…</p>}
 
-      <ViewTabs<View> value={view} onChange={setView} views={[
+      <ViewSwitcherTabs<View> value={view} onChange={setView} views={[
         { value: "Transactions", label: "Transactions", content: <Transactions payments={ops.payments} /> },
         { value: "Payments", label: "Invoices", content: <BookingPayments rows={withMoney} onPay={(id) => setPayFor({ bookingId: id })} onInvoice={setInvoiceId} /> },
         { value: "Receivables", label: `Receivables (${receivables.length})`, content: <Receivables rows={receivables} refunds={bookings.filter((b) => b.refundStatus === "Owed")} onPay={(id) => setPayFor({ bookingId: id })} onRefund={setRefundFor} onInvoice={setInvoiceId} /> },
@@ -158,7 +159,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
   const net = round2(rows.filter((p) => !p.voided).reduce((s, p) => s + signedAmount(p), 0));
 
   const exportCsv = () => downloadCsv(`StoneWood_Transactions_${from}_to_${to}.csv`, [
-    ["Date", "Time", "Booking", "Guest", "Type", "Method", "Reference", "Amount (PHP)", "Voided", "Void reason", "Notes"],
+    ["Date", "Time", "Booking", "Guest", "Type", "Method", "Reference", "Amount (PHP)", "Undone", "Undo reason", "Notes"],
     ...rows.map((p) => [manilaDate(p.receivedAt), manilaTime(p.receivedAt), p.bookingId ?? "", p.guestName, p.type, p.method, p.reference,
       signedAmount(p), p.voided ? "Yes" : "No", p.voidReason ?? "", p.notes]),
     [],
@@ -192,7 +193,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
         <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 8, alignItems: "center", minHeight: 36 }}>
           <Checkbox checked={showVoided} onCheckedChange={(v) => setShowVoided(v === true)} /> Show voided
         </label>
-        <Btn size="sm" icon="download" onClick={exportCsv}>Export</Btn>
+        <ActionButton size="sm" icon="download" onClick={exportCsv}>Download CSV</ActionButton>
       </div>
 
       <TableShell head={["Date", "Booking", "Guest", "Type", "Method", "Reference", "Amount", ""]} minWidth={860}
@@ -202,22 +203,22 @@ function Transactions({ payments }: { payments: Payment[] }) {
             <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(manilaDate(p.receivedAt))}<div style={{ color: C.textS, fontSize: 11.5 }}>{manilaTime(p.receivedAt)}</div></Cell>
             <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace" }}>{p.bookingId ?? "—"}</Cell>
             <Cell style={{ ...td, color: C.textH }}>{p.guestName}</Cell>
-            <Cell style={td}><Pill color={TYPE_COLOR[p.type]}>{p.type}</Pill></Cell>
-            <Cell style={{ ...td, color: C.textB }}>{p.method}</Cell>
+            <Cell style={td}><StatusBadge color={TYPE_COLOR[p.type]}>{payTypeLabel(p.type)}</StatusBadge></Cell>
+            <Cell style={{ ...td, color: C.textB }}>{payMethodLabel(p.method)}</Cell>
             <Cell style={{ ...td, color: C.textS, fontSize: 12 }}>{p.reference || "—"}</Cell>
             <Cell style={{ ...td, color: p.type === "Refund" ? "#d44" : C.textH, fontWeight: 600, whiteSpace: "nowrap", textDecoration: p.voided ? "line-through" : "none" }}>
               {p.type === "Refund" ? "−" : ""}{fmt(p.amount)}
             </Cell>
             <Cell style={{ ...td, textAlign: "right" }}>
               {p.voided
-                ? <span title={p.voidReason} style={{ color: C.textS, fontSize: 12 }}>Voided</span>
-                : <Btn size="sm" kind="red" onClick={() => setVoiding(p)}>Void</Btn>}
+                ? <span title={p.voidReason} style={{ color: C.textS, fontSize: 12 }}>Undone</span>
+                : <ActionButton size="sm" kind="red" onClick={() => setVoiding(p)}>Undo payment</ActionButton>}
             </Cell>
           </Row>
         ))}
       </TableShell>
       <Pager {...paged} noun="payments" />
-      <TotalLine label="Net total" value={fmt(net)} />
+      <TotalRow label="Net total" value={fmt(net)} />
       {voiding && <VoidModal what={`${voiding.type} of ${fmt(voiding.amount)} from ${voiding.guestName}`} kind="payment" id={voiding.id} onClose={() => setVoiding(null)} />}
     </div>
   );
@@ -239,8 +240,8 @@ function VoidModal({ what, kind, id, onClose }: { what: string; kind: "payment" 
     onClose();
   };
   return (
-    <ConfirmDialog title={`Void this ${kind}?`} description={what} onCancel={onClose} cancelLabel="Keep it"
-      confirm={<Btn kind="red" disabled={busy || reason.trim().length < 3} onClick={go}>{busy ? "Voiding…" : `Void ${kind}`}</Btn>}>
+    <ConfirmDialog title={`Undo this ${kind}?`} description={what} onCancel={onClose} cancelLabel="Keep it"
+      confirm={<ActionButton kind="red" disabled={busy || reason.trim().length < 3} onClick={go}>{busy ? "Undoing…" : `Undo ${kind}`}</ActionButton>}>
       <div>
         <p style={{ color: C.textS, fontSize: 13.5, marginTop: 0 }}>
           It stays in the records, crossed out, with your reason. Totals stop counting it.
@@ -287,13 +288,13 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginBottom: 16 }}>
-        <Figure label="Booked value" value={fmt(expected)} note={`${shown.length} booking${shown.length === 1 ? "" : "s"}`} />
-        <Figure label="Collected" value={fmt(collected)} color="#2e9e4e" />
-        <Figure label="Outstanding" value={fmt(outstanding)} color={outstanding > 0 ? "#d4a800" : undefined} />
+        <StatCard label="Booked value" value={fmt(expected)} note={`${shown.length} booking${shown.length === 1 ? "" : "s"}`} />
+        <StatCard label="Collected" value={fmt(collected)} color="#2e9e4e" />
+        <StatCard label="Outstanding" value={fmt(outstanding)} color={outstanding > 0 ? "#d4a800" : undefined} />
       </div>
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
-        <Segmented<"All" | BookingMoney["state"]>
+        <ChoiceButtons<"All" | BookingMoney["state"]>
           value={state}
           onChange={setState}
           size="sm"
@@ -326,17 +327,17 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
             </Cell>
             <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.contact}</div></Cell>
             <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
-            <Cell style={td}><Pill color={STATUS_COLOR[b.status]}>{b.status}</Pill></Cell>
-            <Cell style={td}><Pill color={PAY_STATE_COLOR[m.state]}>{m.state}</Pill></Cell>
+            <Cell style={td}><StatusBadge color={STATUS_COLOR[b.status]}>{bookingStatusLabel(b)}</StatusBadge></Cell>
+            <Cell style={td}><StatusBadge color={PAY_STATE_COLOR[m.state]}>{moneyLabel(m.state)}</StatusBadge></Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(b.total)}</Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(m.paid)}</Cell>
             <Cell style={{ ...td, color: m.balance > 0 ? "#d4a800" : C.textS }}>{fmt(m.balance)}</Cell>
             <Cell style={{ ...td, color: m.penaltyDue > 0 ? "#d44" : C.textS }}>{fmt(m.penaltyDue)}</Cell>
             <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
               <div style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
-                {!b.id.startsWith("TMP-") && <Btn size="sm" icon="receipt" onClick={() => onInvoice(b.id)}>Invoice</Btn>}
+                {!b.id.startsWith("TMP-") && <ActionButton size="sm" icon="receipt" onClick={() => onInvoice(b.id)}>View invoice</ActionButton>}
                 {m.due > 0
-                  ? <Btn size="sm" kind="green" icon="cash" onClick={() => onPay(b.id)}>Record</Btn>
+                  ? <ActionButton size="sm" kind="green" icon="cash" onClick={() => onPay(b.id)}>Record payment</ActionButton>
                   : <span style={{ color: C.textS, fontSize: 12 }}>{m.state === "Forfeited" || m.state === "Refunded" || m.state === "Refund owed" || m.state === "Held for guest" ? m.state : "Settled"}</span>}
               </div>
             </Cell>
@@ -375,7 +376,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
                 <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.contact}</div></Cell>
                 <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
                 <Cell style={{ ...td, color: "#e07a3a", fontWeight: 700 }}>{fmt(b.refundAmount ?? 0)}</Cell>
-                <Cell style={{ ...td, textAlign: "right" }}><Btn size="sm" kind="primary" icon="cash" onClick={() => onRefund(b.id)}>Send refund</Btn></Cell>
+                <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm" kind="primary" icon="cash" onClick={() => onRefund(b.id)}>Send refund</ActionButton></Cell>
               </Row>
             ))}
           </TableShell>
@@ -391,7 +392,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
             <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace" }}>{b.id}</Cell>
             <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.contact}</div></Cell>
             <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
-            <Cell style={td}><Pill color={STATUS_COLOR[b.status]}>{b.status}</Pill></Cell>
+            <Cell style={td}><StatusBadge color={STATUS_COLOR[b.status]}>{bookingStatusLabel(b)}</StatusBadge></Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(b.total)}</Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(m.paid)}</Cell>
             <Cell style={{ ...td, color: m.balance > 0 ? "#d4a800" : C.textS }}>{fmt(m.balance)}</Cell>
@@ -399,15 +400,15 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
             <Cell style={{ ...td, color: C.textH, fontWeight: 700 }}>{fmt(m.due)}</Cell>
             <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
               <div style={{ display: "inline-flex", gap: 8 }}>
-                <Btn size="sm" icon="receipt" onClick={() => onInvoice(b.id)}>Invoice</Btn>
-                <Btn size="sm" kind="green" icon="cash" onClick={() => onPay(b.id)}>Record</Btn>
+                <ActionButton size="sm" icon="receipt" onClick={() => onInvoice(b.id)}>View invoice</ActionButton>
+                <ActionButton size="sm" kind="green" icon="cash" onClick={() => onPay(b.id)}>Record payment</ActionButton>
               </div>
             </Cell>
           </Row>
         ))}
       </TableShell>
       <Pager {...pagedRec} noun="bookings" />
-      <TotalLine label="Total owed" value={fmt(total)} />
+      <TotalRow label="Total owed" value={fmt(total)} />
     </div>
   );
 }
@@ -442,10 +443,10 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
         Each booking settled in Daily Operations: the stay and any damage penalties, against what was paid. The daily cash count is under Daily liquidation.
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginBottom: 16 }}>
-        <Figure label="Settled bookings" value={settled.length} />
-        <Figure label="Charges" value={fmt(charges)} />
-        <Figure label="Paid" value={fmt(paid)} color="#2e9e4e" />
-        <Figure label="Closed unpaid" value={fmt(unpaid)} color={unpaid > 0 ? "#d4a800" : undefined} />
+        <StatCard label="Settled bookings" value={settled.length} />
+        <StatCard label="Charges" value={fmt(charges)} />
+        <StatCard label="Paid" value={fmt(paid)} color="#2e9e4e" />
+        <StatCard label="Closed unpaid" value={fmt(unpaid)} color={unpaid > 0 ? "#d4a800" : undefined} />
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search reference, guest or phone" aria-label="Search settlements" style={{ ...sel, flex: "1 1 220px" }} />
@@ -470,7 +471,7 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
               {m.due > 0 ? fmt(m.due) : "—"}
               {b.settlementNote && <div style={{ color: C.textS, fontSize: 11.5 }}>{b.settlementNote}</div>}
             </Cell>
-            <Cell style={{ ...td, textAlign: "right" }}><Btn size="sm" icon="receipt" onClick={() => onInvoice(b.id)}>Invoice</Btn></Cell>
+            <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm" icon="receipt" onClick={() => onInvoice(b.id)}>View invoice</ActionButton></Cell>
           </Row>
         ))}
       </TableShell>
@@ -521,7 +522,7 @@ function Clients({ bookings }: { bookings: Booking[] }) {
             <Cell style={{ ...td, color: C.textB }}>{c.last ? fmtDate(c.last) : "—"}</Cell>
             <Cell style={{ ...td, color: C.textH, fontWeight: 600 }}>{fmt(c.paid)}</Cell>
             <Cell style={{ ...td, color: c.owed > 0 ? "#d4a800" : C.textS }}>{fmt(c.owed)}</Cell>
-            <Cell style={{ ...td, textAlign: "right" }}><Btn size="sm">View</Btn></Cell>
+            <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm">View client</ActionButton></Cell>
           </Row>
         ))}
       </TableShell>
@@ -530,9 +531,9 @@ function Clients({ bookings }: { bookings: Booking[] }) {
       {current && (
         <Modal title={current.name} subtitle={`${current.contact}${current.email ? " · " + current.email : ""}`} onClose={() => setOpen(null)} width={820}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 20 }}>
-            <Figure label="Bookings" value={current.bookings.length} />
-            <Figure label="Total paid" value={fmt(current.paid)} color="#2e9e4e" />
-            <Figure label="Owed" value={fmt(current.owed)} color={current.owed > 0 ? "#d4a800" : undefined} />
+            <StatCard label="Bookings" value={current.bookings.length} />
+            <StatCard label="Total paid" value={fmt(current.paid)} color="#2e9e4e" />
+            <StatCard label="Owed" value={fmt(current.owed)} color={current.owed > 0 ? "#d4a800" : undefined} />
           </div>
           <h4 style={{ color: C.textH, fontSize: 14, margin: "0 0 8px" }}>Bookings</h4>
           <TableShell head={["Booking", "Visit", "Package", "Status", "Total", "Paid", "Owed"]} minWidth={640}>
@@ -543,7 +544,7 @@ function Clients({ bookings }: { bookings: Booking[] }) {
                   <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace" }}>{b.id}</Cell>
                   <Cell style={{ ...td, color: C.textB }}>{fmtDate(b.date)}</Cell>
                   <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{b.package}</Cell>
-                  <Cell style={td}><Pill color={STATUS_COLOR[b.status]}>{b.status}</Pill></Cell>
+                  <Cell style={td}><StatusBadge color={STATUS_COLOR[b.status]}>{bookingStatusLabel(b)}</StatusBadge></Cell>
                   <Cell style={{ ...td, color: C.textB }}>{fmt(b.total)}</Cell>
                   <Cell style={{ ...td, color: C.textB }}>{fmt(m.paid + m.penaltyPaid)}</Cell>
                   <Cell style={{ ...td, color: m.due > 0 ? "#d4a800" : C.textS }}>{fmt(m.due)}</Cell>
@@ -554,7 +555,7 @@ function Clients({ bookings }: { bookings: Booking[] }) {
           <h4 style={{ color: C.textH, fontSize: 14, margin: "20px 0 8px" }}>Payments</h4>
           <div style={{ background: soft, borderRadius: 8, padding: "8px 16px" }}>
             {livePayments(ops.payments).filter((p) => current.bookings.some((b) => b.id === p.bookingId)).map((p) => (
-              <Line key={p.id} label={`${fmtDate(manilaDate(p.receivedAt))} · ${p.type} · ${p.method} · ${p.bookingId}`}
+              <AmountRow key={p.id} label={`${fmtDate(manilaDate(p.receivedAt))} · ${paymentLine(p)} · ${p.bookingId}`}
                 value={`${p.type === "Refund" ? "−" : ""}${fmt(p.amount)}`} color={p.type === "Refund" ? "#d44" : undefined} />
             ))}
             {!livePayments(ops.payments).some((p) => current.bookings.some((b) => b.id === p.bookingId)) && (
@@ -591,7 +592,7 @@ function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void 
     <div>
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
         <Input type="month" value={monthStr} onChange={(e) => setMonthStr(e.target.value)} aria-label="Month" style={{ ...inp, width: "auto", padding: "8px 12px" }} />
-        <Btn size="sm" icon="plus" onClick={onAdd}>Add expense</Btn>
+        <ActionButton size="sm" icon="plus" onClick={onAdd}>Add expense</ActionButton>
         {voidedCount > 0 && (
           <label style={{ display: "inline-flex", alignItems: "center", gap: 8, color: C.textS, fontSize: 12.5, cursor: "pointer", marginLeft: "auto" }}>
             <Checkbox checked={showVoided} onCheckedChange={(v) => setShowVoided(v === true)} />
@@ -611,7 +612,7 @@ function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void 
               <Cell style={{ ...td, color: C.textS }}>{e.method}</Cell>
               <Cell style={{ ...td, color: C.textH, fontWeight: 600, textDecoration: e.voided ? "line-through" : "none" }}>{fmt(e.amount)}</Cell>
               <Cell style={{ ...td, textAlign: "right" }}>
-                {e.voided ? <span title={e.voidReason} style={{ color: C.textS, fontSize: 12 }}>Voided</span> : <Btn size="sm" kind="red" onClick={() => setVoiding(e)}>Void</Btn>}
+                {e.voided ? <span title={e.voidReason} style={{ color: C.textS, fontSize: 12 }}>Undone</span> : <ActionButton size="sm" kind="red" onClick={() => setVoiding(e)}>Undo expense</ActionButton>}
               </Cell>
             </Row>
           ))}
@@ -620,10 +621,10 @@ function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void 
         </div>
         <div style={{ background: soft, borderRadius: 10, padding: "12px 16px", flex: "1 1 240px" }}>
           <div style={{ color: C.textS, fontSize: 12.5, marginBottom: 8 }}>By category</div>
-          {byCat.map(([c, v]) => <Line key={c} label={c} value={fmt(v)} />)}
+          {byCat.map(([c, v]) => <AmountRow key={c} label={c} value={fmt(v)} />)}
           {byCat.length === 0 && <p style={{ color: C.textS, fontSize: 13, margin: "4px 0" }}>Nothing spent yet.</p>}
           <div style={{ borderTop: "1px solid rgba(150,130,100,0.25)", marginTop: 8, paddingTop: 4 }}>
-            <Line label="Total" value={fmt(total)} strong />
+            <AmountRow label="Total" value={fmt(total)} strong />
           </div>
         </div>
       </div>
@@ -650,8 +651,8 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="Add expense" subtitle="Money spent on running the resort" onClose={onClose} width={560}
       footer={<div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-        <Btn onClick={onClose}>Cancel</Btn>
-        <Btn kind="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save expense"}</Btn>
+        <ActionButton onClick={onClose}>Cancel</ActionButton>
+        <ActionButton kind="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save expense"}</ActionButton>
       </div>}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div style={{ gridColumn: "1/-1" }}>
@@ -674,7 +675,7 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
         </div>
         <div>
           <Label>Paid with</Label>
-          <Segmented value={f.method} onChange={(m) => setF({ ...f, method: m })} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: m }))} />
+          <ChoiceButtons value={f.method} onChange={(m) => setF({ ...f, method: m })} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: m }))} />
         </div>
       </div>
       <ErrorNote>{error}</ErrorNote>
@@ -822,14 +823,14 @@ export function Closing({ onAct, initialDate }: {
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16 }}>
         <Label htmlFor="close-date">Day</Label>
         <Input id="close-date" type="date" max={manilaDate()} value={date} onChange={(e) => pick(e.target.value)} style={{ ...inp, width: "auto", padding: "8px 12px" }} />
-        {existing && <Pill color="#2e9e4e">Closed at {manilaTime(existing.closedAt)}</Pill>}
+        {existing && <StatusBadge color="#2e9e4e">Closed at {manilaTime(existing.closedAt)}</StatusBadge>}
       </div>
 
       {stillOpen.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "-4px 0 16px", fontSize: 13, color: C.textS }}>
           <Icon name="alert" size={14} style={{ color: "#d4a800" }} />
           Also not closed yet:
-          {stillOpen.map((d) => <Btn key={d} size="sm" onClick={() => pick(d)}>{fmtDate(d)}</Btn>)}
+          {stillOpen.map((d) => <ActionButton key={d} size="sm" onClick={() => pick(d)}>{fmtDate(d)}</ActionButton>)}
         </div>
       )}
 
@@ -852,15 +853,15 @@ export function Closing({ onAct, initialDate }: {
                 {onAct && (
                   <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {need === "confirm" && <>
-                      <Btn size="sm" kind="green" onClick={() => onAct("accept", b)}>Accept</Btn>
-                      <Btn size="sm" kind="red" onClick={() => onAct("reject", b)}>Cancel</Btn>
+                      <ActionButton size="sm" kind="green" onClick={() => onAct("accept", b)}>Accept booking</ActionButton>
+                      <ActionButton size="sm" kind="red" onClick={() => onAct("reject", b)}>Decline booking</ActionButton>
                     </>}
                     {need === "arrival" && <>
-                      <Btn size="sm" kind="primary" onClick={() => onAct("checkout", b)}>Complete stay</Btn>
-                      <Btn size="sm" kind="red" onClick={() => onAct("noshow", b)}>No-show</Btn>
+                      <ActionButton size="sm" kind="primary" onClick={() => onAct("checkout", b)}>Complete stay</ActionButton>
+                      <ActionButton size="sm" kind="red" onClick={() => onAct("noshow", b)}>No-show</ActionButton>
                     </>}
-                    {need === "checkout" && <Btn size="sm" kind="primary" onClick={() => onAct("checkout", b)}>Check out</Btn>}
-                    {need === "settle" && <Btn size="sm" kind="primary" onClick={() => onAct("settle", b)}>Settle</Btn>}
+                    {need === "checkout" && <ActionButton size="sm" kind="primary" onClick={() => onAct("checkout", b)}>Check out</ActionButton>}
+                    {need === "settle" && <ActionButton size="sm" kind="primary" onClick={() => onAct("settle", b)}>Collect & close</ActionButton>}
                   </span>
                 )}
               </li>
@@ -873,12 +874,12 @@ export function Closing({ onAct, initialDate }: {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 16, marginBottom: 24 }}>
         <div style={{ background: soft, borderRadius: 10, padding: "16px 20px" }}>
           <div style={{ color: C.textH, fontWeight: 600, marginBottom: 8 }}>Income and expenses</div>
-          {MANUAL_METHODS.map((m) => <Line key={m} label={`Received by ${m}`} value={fmt(byMethod(m))} />)}
-          <Line label="Received online (PayMongo)" value={fmt(byMethod("PayMongo"))} />
-          <Line label="Total received" value={fmt(income)} strong />
-          <Line label="Expenses" value={`− ${fmt(spent)}`} color="#d44" />
+          {MANUAL_METHODS.map((m) => <AmountRow key={m} label={`Received by ${m}`} value={fmt(byMethod(m))} />)}
+          <AmountRow label="Received online (PayMongo)" value={fmt(byMethod("PayMongo"))} />
+          <AmountRow label="Total received" value={fmt(income)} strong />
+          <AmountRow label="Expenses" value={`− ${fmt(spent)}`} color="#d44" />
           <div style={{ borderTop: "1px solid rgba(150,130,100,0.25)", marginTop: 8, paddingTop: 4 }}>
-            <Line label="Net for the day" value={fmt(round2(income - spent))} strong color={income - spent < 0 ? "#d44" : "#2e9e4e"} />
+            <AmountRow label="Net for the day" value={fmt(round2(income - spent))} strong color={income - spent < 0 ? "#d44" : "#2e9e4e"} />
           </div>
         </div>
 
@@ -912,18 +913,18 @@ export function Closing({ onAct, initialDate }: {
                       assuming it: filling this in by itself would make every
                       day balance and hide missing cash. */}
                   {counted === "" && (
-                    <Btn size="sm" icon="check" style={{ marginTop: 8 }} onClick={() => setCounted(String(expected))}>
+                    <ActionButton size="sm" icon="check" style={{ marginTop: 8 }} onClick={() => setCounted(String(expected))}>
                       The box has exactly {fmt(expected)}
-                    </Btn>
+                    </ActionButton>
                   )}
                 </div>
               </div>
-              <Line label="Cash at the start" value={fmt(floatNum)} />
-              <Line label="+ Cash received" value={fmt(cashIn)} />
-              <Line label="− Cash spent" value={fmt(cashOut)} />
-              <Line label="Should be in the box" value={fmt(expected)} strong />
+              <AmountRow label="Cash at the start" value={fmt(floatNum)} />
+              <AmountRow label="+ Cash received" value={fmt(cashIn)} />
+              <AmountRow label="− Cash spent" value={fmt(cashOut)} />
+              <AmountRow label="Should be in the box" value={fmt(expected)} strong />
               {diff !== null && (
-                <Line label={diff === 0 ? "Balanced" : diff > 0 ? "Over by" : "Short by"} value={fmt(Math.abs(diff))} strong
+                <AmountRow label={diff === 0 ? "Balanced" : diff > 0 ? "Over by" : "Short by"} value={fmt(Math.abs(diff))} strong
                   color={diff === 0 ? "#2e9e4e" : diff > 0 ? "#3a8fc4" : "#d44"} />
               )}
 
@@ -963,9 +964,9 @@ export function Closing({ onAct, initialDate }: {
             {/* Same clearance: this is the page's last row, right-aligned,
                 and the toggle floats over that corner. */}
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12, paddingRight: TOGGLE_CLEARANCE }}>
-              <Btn kind="primary" disabled={busy || blockers.length > 0} onClick={save}>
+              <ActionButton kind="primary" disabled={busy || blockers.length > 0} onClick={save}>
                 {busy ? "Saving…" : blockers.length > 0 ? "Finish the bookings above first" : existing ? "Count again" : "Save the cash count"}
-              </Btn>
+              </ActionButton>
             </div>
           </>}
         </div>

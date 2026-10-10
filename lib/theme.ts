@@ -86,7 +86,11 @@ export function T(_isDark: boolean): ThemeColors {
       border: `1px solid ${V("--sw-input-border")}`,
       padding: "12px 16px",
       fontSize: 13,
-      borderRadius: 6,
+      // 10, not 6: the shadcn Input, the buttons and the cards are all on the
+      // --radius (10px) corner; this was the one field shape that differed.
+      borderRadius: 10,
+      // 12px padding + a 13px line is ~41px; lift it to the 44px tap minimum.
+      minHeight: 44,
       width: "100%",
       boxSizing: "border-box",
       boxShadow: V("--sw-input-shadow"),

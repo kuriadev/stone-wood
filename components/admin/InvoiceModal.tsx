@@ -14,7 +14,7 @@ import { fmt, fmtDate, getBookingSlot } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
 import type { Booking } from "@/types/booking";
 import { BookingStatement } from "@/components/admin/InspectionModals";
-import { Modal, Btn, Pill, useAdminStyle } from "@/components/admin/ui";
+import { Modal, ActionButton, StatusBadge, useAdminStyle } from "@/components/admin/ui";
 
 function Head({ b }: { b: Booking }) {
   const slot = SLOTS[getBookingSlot(b)];
@@ -45,8 +45,8 @@ export function InvoiceModal({ booking, onClose }: { booking: Booking; onClose: 
     <>
       <Modal title={`Invoice ${booking.id}`} subtitle={`${booking.name} · ${fmtDate(booking.date)}`} onClose={onClose} width={720}
         footer={<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          {m.due > 0 ? <Pill color="#d4a800">{fmt(m.due)} due</Pill> : <Pill color="#2e9e4e">Paid in full</Pill>}
-          <Btn kind="primary" icon="printer" onClick={() => window.print()}>Print</Btn>
+          {m.due > 0 ? <StatusBadge color="#d4a800">{fmt(m.due)} due</StatusBadge> : <StatusBadge color="#2e9e4e">Paid in full</StatusBadge>}
+          <ActionButton kind="primary" icon="printer" onClick={() => window.print()}>Print invoice</ActionButton>
         </div>}>
         <Head b={booking} />
         <div style={{ background: soft, borderRadius: 10, padding: "4px 16px 12px", marginTop: 12 }}>

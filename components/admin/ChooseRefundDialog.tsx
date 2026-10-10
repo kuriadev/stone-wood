@@ -14,7 +14,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { bookingMoney } from "@/lib/finance";
 import { fmt } from "@/lib/utils";
 import type { Booking } from "@/types/booking";
-import { Btn, ConfirmDialog, ErrorNote, useAdminStyle } from "@/components/admin/ui";
+import { ActionButton, ConfirmDialog, ErrorNote, useAdminStyle } from "@/components/admin/ui";
 
 export function ChooseRefundDialog({ booking, onClose, onDone }: {
   booking: Booking;
@@ -42,7 +42,7 @@ export function ChooseRefundDialog({ booking, onClose, onDone }: {
 
   return (
     <ConfirmDialog title={`${booking.name} chose a refund?`} onCancel={onClose}
-      confirm={<Btn kind="red" icon="cash" disabled={busy} onClick={() => void confirm()}>{busy ? "Saving…" : paid > 0 ? `Yes, refund ${fmt(paid)}` : "Yes, cancel it"}</Btn>}>
+      confirm={<ActionButton kind="red" icon="cash" disabled={busy} onClick={() => void confirm()}>{busy ? "Saving…" : paid > 0 ? `Yes, refund ${fmt(paid)}` : "Yes, cancel it"}</ActionButton>}>
       <p style={{ color: C.textS, fontSize: 14, margin: 0, lineHeight: 1.6 }}>
         Record this once the guest has told you, by call or message, that they want their money back instead of a new date.
         {" "}{booking.id} will be cancelled and they can no longer pick a date{paid > 0 ? <>. The {fmt(paid)} they paid becomes a refund to send. Next you&apos;ll record the transfer.</> : "."}

@@ -18,7 +18,7 @@ import { fmt } from "@/lib/utils";
 import { MANUAL_METHODS } from "@/types/finance";
 import type { Booking } from "@/types/booking";
 import { TextGuest } from "@/components/admin/TextGuest";
-import { Btn, ErrorNote, Label, Modal, Segmented, useAdminStyle } from "@/components/admin/ui";
+import { ActionButton, ErrorNote, Label, Modal, ChoiceButtons, useAdminStyle } from "@/components/admin/ui";
 
 /** Shrink a photo to a size that fits comfortably in the database. */
 async function compress(file: File): Promise<string> {
@@ -90,7 +90,7 @@ export function RefundModal({ booking, onClose }: { booking: Booking; onClose: (
   if (sms) {
     return (
       <Modal title="Refund recorded" subtitle={`${booking.name} · ${booking.id}`} onClose={onClose} width={560}
-        footer={<div style={{ display: "flex", justifyContent: "flex-end" }}><Btn kind="primary" onClick={onClose}>Done</Btn></div>}>
+        footer={<div style={{ display: "flex", justifyContent: "flex-end" }}><ActionButton kind="primary" onClick={onClose}>Done</ActionButton></div>}>
         <p style={{ color: C.textB, fontSize: 13.5, marginTop: 0 }}>Their booking page now shows the refund as sent{receipt ? ", with the receipt" : ""}. Let them know:</p>
         <TextGuest booking={booking} message={sms} about="the refund" />
       </Modal>
@@ -100,7 +100,7 @@ export function RefundModal({ booking, onClose }: { booking: Booking; onClose: (
   return (
     <Modal title="Send the refund" subtitle={`${booking.name} · ${booking.id}`} onClose={onClose} width={600}
       footer={<div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <Btn kind="primary" icon="receipt" disabled={busy} onClick={save}>{busy ? "Saving…" : `Record ${fmt(value)} refund`}</Btn>
+        <ActionButton kind="primary" icon="receipt" disabled={busy} onClick={save}>{busy ? "Saving…" : `Record ${fmt(value)} refund`}</ActionButton>
       </div>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <p style={{ background: soft, borderRadius: 10, padding: "12px 16px", margin: 0, color: C.textB, fontSize: 13, lineHeight: 1.6 }}>
@@ -120,7 +120,7 @@ export function RefundModal({ booking, onClose }: { booking: Booking; onClose: (
         </div>
         <div>
           <Label>Sent by</Label>
-          <Segmented label="Sent by" value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: m }))} />
+          <ChoiceButtons label="Sent by" value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: m }))} />
         </div>
         <div>
           <Label htmlFor="rf-receipt">Receipt photo (recommended)</Label>

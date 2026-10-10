@@ -22,6 +22,7 @@
 // refund owed → sent), along with any date change the guest asked for and
 // the booking's full history.
 
+import { statusLabel, bookingStatusLabel, moneyLabel, paymentLine, adminTabLabel } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
@@ -50,7 +51,7 @@ import { EditGuestModal } from "@/components/admin/EditGuestModal";
 import { BookingHistory } from "@/components/admin/BookingHistory";
 import { choiceOpen, fmtDeadline, holdActive, withHolds } from "@/lib/rebooking";
 import {
-  PageHead, TableShell, td, Btn, Pill, Modal, Line, useAdminStyle, STATUS_COLOR, STATUS_LABEL, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewTabs, usePaged, Pager, FullSelect,} from "@/components/admin/ui";
+  AdminPageHeader, TableShell, td, ActionButton, StatusBadge, Modal, AmountRow, useAdminStyle, STATUS_COLOR, STATUS_LABEL, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewSwitcherTabs, usePaged, Pager, FullSelect,} from "@/components/admin/ui";
 
 interface BookingsTabProps {
   bookings: Booking[];
@@ -155,7 +156,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
           return (
             <button key={s} type="button" onClick={() => setStatus(s)} aria-pressed={on}
               style={{ padding: "8px 16px", fontSize: 12.5, fontWeight: 600, borderRadius: 20, cursor: "pointer", background: on ? `${col}1c` : "transparent", color: on ? col : C.textS, border: `1px solid ${on ? col + "77" : cBr}` }}>
-              {s === "All" ? s : STATUS_LABEL[s] ?? s} ({n})
+              {s === "All" ? "All bookings" : statusLabel(s)} ({n})
             </button>
           );
         })}
@@ -177,7 +178,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
         <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Visit date from" style={sel} />
         <span style={{ color: C.textS, fontSize: 13 }}>to</span>
         <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Visit date to" style={sel} />
-        {filtersOn && <Btn size="sm" onClick={clear}>Clear</Btn>}
+        {filtersOn && <ActionButton size="sm" onClick={clear}>Clear filters</ActionButton>}
       </div>
 
       <TableShell head={["ID", "Guest", "Visit", "Package", "Source", "Total", "Paid", "Status", ""]} minWidth={1020}
@@ -191,34 +192,34 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
               <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.contact}</div></Cell>
               <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}<div style={{ color: C.textS, fontSize: 11.5 }}>{s.label}</div></Cell>
               <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{b.package}</Cell>
-              <Cell style={td}><Pill color={b.source === "Walk-In" ? "#3a8fc4" : gold}>{b.source ?? "Online"}</Pill></Cell>
+              <Cell style={td}><StatusBadge color={b.source === "Walk-In" ? "#3a8fc4" : gold}>{b.source ?? "Online"}</StatusBadge></Cell>
               <Cell style={{ ...td, color: C.textH, fontWeight: 600, whiteSpace: "nowrap" }}>{fmt(b.total)}</Cell>
               <Cell style={{ ...td, whiteSpace: "nowrap" }}>
                 <span style={{ color: C.textB }}>{fmt(m.paid)}</span>
-                <div><span style={{ color: MONEY_COLOR[m.state], fontSize: 11.5 }}>{m.state}{m.due > 0 && b.status !== "Cancelled" ? ` · ${fmt(m.due)} owed` : ""}{b.refundStatus === "Owed" ? ` · ${fmt(b.refundAmount ?? 0)}` : ""}</span></div>
+                <div><span className="sw-ink" style={{ ["--ink-c" as string]: MONEY_COLOR[m.state], fontSize: 11.5 }}>{moneyLabel(m.state)}{m.due > 0 && b.status !== "Cancelled" ? ` · ${fmt(m.due)} owed` : ""}{b.refundStatus === "Owed" ? ` · ${fmt(b.refundAmount ?? 0)}` : ""}</span></div>
               </Cell>
               <Cell style={td}>
-                <Pill color={STATUS_COLOR[b.status]}>{STATUS_LABEL[b.status] ?? b.status}</Pill>
+                <StatusBadge color={STATUS_COLOR[b.status]}>{bookingStatusLabel(b)}</StatusBadge>
                 {ops.dateChanges.some((r) => r.bookingId === b.id && r.status === "Pending") && (
                   <div style={{ color: "#d4a800", fontSize: 11.5, marginTop: 4 }}>Asks to change date</div>
                 )}
                 {/* Where the day-of work stands; it is done in Daily Operations. */}
                 {b.status === "Confirmed" && (b.checkedInAt || b.checkedOutAt) && (
-                  <div style={{ color: C.textS, fontSize: 11.5, marginTop: 4 }}>{b.checkedOutAt ? "Checked out · to settle" : "Checked in"}</div>
+                  <div style={{ color: C.textS, fontSize: 11.5, marginTop: 4 }}>{b.checkedOutAt ? "Checked out · balance to collect" : "Checked in"}</div>
                 )}
               </Cell>
               <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                 <div style={{ display: "inline-flex", gap: 4 }}>
-                  <Btn size="sm" onClick={() => setViewId(b.id)}>View</Btn>
+                  <ActionButton size="sm" onClick={() => setViewId(b.id)}>Open booking</ActionButton>
                   {!b.archived && b.status === "Pending" && <>
-                    <Btn size="sm" kind="green" onClick={() => setConfirm(b)}>Accept</Btn>
-                    <Btn size="sm" kind="red" onClick={() => setTurnDown(b)}>Cancel</Btn>
+                    <ActionButton size="sm" kind="green" onClick={() => setConfirm(b)}>Accept booking</ActionButton>
+                    <ActionButton size="sm" kind="red" onClick={() => setTurnDown(b)}>Decline booking</ActionButton>
                   </>}
-                  {finishStep(b) === "complete" && <Btn size="sm" kind="blue" icon="check" onClick={() => setFinish({ kind: "complete", id: b.id })}>Complete</Btn>}
-                  {finishStep(b) === "settle" && <Btn size="sm" kind="blue" icon="receipt" onClick={() => setFinish({ kind: "settle", id: b.id })}>Settle</Btn>}
-                  {b.refundStatus === "Owed" && <Btn size="sm" kind="red" icon="cash" onClick={() => setRefundFor(b)}>Send refund</Btn>}
-                  {!b.archived && (b.status === "Completed" || b.status === "Cancelled") && <Btn size="sm" onClick={() => setArchiveOf(b)}>Archive</Btn>}
-                  {b.archived && <Btn size="sm" onClick={() => { setBookings((bs) => bs.map((x) => x.id === b.id ? { ...x, archived: false, archivedAt: undefined } : x)); toast(`${b.id} restored.`, "success"); }}>Restore</Btn>}
+                  {finishStep(b) === "complete" && <ActionButton size="sm" kind="blue" icon="check" onClick={() => setFinish({ kind: "complete", id: b.id })}>Complete</ActionButton>}
+                  {finishStep(b) === "settle" && <ActionButton size="sm" kind="blue" icon="receipt" onClick={() => setFinish({ kind: "settle", id: b.id })}>Collect & close</ActionButton>}
+                  {b.refundStatus === "Owed" && <ActionButton size="sm" kind="red" icon="cash" onClick={() => setRefundFor(b)}>Send refund</ActionButton>}
+                  {!b.archived && (b.status === "Completed" || b.status === "Cancelled") && <ActionButton size="sm" onClick={() => setArchiveOf(b)}>Archive</ActionButton>}
+                  {b.archived && <ActionButton size="sm" onClick={() => { setBookings((bs) => bs.map((x) => x.id === b.id ? { ...x, archived: false, archivedAt: undefined } : x)); toast(`${b.id} restored.`, "success"); }}>Restore</ActionButton>}
                 </div>
               </Cell>
             </Row>
@@ -231,15 +232,15 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
 
   return (
     <div>
-      <PageHead title="Bookings" mob={mob} subtitle="Online and walk-in reservations."
+      <AdminPageHeader title={adminTabLabel("Bookings")} mob={mob} subtitle="Online and walk-in reservations."
         action={
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <LiveStatus />
-            <Btn kind="primary" icon="plus" onClick={() => setWalkIn(true)}>New walk-in</Btn>
+            <ActionButton kind="primary" icon="plus" onClick={() => setWalkIn(true)}>New walk-in</ActionButton>
           </div>
         } />
 
-      <ViewTabs<"active" | "archived"> value={bView} onChange={setBView} views={[
+      <ViewSwitcherTabs<"active" | "archived"> value={bView} onChange={setBView} views={[
         { value: "active", label: `Active (${bookings.filter((b) => !b.archived).length})`, content: listPanel },
         { value: "archived", label: `Archived (${bookings.filter((b) => !!b.archived).length})`, content: listPanel },
       ]} />
@@ -273,24 +274,24 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                   they paid: cancel until they arrive, and they choose a new
                   date or a refund. */}
               {!b.archived && (b.status === "Confirmed" || b.status === "Pending") && !b.checkedInAt && (
-                <Btn kind="red" icon="x" onClick={() => { setViewId(null); setTurnDown(b); }} style={{ marginRight: "auto" }}>Cancel (resort can&apos;t host)</Btn>
+                <ActionButton kind="red" icon="x" onClick={() => { setViewId(null); setTurnDown(b); }} style={{ marginRight: "auto" }}>Cancel (resort can&apos;t host)</ActionButton>
               )}
-              {b.refundStatus === "Owed" && <Btn kind="primary" icon="cash" onClick={() => { setViewId(null); setRefundFor(b); }}>Send refund · {fmt(b.refundAmount ?? 0)}</Btn>}
+              {b.refundStatus === "Owed" && <ActionButton kind="primary" icon="cash" onClick={() => { setViewId(null); setRefundFor(b); }}>Send refund · {fmt(b.refundAmount ?? 0)}</ActionButton>}
               {/* The guest asked the owner for their money back instead of a new date. */}
-              {b.status === "ResortCancelled" && <Btn kind="red" icon="cash" onClick={() => { setViewId(null); setRefundChoice(b); }}>Guest chose a refund</Btn>}
+              {b.status === "ResortCancelled" && <ActionButton kind="red" icon="cash" onClick={() => { setViewId(null); setRefundChoice(b); }}>Guest chose a refund</ActionButton>}
               {/* The date agreed with them by call or chat. A date they picked
                   themselves is answered with Review instead. */}
-              {b.status === "ResortCancelled" && !request && <Btn kind="primary" icon="calendar" onClick={() => { setViewId(null); setNewDateFor(b); }}>Set a new date</Btn>}
+              {b.status === "ResortCancelled" && !request && <ActionButton kind="primary" icon="calendar" onClick={() => { setViewId(null); setNewDateFor(b); }}>Set a new date</ActionButton>}
               {/* Overtime, extra guests or a room taken on the day, until it is settled. */}
-              {!b.archived && (b.status === "Confirmed" || b.status === "Pending") && <Btn icon="plus" onClick={() => { setViewId(null); setChargeFor(b); }}>Add a charge</Btn>}
-              {m.due > 0 && b.status !== "Cancelled" && <Btn kind={finishStep(b) ? "ghost" : "green"} icon="cash" onClick={() => setPayFor(b.id)}>Record payment</Btn>}
-              {finishStep(b) === "complete" && <Btn kind="primary" icon="check" onClick={() => { setViewId(null); setFinish({ kind: "complete", id: b.id }); }}>Complete stay{m.due > 0 ? ` · collect ${fmt(m.due)}` : ""}</Btn>}
-              {finishStep(b) === "settle" && <Btn kind="primary" icon="receipt" onClick={() => { setViewId(null); setFinish({ kind: "settle", id: b.id }); }}>Settle{m.due > 0 ? ` · ${fmt(m.due)}` : ""}</Btn>}
+              {!b.archived && (b.status === "Confirmed" || b.status === "Pending") && <ActionButton icon="plus" onClick={() => { setViewId(null); setChargeFor(b); }}>Add a charge</ActionButton>}
+              {m.due > 0 && b.status !== "Cancelled" && <ActionButton kind={finishStep(b) ? "ghost" : "green"} icon="cash" onClick={() => setPayFor(b.id)}>Record payment</ActionButton>}
+              {finishStep(b) === "complete" && <ActionButton kind="primary" icon="check" onClick={() => { setViewId(null); setFinish({ kind: "complete", id: b.id }); }}>Complete stay{m.due > 0 ? ` · collect ${fmt(m.due)}` : ""}</ActionButton>}
+              {finishStep(b) === "settle" && <ActionButton kind="primary" icon="receipt" onClick={() => { setViewId(null); setFinish({ kind: "settle", id: b.id }); }}>Settle{m.due > 0 ? ` · ${fmt(m.due)}` : ""}</ActionButton>}
             </div>}>
             <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 20 }}>
               <div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-                  {[["Visit", `${fmtDate(b.date)}`], ["Time", `${s.label} · ${s.hours}`], ["Contact", b.contact], ["Email", b.email || "—"], ["Guests", `${b.guests}`], ["Status", STATUS_LABEL[b.status] ?? b.status],
+                  {[["Visit", `${fmtDate(b.date)}`], ["Time", `${s.label} · ${s.hours}`], ["Contact", b.contact], ["Email", b.email || "—"], ["Guests", `${b.guests}`], ["Status", bookingStatusLabel(b)],
                     ...(b.checkedInAt ? [["Checked in", `${fmtDate(manilaDate(b.checkedInAt))}, ${manilaTime(b.checkedInAt)}`]] : []),
                     ...(b.checkedOutAt ? [["Checked out", `${fmtDate(manilaDate(b.checkedOutAt))}, ${manilaTime(b.checkedOutAt)}`]] : []),
                     ...(b.settledAt ? [["Settled", `${fmtDate(manilaDate(b.settledAt))}, ${manilaTime(b.settledAt)}`]] : []),
@@ -303,10 +304,10 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                 </div>
                 {b.arrivalTime && <p style={{ color: C.textB, fontSize: 13, margin: "0 0 8px" }}>Arrival time: {b.arrivalTime}</p>}
                 <div style={{ border: `1px solid ${cBr}`, borderRadius: 10, padding: "12px 16px" }}>
-                  <Line label={b.package} value={fmt(Math.max(0, b.total - overtimeFee))} />
-                  {overtimeFee > 0 && <Line label={`Overtime (${b.overtime} hr)`} value={fmt(overtimeFee)} />}
-                  {bookedRooms.map((r) => <Line key={r.id} label={r.name} value="included" />)}
-                  <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}><Line label="Total" value={fmt(b.total)} strong /></div>
+                  <AmountRow label={b.package} value={fmt(Math.max(0, b.total - overtimeFee))} />
+                  {overtimeFee > 0 && <AmountRow label={`Overtime (${b.overtime} hr)`} value={fmt(overtimeFee)} />}
+                  {bookedRooms.map((r) => <AmountRow key={r.id} label={r.name} value="included" />)}
+                  <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}><AmountRow label="Total" value={fmt(b.total)} strong /></div>
                 </div>
                 {b.notes && <p style={{ color: C.textS, fontSize: 13, marginTop: 12 }}>Notes: {b.notes}</p>}
                 {(b.status === "Cancelled" || b.status === "ResortCancelled") && b.cancelReason && <p style={{ color: "#d44", fontSize: 13, marginTop: 12 }}>Cancelled: {b.cancelReason}</p>}
@@ -339,17 +340,17 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                       <strong style={{ color: C.textH }}>{b.status === "ResortCancelled" ? `Picked ${fmtDate(request.toDate)} as the new date.` : `Asks to move to ${fmtDate(request.toDate)}.`}</strong>{" "}
                       {holdActive(request) ? `Held until ${fmtDeadline(request.holdUntil!)}.` : "The hold ran out."}
                     </span>
-                    <Btn size="sm" kind="primary" onClick={() => { setViewId(null); setReviewReq(request.id); }}>Review</Btn>
+                    <ActionButton size="sm" kind="primary" onClick={() => { setViewId(null); setReviewReq(request.id); }}>Review</ActionButton>
                   </div>
                 )}
               </div>
               <div>
                 <div style={{ background: soft, borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}>
-                  <Line label="Paid for the stay" value={fmt(m.paid)} />
-                  <Line label={b.status === "Cancelled" ? "Balance (forfeited, not owed)" : "Balance"} value={fmt(b.status === "Cancelled" ? Math.max(0, b.total - m.paid) : m.balance)} color={m.balance > 0 ? "#d4a800" : undefined} />
-                  {m.penaltyTotal > 0 && <Line label="Damage penalties" value={`${fmt(m.penaltyTotal)} (${fmt(m.penaltyDue)} unpaid)`} color="#d44" />}
+                  <AmountRow label="Paid for the stay" value={fmt(m.paid)} />
+                  <AmountRow label={b.status === "Cancelled" ? "Balance (forfeited, not owed)" : "Balance"} value={fmt(b.status === "Cancelled" ? Math.max(0, b.total - m.paid) : m.balance)} color={m.balance > 0 ? "#d4a800" : undefined} />
+                  {m.penaltyTotal > 0 && <AmountRow label="Damage penalties" value={`${fmt(m.penaltyTotal)} (${fmt(m.penaltyDue)} unpaid)`} color="#d44" />}
                   <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}>
-                    <Line label="Still owed" value={fmt(m.due)} strong color={m.due > 0 ? "#d4a800" : "#2e9e4e"} />
+                    <AmountRow label="Still owed" value={fmt(m.due)} strong color={m.due > 0 ? "#d4a800" : "#2e9e4e"} />
                   </div>
                 </div>
                 <div style={{ color: C.textH, fontWeight: 600, fontSize: 14, marginBottom: 8 }}>Payments</div>
@@ -357,7 +358,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                 {pays.map((p) => (
                   <div key={p.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderBottom: `1px solid ${cBr}`, opacity: p.voided ? 0.5 : 1 }}>
                     <div>
-                      <div style={{ color: C.textH, fontSize: 13 }}>{p.type} · {p.method}{p.voided ? " · voided" : ""}</div>
+                      <div style={{ color: C.textH, fontSize: 13 }}>{paymentLine(p)}{p.voided ? " · undone" : ""}</div>
                       <div style={{ color: C.textS, fontSize: 11.5 }}>{fmtDate(manilaDate(p.receivedAt))}, {manilaTime(p.receivedAt)}{p.reference ? ` · ref ${p.reference}` : ""}</div>
                     </div>
                     <div style={{ color: p.type === "Refund" ? "#d44" : C.textH, fontWeight: 600, textDecoration: p.voided ? "line-through" : "none" }}>{p.type === "Refund" ? "−" : ""}{fmt(p.amount)}</div>
@@ -378,7 +379,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
           description={`${confirm.name} · ${confirm.id} · ${fmtDate(confirm.date)}`}
           onCancel={() => setConfirm(null)}
           cancelLabel="Go back"
-          confirm={<Btn kind="green" onClick={accept}>Accept booking</Btn>}
+          confirm={<ActionButton kind="green" onClick={accept}>Accept booking</ActionButton>}
           width={500}>
           <p style={{ color: C.textS, fontSize: 14, margin: 0 }}>
             {confirm.email ? `A confirmation email goes to ${confirm.email}.` : "This guest has no email, so no confirmation is sent."}
@@ -408,11 +409,11 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
       )}
 
       {archiveOf && (
-        <ConfirmDialog title={`Archive ${archiveOf.id}?`} description={`${archiveOf.name} · ${archiveOf.status}`} onCancel={() => setArchiveOf(null)}
-          confirm={<Btn kind="primary" onClick={() => {
+        <ConfirmDialog title={`Archive ${archiveOf.id}?`} description={`${archiveOf.name} · ${bookingStatusLabel(archiveOf)}`} onCancel={() => setArchiveOf(null)}
+          confirm={<ActionButton kind="primary" onClick={() => {
             setBookings((bs) => bs.map((x) => x.id === archiveOf.id ? { ...x, archived: true, archivedAt: new Date().toISOString() } : x));
             toast(`${archiveOf.id} archived.`, "info"); setArchiveOf(null);
-          }}>Archive</Btn>}>
+          }}>Archive</ActionButton>}>
           <p style={{ color: C.textS, fontSize: 14, margin: 0 }}>It moves to the Archived list. Its payments and inspection records are kept, and you can restore it any time.</p>
         </ConfirmDialog>
       )}

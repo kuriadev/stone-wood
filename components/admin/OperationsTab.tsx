@@ -28,6 +28,7 @@
 // so every module keeps its full record while the daily routine happens
 // here. Which step a booking is on is worked out in lib/operations.ts.
 
+import { paymentLine, adminTabLabel } from "@/lib/labels";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,7 +62,7 @@ import { TextGuest } from "@/components/admin/TextGuest";
 import { choiceOpen, choiceExpired, fmtDeadline, holdActive, isRebookRequest, withHolds } from "@/lib/rebooking";
 import { notices } from "@/lib/notices";
 import { Closing } from "@/components/admin/SalesTab";
-import { PageHead, Btn, Pill, Modal, ConfirmDialog, Label, Line, Figure, ViewTabs, useAdminStyle } from "@/components/admin/ui";
+import { AdminPageHeader, ActionButton, StatusBadge, Modal, ConfirmDialog, Label, AmountRow, StatCard, ViewSwitcherTabs, useAdminStyle } from "@/components/admin/ui";
 
 interface OperationsTabProps {
   bookings: Booking[];
@@ -193,38 +194,38 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
       attention.push({ key: `late-${b.id}`, tone: "red", icon: "alert",
         text: <>{who} was due on {fmtDate(b.date)} and was never checked in. Complete the stay if they came, or mark a no-show.</>,
         actions: <>
-          <Btn size="sm" kind="primary" onClick={() => go("checkout", b)}>Complete stay</Btn>
-          <Btn size="sm" kind="red" onClick={() => go("noshow", b)}>No-show</Btn>
+          <ActionButton size="sm" kind="primary" onClick={() => go("checkout", b)}>Complete stay</ActionButton>
+          <ActionButton size="sm" kind="red" onClick={() => go("noshow", b)}>No-show</ActionButton>
         </> });
     }
     if (c.timeUp && c.endsAt) {
       attention.push({ key: `time-${b.id}`, tone: "red", icon: "clock",
         text: <>{who}&apos;s booked time ended at {localTime(c.endsAt)}, {duration(now.getTime() - c.endsAt.getTime())} ago.</>,
-        actions: <Btn size="sm" kind="primary" onClick={() => go("checkout", b)}>Check out</Btn> });
+        actions: <ActionButton size="sm" kind="primary" onClick={() => go("checkout", b)}>Check out</ActionButton> });
     }
     if (c.stage === "confirm" && c.view === "today") {
       attention.push({ key: `confirm-${b.id}`, tone: b.date < today ? "red" : "amber", icon: "clipboard",
         text: <>{who}&apos;s booking for {b.date === today ? "today" : fmtDate(b.date)} isn&apos;t confirmed yet.</>,
         actions: <>
-          <Btn size="sm" kind="primary" onClick={() => go("accept", b)}>Review</Btn>
-          <Btn size="sm" kind="red" onClick={() => go("reject", b)}>Cancel</Btn>
+          <ActionButton size="sm" kind="primary" onClick={() => go("accept", b)}>Review</ActionButton>
+          <ActionButton size="sm" kind="red" onClick={() => go("reject", b)}>Decline booking</ActionButton>
         </> });
     }
     if (c.stage === "arriving" && !c.overdue && !c.prepared) {
       attention.push({ key: `prep-${b.id}`, tone: "amber", icon: "clipboard-check",
         text: <>{who} arrives today, but the facilities haven&apos;t been prepared.</>,
-        actions: <Btn size="sm" kind="primary" onClick={() => go("prep", b)}>Prepare</Btn> });
+        actions: <ActionButton size="sm" kind="primary" onClick={() => go("prep", b)}>Prepare for arrival</ActionButton> });
     }
     if (c.stage === "settle" && b.checkedOutAt && manilaDate(b.checkedOutAt) < today) {
       attention.push({ key: `settle-${b.id}`, tone: "amber", icon: "receipt",
-        text: <>{who} checked out on {fmtDate(manilaDate(b.checkedOutAt))} and hasn&apos;t been settled.</>,
-        actions: <Btn size="sm" kind="primary" onClick={() => go("settle", b)}>Settle</Btn> });
+        text: <>{who} checked out on {fmtDate(manilaDate(b.checkedOutAt))} and the booking hasn&apos;t been closed.</>,
+        actions: <ActionButton size="sm" kind="primary" onClick={() => go("settle", b)}>Collect & close</ActionButton> });
     }
     if (c.view === "today" && (c.column === "arriving" || c.column === "onsite")) {
       for (const f of facilitiesForBooking(b, facilities).filter((x) => x.status === "Under Maintenance")) {
         attention.push({ key: `maint-${b.id}-${f.id}`, tone: "amber", icon: "toolbox",
           text: <><strong style={{ color: C.textH }}>{f.name}</strong> is under maintenance, but {who}&apos;s booking uses it.</>,
-          actions: <Btn size="sm" onClick={() => go("record", b)}>View booking</Btn> });
+          actions: <ActionButton size="sm" onClick={() => go("record", b)}>View booking</ActionButton> });
       }
     }
   }
@@ -241,7 +242,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
           ? <>picked {fmtDate(r.toDate)} for {b.id} after the resort cancelled {fmtDate(r.fromDate)}.</>
           : <>asks to move {b.id} from {fmtDate(r.fromDate)} to {fmtDate(r.toDate)}.</>}{" "}
         {active ? <>Held for them until {fmtDeadline(r.holdUntil!)}.</> : <>The 48-hour hold ran out.</>}</>,
-      actions: <Btn size="sm" kind="primary" onClick={() => setOpen({ kind: "datechange", reqId: r.id })}>Review</Btn> });
+      actions: <ActionButton size="sm" kind="primary" onClick={() => setOpen({ kind: "datechange", reqId: r.id })}>Review</ActionButton> });
   }
   // Money the resort owes back, and guests still deciding after a
   // resort cancellation. These outlive the board's date range, so they
@@ -251,13 +252,13 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
     if (b.refundStatus === "Owed") {
       attention.push({ key: `refund-${b.id}`, tone: "red", icon: "cash",
         text: <>{who} is owed a refund of {fmt(b.refundAmount ?? 0)} ({b.id}). Send it and record the reference.</>,
-        actions: <Btn size="sm" kind="primary" onClick={() => go("refund", b)}>Send refund</Btn> });
+        actions: <ActionButton size="sm" kind="primary" onClick={() => go("refund", b)}>Send refund</ActionButton> });
     } else if (choiceOpen(b, now.getTime())) {
       attention.push({ key: `waiting-${b.id}`, tone: "blue", icon: "clock",
         text: <>{who} hasn&apos;t picked a new date yet for {b.id} (cancelled by the resort). They have until {fmtDeadline(b.choiceDeadline!)}.</>,
         actions: <>
-          <Btn size="sm" onClick={() => go("textagain", b)}>Text them</Btn>
-          <Btn size="sm" kind="red" onClick={() => go("refundchoice", b)}>Refund instead</Btn>
+          <ActionButton size="sm" onClick={() => go("textagain", b)}>Text them</ActionButton>
+          <ActionButton size="sm" kind="red" onClick={() => go("refundchoice", b)}>Refund instead</ActionButton>
         </> });
     } else if (choiceExpired(b, ops.dateChanges.some((r) => r.bookingId === b.id && r.status === "Pending"), now.getTime())) {
       // Their time to pick online ran out. The booking waits on the owner
@@ -265,8 +266,8 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
       attention.push({ key: `expired-${b.id}`, tone: "red", icon: "clock",
         text: <>{who} didn&apos;t pick a new date for {b.id} in time (cancelled by the resort).{(b.heldAmount ?? 0) > 0 ? <> {fmt(b.heldAmount ?? 0)} is still held for them.</> : null} Contact them to agree a new date or a refund.</>,
         actions: <>
-          <Btn size="sm" kind="primary" onClick={() => go("move", b)}>Set a new date</Btn>
-          <Btn size="sm" kind="red" onClick={() => go("refundchoice", b)}>Refund instead</Btn>
+          <ActionButton size="sm" kind="primary" onClick={() => go("move", b)}>Set a new date</ActionButton>
+          <ActionButton size="sm" kind="red" onClick={() => go("refundchoice", b)}>Refund instead</ActionButton>
         </> });
     }
   }
@@ -280,13 +281,13 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
       text: unclosed.length === 1
         ? <>{first === manilaDate(new Date(now.getTime() - 86_400_000)) ? "Yesterday" : fmtDate(first)} wasn&apos;t closed. Count the cash box and close it so the records match the money in it.</>
         : <>{unclosed.length} days weren&apos;t closed: {unclosed.map(fmtDate).join(", ")}. Close each one, oldest first, so every cash count is right.</>,
-      actions: <Btn size="sm" kind="primary" onClick={() => openClosing(first)}>Close {fmtDate(first)}</Btn> });
+      actions: <ActionButton size="sm" kind="primary" onClick={() => openClosing(first)}>Close {fmtDate(first)}</ActionButton> });
   }
   const waitingConfirm = upcoming.filter((c) => c.stage === "confirm");
   if (waitingConfirm.length > 0) {
     attention.push({ key: "confirm-upcoming", tone: "blue", icon: "info",
       text: <>{waitingConfirm.length} upcoming booking{waitingConfirm.length === 1 ? " is" : "s are"} waiting for your confirmation.</>,
-      actions: <Btn size="sm" onClick={() => { setQ(""); setView("upcoming"); }}>Review</Btn> });
+      actions: <ActionButton size="sm" onClick={() => { setQ(""); setView("upcoming"); }}>Review</ActionButton> });
   }
   /* The sidebar badge counts the same board from lib/operations.ts, because
      it has to show a number while this component is unmounted. Two rule sets
@@ -325,7 +326,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
       { label: "Prepared", done: c.prepared },
       { label: "Checked in", done: !!b.checkedInAt },
       { label: "Checked out", done: !!b.checkedOutAt },
-      { label: "Settled", done: b.status === "Completed" },
+      { label: "Closed", done: b.status === "Completed" },
     ];
     const next =
       stage === "confirm" ? "Next: check the payment, then accept"
@@ -333,7 +334,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
           : prepBlocked(b, today) ? `Next: prepare the facilities from ${fmtDate(prepOpensOn(b))}` : "Next: prepare the facilities")
           : stage === "arriving" ? (c.overdue ? "Next: complete the stay, or mark a no-show" : "Next: check in when they arrive")
             : stage === "onsite" ? (m.due > 0 ? `Next: check out and collect ${fmt(m.due)}` : "Next: check out as they leave")
-              : stage === "settle" ? (m.due > 0 ? `Next: collect ${fmt(m.due)} and settle` : "Next: settle to complete")
+              : stage === "settle" ? (m.due > 0 ? `Next: collect ${fmt(m.due)} and close the booking` : "Next: close the booking")
                 : `Completed${b.settledAt ? ` at ${manilaTime(b.settledAt)}` : ""}`;
 
     const canPay = (stage === "confirm" || stage === "prepare" || stage === "arriving" || stage === "onsite") && m.due > 0;
@@ -345,35 +346,35 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
     let secondary: ReactNode = null;
     switch (stage) {
       case "confirm":
-        primary = <Btn kind="primary" icon="check" onClick={() => go("accept", b)}>Review & accept</Btn>;
-        secondary = <Btn kind="red" icon="x" onClick={() => go("reject", b)}>Cancel</Btn>;
+        primary = <ActionButton kind="primary" icon="check" onClick={() => go("accept", b)}>Review & accept</ActionButton>;
+        secondary = <ActionButton kind="red" icon="x" onClick={() => go("reject", b)}>Decline booking</ActionButton>;
         break;
       case "prepare":
         primary = !canPrep
-          ? <Btn icon="clipboard-check" disabled title={prepClosed ?? undefined}>Prepare from {fmtDate(prepOpensOn(b))}</Btn>
+          ? <ActionButton icon="clipboard-check" disabled title={prepClosed ?? undefined}>Preparation opens {fmtDate(prepOpensOn(b))}</ActionButton>
           : c.prepared
-            ? <Btn icon="clipboard-check" onClick={() => go("prep", b)}>View / edit preparation</Btn>
-            : <Btn kind="primary" icon="clipboard-check" onClick={() => go("prep", b)}>Prepare facilities</Btn>;
+            ? <ActionButton icon="clipboard-check" onClick={() => go("prep", b)}>View / edit preparation</ActionButton>
+            : <ActionButton kind="primary" icon="clipboard-check" onClick={() => go("prep", b)}>Prepare facilities</ActionButton>;
         break;
       case "arriving":
         // A past date the owner never tapped through: the group most likely
         // came and went, so finishing the stay is the main button.
         if (c.overdue) {
-          primary = <Btn kind="primary" icon="check" onClick={() => go("checkout", b)}>Complete stay</Btn>;
-          secondary = <Btn kind="red" onClick={() => go("noshow", b)}>No-show</Btn>;
+          primary = <ActionButton kind="primary" icon="check" onClick={() => go("checkout", b)}>Complete stay</ActionButton>;
+          secondary = <ActionButton kind="red" onClick={() => go("noshow", b)}>No-show</ActionButton>;
         } else {
-          primary = <Btn kind="primary" icon="log-in" disabled={busy} onClick={() => checkIn(b)}>{busy ? "Checking in…" : "Check in"}</Btn>;
-          secondary = !c.prepared ? <Btn icon="clipboard-check" onClick={() => go("prep", b)}>Prepare</Btn> : null;
+          primary = <ActionButton kind="primary" icon="log-in" disabled={busy} onClick={() => checkIn(b)}>{busy ? "Checking in…" : "Check in"}</ActionButton>;
+          secondary = !c.prepared ? <ActionButton icon="clipboard-check" onClick={() => go("prep", b)}>Prepare for arrival</ActionButton> : null;
         }
         break;
       case "onsite":
-        primary = <Btn kind="primary" icon="logout" onClick={() => go("checkout", b)}>{m.due > 0 ? `Check out · ${fmt(m.due)}` : "Check out"}</Btn>;
+        primary = <ActionButton kind="primary" icon="logout" onClick={() => go("checkout", b)}>{m.due > 0 ? `Check out · ${fmt(m.due)}` : "Check out"}</ActionButton>;
         break;
       case "settle":
-        primary = <Btn kind="primary" icon="receipt" onClick={() => go("settle", b)}>{m.due > 0 ? `Settle · ${fmt(m.due)}` : "Settle"}</Btn>;
+        primary = <ActionButton kind="primary" icon="receipt" onClick={() => go("settle", b)}>{m.due > 0 ? `Collect ${fmt(m.due)} & close` : "Close booking"}</ActionButton>;
         break;
       case "done":
-        primary = <Btn icon="eye" onClick={() => go("record", b)}>View record</Btn>;
+        primary = <ActionButton icon="eye" onClick={() => go("record", b)}>View stay record</ActionButton>;
         break;
     }
 
@@ -395,7 +396,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
                 style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: C.textH, fontWeight: 600, fontSize: 15, textAlign: "left" }}>
                 {b.name}
               </button>
-              {fresh && <Pill color={gold}>New</Pill>}
+              {fresh && <StatusBadge color={gold}>New</StatusBadge>}
             </div>
             <div style={{ color: C.textS, fontSize: 12, marginTop: 4 }}>
               {b.date === today ? "Today" : fmtDate(b.date)} · {slot.label} ({slot.hours}){b.arrivalTime ? ` · arrives ${b.arrivalTime}` : ""}
@@ -457,21 +458,21 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {stage === "confirm" && (m.paid > 0
-            ? <Pill color="#2e9e4e">{fmt(m.paid)} paid</Pill>
-            : <Pill color="#d4a800">No payment yet</Pill>)}
+            ? <StatusBadge color="#2e9e4e">{fmt(m.paid)} paid</StatusBadge>
+            : <StatusBadge color="#d4a800">No payment yet</StatusBadge>)}
           {stage === "prepare" && (c.prepared
-            ? <Pill color="#2e9e4e"><Icon name="check" size={11} />Ready</Pill>
-            : <Pill color="#d4a800">Not prepared</Pill>)}
-          {stage === "arriving" && !c.prepared && <Pill color="#d4a800">Not prepared</Pill>}
-          {c.overdue && <Pill color="#d44">Was due {fmtDate(b.date)}</Pill>}
-          {stage === "onsite" && b.checkedInAt && <Pill color="#2e9e4e">In since {manilaTime(b.checkedInAt)}</Pill>}
+            ? <StatusBadge color="#2e9e4e"><Icon name="check" size={11} />Ready</StatusBadge>
+            : <StatusBadge color="#d4a800">Not prepared</StatusBadge>)}
+          {stage === "arriving" && !c.prepared && <StatusBadge color="#d4a800">Not prepared</StatusBadge>}
+          {c.overdue && <StatusBadge color="#d44">Was due {fmtDate(b.date)}</StatusBadge>}
+          {stage === "onsite" && b.checkedInAt && <StatusBadge color="#2e9e4e">In since {manilaTime(b.checkedInAt)}</StatusBadge>}
           {stage === "onsite" && c.endsAt && (c.timeUp
-            ? <Pill color="#d44">Time&apos;s up · {duration(now.getTime() - c.endsAt.getTime())} over</Pill>
-            : <Pill color={C.textS}>Until {localTime(c.endsAt)}</Pill>)}
+            ? <StatusBadge color="#d44">Time&apos;s up · {duration(now.getTime() - c.endsAt.getTime())} over</StatusBadge>
+            : <StatusBadge color={C.textS}>Until {localTime(c.endsAt)}</StatusBadge>)}
           {(stage === "arriving" || stage === "onsite" || stage === "settle") && (m.due > 0
-            ? <Pill color="#d4a800">{fmt(m.due)} to collect</Pill>
-            : <Pill color="#2e9e4e">Fully paid</Pill>)}
-          {stage === "done" && (m.due > 0 ? <Pill color="#d4a800">{fmt(m.due)} unpaid</Pill> : <Pill color="#4a9fd4">Settled</Pill>)}
+            ? <StatusBadge color="#d4a800">{fmt(m.due)} to collect</StatusBadge>
+            : <StatusBadge color="#2e9e4e">Fully paid</StatusBadge>)}
+          {stage === "done" && (m.due > 0 ? <StatusBadge color="#d4a800">{fmt(m.due)} unpaid</StatusBadge> : <StatusBadge color="#4a9fd4">Closed</StatusBadge>)}
         </div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -509,9 +510,9 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
                 : " Every booking is finished. Count the cash box to close the day."}
         </div>
       </div>
-      <Btn kind={closedToday || toFinish > 0 || !cashToday ? "ghost" : "primary"} icon="wallet" onClick={() => openClosing()}>
+      <ActionButton kind={closedToday || toFinish > 0 || !cashToday ? "ghost" : "primary"} icon="wallet" onClick={() => openClosing()}>
         {closedToday ? "View cash count" : !cashToday ? "View today's report" : toFinish > 0 ? `Close the day · ${toFinish} to finish` : "Count cash & close the day"}
-      </Btn>
+      </ActionButton>
     </section>
   );
 
@@ -632,7 +633,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
                   <div style={{ color: C.textH, fontSize: 14.5, fontWeight: 600 }}>{b.name}</div>
                   <div style={{ color: C.textS, fontSize: 12.5, fontFamily: "monospace" }}>{b.id}</div>
                 </div>
-                <Pill color={stale ? "#e55" : "#d4a800"}>{datePassed ? "Visit date passed" : active ? "Awaiting you" : "Hold expired"}</Pill>
+                <StatusBadge color={stale ? "#e55" : "#d4a800"}>{datePassed ? "Visit date passed" : active ? "Awaiting you" : "Hold expired"}</StatusBadge>
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 13 }}>
@@ -650,9 +651,9 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
                   : <>The 48-hour hold ran out, so the date was released.</>}
               </div>
 
-              <Btn size="sm" kind="primary" onClick={() => setOpen({ kind: "datechange", reqId: r.id })}>
+              <ActionButton size="sm" kind="primary" onClick={() => setOpen({ kind: "datechange", reqId: r.id })}>
                 Review request
-              </Btn>
+              </ActionButton>
             </div>
           );
         })}
@@ -673,7 +674,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         <div style={{ display: "grid", gap: 8 }}>
           {decidedMoves.map(({ r, b }) => (
             <div key={r.id} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <Pill color={decidedTone(r.status)}>{r.status}</Pill>
+              <StatusBadge color={decidedTone(r.status)}>{r.status}</StatusBadge>
               <span style={{ color: C.textH, fontSize: 13.5, fontWeight: 600 }}>{b.name}</span>
               <span style={{ color: C.textS, fontSize: 12.5, fontFamily: "monospace" }}>{b.id}</span>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}>
@@ -682,7 +683,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
                 <span style={{ color: C.textH }}>{fmtDate(r.toDate)}</span>
               </span>
               {r.note && <span style={{ color: C.textXS, fontSize: 12 }}>{r.note}</span>}
-              <Btn size="sm" style={{ marginLeft: "auto" }} onClick={() => go("record", b)}>View booking</Btn>
+              <ActionButton size="sm" style={{ marginLeft: "auto" }} onClick={() => go("record", b)}>View booking</ActionButton>
             </div>
           ))}
         </div>
@@ -705,25 +706,25 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
 
   return (
     <div>
-      <PageHead title="Daily Operations" mob={mob}
+      <AdminPageHeader title={adminTabLabel("Operations")} mob={mob}
         subtitle={new Date(`${today}T00:00:00`).toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
         action={
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <LiveStatus />
-            <Btn icon="plus" onClick={() => setOpen({ kind: "walkin" })}>New walk-in</Btn>
-            <Btn kind={closedToday ? "ghost" : "primary"} icon="wallet" onClick={() => openClosing()}>{closedToday ? "Day closed" : "Close the day"}</Btn>
+            <ActionButton icon="plus" onClick={() => setOpen({ kind: "walkin" })}>New walk-in</ActionButton>
+            <ActionButton kind={closedToday ? "ghost" : "primary"} icon="wallet" onClick={() => openClosing()}>{closedToday ? "Day closed" : "Close the day"}</ActionButton>
           </div>
         } />
 
       {/* ── At a glance ── */}
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
-        <Figure label="Still to arrive today" value={dueToday.length - arrivedToday}
+        <StatCard label="Still to arrive today" value={dueToday.length - arrivedToday}
           note={dueToday.length ? `${arrivedToday} of ${dueToday.length} group${dueToday.length === 1 ? "" : "s"} checked in` : "No bookings today"} />
-        <Figure label="On site now" value={onSite.length} color={onSite.length ? "#2e9e4e" : undefined}
+        <StatCard label="On site now" value={onSite.length} color={onSite.length ? "#2e9e4e" : undefined}
           note={`${headcount} guest${headcount === 1 ? "" : "s"}`} />
-        <Figure label="To settle" value={toSettle.length} color={toSettle.length ? "#e07a3a" : undefined}
+        <StatCard label="Balance to collect" value={toSettle.length} color={toSettle.length ? "#e07a3a" : undefined}
           note={toSettle.length ? `${fmt(toSettleDue)} to collect` : "Nothing waiting"} />
-        <Figure label="Collected today" value={fmt(collectedToday)}
+        <StatCard label="Collected today" value={fmt(collectedToday)}
           note={closedToday ? `Day closed at ${manilaTime(closedToday.closedAt)}` : `${fmt(spentToday)} spent`} />
       </div>
 
@@ -780,7 +781,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
           {results.length > 0 && grid(results)}
         </section>
       ) : (
-        <ViewTabs<OpsView> value={view} onChange={setView} views={[
+        <ViewSwitcherTabs<OpsView> value={view} onChange={setView} views={[
           { value: "today", label: `Today (${todayCards.length})`, content: todayPanel },
           { value: "upcoming", label: `Coming up (${upcoming.length})`, content: upcomingPanel },
           { value: "done", label: `Done today (${doneToday.length})`, content: donePanel },
@@ -818,17 +819,17 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         return (
           <ConfirmDialog title="Accept this booking?" description={`${current.name} · ${current.id} · ${fmtDate(current.date)}`}
             onCancel={() => setOpen(null)} cancelLabel="Go back" width={520}
-            confirm={<Btn kind="green" onClick={() => { updateStatus(current.id, "Confirmed"); toast(`Booking accepted for ${current.name}.`, "success"); setOpen(null); }}>Accept booking</Btn>}>
+            confirm={<ActionButton kind="green" onClick={() => { updateStatus(current.id, "Confirmed"); toast(`Booking accepted for ${current.name}.`, "success"); setOpen(null); }}>Accept booking</ActionButton>}>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {/* The payment check, in one place: what came in, against the total. */}
               <div style={{ background: soft, borderRadius: 10, padding: "8px 16px" }}>
                 {pays.map((p) => (
-                  <Line key={p.id} label={`${p.type} · ${p.method}${p.reference ? ` · ref ${p.reference}` : ""}`} value={fmt(p.amount)} color="#2e9e4e" />
+                  <AmountRow key={p.id} label={`${paymentLine(p)}${p.reference ? ` · ref ${p.reference}` : ""}`} value={fmt(p.amount)} color="#2e9e4e" />
                 ))}
                 {pays.length === 0 && <p style={{ color: "#d4a800", fontSize: 13.5, margin: "4px 0" }}>No payment has been recorded for it yet.</p>}
                 <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}>
-                  <Line label="Booking total" value={fmt(current.total)} />
-                  <Line label="Balance due on arrival" value={fmt(m.balance)} strong />
+                  <AmountRow label="Booking total" value={fmt(current.total)} />
+                  <AmountRow label="Balance due on arrival" value={fmt(m.balance)} strong />
                 </div>
               </div>
               <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>
@@ -852,14 +853,14 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         <ConfirmDialog title="Mark as a no-show?"
           description={`${current.name} · ${current.id} · ${fmtDate(current.date)}`}
           onCancel={() => setOpen(null)} cancelLabel="Go back" width={500}
-          confirm={<Btn kind="red" onClick={() => {
+          confirm={<ActionButton kind="red" onClick={() => {
             const why = reason.trim() || "No-show: the group did not arrive.";
             // A no-show isn't emailed a rejection.
             updateStatus(current.id, "Cancelled", why, { silent: true });
             setBookings((bs) => bs.map((x) => x.id === current.id ? { ...x, cancelReason: why } : x));
             toast(`${current.name} marked as a no-show.`, "warning");
             setOpen(null);
-          }}>Mark no-show</Btn>}>
+          }}>Mark no-show</ActionButton>}>
           <div>
             <p style={{ color: C.textS, fontSize: 14, marginTop: 0 }}>
               Under the no-refund policy, what the guest paid stays recorded as income.
@@ -892,7 +893,7 @@ function TextAgain({ booking, onClose }: { booking: Booking; onClose: () => void
     : null;
   return (
     <Modal title="Remind the guest" subtitle={`${booking.name} · ${booking.id}`} onClose={onClose} width={560}
-      footer={<div style={{ display: "flex", justifyContent: "flex-end" }}><Btn kind="primary" onClick={onClose}>Done</Btn></div>}>
+      footer={<div style={{ display: "flex", justifyContent: "flex-end" }}><ActionButton kind="primary" onClick={onClose}>Done</ActionButton></div>}>
       {msg ? <TextGuest booking={booking} message={msg} about="choosing a new date or a refund" />
         : <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>{failed ? "Couldn't make their link. Try again." : "Preparing the message…"}</p>}
     </Modal>

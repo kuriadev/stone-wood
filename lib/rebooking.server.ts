@@ -50,7 +50,7 @@ export function guestToken(id: string, email: string): string {
 
 /** The guest's own booking page, opened without typing anything. */
 export function guestLinkFor(b: Pick<Booking, "id" | "email">): string {
-  return `${APP_URL}/cancelbooking?booking=${encodeURIComponent(b.id)}&t=${guestToken(b.id, b.email)}`;
+  return `${APP_URL}/my-booking?booking=${encodeURIComponent(b.id)}&t=${guestToken(b.id, b.email)}`;
 }
 
 function tokenMatches(b: Pick<Booking, "id" | "email">, token: string): boolean {

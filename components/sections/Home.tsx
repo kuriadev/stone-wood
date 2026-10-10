@@ -373,7 +373,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           closedDates={closedDates}
           onBookWithDate={onBookWithDate}
           onBrowseRooms={() => setPage("Rooms")}
-          onManageBooking={() => setPage("Cancel Booking")}
+          onManageBooking={() => setPage("Manage Booking")}
         />
 
         {/* Amenity pills */}

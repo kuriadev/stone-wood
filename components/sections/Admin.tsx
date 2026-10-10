@@ -1,5 +1,6 @@
 "use client";
 
+import { statusLabel, bookingStatusLabel, ADMIN_NAV_GROUPS, ADMIN_TAB_LABEL } from "@/lib/labels";
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
@@ -84,17 +85,9 @@ interface AdminProps {
   setPackages: React.Dispatch<React.SetStateAction<ResortPackage[]>>;
 }
 
-const SIDEBAR_GROUPS = [
-  { label: "TODAY",        tabs: ["Operations"] },
-  { label: "RESERVATIONS", tabs: ["Bookings", "Occupancy"] },
-  { label: "FACILITIES",   tabs: ["Facilities", "Inventory"] },
-  { label: "FINANCE",      tabs: ["Sales", "Reports"] },
-  { label: "MANAGEMENT",   tabs: ["Rooms", "Packages", "Gallery"] },
-  { label: "SUPPORT",      tabs: ["Customer Service"] },
-  { label: "SITE",         tabs: ["Maintenance"] },
-  // Everything done in the system, not just money, so not under Finance.
-  { label: "RECORDS",      tabs: ["Activity"] },
-];
+// Sidebar sections and screen names live in lib/labels.ts (ADMIN_NAV_GROUPS,
+// ADMIN_TAB_LABEL), so the sidebar and each heading always agree.
+const SIDEBAR_GROUPS = ADMIN_NAV_GROUPS;
 
 // ── Admin Component ───────────────────────────────────────────────────────────
 export function Admin({
@@ -254,7 +247,7 @@ export function Admin({
   /* What the sidebar prints. The keys stay "Occupancy" and "Activity"
      because those strings are the tab ids every switch in this file routes
      on; only the label the staff read changes. */
-  const tabLabels: Record<string, string> = { Occupancy: "Calendar", Operations: "Daily Operations", Activity: "Audit Log" };
+  const tabLabels: Record<string, string> = ADMIN_TAB_LABEL;
 
   const tabIcons: Record<AdminTab, IconName> = {
     Operations: "clipboard-check", Bookings: "clipboard", Sales: "wallet",
@@ -893,7 +886,7 @@ export function Admin({
             <div>
               <div style={{ marginBottom: 28 }}>
                 <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>CALENDAR VIEW</p>
-                <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 8px" }}>Calendar</h2>
+                <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 8px" }}>{ADMIN_TAB_LABEL.Occupancy}</h2>
                 <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>Click a date to toggle it as closed.</p>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
@@ -945,7 +938,7 @@ export function Admin({
                       onBlur={() => setHoverDay((cur) => (cur === ds ? null : cur))}
                       tabIndex={dayBookings.length ? 0 : -1}
                       aria-label={dayBookings.length
-                        ? `${ds}: ${dayBookings.map((bk) => `${bk.name}, ${bk.status}`).join("; ")}`
+                        ? `${ds}: ${dayBookings.map((bk) => `${bk.name}, ${bookingStatusLabel(bk)}`).join("; ")}`
                         : undefined}
                       style={{ 
                       textAlign: "center", 
@@ -989,9 +982,9 @@ export function Admin({
                   .filter((b) => b.date.startsWith(key) && holdsDate(b))
                   .sort((a, b) => a.date.localeCompare(b.date));
                 const groups: { label: string; match: string }[] = [
-                  { label: "Booked/Confirmed", match: "Confirmed" },
-                  { label: "Pending", match: "Pending" },
-                  { label: "Completed", match: "Completed" },
+                  { label: statusLabel("Confirmed"), match: "Confirmed" },
+                  { label: statusLabel("Pending"), match: "Pending" },
+                  { label: statusLabel("Completed"), match: "Completed" },
                 ];
                 return (
                   <div style={{ marginTop: 28, display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, minmax(0,1fr))", gap: 16 }}>
@@ -1035,7 +1028,7 @@ export function Admin({
           {tab === "Rooms" && (
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
-                <div><p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>ACCOMMODATIONS</p><h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Rooms</h2></div>
+                <div><p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>ACCOMMODATIONS</p><h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>{ADMIN_TAB_LABEL.Rooms}</h2></div>
                 <button className="sw-btn" onClick={openAdd} style={{ ...goldBtn, padding: "12px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD ROOM</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fill,minmax(280px,1fr))", gap: 20 }}>
@@ -1071,7 +1064,7 @@ export function Admin({
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
                 <div>
                   <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>MEDIA</p>
-                  <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 8px" }}>Gallery</h2>
+                  <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 8px" }}>{ADMIN_TAB_LABEL.Gallery}</h2>
                   <p style={{ color: C.textS, fontSize: 13.5, margin: 0, maxWidth: 560 }}>
                     Every photo fills one named place on the site. Replace a slot to change that
                     picture, or move it to change which slot it fills.
@@ -1206,7 +1199,7 @@ export function Admin({
             <div>
               <div style={{ marginBottom: 28 }}>
                 <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>MESSAGES</p>
-                <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Customer Service</h2>
+                <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>{ADMIN_TAB_LABEL["Customer Service"]}</h2>
               </div>
 
               {/* ARCHIVE CONFIRM MODAL */}

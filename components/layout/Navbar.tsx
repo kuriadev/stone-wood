@@ -14,6 +14,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Logo } from "@/components/layout/Logo";
 
 interface NavbarProps {
   page: string;
@@ -178,31 +179,16 @@ export function Navbar({ page, setPage }: NavbarProps) {
             aria-label="StoneWood — go to home"
             style={{
               background: "none", border: "none", cursor: "pointer", padding: "4px 0",
-              display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4,
+              minHeight: TAP_MIN, display: "flex", alignItems: "center",
+              color: onDark ? "#fff" : C.textH,
+              transition: "color .35s ease",
             }}
           >
-            <span
-              style={{
-                fontFamily: "'Satoshi',system-ui,sans-serif",
-                fontSize: mob ? 19 : 22,
-                letterSpacing: 5,
-                color: onDark ? "#fff" : C.textH,
-                lineHeight: 1,
-                transition: "color .35s ease",
-              }}
-            >
-              STONEWOOD
-            </span>
-            <span
-              style={{
-                fontSize: 11,
-                letterSpacing: 3.5,
-                color: onDark ? "rgba(255,255,255,0.6)" : C.textXS,
-                transition: "color .35s ease",
-              }}
-            >
-              PRIVATE RESORT
-            </span>
+            <Logo
+              decorative
+              height={mob ? 32 : 37}
+              subColor={onDark ? "rgba(255,255,255,0.6)" : C.textXS}
+            />
           </button>
 
           {/* Desktop links */}
@@ -356,7 +342,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
 
             <div style={{ marginTop: "auto", paddingTop: 24, borderTop: `1px solid ${C.borderLight}` }}>
               <button
-                onClick={() => go("Cancel Booking")}
+                onClick={() => go("Manage Booking")}
                 style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: C.textS, fontSize: 13.5, letterSpacing: 1 }}
               >
                 Manage a reservation

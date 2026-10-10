@@ -1,5 +1,6 @@
 "use client";
 
+import { adminTabLabel } from "@/lib/labels";
 import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -139,7 +140,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
         <h2
           style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontWeight: "400", margin: "0 0 8px", color: C.textH, fontSize: mob ? 22 : 26 }}
         >
-          Inventory
+          {adminTabLabel("Inventory")}
         </h2>
         <p style={{ fontSize: 13.5, margin: "0", color: C.textS }}>
           Resort supplies, equipment, and consumables.

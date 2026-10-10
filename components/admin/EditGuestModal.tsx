@@ -19,7 +19,7 @@
 
 import { useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
-import { Modal, Btn, Label, ErrorNote, useAdminStyle } from "@/components/admin/ui";
+import { Modal, ActionButton, Label, ErrorNote, useAdminStyle } from "@/components/admin/ui";
 import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/common/Icon";
 import { SPACE } from "@/lib/spacing";
@@ -85,10 +85,10 @@ export function EditGuestModal({ booking, onSaved, onClose }: EditGuestModalProp
       width={520}
       footer={
         <div style={{ display: "flex", justifyContent: "flex-end", gap: SPACE.xs }}>
-          <Btn kind="ghost" onClick={onClose} disabled={busy}>Cancel</Btn>
-          <Btn kind="primary" icon="check" onClick={() => void save()} disabled={busy || !dirty}>
+          <ActionButton kind="ghost" onClick={onClose} disabled={busy}>Cancel</ActionButton>
+          <ActionButton kind="primary" icon="check" onClick={() => void save()} disabled={busy || !dirty}>
             {busy ? "Saving…" : "Save details"}
-          </Btn>
+          </ActionButton>
         </div>
       }
     >

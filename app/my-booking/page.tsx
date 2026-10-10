@@ -18,7 +18,7 @@ export default function ManageBookingPage() {
             "Home": "/", "Rooms": "/rooms", "Packages": "/packages", "Gallery": "/gallery",
             "About Us": "/about", "Book Now": "/book",
             "AdminLogin": "/login", "Customer Service": "/customer",
-            "Cancel Booking": "/cancelbooking",
+            "Manage Booking": "/my-booking",
         };
     const target = routes[p] ?? "/";
 
@@ -42,7 +42,7 @@ export default function ManageBookingPage() {
 
     return (
         <div style={{ background: C.bg, minHeight: "100vh" }}>
-            <Navbar page="Cancel Booking" setPage={nav} />
+            <Navbar page="Manage Booking" setPage={nav} />
             <ManageBooking
                 onGoHome={() => router.push("/")}
             />

@@ -33,7 +33,7 @@ import type { Facility } from "@/types/facility";
 import type { ResortPackage } from "@/types/package";
 import { gold } from "@/lib/styles";
 import { Icon } from "@/components/common/Icon";
-import { Modal, Label, Segmented, Btn, Line, ErrorNote, useAdminStyle, FullSelect } from "@/components/admin/ui";
+import { Modal, Label, ChoiceButtons, ActionButton, AmountRow, ErrorNote, useAdminStyle, FullSelect } from "@/components/admin/ui";
 
 type PayChoice = "Full" | "Downpayment" | "None";
 
@@ -187,7 +187,7 @@ export function WalkInModal({
             {" · "}
             {payChoice === "None" ? "nothing collected yet" : <>collecting <strong style={{ color: "#2e9e4e" }}>{fmt(payNow)}</strong> now by {method}</>}
           </div>
-          <Btn kind="primary" icon="check" onClick={save}>Save reservation</Btn>
+          <ActionButton kind="primary" icon="check" onClick={save}>Save reservation</ActionButton>
         </div>
       }
     >
@@ -220,7 +220,7 @@ export function WalkInModal({
         <div style={col}>
           <div>
             <Label>Booking type</Label>
-            <Segmented value={mode} onChange={(m) => { setMode(m); if (m === "Custom") setPkgId(null); }} options={[
+            <ChoiceButtons value={mode} onChange={(m) => { setMode(m); if (m === "Custom") setPkgId(null); }} options={[
               { value: "Custom", label: <><Icon name="toolbox" size={13} style={{ marginRight: 8 }} />Custom tour</> },
               { value: "Package", label: <><Icon name="gift" size={13} style={{ marginRight: 8 }} />Package</> },
             ]} />
@@ -229,7 +229,7 @@ export function WalkInModal({
           {mode === "Custom" && (
             <div>
               <Label>Facility</Label>
-              <Segmented<BookingResource>
+              <ChoiceButtons<BookingResource>
                 value={resourceChoice}
                 size="sm"
                 onChange={(r) => {
@@ -272,7 +272,7 @@ export function WalkInModal({
               <div>
                 <Label>Pool use</Label>
                 {usesPool ? (
-                  <Segmented<BookingTier> value={tier} onChange={setTierChoice} size="sm" options={[
+                  <ChoiceButtons<BookingTier> value={tier} onChange={setTierChoice} size="sm" options={[
                     { value: "Shared", label: "Shared" },
                     { value: "Exclusive", label: "Exclusive" },
                   ]} />
@@ -290,7 +290,7 @@ export function WalkInModal({
             {pkg?.slotMode === "WholeDay" ? (
               <p style={{ color: C.textH, fontSize: 13.5, margin: 0 }}>Whole day · {SLOTS.WholeDay.hours}</p>
             ) : (
-              <Segmented<BookingSlot> value={slot} size="sm"
+              <ChoiceButtons<BookingSlot> value={slot} size="sm"
                 onChange={(t) => set("slot", t)}
                 options={((isPkg ? ["Day", "Night"] : ["Day", "Night", "WholeDay"]) as BookingSlot[]).map((t) => ({ value: t, label: SLOTS[t].label, hint: SLOTS[t].hours }))} />
             )}
@@ -322,33 +322,33 @@ export function WalkInModal({
             {/* One line per thing being charged. A single "pool" line read
                 wrong the moment the venue could be booked without one. */}
             {isPkg ? (
-              <Line label="Package" value={fmt(price.tourBase + price.exclusiveDiscount + price.bundleDiscount)} />
+              <AmountRow label="Package" value={fmt(price.tourBase + price.exclusiveDiscount + price.bundleDiscount)} />
             ) : (
               <>
                 {price.poolFee > 0 && (
-                  <Line
+                  <AmountRow
                     label={tier === "Exclusive" ? `Exclusive pool${price.slots === 2 ? " × 2 slots" : ""}` : `Shared pool (${guests} × ₱200)`}
                     value={fmt(price.poolFee)}
                   />
                 )}
                 {price.venueFee > 0 && (
-                  <Line label={`Events venue${price.slots === 2 ? " × 2 slots" : ""}`} value={fmt(price.venueFee)} />
+                  <AmountRow label={`Events venue${price.slots === 2 ? " × 2 slots" : ""}`} value={fmt(price.venueFee)} />
                 )}
               </>
             )}
             {price.exclusiveDiscount + price.bundleDiscount > 0 && (
-              <Line label={price.bundleDiscount > 0 ? "Bundle discount" : "Exclusive discount"} value={`−${fmt(price.exclusiveDiscount + price.bundleDiscount)}`} color="#2e9e4e" />
+              <AmountRow label={price.bundleDiscount > 0 ? "Bundle discount" : "Exclusive discount"} value={`−${fmt(price.exclusiveDiscount + price.bundleDiscount)}`} color="#2e9e4e" />
             )}
-            {price.roomsFeeRaw > 0 && <Line label="Rooms" value={fmt(price.roomsFeeRaw)} />}
-            {price.roomBundleDiscount > 0 && <Line label="Room discount" value={`−${fmt(price.roomBundleDiscount)}`} color="#2e9e4e" />}
+            {price.roomsFeeRaw > 0 && <AmountRow label="Rooms" value={fmt(price.roomsFeeRaw)} />}
+            {price.roomBundleDiscount > 0 && <AmountRow label="Room discount" value={`−${fmt(price.roomBundleDiscount)}`} color="#2e9e4e" />}
             <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 8, paddingTop: 4 }}>
-              <Line label="Total" value={fmt(total)} strong />
+              <AmountRow label="Total" value={fmt(total)} strong />
             </div>
           </div>
 
           <div>
             <Label>Payment now</Label>
-            <Segmented<PayChoice> value={payChoice} onChange={setPayChoice} size="sm" options={[
+            <ChoiceButtons<PayChoice> value={payChoice} onChange={setPayChoice} size="sm" options={[
               { value: "Full", label: "Full", hint: fmt(total) },
               { value: "Downpayment", label: "50% down", hint: fmt(down) },
               { value: "None", label: "Not yet" },
@@ -358,7 +358,7 @@ export function WalkInModal({
             <>
               <div>
                 <Label>Paid with</Label>
-                <Segmented value={method} onChange={setMethod} size="sm" options={DESK_METHODS.map((m) => ({ value: m, label: m }))} />
+                <ChoiceButtons value={method} onChange={setMethod} size="sm" options={DESK_METHODS.map((m) => ({ value: m, label: m }))} />
               </div>
               {method !== "Cash" && (
                 <div>

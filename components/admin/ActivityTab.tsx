@@ -16,20 +16,21 @@
 // reference, and words in the description. Export downloads what's shown as
 // a spreadsheet.
 
+import { adminTabLabel } from "@/lib/labels";
 import { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { downloadCsv, manilaDate } from "@/lib/finance";
 import { gold } from "@/lib/styles";
 import type { Activity } from "@/types/finance";
 import { ACTOR_COLOR, fmtWhen } from "@/components/admin/BookingHistory";
-import { PageHead, TableShell, Row, Cell, td, Btn, Pill, useAdminStyle, usePaged, Pager, FullSelect} from "@/components/admin/ui";
+import { AdminPageHeader, TableShell, Row, Cell, td, ActionButton, StatusBadge, useAdminStyle, usePaged, Pager, FullSelect} from "@/components/admin/ui";
 
 /** The part of an action before the dot, as the owner reads it. */
 const CATEGORIES: { value: string; label: string }[] = [
   { value: "", label: "Everything" },
   { value: "booking", label: "Bookings" },
   { value: "date_change", label: "Date changes" },
-  { value: "stay", label: "Check-in, inspection, settle" },
+  { value: "stay", label: "Check-in, inspection, closing" },
   { value: "payment", label: "Payments" },
   { value: "refund", label: "Refunds" },
   { value: "expense", label: "Expenses" },
@@ -110,8 +111,8 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
 
   return (
     <div>
-      <PageHead title="Audit Log" mob={mob} subtitle="Everything that happened, who did it and when. Entries can't be edited or deleted."
-        action={<Btn icon="download" onClick={exportCsv} disabled={rows.length === 0}>Export</Btn>} />
+      <AdminPageHeader title={adminTabLabel("Activity")} mob={mob} subtitle="Everything that happened, who did it and when. Entries can't be edited or deleted."
+        action={<ActionButton icon="download" onClick={exportCsv} disabled={rows.length === 0}>Download CSV</ActionButton>} />
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" }}>
         <Input value={words} onChange={(e) => setWords(e.target.value)} placeholder="Search the descriptions" aria-label="Search the audit log" style={{ ...sel, flex: "1 1 220px" }} />
@@ -125,7 +126,7 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
         <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From" style={sel} />
         <span style={{ color: C.textS, fontSize: 13 }}>to</span>
         <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To" style={sel} />
-        {filtersOn && <Btn size="sm" onClick={() => { setFrom(""); setTo(""); setCategory(""); setActor(""); setBooking(""); setWords(""); }}>Clear</Btn>}
+        {filtersOn && <ActionButton size="sm" onClick={() => { setFrom(""); setTo(""); setCategory(""); setActor(""); setBooking(""); setWords(""); }}>Clear filters</ActionButton>}
       </div>
 
       {error && <p style={{ color: C.dangerInk, fontSize: 13.5 }}>{error}</p>}
@@ -135,7 +136,7 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
         {paged.rows.map((a, i) => (
           <Row key={a.id} style={{ background: rowBg(i) }}>
             <Cell style={{ ...td, color: C.textS, whiteSpace: "nowrap", fontSize: 12.5 }}>{fmtWhen(a.at)}</Cell>
-            <Cell style={td}><Pill color={ACTOR_COLOR[a.actor]}>{a.actor}</Pill></Cell>
+            <Cell style={td}><StatusBadge color={ACTOR_COLOR[a.actor]}>{a.actor}</StatusBadge></Cell>
             <Cell style={{ ...td, color: C.textB }}>{a.summary}</Cell>
             <Cell style={{ ...td, whiteSpace: "nowrap" }}>
               {a.bookingId
@@ -150,7 +151,7 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
 
       <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
         {loading ? <span style={{ color: C.textS, fontSize: 13 }}>Loading…</span>
-          : more && <Btn onClick={() => void load(rows[rows.length - 1]?.id)}>Load older</Btn>}
+          : more && <ActionButton onClick={() => void load(rows[rows.length - 1]?.id)}>Load older</ActionButton>}
       </div>
     </div>
   );

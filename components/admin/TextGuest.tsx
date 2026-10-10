@@ -13,7 +13,7 @@ import { useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
 import { smsHref } from "@/lib/notices";
 import type { Booking } from "@/types/booking";
-import { Btn, useAdminStyle } from "@/components/admin/ui";
+import { ActionButton, useAdminStyle } from "@/components/admin/ui";
 
 export function TextGuest({ booking, message, about }: {
   booking: Pick<Booking, "id" | "name" | "contact">;
@@ -45,7 +45,7 @@ export function TextGuest({ booking, message, about }: {
           style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none", background: "linear-gradient(135deg,#c9a84c,#e8c56a)", color: "#1a1000" }}>
           Text the guest
         </a>
-        <Btn size="sm" icon={copied ? "check" : "clipboard"} onClick={() => void copy()}>{copied ? "Copied" : "Copy message"}</Btn>
+        <ActionButton size="sm" icon={copied ? "check" : "clipboard"} onClick={() => void copy()}>{copied ? "Copied" : "Copy message"}</ActionButton>
       </div>
     </div>
   );

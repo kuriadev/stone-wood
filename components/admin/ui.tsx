@@ -11,9 +11,17 @@
 //                    confirm is a plain Button, not AlertDialogAction,
 //                    because the handlers are async and can fail — the panel
 //                    must stay open so the error has somewhere to render.
-//   Btn            → Button     Pill → Badge     TableShell → Table
-//   ViewTabs       → Tabs (view switchers)
-//   Segmented      option pickers inside forms (radiogroup of buttons)
+//   ActionButton     → Button   an admin action; label it with a verb + object
+//   StatusBadge      → Badge    a status pill, tinted by one colour
+//   TableShell       → Table
+//   ViewSwitcherTabs → Tabs     switches between views of one screen
+//   ChoiceButtons              picks one value inside a form (radiogroup of buttons)
+//   AdminPageHeader            the screen's <h1>, subtitle and main action
+//   StatCard                   one headline number on a card
+//   AmountRow / TotalRow       a label and an amount; TotalRow is the bold total
+//
+// Names say what the piece IS for staff-facing screens. They were Btn,
+// Pill, ViewTabs, Segmented, PageHead, Figure, Line and TotalLine.
 
 import { useEffect, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
@@ -22,6 +30,7 @@ import { SPACE, TAP_MIN } from "@/lib/spacing";
 import { T } from "@/lib/theme";
 import { gold } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
+import { BOOKING_STATUS_LABEL } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label as UiLabel } from "@/components/ui/label";
@@ -58,12 +67,20 @@ export function useAdminStyle() {
 export const serif = "'Satoshi',system-ui,sans-serif";
 
 // ── Page heading ──────────────────────────────────────────────────────
-export function PageHead({ title, subtitle, action, mob }: { title: string; subtitle?: string; action?: ReactNode; mob?: boolean }) {
+export function AdminPageHeader({ title, subtitle, action, mob, as: Heading = "h1" }: {
+  title: string;
+  subtitle?: string;
+  action?: ReactNode;
+  mob?: boolean;
+  /** The admin shell has no <h1> of its own, so each screen's title is it.
+   *  Pass "h2" only where an AdminPageHeader sits under another page title. */
+  as?: "h1" | "h2";
+}) {
   const { C } = useAdminStyle();
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: SPACE.sm, flexWrap: "wrap", marginBottom: SPACE.xl }}>
       <div>
-        <h2 style={{ color: C.textH, fontFamily: serif, fontSize: mob ? 24 : 30, fontWeight: 400, margin: 0 }}>{title}</h2>
+        <Heading style={{ color: C.textH, fontFamily: serif, fontSize: mob ? 24 : 30, fontWeight: 400, margin: 0 }}>{title}</Heading>
         {subtitle && <p style={{ color: C.textS, fontSize: 13.5, margin: "8px 0 0" }}>{subtitle}</p>}
       </div>
       {action}
@@ -152,7 +169,7 @@ export function Label({ children, htmlFor }: { children: ReactNode; htmlFor?: st
 }
 
 /** A choice between a few options inside a form (payment method, slot…). */
-export function Segmented<V extends string>({
+export function ChoiceButtons<V extends string>({
   value, options, onChange, size = "md", label,
 }: {
   value: V;
@@ -169,8 +186,8 @@ export function Segmented<V extends string>({
         return (
           <button key={o.value} type="button" role="radio" aria-checked={on} disabled={o.disabled} onClick={() => onChange(o.value)}
             style={{
-              flex: 1, minWidth: 0, padding: size === "sm" ? "8px 12px" : "12px 16px", fontSize: 12.5, fontWeight: 600,
-              borderRadius: 7, cursor: o.disabled ? "not-allowed" : "pointer", opacity: o.disabled ? 0.4 : 1,
+              flex: 1, minWidth: 0, minHeight: TAP_MIN, padding: size === "sm" ? "8px 12px" : "12px 16px", fontSize: 12.5, fontWeight: 600,
+              borderRadius: 10, cursor: o.disabled ? "not-allowed" : "pointer", opacity: o.disabled ? 0.4 : 1,
               background: on ? `${gold}1c` : "transparent", color: on ? C.goldInk : C.textS,
               border: `1px solid ${on ? gold + "66" : cBr}`, textAlign: "center",
             }}>
@@ -184,7 +201,7 @@ export function Segmented<V extends string>({
 }
 
 /** A view switcher: shadcn Tabs, one TabsContent per view. */
-export function ViewTabs<V extends string>({
+export function ViewSwitcherTabs<V extends string>({
   value, onChange, views, maxWidth,
 }: {
   value: V;
@@ -199,7 +216,7 @@ export function ViewTabs<V extends string>({
         {views.map((v) => {
           const on = v.value === value;
           return (
-            <TabsTrigger key={v.value} value={v.value}
+            <TabsTrigger key={v.value} value={v.value} className="sw-hit"
               style={{ padding: "8px 16px", fontSize: 12.5, fontWeight: 600, borderRadius: 20, background: on ? `${gold}1c` : "transparent", color: on ? C.goldInk : C.textS, border: `1px solid ${on ? gold + "66" : cBr}`, boxShadow: "none", height: "auto", flex: "0 0 auto" }}>
               {v.label}
             </TabsTrigger>
@@ -211,9 +228,21 @@ export function ViewTabs<V extends string>({
   );
 }
 
-export function Pill({ children, color, style }: { children: ReactNode; color: string; style?: CSSProperties }) {
+/** A status badge tinted by one colour. Pass the colour as-is (a hex, `gold`,
+ *  a `var(--sw-*)`): the fill and edge are mixed from it, and the label goes
+ *  through `.sw-ink` (globals.css), which darkens it in light mode and lifts
+ *  it in dark mode until it clears 4.5:1 on that fill. */
+export function StatusBadge({ children, color, style }: { children: ReactNode; color: string; style?: CSSProperties }) {
   return (
-    <Badge variant="outline" style={{ gap: 4, background: `${color}14`, color, border: `1px solid ${color}40`, fontSize: 11, fontWeight: 600, padding: "4px 8px", borderRadius: 20, whiteSpace: "nowrap", ...style }}>
+    <Badge variant="outline" className="sw-ink" style={{
+      ["--ink-c" as string]: color,
+      gap: 4,
+      // color-mix rather than `${color}14`: hex-alpha suffixes break on a
+      // var() or a 3-digit hex, which left those pills with no fill at all.
+      background: `color-mix(in srgb, ${color} 8%, transparent)`,
+      border: `1px solid color-mix(in srgb, ${color} 25%, transparent)`,
+      fontSize: 11, fontWeight: 600, padding: "4px 8px", borderRadius: 20, whiteSpace: "nowrap", ...style,
+    }}>
       {children}
     </Badge>
   );
@@ -229,9 +258,7 @@ export const STATUS_COLOR: Record<string, string> = {
 };
 
 /** What staff read for a status. The stored value stays a single word. */
-export const STATUS_LABEL: Record<string, string> = {
-  ResortCancelled: "Waiting for guest",
-};
+export const STATUS_LABEL: Record<string, string> = BOOKING_STATUS_LABEL;
 
 export const MONEY_COLOR: Record<string, string> = {
   "Paid in full": "#4caf50",
@@ -245,13 +272,15 @@ export const MONEY_COLOR: Record<string, string> = {
 
 // ── Buttons ───────────────────────────────────────────────────────────
 type BtnKind = "primary" | "ghost" | "green" | "blue" | "red";
+// The label colour goes through `.sw-ink` (globals.css) so it clears 4.5:1 on
+// its own tint in both themes; green and blue labels were 2.3:1 in light mode.
 const TINT: Record<Exclude<BtnKind, "primary" | "ghost">, CSSProperties> = {
-  green: { background: "rgba(76,175,80,0.1)", color: "#4caf50", border: "1px solid rgba(76,175,80,0.35)" },
-  blue: { background: "rgba(74,159,212,0.1)", color: "#4a9fd4", border: "1px solid rgba(74,159,212,0.35)" },
-  red: { background: "rgba(229,85,85,0.08)", color: "var(--sw-danger-ink)", border: "1px solid rgba(229,85,85,0.3)" },
+  green: { background: "rgba(76,175,80,0.1)", ["--ink-c" as string]: "#4caf50", border: "1px solid rgba(76,175,80,0.35)" },
+  blue: { background: "rgba(74,159,212,0.1)", ["--ink-c" as string]: "#4a9fd4", border: "1px solid rgba(74,159,212,0.35)" },
+  red: { background: "rgba(229,85,85,0.08)", ["--ink-c" as string]: "#ee5555", border: "1px solid rgba(229,85,85,0.3)" },
 };
 
-export function Btn({
+export function ActionButton({
   kind = "ghost", size = "md", icon, children, style, className, ...rest
 }: {
   kind?: BtnKind;
@@ -272,7 +301,9 @@ export function Btn({
          and a tinted button deepens its OWN colour — a red Void button
          turning gold would say the wrong thing about what it does. */
       className={[
-        kind === "primary" ? "sw-btn" : kind === "ghost" ? "sw-gold-hover" : "sw-btn-tint",
+        kind === "primary" ? "sw-btn" : kind === "ghost" ? "sw-gold-hover" : "sw-btn-tint sw-ink",
+        // 36px (32 at sm) to look at, 44px to tap.
+        "sw-hit",
         className ?? "",
       ].filter(Boolean).join(" ") || undefined}
       {...rest}
@@ -284,7 +315,7 @@ export function Btn({
 }
 
 // ── Money line ────────────────────────────────────────────────────────
-export function Line({ label, value, strong, color }: { label: ReactNode; value: ReactNode; strong?: boolean; color?: string }) {
+export function AmountRow({ label, value, strong, color }: { label: ReactNode; value: ReactNode; strong?: boolean; color?: string }) {
   const { C } = useAdminStyle();
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "4px 0", fontSize: strong ? 15 : 13.5 }}>
@@ -366,7 +397,7 @@ export function Pager({
 
 /** The summary figure under a table. One component so "Net total" and
  *  "Total owed" cannot drift apart in spacing or weight. */
-export function TotalLine({ label, value }: { label: string; value: ReactNode }) {
+export function TotalRow({ label, value }: { label: string; value: ReactNode }) {
   const { C } = useAdminStyle();
   return (
     <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "baseline", gap: 8, marginTop: 16, paddingRight: TOGGLE_CLEARANCE, color: C.textS, fontSize: 13.5 }}>
@@ -408,7 +439,7 @@ export function TableShell({ head, children, minWidth = 720, empty, label }: { h
 export const td: CSSProperties = { padding: SPACE.sm, fontSize: 13, verticalAlign: "middle", whiteSpace: "normal" };
 
 // ── Summary figure ────────────────────────────────────────────────────
-export function Figure({ label, value, note, color }: { label: string; value: ReactNode; note?: ReactNode; color?: string }) {
+export function StatCard({ label, value, note, color }: { label: string; value: ReactNode; note?: ReactNode; color?: string }) {
   const { C, cBg, cBr } = useAdminStyle();
   return (
     <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: `${SPACE.md}px ${SPACE.lg}px`, minWidth: 0 }}>

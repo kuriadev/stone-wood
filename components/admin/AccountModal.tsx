@@ -12,7 +12,7 @@
 
 import { useEffect, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
-import { Modal, Label, Btn, ErrorNote, useAdminStyle } from "@/components/admin/ui";
+import { Modal, Label, ActionButton, ErrorNote, useAdminStyle } from "@/components/admin/ui";
 import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/common/Icon";
 
@@ -89,10 +89,10 @@ export function AccountModal({ onClose, onSignedOut }: { onClose: () => void; on
       width={560}
       footer={
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-          <Btn onClick={onClose}>Cancel</Btn>
-          <Btn kind="primary" icon="check" disabled={busy || !loaded} onClick={() => void save()}>
+          <ActionButton onClick={onClose}>Cancel</ActionButton>
+          <ActionButton kind="primary" icon="check" disabled={busy || !loaded} onClick={() => void save()}>
             {busy ? "Saving…" : "Save changes"}
-          </Btn>
+          </ActionButton>
         </div>
       }
     >

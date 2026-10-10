@@ -13,7 +13,7 @@ import { bookingMoney } from "@/lib/finance";
 import { fmt } from "@/lib/utils";
 import { MANUAL_METHODS, type PaymentType } from "@/types/finance";
 import type { Booking } from "@/types/booking";
-import { Modal, Label, Segmented, Btn, Line, ErrorNote, useAdminStyle } from "@/components/admin/ui";
+import { Modal, Label, ChoiceButtons, ActionButton, AmountRow, ErrorNote, useAdminStyle } from "@/components/admin/ui";
 
 type Kind = "Stay" | "Penalty" | "Refund";
 
@@ -83,10 +83,10 @@ export function RecordPaymentModal({
       width={620}
       footer={
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-          <Btn onClick={onClose}>Cancel</Btn>
-          <Btn kind="primary" onClick={save} disabled={busy || !booking || max <= 0}>
+          <ActionButton onClick={onClose}>Cancel</ActionButton>
+          <ActionButton kind="primary" onClick={save} disabled={busy || !booking || max <= 0}>
             {busy ? "Saving…" : kind === "Refund" ? `Record refund of ${fmt(value)}` : `Record ${fmt(value)}`}
-          </Btn>
+          </ActionButton>
         </div>
       }
     >
@@ -110,15 +110,15 @@ export function RecordPaymentModal({
       {booking && money && (
         <>
           <div style={{ background: soft, borderRadius: 8, padding: "12px 16px", marginBottom: 16 }}>
-            <Line label="Booking total" value={fmt(booking.total)} />
-            <Line label="Paid so far" value={fmt(money.paid)} />
-            <Line label="Balance" value={fmt(money.balance)} color={money.balance > 0 ? "#d4a800" : undefined} />
-            {(money.penaltyTotal > 0) && <Line label="Unpaid penalties" value={fmt(money.penaltyDue)} color={money.penaltyDue > 0 ? "#d44" : undefined} />}
+            <AmountRow label="Booking total" value={fmt(booking.total)} />
+            <AmountRow label="Paid so far" value={fmt(money.paid)} />
+            <AmountRow label="Balance" value={fmt(money.balance)} color={money.balance > 0 ? "#d4a800" : undefined} />
+            {(money.penaltyTotal > 0) && <AmountRow label="Unpaid penalties" value={fmt(money.penaltyDue)} color={money.penaltyDue > 0 ? "#d44" : undefined} />}
           </div>
 
           <div style={{ marginBottom: 16 }}>
             <Label>What is this for?</Label>
-            <Segmented<Kind>
+            <ChoiceButtons<Kind>
               value={kind}
               onChange={(k) => { setKind(k); setAmount(""); }}
               options={[
@@ -141,7 +141,7 @@ export function RecordPaymentModal({
             </div>
             <div>
               <Label>Method</Label>
-              <Segmented value={method} onChange={setMethod} size="sm"
+              <ChoiceButtons value={method} onChange={setMethod} size="sm"
                 options={MANUAL_METHODS.map((m) => ({ value: m, label: m }))} />
             </div>
           </div>

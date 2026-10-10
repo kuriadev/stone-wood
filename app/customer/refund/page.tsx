@@ -25,7 +25,7 @@ export default function RefundPage() {
     const routes: Record<string, string> = {
       Home: "/", Rooms: "/rooms", Packages: "/packages", Gallery: "/gallery",
       "About Us": "/about", "Book Now": "/book", AdminLogin: "/login",
-      "Customer Service": "/customer", "Cancel Booking": "/cancelbooking",
+      "Customer Service": "/customer", "Manage Booking": "/my-booking",
     };
     router.push(routes[p] ?? "/");
   };

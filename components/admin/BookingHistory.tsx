@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from "react";
 import type { Activity } from "@/types/finance";
-import { useAdminStyle, Pill } from "@/components/admin/ui";
+import { useAdminStyle, StatusBadge } from "@/components/admin/ui";
 
 export const ACTOR_COLOR: Record<Activity["actor"], string> = { Admin: "#c9a84c", Guest: "#3a8fc4", System: "#8a7a66" };
 
@@ -48,7 +48,7 @@ export function BookingHistory({ bookingId }: { bookingId: string }) {
             <li key={a.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "4px 12px", padding: "8px 0", borderTop: `1px solid ${cBr}`, fontSize: 13 }}>
               <span style={{ color: C.textS, fontSize: 12, whiteSpace: "nowrap" }}>{fmtWhen(a.at)}</span>
               <span style={{ color: C.textB }}>
-                <Pill color={ACTOR_COLOR[a.actor]} style={{ marginRight: 8, padding: "4px 8px", fontSize: 10.5 }}>{a.actor}</Pill>
+                <StatusBadge color={ACTOR_COLOR[a.actor]} style={{ marginRight: 8, padding: "4px 8px", fontSize: 10.5 }}>{a.actor}</StatusBadge>
                 {a.summary}
               </span>
             </li>

@@ -1,5 +1,6 @@
 "use client";
 
+import { adminTabLabel } from "@/lib/labels";
 import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -163,7 +164,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
         <div>
           <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>RESORT PACKAGES</p>
-          <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>Packages</h2>
+          <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>{adminTabLabel("Packages")}</h2>
           <p style={{ color: C.textS, fontSize: 13.5, margin: "8px 0 0" }}>Shown on the public Packages page and offered as deep links from Home and Walk-In.</p>
         </div>
         <button className="sw-btn" onClick={openAdd} style={{ ...goldBtn, padding: "12px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD PACKAGE</button>

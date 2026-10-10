@@ -18,7 +18,7 @@ import {
 import { fmt, fmtDate, getBookingSlot, holdsDate } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
 import { escapeHtml } from "@/lib/escapeHtml";
-import { EXPENSE_CATEGORIES, PAYMENT_METHODS, PAYMENT_TYPES } from "@/types/finance";
+import { EXPENSE_CATEGORIES, type PaymentType } from "@/types/finance";
 import type { Booking, BookingSlot } from "@/types/booking";
 import type { Room } from "@/types/room";
 import { gold } from "@/lib/styles";
@@ -66,8 +66,29 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
   const collected = round2(pays.reduce((s, p) => s + signedAmount(p), 0));
   const spent = round2(exps.reduce((s, e) => s + e.amount, 0));
   const owed = round2(kept.reduce((s, b) => s + bookingMoney(b, ops.payments, ops.damages).due, 0));
-  const byType = PAYMENT_TYPES.map((t) => [t, round2(pays.filter((p) => p.type === t).reduce((s, p) => s + p.amount, 0))] as const);
-  const byMethod = PAYMENT_METHODS.map((m) => [m, round2(pays.filter((p) => p.method === m).reduce((s, p) => s + signedAmount(p), 0))] as const);
+  // The resort takes two ways to pay: QR Ph (the online checkout, recorded
+  // as "PayMongo") and cash at the desk. Anything older that was entered as
+  // GCash or Bank Transfer is shown as one "Other" line, and only when it is
+  // not zero, so the two methods still add up to Money received.
+  const methodTotal = (match: (m: string) => boolean) =>
+    round2(pays.filter((p) => match(p.method)).reduce((s, p) => s + signedAmount(p), 0));
+  const otherMethods = methodTotal((m) => m !== "PayMongo" && m !== "Cash");
+  const byMethod: (readonly [string, number])[] = [
+    ["QR Ph", methodTotal((m) => m === "PayMongo")],
+    ["Cash", methodTotal((m) => m === "Cash")],
+    ...(otherMethods !== 0 ? [["Other (GCash, bank)", otherMethods] as const] : []),
+  ];
+
+  // Summary: what came in, by what it paid for. Zero rows are left out, so
+  // only the lines that carry money this period are listed; the total last.
+  const typeTotal = (t: PaymentType) => round2(pays.filter((p) => p.type === t).reduce((s, p) => s + p.amount, 0));
+  const summary = ([
+    ["Down payments", typeTotal("Downpayment")],
+    ["Balances", typeTotal("Balance")],
+    ["Paid in full", typeTotal("Full")],
+    ["Penalties", typeTotal("Penalty")],
+    ["Refunds", -typeTotal("Refund")],
+  ] as const).filter(([, v]) => v !== 0);
   const byCat = EXPENSE_CATEGORIES.map((c) => [c, round2(exps.filter((e) => e.category === c).reduce((s, e) => s + e.amount, 0))] as const).filter(([, v]) => v > 0);
   const statusCount = (["Pending", "Confirmed", "Completed", "Cancelled", "ResortCancelled"] as const).map((s) => [s, bks.filter((b) => b.status === s).length] as const);
   const guests = kept.reduce((s, b) => s + b.guests, 0);
@@ -133,8 +154,8 @@ table{border-collapse:collapse;width:100%}td,th{padding:4px 6px;border-bottom:1p
 .muted{color:#777}</style></head><body>
 <h1>StoneWood Garden Private Pool</h1><div class="muted">Sales and bookings report · ${escapeHtml(label)} · generated ${escapeHtml(fmtDate(today))}</div>
 <h2>Summary</h2><table>${rows([["Money received", collected], ["Expenses", spent], ["Net income", round2(collected - spent)], ["Still owed on these bookings", owed]])}</table>
-<div class="grid"><div><h2>Received by type</h2><table>${rows(byType.filter(([, v]) => v > 0))}</table>
-<h2>Received by method</h2><table>${rows(byMethod.filter(([, v]) => v !== 0))}</table></div>
+<div class="grid"><div><h2>Received</h2><table>${rows([...summary, ["Total received", collected]])}</table>
+<h2>Received by method</h2><table>${rows(byMethod)}</table></div>
 <div><h2>Expenses by category</h2><table>${byCat.length ? rows(byCat) : "<Row><Cell class='muted'>None</Cell></Row>"}</table>
 <h2>Bookings</h2><table>${rows([["Total bookings", String(bks.length)], ["Guests (not cancelled)", String(guests)], ...statusCount.map(([s, n]) => [s, String(n)] as const)])}</table></div></div>
 <h2>Payments</h2><table><Row><th>Date</th><th>Booking</th><th>Guest</th><th>Type</th><th>Method</th><th class="n">Amount</th></Row>
@@ -189,8 +210,11 @@ ${pays.map((p) => `<Row><Cell>${escapeHtml(manilaDate(p.receivedAt))}</Cell><Cel
 
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 16, marginBottom: 20 }}>
         <div style={{ background: soft, borderRadius: 10, padding: "12px 16px" }}>
-          <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Received by type</div>
-          {byType.map(([t, v]) => <Line key={t} label={t} value={`${t === "Refund" && v > 0 ? "−" : ""}${fmt(v)}`} />)}
+          <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Summary</div>
+          {summary.map(([t, v]) => <Line key={t} label={t} value={v < 0 ? `−${fmt(-v)}` : fmt(v)} />)}
+          {summary.length === 0 && <p style={{ color: C.textS, fontSize: 13, margin: "4px 0" }}>No payments in this period.</p>}
+          <div style={{ borderTop: `1px solid ${C.border}`, margin: "8px 0 4px" }} />
+          <Line label="Total received" value={fmt(collected)} strong />
         </div>
         <div style={{ background: soft, borderRadius: 10, padding: "12px 16px" }}>
           <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Received by method</div>

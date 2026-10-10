@@ -25,7 +25,7 @@ import { fmt, fmtDate } from "@/lib/utils";
 import type { Booking } from "@/types/booking";
 import type { RejectionMoney } from "@/lib/emailTemplate";
 import { TextGuest } from "@/components/admin/TextGuest";
-import { Btn, ConfirmDialog, ErrorNote, Label, Modal, useAdminStyle } from "@/components/admin/ui";
+import { ActionButton, ConfirmDialog, ErrorNote, Label, Modal, useAdminStyle } from "@/components/admin/ui";
 
 export type UpdateStatus = (
   id: string,
@@ -67,7 +67,7 @@ export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onC
   if (done) {
     return (
       <Modal title="Let the guest know" subtitle={`${booking.name} · ${booking.id}`} onClose={onClose} width={560}
-        footer={<div style={{ display: "flex", justifyContent: "flex-end" }}><Btn kind="primary" onClick={onClose}>Done</Btn></div>}>
+        footer={<div style={{ display: "flex", justifyContent: "flex-end" }}><ActionButton kind="primary" onClick={onClose}>Done</ActionButton></div>}>
         <p style={{ color: C.textB, fontSize: 13.5, marginTop: 0 }}>
           {done.emailed ? `An email went to ${booking.email}. ` : booking.email ? "The email couldn't be sent. " : "This guest has no email. "}
           Most guests read texts sooner, so send them this too:
@@ -80,7 +80,7 @@ export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onC
   return (
     <ConfirmDialog title="Cancel this booking?" description={`${booking.name} · ${booking.id} · ${fmtDate(booking.date)}`}
       onCancel={onClose} cancelLabel="Go back" width={560}
-      confirm={<Btn kind="red" disabled={busy} onClick={confirm}>{busy ? "Saving…" : "Cancel booking"}</Btn>}>
+      confirm={<ActionButton kind="red" disabled={busy} onClick={confirm}>{busy ? "Saving…" : "Cancel booking"}</ActionButton>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div>
           <Label htmlFor="cancel-reason">Reason the guest reads</Label>

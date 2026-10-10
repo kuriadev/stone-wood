@@ -111,7 +111,7 @@ export function buildBookingReceivedEmail(booking: Booking): { subject: string; 
                 <tr>
                   <td style="background:#fdf5f5;border:1px solid #f0d0d0;border-radius:8px;padding:20px 24px;text-align:center;">
                     <p style="margin:0 0 16px;color:#7a5a5a;font-size:12px;line-height:1.6;">Plans changed? You can request a cancellation before your visit date.</p>
-                    <a href="${APP_URL}/cancelbooking?booking=${encodeURIComponent(booking.id)}&amp;email=${encodeURIComponent(booking.email)}"
+                    <a href="${APP_URL}/my-booking?booking=${encodeURIComponent(booking.id)}&amp;email=${encodeURIComponent(booking.email)}"
                       style="display:inline-block;background:#c0392b;color:#ffffff;font-size:12px;font-weight:700;letter-spacing:2px;text-decoration:none;padding:12px 28px;border-radius:6px;text-transform:uppercase;">
                       Request Cancellation
                     </a>
@@ -417,7 +417,7 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
                   <td style="background:#fdf5f5;border:1px solid #f0d0d0;border-radius:8px;padding:20px 24px;text-align:center;">
                     <p style="margin:0 0 6px;color:#8a5a5a;font-size:11px;letter-spacing:2px;text-transform:uppercase;">Need to cancel?</p>
                     <p style="margin:0 0 16px;color:#7a5a5a;font-size:12px;line-height:1.6;">Plans changed? You can request a cancellation before your visit date.</p>
-                    <a href="${APP_URL}/cancelbooking?booking=${encodeURIComponent(booking.id)}&amp;email=${encodeURIComponent(booking.email)}"
+                    <a href="${APP_URL}/my-booking?booking=${encodeURIComponent(booking.id)}&amp;email=${encodeURIComponent(booking.email)}"
                       style="display:inline-block;background:#c0392b;color:#ffffff;font-size:12px;font-weight:700;letter-spacing:2px;text-decoration:none;padding:12px 28px;border-radius:6px;text-transform:uppercase;">
                       Request Cancellation
                     </a>

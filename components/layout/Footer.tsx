@@ -96,7 +96,7 @@ export function Footer({ setPage }: FooterProps) {
           </div>
           {[
             { label: "Customer Service", action: () => setPage("Customer Service") },
-            { label: "Manage Booking", action: () => router.push("/cancelbooking") },
+            { label: "Manage Booking", action: () => router.push("/my-booking") },
           ].map(({ label, action }) => (
             <div
               key={label}

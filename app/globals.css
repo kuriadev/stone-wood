@@ -154,7 +154,13 @@
      text red, and this is the text one. */
   --sw-danger-ink: #c62828;
   --sw-input-bg: #ffffff;
-  --sw-input-border: #d6cfc4;
+  /* Field outline. #d6cfc4 was 1.5:1 on white — too faint to find the field
+     (WCAG 1.4.11 asks 3:1 for the edge of a control). 3.8:1 on white, 3.4 on
+     the cream card. */
+  --sw-input-border: #8c8174;
+  /* Danger as a SURFACE (destructive buttons). #e55 carried white text at
+     3.46:1; this clears 5.62. */
+  --sw-danger-surface: #c62828;
   --sw-input-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   --sw-nav-bg: rgba(250, 247, 242, 0.97);
   --sw-shadow: 0 4px 24px rgba(80, 55, 20, 0.10);
@@ -174,7 +180,8 @@
   --sw-gold-ink: #c9a84c;
   --sw-danger-ink: #ff7b7b;
   --sw-input-bg: #1a1a1a;
-  --sw-input-border: #333333;
+  --sw-input-border: #6b6b6b;   /* was #333 — 1.4:1; now 3.3:1 on the field */
+  --sw-danger-surface: #ee5555;
   --sw-input-shadow: none;
   --sw-nav-bg: rgba(18, 18, 18, 0.97);
   --sw-shadow: 0 4px 24px rgba(0, 0, 0, 0.55);
@@ -200,10 +207,12 @@
   --muted-foreground: var(--sw-text-s);
   --accent: var(--sw-bg-card-2);
   --accent-foreground: var(--sw-text-b);
-  --destructive: #e55;
+  --destructive: var(--sw-danger-surface);
   --border: var(--sw-border);
   --input: var(--sw-input-border);
-  --ring: #c9a84c;
+  /* Focus is drawn in the TEXT gold: the surface gold is 2.1:1 on cream and
+     would hide the ring in light mode. 5.2:1 light, 8.2:1 dark. */
+  --ring: var(--sw-gold-ink);
 
   /* The tiers shadcn's own set has no slot for. */
   --body: var(--sw-text-b);          /* long-form copy  */
@@ -346,8 +355,8 @@
      fontFamily strings. */
   /* Satoshi throughout. The token keeps the `serif` name so the
      `font-serif` utilities already in the markup keep working. */
-  --font-serif: 'Satoshi', system-ui, sans-serif;
-  --font-sans: 'Satoshi', system-ui, sans-serif;
+  --font-serif: var(--font-satoshi), 'Satoshi', system-ui, sans-serif;
+  --font-sans: var(--font-satoshi), 'Satoshi', system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -587,7 +596,7 @@ body {
      default theme, and there is no flash before ThemeContext puts
      sw-dark/sw-light on <html>. */
   background: #121212;
-  font-family: 'Satoshi', system-ui, sans-serif;
+  font-family: var(--font-satoshi), 'Satoshi', system-ui, sans-serif;
   margin: 0;
   padding: 0;
   transition: background 0.2s ease;
@@ -767,7 +776,7 @@ img {
 /* ── INPUT FOCUS ── */
 .sw-input:focus {
   outline: none;
-  border-color: #c9a84c !important;
+  border-color: var(--sw-gold-ink) !important;
   box-shadow: 0 0 0 3px rgba(201,168,76,0.14) !important;
 }
 
@@ -1532,4 +1541,54 @@ html {
   body > *:not(.sw-print-only) { display: none !important; }
   .sw-print-only { display: block !important; padding: 12mm; background: #fff; }
   .sw-print-only, .sw-print-only * { color: #000 !important; border-color: #999 !important; }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════
+   ACCESSIBILITY LAYER
+
+   Unlayered on purpose: unlayered rules outrank every @layer rule, so these
+   win over Tailwind's `outline-none` utility inside the shadcn components.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── One focus ring, everywhere ──
+   2px solid text-gold, 2px off the edge. The shadcn ring was gold at 50%
+   alpha — about 1.5:1 on cream, effectively invisible. :where() keeps the
+   specificity at zero so any component can still restyle it. */
+:where(a, button, input, select, textarea, summary, [role="tab"], [role="radio"], [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--sw-gold-ink);
+  outline-offset: 2px;
+}
+
+/* ── Readable status ink ──
+   Status colours (#f5c518 pending, #4caf50 confirmed, …) are bright SURFACE
+   colours, tuned for dark cards. As text on a light pill they fell to
+   1.4–3.3:1. Rather than a second hex per colour, the ink is derived from
+   whatever colour the call site passes, in OKLCH, keeping hue and chroma:
+
+     light theme  →  lightness capped at 0.48   (every status ≥ 4.7:1)
+     dark theme   →  lightness floored at 0.70  (every status ≥ 5.0:1)
+
+   measured against the pill's own 8–11% tint over white, page and cream
+   card in light, and #121212 / #1a1a1a / #1f1f1f in dark.
+   Use: className="sw-ink" + style={{ "--ink-c": colour }}. Browsers without
+   relative colour syntax keep the raw colour, exactly as before. */
+.sw-ink { color: var(--ink-c); }
+@supports (color: oklch(from red l c h)) {
+  .sw-ink { color: oklch(from var(--ink-c) min(l, 0.48) c h); }
+  .sw-dark .sw-ink { color: oklch(from var(--ink-c) max(l, 0.70) c h); }
+}
+
+/* ── 44px hit area without a 44px look ──
+   Dense admin controls (32–36px buttons, pill tabs) keep their size; an
+   invisible box centred on them takes the tap. TAP_MIN in lib/spacing.ts. */
+.sw-hit { position: relative; }
+.sw-hit::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
 }

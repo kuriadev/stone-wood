@@ -21,6 +21,7 @@
 // (lib/facilityUsage.ts), so the owner never has to remember which
 // amenities or rooms a group used.
 
+import { statusLabel, bookingStatusLabel, paymentLine } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -38,7 +39,7 @@ import { OVERTIME_RATE } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
 import type { Facility } from "@/types/facility";
 import { Icon } from "@/components/common/Icon";
-import { Modal, Label, Segmented, Btn, Line, ErrorNote, Pill, useAdminStyle, FullSelect, STATUS_COLOR } from "@/components/admin/ui";
+import { Modal, Label, ChoiceButtons, ActionButton, AmountRow, ErrorNote, StatusBadge, useAdminStyle, FullSelect, STATUS_COLOR } from "@/components/admin/ui";
 import { gold } from "@/lib/styles";
 import { BookingHistory } from "@/components/admin/BookingHistory";
 
@@ -106,8 +107,8 @@ export function PrepModal({ booking, facilities, onClose }: { booking: Booking; 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ color: left ? "#d4a800" : "#2e9e4e", fontSize: 13 }}>{left ? `${left} item${left === 1 ? "" : "s"} not ticked yet` : "Everything is ticked"}</span>
           <div style={{ display: "flex", gap: 8 }}>
-            <Btn onClick={tickAll}>{all ? "Untick all" : "Tick all"}</Btn>
-            <Btn kind="primary" icon="clipboard-check" disabled={busy} onClick={save}>{busy ? "Saving…" : last ? "Update preparation" : "Mark as prepared"}</Btn>
+            <ActionButton onClick={tickAll}>{all ? "Untick all" : "Tick all"}</ActionButton>
+            <ActionButton kind="primary" icon="clipboard-check" disabled={busy} onClick={save}>{busy ? "Saving…" : last ? "Update preparation" : "Mark as prepared"}</ActionButton>
           </div>
         </div>
       }>
@@ -124,7 +125,7 @@ export function PrepModal({ booking, facilities, onClose }: { booking: Booking; 
             <div key={x.facilityId} style={{ border: `1px solid ${cBr}`, borderRadius: 10, padding: "12px 16px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
                 <span style={{ color: C.textH, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}><Icon name={iconOf(f)} size={15} />{x.facilityName}</span>
-                {f.status !== "Available" && <Pill color={f.status === "Under Maintenance" ? "#d44" : "#d4a800"}>{f.status}</Pill>}
+                {f.status !== "Available" && <StatusBadge color={f.status === "Under Maintenance" ? "#d44" : "#d4a800"}>{f.status}</StatusBadge>}
               </div>
               <Checklist items={x.checklist} onToggle={(ci) => toggle(fi, ci)} />
             </div>
@@ -256,7 +257,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
     // To settle, as checked out, until the guest pays.
     if (paying <= 0 && !completes) {
       setBusy(false);
-      toast(`${booking.name} checked out.${damageNote} ${fmt(left)} is still to collect under To settle.`, "warning");
+      toast(`${booking.name} checked out.${damageNote} ${fmt(left)} is still to collect under Balance to collect.`, "warning");
       return onClose();
     }
     const s = await ops.settle({
@@ -269,10 +270,10 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
     if (!s.ok) {
       // The check-out is saved; only the money is missing, and Settle
       // under To settle picks it up from there.
-      toast(`${booking.name} is checked out, but the payment wasn't saved: ${s.error} Settle it under To settle.`, "error");
+      toast(`${booking.name} is checked out, but the payment wasn't saved: ${s.error} Collect it under Balance to collect.`, "error");
       return onClose();
     }
-    if (!completes) toast(`${booking.name} checked out.${damageNote} ${fmt(paying)} recorded; ${fmt(left)} still to collect under To settle.`, "warning");
+    if (!completes) toast(`${booking.name} checked out.${damageNote} ${fmt(paying)} recorded; ${fmt(left)} still to collect under Balance to collect.`, "warning");
     else if (left > 0) toast(`${booking.name} completed with ${fmt(left)} unpaid. It stays under Sales → Receivables.`, "warning");
     else toast(`${booking.name}'s stay is complete.${damageNote}${paying > 0 ? ` ${fmt(paying)} recorded in Sales.` : " Nothing was owed."}`, "success");
     onClose();
@@ -293,7 +294,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
               ? <strong style={{ color: "#d4a800" }}>{fmt(left)} {closeUnpaid ? "left unpaid" : "still owed after this"}</strong>
               : "Fully paid after this"}
           </span>
-          <Btn kind="primary" icon={completes ? "check" : "logout"} disabled={busy} onClick={save}>{buttonLabel}</Btn>
+          <ActionButton kind="primary" icon={completes ? "check" : "logout"} disabled={busy} onClick={save}>{buttonLabel}</ActionButton>
         </div>
       }>
       {!wasCheckedIn && (
@@ -309,7 +310,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
             <span style={{ color: C.textS, fontSize: 13 }}>
               Inspect each facility the group used. Mark it <strong style={{ color: C.textB }}>Damaged</strong> to add a penalty from the rate list.
             </span>
-            {items.some((x) => x.checklist.length > 0) && <Btn size="sm" onClick={tickAll}>{allTicked ? "Untick all" : "Tick all"}</Btn>}
+            {items.some((x) => x.checklist.length > 0) && <ActionButton size="sm" onClick={tickAll}>{allTicked ? "Untick all" : "Tick all"}</ActionButton>}
           </div>
           {items.map((x, fi) => {
             const f = used[fi];
@@ -319,7 +320,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 8 }}>
                   <span style={{ color: C.textH, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}><Icon name={iconOf(f)} size={15} />{x.facilityName}</span>
                   <div style={{ width: 200 }}>
-                    <Segmented value={x.condition} onChange={(c) => setCondition(fi, c)} size="sm" options={[
+                    <ChoiceButtons value={x.condition} onChange={(c) => setCondition(fi, c)} size="sm" options={[
                       { value: "OK", label: "OK" },
                       { value: "Damaged", label: "Damaged" },
                     ]} />
@@ -374,7 +375,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
                       </div>
                     ))}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                      <Btn size="sm" icon="plus" onClick={() => addDamage(fi)}>Add another item</Btn>
+                      <ActionButton size="sm" icon="plus" onClick={() => addDamage(fi)}>Add another item</ActionButton>
                       <label style={{ color: C.textS, fontSize: 12.5, display: "flex", gap: 8, alignItems: "center" }}>
                         <Checkbox checked={outOfService.includes(f.id)} onCheckedChange={(v) => setOutOfService((o) => v === true ? [...o, f.id] : o.filter((id) => id !== f.id))} />
                         Take out of service (Under Maintenance)
@@ -397,12 +398,12 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
         <div style={{ position: mob ? "static" : "sticky", top: 0, display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ background: soft, borderRadius: 10, padding: "12px 16px" }}>
             <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Bill</div>
-            <Line label="Booking total" value={fmt(booking.total)} />
-            <Line label="Already paid" value={`− ${fmt(Math.min(money.paid, booking.total))}`} color={money.paid > 0 ? "#2e9e4e" : undefined} />
-            {money.penaltyDue > 0 && <Line label="Earlier unpaid penalties" value={fmt(money.penaltyDue)} color="#d44" />}
-            <Line label={`Damage penalties${allDamages.length ? ` (${allDamages.length} item${allDamages.length === 1 ? "" : "s"})` : ""}`} value={fmt(newPenalty)} color={newPenalty > 0 ? "#d44" : undefined} />
+            <AmountRow label="Booking total" value={fmt(booking.total)} />
+            <AmountRow label="Already paid" value={`− ${fmt(Math.min(money.paid, booking.total))}`} color={money.paid > 0 ? "#2e9e4e" : undefined} />
+            {money.penaltyDue > 0 && <AmountRow label="Earlier unpaid penalties" value={fmt(money.penaltyDue)} color="#d44" />}
+            <AmountRow label={`Damage penalties${allDamages.length ? ` (${allDamages.length} item${allDamages.length === 1 ? "" : "s"})` : ""}`} value={fmt(newPenalty)} color={newPenalty > 0 ? "#d44" : undefined} />
             <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 8, paddingTop: 4 }}>
-              <Line label="To collect now" value={fmt(toCollect)} strong color={toCollect > 0 ? "#d4a800" : "#2e9e4e"} />
+              <AmountRow label="To collect now" value={fmt(toCollect)} strong color={toCollect > 0 ? "#d4a800" : "#2e9e4e"} />
             </div>
           </div>
 
@@ -421,7 +422,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
               </div>
               <div>
                 <Label>Paid with</Label>
-                <Segmented value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: m }))} />
+                <ChoiceButtons value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: m }))} />
               </div>
               {method !== "Cash" && paying > 0 && (
                 <div>
@@ -432,7 +433,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
               {left > 0 && (
                 <>
                   <p style={{ color: C.textS, fontSize: 12.5, margin: 0 }}>
-                    {fmt(left)} will still be owed. The booking waits under <strong style={{ color: C.textB }}>To settle</strong> until it&apos;s paid.
+                    {fmt(left)} will still be owed. The booking waits under <strong style={{ color: C.textB }}>Balance to collect</strong> until it&apos;s paid.
                   </p>
                   <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 8, alignItems: "flex-start" }}>
                     <Checkbox checked={closeUnpaid} onCheckedChange={(v) => setCloseUnpaid(v === true)} style={{ marginTop: 4 }} />
@@ -480,26 +481,26 @@ export function BookingStatement({ booking }: { booking: Booking }) {
   return (
     <div>
       <div style={sub}>CHARGES</div>
-      <Line label={`${booking.package} · ${slot.label}, ${fmtDate(booking.date)} · ${booking.guests} guests`} value={fmt(round2(booking.total - overtimeFee))} />
-      {overtimeFee > 0 && <Line label={`Overtime (${booking.overtime} hr)`} value={fmt(overtimeFee)} />}
+      <AmountRow label={`${booking.package} · ${slot.label}, ${fmtDate(booking.date)} · ${booking.guests} guests`} value={fmt(round2(booking.total - overtimeFee))} />
+      {overtimeFee > 0 && <AmountRow label={`Overtime (${booking.overtime} hr)`} value={fmt(overtimeFee)} />}
       {damages.map((d) => (
-        <Line key={d.id} label={`Damage: ${d.itemName} × ${d.quantity} (${d.facilityName})`} value={fmt(d.amount)} color="#d44" />
+        <AmountRow key={d.id} label={`Damage: ${d.itemName} × ${d.quantity} (${d.facilityName})`} value={fmt(d.amount)} color="#d44" />
       ))}
       <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}>
-        <Line label="Total charges" value={fmt(round2(booking.total + money.penaltyTotal))} strong />
+        <AmountRow label="Total charges" value={fmt(round2(booking.total + money.penaltyTotal))} strong />
       </div>
 
       <div style={sub}>PAYMENTS</div>
       {pays.map((p) => (
-        <Line key={p.id} label={`${p.type} · ${p.method}${p.reference ? ` · ref ${p.reference}` : ""} · ${fmtDate(manilaDate(p.receivedAt))}`}
+        <AmountRow key={p.id} label={`${paymentLine(p)}${p.reference ? ` · ref ${p.reference}` : ""} · ${fmtDate(manilaDate(p.receivedAt))}`}
           value={`${p.type === "Refund" ? "+" : "−"} ${fmt(p.amount)}`} color={p.type === "Refund" ? "#d44" : "#2e9e4e"} />
       ))}
       {pays.length === 0 && <p style={{ color: C.textS, fontSize: 13, margin: "4px 0" }}>No payments yet.</p>}
 
       <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 8, paddingTop: 4 }}>
-        {money.balance > 0 && <Line label="Stay balance" value={fmt(money.balance)} color="#d4a800" />}
-        {money.penaltyDue > 0 && <Line label="Unpaid penalties" value={fmt(money.penaltyDue)} color="#d44" />}
-        <Line label={money.due > 0 ? "Amount due" : "Fully paid"} value={fmt(money.due)} strong color={money.due > 0 ? "#d4a800" : "#2e9e4e"} />
+        {money.balance > 0 && <AmountRow label="Stay balance" value={fmt(money.balance)} color="#d4a800" />}
+        {money.penaltyDue > 0 && <AmountRow label="Unpaid penalties" value={fmt(money.penaltyDue)} color="#d44" />}
+        <AmountRow label={money.due > 0 ? "Amount due" : "Fully paid"} value={fmt(money.due)} strong color={money.due > 0 ? "#d4a800" : "#2e9e4e"} />
       </div>
       {booking.settledAt && (
         <p style={{ color: C.textS, fontSize: 12.5, margin: "8px 0 0" }}>
@@ -534,7 +535,7 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
     setError("");
     if (paying > 0 && method !== "Cash" && !reference.trim()) return setError(`Enter the ${method} reference number.`);
     if (left > 0 && closeUnpaid && note.trim().length < 3) return setError("Say why it's being settled with money still owed.");
-    if (paying <= 0 && !completes) return setError("Enter the amount received, or settle it as unpaid with a reason.");
+    if (paying <= 0 && !completes) return setError("Enter the amount received, or close it as unpaid with a reason.");
     setBusy(true);
     const r = await ops.settle({
       bookingId: booking.id,
@@ -546,25 +547,25 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
     if (!r.ok) return setError(r.error);
     if (completes) {
       toast(left > 0
-        ? `${booking.name} settled with ${fmt(left)} unpaid. It stays under Sales → Receivables.`
-        : `${booking.name} settled and completed.${paying > 0 ? ` ${fmt(paying)} recorded in Sales.` : ""}`, left > 0 ? "warning" : "success");
+        ? `${booking.name} closed with ${fmt(left)} unpaid. It stays under Sales → Receivables.`
+        : `${booking.name} paid and closed.${paying > 0 ? ` ${fmt(paying)} recorded in Sales.` : ""}`, left > 0 ? "warning" : "success");
     } else {
-      toast(`${fmt(paying)} recorded. ${fmt(left)} is still owed before ${booking.name} can be settled.`, "info");
+      toast(`${fmt(paying)} recorded. ${fmt(left)} is still owed before ${booking.name} can be closed.`, "info");
     }
     onClose();
   };
 
   return (
-    <Modal title={`Settle ${booking.name}`} subtitle={<BookingSummary b={booking} />} onClose={onClose} width={860}
+    <Modal title={`Collect balance & close · ${booking.name}`} subtitle={<BookingSummary b={booking} />} onClose={onClose} width={860}
       footer={
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ color: C.textS, fontSize: 13.5 }}>
             {paying > 0 ? <>Collecting <strong style={{ color: "#2e9e4e" }}>{fmt(paying)}</strong> by {method}</> : "Nothing to collect"}
             {left > 0 && <> · <strong style={{ color: "#d44" }}>{fmt(left)} {closeUnpaid ? "left unpaid" : "still owed"}</strong></>}
           </span>
-          <Btn kind="primary" icon={completes ? "check" : "cash"} disabled={busy} onClick={save}>
-            {busy ? "Saving…" : completes ? "Settle & complete" : "Record payment"}
-          </Btn>
+          <ActionButton kind="primary" icon={completes ? "check" : "cash"} disabled={busy} onClick={save}>
+            {busy ? "Saving…" : completes ? "Collect & close booking" : "Record payment"}
+          </ActionButton>
         </div>
       }>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 20, alignItems: "start" }}>
@@ -580,7 +581,7 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
               </div>
               <div>
                 <Label>Paid with</Label>
-                <Segmented value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: m }))} />
+                <ChoiceButtons value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: m }))} />
               </div>
               {method !== "Cash" && (
                 <div>
@@ -671,7 +672,7 @@ export function VisitRecord({ booking, onClose }: { booking: Booking; onClose: (
             <span style={{ color: C.textB }}>{it.facilityName}</span>
             <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <span style={{ color: done < it.checklist.length ? "#d4a800" : C.textS }}>{done}/{it.checklist.length} checked</span>
-              {i.stage === "Checkout" && <Pill color={it.condition === "Damaged" ? "#d44" : "#2e9e4e"}>{it.condition}</Pill>}
+              {i.stage === "Checkout" && <StatusBadge color={it.condition === "Damaged" ? "#d44" : "#2e9e4e"}>{it.condition}</StatusBadge>}
             </span>
           </div>
         );
@@ -684,7 +685,7 @@ export function VisitRecord({ booking, onClose }: { booking: Booking; onClose: (
 
   return (
     <Modal title={b.name}
-      subtitle={<><span style={{ fontFamily: "monospace" }}>{b.id}</span> · <span style={{ color: STATUS_COLOR[b.status] }}>{b.status}</span>{b.checkedOutAt && b.status === "Confirmed" ? " · checked out, to settle" : b.checkedInAt && b.status === "Confirmed" ? " · on site" : ""}</>}
+      subtitle={<><span style={{ fontFamily: "monospace" }}>{b.id}</span> · <span className="sw-ink" style={{ ["--ink-c" as string]: STATUS_COLOR[b.status] }}>{bookingStatusLabel(b)}</span>{b.checkedOutAt && b.status === "Confirmed" ? " · checked out, to settle" : b.checkedInAt && b.status === "Confirmed" ? " · on site" : ""}</>}
       onClose={onClose} width={1040}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 20, alignItems: "start" }}>
         {/* ── The reservation ── */}

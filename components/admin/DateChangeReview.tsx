@@ -21,7 +21,7 @@ import { SLOTS } from "@/lib/resort";
 import type { Booking } from "@/types/booking";
 import type { DateChange } from "@/types/finance";
 import { TextGuest } from "@/components/admin/TextGuest";
-import { Btn, ErrorNote, Label, Line, Modal, useAdminStyle } from "@/components/admin/ui";
+import { ActionButton, ErrorNote, Label, AmountRow, Modal, useAdminStyle } from "@/components/admin/ui";
 
 export function DateChangeReview({ request, booking, onClose }: { request: DateChange; booking: Booking; onClose: () => void }) {
   const { C, soft, inp } = useAdminStyle();
@@ -58,7 +58,7 @@ export function DateChangeReview({ request, booking, onClose }: { request: DateC
   if (done) {
     return (
       <Modal title={done.approved ? "Booking moved" : "Request declined"} subtitle={`${booking.name} · ${booking.id}`} onClose={onClose} width={560}
-        footer={<div style={{ display: "flex", justifyContent: "flex-end" }}><Btn kind="primary" onClick={onClose}>Done</Btn></div>}>
+        footer={<div style={{ display: "flex", justifyContent: "flex-end" }}><ActionButton kind="primary" onClick={onClose}>Done</ActionButton></div>}>
         <p style={{ color: C.textB, fontSize: 13.5, marginTop: 0 }}>
           {done.approved ? "The preparation checklist was reset for the new date. " : ""}They were emailed{booking.email ? "" : " (no email on file)"}. Text them too:
         </p>
@@ -71,18 +71,18 @@ export function DateChangeReview({ request, booking, onClose }: { request: DateC
     <Modal title={rebook ? "New date after a resort cancellation" : "Date change request"} subtitle={`${booking.name} · ${booking.id}`} onClose={onClose} width={560}
       footer={<div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
         {declining ? <>
-          <Btn disabled={!!busy} onClick={() => { setDeclining(false); setError(""); }}>Back</Btn>
-          <Btn kind="red" icon="x" disabled={!!busy} onClick={() => decide(false)}>{busy === "decline" ? "Saving…" : "Decline and tell the guest"}</Btn>
+          <ActionButton disabled={!!busy} onClick={() => { setDeclining(false); setError(""); }}>Back</ActionButton>
+          <ActionButton kind="red" icon="x" disabled={!!busy} onClick={() => decide(false)}>{busy === "decline" ? "Saving…" : "Decline and tell the guest"}</ActionButton>
         </> : <>
-          <Btn kind="red" disabled={!!busy} onClick={() => { setDeclining(true); setError(""); }}>Decline</Btn>
-          <Btn kind="primary" icon="check" disabled={!!busy || !held} onClick={() => decide(true)}>{busy === "approve" ? "Saving…" : `Move to ${fmtDate(request.toDate)}`}</Btn>
+          <ActionButton kind="red" disabled={!!busy} onClick={() => { setDeclining(true); setError(""); }}>Decline</ActionButton>
+          <ActionButton kind="primary" icon="check" disabled={!!busy || !held} onClick={() => decide(true)}>{busy === "approve" ? "Saving…" : `Move to ${fmtDate(request.toDate)}`}</ActionButton>
         </>}
       </div>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ background: soft, borderRadius: 10, padding: "8px 16px" }}>
-          <Line label={rebook ? "Cancelled date" : "Current date"} value={`${fmtDate(request.fromDate)} · ${slot.label}`} />
-          <Line label={rebook ? "Picked instead" : "Asks to move to"} value={`${fmtDate(request.toDate)} · ${slot.label}`} strong />
-          <Line label="Guests" value={String(booking.guests)} />
+          <AmountRow label={rebook ? "Cancelled date" : "Current date"} value={`${fmtDate(request.fromDate)} · ${slot.label}`} />
+          <AmountRow label={rebook ? "Picked instead" : "Asks to move to"} value={`${fmtDate(request.toDate)} · ${slot.label}`} strong />
+          <AmountRow label="Guests" value={String(booking.guests)} />
         </div>
         <p style={{ color: held ? C.textS : "#d4a800", fontSize: 13, margin: 0 }}>
           {!held

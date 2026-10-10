@@ -14,6 +14,7 @@
 //   Damage records     every damaged item and the penalty it carried
 //   Damage rates       the price list penalties are computed from
 
+import { adminTabLabel } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -33,7 +34,7 @@ import { gold } from "@/lib/styles";
 import { Icon } from "@/components/common/Icon";
 import { VisitRecord } from "@/components/admin/InspectionModals";
 import {
-  PageHead, Segmented, TableShell, td, Btn, Pill, Modal, Label, ErrorNote, useAdminStyle, Row, Cell, FullSelect, ViewTabs, ConfirmDialog, usePaged, Pager,
+  AdminPageHeader, ChoiceButtons, TableShell, td, ActionButton, StatusBadge, Modal, Label, ErrorNote, useAdminStyle, Row, Cell, FullSelect, ViewSwitcherTabs, ConfirmDialog, usePaged, Pager,
 } from "@/components/admin/ui";
 
 interface FacilitiesTabProps {
@@ -73,7 +74,7 @@ export function FacilitiesTab({ facilities, bookings, mob }: FacilitiesTabProps)
 
   return (
     <div>
-      <PageHead title="Facility Management" mob={mob}
+      <AdminPageHeader title={adminTabLabel("Facilities")} mob={mob}
         subtitle="The resort's amenities and rooms, their condition, and every inspection and damage record. Preparing and checking out groups is done in Daily Operations." />
 
       <p style={{ color: C.textS, fontSize: 13, margin: "-10px 0 20px" }}>
@@ -81,7 +82,7 @@ export function FacilitiesTab({ facilities, bookings, mob }: FacilitiesTabProps)
         {down > 0 ? `${down} under maintenance (can't be booked).` : ""}
       </p>
 
-      <ViewTabs<View> value={view} onChange={setView} views={[
+      <ViewSwitcherTabs<View> value={view} onChange={setView} views={[
         { value: "Facilities", label: "Facilities", content: <FacilityList facilities={facilities} bookings={bookings} mob={mob} /> },
         { value: "Inspections", label: "Inspection records", content: <Inspections bookings={bookings} facilities={facilities} /> },
         { value: "Damages", label: "Damage records", content: <Damages bookings={bookings} /> },
@@ -164,7 +165,7 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
     const r = await send(`/api/facilities?id=${f.id}`, "PATCH", { active: on });
     if (!r.ok) return toast(r.error, "error");
     await reloadFacilities();
-    toast(on ? `${f.name} is back in use.` : `${f.name} retired. Its past records are kept.`, on ? "success" : "info");
+    toast(on ? `${f.name} is offered again.` : `${f.name} is no longer offered. Its past records are kept.`, on ? "success" : "info");
     setRetiring(null);
   };
 
@@ -182,7 +183,7 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
     const next = f.status === "Needs Cleaning" ? nextUse.get(f.id) : undefined;
     return (
       <>
-        <Pill color={F_COLOR[f.status]}><span style={{ width: 7, height: 7, borderRadius: "50%", background: F_COLOR[f.status] }} />{f.status}</Pill>
+        <StatusBadge color={F_COLOR[f.status]}><span style={{ width: 7, height: 7, borderRadius: "50%", background: F_COLOR[f.status] }} />{f.status}</StatusBadge>
         {f.status === "Needs Cleaning" && (
           <div style={{ color: C.textS, fontSize: 11.5, marginTop: 4 }}>
             {next ? `Cleared when ${next.id} (${fmtDate(next.date)}) is prepared` : "No upcoming booking uses it"}
@@ -207,16 +208,16 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
           <span style={{ color: C.textS, fontSize: 12.5, flex: "1 1 260px" }}>
             Preparing a reservation marks the facilities it uses as cleaned on its own. Tick the rest here once they&apos;re clean.
           </span>
-          <Btn kind="primary" icon="check" disabled={chosen.length === 0} onClick={() => setConfirmClean(true)}>
+          <ActionButton kind="primary" icon="check" disabled={chosen.length === 0} onClick={() => setConfirmClean(true)}>
             {chosen.length === 0 ? "Mark as cleaned" : `Mark ${chosen.length} as cleaned`}
-          </Btn>
+          </ActionButton>
         </div>
       )}
 
       <section>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
           <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: 0 }}>Amenities <span style={{ color: C.textS, fontWeight: 400 }}>({active.length})</span></h3>
-          <Btn kind="primary" icon="plus" onClick={() => setEdit("new")}>Add amenity</Btn>
+          <ActionButton kind="primary" icon="plus" onClick={() => setEdit("new")}>Add amenity</ActionButton>
         </div>
         <TableShell head={["Amenity", "Used by", "Website", "Status", ""]} minWidth={760}
           empty={active.length === 0 ? "No amenities yet. Add the resort's first one." : undefined}>
@@ -232,10 +233,10 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
               <Cell style={td}>{statusCell(f)}</Cell>
               <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                 <div style={{ display: "inline-flex", gap: 8 }}>
-                  <Btn size="sm" icon="edit" onClick={() => setEdit(f)}>Edit</Btn>
+                  <ActionButton size="sm" icon="edit" onClick={() => setEdit(f)}>Edit</ActionButton>
                   {!isCoreAmenity(f) && <>
-                    <Btn size="sm" onClick={() => setRetiring(f)}>Retire</Btn>
-                    <Btn size="sm" kind="red" onClick={() => setRemoving(f)}>Remove</Btn>
+                    <ActionButton size="sm" onClick={() => setRetiring(f)}>Stop offering</ActionButton>
+                    <ActionButton size="sm" kind="red" onClick={() => setRemoving(f)}>Remove</ActionButton>
                   </>}
                 </div>
               </Cell>
@@ -244,14 +245,14 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
         </TableShell>
         {retired.length > 0 && (
           <div style={{ marginTop: 12 }}>
-            <Btn size="sm" onClick={() => setShowRetired((s) => !s)}>{showRetired ? "Hide" : "Show"} retired ({retired.length})</Btn>
+            <ActionButton size="sm" onClick={() => setShowRetired((s) => !s)}>{showRetired ? "Hide" : "Show"} no longer offered ({retired.length})</ActionButton>
             {showRetired && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
                 {retired.map((f) => (
                   <span key={f.id} style={{ display: "inline-flex", alignItems: "center", gap: 8, color: C.textS, fontSize: 13 }}>
                     <Icon name={facilityIcon(f)} size={14} />{f.name}
-                    <Btn size="sm" onClick={() => setActive(f, true)}>Restore</Btn>
-                    <Btn size="sm" kind="red" onClick={() => setRemoving(f)}>Remove</Btn>
+                    <ActionButton size="sm" onClick={() => setActive(f, true)}>Offer again</ActionButton>
+                    <ActionButton size="sm" kind="red" onClick={() => setRemoving(f)}>Remove</ActionButton>
                   </span>
                 ))}
               </div>
@@ -270,7 +271,7 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
               <Cell style={{ ...td, color: C.textH, fontWeight: 600 }}>{tick(f)}<Icon name="bed" size={15} style={{ marginRight: 8, verticalAlign: -2 }} />{f.name}</Cell>
               <Cell style={{ ...td, color: C.textS }}>{f.lastUsedGuestName ? `${f.lastUsedGuestName} (${f.lastUsedBookingId})` : "—"}</Cell>
               <Cell style={td}>{statusCell(f)}</Cell>
-              <Cell style={{ ...td, textAlign: "right" }}><Btn size="sm" icon="edit" onClick={() => setEdit(f)}>Edit</Btn></Cell>
+              <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm" icon="edit" onClick={() => setEdit(f)}>Edit</ActionButton></Cell>
             </Row>
           ))}
         </TableShell>
@@ -278,7 +279,7 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
 
       {confirmClean && chosen.length > 0 && (
         <ConfirmDialog title={`Mark ${chosen.length === 1 ? chosen[0].name : `${chosen.length} facilities`} as cleaned?`} onCancel={() => setConfirmClean(false)}
-          confirm={<Btn kind="primary" icon="check" disabled={cleaning} onClick={() => void markCleaned()}>{cleaning ? "Saving…" : "Mark as cleaned"}</Btn>}>
+          confirm={<ActionButton kind="primary" icon="check" disabled={cleaning} onClick={() => void markCleaned()}>{cleaning ? "Saving…" : "Mark as cleaned"}</ActionButton>}>
           <p style={{ color: C.textS, fontSize: 14, margin: "0 0 8px" }}>
             {chosen.length === 1 ? "It" : "They"}&apos;ll show as Available. Only do this once {chosen.length === 1 ? "it's" : "they're"} actually clean.
           </p>
@@ -287,18 +288,18 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
       )}
       {edit && <FacilityModal facility={edit === "new" ? null : edit} mob={mob} onClose={() => setEdit(null)} />}
       {retiring && (
-        <ConfirmDialog title={`Retire ${retiring.name}?`} onCancel={() => setRetiring(null)}
-          confirm={<Btn kind="red" onClick={() => setActive(retiring, false)}>Retire</Btn>}>
+        <ConfirmDialog title={`Stop offering ${retiring.name}?`} onCancel={() => setRetiring(null)}
+          confirm={<ActionButton kind="red" onClick={() => setActive(retiring, false)}>Stop offering</ActionButton>}>
           <p style={{ color: C.textS, fontSize: 14, margin: 0 }}>
-            It stops appearing in new preparations and inspections and on the website. Past inspections and damage records that name it are kept, and you can restore it any time.
+            It stops appearing in new preparations and inspections and on the website. Past inspections and damage records that name it are kept, and you can offer it again any time.
           </p>
         </ConfirmDialog>
       )}
       {removing && (
         <ConfirmDialog title={`Remove ${removing.name} for good?`} onCancel={() => setRemoving(null)}
           confirm={<>
-            {removing.active !== false && <Btn disabled={removeBusy} onClick={() => { setRetiring(removing); setRemoving(null); }}>Retire instead</Btn>}
-            <Btn kind="red" disabled={removeBusy} onClick={() => void remove(removing)}>{removeBusy ? "Removing…" : "Remove"}</Btn>
+            {removing.active !== false && <ActionButton disabled={removeBusy} onClick={() => { setRetiring(removing); setRemoving(null); }}>Retire instead</ActionButton>}
+            <ActionButton kind="red" disabled={removeBusy} onClick={() => void remove(removing)}>{removeBusy ? "Removing…" : "Remove"}</ActionButton>
           </>}>
           <p style={{ color: C.textS, fontSize: 14, margin: "0 0 8px" }}>
             It&apos;s deleted from the facilities list, new preparations and inspections, and the website. This can&apos;t be undone.
@@ -364,8 +365,8 @@ function FacilityModal({ facility, mob, onClose }: { facility: Facility | null; 
       subtitle={isNew ? "It appears in preparations and inspections for the bookings that use it, and on the website." : facility.lastUsedGuestName ? `Last used by ${facility.lastUsedGuestName} (${facility.lastUsedBookingId})` : "Not used yet"}
       onClose={onClose} width={820}
       footer={<div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-        <Btn onClick={onClose}>Cancel</Btn>
-        <Btn kind="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : isNew ? "Add amenity" : "Save"}</Btn>
+        <ActionButton onClick={onClose}>Cancel</ActionButton>
+        <ActionButton kind="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : isNew ? "Add amenity" : "Save"}</ActionButton>
       </div>}>
       {!isRoom && (
         <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
@@ -380,7 +381,7 @@ function FacilityModal({ facility, mob, onClose }: { facility: Facility | null; 
           </div>
           <div style={{ gridColumn: "1 / -1" }}>
             <Label>Which bookings use it</Label>
-            <Segmented<AmenityArea> value={area} onChange={(v) => !core && setArea(v)} size="sm" label="Which bookings use it"
+            <ChoiceButtons<AmenityArea> value={area} onChange={(v) => !core && setArea(v)} size="sm" label="Which bookings use it"
               options={(["Pool", "Venue", "Common"] as AmenityArea[]).map((a) => ({
                 value: a, label: AREA_LABEL[a], disabled: core && a !== area,
                 hint: a === "Pool" ? "Bookings with the pool" : a === "Venue" ? "Bookings with the events hall" : "Every booking",
@@ -407,7 +408,7 @@ function FacilityModal({ facility, mob, onClose }: { facility: Facility | null; 
       {!isNew && (
         <div style={{ marginBottom: 16 }}>
           <Label>Status</Label>
-          <Segmented<FacilityStatus> value={status} onChange={setStatus} size="sm"
+          <ChoiceButtons<FacilityStatus> value={status} onChange={setStatus} size="sm"
             options={STATUSES.map((s) => ({ value: s, label: s }))} />
         </div>
       )}
@@ -470,12 +471,12 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
               </Cell>
               <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
               <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{usesText(b)}</Cell>
-              <Cell style={td}>{prepared ? <Pill color="#2e9e4e">Yes</Pill> : <Pill color="#8a7a66">Not recorded</Pill>}</Cell>
-              <Cell style={td}>{m.penaltyTotal > 0 ? <Pill color="#d44">{fmt(m.penaltyTotal)} penalty</Pill> : <span style={{ color: C.textS, fontSize: 12.5 }}>None</span>}</Cell>
+              <Cell style={td}>{prepared ? <StatusBadge color="#2e9e4e">Yes</StatusBadge> : <StatusBadge color="#8a7a66">Not recorded</StatusBadge>}</Cell>
+              <Cell style={td}>{m.penaltyTotal > 0 ? <StatusBadge color="#d44">{fmt(m.penaltyTotal)} penalty</StatusBadge> : <span style={{ color: C.textS, fontSize: 12.5 }}>None</span>}</Cell>
               <Cell style={{ ...td, color: m.due > 0 ? "#d4a800" : C.textS, whiteSpace: "nowrap" }}>
-                {b.status === "Completed" ? (m.due > 0 ? `${fmt(m.due)} unpaid` : "Settled") : "To settle"}
+                {b.status === "Completed" ? (m.due > 0 ? `${fmt(m.due)} unpaid` : "Closed") : "Balance to collect"}
               </Cell>
-              <Cell style={{ ...td, textAlign: "right" }}><Btn size="sm">View record</Btn></Cell>
+              <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm">View inspection</ActionButton></Cell>
             </Row>
           );
         })}
@@ -483,7 +484,7 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
       <Pager {...pagedChk} noun="bookings" />
       {done.length > 15 && (
         <div style={{ textAlign: "center", marginTop: 12 }}>
-          <Btn size="sm" onClick={() => setShowAll((s) => !s)}>{showAll ? "Show fewer" : `Show all ${done.length}`}</Btn>
+          <ActionButton size="sm" onClick={() => setShowAll((s) => !s)}>{showAll ? "Show fewer" : `Show all ${done.length}`}</ActionButton>
         </div>
       )}
       {open && <VisitRecord booking={open} onClose={() => setOpen(null)} />}
@@ -612,8 +613,8 @@ function DamageRates() {
               </Cell>
               <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                 <div style={{ display: "inline-flex", gap: 8 }}>
-                  {edited && <Btn size="sm" kind="green" onClick={() => saveRate(r.id)}>Save</Btn>}
-                  <Btn size="sm" kind="red" icon="trash" aria-label={`Delete ${r.name}`} onClick={() => setDeleting(r)}>Delete</Btn>
+                  {edited && <ActionButton size="sm" kind="green" onClick={() => saveRate(r.id)}>Save</ActionButton>}
+                  <ActionButton size="sm" kind="red" icon="trash" aria-label={`Delete ${r.name}`} onClick={() => setDeleting(r)}>Delete</ActionButton>
                 </div>
               </Cell>
             </Row>
@@ -629,15 +630,15 @@ function DamageRates() {
           <Cell style={td}><Input value={adding.unit} onChange={(e) => setAdding({ ...adding, unit: e.target.value })} aria-label="Unit" style={{ ...cell, width: 70 }} /></Cell>
           <Cell style={td}><Input type="number" min={0} value={adding.rate} onChange={(e) => setAdding({ ...adding, rate: e.target.value })} placeholder="0" aria-label="Rate" style={cell} /></Cell>
           <Cell style={td} />
-          <Cell style={{ ...td, textAlign: "right" }}><Btn size="sm" kind="primary" icon="plus" onClick={add}>Add</Btn></Cell>
+          <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm" kind="primary" icon="plus" onClick={add}>Add</ActionButton></Cell>
         </Row>
       </TableShell>
       <ErrorNote>{error}</ErrorNote>
       {deleting && (
         <ConfirmDialog title={`Delete "${deleting.name}" for good?`} onCancel={() => setDeleting(null)}
           confirm={<>
-            {deleting.active && <Btn disabled={deleteBusy} onClick={() => { void toggle(deleting.id, false); setDeleting(null); }}>Retire instead</Btn>}
-            <Btn kind="red" disabled={deleteBusy} onClick={() => void remove(deleting)}>{deleteBusy ? "Deleting…" : "Delete"}</Btn>
+            {deleting.active && <ActionButton disabled={deleteBusy} onClick={() => { void toggle(deleting.id, false); setDeleting(null); }}>Retire instead</ActionButton>}
+            <ActionButton kind="red" disabled={deleteBusy} onClick={() => void remove(deleting)}>{deleteBusy ? "Deleting…" : "Delete"}</ActionButton>
           </>}>
           <p style={{ color: C.textS, fontSize: 14, margin: "0 0 8px" }}>
             It&apos;s removed from the rate list and can&apos;t be picked at check-out any more. This can&apos;t be undone.

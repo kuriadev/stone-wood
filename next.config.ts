@@ -22,12 +22,10 @@ import type { NextConfig } from "next";
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-  // Satoshi is served by Fontshare: the stylesheet from api.fontshare.com,
-  // the woff2/woff/ttf files from cdn.fontshare.com. Without both the policy
-  // blocks the face outright and the whole site silently falls back to
-  // system-ui.
-  "style-src 'self' 'unsafe-inline' https://api.fontshare.com",
-  "font-src 'self' data: https://cdn.fontshare.com",
+  // Satoshi is self-hosted through next/font (app/fonts), so fonts and
+  // styles come from this origin only.
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self' data:",
   "img-src 'self' data: blob: https:",
   "connect-src 'self' https://api.paymongo.com https://*.supabase.co wss://*.supabase.co",
   "frame-src https://www.google.com",
@@ -67,7 +65,14 @@ const nextConfig: NextConfig = {
   // The food menu was removed. Anyone with an old /menu link or bookmark
   // lands on Packages instead of a 404.
   async redirects() {
-    return [{ source: "/menu", destination: "/packages", permanent: false }];
+    return [
+      { source: "/menu", destination: "/packages", permanent: false },
+      // The guest booking page was /cancelbooking, but it also reschedules
+      // and shows payments, so it is /my-booking now. Links already sent in
+      // confirmation emails keep working: the query string (booking id and
+      // token) is carried across by the redirect.
+      { source: "/cancelbooking", destination: "/my-booking", permanent: true },
+    ];
   },
 
   async headers() {

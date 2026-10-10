@@ -29,7 +29,7 @@ const nav = (p: string) => {
     "Book Now": "/book",
     AdminLogin: "/login",
     "Customer Service": "/customer",
-    "Cancel Booking": "/cancelbooking",
+    "Manage Booking": "/my-booking",
   };
 
     const target = routes[p] ?? "/";

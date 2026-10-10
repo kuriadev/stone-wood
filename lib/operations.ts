@@ -37,7 +37,7 @@ export const OPS_STAGES: { id: OpsStage; label: string; hint: string; color: str
   { id: "prepare", label: "To prepare", hint: "Confirmed and coming up. Preparation opens the day before each visit.", color: "#9a7bd0" },
   { id: "arriving", label: "Arriving", hint: "Due today. Check them in when the group arrives.", color: "#3a8fc4" },
   { id: "onsite", label: "On site", hint: "Checked in. Inspect the facilities, collect what's owed and check them out when they leave.", color: "#2e9e4e" },
-  { id: "settle", label: "To settle", hint: "Checked out without paying everything. Collect the rest, then settle.", color: "#e07a3a" },
+  { id: "settle", label: "Balance to collect", hint: "Checked out without paying everything. Collect the rest, then close the booking.", color: "#e07a3a" },
   { id: "done", label: "Done today", hint: "Settled and completed today.", color: "#4a9fd4" },
 ];
 
@@ -99,7 +99,7 @@ export type TodayColumn = "arriving" | "onsite" | "settle";
 export const TODAY_COLUMNS: { id: TodayColumn; label: string; hint: string; empty: string; color: string }[] = [
   { id: "arriving", label: "Arriving", hint: "Check each group in when they arrive.", empty: "No one waiting to arrive.", color: "#3a8fc4" },
   { id: "onsite", label: "On site", hint: "As they leave: inspect, collect what's owed, done.", empty: "No groups on site.", color: "#2e9e4e" },
-  { id: "settle", label: "To settle", hint: "Checked out but not fully paid. Collect the rest to close it.", empty: "Nothing to settle.", color: "#e07a3a" },
+  { id: "settle", label: "Balance to collect", hint: "Checked out but not fully paid. Collect the rest to close it.", empty: "No balances to collect.", color: "#e07a3a" },
 ];
 
 function placeOf(stage: OpsStage, date: string, today: string): { view: OpsView; column: TodayColumn | null } {
@@ -173,9 +173,9 @@ export type CloseNeed = "confirm" | "arrival" | "checkout" | "settle";
 
 export const CLOSE_NEED: Record<CloseNeed, { label: string; todo: string }> = {
   checkout: { label: "Still on site", todo: "check them out" },
-  settle: { label: "Not settled", todo: "collect the rest and settle" },
+  settle: { label: "Not closed", todo: "collect the balance and close it" },
   arrival: { label: "Never checked in", todo: "complete the stay, or mark a no-show" },
-  confirm: { label: "Not confirmed", todo: "accept it, or cancel it" },
+  confirm: { label: "Not confirmed", todo: "accept it, or decline it" },
 };
 
 export interface CloseBlocker { b: Booking; need: CloseNeed }

@@ -18,7 +18,7 @@
 
 import { useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
-import { Modal, Btn, Label, ErrorNote, useAdminStyle } from "@/components/admin/ui";
+import { Modal, ActionButton, Label, ErrorNote, useAdminStyle } from "@/components/admin/ui";
 import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/common/Icon";
 import { AvailabilityCalendar } from "@/components/common/AvailabilityCalendar";
@@ -88,18 +88,18 @@ export function MoveBookingModal({ booking, onMoved, onClose }: MoveBookingModal
       width={620}
       footer={
         <div style={{ display: "flex", justifyContent: "space-between", gap: SPACE.xs, flexWrap: "wrap" }}>
-          <Btn kind="ghost" onClick={onClose} disabled={busy}>Cancel</Btn>
+          <ActionButton kind="ghost" onClick={onClose} disabled={busy}>Cancel</ActionButton>
           {confirming ? (
             <div style={{ display: "flex", gap: SPACE.xs }}>
-              <Btn kind="ghost" onClick={() => setConfirming(false)} disabled={busy}>Back</Btn>
-              <Btn kind="primary" icon="check" onClick={() => void move()} disabled={busy}>
+              <ActionButton kind="ghost" onClick={() => setConfirming(false)} disabled={busy}>Back</ActionButton>
+              <ActionButton kind="primary" icon="check" onClick={() => void move()} disabled={busy}>
                 {busy ? "Saving…" : rebook ? `Yes, confirm for ${fmtDate(date)}` : `Yes, move to ${fmtDate(date)}`}
-              </Btn>
+              </ActionButton>
             </div>
           ) : (
-            <Btn kind="primary" icon="calendar" disabled={!date || busy} onClick={() => setConfirming(true)}>
+            <ActionButton kind="primary" icon="calendar" disabled={!date || busy} onClick={() => setConfirming(true)}>
               {date ? `${rebook ? "Set" : "Move to"} ${fmtDate(date)}` : "Pick a date"}
-            </Btn>
+            </ActionButton>
           )}
         </div>
       }
