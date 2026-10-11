@@ -6,6 +6,7 @@ import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
+import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
 
 interface AboutProps {
   setPage: (p: string) => void;
@@ -316,8 +317,12 @@ export function About({
             },
           ].map((item, i) => {
             return (
+              /* The entrance goes on the wrapper, not the card: the card
+                 sets `transform` from its own hover handlers, and Motion
+                 writes `transform` inline too — one would overwrite the
+                 other. */
+              <Reveal key={item.title} delay={i * REVEAL_STEP} style={{ display: "flex" }}>
               <div
-        key={item.title}
         className="sw-why-card"
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = "translateY(-8px) scale(1.025)";
@@ -415,6 +420,7 @@ export function About({
           </ul>
         </div>
       </div>
+              </Reveal>
             );
           })}
         </div>

@@ -27,6 +27,19 @@ import type { CSSProperties, MouseEventHandler, ReactNode } from "react";
 /** Matches the old `.sw-reveal` transition curve. */
 const EASE = [0.22, 1, 0.36, 1] as const;
 
+/** Seconds between one card in a group and the next.
+ *
+ *  Use it as `delay={i * REVEAL_STEP}` when revealing a row or grid. The
+ *  stagger is what makes a group read as arriving rather than blinking on,
+ *  and it must go through the `delay` PROP: Motion animates in JavaScript,
+ *  so a CSS `transitionDelay` in `style` is inert — the home page carried
+ *  one for four cards and they all landed on the same frame.
+ *
+ *  Kept small on purpose. At 0.08s a row of six finishes 0.4s after the
+ *  first, which reads as one movement; much more and the last card feels
+ *  like it is lagging. */
+export const REVEAL_STEP = 0.08;
+
 export interface RevealProps {
   children: ReactNode;
   className?: string;
@@ -73,10 +86,15 @@ export function Reveal({
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      initial={{ opacity: 0, y: 28 }}
+      /* Transform and opacity only: both are composited, so a page full of
+         these costs no layout and no repaint. */
+      initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
+      /* `amount: 0.12` rather than a larger fraction because some revealed
+         blocks are taller than the viewport, and a block that can never
+         show (say) half of itself would never trigger at all. */
       viewport={{ once: true, amount: 0.12, margin: "0px 0px -50px 0px" }}
-      transition={{ duration: 0.65, ease: EASE, delay }}
+      transition={{ duration: 0.62, ease: EASE, delay }}
     >
       {children}
     </m.div>

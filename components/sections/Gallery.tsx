@@ -8,6 +8,7 @@ import { gold } from "@/lib/styles";
 import { srcSetFor, SIZES } from "@/lib/img";
 import { Icon } from "@/components/common/Icon";
 import { GALLERY_SPANS, galleryHourLabel } from "@/lib/gallery";
+import { Reveal } from "@/components/common/Reveal";
 import {
   Dialog,
   DialogContent,
@@ -199,12 +200,14 @@ export function Gallery({ galleryImgs }: GalleryProps) {
       <div style={{ maxWidth: 1600, margin: "0 auto", padding: mob ? "48px 20px 72px" : "88px 48px 112px" }}>
 
         {/* Section head: the label on the left, the line on the right. */}
+        <Reveal>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 24, flexWrap: "wrap", marginBottom: mob ? 28 : 40 }}>
           <p style={{ color: C.textS, fontSize: 11, letterSpacing: 2.6, margin: 0 }}>MORNING TO MIDNIGHT</p>
           <h2 style={{ color: C.textH, fontFamily: serif, fontSize: mob ? 26 : 38, fontWeight: 400, margin: 0, lineHeight: 1.15 }}>
             A quiet look inside your stay
           </h2>
         </div>
+        </Reveal>
 
         {/* A 12-column mosaic. The spans repeat on a ten-photo cycle, and a
             row that cannot fit the next span simply ends -- the gap on the

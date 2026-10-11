@@ -21,6 +21,7 @@ import { gold, goldBtn } from "@/lib/styles";
 import { SPACE } from "@/lib/spacing";
 import { Icon } from "@/components/common/Icon";
 import { ResortContact } from "@/components/common/ResortContact";
+import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
 
 const serif = "'Satoshi',system-ui,sans-serif";
 
@@ -44,6 +45,7 @@ export function RefundRequest({ setPage }: { setPage: (p: string) => void }) {
   return (
     <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "52px 20px" : "88px 24px" }}>
       <div style={{ maxWidth: 680, margin: "0 auto" }}>
+        <Reveal>
         <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 12.5, textAlign: "center", margin: 0 }}>SUPPORT</p>
         <h1 style={{ fontFamily: serif, fontSize: mob ? 28 : 42, color: C.textH, textAlign: "center", margin: "12px 0" , fontWeight: 400 }}>
           Ask for a refund
@@ -52,7 +54,9 @@ export function RefundRequest({ setPage }: { setPage: (p: string) => void }) {
           Refunds are available when <strong style={{ color: C.textH }}>the resort cancelled your booking</strong>.
           Call or message us and we&rsquo;ll arrange it with you directly.
         </p>
+        </Reveal>
 
+        <Reveal delay={REVEAL_STEP}>
         <div style={{ ...card, display: "flex", flexDirection: "column", gap: SPACE.md }}>
           {/* The one rule that decides whether this request can succeed. */}
           <div style={{ border: `1px solid ${gold}55`, background: `${gold}0f`, borderRadius: 10, padding: SPACE.md, display: "flex", gap: SPACE.sm, alignItems: "flex-start" }}>
@@ -76,6 +80,7 @@ export function RefundRequest({ setPage }: { setPage: (p: string) => void }) {
             BACK TO HOME
           </button>
         </div>
+        </Reveal>
       </div>
     </div>
   );

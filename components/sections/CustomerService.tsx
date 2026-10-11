@@ -22,6 +22,7 @@ import {
 import type { CustomerMessage } from "@/types/admin";
 import { SLOTS, RESORT_CONTACT } from "@/lib/resort";
 import { Icon, type IconName } from "@/components/common/Icon";
+import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
 
 interface CustomerServiceProps {
   onSubmitMessage: (msg: CustomerMessage) => void;
@@ -127,6 +128,7 @@ const submit = handleSubmit(async (values) => {
   return (
     <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "48px 20px" : "80px 24px" }}>
       <div style={{ maxWidth: 940, margin: "0 auto" }}>
+        <Reveal>
         <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 12.5, marginBottom: 12, textAlign: "center" }}>SUPPORT</p>
         <h2 style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 32 : 52, color: C.textH, textAlign: "center", marginBottom: 12, fontWeight: 400, lineHeight: 1.1 }}>
           How can we help?
@@ -134,6 +136,7 @@ const submit = handleSubmit(async (values) => {
         <p style={{ color: C.textS, textAlign: "center", marginBottom: 36, lineHeight: 1.7, fontSize: 14.5 }}>
           Ask a question, share feedback, or tell us about a concern. Our team is ready to assist.
         </p>
+        </Reveal>
 
         {/* Contact cards */}
         <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 12, marginBottom: 36 }}>
@@ -141,10 +144,10 @@ const submit = handleSubmit(async (values) => {
             ["phone", "Call Us", RESORT_CONTACT.phone, "For urgent booking assistance"],
             ["mail", "Email Us", RESORT_CONTACT.email, "Replies typically arrive within one business day"],
             ["clock", "Guest Hours", `${SLOTS.Day.start} – ${SLOTS.Night.end}`, "Daily, including weekends"],
-          ].map(([icon, label, val, sub]) => (
+          ].map(([icon, label, val, sub], i) => (
+            <Reveal key={label} delay={i * REVEAL_STEP} style={{ display: "flex" }}>
             <div
-              key={label}
-              style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: "20px 16px", textAlign: "center", boxShadow: C.shadowCard, transition: "transform .2s ease,box-shadow .2s ease" }}
+              style={{ flex: 1, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: "20px 16px", textAlign: "center", boxShadow: C.shadowCard, transition: "transform .2s ease,box-shadow .2s ease" }}
               onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = isDark ? "0 12px 32px rgba(0,0,0,0.45)" : "0 12px 32px rgba(100,70,10,0.12)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = C.shadowCard; }}
             >
@@ -153,6 +156,7 @@ const submit = handleSubmit(async (values) => {
               <div style={{ color: C.textB, fontSize: 13.5, fontWeight: 600, marginBottom: 8 }}>{val}</div>
               <div style={{ color: C.textS, fontSize: 11.5, lineHeight: 1.5 }}>{sub}</div>
             </div>
+            </Reveal>
           ))}
         </div>
 

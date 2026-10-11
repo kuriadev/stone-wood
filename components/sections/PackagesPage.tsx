@@ -5,7 +5,7 @@ import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import type { ResortPackage } from "@/types/package";
 import type { BookingResource, BookingTier } from "@/types/booking";
-import { Reveal } from "@/components/common/Reveal";
+import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
 import { PackageShowcase } from "@/components/sections/PackageShowcase";
 
 interface PackagesPageProps {
@@ -57,6 +57,7 @@ export function PackagesPage({ setPage, packages, onBookPackage }: PackagesPageP
             No packages available right now.
           </p>
         ) : (
+          <Reveal delay={REVEAL_STEP}>
           <PackageShowcase
             packages={visible}
             tierStyle="card"
@@ -67,6 +68,7 @@ export function PackagesPage({ setPage, packages, onBookPackage }: PackagesPageP
             }}
             onFallbackBook={() => setPage("Book Now")}
           />
+          </Reveal>
         )}
       </div>
     </div>

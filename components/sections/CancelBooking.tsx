@@ -31,6 +31,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
 import { ResortContact } from "@/components/common/ResortContact";
 import { Badge } from "@/components/ui/badge";
 import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
+import { Reveal } from "@/components/common/Reveal";
 
 interface ManageBookingProps {
   onGoHome?: () => void;
@@ -349,6 +350,7 @@ export function ManageBooking(_props: ManageBookingProps) {
       <div style={{ maxWidth: 940, margin: "0 auto" }}>
 
         {/* Header */}
+        <Reveal>
         <div style={{ textAlign: "center", marginBottom: mob ? 32 : 44 }}>
           <p style={{ ...eyebrow, letterSpacing: 3.4, marginBottom: 16 }}>MANAGE BOOKING</p>
           <h1 style={{ fontFamily: serif, fontSize: mob ? 32 : 52, color: C.textH, fontWeight: 400, margin: "0 0 12px", lineHeight: 1.1 }}>
@@ -358,6 +360,7 @@ export function ManageBooking(_props: ManageBookingProps) {
             Find your reservation to see its status and payments, change the date, or update your details.
           </p>
         </div>
+        </Reveal>
 
         {/* ── FIND ─────────────────────────────────────────────────────── */}
         {!(found && proof.t) && (

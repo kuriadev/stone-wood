@@ -30,7 +30,7 @@ import { srcSetFor, SIZES, imageAt } from "@/lib/img";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { facilityIcon } from "@/lib/facilityUsage";
 import type { PublicAmenity } from "@/types/facility";
-import { Reveal } from "@/components/common/Reveal";
+import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
 import { RoomCoverflow } from "@/components/sections/RoomCoverflow";
 import type { Room } from "@/types/room";
 import { Badge } from "@/components/ui/badge";
@@ -605,7 +605,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                  Motion component and writes `transform` inline, which beats
                  the .sw-card:hover rule and left the lift dead. Entrance
                  outside, card surface and hover inside. */
-              <Reveal key={p.id} style={{ display: "flex", transitionDelay: `${i * 100}ms` }}>
+              <Reveal key={p.id} delay={i * REVEAL_STEP} style={{ display: "flex" }}>
               <div className="sw-card"
                 style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: mob ? "24px 20px" : "28px 24px", textAlign: "left", boxShadow: C.shadowCard, display: "flex", flexDirection: "column", flex: 1 }}>
                 <div style={{ marginBottom: 12, color: C.goldInk }}><Icon name={p.icon as IconName} size={28} strokeWidth={1.5} /></div>

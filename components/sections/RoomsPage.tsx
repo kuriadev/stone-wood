@@ -10,7 +10,7 @@ import { useState } from "react";
 import { srcSetFor, SIZES } from "@/lib/img";
 import { roomShots } from "@/lib/gallery";
 import { Icon } from "@/components/common/Icon";
-import { Reveal } from "@/components/common/Reveal";
+import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
 import { Button } from "@/components/ui/button";
 import { MediaGallery } from "@/components/common/MediaGallery";
 import {
@@ -70,13 +70,13 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
           gridTemplateColumns: mob ? "1fr" : tab ? "1fr 1fr" : "repeat(3,1fr)",
           gap: 28,
         }}>
-          {rooms.map((r) => (
+          {rooms.map((r, i) => (
             /* Reveal is a Motion element and writes `transform` inline as it
                animates in. An inline style beats every class, so a :hover
                transform on this node was silently dead — the card never
                lifted. The entrance stays here; the card surface and its
                hover move to a plain div inside, where CSS can reach them. */
-            <Reveal key={r.id} style={{ display: "flex" }}>
+            <Reveal key={r.id} delay={i * REVEAL_STEP} style={{ display: "flex" }}>
             <div
               className="lux-room-card"
               onClick={() => setActiveRoom(r)}
