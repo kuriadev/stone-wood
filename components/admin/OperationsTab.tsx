@@ -64,6 +64,8 @@ import { notices } from "@/lib/notices";
 import { Closing } from "@/components/admin/SalesTab";
 import { ActionButton, StatusBadge, Modal, ConfirmDialog, Label, AmountRow, ViewSwitcherTabs, useAdminStyle } from "@/components/admin/ui";
 import { BarChart } from "@/components/admin/charts";
+import { GuestMessagesPanel } from "@/components/admin/GuestMessagesPanel";
+import type { CustomerMessage } from "@/types/admin";
 import { TAP_MIN } from "@/lib/spacing";
 import type { AdminTab } from "@/types/admin";
 
@@ -79,6 +81,14 @@ interface OperationsTabProps {
    *  Reports, Payments & Expenses and the rest rather than duplicating
    *  them. */
   onGoTab?: (t: AdminTab) => void;
+  /* ── Guest messages, shown in the rail beside the day's work ──
+     The dashboard shows and archives them; composing a reply stays in
+     Guest Messages, so there is only ever one reply window to maintain. */
+  customerMessages?: CustomerMessage[];
+  onArchiveMessage?: (m: CustomerMessage) => void;
+  onRestoreMessage?: (m: CustomerMessage) => void;
+  onReplyMessage?: (m: CustomerMessage) => void;
+  bookingForMessage?: (m: CustomerMessage) => Booking | null;
 }
 
 type Open =
@@ -131,7 +141,10 @@ function dayHeading(date: string, today: string): string {
   return days === 1 ? `Tomorrow · ${long}` : long;
 }
 
-export function OperationsTab({ bookings, setBookings, rooms, packages, facilities, updateStatus, mob, onGoTab }: OperationsTabProps) {
+export function OperationsTab({
+  bookings, setBookings, rooms, packages, facilities, updateStatus, mob, onGoTab,
+  customerMessages = [], onArchiveMessage, onRestoreMessage, onReplyMessage, bookingForMessage,
+}: OperationsTabProps) {
   const { C, cBg, cBr, soft, inp } = useAdminStyle();
   const ops = useOps();
   const { toast } = useToast();
@@ -432,7 +445,10 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
               </button>
               {fresh && <StatusBadge color={gold}>New</StatusBadge>}
             </div>
-            <div style={{ color: C.textS, fontSize: 12, marginTop: 4 }}>
+            {/* The reference is what a guest quotes on the phone, so it
+                is on the card rather than hidden in the "…" menu. */}
+            <div style={{ color: C.textXS, fontSize: 11.5, fontFamily: "monospace", marginTop: 3 }}>{b.id}</div>
+            <div style={{ color: C.textS, fontSize: 12, marginTop: 3 }}>
               {b.date === today ? "Today" : fmtDate(b.date)}{bookingDays(b) > 1 ? ` – ${fmtDate(bookingEndDate(b))} (${bookingDays(b)} days)` : ""} · {slot.label} ({slot.hours}){b.arrivalTime ? ` · arrives ${b.arrivalTime}` : ""}
             </div>
           </div>
@@ -509,6 +525,34 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
             ? <StatusBadge color="#d4a800">{fmt(m.due)} to collect</StatusBadge>
             : <StatusBadge color="#2e9e4e">Fully paid</StatusBadge>)}
           {stage === "done" && (m.due > 0 ? <StatusBadge color="#d4a800">{fmt(m.due)} unpaid</StatusBadge> : <StatusBadge color="#4a9fd4">Closed</StatusBadge>)}
+        </div>
+
+        {/* Reaching the guest without leaving the card: the two things
+            staff actually do at the gate. Both are plain links the phone or
+            mail client opens — nothing is sent from here. */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <a
+            href={`sms:${(b.contact || "").replace(/[^\d+]/g, "")}`}
+            aria-label={`Text ${b.name}`}
+            className="sw-gold-hover sw-hit"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: `1px solid ${cBr}`, color: C.textB, fontSize: 12.5, fontWeight: 600, textDecoration: "none" }}
+          >
+            <Icon name="message" size={13} />Text
+          </a>
+          {b.email ? (
+            <a
+              href={`mailto:${b.email}?subject=${encodeURIComponent(`StoneWood booking ${b.id}`)}`}
+              aria-label={`Email ${b.name}`}
+              className="sw-gold-hover sw-hit"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: `1px solid ${cBr}`, color: C.textB, fontSize: 12.5, fontWeight: 600, textDecoration: "none" }}
+            >
+              <Icon name="mail" size={13} />Email
+            </a>
+          ) : (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: `1px dashed ${cBr}`, color: C.textXS, fontSize: 12.5 }}>
+              <Icon name="mail" size={13} />No email
+            </span>
+          )}
         </div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -907,28 +951,48 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
   // ── Quick tasks ────────────────────────────────────────────────────
   const quickTask = (icon: IconName, title: string, sub: string, onClick: () => void) => (
     <button type="button" onClick={onClick} className="sw-gold-hover"
-      style={{ display: "flex", alignItems: "center", gap: 10, minHeight: TAP_MIN, padding: 12, borderRadius: 10, border: `1px solid ${cBr}`, background: "transparent", cursor: "pointer", textAlign: "left", minWidth: 0 }}>
+      style={{ display: "flex", alignItems: "center", gap: 10, minHeight: TAP_MIN, padding: "10px 12px", borderRadius: 10, border: `1px solid ${cBr}`, background: "transparent", cursor: "pointer", textAlign: "left", minWidth: 0 }}>
       <span aria-hidden style={{ width: 30, height: 30, borderRadius: 8, background: soft, display: "inline-flex", alignItems: "center", justifyContent: "center", color: C.goldInk, flexShrink: 0 }}>
         <Icon name={icon} size={15} />
       </span>
       <span style={{ minWidth: 0 }}>
-        <span style={{ display: "block", color: C.textH, fontSize: 13, fontWeight: 600 }}>{title}</span>
-        <span style={{ display: "block", color: C.textS, fontSize: 11.5 }}>{sub}</span>
+        <span style={{ display: "block", color: C.textH, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</span>
+        <span style={{ display: "block", color: C.textS, fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</span>
       </span>
     </button>
   );
 
+  /* The next group that can be prepared, and the one that can be checked
+     out: the two facility jobs are per booking, so the quick tile opens the
+     right booking rather than dumping the admin on a list to search. */
+  const nextToPrepare = todayCards.find((c) => (c.column === "arriving" || c.stage === "prepare") && !c.prepared && !prepBlocked(c.b, today))
+    ?? upcoming.find((c) => !c.prepared && !prepBlocked(c.b, today));
+  const nextToCheckOut = todayCards.find((c) => c.column === "onsite");
+
   const quickPanel = (
-    <section aria-labelledby="dash-quick" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, overflow: "hidden" }}>
-      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${cBr}` }}>
-        <h3 id="dash-quick" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Quick tasks</h3>
-        <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>Start a common task</div>
+    <section aria-labelledby="dash-quick" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, overflow: "hidden", marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: `1px solid ${cBr}` }}>
+        <span aria-hidden style={{ width: 30, height: 30, borderRadius: 9, background: soft, border: `1px solid ${cBr}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: C.goldInk, flexShrink: 0 }}>
+          <Icon name="star" size={15} />
+        </span>
+        <div style={{ minWidth: 0 }}>
+          <h3 id="dash-quick" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Quick tasks</h3>
+          <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>Start a common task</div>
+        </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 10, padding: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit,minmax(190px,1fr))", gap: 10, padding: 16 }}>
         {quickTask("plus", "Walk-in", "Create booking", () => setOpen({ kind: "walkin" }))}
         {quickTask("cash", "Payment", "Add guest payment", () => setOpen({ kind: "paynew" }))}
         {quickTask("receipt", "Cost", "Add money spent", () => onGoTab?.("Sales"))}
-        {quickTask("clipboard-check", "Facility check", "Make sure things are ready", () => onGoTab?.("Facilities"))}
+        {quickTask("clipboard-check", "Facility check-in", "Get ready for arrivals", () => {
+          if (nextToPrepare) go("prep", nextToPrepare.b);
+          else toast("Nobody is waiting to be prepared for.", "info");
+        })}
+        {quickTask("logout", "Facility check-out", "Look for damage after stays", () => {
+          if (nextToCheckOut) go("checkout", nextToCheckOut.b);
+          else toast("No group is on site to check out.", "info");
+        })}
+        {quickTask("calendar", "Block dates", "Open the calendar", () => onGoTab?.("Occupancy"))}
       </div>
     </section>
   );
@@ -992,28 +1056,40 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <LiveStatus />
-          <ActionButton icon="plus" onClick={() => setOpen({ kind: "walkin" })}>New walk-in</ActionButton>
+          <ActionButton icon="plus" onClick={() => setOpen({ kind: "walkin" })}>New booking</ActionButton>
           <ActionButton kind={closedToday ? "ghost" : "primary"} icon="wallet" onClick={() => openClosing()}>{closedToday ? "Day closed" : "Close the day"}</ActionButton>
         </div>
       </div>
 
       {statsRow}
 
+      {quickPanel}
+
       {!ops.loaded && ops.loading && <p style={{ color: C.textS, fontSize: 13 }}>Loading inspections and payments…</p>}
 
-      {/* ── What to do now, and what merely to know ──
-          Two lists rather than one, because a stack that mixed "a guest is
-          owed a refund" with "a group arriving at six is not ticked off yet"
-          made every row look equally late. */}
-      {ops.loaded && (
-        <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1.9fr) minmax(0,1fr)", gap: 16, alignItems: "start", marginBottom: 20 }}>
-          {urgentPanel}
-          {reminderPanel}
-        </div>
-      )}
+      {/* ── The command area ──
+          Left: what to do, who is here, and the month's money. Right: the
+          guest inbox, pinned, so a message that arrives while the owner is
+          checking someone in is seen then — not an hour later on another
+          screen. `alignSelf: start` is what lets the rail stick at all: a
+          stretched grid item is as tall as its row and has nothing to stick
+          inside. */}
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1fr) minmax(320px,380px)", gap: 16, alignItems: "start" }}>
+        <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
 
-      {/* ── Today's guests: the same three stages, in one place ── */}
-      <section aria-labelledby="dash-bookings" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, overflow: "hidden", marginBottom: 20 }}>
+          {/* ── What to do now, and what merely to know ──
+              Two lists rather than one, because a stack that mixed "a guest
+              is owed a refund" with "a group arriving at six is not ticked
+              off yet" made every row look equally late. */}
+          {ops.loaded && (
+            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
+              {urgentPanel}
+              {reminderPanel}
+            </div>
+          )}
+
+          {/* ── Today's guests: the same three stages, in one place ── */}
+          <section aria-labelledby="dash-bookings" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 16px", borderBottom: `1px solid ${cBr}` }}>
           <Icon name="users" size={16} style={{ color: C.goldInk, flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -1060,10 +1136,22 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         </div>
       </section>
 
-      {/* ── Start something, and the month's money ── */}
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1fr) minmax(0,1.9fr)", gap: 16, alignItems: "start" }}>
-        {quickPanel}
-        {moneyPanel}
+          {moneyPanel}
+        </div>
+
+        {/* Pinned, and bounded by the viewport so a long inbox scrolls
+            inside the rail instead of running off the bottom of it. */}
+        <aside style={{ minWidth: 0, position: mob ? "static" : "sticky", top: 0, alignSelf: "start", maxHeight: mob ? undefined : "calc(100dvh - 140px)", display: "flex", flexDirection: "column" }}>
+          <GuestMessagesPanel
+            messages={customerMessages}
+            mob={mob}
+            bookingFor={(m) => bookingForMessage?.(m) ?? null}
+            onArchive={(m) => onArchiveMessage?.(m)}
+            onRestore={(m) => onRestoreMessage?.(m)}
+            onReply={(m) => onReplyMessage?.(m)}
+            onOpenAll={() => onGoTab?.("Customer Service")}
+          />
+        </aside>
       </div>
 
       {/* ── The module tools each button opens ── */}

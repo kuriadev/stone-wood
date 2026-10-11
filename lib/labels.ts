@@ -91,7 +91,7 @@ export const ADMIN_TAB_LABEL: Record<AdminTab, string> = {
   Packages: "Packages & Prices",
   Gallery: "Website Photos",
   "Customer Service": "Guest Messages",
-  Maintenance: "Website On/Off",        // the switch that closes the public site
+  Maintenance: "Website Maintenance",   // the switch that closes the public site
   Activity: "Activity History",         // was "Audit Log"
 };
 

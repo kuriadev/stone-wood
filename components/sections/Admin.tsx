@@ -431,6 +431,14 @@ export function Admin({
   /* Stamping archivedAt is the whole operation: useDbCollection's sync
      spots the change and PATCHes /api/customer-service, and the two views
      re-derive themselves. */
+  /** Put an archived message back in the inbox. The same one-field write
+   *  as archiveMessage; useDbCollection syncs it. */
+  const restoreMessage = (msg: CustomerMessage) => {
+    setCustomerMessages((prev) =>
+      prev.map((m) => (m.id === msg.id ? { ...m, archivedAt: undefined } : m)),
+    );
+  };
+
   const archiveMessage = (msg: CustomerMessage) => {
     setCustomerMessages((prev) =>
       prev.map((m) => (m.id === msg.id ? { ...m, archivedAt: new Date().toISOString() } : m)),
@@ -448,6 +456,15 @@ export function Admin({
      to open the right record, so the owner does not have to copy a reference
      between two tabs. */
   const [focusBookingId, setFocusBookingId] = useState<string | null>(null);
+  /* Reply from the dashboard rail: switch to Guest Messages and open the
+     reply window on that message. The composer (templates, the send to
+     /api/customer-reply) lives there and stays the only one. */
+  const replyFromDashboard = (msg: CustomerMessage) => {
+    goTab("Customer Service");
+    setReplyModal(msg);
+    setReplyMode("manual");
+    setReplyMessage("");
+  };
   const bookingForMessage = (msg: { message: string; email: string }): Booking | null => {
     const ref = msg.message.match(/\bSW-\d{4,}\b/i)?.[0]?.toUpperCase();
     if (ref) {
@@ -906,7 +923,12 @@ export function Admin({
           {/* DASHBOARD — the home screen */}
           {tab === "Operations" && (
             <OperationsTab bookings={bookings} setBookings={setBookings} rooms={rooms} packages={packages}
-              facilities={facilities} updateStatus={updateStatus} mob={mob} onGoTab={goTab} />
+              facilities={facilities} updateStatus={updateStatus} mob={mob} onGoTab={goTab}
+              customerMessages={customerMessages}
+              onArchiveMessage={archiveMessage}
+              onRestoreMessage={restoreMessage}
+              onReplyMessage={replyFromDashboard}
+              bookingForMessage={bookingForMessage} />
           )}
 
           {/* BOOKINGS (online and walk-in) */}
