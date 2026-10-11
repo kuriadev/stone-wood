@@ -12,17 +12,23 @@ import { requireAdmin } from "@/lib/auth";
 import { sanitizeLabel, sanitizeNotes } from "@/lib/validators";
 import type { RoomRow } from "@/types/database";
 import type { Room } from "@/types/room";
+import { cleanImageRef, cleanImageList } from "@/lib/image";
 
 /** Strings only, no blanks, no duplicates, cover first, capped at
  *  GALLERY_MAX. The admin UI enforces the same cap, but a request does not
- *  have to come from the admin UI. */
-function cleanGallery(input: unknown, cover: string): string[] {
+ *  have to come from the admin UI.
+ *
+ *  Each photo is CHECKED, not shortened. These are `data:` URLs — hundreds
+ *  of thousands of characters — and the 2000-character cut this used to
+ *  apply saved every uploaded photo as a corrupt fragment behind a 200 OK.
+ *  See lib/image.ts. */
+function cleanGallery(input: unknown, cover: string): { ok: true; value: string[] } | { ok: false; error: string } {
   const list = Array.isArray(input) ? input : [];
-  const cleaned = list
-    .map((x) => String(x ?? "").slice(0, 2000))
-    .filter((x) => x.length > 0);
+  const checked = cleanImageList(list, "room photo");
+  if (!checked.ok) return checked;
+  const cleaned = checked.value;
   if (cover && !cleaned.includes(cover)) cleaned.unshift(cover);
-  return Array.from(new Set(cleaned)).slice(0, GALLERY_MAX);
+  return { ok: true, value: Array.from(new Set(cleaned)).slice(0, GALLERY_MAX) };
 }
 
 /** True when PostgREST is saying the `gallery` column is not there yet,
@@ -71,14 +77,19 @@ export async function POST(req: NextRequest) {
     const problem = problemWith(b, false);
     if (problem) return NextResponse.json({ success: false, error: problem }, { status: 400 });
 
+    const cover = cleanImageRef(b.img, "room photo");
+    if (!cover.ok) return NextResponse.json({ success: false, error: cover.error }, { status: 413 });
+    const gallery = cleanGallery(b.gallery, cover.value);
+    if (!gallery.ok) return NextResponse.json({ success: false, error: gallery.error }, { status: 413 });
+
     const row = roomToRow({
       name: sanitizeLabel(String(b.name)),
       beds: String(b.beds ?? "").slice(0, 60),
       capacity: Math.round(Number(b.capacity)),
       price: Number(b.price),
       desc: sanitizeNotes(String(b.desc ?? "")),
-      img: String(b.img ?? "").slice(0, 2000),
-      gallery: cleanGallery(b.gallery, String(b.img ?? "")),
+      img: cover.value,
+      gallery: gallery.value,
     } as Room);
 
     let { data, error } = await getSupabaseAdmin().from("rooms").insert(row).select().single();
@@ -116,9 +127,15 @@ export async function PATCH(req: NextRequest) {
     if (b.price !== undefined) patch.price = Number(b.price);
     // The UI calls it `desc`; the column is `description` (desc is reserved).
     if (b.desc !== undefined) patch.description = sanitizeNotes(String(b.desc));
-    if (b.img !== undefined) patch.img = String(b.img).slice(0, 2000);
+    if (b.img !== undefined) {
+      const cover = cleanImageRef(b.img, "room photo");
+      if (!cover.ok) return NextResponse.json({ success: false, error: cover.error }, { status: 413 });
+      patch.img = cover.value;
+    }
     if (b.gallery !== undefined) {
-      patch.gallery = cleanGallery(b.gallery, String(b.img ?? ""));
+      const g = cleanGallery(b.gallery, String(b.img ?? ""));
+      if (!g.ok) return NextResponse.json({ success: false, error: g.error }, { status: 413 });
+      patch.gallery = g.value;
       // The cover must stay the first photo, or the card and the gallery
       // would disagree about what this room looks like.
       if (patch.gallery.length && b.img === undefined) patch.img = patch.gallery[0];

@@ -6,7 +6,7 @@ import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
-import { dayjs, DATE_FMT } from "@/lib/dayjs";
+import { daysInRange, stayLabel } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
 import {
   GUESTS_MIN, GUESTS_MAX, SHARED_PER_HEAD_RATE,
@@ -38,7 +38,7 @@ const SLOT_ORDER: BookingSlot[] = ["Day", "Night", "WholeDay"];
 interface HeroReservationProps {
   bookings: Booking[];
   closedDates: string[];
-  onBookWithDate: (date: string, opts?: { slot?: BookingSlot; guests?: number }) => void;
+  onBookWithDate: (date: string, opts?: { slot?: BookingSlot; guests?: number; endDate?: string }) => void;
   onBrowseRooms: () => void;
   onManageBooking: () => void;
 }
@@ -52,18 +52,27 @@ export function HeroReservation({
   const mob = w < 900;
 
   const [date, setDate] = useState("");
+  /* Last day of the stay, picked on the calendar itself: click a first day,
+     then a last one. Empty, or the same as the first, means a single day. */
+  const [endDate, setEndDate] = useState("");
+  const lastDay = endDate && endDate > date ? endDate : date;
+  const stayDays = date ? Math.max(1, daysInRange(date, lastDay)) : 1;
   const [slot, setSlot] = useState<BookingSlot>("Day");
   const [guests, setGuests] = useState(2);
 
   // Shared is per head; exclusive is a flat rate with its own discount. The
   // card shows whichever the guest count actually lands on, so the number
   // moves as they change it rather than staying a decorative "from".
-  const sharedTotal = guests * SHARED_PER_HEAD_RATE;
-  const exclusiveTotal = Math.round(EXCLUSIVE_FLAT_RATE * (1 - EXCLUSIVE_DISCOUNT_PCT));
-  const goesExclusive = sharedTotal >= exclusiveTotal;
+  // Per day, then times the days of the stay — the card has to quote what
+  // the booking page will charge, not one day of it.
+  const sharedPerDay = guests * SHARED_PER_HEAD_RATE;
+  const exclusivePerDay = Math.round(EXCLUSIVE_FLAT_RATE * (1 - EXCLUSIVE_DISCOUNT_PCT));
+  const goesExclusive = sharedPerDay >= exclusivePerDay;
+  const sharedTotal = sharedPerDay * stayDays;
+  const exclusiveTotal = exclusivePerDay * stayDays;
 
   const prettyDate = date
-    ? dayjs(date, DATE_FMT, true).format("MMMM D, YYYY")
+    ? stayLabel({ date, endDate: lastDay })
     : "Choose a date";
 
   const rule = { height: 1, background: `rgba(201,168,76,${isDark ? "0.14" : "0.2"})` };
@@ -143,7 +152,9 @@ export function HeroReservation({
             bookings={bookings}
             closedDates={closedDates}
             selectedDate={date}
+            endDate={endDate}
             onSelectDate={setDate}
+            onSelectRange={(from, to) => { setDate(from); setEndDate(to === from ? "" : to); }}
           />
         </div>
 
@@ -169,11 +180,13 @@ export function HeroReservation({
               <Icon name="calendar" size={19} />
             </span>
             <div style={{ minWidth: 0 }}>
-              <p style={{ fontSize: 12, color: "rgba(238,232,220,0.6)", margin: "0 0 4px" }}>Selected date</p>
+              <p style={{ fontSize: 12, color: "rgba(238,232,220,0.6)", margin: "0 0 4px" }}>
+                {stayDays > 1 ? "Selected dates" : "Selected date"}
+              </p>
               <p
                 style={{
                   fontFamily: "'Satoshi',system-ui,sans-serif",
-                  fontSize: 22, color: date ? "#fff" : "rgba(238,232,220,0.55)",
+                  fontSize: stayDays > 1 ? 17 : 22, color: date ? "#fff" : "rgba(238,232,220,0.55)",
                   margin: 0, lineHeight: 1.15, fontWeight: 400,
                 }}
               >
@@ -235,7 +248,7 @@ export function HeroReservation({
             <div>
               <p style={{ ...label, margin: "0 0 4px" }}>GUESTS</p>
               <p style={{ fontSize: 12, color: "rgba(238,232,220,0.55)", margin: 0 }}>
-                {fmt(SHARED_PER_HEAD_RATE)} per guest
+                {fmt(SHARED_PER_HEAD_RATE)} per guest{stayDays > 1 ? ", per day" : ""}
               </p>
             </div>
             <div
@@ -277,6 +290,7 @@ export function HeroReservation({
               </p>
               <p style={{ fontSize: 12, color: "rgba(238,232,220,0.55)", margin: 0 }}>
                 {goesExclusive ? "Private resort access" : `${guests} guest${guests === 1 ? "" : "s"}, pool shared`}
+                {stayDays > 1 ? ` · ${stayDays} days` : ""}
               </p>
             </div>
             <p
@@ -290,7 +304,7 @@ export function HeroReservation({
           </div>
 
           <Button
-            onClick={() => onBookWithDate(date, { slot, guests })}
+            onClick={() => onBookWithDate(date, { slot, guests, endDate: lastDay })}
             disabled={!date}
             className="sw-btn h-auto w-full disabled:opacity-40"
             style={goldBtn}

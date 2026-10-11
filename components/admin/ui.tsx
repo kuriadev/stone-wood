@@ -212,7 +212,7 @@ export function ViewSwitcherTabs<V extends string>({
   const { C, cBr } = useAdminStyle();
   return (
     <Tabs value={value} onValueChange={(v) => onChange(v as V)}>
-      <TabsList className="mb-4 h-auto flex-wrap gap-2 bg-transparent p-0" style={{ maxWidth }}>
+      <TabsList className="mb-4 w-full flex-wrap justify-start gap-2 bg-transparent p-0" style={{ maxWidth, height: "auto" }}>
         {views.map((v) => {
           const on = v.value === value;
           return (

@@ -43,3 +43,9 @@ next-env.d.ts
 # Database snapshots taken before migrations. These contain real guest
 # names, emails and phone numbers — never commit them. The repo is public.
 backups/
+
+# test output
+/playwright-report
+/test-results
+/blob-report
+/.playwright

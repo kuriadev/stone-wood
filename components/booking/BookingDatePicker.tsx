@@ -20,6 +20,7 @@
  */
 
 import { useState, useMemo } from "react";
+import { m } from "motion/react";
 import { T } from "@/lib/theme";
 import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS, MAX_STAY_DAYS } from "@/lib/validators";
 import { checkBookingAvailability, holdsDate, fmtDate } from "@/lib/utils";
@@ -28,6 +29,9 @@ import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types
 /** `ds` shifted by `n` days, in UTC so it cannot drift across a timezone. */
 const addDays = (ds: string, n: number) =>
   new Date(Date.parse(`${ds}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
+const daysApart = (from: string, to: string) =>
+  Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 
 interface BookingDatePickerProps {
   bookings: Booking[];
@@ -280,6 +284,10 @@ export function BookingDatePicker({
           const isEnd = !!previewEnd && previewEnd !== selectedDate && ds === previewEnd;
           const inRange = !!selectedDate && !!previewEnd && ds > selectedDate && ds < previewEnd;
           const disabled = isPast || isBeyond || isBooked || isClosed || beyondStay;
+          /* The connecting line, in one segment per day of the stay. */
+          const onLine = !!selectedDate && !!previewEnd && previewEnd !== selectedDate && ds >= selectedDate && ds <= previewEnd;
+          const legIndex = onLine ? daysApart(selectedDate, ds) : 0;
+          const weekday = dayDate.getDay();
 
           /* Same palette as AvailabilityCalendar on the home page, with light
              equivalents added: these two calendars are the same control and a
@@ -363,6 +371,7 @@ export function BookingDatePicker({
                   : "Available"
               }
               style={{
+                position: "relative",
                 textAlign: "center",
                 padding: "4px",
                 borderRadius: 10,
@@ -382,6 +391,31 @@ export function BookingDatePicker({
               }}
             >
               {d}
+              {/* ── The line that joins the first day to the last ──
+                  The same connector the home-page calendar draws, because
+                  these two calendars are meant to read as one control. One
+                  segment per day, bleeding 6px past the tile to cross the
+                  grid gap and clipped at the week's edges, each scaling out
+                  from its left edge a beat after the one before. */}
+              {onLine && (
+                <m.span
+                  aria-hidden
+                  initial={{ scaleX: 0, opacity: 0 }}
+                  animate={{ scaleX: 1, opacity: 1 }}
+                  transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1], delay: legIndex * 0.07 }}
+                  style={{
+                    position: "absolute",
+                    bottom: 4,
+                    left: isStart ? "50%" : weekday === 0 ? 0 : -6,
+                    right: ds === previewEnd ? "50%" : weekday === 6 ? 0 : -6,
+                    height: 3,
+                    borderRadius: 2,
+                    background: "#5cb85c",
+                    transformOrigin: "left center",
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
             </button>
           );
         })}

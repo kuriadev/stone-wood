@@ -7,6 +7,7 @@
 // positions one row at a time.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { cleanImageList } from "@/lib/image";
 import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin, rowsToGalleryUrls } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
@@ -41,10 +42,11 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ success: false, error: `At most ${MAX_IMAGES} images.` }, { status: 400 });
     }
 
-    const rows = urls
-      .map((u) => String(u).trim())
-      .filter(Boolean)
-      .map((url, i) => ({ url: url.slice(0, 2000), sort_order: i }));
+    // Checked, not shortened: these are `data:` URLs, and cutting one to
+    // 2000 characters stores a corrupt image behind a 200 OK (lib/image.ts).
+    const checked = cleanImageList(urls, "photo");
+    if (!checked.ok) return NextResponse.json({ success: false, error: checked.error }, { status: 413 });
+    const rows = checked.value.map((url, i) => ({ url, sort_order: i }));
 
     const db = getSupabaseAdmin();
 

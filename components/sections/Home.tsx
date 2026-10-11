@@ -40,7 +40,7 @@ interface HomeProps {
   /** Shown as a coverflow deck. Empty while the first fetch is in flight, and
    *  the whole section is skipped then rather than rendering an empty deck. */
   rooms: Room[];
-  onBookWithDate: (d: string, opts?: { slot?: BookingSlot; guests?: number }) => void;
+  onBookWithDate: (d: string, opts?: { slot?: BookingSlot; guests?: number; endDate?: string }) => void;
   bookings: Booking[];
   closedDates: string[];
   /** True while that package list is still on its first fetch and nothing

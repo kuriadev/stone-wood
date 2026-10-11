@@ -22,13 +22,34 @@ export const SESSION_COOKIE = "sw_admin_session";
  *  session on a shared front-desk machine expires on its own. */
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
+/* ── Idle logout ──────────────────────────────────────────────────────
+ *
+ * An unattended admin screen in a resort office is the realistic threat
+ * here, so a session also dies after 30 minutes of the admin not DOING
+ * anything — separately from the 8-hour absolute cap above.
+ *
+ * "Not doing anything" deliberately does not mean "no HTTP requests". The
+ * admin screen polls in the background (OpsContext, useMaintenance), so a
+ * timer driven by request traffic would never expire — the tab alone would
+ * keep the session alive all night.
+ *
+ * Instead the clock is reset only by POST /api/auth/touch, which the admin
+ * shell calls when it sees a real pointer or key event. Background polling
+ * never touches it, so walking away genuinely ends the session, and the
+ * check is still made on the SERVER: the browser can fail to log itself
+ * out, but it cannot make a stale cookie valid. */
+export const IDLE_TTL_MS = 30 * 60 * 1000;
+
 interface SessionPayload {
   /** Username the session was issued to. */
   u: string;
-  /** Expiry, epoch ms. */
+  /** Expiry, epoch ms. The absolute cap: 8 hours, whatever happens. */
   exp: number;
   /** Nonce, so two sessions issued in the same millisecond differ. */
   n: string;
+  /** Last time the ADMIN did something, epoch ms. Absent on tokens issued
+   *  before idle logout existed; those fall back to their issue time. */
+  s?: number;
 }
 
 function sessionSecret(): string {
@@ -119,17 +140,31 @@ export async function currentAdminUsername(): Promise<string> {
   return creds?.username ?? "";
 }
 
-export function createSessionToken(username: string): string {
-  const payload: SessionPayload = {
-    u: username,
-    exp: Date.now() + SESSION_TTL_MS,
-    n: randomBytes(9).toString("base64url"),
-  };
+function encodeSession(payload: SessionPayload): string {
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
   return `${encoded}.${sign(encoded)}`;
 }
 
-export function verifySessionToken(token: string | undefined): SessionPayload | null {
+export function createSessionToken(username: string): string {
+  const now = Date.now();
+  return encodeSession({
+    u: username,
+    exp: now + SESSION_TTL_MS,
+    n: randomBytes(9).toString("base64url"),
+    s: now,
+  });
+}
+
+/** Restart the idle clock after real admin activity. The absolute expiry is
+ *  carried over untouched, so this can never extend a session past its
+ *  8 hours. */
+export function touchSessionToken(payload: SessionPayload, now = Date.now()): string {
+  return encodeSession({ ...payload, s: now, n: randomBytes(9).toString("base64url") });
+}
+
+/** @param now  Injectable clock. Production never passes it; it exists so
+ *  the expiry rules can actually be tested without waiting 30 minutes. */
+export function verifySessionToken(token: string | undefined, now = Date.now()): SessionPayload | null {
   if (!token) return null;
   const dot = token.lastIndexOf(".");
   if (dot < 1) return null;
@@ -151,8 +186,12 @@ export function verifySessionToken(token: string | undefined): SessionPayload | 
     const payload = JSON.parse(
       Buffer.from(encoded, "base64url").toString("utf8")
     ) as SessionPayload;
-    if (typeof payload?.exp !== "number" || Date.now() > payload.exp) return null;
+    if (typeof payload?.exp !== "number" || now > payload.exp) return null;
     if (typeof payload?.u !== "string" || !payload.u) return null;
+    // Idle expiry. A token minted before `s` existed is judged from when it
+    // was issued, so the rule applies to sessions already open at deploy.
+    const seen = typeof payload.s === "number" ? payload.s : payload.exp - SESSION_TTL_MS;
+    if (now - seen > IDLE_TTL_MS) return null;
     return payload;
   } catch {
     return null;
@@ -161,6 +200,11 @@ export function verifySessionToken(token: string | undefined): SessionPayload | 
 
 export function isAdminRequest(req: NextRequest): boolean {
   return verifySessionToken(req.cookies.get(SESSION_COOKIE)?.value) !== null;
+}
+
+/** The live session on a request, or null. */
+export function sessionOf(req: NextRequest): SessionPayload | null {
+  return verifySessionToken(req.cookies.get(SESSION_COOKIE)?.value);
 }
 
 /** Guard for a route handler. Returns a 401 response to return as-is, or
@@ -187,5 +231,9 @@ export const sessionCookie = (token: string) =>
     path: "/",
     maxAge: Math.floor(SESSION_TTL_MS / 1000),
   });
+
+/** Re-issued on activity: same cookie settings, a freshly stamped token. */
+export const refreshedSessionCookie = (payload: SessionPayload) =>
+  sessionCookie(touchSessionToken(payload));
 
 export const clearedSessionCookie = () => ({ ...sessionCookie(""), maxAge: 0 });

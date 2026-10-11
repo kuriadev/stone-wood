@@ -150,7 +150,13 @@ export const bookingDays = (b: Pick<Booking, "date" | "endDate">): number =>
 export function stayLabel(b: Pick<Booking, "date" | "endDate">): string {
   const last = bookingEndDate(b);
   if (last === b.date) return fmtDate(b.date);
-  return `${fmtDate(b.date)} – ${fmtDate(last)} (${bookingDays(b)} days)`;
+  // "October 10 – October 12, 2026", not "October 10, 2026 – October 12,
+  // 2026": the year belongs at the end of the phrase, once. It is only
+  // dropped from the first date when both dates share it.
+  const from = b.date.slice(0, 4) === last.slice(0, 4)
+    ? fmtDate(b.date).replace(/,\s*\d{4}$/, "")
+    : fmtDate(b.date);
+  return `${from} – ${fmtDate(last)} (${bookingDays(b)} days)`;
 }
 
 /** The short form for a tight cell: "Oct 10 – Oct 12". */

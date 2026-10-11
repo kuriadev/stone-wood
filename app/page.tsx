@@ -70,6 +70,9 @@ const nav = (p: string) => {
         setPage={nav}
         onBookWithDate={(d, opts) => {
           const q = new URLSearchParams({ date: d });
+          // Only when it is a real stay: ?end= equal to ?date= would just be
+          // noise in the URL.
+          if (opts?.endDate && opts.endDate > d) q.set("end", opts.endDate);
           if (opts?.slot) q.set("slot", opts.slot);
           if (opts?.guests) q.set("guests", String(opts.guests));
           router.push(`/book?${q.toString()}`);

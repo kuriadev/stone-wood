@@ -26,6 +26,8 @@ export default function BookPage() {
     ? Number(params.get("room"))
     : null;
   const preselectedDate = params.get("date") ?? "";
+  // ?end=YYYY-MM-DD — a multi-day stay picked on the home page calendar.
+  const preselectedEndDate = params.get("end") ?? "";
   // ?slot=Day|Night|WholeDay&guests=N — set by the home page reservation card.
   const slotParam = params.get("slot");
   const initialSlot =
@@ -146,6 +148,7 @@ export default function BookPage() {
         preselectedRoom={preselectedRoom}
         clearPreselected={() => router.replace("/book")}
         preselectedDate={preselectedDate}
+        preselectedEndDate={preselectedEndDate}
         clearPreselectedDate={() => router.replace("/book")}
         onGoHome={() => router.push("/")}
         initialResource={initialResource}

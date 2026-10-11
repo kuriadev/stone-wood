@@ -18,6 +18,7 @@
  * two arrays to drift out of step. */
 
 import { useRef } from "react";
+import { compressImage } from "@/lib/image";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { T } from "@/lib/theme";
@@ -43,14 +44,10 @@ interface PhotoSetProps {
   withCaptions?: boolean;
 }
 
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const rd = new FileReader();
-    rd.onload = (ev) => resolve(ev.target?.result as string);
-    rd.onerror = () => reject(new Error("read failed"));
-    rd.readAsDataURL(file);
-  });
-}
+/* Photos are stored inline as data URLs, so they are shrunk here before
+   they are ever sent. The server validates the length and refuses anything
+   oversized rather than truncating it (lib/image.ts). */
+const readAsDataUrl = (file: File): Promise<string> => compressImage(file);
 
 export function PhotoSet({
   photos,

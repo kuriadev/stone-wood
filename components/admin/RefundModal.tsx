@@ -10,6 +10,7 @@
 // the next screen texts them.
 
 import { useState } from "react";
+import { compressImage } from "@/lib/image";
 import { Input } from "@/components/ui/input";
 import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -20,33 +21,9 @@ import type { Booking } from "@/types/booking";
 import { TextGuest } from "@/components/admin/TextGuest";
 import { ActionButton, ErrorNote, Label, Modal, ChoiceButtons, useAdminStyle } from "@/components/admin/ui";
 
-/** Shrink a photo to a size that fits comfortably in the database. */
-async function compress(file: File): Promise<string> {
-  const url = await new Promise<string>((resolve, reject) => {
-    const rd = new FileReader();
-    rd.onload = () => resolve(String(rd.result));
-    rd.onerror = () => reject(new Error("Couldn't read that file."));
-    rd.readAsDataURL(file);
-  });
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const i = new Image();
-    i.onload = () => resolve(i);
-    i.onerror = () => reject(new Error("That file isn't a picture."));
-    i.src = url;
-  });
-  const scale = Math.min(1, 1200 / Math.max(img.width, img.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(img.width * scale);
-  canvas.height = Math.round(img.height * scale);
-  canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
-  let quality = 0.8;
-  let out = canvas.toDataURL("image/jpeg", quality);
-  while (out.length > 1_800_000 && quality > 0.3) {
-    quality -= 0.15;
-    out = canvas.toDataURL("image/jpeg", quality);
-  }
-  return out;
-}
+/** A receipt only has to be readable, so it is shrunk harder than a room
+ *  photo. The shared compressor lives in lib/image.ts. */
+const compress = (file: File) => compressImage(file, 1200);
 
 export function RefundModal({ booking, onClose }: { booking: Booking; onClose: () => void }) {
   const { C, inp, soft } = useAdminStyle();

@@ -6,7 +6,7 @@
   import { useToast } from "@/contexts/ToastContext";
   import { T } from "@/lib/theme";
   import { gold, goldBtn, outBtn } from "@/lib/styles";
-  import { fmt, fmtTimer, fmtDate, getPackageTier, checkBookingAvailability, checkRangeAvailability, datesBetween, daysInRange, getSharedPoolUsage, isRoomOpen, isPoolOpen, isVenueOpen, roomsTakenInRange } from "@/lib/utils";
+  import { fmt, fmtTimer, fmtDate, getPackageTier, checkBookingAvailability, checkRangeAvailability, datesBetween, daysInRange, getSharedPoolUsage, isRoomOpen, isPoolOpen, isVenueOpen, roomsTakenInRange, stayLabel } from "@/lib/utils";
   import { roomShots } from "@/lib/gallery";
   import { EventPackages } from "@/components/booking/EventPackages";
   import type { ResortPackage } from "@/types/package";
@@ -81,6 +81,8 @@
     preselectedRoom?: number | null;
     clearPreselected?: () => void;
     preselectedDate?: string;
+    /** Last day of a stay already chosen on the home page calendar. */
+    preselectedEndDate?: string;
     clearPreselectedDate?: () => void;
     onGoHome?: () => void;
     /** Deep-link support (e.g. a Home page package card): pre-select the
@@ -117,7 +119,7 @@
     bookings, onBooked, rooms, closedDates,
     facilities = [],
     preselectedRoom, clearPreselected,
-    preselectedDate, clearPreselectedDate,
+    preselectedDate, preselectedEndDate, clearPreselectedDate,
     onGoHome,
     initialResource,
     initialSlot,
@@ -148,7 +150,9 @@
        Both come from the calendar itself — the guest clicks a first day and
        then a last one — so there is no separate "more than one day?"
        control to find and tick. */
-    const [endDate, setEndDate] = useState("");
+    const [endDate, setEndDate] = useState(
+      preselectedEndDate && preselectedEndDate > (preselectedDate || "") ? preselectedEndDate : "",
+    );
     const lastDay = endDate && endDate > date ? endDate : date;
     const stayDays = date ? Math.max(1, daysInRange(date, lastDay)) : 1;
     const [guests, setGuests] = useState(initialPackage?.capacity ?? initialGuests ?? 10);
@@ -1480,8 +1484,8 @@
                   </div>
 
                   {([
-                    ["Date", date ? fmtDate(date) : "\u2014"],
-                    ["Experience", `${packageLabel} · ${tier}`],
+                    [stayDays > 1 ? "Dates" : "Date", date ? stayLabel({ date, endDate: lastDay }) : "\u2014"],
+                    ["Package availed", `${packageLabel} · ${tier}`],
                     ["Guests", String(guests)],
                     ["Room", selRooms.length
                       ? rooms.filter((r) => selRooms.includes(r.id)).map((r) => r.name).join(", ")
@@ -1629,8 +1633,8 @@
                     <div style={{ marginBottom: 16 }}>
                       {([
                         ["Guest", form.name || "\u2014"],
-                        ["Date", date ? fmtDate(date) : "\u2014"],
-                        ["Experience", packageLabel],
+                        [stayDays > 1 ? "Dates" : "Date", date ? stayLabel({ date, endDate: lastDay }) : "\u2014"],
+                        ["Package availed", packageLabel],
                         ["Guests", overtime > 0 ? `${guests} \u00b7 +${overtime}hr OT` : String(guests)],
                         ["Full total", fmt(serverQuote?.total ?? total)],
                       ] as const).map(([l, v]) => (

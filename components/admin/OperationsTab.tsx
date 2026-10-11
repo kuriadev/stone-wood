@@ -424,7 +424,9 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" onClick={() => go("record", b)} title="Open the full reservation"
+              {/* The guest's name opens the reservation. A 21px line of
+                  text is not a tap target, so it gets the same 44px box. */}
+              <button type="button" onClick={() => go("record", b)} title="Open the full reservation" className="sw-hit"
                 style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: C.textH, fontWeight: 600, fontSize: 15, textAlign: "left" }}>
                 {b.name}
               </button>
@@ -436,7 +438,9 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
           </div>
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <button type="button" aria-label={`More for ${b.name}`}
+              {/* 30px to look at, 44px to tap: sw-hit centres an invisible
+                  44px box on it (app/globals.css). */}
+              <button type="button" aria-label={`More for ${b.name}`} className="sw-hit"
                 style={{ background: "transparent", border: `1px solid ${cBr}`, borderRadius: 8, width: 30, height: 30, display: "inline-flex", alignItems: "center", justifyContent: "center", color: C.textB, cursor: "pointer", flexShrink: 0 }}>
                 <Icon name="more" size={16} />
               </button>
@@ -759,22 +763,34 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
     });
   }, [today, ops.payments]);
 
-  /** One headline figure: icon tile, label, and a badge for its state. */
-  const dashStat = (o: { icon: IconName; label: string; value: ReactNode; note: ReactNode; badge?: string; badgeColor?: string; color?: string }) => (
-    <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 12, padding: "14px 16px", minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span aria-hidden style={{ width: 32, height: 32, borderRadius: 9, background: soft, border: `1px solid ${cBr}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: o.color ?? C.goldInk, flexShrink: 0 }}>
-          <Icon name={o.icon} size={16} />
-        </span>
-        <span style={{ flex: 1, minWidth: 0, color: C.textS, fontSize: 12.5 }}>{o.label}</span>
-        {o.badge && (
-          <span style={{ fontSize: 10.5, fontWeight: 700, borderRadius: 20, padding: "3px 8px", whiteSpace: "nowrap", background: `${o.badgeColor ?? C.textS}22`, color: o.badgeColor ?? C.textS }}>{o.badge}</span>
-        )}
+  /** One headline figure: icon tile, label, and a badge for its state.
+   *
+   *  On a phone these sit two to a row, which leaves about 120px inside the
+   *  card. The badge used to share the top line with the label, and
+   *  "Payments still needed" next to "Due today" left neither of them
+   *  readable — so on mobile the badge drops to the bottom line beside the
+   *  note, where there is room for it. */
+  const dashStat = (o: { icon: IconName; label: string; value: ReactNode; note: ReactNode; badge?: string; badgeColor?: string; color?: string }) => {
+    const chip = o.badge ? (
+      <span style={{ fontSize: 10.5, fontWeight: 700, borderRadius: 20, padding: "3px 8px", whiteSpace: "nowrap", flexShrink: 0, background: `${o.badgeColor ?? C.textS}22`, color: o.badgeColor ?? C.textS }}>{o.badge}</span>
+    ) : null;
+    return (
+      <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 12, padding: mob ? "12px 14px" : "14px 16px", minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <span aria-hidden style={{ width: mob ? 28 : 32, height: mob ? 28 : 32, borderRadius: 9, background: soft, border: `1px solid ${cBr}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: o.color ?? C.goldInk, flexShrink: 0 }}>
+            <Icon name={o.icon} size={mob ? 14 : 16} />
+          </span>
+          <span style={{ flex: 1, minWidth: 0, color: C.textS, fontSize: 12.5 }}>{o.label}</span>
+          {!mob && chip}
+        </div>
+        <div style={{ color: o.color ?? C.textH, fontSize: mob ? 20 : 27, fontWeight: 600, lineHeight: 1.15, overflowWrap: "anywhere" }}>{o.value}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+          <span style={{ flex: 1, minWidth: 0, color: C.textXS, fontSize: 12 }}>{o.note}</span>
+          {mob && chip}
+        </div>
       </div>
-      <div style={{ color: o.color ?? C.textH, fontSize: mob ? 22 : 27, fontWeight: 600, lineHeight: 1.15 }}>{o.value}</div>
-      <div style={{ color: C.textXS, fontSize: 12 }}>{o.note}</div>
-    </div>
-  );
+    );
+  };
 
   const statsRow = (
     <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
@@ -908,7 +924,7 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         <h3 id="dash-quick" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Quick tasks</h3>
         <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>Start a common task</div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 10, padding: 16 }}>
         {quickTask("plus", "Walk-in", "Create booking", () => setOpen({ kind: "walkin" }))}
         {quickTask("cash", "Payment", "Add guest payment", () => setOpen({ kind: "paynew" }))}
         {quickTask("receipt", "Cost", "Add money spent", () => onGoTab?.("Sales"))}
@@ -937,12 +953,12 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
         </div>
         {onGoTab && (
           <button type="button" onClick={() => onGoTab("Reports")}
-            style={{ background: "none", border: "none", padding: 4, color: C.goldInk, fontSize: 12.5, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            style={{ background: "none", border: "none", padding: 4, color: C.goldInk, fontSize: 12.5, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, minHeight: TAP_MIN, flex: mob ? "1 0 100%" : "0 0 auto", justifyContent: mob ? "flex-start" : undefined }}>
             View full report <Icon name="arrow-right" size={13} />
           </button>
         )}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(3,minmax(0,1fr))", gap: 16, padding: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))", gap: mob ? 12 : 16, padding: 16 }}>
         {moneyFigure("Money received this month", fmt(receivedMonth), "Includes today's payments", "#2e9e4e")}
         {moneyFigure("Money spent this month", fmt(spentMonth), receivedMonth > 0 ? `${Math.round((spentMonth / receivedMonth) * 100)}% of the money received` : "No income yet this month")}
         {moneyFigure("Money left this month", fmt(leftMonth),
@@ -1006,13 +1022,13 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
           </div>
           {onGoTab && (
             <button type="button" onClick={() => onGoTab("Occupancy")}
-              style={{ background: "none", border: "none", padding: 4, color: C.goldInk, fontSize: 12.5, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              style={{ background: "none", border: "none", padding: 4, color: C.goldInk, fontSize: 12.5, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, minHeight: TAP_MIN, flex: mob ? "1 0 100%" : "0 0 auto", justifyContent: mob ? "flex-start" : undefined }}>
               Open booking calendar <Icon name="arrow-right" size={13} />
             </button>
           )}
         </div>
 
-        <div style={{ padding: 16 }}>
+        <div style={{ padding: mob ? 12 : 16 }}>
           {/* ── Find a guest ── */}
           <div style={{ position: "relative", maxWidth: 420, marginBottom: 16 }}>
             <Icon name="search" size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: 0.5, color: C.textH }} />
@@ -1036,8 +1052,8 @@ export function OperationsTab({ bookings, setBookings, rooms, packages, faciliti
           ) : (
             <ViewSwitcherTabs<OpsView> value={view} onChange={setView} views={[
               { value: "today", label: `Today (${todayCards.length})`, content: todayPanel },
-              { value: "upcoming", label: `Coming up (${upcoming.length})`, content: upcomingPanel },
               { value: "done", label: `Done today (${doneToday.length})`, content: donePanel },
+              { value: "upcoming", label: `Coming up (${upcoming.length})`, content: upcomingPanel },
               { value: "reschedule", label: `Date changes (${pendingMoves.length})`, content: reschedulePanel },
             ]} />
           )}

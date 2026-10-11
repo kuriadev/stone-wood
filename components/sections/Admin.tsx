@@ -52,6 +52,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { getPackageTier, checkBookingAvailability, isRoomOpen, roomsTakenOn, bookingCoversDate, bookingDates } from "@/lib/utils";
+import { compressImage } from "@/lib/image";
+import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { priceBooking, bookingLabel } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
 import { sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail, RESORT_MAX_CAPACITY, ROOM_BUNDLE_DISCOUNT_PCT, OVERTIME_MAX, OVERTIME_RATE, GALLERY_MAX } from "@/lib/validators";
@@ -247,6 +249,15 @@ export function Admin({
   /* What the sidebar prints. The keys stay "Occupancy" and "Activity"
      because those strings are the tab ids every switch in this file routes
      on; only the label the staff read changes. */
+  /* Signed out after 30 minutes of the admin not touching anything. The
+     server stops honouring the cookie at the same moment (IDLE_TTL_MS in
+     lib/auth.ts); this is what makes it happen tidily, with a warning and
+     a reason, instead of as a sudden wall of 401s. */
+  const idle = useIdleLogout(true, () => {
+    toast("Signed out after 30 minutes of inactivity.", "info");
+    onLogout();
+  });
+
   const tabLabels: Record<string, string> = ADMIN_TAB_LABEL;
 
   const tabIcons: Record<AdminTab, IconName> = {
@@ -400,14 +411,23 @@ export function Admin({
     const idx = replaceGalleryAt.current;
     e.target.value = "";
     if (!file || idx === null) return;
-    const rd = new FileReader();
-    rd.onload = (ev) => {
-      setGalleryImgs((g) => g.map((src, i) => (i === idx ? (ev.target?.result as string) : src)));
-      toast("Photo replaced.", "success");
-    };
-    rd.readAsDataURL(file);
+    /* Shrunk before it is stored. A phone photo read straight through is
+       several MB of data URL; the server refuses anything over
+       MAX_IMAGE_CHARS, and it used to silently truncate instead. */
+    void compressImage(file)
+      .then((src) => {
+        setGalleryImgs((g) => g.map((old, i) => (i === idx ? src : old)));
+        toast("Photo replaced.", "success");
+      })
+      .catch((err: Error) => toast(err.message, "error"));
   };
-  const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => { Array.from(e.target.files || []).forEach((f) => { const rd = new FileReader(); rd.onload = (ev) => { setGalleryImgs((g) => [...g, ev.target?.result as string]); toast("Photo added.", "success"); }; rd.readAsDataURL(f); }); };
+  const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    Array.from(e.target.files || []).forEach((f) => {
+      void compressImage(f)
+        .then((src) => { setGalleryImgs((g) => [...g, src]); toast("Photo added.", "success"); })
+        .catch((err: Error) => toast(err.message, "error"));
+    });
+  };
   /* Stamping archivedAt is the whole operation: useDbCollection's sync
      spots the change and PATCHes /api/customer-service, and the two views
      re-derive themselves. */
@@ -865,6 +885,23 @@ export function Admin({
             the bottom-right corner. Without it the last row of any admin
             table sits under the button with no way to scroll it clear. */}
         <div style={{ flex: 1, padding: mob ? "20px 16px" : "40px", paddingBottom: mob ? 96 : 104, overflowY: "auto", minHeight: 0, minWidth: 0, background: adminBg }}>
+
+          {/* About to be signed out. Any click, key or scroll cancels it —
+              the same events that keep the session alive. */}
+          {idle.warning && (
+            <div role="status" style={{
+              display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+              marginBottom: 16, padding: "12px 16px", borderRadius: 10,
+              background: "rgba(212,168,0,0.10)", border: "1px solid rgba(212,168,0,0.35)",
+              color: C.textB, fontSize: 13.5,
+            }}>
+              <Icon name="clock" size={16} style={{ color: "#d4a800", flexShrink: 0 }} />
+              <span style={{ flex: 1, minWidth: 0 }}>
+                You&rsquo;ve been inactive for nearly {idle.minutes} minutes and will be signed out shortly.
+              </span>
+              <span style={{ color: C.textS, fontSize: 12.5 }}>Move the mouse or press a key to stay signed in.</span>
+            </div>
+          )}
 
           {/* DASHBOARD — the home screen */}
           {tab === "Operations" && (

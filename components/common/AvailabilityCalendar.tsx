@@ -1,16 +1,30 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { m } from "motion/react";
 import { gold } from "@/lib/styles";
-import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS } from "@/lib/validators";
+import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS, MAX_STAY_DAYS } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
 import { checkBookingAvailability, holdsDate } from "@/lib/utils";
+
+/** `ds` shifted by `n` days, in UTC so it cannot drift across a timezone. */
+const addDays = (ds: string, n: number) =>
+  new Date(Date.parse(`${ds}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
+const daysApart = (from: string, to: string) =>
+  Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 
 interface AvailabilityCalendarProps {
   bookings: Booking[];
   closedDates?: string[];
   onSelectDate: (ds: string) => void;
   selectedDate?: string;
+  /** Last day of the stay. Only meaningful alongside `onSelectRange`. */
+  endDate?: string;
+  /** Supply this to turn the calendar into a RANGE picker: click a first
+   *  day, then a last one. Without it the calendar stays single-date, which
+   *  is what moving an existing booking needs (admin MoveBookingModal). */
+  onSelectRange?: (from: string, to: string) => void;
 }
 
 export function AvailabilityCalendar({
@@ -18,7 +32,15 @@ export function AvailabilityCalendar({
   closedDates = [],
   onSelectDate,
   selectedDate,
+  endDate = "",
+  onSelectRange,
 }: AvailabilityCalendarProps) {
+  /* Range mode is opt-in: the home page picks a stay, the admin's move
+     window picks one new date. */
+  const range = !!onSelectRange;
+  /* True once a first day is down and the next click sets the last day. */
+  const [picking, setPicking] = useState(false);
+  const [hover, setHover] = useState("");
   // The calendar depends on the *browser's* current date. Computing that during
   // SSR produces HTML that can disagree with what the client builds (different
   // timezone / the day rolling over), which React reports as a hydration
@@ -62,6 +84,42 @@ export function AvailabilityCalendar({
     return full;
   }, [bookings]);
   const closedSet = useMemo(() => new Set(closedDates), [closedDates]);
+
+  /* The furthest day this stay may reach: MAX_STAY_DAYS long at most, and
+     stopping short of the first booked or closed day, so a range can never
+     straddle one. Null when no stay is being picked. */
+  const maxStr = toDateStr(maxDate);
+  const rangeLimit = useMemo(() => {
+    if (!range || !picking || !selectedDate) return null;
+    let last = selectedDate;
+    for (let i = 1; i < MAX_STAY_DAYS; i++) {
+      const next = addDays(selectedDate, i);
+      if (next > maxStr) break;
+      if (bookedDates.has(next) || closedSet.has(next)) break;
+      last = next;
+    }
+    return last;
+  }, [range, picking, selectedDate, bookedDates, closedSet, maxStr]);
+
+  /* What the stay looks like right now, including the day being hovered
+     while the last day is still being chosen. */
+  const previewEnd = !range || !selectedDate
+    ? selectedDate ?? ""
+    : picking && hover && hover > selectedDate && rangeLimit && hover <= rangeLimit
+      ? hover
+      : endDate && endDate > selectedDate ? endDate : selectedDate;
+
+  const pick = (ds: string) => {
+    if (!range || !onSelectRange) { onSelectDate(ds); return; }
+    // Starting again: no stay in progress, or a day on/before the first one.
+    if (!picking || !selectedDate || ds <= selectedDate) {
+      onSelectRange(ds, ds);
+      setPicking(true);
+      return;
+    }
+    onSelectRange(selectedDate, ds);
+    setPicking(false);
+  };
 
   const year = calMonth ? calMonth.getFullYear() : minDate.getFullYear();
   const month = calMonth ? calMonth.getMonth() : minDate.getMonth();
@@ -228,8 +286,21 @@ export function AvailabilityCalendar({
           const bookable = !isPast && !isBeyond;
           const isBooked = bookable && bookedDates.has(ds);
           const isClosed = bookable && closedSet.has(ds);
-          const isSel = selectedDate === ds;
-          const disabled = isPast || isBeyond || isBooked || isClosed;
+          /* Out of reach of the stay being picked: too far ahead, or past a
+             booked day the stay cannot jump. Still available in itself, so
+             it is dimmed rather than painted as taken. */
+          const beyondStay = !!rangeLimit && bookable && !!selectedDate && ds > rangeLimit && ds > selectedDate;
+          const isStart = !!selectedDate && ds === selectedDate;
+          const isEnd = !!previewEnd && previewEnd !== selectedDate && ds === previewEnd;
+          const inRange = !!selectedDate && !!previewEnd && ds > selectedDate && ds < previewEnd;
+          const isSel = isStart || isEnd;
+          const disabled = isPast || isBeyond || isBooked || isClosed || beyondStay;
+          /* The connecting line is drawn in segments, one per day of the
+             stay, each scaling in a beat after the one before it so the
+             stay appears to be drawn from its first day to its last. */
+          const onLine = !!selectedDate && !!previewEnd && previewEnd !== selectedDate && ds >= selectedDate && ds <= previewEnd;
+          const legIndex = onLine ? daysApart(selectedDate, ds) : 0;
+          const weekday = dayDate.getDay();
 
           // ── Available (default): green tint ─────────────────────────────
           let bg  = "rgba(76,175,80,0.12)";
@@ -262,16 +333,30 @@ export function AvailabilityCalendar({
           // brighter rim and white text. Keeping it in the green family means
           // "available" and "the one you picked" read as one idea rather than
           // two unrelated colours.
-          if (isSel)    { bg = "#2b6b30";                col = "#ffffff";                bdr = "1px solid #5cb85c"; }
+          if (beyondStay) { cur = "not-allowed"; dim = true; }
+          /* The stay is the same green stated louder: a band for the days
+             between, solid tiles at the two ends. */
+          if (inRange)  { bg = "rgba(76,175,80,0.28)";  col = "#dff5df";                bdr = "1px solid rgba(76,175,80,0.45)"; }
+          if (isSel)    { bg = "#2b6b30";                col = "#ffffff";                bdr = "1px solid #5cb85c"; dim = false; }
 
           return (
             <button
               key={d}
               type="button"
-              onClick={() => !disabled && onSelectDate(ds)}
+              onClick={() => !disabled && pick(ds)}
+              onMouseEnter={() => range && setHover(ds)}
+              onFocus={() => range && setHover(ds)}
               disabled={disabled}
-              aria-label={`${ds}${isBooked ? " — booked" : isClosed ? " — closed" : isPast || isBeyond ? " — unavailable" : " — available"}`}
-              aria-pressed={isSel}
+              aria-label={`${ds}${
+                isStart && previewEnd !== selectedDate ? " — first day of your stay"
+                : isEnd ? " — last day of your stay"
+                : inRange ? " — part of your stay"
+                : isBooked ? " — booked"
+                : isClosed ? " — closed"
+                : isPast || isBeyond ? " — unavailable"
+                : beyondStay ? ` — too far for one stay (up to ${MAX_STAY_DAYS} days)`
+                : " — available"}`}
+              aria-pressed={isSel || inRange}
               title={
                 isPast
                   ? "Past date"
@@ -281,9 +366,14 @@ export function AvailabilityCalendar({
                   ? "Booked"
                   : isClosed
                   ? "Not available"
+                  : beyondStay
+                  ? `A stay can run for up to ${MAX_STAY_DAYS} days in a row`
+                  : range && picking
+                  ? "Click to make this your last day"
                   : "Available"
               }
               style={{
+                position: "relative",
                 textAlign: "center",
                 padding: "8px 4px",
                 borderRadius: 10,
@@ -303,6 +393,34 @@ export function AvailabilityCalendar({
               }}
             >
               {d}
+              {/* ── The line that joins the first day to the last ──
+                  One segment per day, bleeding 6px past the tile on each
+                  side to cross the grid gap, and clipped at the week's
+                  edges so it never runs off the calendar. Each segment
+                  scales out from its left edge a beat after the one before,
+                  which is what makes the stay look drawn rather than
+                  switched on. transform only: no layout, no repaint storm,
+                  and MotionConfig's reducedMotion="user" turns it into an
+                  instant state for anyone who asks for that. */}
+              {onLine && (
+                <m.span
+                  aria-hidden
+                  initial={{ scaleX: 0, opacity: 0 }}
+                  animate={{ scaleX: 1, opacity: 1 }}
+                  transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1], delay: legIndex * 0.07 }}
+                  style={{
+                    position: "absolute",
+                    bottom: 6,
+                    left: isStart ? "50%" : weekday === 0 ? 0 : -6,
+                    right: ds === previewEnd ? "50%" : weekday === 6 ? 0 : -6,
+                    height: 3,
+                    borderRadius: 2,
+                    background: "#7fd48a",
+                    transformOrigin: "left center",
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
             </button>
           );
         })}
