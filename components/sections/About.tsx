@@ -333,6 +333,13 @@ export function About({
           e.currentTarget.style.boxShadow = "none";
         }}
         style={{
+          /* Fills the Reveal wrapper, which is the grid item. Without this
+             the card is a flex item at its default `auto` basis, so it
+             shrank to the width of its own longest bullet and the three
+             equal 1fr columns ended up holding three different-width
+             cards. */
+          flex: 1,
+          minWidth: 0,
           padding: mob ? "20px 20px" : "28px 24px",
           borderRadius: 16,
           background: C.bgCard,
