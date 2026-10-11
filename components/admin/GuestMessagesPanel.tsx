@@ -71,8 +71,12 @@ export function GuestMessagesPanel({
 
   const countOf = (t: string) => base.filter((m) => m.type === t).length;
 
+  /* The label doubles as the React key: the chips are rendered from a map,
+     and a helper that returns an element has to set the key itself — the
+     call site cannot add one afterwards. */
   const pill = (label: string, on: boolean, onClick: () => void, n?: number) => (
     <button
+      key={label}
       type="button" onClick={onClick} aria-pressed={on} className="sw-hit"
       style={{
         padding: "6px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer",
