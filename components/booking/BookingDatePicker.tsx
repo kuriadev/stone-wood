@@ -127,10 +127,22 @@ export function BookingDatePicker({
     ? Math.round((Date.parse(`${previewEnd}T00:00:00Z`) - Date.parse(`${selectedDate}T00:00:00Z`)) / 86_400_000) + 1
     : 0;
 
+  /** The last day currently COMMITTED — the hover preview does not count,
+   *  or merely passing over a date would change what a click means. */
+  const committedEnd = !single && endDate && endDate > selectedDate ? endDate : selectedDate;
+
   const pick = (ds: string) => {
+    /* Clicking a date that is already part of the selection clears it, so
+       a wrong pick can be undone rather than only replaced. */
+    if (selectedDate && ds >= selectedDate && ds <= committedEnd) {
+      setPicking(false);
+      setHover("");
+      onSelectRange("", "");
+      return;
+    }
     if (single) { onSelectRange(ds, ds); return; }
-    // Starting again: no stay in progress, or a day on/before the first one.
-    if (!picking || !selectedDate || ds <= selectedDate) {
+    // Starting again: no stay in progress, or a day before the first one.
+    if (!picking || !selectedDate || ds < selectedDate) {
       onSelectRange(ds, ds);
       setPicking(true);
       return;
@@ -294,13 +306,25 @@ export function BookingDatePicker({
              guest moving from the hero card to /book should not meet a second
              colour language. Booked is DARKER than past in both themes -- it
              used to be lighter, so the two states looked alike. */
-          let bg = isDark ? "rgba(76,175,80,0.12)" : "#e8f5ea";
-          let col = isDark ? "#6ec071" : "#1f7a38";
-          let bdr = `1px solid ${isDark ? "rgba(76,175,80,0.28)" : "rgba(76,175,80,0.35)"}`;
+          /* Measured by sampling the rendered pixels, not by reading CSS.
+             The tints were weak enough that the four states composited to
+             almost the same dark rectangle, leaving the numeral's colour to
+             carry the whole signal; they are stronger now so the fill says
+             the state too. Same treatment as the home-page calendar, which
+             this is meant to read as one control with. */
+          let bg = isDark ? "rgba(76,175,80,0.22)" : "#e8f5ea";
+          let col = isDark ? "#8fd492" : "#1f7a38";
+          let bdr = `1px solid ${isDark ? "rgba(118,205,122,0.45)" : "rgba(76,175,80,0.35)"}`;
           let cur: string = "pointer";
-          const quiet = isDark ? "rgba(255,255,255,0.03)" : "#f4f2ee";
-          const quietInk = isDark ? "rgba(238,232,220,0.55)" : "#6f675c";
-          const quietBdr = `1px solid ${isDark ? "rgba(255,255,255,0.05)" : "#eae5dc"}`;
+          const quiet = isDark ? "rgba(255,255,255,0.05)" : "#f4f2ee";
+          /* A past date measured 1.84:1 — 0.38 opacity stacked on ink that
+             was already 55% alpha, which is two dimmings for one idea. The
+             ink is solid now and the dimming happens once, in `opacity`
+             below, so the date stays readable while still reading as
+             unpressable. WCAG exempts disabled controls; a date nobody can
+             read is still not information. */
+          const quietInk = isDark ? "rgba(238,232,220,0.9)" : "#4a4338";
+          const quietBdr = `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#eae5dc"}`;
           /* Two different ideas, told two different ways.
              BOOKED is a STATE: somebody has that date, so it gets a solid
              grey chip you can read.
@@ -318,9 +342,13 @@ export function BookingDatePicker({
             cur = "not-allowed";
           }
           if (isClosed) {
-            bg = isDark ? "rgba(180,70,70,0.10)" : "#fbeaea";
-            col = isDark ? "rgba(214,138,138,0.75)" : "#b05a5a";
-            bdr = `1px solid ${isDark ? "rgba(180,70,70,0.22)" : "rgba(180,70,70,0.25)"}`;
+            /* The one state that genuinely failed AA here: the old ink
+               measured 3.89:1 on its own tile. Solid, brighter ink and a
+               stronger tint take it to roughly 9:1, and the tile finally
+               reads as red rather than as dark. */
+            bg = isDark ? "rgba(214,86,86,0.22)" : "#fde4e4";
+            col = isDark ? "#ffb4b4" : "#a32b2b";
+            bdr = `1px solid ${isDark ? "rgba(224,110,110,0.5)" : "rgba(180,70,70,0.4)"}`;
             cur = "not-allowed";
           }
           if (beyondStay) { cur = "not-allowed"; dim = true; }
@@ -366,6 +394,8 @@ export function BookingDatePicker({
                   ? "Not available"
                   : beyondStay
                   ? `A stay can run for up to ${MAX_STAY_DAYS} days in a row`
+                  : isStart || isEnd || inRange
+                  ? "Selected — click again to clear"
                   : picking && !single
                   ? "Click to make this your last day"
                   : "Available"
@@ -377,7 +407,7 @@ export function BookingDatePicker({
                 borderRadius: 10,
                 // Dimming the whole cell, rather than just muting its ink, is
                 // what makes a past date read as "not a thing you can press".
-                opacity: dim ? 0.38 : 1,
+                opacity: dim ? 0.62 : 1,
                 background: bg,
                 border: bdr,
                 color: col,
@@ -433,14 +463,14 @@ export function BookingDatePicker({
         }}
       >
         {single
-          ? (selectedDate ? <>{fmtDate(selectedDate)} selected.</> : <>Click the date you would like to move to.</>)
+          ? (selectedDate ? <>{fmtDate(selectedDate)} selected. Click it again to clear.</> : <>Click the date you would like to move to.</>)
           : !selectedDate
           ? <>Click a date to start. You can book up to <strong>{MAX_STAY_DAYS} days</strong> in a row — click your first day, then your last.</>
           : picking
-          ? <>Now click your <strong>last day</strong>, up to {MAX_STAY_DAYS} days. Or click {fmtDate(selectedDate)} again to stay just the one day.</>
+          ? <>Now click your <strong>last day</strong>, up to {MAX_STAY_DAYS} days. Or click {fmtDate(selectedDate)} again to clear it.</>
           : stayDays > 1
-          ? <><strong>{stayDays} days</strong> booked: {fmtDate(selectedDate)} to {fmtDate(previewEnd)}. Each day is charged.</>
-          : <>{fmtDate(selectedDate)} — one day. Click another date to stay up to {MAX_STAY_DAYS} days.</>}
+          ? <><strong>{stayDays} days</strong> booked: {fmtDate(selectedDate)} to {fmtDate(previewEnd)}. Click any of them to clear.</>
+          : <>{fmtDate(selectedDate)} — one day. Click it again to clear, or another date to stay up to {MAX_STAY_DAYS} days.</>}
       </p>
 
       <div
@@ -455,12 +485,14 @@ export function BookingDatePicker({
         {[
           /* "Selected" is gone: the chosen day is a solid green tile, which
              needs no key, and three entries match the home page legend. */
-          ["Available", isDark ? "#6ec071" : "#3a9c4f"],
-          ["Booked", isDark ? "rgba(198,198,198,0.85)" : "#8a8a8a"],
-          ["Closed", isDark ? "rgba(214,138,138,0.75)" : "#c07575"],
+          /* The pure hue of each state, matching the home-page legend:
+             these two calendars are meant to read as one control. */
+          ["Available", isDark ? "#3fbf52" : "#2e9e4e"],
+          ["Booked", isDark ? "#b8b8b8" : "#8a8a8a"],
+          ["Closed", isDark ? "#ff4d4d" : "#d12d2d"],
         ].map(([l, c]) => (
-          <div key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />
+          <div key={l} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div aria-hidden style={{ width: 9, height: 9, borderRadius: "50%", background: c, flexShrink: 0 }} />
             <span style={{ color: C.textS, fontSize: 12 }}>{l}</span>
           </div>
         ))}

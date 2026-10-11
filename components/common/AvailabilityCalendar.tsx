@@ -109,10 +109,25 @@ export function AvailabilityCalendar({
       ? hover
       : endDate && endDate > selectedDate ? endDate : selectedDate;
 
+  /** The last day currently COMMITTED — the hover preview does not count,
+   *  or merely passing over a date would change what a click means. */
+  const committedEnd = range && endDate && endDate > selectedDate! ? endDate : selectedDate;
+
   const pick = (ds: string) => {
+    /* Clicking a date that is already part of the selection clears it.
+       A tile that looks chosen should come unchosen when pressed again —
+       otherwise the only way out of a wrong date is to pick another one,
+       and there is no way back to "no date at all". */
+    if (selectedDate && ds >= selectedDate && ds <= (committedEnd || selectedDate)) {
+      setPicking(false);
+      setHover("");
+      if (range && onSelectRange) onSelectRange("", "");
+      else onSelectDate("");
+      return;
+    }
     if (!range || !onSelectRange) { onSelectDate(ds); return; }
-    // Starting again: no stay in progress, or a day on/before the first one.
-    if (!picking || !selectedDate || ds <= selectedDate) {
+    // Starting again: no stay in progress, or a day before the first one.
+    if (!picking || !selectedDate || ds < selectedDate) {
       onSelectRange(ds, ds);
       setPicking(true);
       return;
@@ -302,11 +317,19 @@ export function AvailabilityCalendar({
           const legIndex = onLine ? daysApart(selectedDate, ds) : 0;
           const weekday = dayDate.getDay();
 
-          // ── Available (default): green tint ─────────────────────────────
-          let bg  = "rgba(76,175,80,0.12)";
+          /* ── Available (default): green tint ──
+             The tints were once 10–12% alpha. Over the hero PHOTO that
+             composited to rgb(18,27,13) for available and rgb(23,13,12) for
+             closed — 1.08:1 apart, so measured by pixel the four states were
+             the same near-black rectangle and only the numeral's colour told
+             them apart. The alpha is now high enough that the fill itself
+             carries the state. Text contrast was never the problem here and
+             is unchanged: available measured 11.18:1, booked 13.25:1 and
+             closed 12.81:1 against their own tiles. */
+          let bg  = "rgba(76,175,80,0.26)";
           // 4.85:1 on the scrim this calendar sits on. #6ec071 was 3.44:1.
           let col = "#9ade9a";
-          let bdr = "1px solid rgba(76,175,80,0.28)";
+          let bdr = "1px solid rgba(118,205,122,0.5)";
           let cur: string = "pointer";
 
           // Unavailable states stay quiet: a neutral tile for past, out of
@@ -318,17 +341,26 @@ export function AvailabilityCalendar({
              option, so they keep the neutral tile and are dimmed by opacity
              instead. Painting both of them grey is what made them
              indistinguishable. */
+          /* A past or out-of-range date measured 1.75:1 — a 0.38 opacity
+             applied on top of ink that was already 55% alpha. WCAG exempts
+             disabled controls, so it was not a violation, but a date nobody
+             can read is not information either. The dimming now comes from
+             ONE place (a higher opacity, below) with solid ink, so the date
+             stays legible while still reading as unpressable. */
           let dim = false;
-          if (isPast)   { bg = "rgba(255,255,255,0.04)"; col = "rgba(238,232,220,0.55)"; bdr = "1px solid rgba(255,255,255,0.06)"; cur = "default";     dim = true; }
-          if (isBeyond) { bg = "rgba(255,255,255,0.04)"; col = "rgba(238,232,220,0.55)"; bdr = "1px solid rgba(255,255,255,0.06)"; cur = "not-allowed"; dim = true; }
+          if (isPast)   { bg = "rgba(255,255,255,0.05)"; col = "rgba(238,232,220,0.92)"; bdr = "1px solid rgba(255,255,255,0.08)"; cur = "default";     dim = true; }
+          if (isBeyond) { bg = "rgba(255,255,255,0.05)"; col = "rgba(238,232,220,0.92)"; bdr = "1px solid rgba(255,255,255,0.08)"; cur = "not-allowed"; dim = true; }
           /* Booked started as near-white ink on a 42% white chip: 3.63:1, too
              low. Making the CHIP light fixed the number and broke the panel --
              two solid white blocks shouted louder than any available date, so
              the eye went straight to the dates you cannot have.
              The ink is what gets lightened instead. A quiet dark chip, like
              every other unavailable state, with near-white text on it. */
-          if (isBooked) { bg = "rgba(255,255,255,0.10)"; col = "rgba(245,242,236,0.95)"; bdr = "1px solid rgba(255,255,255,0.22)"; cur = "not-allowed"; }
-          if (isClosed) { bg = "rgba(180,70,70,0.10)";   col = "#f5c9c9"; bdr = "1px solid rgba(180,70,70,0.22)";  cur = "not-allowed"; }
+          if (isBooked) { bg = "rgba(255,255,255,0.20)"; col = "rgba(245,242,236,0.95)"; bdr = "1px solid rgba(255,255,255,0.34)"; cur = "not-allowed"; }
+          /* A touch more chroma in both the fill and the ink, so a closed
+             date reads as red rather than as "dark". #f5c9c9 was so pale it
+             was carrying the whole signal on its own. */
+          if (isClosed) { bg = "rgba(214,86,86,0.26)";    col = "#ffb4b4"; bdr = "1px solid rgba(224,110,110,0.55)"; cur = "not-allowed"; }
           // The selection is the same green, stated louder: solid fill, a
           // brighter rim and white text. Keeping it in the green family means
           // "available" and "the one you picked" read as one idea rather than
@@ -368,6 +400,8 @@ export function AvailabilityCalendar({
                   ? "Not available"
                   : beyondStay
                   ? `A stay can run for up to ${MAX_STAY_DAYS} days in a row`
+                  : isStart || isEnd || inRange
+                  ? "Selected — click again to clear"
                   : range && picking
                   ? "Click to make this your last day"
                   : "Available"
@@ -379,7 +413,7 @@ export function AvailabilityCalendar({
                 borderRadius: 10,
                 // Dimming the whole cell, rather than just muting its ink, is
                 // what makes a past date read as "not a thing you can press".
-                opacity: dim ? 0.38 : 1,
+                opacity: dim ? 0.62 : 1,
                 background: bg,
                 border: bdr,
                 color: col,
@@ -439,14 +473,19 @@ export function AvailabilityCalendar({
           alignItems: "center",
         }}
       >
+        {/* The swatches are the PURE hue of each state, not the pale ink
+            the tiles print their numerals in. The tints are translucent, so
+            a swatch matching them exactly came out as a pastel that read as
+            "greyish" at 8px. Contrast was never the problem (these measured
+            11.8-16.0:1 as pastels); naming the HUE on sight was. */}
         {[
-          ["Available", "#9ade9a"],
-          ["Booked",    "rgba(245,242,236,0.95)"],
-          ["Closed",    "#f5c9c9"],
+          ["Available", "#3fbf52"],
+          ["Booked",    "#b8b8b8"],
+          ["Closed",    "#ff4d4d"],
         ].map(([l, c]) => (
-          <div key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />
-            <span style={{ color: "rgba(238,232,220,0.5)", fontSize: 12 }}>{l}</span>
+          <div key={l} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div aria-hidden style={{ width: 9, height: 9, borderRadius: "50%", background: c, flexShrink: 0 }} />
+            <span style={{ color: "rgba(238,232,220,0.78)", fontSize: 12 }}>{l}</span>
           </div>
         ))}
       </div>
