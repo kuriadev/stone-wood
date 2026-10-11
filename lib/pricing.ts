@@ -20,6 +20,10 @@
 //     10% Bundle: Whole Day, or Pool (exclusive) + Venue. Applies to the
 //         pool + venue part and replaces the 5%.
 //     8%  A room booked as part of a package.
+//     15% Every day of a stay AFTER the first. This one is on a different
+//         axis from the others — they discount a PART of a day's price,
+//         this discounts the repeat of a whole day — so it stacks with
+//         them rather than replacing them.
 //
 // Whole Day ₱12,000 → ₱10,800. Party (pool + venue, one slot) ₱11,000 →
 // ₱9,900. Grand (pool + venue, Whole Day) ₱22,000 → ₱19,800.
@@ -32,9 +36,10 @@ import {
   EXCLUSIVE_DISCOUNT_PCT,
   PACKAGE_BUNDLE_DISCOUNT_PCT,
   ROOM_BUNDLE_DISCOUNT_PCT,
+  MULTI_DAY_DISCOUNT_PCT,
   OVERTIME_RATE,
 } from "@/lib/validators";
-import { SLOTS } from "@/lib/resort";
+import { SLOTS, multiDayProblem } from "@/lib/resort";
 
 export { OVERTIME_RATE };
 
@@ -51,7 +56,8 @@ export interface PriceInput {
   roomPrices: number[];
   /** How many days the stay runs for. 1 (the default) is a single day.
    *  The tour and the rooms are charged for each day; overtime is not,
-   *  because staff add it once, on the day it actually happened. */
+   *  because staff add it once, on the day it actually happened. Days
+   *  after the first carry MULTI_DAY_DISCOUNT_PCT. */
   days?: number;
 }
 
@@ -69,6 +75,8 @@ export interface PriceBreakdown {
   roomsFeeRaw: number;
   roomBundleDiscount: number;
   roomsFee: number;
+  /** 15% off every day of the stay after the first. 0 for one day. */
+  stayDiscount: number;
   total: number;
   /** 50% down payment, rounded up to the peso. */
   down: number;
@@ -82,12 +90,30 @@ export interface PriceBreakdown {
   tourBase: number;
 }
 
-/** Is this combination offered at all? Returns a reason when it isn't. */
-export function pricingProblem(resource: BookingResource, tier: BookingTier, slot: BookingSlot): string | null {
-  if (slot === "WholeDay" && resource !== "Venue" && tier === "Shared") {
-    return "Whole Day is only offered as an Exclusive booking.";
-  }
-  return null;
+/** Is this combination offered at all? Returns a reason when it isn't.
+ *
+ *  `days` defaults to 1 so the call sites that only validate a shape (the
+ *  Packages admin, /api/packages) need not pass it.
+ *
+ *  Whole Day USED TO BE refused unless Exclusive. That rule turned the new
+ *  multi-date flow into a trap: picking three days moves a booking to the
+ *  Whole Day, which then forced a ₱10,800-a-day whole-resort buyout on a
+ *  family of six who only wanted the pool. A Whole Day is two slots, so
+ *  Shared simply means both of them are shared — the pool still fills to
+ *  the same capacity with other groups, and the resort still sells the
+ *  date. It is now offered at both tiers, and getPackageTier picks the
+ *  cheaper one for the group's size (Shared stops being cheaper at 27
+ *  guests, where 2 x ₱200 a head passes the ₱10,800 flat rate).
+ *
+ *  To put the old rule back, restore the refusal here — nothing else
+ *  depends on it. */
+export function pricingProblem(
+  resource: BookingResource,
+  tier: BookingTier,
+  slot: BookingSlot,
+  days = 1
+): string | null {
+  return multiDayProblem(slot, days);
 }
 
 export function priceBooking(input: PriceInput): PriceBreakdown {
@@ -125,7 +151,11 @@ export function priceBooking(input: PriceInput): PriceBreakdown {
   const stayFee = pkg ? pkg.price : poolFee + venueFee - bundleDiscount - exclusiveDiscount;
 
   const perDay = stayFee + roomsFee;
-  const total = perDay * days + overtimeFee;
+  // Days after the first are sold at the stay rate. Taken off the whole
+  // of each extra day (tour and room together) rather than off one part,
+  // because what is being discounted is the repeat itself.
+  const stayDiscount = Math.round(perDay * Math.max(0, days - 1) * MULTI_DAY_DISCOUNT_PCT);
+  const total = perDay * days - stayDiscount + overtimeFee;
   return {
     poolFee: pkg ? 0 : poolFee * days,
     venueFee: pkg ? 0 : venueFee * days,
@@ -135,6 +165,7 @@ export function priceBooking(input: PriceInput): PriceBreakdown {
     roomsFeeRaw: roomsFeeRaw * days,
     roomBundleDiscount: roomBundleDiscount * days,
     roomsFee: roomsFee * days,
+    stayDiscount,
     total,
     down: Math.ceil(total / 2),
     slots,

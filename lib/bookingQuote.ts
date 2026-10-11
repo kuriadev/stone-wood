@@ -19,12 +19,13 @@ import {
 } from "@/lib/utils";
 import { priceBooking, bookingLabel, pricingProblem, type PriceBreakdown } from "@/lib/pricing";
 import {
-  GUESTS_MIN, GUESTS_MAX, RESORT_MAX_CAPACITY,
+  GUESTS_MIN, GUESTS_MAX,
   isValidEmail, isValidName, isValidPHNumber,
   sanitizeName, sanitizeContact, sanitizeNotes,
   isWithinBookingWindow, describeDateProblem, MAX_STAY_DAYS,
 } from "@/lib/validators";
 import { bookingsOverlapping } from "@/lib/rebooking.server";
+import { multiDayProblem } from "@/lib/resort";
 import type { BookingRow, FacilityRow, PackageRow, RoomRow } from "@/types/database";
 import type { BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 
@@ -152,6 +153,11 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
     // Day or Night the guest picked (never Whole Day).
     if (p.slotMode === "WholeDay") slot = "WholeDay";
     else if (slot === "WholeDay") return bad("Pick the Day or Night for this package.");
+    // A single-slot package is a single-date visit, like the tour it is
+    // built on. Checked here as well as for custom bookings, because the
+    // package branch skips pricingProblem entirely.
+    const packageStay = multiDayProblem(slot, stayDays);
+    if (packageStay) return bad(packageStay);
 
     if (pkg.requiresRoom && roomIds.length !== 1) return bad("This package needs exactly one room.");
     if (!pkg.requiresRoom && roomIds.length > 0) return bad("This package doesn't include a room.");
@@ -169,9 +175,15 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
     if (!Number.isFinite(guests) || guests < GUESTS_MIN || guests > GUESTS_MAX) {
       return bad(`Guests must be between ${GUESTS_MIN} and ${GUESTS_MAX}.`);
     }
-    if (resource !== "Venue" && tier === "Exclusive") guests = RESORT_MAX_CAPACITY;
+    /* An Exclusive booking's guest count is the guest's own, between
+       GUESTS_MIN and GUESTS_MAX (checked just above). It used to be
+       overwritten with RESORT_MAX_CAPACITY here, which silently threw away
+       what the guest typed and recorded 30 arrivals for every buyout. The
+       price does not depend on it — EXCLUSIVE_FLAT_RATE is flat — so there
+       was never a pricing reason to force it, and staff were being handed
+       the wrong number to prepare for. */
 
-    const notOffered = pricingProblem(resource, tier, slot);
+    const notOffered = pricingProblem(resource, tier, slot, stayDays);
     if (notOffered) return bad(notOffered);
     if (resource === "Venue" && roomIds.length > 0) return bad("Rooms can't be added to a venue-only booking.");
   }

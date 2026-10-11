@@ -23,6 +23,7 @@ import { PackagesTab } from "@/components/admin/PackagesTab";
 import { PhotoSet } from "@/components/admin/PhotoSet";
 import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
 import { AccountModal } from "@/components/admin/AccountModal";
+import { draftReply } from "@/lib/autoReply";
 import { ProfileMenu } from "@/components/admin/ProfileMenu";
 import { attentionTally } from "@/lib/operations";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
@@ -229,18 +230,18 @@ export function Admin({
 
     const [replyMessage, setReplyMessage] = useState("");
 
-    const automatedReplies = {
-      Feedback:
-        "Thank you for your feedback. We appreciate your thoughts and suggestions.",
-      Complaint:
-        "We sincerely apologize for the inconvenience. Our team will review your concern immediately.",
-      Question:
-        "Thank you for your question. Our team will respond as soon as possible.",
-      "Booking Issue":
-        "We received your booking concern and will investigate the issue shortly.",
-      Other:
-        "Thank you for contacting us. We will get back to you soon.",
-    };
+    /* The automated draft now comes from lib/autoReply.
+
+       What was here was an object keyed on the words the ADMIN sees —
+       "Question", "Booking Issue" — while msg.type holds what the guest's
+       form stored: Inquiry, Feedback, Complaint, Refund, Suggestion, Other.
+       Three of the six keys matched nothing, the lookup ended in `|| ""`,
+       and choosing Automated on a refund request opened an empty box.
+
+       `bookings` is passed so the draft can name the booking the guest
+       quoted, or their latest one, instead of being a sentence that could
+       have been written before the message arrived. */
+    const automatedDraft = (msg: CustomerMessage) => draftReply(msg, bookings);
 
 
   const tabs: AdminTab[] = ["Operations", "Bookings", "Occupancy", "Facilities", "Inventory", "Sales", "Reports", "Activity", "Rooms", "Packages", "Gallery", "Customer Service", "Maintenance"];
@@ -676,12 +677,7 @@ export function Admin({
                                 setReplyModal(msg);
 
                                 setReplyMode("automated");
-
-                                setReplyMessage(
-                                  automatedReplies[
-                                    msg.type as keyof typeof automatedReplies
-                                  ] || ""
-                                );
+                                setReplyMessage(automatedDraft(msg));
                               }}
                               style={{
                                 background: `${gold}18`,
@@ -826,7 +822,15 @@ export function Admin({
                              SERVICE (144px). */
                           maxWidth: 120,
                           lineHeight: "16px",
-                          overflowWrap: "break-word",
+                          /* Wrap between words, never inside one. With
+                             `break-word` a two-digit badge took enough of the
+                             146px slot to push DASHBOARD over its cap, and it
+                             split mid-word onto a second line. Two-word
+                             labels still wrap at their space, which is the
+                             only wrap that was ever wanted. */
+                          overflowWrap: "normal",
+                          wordBreak: "keep-all",
+                          hyphens: "none",
                         }}
                       >
                         {(tabLabels[t] ?? t).toUpperCase()}
@@ -843,13 +847,18 @@ export function Admin({
                             background: attention.urgent > 0 ? "#e55" : gold,
                             color: attention.urgent > 0 ? "#fff" : "#000",
                             fontSize: 10.5, fontWeight: 700,
-                            borderRadius: 20, padding: "4px 8px", letterSpacing: 0,
-                            display: "inline-flex", alignItems: "center", gap: 4,
+                            borderRadius: 20, padding: "4px 7px", letterSpacing: 0,
+                            display: "inline-flex", alignItems: "center", gap: 3,
                             flexShrink: 0, alignSelf: "flex-start", marginLeft: "auto",
+                            whiteSpace: "nowrap",
                           }}
                         >
                           <Icon name="alert" size={11} strokeWidth={2} />
-                          {attention.total}
+                          {/* Capped at one character so the badge's width is
+                              the same at 9 as at 90 and the label beside it
+                              never has to give way. The real figure is on the
+                              aria-label above, and on the board itself. */}
+                          {attention.total > 9 ? "9+" : attention.total}
                         </Badge>
                       )}
 
@@ -1376,11 +1385,7 @@ export function Admin({
                               setReplyMode(type);
 
                               if (type === "automated") {
-                                setReplyMessage(
-                                  automatedReplies[
-                                    replyModal.type as keyof typeof automatedReplies
-                                  ] || ""
-                                );
+                                setReplyMessage(automatedDraft(replyModal as CustomerMessage));
                               } else {
                                 setReplyMessage("");
                               }

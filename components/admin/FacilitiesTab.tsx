@@ -467,7 +467,7 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
             <Row key={b.id} className="sw-click-row" style={{ background: rowBg(i) }} onClick={() => setOpen(b)}>
               <Cell style={td}>
                 <span style={{ color: C.textH, fontWeight: 600 }}>{b.name}</span>
-                <div style={{ color: C.textS, fontSize: 11.5 }}><span style={{ color: C.goldInk, fontFamily: "monospace" }}>{b.id}</span> · {b.guests} guests</div>
+                <div style={{ color: C.textS, fontSize: 11.5 }}><span style={{ color: C.goldInk, fontFamily: "monospace", fontWeight: 700 }}>{b.id}</span> · {b.guests} guests</div>
               </Cell>
               <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
               <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{usesText(b)}</Cell>
@@ -525,7 +525,7 @@ function Damages({ bookings }: { bookings: Booking[] }) {
             <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{at ? fmtDate(manilaDate(at)) : b ? fmtDate(b.date) : "—"}</Cell>
             <Cell style={td}>
               <span style={{ color: C.textH }}>{b?.name ?? "—"}</span>
-              <div style={{ color: C.goldInk, fontFamily: "monospace", fontSize: 11.5 }}>{d.bookingId}</div>
+              <div style={{ color: C.goldInk, fontFamily: "monospace", fontWeight: 700, fontSize: 11.5 }}>{d.bookingId}</div>
             </Cell>
             <Cell style={{ ...td, color: C.textB }}>{d.facilityName}</Cell>
             <Cell style={td}>

@@ -70,9 +70,22 @@ export interface Booking {
   date: string;
   /** Last date of the stay, for a booking that runs over more than one day.
    *
-   *  A stay is a RUN OF DAY-USE DAYS, not an overnight stay: the guest has
-   *  the same slot on each date from `date` to `endDate` inclusive, and the
-   *  resort still turns the rooms over between slots (lib/occupancy.ts).
+   *  The guest has the same slot on each date from `date` to `endDate`
+   *  inclusive. What that MEANS depends on the slot, and SLOTS[].stay in
+   *  lib/resort.ts is where that is decided:
+   *
+   *    Day / Night  a run of separate visits. The guest goes home in the
+   *                 14-hour gap between cycles and comes back. Their ROOM
+   *                 is still held across that gap (roomHoldSlots), but the
+   *                 pool and venue are genuinely free and stay sellable.
+   *    Whole Day    one unbroken stay. The only gap is the 5–7 AM turnover,
+   *                 so the group never leaves and both slots are held on
+   *                 every date.
+   *
+   *  Note that `endDate` is the last DATE, not the moment the stay ends:
+   *  an overnight slot runs to 5 AM the morning after it. Use
+   *  getOccupancyWindow / stayWindowLabel for the real finish.
+   *
    *  Undefined, or equal to `date`, means a one-day booking — which is what
    *  every record written before this existed is. */
   endDate?: string;

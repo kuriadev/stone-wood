@@ -48,6 +48,9 @@ import { ChooseRefundDialog } from "@/components/admin/ChooseRefundDialog";
 import { DateChangeReview } from "@/components/admin/DateChangeReview";
 import { MoveBookingModal } from "@/components/admin/MoveBookingModal";
 import { EditGuestModal } from "@/components/admin/EditGuestModal";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { BookingHistory } from "@/components/admin/BookingHistory";
 import { choiceOpen, fmtDeadline, holdActive, withHolds } from "@/lib/rebooking";
 import {
@@ -188,8 +191,10 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
           const s = SLOTS[getBookingSlot(b)];
           return (
             <Row key={b.id} style={{ background: rowBg(i) }}>
-              <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace", whiteSpace: "nowrap" }}>{b.id.startsWith("TMP-") ? "Saving…" : b.id}</Cell>
-              <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.contact}</div></Cell>
+              <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace", fontWeight: 700, whiteSpace: "nowrap" }}>{b.id.startsWith("TMP-") ? "Saving…" : b.id}</Cell>
+              {/* The email identifies the guest (clientKey), so it is the line
+                  under the name. The phone is on the detail panel. */}
+              <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.email || b.contact}</div></Cell>
               <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{stayRange(b)}<div style={{ color: C.textS, fontSize: 11.5 }}>{s.label}{bookingDays(b) > 1 ? ` · ${bookingDays(b)} days` : ""}</div></Cell>
               <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{b.package}</Cell>
               <Cell style={td}><StatusBadge color={b.source === "Walk-In" ? "#3a8fc4" : gold}>{b.source ?? "Online"}</StatusBadge></Cell>
@@ -218,8 +223,88 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                   {finishStep(b) === "complete" && <ActionButton size="sm" kind="blue" icon="check" onClick={() => setFinish({ kind: "complete", id: b.id })}>Complete</ActionButton>}
                   {finishStep(b) === "settle" && <ActionButton size="sm" kind="blue" icon="receipt" onClick={() => setFinish({ kind: "settle", id: b.id })}>Collect & close</ActionButton>}
                   {b.refundStatus === "Owed" && <ActionButton size="sm" kind="red" icon="cash" onClick={() => setRefundFor(b)}>Send refund</ActionButton>}
-                  {!b.archived && (b.status === "Completed" || b.status === "Cancelled") && <ActionButton size="sm" onClick={() => setArchiveOf(b)}>Archive</ActionButton>}
-                  {b.archived && <ActionButton size="sm" onClick={() => { setBookings((bs) => bs.map((x) => x.id === b.id ? { ...x, archived: false, archivedAt: undefined } : x)); toast(`${b.id} restored.`, "success"); }}>Restore</ActionButton>}
+                  {/* ── Manage this booking ──
+                      Changing a booking was possible before but not findable:
+                      editing a guest's details was a 15px pencil INSIDE the
+                      detail modal, and changing a date was offered only on a
+                      booking the resort had already cancelled. Everything
+                      that alters one booking now sits in one menu on its own
+                      row, in the order staff reach for it, with the
+                      destructive pair last and separated.
+                      Archive moved in here too: the row had up to five
+                      buttons and was the most crowded thing on the page. */}
+                  <DropdownMenu modal={false}>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={`Manage ${b.name}'s booking`}
+                        title="Edit, change the date, cancel or archive"
+                        className="sw-hit"
+                        style={{ background: "transparent", border: `1px solid ${cBr}`, borderRadius: 8, width: 30, height: 30, display: "inline-flex", alignItems: "center", justifyContent: "center", color: C.textB, cursor: "pointer", flexShrink: 0 }}
+                      >
+                        <Icon name="more" size={16} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" style={{ minWidth: 220 }}>
+                      <DropdownMenuItem onSelect={() => setViewId(b.id)}>
+                        <Icon name="eye" />Open booking
+                      </DropdownMenuItem>
+                      {/* WHO the booking is for. Safe at any stage — it never
+                          touches the date, the money or the availability. */}
+                      <DropdownMenuItem onSelect={() => setEditId(b.id)}>
+                        <Icon name="edit" />Edit guest details
+                      </DropdownMenuItem>
+                      {/* WHEN it is. Re-checked against availability by the
+                          server, so it cannot be moved onto a full date. Not
+                          offered once the group is on site, where a date is
+                          no longer a thing that can change. */}
+                      {!b.archived && !b.checkedInAt && (b.status === "Confirmed" || b.status === "Pending" || b.status === "ResortCancelled") && (
+                        <DropdownMenuItem onSelect={() => setNewDateFor(b)}>
+                          <Icon name="calendar" />Change the date
+                        </DropdownMenuItem>
+                      )}
+                      {/* WHAT it costs: overtime, extra guests, a room taken
+                          on the day. */}
+                      {!b.archived && (b.status === "Confirmed" || b.status === "Pending") && (
+                        <DropdownMenuItem onSelect={() => setChargeFor(b)}>
+                          <Icon name="plus" />Add a charge
+                        </DropdownMenuItem>
+                      )}
+                      {(() => {
+                        const canCancel = !b.archived && !b.checkedInAt && (b.status === "Confirmed" || b.status === "Pending");
+                        const canArchive = !b.archived && (b.status === "Completed" || b.status === "Cancelled");
+                        if (!canCancel && !canArchive && !b.archived) return null;
+                        return (
+                          <>
+                            <DropdownMenuSeparator />
+                            {canCancel && (
+                              <DropdownMenuItem variant="destructive" onSelect={() => setTurnDown(b)}>
+                                <Icon name="x" />Cancel booking
+                              </DropdownMenuItem>
+                            )}
+                            {/* Archive is how a booking is removed: it leaves
+                                the active list and keeps every payment,
+                                inspection and refund attached to it. There is
+                                no delete, and should not be — the money
+                                ledger is append-only (a payment is voided,
+                                never erased), so destroying a booking would
+                                orphan its history. Restore puts it back. */}
+                            {canArchive && (
+                              <DropdownMenuItem onSelect={() => setArchiveOf(b)}>
+                                {/* `folder`, not `trash`: archiving files a booking away, it does not destroy it. */}
+                                <Icon name="folder" />Archive booking
+                              </DropdownMenuItem>
+                            )}
+                            {b.archived && (
+                              <DropdownMenuItem onSelect={() => { setBookings((bs) => bs.map((x) => x.id === b.id ? { ...x, archived: false, archivedAt: undefined } : x)); toast(`${b.id} restored.`, "success"); }}>
+                                <Icon name="history" />Restore booking
+                              </DropdownMenuItem>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </Cell>
             </Row>
@@ -267,7 +352,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                 <Icon name="edit" size={15} />
               </button>
             </span>}
-            subtitle={<><span style={{ color: C.goldInk, fontFamily: "monospace" }}>{b.id}</span> · {b.source ?? "Online"} · booked {b.createdAt ? fmtDate(manilaDate(new Date(b.createdAt))) : "—"}</>}
+            subtitle={<><span style={{ color: C.goldInk, fontFamily: "monospace", fontWeight: 700 }}>{b.id}</span> · {b.source ?? "Online"} · booked {b.createdAt ? fmtDate(manilaDate(new Date(b.createdAt))) : "—"}</>}
             onClose={() => setViewId(null)} width={900}
             footer={<div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
               {/* An emergency can stop the resort hosting a group, whatever
@@ -291,7 +376,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
             <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 20 }}>
               <div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-                  {[["Visit", stayLabel(b)], ["Time", `${s.label} · ${s.hours}`], ["Contact", b.contact], ["Email", b.email || "—"], ["Guests", `${b.guests}`], ["Status", bookingStatusLabel(b)],
+                  {[["Visit", stayLabel(b)], ["Time", `${s.label} · ${s.hours}`], ["Email", b.email || "—"], ["Contact", b.contact], ["Guests", `${b.guests}`], ["Status", bookingStatusLabel(b)],
                     ...(b.checkedInAt ? [["Checked in", `${fmtDate(manilaDate(b.checkedInAt))}, ${manilaTime(b.checkedInAt)}`]] : []),
                     ...(b.checkedOutAt ? [["Checked out", `${fmtDate(manilaDate(b.checkedOutAt))}, ${manilaTime(b.checkedOutAt)}`]] : []),
                     ...(b.settledAt ? [["Settled", `${fmtDate(manilaDate(b.settledAt))}, ${manilaTime(b.settledAt)}`]] : []),

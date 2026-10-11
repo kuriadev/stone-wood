@@ -644,6 +644,7 @@ export function VisitRecord({ booking, onClose }: { booking: Booking; onClose: (
     ["Uses", resource === "Pool+Venue" ? "Pool + events venue" : resource === "Venue" ? "Events venue" : `Pool (${getBookingTier(b)})`],
     ["Rooms", roomNames.length ? roomNames.join(", ") : "None"],
     ...(slot.id === "Day" && b.overtime ? [["Overtime", `${b.overtime} hr`] as [string, string]] : []),
+    ["Email", b.email || "—"],
     ["Contact", b.contact || "—"],
     ["Email", b.email || "—"],
     ["Source", b.source ?? "Online"],
@@ -685,7 +686,7 @@ export function VisitRecord({ booking, onClose }: { booking: Booking; onClose: (
 
   return (
     <Modal title={b.name}
-      subtitle={<><span style={{ fontFamily: "monospace" }}>{b.id}</span> · <span className="sw-ink" style={{ ["--ink-c" as string]: STATUS_COLOR[b.status] }}>{bookingStatusLabel(b)}</span>{b.checkedOutAt && b.status === "Confirmed" ? " · checked out, to settle" : b.checkedInAt && b.status === "Confirmed" ? " · on site" : ""}</>}
+      subtitle={<><span style={{ fontFamily: "monospace", fontWeight: 700 }}>{b.id}</span> · <span className="sw-ink" style={{ ["--ink-c" as string]: STATUS_COLOR[b.status] }}>{bookingStatusLabel(b)}</span>{b.checkedOutAt && b.status === "Confirmed" ? " · checked out, to settle" : b.checkedInAt && b.status === "Confirmed" ? " · on site" : ""}</>}
       onClose={onClose} width={1040}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 20, alignItems: "start" }}>
         {/* ── The reservation ── */}

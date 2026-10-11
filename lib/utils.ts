@@ -107,13 +107,17 @@ export const holdsDate = (b: Pick<Booking, "status">) => b.status !== "Cancelled
 
 /* ── A booking can span several days ─────────────────────────────────
  *
- * `date` is the first day and `endDate` the last, inclusive. A stay is a
- * run of DAY-USE days — the same slot repeated — not an overnight stay;
- * lib/occupancy.ts explains why that distinction matters here.
+ * `date` is the first day and `endDate` the last, inclusive: the same slot
+ * repeated on each date. Whether that is one long stay or a series of
+ * separate visits depends on the slot, and SLOTS[].stay in lib/resort.ts
+ * is where that is decided — a Day or Night run leaves a 14-hour gap the
+ * guest goes home in, a Whole Day run leaves only the 5–7 AM turnover.
  *
  * Every capacity and clash check in this file goes through `liveOn`, so
  * teaching that one function about ranges is what makes the pool, the
- * venue and the rooms all refuse a double booking on day two of a stay. */
+ * venue and the rooms all refuse a double booking on day two of a stay.
+ * Rooms then need one rule more, because they are the only thing a guest
+ * keeps across those gaps — see roomHoldSlots at the foot of this file. */
 
 /** The last date a booking occupies. Older rows have no end date ⇒ one day. */
 export const bookingEndDate = (b: Pick<Booking, "date" | "endDate">): string =>
@@ -377,14 +381,47 @@ export function roomsTakenInRange(from: string, to: string, slot: BookingSlot, b
   return taken;
 }
 
+/** The slots on `date` in which a booking's rooms are unavailable to
+ *  anyone else.
+ *
+ *  For a one-day booking that is simply the slots it occupies: rooms are
+ *  rented per slot, and the 5–7 PM gap is enough to turn one over, so a
+ *  Day guest's room is free again for the Night.
+ *
+ *  A MULTI-DAY stay is different, and getting it wrong sold occupied
+ *  rooms. A guest on a three-day Day Tour goes home at 5 PM and comes
+ *  back at 7 the next morning — but their things are still in the room,
+ *  and they still hold the key. Matching on the booked slot alone freed
+ *  that room every night of the run and let a Night group book it. So a
+ *  stay also holds its rooms through the gaps BETWEEN its days:
+ *
+ *    Day run, Oct 10–12    nights of the 10th and 11th are held too; the
+ *                          night of the 12th is free, the guest has gone.
+ *    Night run, Oct 10–12  daytimes of the 11th and 12th are held too; the
+ *                          daytime of the 10th is free, they arrive at 7 PM.
+ *    Whole Day run         already holds both slots on every date.
+ *
+ *  Only ROOMS work this way. The pool and the venue are genuinely empty in
+ *  those gaps and stay sellable — an empty pool earns nothing. */
+export function roomHoldSlots(b: Booking, date: string): Array<"Day" | "Night"> {
+  const held = bookingHeldSlots(b);
+  const last = bookingEndDate(b);
+  // One day, or a slot pair that already covers the whole date: no gap.
+  if (last === b.date || held.length === 2) return held;
+  // A daytime run is held overnight on every date but the last.
+  if (held[0] === "Day") return date < last ? ["Day", "Night"] : held;
+  // A nightly run is held through the daytime on every date but the first.
+  return date > b.date ? ["Day", "Night"] : held;
+}
+
 /** Rooms already taken on `date` during `slot` by another (non-cancelled)
- *  booking. Rooms are rented per slot — the 5–7 PM gap is enough to turn
- *  a room over — so a Day guest's room is free again for the Night. */
+ *  booking — including rooms a multi-day stay is holding through the gap
+ *  between its days. See roomHoldSlots. */
 export function roomsTakenOn(date: string, slot: BookingSlot, bookings: Booking[], overtime = 0): Set<number> {
   const wanted = occupiedSlots(slot, overtime);
   const taken = new Set<number>();
   for (const b of liveOn(date, bookings)) {
-    if (!bookingHeldSlots(b).some((s) => wanted.includes(s))) continue;
+    if (!roomHoldSlots(b, date).some((s) => wanted.includes(s))) continue;
     for (const r of b.rooms ?? []) taken.add(r);
   }
   return taken;

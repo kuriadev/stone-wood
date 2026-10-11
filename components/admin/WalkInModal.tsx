@@ -25,7 +25,7 @@ import { SLOTS } from "@/lib/resort";
 import { manilaDate } from "@/lib/finance";
 import {
   sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail,
-  RESORT_MAX_CAPACITY, ROOM_BUNDLE_DISCOUNT_PCT,
+  RESORT_MAX_CAPACITY, ROOM_BUNDLE_DISCOUNT_PCT, EXCLUSIVE_DEFAULT_GUESTS,
 } from "@/lib/validators";
 import { DESK_METHODS } from "@/types/finance";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
@@ -99,10 +99,13 @@ export function WalkInModal({
     ? pkg!.status
     : !usesPool
       ? "Exclusive"
-      : slot === "WholeDay" ? "Exclusive" : (tierChoice ?? getPackageTier(guests));
+      : (tierChoice ?? getPackageTier(guests));
 
+  // Same rule as the public flow: a buyout is priced flat, so the count is
+  // what staff should prepare for, not a locked 30. Switching to Exclusive
+  // seeds a sensible number; the desk can type over it.
   useEffect(() => {
-    if (!isPkg && usesPool && tier === "Exclusive" && guests !== RESORT_MAX_CAPACITY) set("guests", String(RESORT_MAX_CAPACITY));
+    if (!isPkg && usesPool && tier === "Exclusive") set("guests", String(EXCLUSIVE_DEFAULT_GUESTS));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tier, isPkg, usesPool]);
 
@@ -288,7 +291,7 @@ export function WalkInModal({
                     is fixed. A venue booking is exclusive too, but only of the
                     venue -- the headcount is still whatever group walked in,
                     which is what the server stores (lib/bookingQuote.ts). */}
-                <Input id="wi-guests" type="number" min={1} max={RESORT_MAX_CAPACITY} value={wf.guests} disabled={usesPool && tier === "Exclusive"}
+                <Input id="wi-guests" type="number" min={1} max={RESORT_MAX_CAPACITY} value={wf.guests}
                   onChange={(e) => set("guests", e.target.value)} style={{ ...inp, opacity: usesPool && tier === "Exclusive" ? 0.6 : 1 }} />
               </div>
               <div>

@@ -7,7 +7,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logActivity } from "@/lib/activity.server";
 import nodemailer from "nodemailer";
-import { buildReceiptEmail, buildRejectionEmail, type RejectionMoney } from "@/lib/emailTemplate";
+import {
+  buildReceiptEmail, buildRejectionEmail, buildGuestMessageEmail,
+  GUEST_MESSAGE_MAX, GUEST_SUBJECT_MAX, type RejectionMoney,
+} from "@/lib/emailTemplate";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { isValidEmail } from "@/lib/validators";
@@ -26,13 +29,32 @@ export async function POST(req: NextRequest) {
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
   try {
-    const { booking, type, reason, money }: { booking: Booking; type: "confirmed" | "rejected"; reason?: string; money?: RejectionMoney } = await req.json();
+    const { booking, type, reason, money, subject: subjectIn, message }: {
+      booking: Booking;
+      type: "confirmed" | "rejected" | "message";
+      reason?: string;
+      money?: RejectionMoney;
+      subject?: string;
+      message?: string;
+    } = await req.json();
 
     if (!booking?.email || !isValidEmail(booking.email)) {
       return NextResponse.json({ error: "A valid booking email is required." }, { status: 400 });
     }
-    if (type !== "confirmed" && type !== "rejected") {
-      return NextResponse.json({ error: "type must be 'confirmed' or 'rejected'." }, { status: 400 });
+    if (type !== "confirmed" && type !== "rejected" && type !== "message") {
+      return NextResponse.json({ error: "type must be 'confirmed', 'rejected' or 'message'." }, { status: 400 });
+    }
+    // A free-typed note needs something in it. Length is capped here as
+    // well as in the form, because the form is not what decides.
+    if (type === "message") {
+      const body = String(message ?? "").trim();
+      if (!body) return NextResponse.json({ error: "Write a message before sending." }, { status: 400 });
+      if (body.length > GUEST_MESSAGE_MAX) {
+        return NextResponse.json({ error: `A message can be at most ${GUEST_MESSAGE_MAX} characters.` }, { status: 400 });
+      }
+      if (String(subjectIn ?? "").length > GUEST_SUBJECT_MAX) {
+        return NextResponse.json({ error: `A subject can be at most ${GUEST_SUBJECT_MAX} characters.` }, { status: 400 });
+      }
     }
     if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
       console.error("[/api/email] GMAIL_USER or GMAIL_APP_PASSWORD is not set.");
@@ -45,6 +67,8 @@ export async function POST(req: NextRequest) {
 
     if (type === "confirmed") {
       ({ subject, html } = buildReceiptEmail(booking));
+    } else if (type === "message") {
+      ({ subject, html } = buildGuestMessageEmail(booking, String(subjectIn ?? ""), String(message ?? "")));
     } else {
       // Only well-formed money details reach the template; anything else
       // falls back to the generic line.
@@ -76,9 +100,18 @@ export async function POST(req: NextRequest) {
       html,
     });
 
+    const ACTION = { confirmed: "email.confirmation", rejected: "email.rejection", message: "email.message" } as const;
+    const WHAT = {
+      confirmed: "the booking confirmation",
+      rejected: "the cancellation notice",
+      message: "a message",
+    } as const;
     await logActivity({
-      actor: "Admin", action: type === "confirmed" ? "email.confirmation" : "email.rejection", bookingId: booking.id ?? null, entity: "booking", entityId: booking.id,
-      summary: `Emailed the ${type === "confirmed" ? "booking confirmation" : "cancellation notice"} for ${booking.id} to ${booking.email}.`,
+      actor: "Admin", action: ACTION[type], bookingId: booking.id ?? null, entity: "booking", entityId: booking.id,
+      summary: `Emailed ${WHAT[type]} for ${booking.id} to ${booking.email}.`,
+      // The note itself goes in the log, so "what did we tell them?" has an
+      // answer later. The subject alone would not.
+      details: type === "message" ? { subject, message: String(message ?? "").slice(0, GUEST_MESSAGE_MAX) } : undefined,
     });
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (err) {

@@ -14,7 +14,8 @@
   import { priceBooking, bookingLabel } from "@/lib/pricing";
   import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
   import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
-  import { SLOTS, QUIET_HOURS_POLICY, TURNOVER_WINDOW } from "@/lib/resort";
+  import { SLOTS, QUIET_HOURS_POLICY, TURNOVER_WINDOW, stayPatternNote, stayUnit, allowsMultiDay, MULTI_DAY_SLOT } from "@/lib/resort";
+  import { stayWindowLabel } from "@/lib/occupancy";
   import type { Room } from "@/types/room";
   import type { Facility } from "@/types/facility";
   import { Icon, type IconName } from "@/components/common/Icon";
@@ -37,7 +38,9 @@
     OVERTIME_MAX,
     OVERTIME_RATE,
     RESORT_MAX_CAPACITY,
+    EXCLUSIVE_DEFAULT_GUESTS,
     ROOM_BUNDLE_DISCOUNT_PCT,
+    MULTI_DAY_DISCOUNT_PCT,
     EVENT_VENUE_RATE,
     SHARED_PER_HEAD_RATE,
   } from "@/lib/validators";
@@ -160,6 +163,14 @@
     // the Night slot is free (max 2 hrs). Kept at 0 so every price and
     // availability call below has one shape for both sides.
     const overtime = 0;
+    /* Set when picking a second date moved the booking off a single-date
+       slot, so the change can be announced instead of just happening. */
+    const [switchedFrom, setSwitchedFrom] = useState<string | null>(null);
+    /* When the guest really arrives and really leaves. Not the same as the
+       first and last dates: a Night Tour booked for the 10th ends at 5 AM
+       on the 11th, a date the booking never mentions anywhere. Guests were
+       left to work that out from the hours themselves, and got it wrong. */
+    const stayWin = date ? stayWindowLabel({ date, endDate: lastDay, slot, overtime }) : null;
     // Which resource is being booked (Pool / events Venue / both), and an
     // explicit Shared-vs-Exclusive override. tierChoice starts as null so the
     // guest-count-derived default still applies until they actively pick one —
@@ -225,16 +236,27 @@
     // there's no "sharing" a rented hall. Otherwise, the guest's explicit
     // choice wins; absent that, fall back to the guest-count-derived default.
     // The venue is always exclusive, and Whole Day is only sold exclusive.
-    const tier: BookingTier = resource === "Venue" || slot === "WholeDay" ? "Exclusive" : (tierChoice ?? getPackageTier(guests));
+    /* The venue is always a private hire. The pool is not: a Whole Day
+       used to be forced Exclusive here too, which meant a family of six
+       picking three dates was quietly moved to a ₱10,800-a-day buyout.
+       Whole Day is two slots, and both can be shared. */
+    const tier: BookingTier = resource === "Venue" ? "Exclusive" : (tierChoice ?? getPackageTier(guests));
 
-    // An Exclusive buyout reserves the WHOLE resort, not however many of the
-    // fixed 30 guests actually attend — so the moment a guest picks
-    // Exclusive (outside a package, where capacity is already fixed), the
-    // guest count locks to the resort's full capacity rather than staying
-    // freely editable.
+    /* An Exclusive buyout reserves the whole resort whatever the headcount,
+       and the price is flat, so the guest count is free to edit — it is an
+       operational number, not a price input.
+
+       Choosing Exclusive used to pin it to 30 and disable the stepper. The
+       booking then told staff to expect thirty arrivals for what is usually
+       a private group of five or six. Switching to Exclusive now just
+       resets the count to a sensible starting point, which the guest can
+       move anywhere up to the resort's capacity.
+
+       This fires only when the TIER changes, so raising the count
+       afterwards does not bounce it back to the default. */
     useEffect(() => {
       if (!isPackage && resource !== "Venue" && tier === "Exclusive") {
-        setGuests(RESORT_MAX_CAPACITY);
+        setGuests(EXCLUSIVE_DEFAULT_GUESTS);
       }
     }, [isPackage, resource, tier]);
 
@@ -278,11 +300,28 @@
       dateCapacity.ok &&
       !shutDay;
     // Whole Day is always exclusive, so the shared readout is per single slot.
-    const sharedUsage = date && slot !== "WholeDay" ? getSharedPoolUsage(date, bookings, slot) : { used: 0, max: 0 };
+    /* How full the pool already is for what is being booked. A Whole Day
+       takes BOTH slots, so the number that matters is the busier of the
+       two — a Day that is nearly full stops a Whole Day just as surely as
+       a full Night does. This used to return 0 of 0 for a Whole Day, which
+       was fine while Whole Day was Exclusive-only and the readout hidden,
+       and became a visible "Shared: 0 of 0 spots" the moment Whole Day
+       could be shared. */
+    const sharedUsage = !date
+      ? { used: 0, max: 0 }
+      : slot === "WholeDay"
+        ? (["Day", "Night"] as const)
+            .map((s) => getSharedPoolUsage(date, bookings, s))
+            .reduce((a, b) => (b.used > a.used ? b : a))
+        : getSharedPoolUsage(date, bookings, slot);
     // An Exclusive buyout fixes the guest count to the resort's full
     // capacity — the stepper is locked (not just defaulted) once that's
     // chosen, so it can't drift away from what the flat rate actually buys.
-    const guestsLocked = !isPackage && resource !== "Venue" && tier === "Exclusive";
+    /* Only a package fixes the headcount, because the package itself is
+       sold for a set number of people. An Exclusive booking no longer does
+       — see the effect above. */
+    const guestsLocked = isPackage && !!initialPackage?.capacity;
+    const isBuyout = !isPackage && resource !== "Venue" && tier === "Exclusive";
     // Same wording the server stores on the booking (lib/pricing.ts).
     const packageLabel = bookingLabel({
       packageTitle: initialPackage?.title,
@@ -304,7 +343,7 @@
     // because the breakdown below displays each line.
     const {
       tourBase, poolFee, venueFee, exclusiveDiscount, bundleDiscount,
-      roomsFeeRaw, roomBundleDiscount, total, down, slots: slotCount,
+      roomsFeeRaw, roomBundleDiscount, stayDiscount, total, down, slots: slotCount,
     } = priceBooking({
       pkg: isPackage ? { price: initialPackage!.price, requiresRoom } : null,
       resource,
@@ -333,15 +372,22 @@
     const roomsFree = selRooms.every((r) => !takenRooms.has(r));
     // One line per part of the price, in the same order the server adds
     // them up. Whole Day doubles the per-slot parts, and says so.
-    const perSlot = slotCount === 2 ? " × 2 slots" : "";
+    /* What each line is multiplied by, spelled out. The room and package
+       lines used to show ONE day's price beside a total that charged for
+       three, because only the suffix knew about slots and nothing knew
+       about days. Both now multiply by the same `stayDays` the total does. */
+    const perSlot = [slotCount === 2 ? "2 slots" : "", stayDays > 1 ? `${stayDays} days` : ""]
+      .filter(Boolean)
+      .map((x) => ` × ${x}`)
+      .join("");
     const priceLines: { label: string; amount: number; discount?: boolean; strike?: number }[] = isPackage
       ? [
           {
-            label: `${initialPackage!.title} — ${SLOTS[slot].label}`,
-            amount: initialPackage!.price,
-            strike: initialPackage!.listPrice,
+            label: `${initialPackage!.title} — ${SLOTS[slot].label}${stayDays > 1 ? ` × ${stayDays} days` : ""}`,
+            amount: initialPackage!.price * stayDays,
+            strike: initialPackage!.listPrice ? initialPackage!.listPrice * stayDays : undefined,
           },
-          ...selectedRoomDetails.map((r) => ({ label: `Room — ${r.name}${perSlot}`, amount: r.price * slotCount })),
+          ...selectedRoomDetails.map((r) => ({ label: `Room — ${r.name}${perSlot}`, amount: r.price * slotCount * stayDays })),
           ...(roomBundleDiscount > 0
             ? [{ label: `Room package discount (-${Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}%)`, amount: roomBundleDiscount, discount: true }]
             : []),
@@ -358,8 +404,16 @@
           ...(venueFee > 0 ? [{ label: `Events venue${perSlot}`, amount: venueFee }] : []),
           ...(exclusiveDiscount > 0 ? [{ label: "Exclusive discount (-5%)", amount: exclusiveDiscount, discount: true }] : []),
           ...(bundleDiscount > 0 ? [{ label: "Bundle discount (-10%)", amount: bundleDiscount, discount: true }] : []),
-          ...selectedRoomDetails.map((r) => ({ label: `Room — ${r.name}${perSlot}`, amount: r.price * slotCount })),
+          ...selectedRoomDetails.map((r) => ({ label: `Room — ${r.name}${perSlot}`, amount: r.price * slotCount * stayDays })),
         ];
+    // Off every day after the first, so it comes after the day lines.
+    if (stayDiscount > 0) {
+      priceLines.push({
+        label: `Stay discount (-${Math.round(MULTI_DAY_DISCOUNT_PCT * 100)}% on ${stayDays - 1} extra ${stayDays - 1 === 1 ? "day" : "days"})`,
+        amount: stayDiscount,
+        discount: true,
+      });
+    }
     void roomsFeeRaw; void tourBase;
     // A package requiring a room only ever wants ONE — picking a new one
     // replaces the selection instead of adding to it.
@@ -811,7 +865,13 @@
                         key={opt.id}
                         type="button"
                         aria-pressed={selected}
-                        onClick={() => { setSlot(opt.id); if (opt.id === "WholeDay") setTierChoice("Exclusive"); }}
+                        onClick={() => {
+                          setSlot(opt.id);
+                          // Moving to a single-date slot drops any range the
+                          // guest had picked; keeping it would silently book
+                          // days this slot cannot cover.
+                          if (!allowsMultiDay(opt.id)) setEndDate("");
+                        }}
                         style={{ ...tileStyle(selected), padding: mob ? "20px 20px" : "24px 20px" }}
                       >
                         <span style={{ display: "block", marginBottom: 16, color: C.goldInk, lineHeight: 0 }}>
@@ -824,6 +884,13 @@
                           {SLOTS[opt.id].hours}
                         </span>
                         <span style={{ display: "block", color: goldSmall, fontSize: 12 }}>{price}</span>
+                        {/* Which of these can cover more than one date, said
+                            on the tile rather than discovered at the calendar. */}
+                        <span style={{ display: "block", color: C.textS, fontSize: 11.5, marginTop: 8, lineHeight: 1.4 }}>
+                          {allowsMultiDay(opt.id)
+                            ? "One date or several · you stay right through"
+                            : "One date only"}
+                        </span>
                       </button>
                     );
                   })}
@@ -947,7 +1014,23 @@
                       closedDates={closedDates}
                       selectedDate={date}
                       endDate={endDate}
-                      onSelectRange={(from, to) => { setDate(from); setEndDate(to === from ? "" : to); }}
+                      onSelectRange={(from, to) => {
+                        setDate(from);
+                        const range = to === from ? "" : to;
+                        setEndDate(range);
+                        /* A Day or Night Tour is a single-date visit. Rather
+                           than refuse the second click, move the booking to
+                           the Whole Day, which is the only slot that keeps
+                           the resort theirs in between. tierChoice is reset
+                           so the guest count picks the cheaper tier again
+                           instead of carrying an Exclusive they chose for a
+                           different slot. */
+                        if (range && !allowsMultiDay(slot)) {
+                          setSwitchedFrom(SLOTS[slot].label);
+                          setSlot(MULTI_DAY_SLOT);
+                          setTierChoice(null);
+                        }
+                      }}
                       isDark={isDark}
                       guests={guests}
                       resource={resource}
@@ -958,12 +1041,49 @@
                     {/* The stay itself is picked on the calendar above: a
                         first click sets the first day, a second the last.
                         This is only the consequence of that choice. */}
-                    {stayDays > 1 && dateOk && (
-                      <p style={{ marginTop: 16, marginBottom: 0, color: C.textB, fontSize: 13, lineHeight: 1.6 }}>
-                        Your {SLOTS[slot].label.toLowerCase()} is booked on each of{" "}
-                        <strong style={{ color: C.textH }}>{stayDays} days</strong>, {fmtDate(date)} to {fmtDate(lastDay)}.
-                        Every day is charged — the total below is for the whole stay.
+                    {/* What the chosen range actually is. This used to say only
+                        "booked on each of 3 days", which left the guest to guess
+                        whether they slept here — the one thing the hours never
+                        answer. Now it names the pattern, and gives the real
+                        arrival and departure moments. */}
+                    {switchedFrom && stayDays > 1 && (
+                      <p
+                        role="status"
+                        style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.textB, fontSize: 13, lineHeight: 1.6, margin: "16px 0 0", borderLeft: `3px solid ${C.goldInk}`, paddingLeft: 12 }}
+                      >
+                        <span>
+                          The {switchedFrom} is a single-date visit, so this is now a{" "}
+                          <strong style={{ color: C.textH }}>{SLOTS[MULTI_DAY_SLOT].label}</strong> booking — the only
+                          one that keeps the resort yours overnight. Pick one date again to go back.
+                        </span>
                       </p>
+                    )}
+                    {stayDays > 1 && dateOk && (
+                      <div
+                        style={{
+                          marginTop: 16,
+                          border: `1px solid ${C.border}`,
+                          borderRadius: 10,
+                          padding: "14px 16px",
+                          background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+                        }}
+                      >
+                        <p style={{ margin: 0, color: C.textH, fontSize: 13.5, fontWeight: 600 }}>
+                          {SLOTS[slot].label} · {stayUnit(slot, stayDays)}
+                        </p>
+                        {stayWin && (
+                          <p style={{ margin: "8px 0 0", color: C.textB, fontSize: 13, lineHeight: 1.6 }}>
+                            You arrive <strong style={{ color: C.textH }}>{stayWin.arrive}</strong> and leave{" "}
+                            <strong style={{ color: C.textH }}>{stayWin.depart}</strong>.
+                          </p>
+                        )}
+                        <p style={{ margin: "8px 0 0", color: C.textS, fontSize: 12.5, lineHeight: 1.6 }}>
+                          {stayPatternNote(slot, stayDays)}
+                        </p>
+                        <p style={{ margin: "8px 0 0", color: C.textS, fontSize: 12.5, lineHeight: 1.6 }}>
+                          Every {slot === "Night" ? "night" : "day"} is charged — the total below is for the whole stay.
+                        </p>
+                      </div>
                     )}
 
                     {date && !dateOk && (
@@ -986,7 +1106,8 @@
 
                     {date && resource !== "Venue" && tier === "Shared" && (
                       <p style={{ color: C.textS, fontSize: 12.5, marginTop: 8, marginBottom: 0 }}>
-                        Shared: {sharedUsage.used} of {sharedUsage.max} spots taken for this {SLOTS[slot].label}.
+                        Shared: {sharedUsage.used} of {sharedUsage.max} spots taken for this {SLOTS[slot].label}
+                        {slot === "WholeDay" ? " (the busier of its two slots)" : ""}.
                       </p>
                     )}
                   </div>
@@ -1151,19 +1272,26 @@
                         </button>
                       </div>
 
-                      {guestsLocked && (
+                      {isBuyout && (
                         <p style={{ color: C.goldInk, fontSize: 12.5, marginTop: 12 }}>
-                          🔒 Exclusive buyout — fixed at {RESORT_MAX_CAPACITY} guests, {fmt(tourBase)} flat{slotCount === 2 ? " for the whole day" : ""} regardless of how many actually attend.
+                          {/* PER DAY once the stay runs long: `tourBase` is the
+                              flat rate times the days and does NOT carry the
+                              stay discount, so printing it whole claimed
+                              ₱32,400 beside a real total of ₱29,160. The rate
+                              is a per-day idea; the summary carries the total. */}
+                          🔒 Exclusive buyout — {fmt(tourBase / stayDays)} flat
+                          {stayDays > 1 ? " per day" : slotCount === 2 ? " for the whole day" : ""}, however many of you come.
+                          No other group books {stayDays > 1 ? "your dates" : "your date"}. Set the count so we prepare for the right number.
                         </p>
                       )}
-                      {!guestsLocked && guests >= GUESTS_MAX && (
+                      {guests >= GUESTS_MAX && (
                         <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 8 }}>
                           Maximum {GUESTS_MAX} guests per booking — please call us for larger groups.
                         </p>
                       )}
-                      {resource === "Venue" || slot === "WholeDay" ? (
+                      {resource === "Venue" ? (
                         <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 12, padding: "4px 12px", borderRadius: 20, background: "rgba(201,168,76,0.15)", border: `1px solid ${gold}66` }}>
-                          <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 1, color: C.goldInk }}>{resource === "Venue" ? "🔒 EXCLUSIVE — VENUE RENTAL" : "🔒 EXCLUSIVE — WHOLE DAY"}</span>
+                          <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 1, color: C.goldInk }}>🔒 EXCLUSIVE — VENUE RENTAL</span>
                         </div>
                       ) : (
                         <div style={{ marginTop: 16 }}>
@@ -1210,7 +1338,7 @@
                           </div>
                           <p style={{ color: C.textS, fontSize: 11.5, marginTop: 8, opacity: 0.75, lineHeight: 1.5 }}>
                             {tier === "Exclusive"
-                              ? `Whole-pool buyout, fixed at ${RESORT_MAX_CAPACITY} guests — no other group in your ${SLOTS[slot].label}. 5% off the flat rate.`
+                              ? `Whole-pool buyout — no other group in your ${SLOTS[slot].label}, whatever your headcount. Up to ${RESORT_MAX_CAPACITY} guests. 5% off the flat rate.`
                               : `Pool shared with other groups in your ${SLOTS[slot].label} — billed per guest, up to ${RESORT_MAX_CAPACITY} guests in total.`}
                           </p>
                         </div>
@@ -1235,6 +1363,11 @@
                       <p style={{ color: C.textH, fontSize: 15, fontWeight: 600, margin: "0 0 8px" }}>
                         {SLOTS[slot].label} · {SLOTS[slot].hours}
                       </p>
+                      {stayDays > 1 && (
+                        <p style={{ color: C.textB, fontSize: 12.5, lineHeight: 1.6, margin: "0 0 8px" }}>
+                          {stayPatternNote(slot, stayDays)}
+                        </p>
+                      )}
                       <p style={{ color: C.textS, fontSize: 12.5, lineHeight: 1.6, margin: 0 }}>
                         {slot === "Day"
                           ? `Want to stay a little later? Up to ${OVERTIME_MAX} hrs of overtime (${fmt(OVERTIME_RATE)}/hr) can be arranged at the resort when no Night group is booked — ${TURNOVER_WINDOW} is otherwise cleaning time.`
@@ -1247,7 +1380,10 @@
                           <>Events venue only, no pool · {fmt(priceBooking({ resource: "Venue", tier: "Exclusive", slot, guests: 1, overtime: 0, roomPrices: [] }).total)} flat</>
                         ) : (
                           <>
-                            Shared {fmt(SHARED_PER_HEAD_RATE)} / guest · Exclusive{" "}
+                            {/* Per SLOT, and a Whole Day is two of them — so say
+                                what a guest actually pays for this slot rather
+                                than the rate it is built from. */}
+                            Shared {fmt(SHARED_PER_HEAD_RATE * SLOTS[slot].span)} / guest · Exclusive{" "}
                             {fmt(priceBooking({ resource: "Pool", tier: "Exclusive", slot, guests: 1, overtime: 0, roomPrices: [] }).total)}
                             {resource === "Pool+Venue" && <> · plus the events venue, {fmt(EVENT_VENUE_RATE)} per slot</>}
                           </>
@@ -1262,7 +1398,12 @@
                       doesn't include one). */}
                   {navRow(
                     { label: "BACK", onClick: () => { if (isPackage) onClearPackage?.(); else setStep(1); } },
-                    { label: "CONTINUE", onClick: () => setStep(showRoomPicker ? 4 : 5), disabled: !date || !dateOk, reason: !date ? "Choose a date from the calendar to continue." : "That date can’t take your group size. Try another date, or lower the number of guests." },
+                    { label: "CONTINUE", onClick: () => setStep(showRoomPicker ? 4 : 5), disabled: !date || !dateOk, /* The exact reason is already printed in red above the stepper, and it
+   is often not about the headcount at all — an Exclusive buyout is
+   refused by any booking already on the date, whatever the group size.
+   Telling that guest to "lower the number of guests" sends them to the
+   one control that cannot help. Point at the reason instead. */
+reason: !date ? "Choose a date from the calendar to continue." : dateCapacity.reason ?? "That date isn’t available for this booking. Try another date." },
                   )}
                 </div>
               )}
@@ -1485,6 +1626,8 @@
 
                   {([
                     [stayDays > 1 ? "Dates" : "Date", date ? stayLabel({ date, endDate: lastDay }) : "\u2014"],
+                    ["Arrive", stayWin ? stayWin.arrive : "\u2014"],
+                    ["Leave", stayWin ? stayWin.depart : "\u2014"],
                     ["Package availed", `${packageLabel} · ${tier}`],
                     ["Guests", String(guests)],
                     ["Room", selRooms.length
@@ -1634,6 +1777,8 @@
                       {([
                         ["Guest", form.name || "\u2014"],
                         [stayDays > 1 ? "Dates" : "Date", date ? stayLabel({ date, endDate: lastDay }) : "\u2014"],
+                        ["Arrive", stayWin ? stayWin.arrive : "\u2014"],
+                        ["Leave", stayWin ? stayWin.depart : "\u2014"],
                         ["Package availed", packageLabel],
                         ["Guests", overtime > 0 ? `${guests} \u00b7 +${overtime}hr OT` : String(guests)],
                         ["Full total", fmt(serverQuote?.total ?? total)],

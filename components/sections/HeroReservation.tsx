@@ -1,16 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
 import { daysInRange, stayLabel } from "@/lib/utils";
-import { SLOTS } from "@/lib/resort";
+import { SLOTS, stayPatternNote, allowsMultiDay, MULTI_DAY_SLOT } from "@/lib/resort";
+import { priceBooking } from "@/lib/pricing";
 import {
-  GUESTS_MIN, GUESTS_MAX, SHARED_PER_HEAD_RATE,
-  EXCLUSIVE_FLAT_RATE, EXCLUSIVE_DISCOUNT_PCT,
+  GUESTS_MIN, GUESTS_MAX, SHARED_PER_HEAD_RATE, MAX_STAY_DAYS,
 } from "@/lib/validators";
 import { AvailabilityCalendar } from "@/components/common/AvailabilityCalendar";
 import { Icon } from "@/components/common/Icon";
@@ -34,6 +34,15 @@ import type { Booking, BookingSlot } from "@/types/booking";
  */
 
 const SLOT_ORDER: BookingSlot[] = ["Day", "Night", "WholeDay"];
+
+/** The stay note's type. Shared by the visible note and the invisible
+ *  sizers behind it: if these drift apart the reserved height is wrong. */
+const stayNoteStyle: CSSProperties = {
+  margin: 0,
+  fontSize: 11.5,
+  lineHeight: 1.55,
+  color: "rgba(238,232,220,0.62)",
+};
 
 interface HeroReservationProps {
   bookings: Booking[];
@@ -60,16 +69,18 @@ export function HeroReservation({
   const [slot, setSlot] = useState<BookingSlot>("Day");
   const [guests, setGuests] = useState(2);
 
-  // Shared is per head; exclusive is a flat rate with its own discount. The
-  // card shows whichever the guest count actually lands on, so the number
-  // moves as they change it rather than staying a decorative "from".
-  // Per day, then times the days of the stay — the card has to quote what
-  // the booking page will charge, not one day of it.
-  const sharedPerDay = guests * SHARED_PER_HEAD_RATE;
-  const exclusivePerDay = Math.round(EXCLUSIVE_FLAT_RATE * (1 - EXCLUSIVE_DISCOUNT_PCT));
-  const goesExclusive = sharedPerDay >= exclusivePerDay;
-  const sharedTotal = sharedPerDay * stayDays;
-  const exclusiveTotal = exclusivePerDay * stayDays;
+  /* Priced with the same function the booking page and the server use.
+     This card used to do its own arithmetic — one slot's rate times the
+     days — which ignored that a Whole Day is two slots and that days after
+     the first are discounted, so a three-day Whole Day was advertised at
+     well under what Book Now then charged. */
+  const quote = (tier: "Shared" | "Exclusive") =>
+    priceBooking({ resource: "Pool", tier, slot, guests, overtime: 0, roomPrices: [], days: stayDays }).total;
+  const sharedTotal = quote("Shared");
+  const exclusiveTotal = quote("Exclusive");
+  // Show whichever the guest count actually lands on, so the number moves
+  // as they change it rather than staying a decorative "from".
+  const goesExclusive = sharedTotal >= exclusiveTotal;
 
   const prettyDate = date
     ? stayLabel({ date, endDate: lastDay })
@@ -154,7 +165,14 @@ export function HeroReservation({
             selectedDate={date}
             endDate={endDate}
             onSelectDate={setDate}
-            onSelectRange={(from, to) => { setDate(from); setEndDate(to === from ? "" : to); }}
+            onSelectRange={(from, to) => {
+              setDate(from);
+              const range = to === from ? "" : to;
+              setEndDate(range);
+              // Day and Night are single-date visits; a second date moves
+              // the booking to the Whole Day, as it does on the booking page.
+              if (range && !allowsMultiDay(slot)) setSlot(MULTI_DAY_SLOT);
+            }}
           />
         </div>
 
@@ -218,7 +236,11 @@ export function HeroReservation({
                     type="button"
                     role="radio"
                     aria-checked={on}
-                    onClick={() => setSlot(k)}
+                    onClick={() => {
+                      setSlot(k);
+                      // Dropping to a single-date slot drops the range too.
+                      if (!allowsMultiDay(k)) setEndDate("");
+                    }}
                     // 44px min height: accessibility.md > Minimum sizes.
                     style={{
                       minHeight: 44, borderRadius: 9, cursor: "pointer",
@@ -239,6 +261,35 @@ export function HeroReservation({
                 );
               })}
             </div>
+            {/* What the chosen slot means over several days.
+
+                The space is RESERVED whether or not there is a note to put
+                in it. This note is three or four lines long and used to
+                appear only on the second click, which grew the card by
+                ~62px; the calendar column is flex:1, so it took that height
+                and handed it to the week rows, and every date tile visibly
+                stretched (67px to 80px) under the guest's cursor mid-pick.
+
+                All three slots' notes are stacked in one grid cell: every
+                child occupies the same cell, so the cell is as tall as the
+                tallest of them at whatever width the card happens to be,
+                and the real note is laid over the hidden ones. Measuring it
+                this way rather than guessing a pixel height is what makes
+                it hold up when the text or the breakpoint changes. */}
+            <div style={{ display: "grid", margin: "10px 0 0" }}>
+              {SLOT_ORDER.map((k) => (
+                <p
+                  key={k}
+                  aria-hidden
+                  style={{ ...stayNoteStyle, gridArea: "1 / 1", visibility: "hidden" }}
+                >
+                  {stayPatternNote(k, MAX_STAY_DAYS)}
+                </p>
+              ))}
+              <p style={{ ...stayNoteStyle, gridArea: "1 / 1" }}>
+                {stayDays > 1 ? stayPatternNote(slot, stayDays) : ""}
+              </p>
+            </div>
           </div>
 
           <div style={rule} />
@@ -248,7 +299,7 @@ export function HeroReservation({
             <div>
               <p style={{ ...label, margin: "0 0 4px" }}>GUESTS</p>
               <p style={{ fontSize: 12, color: "rgba(238,232,220,0.55)", margin: 0 }}>
-                {fmt(SHARED_PER_HEAD_RATE)} per guest{stayDays > 1 ? ", per day" : ""}
+                {fmt(SHARED_PER_HEAD_RATE)} per guest, per slot
               </p>
             </div>
             <div

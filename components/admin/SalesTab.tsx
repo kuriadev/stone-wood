@@ -325,7 +325,7 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
                   as a real reference. */}
               {b.id.startsWith("TMP-") ? <span style={{ color: C.textS, fontFamily: "inherit" }}>Saving…</span> : b.id}
             </Cell>
-            <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.contact}</div></Cell>
+            <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.email || b.contact}</div></Cell>
             <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
             <Cell style={td}><StatusBadge color={STATUS_COLOR[b.status]}>{bookingStatusLabel(b)}</StatusBadge></Cell>
             <Cell style={td}><StatusBadge color={PAY_STATE_COLOR[m.state]}>{moneyLabel(m.state)}</StatusBadge></Cell>
@@ -373,7 +373,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
             {refunds.map((b, i) => (
               <Row key={b.id} style={{ background: rowBg(i) }}>
                 <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace" }}>{b.id}</Cell>
-                <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.contact}</div></Cell>
+                <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.email || b.contact}</div></Cell>
                 <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
                 <Cell style={{ ...td, color: "#e07a3a", fontWeight: 700 }}>{fmt(b.refundAmount ?? 0)}</Cell>
                 <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm" kind="primary" icon="cash" onClick={() => onRefund(b.id)}>Send refund</ActionButton></Cell>
@@ -390,7 +390,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
         {pagedRec.rows.map(({ b, m }, i) => (
           <Row key={b.id} style={{ background: rowBg(i) }}>
             <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace" }}>{b.id}</Cell>
-            <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.contact}</div></Cell>
+            <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.email || b.contact}</div></Cell>
             <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
             <Cell style={td}><StatusBadge color={STATUS_COLOR[b.status]}>{bookingStatusLabel(b)}</StatusBadge></Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(b.total)}</Cell>
@@ -512,12 +512,13 @@ function Clients({ bookings }: { bookings: Booking[] }) {
   const pagedCli = usePaged(shown);
   return (
     <div>
-      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search client name, phone or email" style={{ ...inp, marginBottom: 12 }} />
+      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search client name, email or phone" style={{ ...inp, marginBottom: 12 }} />
       <TableShell head={["Client", "Bookings", "Last visit", "Total paid", "Owed", ""]} minWidth={700}
         empty={shown.length === 0 ? "No clients match." : undefined}>
         {pagedCli.rows.map((c, i) => (
           <Row key={c.key} className="sw-click-row" style={{ background: rowBg(i) }} onClick={() => setOpen(c.key)}>
-            <Cell style={{ ...td, color: C.textH }}>{c.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{c.contact}{c.email ? ` · ${c.email}` : ""}</div></Cell>
+            {/* Email first: it is what clientKey grouped these bookings by. */}
+            <Cell style={{ ...td, color: C.textH }}>{c.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{c.email || c.contact}{c.email && c.contact ? ` · ${c.contact}` : ""}</div></Cell>
             <Cell style={{ ...td, color: C.textB }}>{c.bookings.length}</Cell>
             <Cell style={{ ...td, color: C.textB }}>{c.last ? fmtDate(c.last) : "—"}</Cell>
             <Cell style={{ ...td, color: C.textH, fontWeight: 600 }}>{fmt(c.paid)}</Cell>
@@ -529,7 +530,7 @@ function Clients({ bookings }: { bookings: Booking[] }) {
       <Pager {...pagedCli} noun="clients" />
 
       {current && (
-        <Modal title={current.name} subtitle={`${current.contact}${current.email ? " · " + current.email : ""}`} onClose={() => setOpen(null)} width={820}>
+        <Modal title={current.name} subtitle={`${current.email || current.contact}${current.email && current.contact ? " · " + current.contact : ""}`} onClose={() => setOpen(null)} width={820}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 20 }}>
             <StatCard label="Bookings" value={current.bookings.length} />
             <StatCard label="Total paid" value={fmt(current.paid)} color="#2e9e4e" />

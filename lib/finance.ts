@@ -116,12 +116,36 @@ export function monthRange(date: string): { from: string; to: string } {
   return { from: d.startOf("month").format(DATE_FMT), to: d.endOf("month").format(DATE_FMT) };
 }
 
-/** What identifies the same client across bookings: their phone number,
- *  falling back to email. Names are typed differently every visit. */
+/** What identifies the same client across bookings: their EMAIL address,
+ *  falling back to the phone number and then the name.
+ *
+ *  Email is the primary identifier, and the order here is the whole point.
+ *  It used to be the phone number, which merged people who are not the
+ *  same person and split people who are:
+ *
+ *    - One number is shared. A family books on whichever parent is
+ *      holding the phone, a company books every outing on the office
+ *      line, and all of them collapsed into a single "client" whose
+ *      history and balance belonged to several households.
+ *    - Numbers move. Carriers re-issue a dropped number within months, so
+ *      a new customer inherited a stranger's booking history.
+ *    - An email address is already what the guest proves ownership of to
+ *      manage a booking (/api/bookings matches on it), so making it the
+ *      identity here means the key staff see and the key the guest signs
+ *      in with are the same thing.
+ *
+ *  Normalisation is deliberately just trim + lowercase. Stripping dots or
+ *  +tags would merge addresses that only Gmail treats as equivalent, and
+ *  would wrongly merge two real people elsewhere.
+ *
+ *  The phone stays as the fallback rather than the rule because a walk-in
+ *  encoded at the desk may genuinely have no email (it is optional there,
+ *  and required online). */
 export function clientKey(b: Pick<Booking, "contact" | "email" | "name">): string {
+  const mail = (b.email || "").trim().toLowerCase();
+  if (mail) return "mail:" + mail;
   const digits = (b.contact || "").replace(/\D/g, "");
   if (digits.length >= 10) return "tel:" + digits.slice(-10);
-  if (b.email) return "mail:" + b.email.trim().toLowerCase();
   return "name:" + b.name.trim().toLowerCase();
 }
 

@@ -29,7 +29,7 @@ function Head({ b }: { b: Booking }) {
         <div>Issued {fmtDate(manilaDate())}</div>
       </div>
       <div style={{ flexBasis: "100%", fontSize: 13, lineHeight: 1.6 }}>
-        <div><strong>{b.name}</strong> · {b.contact}{b.email ? ` · ${b.email}` : ""}</div>
+        <div><strong>{b.name}</strong>{b.email ? ` · ${b.email}` : ""}{b.contact ? ` · ${b.contact}` : ""}</div>
         <div>{fmtDate(b.date)} · {slot.label} ({slot.hours}) · {b.guests} guests · {b.source ?? "Online"}</div>
       </div>
     </div>

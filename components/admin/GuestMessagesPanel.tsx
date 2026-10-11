@@ -165,7 +165,7 @@ export function GuestMessagesPanel({
                 <span style={{
                   alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6,
                   padding: "3px 8px", borderRadius: 7, background: soft, border: `1px solid ${cBr}`,
-                  color: C.goldInk, fontSize: 11.5, fontFamily: "monospace", whiteSpace: "nowrap",
+                  color: C.goldInk, fontSize: 11.5, fontFamily: "monospace", fontWeight: 700, whiteSpace: "nowrap",
                 }}>
                   <Icon name="calendar" size={11} />
                   {booking.id} · {fmtDate(booking.date)}

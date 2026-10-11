@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
+import { EmailGuestModal } from "@/components/admin/EmailGuestModal";
 import { opsBoard, closingBlockers, attentionTally, unclosedDays, prepBlocked, prepOpensOn, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, type OpsCard, type OpsView } from "@/lib/operations";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { bookingMoney, collectedBetween, expensesBetween, livePayments, manilaDate, manilaTime, monthRange, round2, type BookingMoney } from "@/lib/finance";
@@ -157,6 +158,10 @@ export function OperationsTab({
   const [view, setView] = useState<OpsView>("today");
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<Open | null>(null);
+  /* Which booking the "Email guest" card is open for. Held as the booking
+     rather than an id so the modal keeps showing the right recipient even
+     if the board refreshes underneath it. */
+  const [emailing, setEmailing] = useState<Booking | null>(null);
   const [reason, setReason] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [allUrgent, setAllUrgent] = useState(false);
@@ -207,7 +212,25 @@ export function OperationsTab({
     setOpen({ kind, id: b.id });
   };
 
-  const checkIn = async (b: Booking, undo = false) => {
+  /* Checking a group in says the resort is ready for them, so it cannot
+     come before the resort has been made ready. The button stays live
+     rather than going grey: a disabled control explains nothing, and staff
+     tapping it at the gate need to be told WHY, not just refused. */
+  /** A booking reference inside a sentence. Same treatment as one in a
+   *  column: monospace and bold, because it is what staff read out, search
+   *  for and quote back. */
+  const Ref = ({ id }: { id: string }) => (
+    <span style={{ fontFamily: "monospace", fontWeight: 700, color: C.textH }}>{id}</span>
+  );
+
+  const checkIn = async (b: Booking, opts: { prepared?: boolean; undo?: boolean } = {}) => {
+    const { prepared = true, undo = false } = opts;
+    if (!undo && !prepared) {
+      return toast(
+        `Prepare the resort for ${b.name} first — then check them in.`,
+        "warning",
+      );
+    }
     setBusyId(b.id);
     const r = await ops.checkIn(b.id, undo);
     setBusyId(null);
@@ -276,7 +299,7 @@ export function OperationsTab({
     attention.push({ key: `move-${r.id}`, kind: active ? "reminder" : "urgent", tone: active ? "amber" : "red", icon: "calendar",
       text: <><strong style={{ color: C.textH }}>{b.name}</strong>{" "}
         {isRebookRequest(r, b)
-          ? <>picked {fmtDate(r.toDate)} for {b.id} after the resort cancelled {fmtDate(r.fromDate)}.</>
+          ? <>picked {fmtDate(r.toDate)} for <Ref id={b.id} /> after <em style={{ fontStyle: "normal", fontWeight: 700 }}>the resort cancelled</em> {fmtDate(r.fromDate)}.</>
           : <>asks to move {b.id} from {fmtDate(r.fromDate)} to {fmtDate(r.toDate)}.</>}{" "}
         {active ? <>Held for them until {fmtDeadline(r.holdUntil!)}.</> : <>The 48-hour hold ran out.</>}</>,
       actions: <ActionButton size="sm" kind="primary" onClick={() => setOpen({ kind: "datechange", reqId: r.id })}>Review</ActionButton> });
@@ -292,7 +315,7 @@ export function OperationsTab({
         actions: <ActionButton size="sm" kind="primary" onClick={() => go("refund", b)}>Send refund</ActionButton> });
     } else if (choiceOpen(b, now.getTime())) {
       attention.push({ key: `waiting-${b.id}`, kind: "reminder", tone: "blue", icon: "clock",
-        text: <>{who} hasn&apos;t picked a new date yet for {b.id} (cancelled by the resort). They have until {fmtDeadline(b.choiceDeadline!)}.</>,
+        text: <>{who} hasn&apos;t picked a new date yet for <Ref id={b.id} /> (<em style={{ fontStyle: "normal", fontWeight: 700 }}>cancelled by the resort</em>). They have until {fmtDeadline(b.choiceDeadline!)}.</>,
         actions: <>
           <ActionButton size="sm" onClick={() => go("textagain", b)}>Text them</ActionButton>
           <ActionButton size="sm" kind="red" onClick={() => go("refundchoice", b)}>Refund instead</ActionButton>
@@ -301,7 +324,7 @@ export function OperationsTab({
       // Their time to pick online ran out. The booking waits on the owner
       // now: agree a date or a refund with them, then record it here.
       attention.push({ key: `expired-${b.id}`, kind: "urgent", tone: "red", icon: "clock",
-        text: <>{who} didn&apos;t pick a new date for {b.id} in time (cancelled by the resort).{(b.heldAmount ?? 0) > 0 ? <> {fmt(b.heldAmount ?? 0)} is still held for them.</> : null} Contact them to agree a new date or a refund.</>,
+        text: <>{who} didn&apos;t pick a new date for <Ref id={b.id} /> in time (<em style={{ fontStyle: "normal", fontWeight: 700 }}>cancelled by the resort</em>).{(b.heldAmount ?? 0) > 0 ? <> {fmt(b.heldAmount ?? 0)} is still held for them.</> : null} Contact them to agree a new date or a refund.</>,
         actions: <>
           <ActionButton size="sm" kind="primary" onClick={() => go("move", b)}>Set a new date</ActionButton>
           <ActionButton size="sm" kind="red" onClick={() => go("refundchoice", b)}>Refund instead</ActionButton>
@@ -377,7 +400,7 @@ export function OperationsTab({
       stage === "confirm" ? "Next: check the payment, then accept"
         : stage === "prepare" ? (c.prepared ? `Ready. Next: check in on ${fmtDate(b.date)}`
           : prepBlocked(b, today) ? `Next: prepare the facilities from ${fmtDate(prepOpensOn(b))}` : "Next: prepare the facilities")
-          : stage === "arriving" ? (c.overdue ? "Next: complete the stay, or mark a no-show" : "Next: check in when they arrive")
+          : stage === "arriving" ? (c.overdue ? "Next: complete the stay, or mark a no-show" : c.prepared ? "Next: check in when they arrive" : "Next: prepare the facilities, then check in")
             : stage === "onsite" ? (m.due > 0 ? `Next: check out and collect ${fmt(m.due)}` : "Next: check out as they leave")
               : stage === "settle" ? (m.due > 0 ? `Next: collect ${fmt(m.due)} and close the booking` : "Next: close the booking")
                 : `Completed${b.settledAt ? ` at ${manilaTime(b.settledAt)}` : ""}`;
@@ -408,8 +431,15 @@ export function OperationsTab({
           primary = <ActionButton kind="primary" icon="check" onClick={() => go("checkout", b)}>Complete stay</ActionButton>;
           secondary = <ActionButton kind="red" onClick={() => go("noshow", b)}>No-show</ActionButton>;
         } else {
-          primary = <ActionButton kind="primary" icon="log-in" disabled={busy} onClick={() => checkIn(b)}>{busy ? "Checking in…" : "Check in"}</ActionButton>;
-          secondary = !c.prepared ? <ActionButton icon="clipboard-check" onClick={() => go("prep", b)}>Prepare for arrival</ActionButton> : null;
+          /* Until the facilities are prepared, THAT is the next step, so
+             it takes the primary button. Check in stays on the card and
+             stays clickable — it just says what has to happen first. */
+          primary = c.prepared
+            ? <ActionButton kind="primary" icon="log-in" disabled={busy} onClick={() => checkIn(b, { prepared: true })}>{busy ? "Checking in…" : "Check in"}</ActionButton>
+            : <ActionButton kind="primary" icon="clipboard-check" onClick={() => go("prep", b)}>Prepare for arrival</ActionButton>;
+          secondary = c.prepared
+            ? null
+            : <ActionButton icon="log-in" disabled={busy} onClick={() => checkIn(b, { prepared: false })}>{busy ? "Checking in…" : "Check in"}</ActionButton>;
         }
         break;
       case "onsite":
@@ -447,11 +477,35 @@ export function OperationsTab({
             </div>
             {/* The reference is what a guest quotes on the phone, so it
                 is on the card rather than hidden in the "…" menu. */}
-            <div style={{ color: C.textXS, fontSize: 11.5, fontFamily: "monospace", marginTop: 3 }}>{b.id}</div>
+            <div style={{ color: C.textXS, fontSize: 11.5, fontFamily: "monospace", fontWeight: 700, marginTop: 3 }}>{b.id}</div>
             <div style={{ color: C.textS, fontSize: 12, marginTop: 3 }}>
               {b.date === today ? "Today" : fmtDate(b.date)}{bookingDays(b) > 1 ? ` – ${fmtDate(bookingEndDate(b))} (${bookingDays(b)} days)` : ""} · {slot.label} ({slot.hours}){b.arrivalTime ? ` · arrives ${b.arrivalTime}` : ""}
             </div>
           </div>
+          {/* Two 30px icons at the corner: email this guest, and
+              everything else. Email used to be a full-width button down in
+              the card body, which gave a message the resort sends now and
+              then the same weight as the step it is always about to take
+              next. It belongs with the other per-booking tools. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          <button
+            type="button"
+            aria-label={b.email ? `Email ${b.name}` : `${b.name} has no email address`}
+            title={b.email ? "Email this guest" : "No email on this booking"}
+            disabled={!b.email}
+            onClick={() => setEmailing(b)}
+            className="sw-hit sw-gold-hover"
+            style={{
+              background: "transparent", border: `1px solid ${cBr}`, borderRadius: 8,
+              width: 30, height: 30, display: "inline-flex", alignItems: "center", justifyContent: "center",
+              color: b.email ? C.textB : C.textXS,
+              cursor: b.email ? "pointer" : "not-allowed",
+              opacity: b.email ? 1 : 0.55,
+              flexShrink: 0,
+            }}
+          >
+            <Icon name="mail" size={15} />
+          </button>
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               {/* 30px to look at, 44px to tap: sw-hit centres an invisible
@@ -475,8 +529,8 @@ export function OperationsTab({
               {stage !== "done" && <DropdownMenuItem onSelect={() => go("charge", b)}><Icon name="plus" />Add a charge (overtime, guests, room)</DropdownMenuItem>}
               {canPrep && <DropdownMenuItem onSelect={() => go("prep", b)}><Icon name="clipboard-check" />{c.prepared ? "Edit preparation" : "Prepare facilities"}</DropdownMenuItem>}
               {stage === "arriving" && !c.overdue && <DropdownMenuItem onSelect={() => go("checkout", b)}><Icon name="check" />Complete stay in one step</DropdownMenuItem>}
-              {stage === "arriving" && c.overdue && <DropdownMenuItem disabled={busy} onSelect={() => checkIn(b)}><Icon name="log-in" />Check in only</DropdownMenuItem>}
-              {stage === "onsite" && <DropdownMenuItem disabled={busy} onSelect={() => checkIn(b, true)}><Icon name="history" />Undo check-in</DropdownMenuItem>}
+              {stage === "arriving" && c.overdue && <DropdownMenuItem disabled={busy} onSelect={() => checkIn(b, { prepared: c.prepared })}><Icon name="log-in" />Check in only</DropdownMenuItem>}
+              {stage === "onsite" && <DropdownMenuItem disabled={busy} onSelect={() => checkIn(b, { undo: true })}><Icon name="history" />Undo check-in</DropdownMenuItem>}
               {stage === "arriving" && <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onSelect={() => go("noshow", b)}><Icon name="x" />Mark as no-show</DropdownMenuItem>
@@ -487,6 +541,7 @@ export function OperationsTab({
               </>}
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
 
         <div style={{ color: C.textB, fontSize: 12.5, lineHeight: 1.6 }}>
@@ -527,38 +582,16 @@ export function OperationsTab({
           {stage === "done" && (m.due > 0 ? <StatusBadge color="#d4a800">{fmt(m.due)} unpaid</StatusBadge> : <StatusBadge color="#4a9fd4">Closed</StatusBadge>)}
         </div>
 
-        {/* Reaching the guest without leaving the card: the two things
-            staff actually do at the gate. Both are plain links the phone or
-            mail client opens — nothing is sent from here. */}
+        {/* The next step is the one button to look for, so it takes the
+            row. The follow-up gets the same treatment rather than being
+            left at its natural width: the card is a narrow column, so the
+            pair almost always wraps, and an unstretched second button sat
+            stranded against the left edge under a full-width one. Equal
+            basis means they share a row where there is space and each
+            fills its own where there is not. */}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <a
-            href={`sms:${(b.contact || "").replace(/[^\d+]/g, "")}`}
-            aria-label={`Text ${b.name}`}
-            className="sw-gold-hover sw-hit"
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: `1px solid ${cBr}`, color: C.textB, fontSize: 12.5, fontWeight: 600, textDecoration: "none" }}
-          >
-            <Icon name="message" size={13} />Text
-          </a>
-          {b.email ? (
-            <a
-              href={`mailto:${b.email}?subject=${encodeURIComponent(`StoneWood booking ${b.id}`)}`}
-              aria-label={`Email ${b.name}`}
-              className="sw-gold-hover sw-hit"
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: `1px solid ${cBr}`, color: C.textB, fontSize: 12.5, fontWeight: 600, textDecoration: "none" }}
-            >
-              <Icon name="mail" size={13} />Email
-            </a>
-          ) : (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: `1px dashed ${cBr}`, color: C.textXS, fontSize: 12.5 }}>
-              <Icon name="mail" size={13} />No email
-            </span>
-          )}
-        </div>
-
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {/* The next step, full width: the one button to look for. */}
           <div style={{ flex: "1 1 160px", display: "grid" }}>{primary}</div>
-          {secondary}
+          {secondary && <div style={{ flex: "1 1 160px", display: "grid" }}>{secondary}</div>}
         </div>
       </article>
     );
@@ -711,7 +744,7 @@ export function OperationsTab({
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ color: C.textH, fontSize: 14.5, fontWeight: 600 }}>{b.name}</div>
-                  <div style={{ color: C.textS, fontSize: 12.5, fontFamily: "monospace" }}>{b.id}</div>
+                  <div style={{ color: C.textS, fontSize: 12.5, fontFamily: "monospace", fontWeight: 700 }}>{b.id}</div>
                 </div>
                 <StatusBadge color={stale ? "#e55" : "#d4a800"}>{datePassed ? "Visit date passed" : active ? "Awaiting you" : "Hold expired"}</StatusBadge>
               </div>
@@ -756,7 +789,7 @@ export function OperationsTab({
             <div key={r.id} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <StatusBadge color={decidedTone(r.status)}>{r.status}</StatusBadge>
               <span style={{ color: C.textH, fontSize: 13.5, fontWeight: 600 }}>{b.name}</span>
-              <span style={{ color: C.textS, fontSize: 12.5, fontFamily: "monospace" }}>{b.id}</span>
+              <span style={{ color: C.textS, fontSize: 12.5, fontFamily: "monospace", fontWeight: 700 }}>{b.id}</span>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}>
                 <span style={{ color: C.textS }}>{fmtDate(r.fromDate)}</span>
                 <Icon name="arrow-right" size={13} style={{ color: C.goldInk }} />
@@ -1213,6 +1246,7 @@ export function OperationsTab({
         <ChooseRefundDialog booking={current} onClose={() => setOpen(null)} onDone={(nb) => setOpen({ kind: "refund", id: nb.id })} />
       )}
       {open?.kind === "textagain" && current && <TextAgain booking={current} onClose={() => setOpen(null)} />}
+      {emailing && <EmailGuestModal booking={emailing} onClose={() => setEmailing(null)} />}
       {open?.kind === "datechange" && reviewing && find(reviewing.bookingId) && (
         <DateChangeReview request={reviewing} booking={find(reviewing.bookingId)!} onClose={() => setOpen(null)} />
       )}

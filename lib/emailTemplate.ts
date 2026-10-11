@@ -1,6 +1,7 @@
 import { escapeHtml, sanitizeHeaderValue } from "@/lib/escapeHtml";
-import { SLOTS, QUIET_HOURS_POLICY, RESORT_CONTACT, contactChannels } from "@/lib/resort";
-import { getBookingSlot } from "@/lib/utils";
+import { SLOTS, QUIET_HOURS_POLICY, RESORT_CONTACT, contactChannels, stayPatternNote } from "@/lib/resort";
+import { stayWindowLabel } from "@/lib/occupancy";
+import { getBookingSlot, bookingDays } from "@/lib/utils";
 import { OVERTIME_RATE } from "@/lib/validators";
 
 import type { Booking } from "@/types/booking";
@@ -17,12 +18,29 @@ function fmt(n: number) {
 
 /** The stay as the guest reads it in an email: one date, or the range and
  *  how many days it runs for. Bookings written before multi-day existed
- *  have no end date and read exactly as they always did. */
+ *  have no end date and read exactly as they always did.
+ *
+ *  This is the range of DATES, which for an overnight slot is not when the
+ *  stay ends — see arriveAt / departAt below, printed as their own rows. */
 function formatStay(b: { date: string; endDate?: string }) {
   const last = b.endDate && b.endDate > b.date ? b.endDate : b.date;
   if (last === b.date) return formatDate(b.date);
   const days = Math.round((Date.parse(`${last}T00:00:00Z`) - Date.parse(`${b.date}T00:00:00Z`)) / 86_400_000) + 1;
   return `${formatDate(b.date)} – ${formatDate(last)} (${days} days)`;
+}
+
+/** When the guest actually arrives, and when they actually leave.
+ *
+ *  "Date of Visit: October 10 – October 12" does not tell a Night Tour
+ *  guest that their stay ends at 5 AM on the 13th, a date that appears
+ *  nowhere else in the email. These two rows say it outright. Plain text:
+ *  every row value is escaped at the render site. */
+function arriveAt(b: Booking): string {
+  return stayWindowLabel(b)?.arrive ?? "—";
+}
+
+function departAt(b: Booking): string {
+  return stayWindowLabel(b)?.depart ?? "—";
 }
 
 function formatDate(ds: string) {
@@ -94,6 +112,8 @@ export function buildBookingReceivedEmail(booking: Booking): { subject: string; 
                 ${[
                   ["Full Name", booking.name],
                   ["Date of Visit", formatStay(booking)],
+                  ["Arrive", arriveAt(booking)],
+                  ["Leave", departAt(booking)],
                   ["Package", booking.package],
                   ["Number of Guests", `${escapeHtml(booking.guests)} pax`],
                   ["Total Amount", fmt(booking.total)],
@@ -229,6 +249,8 @@ export function buildRejectionEmail(booking: Booking, reason: string, money?: Re
                 ${[
                   ["Full Name", booking.name],
                   ["Date of Visit", formatStay(booking)],
+                  ["Arrive", arriveAt(booking)],
+                  ["Leave", departAt(booking)],
                   ["Package", booking.package],
                   ["Number of Guests", `${escapeHtml(booking.guests)} pax`],
                   ["Total Amount", fmt(booking.total)],
@@ -289,12 +311,117 @@ export function buildRejectionEmail(booking: Booking, reason: string, money?: Re
   return { subject, html };
 }
 
+/** The most a staff message may run to. Long enough for a real note about
+ *  a booking, short enough that nothing odd ends up in the resort's
+ *  outbox. */
+export const GUEST_MESSAGE_MAX = 4000;
+export const GUEST_SUBJECT_MAX = 150;
+
+/** The subject an "Email guest" starts with, so staff rarely have to think
+ *  about it and the guest can always see which booking is meant. */
+export function defaultGuestSubject(booking: Pick<Booking, "id">): string {
+  return `About your StoneWood booking ${booking.id}`;
+}
+
+/**
+ * A note typed by staff, wrapped in the resort's letterhead.
+ *
+ * The body is whatever was typed, so it is escaped and only then given its
+ * line breaks back — an address or a stray "<" in a guest's note must not
+ * become markup in an email sent from the resort's own account.
+ *
+ * The booking's details ride along underneath. Staff write "your room is
+ * ready"; the guest, who may have several bookings, still needs to see
+ * which one.
+ */
+export function buildGuestMessageEmail(
+  booking: Booking,
+  subject: string,
+  message: string
+): { subject: string; html: string } {
+  const clean = (subject || "").trim().slice(0, GUEST_SUBJECT_MAX) || defaultGuestSubject(booking);
+  const slotInfo = SLOTS[getBookingSlot(booking)];
+  // Escape first, then turn the newlines into <br>. The other way round
+  // would escape the tags we just added.
+  const body = escapeHtml((message || "").trim().slice(0, GUEST_MESSAGE_MAX))
+    .split(/\r?\n/)
+    .map((line) => (line.trim() ? line : "&nbsp;"))
+    .join("<br />");
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(clean)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f1eb;font-family:'Georgia',serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1eb;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">
+
+          <tr>
+            <td style="background:linear-gradient(135deg,#1a1108 0%,#2d1f0a 60%,#1a1108 100%);border-radius:12px 12px 0 0;padding:36px;text-align:center;">
+              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:4px;text-transform:uppercase;">StoneWood Resort</p>
+              <h1 style="margin:0;color:#f0e6cc;font-size:24px;font-weight:400;letter-spacing:1px;">A note about your booking</h1>
+              <div style="margin:20px auto 0;width:48px;height:1px;background:linear-gradient(90deg,transparent,#c9a84c,transparent);"></div>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:#ffffff;padding:36px;">
+              <p style="margin:0 0 20px;color:#2a1f0e;font-size:16px;">Hi ${escapeHtml(booking.name)},</p>
+              <div style="margin:0 0 28px;color:#4a3a28;font-size:14px;line-height:1.8;">${body}</div>
+
+              <p style="margin:0 0 12px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;border-bottom:1px solid #e8e0cc;padding-bottom:8px;">Your Booking</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                ${[
+                  ["Reference", booking.id],
+                  ["Date of Visit", formatStay(booking)],
+                  ["Arrive", arriveAt(booking)],
+                  ["Leave", departAt(booking)],
+                  ["Visit Type", `${slotInfo.label} (${slotInfo.hours})`],
+                ].map(([label, value]) => `
+                <tr>
+                  <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#8a6d3b;font-size:12px;width:40%;">${escapeHtml(label)}</td>
+                  <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#2a1f0e;font-size:13px;font-weight:600;">${escapeHtml(value)}</td>
+                </tr>`).join("")}
+              </table>
+
+              <p style="margin:0;color:#6b5a44;font-size:13px;line-height:1.7;">
+                Just reply to this email if you need anything, or reach us on ${escapeHtml(RESORT_CONTACT.phone)}.
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:#1a1108;border-radius:0 0 12px 12px;padding:24px 36px;text-align:center;">
+              <p style="margin:0;color:#8a7a5a;font-size:11px;line-height:1.8;">StoneWood Private Resort · ${escapeHtml(RESORT_CONTACT.phone)}</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  return { subject: clean, html };
+}
+
 export function buildReceiptEmail(booking: Booking): { subject: string; html: string } {
   const subject = `✅ Booking Confirmed – ${sanitizeHeaderValue(booking.id, 40)} | StoneWood Resort`;
 
   // The booking's own stored total is the source of truth. The receipt
   // used to print a hardcoded ₱6,000 "base rate" whatever was booked.
   const slotInfo = SLOTS[getBookingSlot(booking)];
+  // A multi-day confirmation has to answer "do I sleep there?" as well as
+  // "what time?" — the hours on their own never did.
+  const stayDays = bookingDays(booking);
+  const stayNote = stayPatternNote(slotInfo.id, stayDays);
   const overtimeFee = slotInfo.id === "Day" ? (booking.overtime || 0) * OVERTIME_RATE : 0;
   const baseFee = Math.max(0, booking.total - overtimeFee);
 
@@ -354,6 +481,8 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
                   ["Email Address", booking.email],
                   ["Number of Guests", `${escapeHtml(booking.guests)} pax`],
                   ["Date of Visit", formatStay(booking)],
+                  ["Arrive", arriveAt(booking)],
+                  ["Leave", departAt(booking)],
                   ["Package", booking.package],
                   ...(booking.overtime ? [["Overtime", `${escapeHtml(booking.overtime)} hour(s)`]] : []),
                   ["Payment Method", booking.package === "On-Site Reservation" ? "On-Site (Pay on Arrival)" : "GCash (Online Payment)"],
@@ -407,7 +536,8 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
                   <td style="background:#faf5e8;border:1px solid #e2d5b0;border-radius:8px;padding:20px;">
                     <p style="margin:0 0 12px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;">Reminders</p>
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">🪪 Bring a valid ID upon check-in.</p>
-                    <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">⏰ Your ${slotInfo.label}: <strong>${slotInfo.start}</strong> to <strong>${slotInfo.end}</strong>.</p>
+                    <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">⏰ Your ${slotInfo.label}: <strong>${slotInfo.start}</strong> to <strong>${slotInfo.end}</strong>${stayDays > 1 ? ", each day of your stay" : ""}.</p>
+                    ${stayNote ? `<p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">${escapeHtml(stayNote)}</p>` : ""}
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">🔇 ${QUIET_HOURS_POLICY}</p>
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">💳 ${booking.downpayment >= booking.total ? "Your stay is fully paid. Nothing more is due on arrival." : booking.package === "On-Site Reservation" ? "Pay the full balance on arrival." : `The remaining balance of ${fmt(booking.total - booking.downpayment)} is paid at the resort.`}</p>
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">📅 If the resort has to cancel, you choose a free new date or a full refund. If you cancel, payments aren't refunded, but you can move your booking to another date once from your booking page.</p>

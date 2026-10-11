@@ -141,7 +141,7 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
             <Cell style={{ ...td, whiteSpace: "nowrap" }}>
               {a.bookingId
                 ? <button type="button" onClick={() => (onOpenBooking ? onOpenBooking(a.bookingId!) : setBooking(a.bookingId!))}
-                    style={{ background: "none", border: "none", padding: 0, color: C.goldInk, fontFamily: "monospace", cursor: "pointer", fontSize: 13 }}>{a.bookingId}</button>
+                    style={{ background: "none", border: "none", padding: 0, color: C.goldInk, fontFamily: "monospace", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>{a.bookingId}</button>
                 : <span style={{ color: C.textS }}>—</span>}
             </Cell>
           </Row>

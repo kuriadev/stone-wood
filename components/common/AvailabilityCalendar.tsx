@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { m } from "motion/react";
 import { gold } from "@/lib/styles";
 import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS, MAX_STAY_DAYS } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
 import { checkBookingAvailability, holdsDate } from "@/lib/utils";
+import { RangeConnector } from "@/components/common/RangeConnector";
 
 /** `ds` shifted by `n` days, in UTC so it cannot drift across a timezone. */
 const addDays = (ds: string, n: number) =>
@@ -40,7 +40,6 @@ export function AvailabilityCalendar({
   const range = !!onSelectRange;
   /* True once a first day is down and the next click sets the last day. */
   const [picking, setPicking] = useState(false);
-  const [hover, setHover] = useState("");
   // The calendar depends on the *browser's* current date. Computing that during
   // SSR produces HTML that can disagree with what the client builds (different
   // timezone / the day rolling over), which React reports as a hydration
@@ -101,26 +100,25 @@ export function AvailabilityCalendar({
     return last;
   }, [range, picking, selectedDate, bookedDates, closedSet, maxStr]);
 
-  /* What the stay looks like right now, including the day being hovered
-     while the last day is still being chosen. */
-  const previewEnd = !range || !selectedDate
+  /* The last day of the stay as it stands.
+   *
+   * There is no hover preview any more. Passing the pointer over a date
+   * used to extend the stay to it, which meant the calendar changed under
+   * a guest who was only reading it, a stay could be "picked" by a stray
+   * sweep of the mouse on the way to somewhere else, and a touch screen
+   * — which has no hover — got a different calendar from a desktop. Both
+   * ends are clicked now: first day, then last. */
+  const stayEnd = !range || !selectedDate
     ? selectedDate ?? ""
-    : picking && hover && hover > selectedDate && rangeLimit && hover <= rangeLimit
-      ? hover
-      : endDate && endDate > selectedDate ? endDate : selectedDate;
-
-  /** The last day currently COMMITTED — the hover preview does not count,
-   *  or merely passing over a date would change what a click means. */
-  const committedEnd = range && endDate && endDate > selectedDate! ? endDate : selectedDate;
+    : endDate && endDate > selectedDate ? endDate : selectedDate;
 
   const pick = (ds: string) => {
     /* Clicking a date that is already part of the selection clears it.
        A tile that looks chosen should come unchosen when pressed again —
        otherwise the only way out of a wrong date is to pick another one,
        and there is no way back to "no date at all". */
-    if (selectedDate && ds >= selectedDate && ds <= (committedEnd || selectedDate)) {
+    if (selectedDate && ds >= selectedDate && ds <= (stayEnd || selectedDate)) {
       setPicking(false);
-      setHover("");
       if (range && onSelectRange) onSelectRange("", "");
       else onSelectDate("");
       return;
@@ -306,14 +304,14 @@ export function AvailabilityCalendar({
              it is dimmed rather than painted as taken. */
           const beyondStay = !!rangeLimit && bookable && !!selectedDate && ds > rangeLimit && ds > selectedDate;
           const isStart = !!selectedDate && ds === selectedDate;
-          const isEnd = !!previewEnd && previewEnd !== selectedDate && ds === previewEnd;
-          const inRange = !!selectedDate && !!previewEnd && ds > selectedDate && ds < previewEnd;
+          const isEnd = !!stayEnd && stayEnd !== selectedDate && ds === stayEnd;
+          const inRange = !!selectedDate && !!stayEnd && ds > selectedDate && ds < stayEnd;
           const isSel = isStart || isEnd;
           const disabled = isPast || isBeyond || isBooked || isClosed || beyondStay;
           /* The connecting line is drawn in segments, one per day of the
              stay, each scaling in a beat after the one before it so the
              stay appears to be drawn from its first day to its last. */
-          const onLine = !!selectedDate && !!previewEnd && previewEnd !== selectedDate && ds >= selectedDate && ds <= previewEnd;
+          const onLine = !!selectedDate && !!stayEnd && stayEnd !== selectedDate && ds >= selectedDate && ds <= stayEnd;
           const legIndex = onLine ? daysApart(selectedDate, ds) : 0;
           const weekday = dayDate.getDay();
 
@@ -376,11 +374,9 @@ export function AvailabilityCalendar({
               key={d}
               type="button"
               onClick={() => !disabled && pick(ds)}
-              onMouseEnter={() => range && setHover(ds)}
-              onFocus={() => range && setHover(ds)}
               disabled={disabled}
               aria-label={`${ds}${
-                isStart && previewEnd !== selectedDate ? " — first day of your stay"
+                isStart && stayEnd !== selectedDate ? " — first day of your stay"
                 : isEnd ? " — last day of your stay"
                 : inRange ? " — part of your stay"
                 : isBooked ? " — booked"
@@ -437,22 +433,12 @@ export function AvailabilityCalendar({
                   and MotionConfig's reducedMotion="user" turns it into an
                   instant state for anyone who asks for that. */}
               {onLine && (
-                <m.span
-                  aria-hidden
-                  initial={{ scaleX: 0, opacity: 0 }}
-                  animate={{ scaleX: 1, opacity: 1 }}
-                  transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1], delay: legIndex * 0.07 }}
-                  style={{
-                    position: "absolute",
-                    bottom: 6,
-                    left: isStart ? "50%" : weekday === 0 ? 0 : -6,
-                    right: ds === previewEnd ? "50%" : weekday === 6 ? 0 : -6,
-                    height: 3,
-                    borderRadius: 2,
-                    background: "#7fd48a",
-                    transformOrigin: "left center",
-                    pointerEvents: "none",
-                  }}
+                <RangeConnector
+                  color="#7fd48a"
+                  isStart={isStart}
+                  isEnd={ds === stayEnd}
+                  weekday={weekday}
+                  legIndex={legIndex}
                 />
               )}
             </button>

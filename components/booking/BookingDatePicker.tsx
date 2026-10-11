@@ -20,9 +20,9 @@
  */
 
 import { useState, useMemo } from "react";
-import { m } from "motion/react";
 import { T } from "@/lib/theme";
 import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS, MAX_STAY_DAYS } from "@/lib/validators";
+import { RangeConnector } from "@/components/common/RangeConnector";
 import { checkBookingAvailability, holdsDate, fmtDate } from "@/lib/utils";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 
@@ -85,7 +85,6 @@ export function BookingDatePicker({
   /* True once a first day is down and the next click sets the last day.
      While it is false, a click starts a new stay. */
   const [picking, setPicking] = useState(false);
-  const [hover, setHover] = useState("");
 
   // A date is "full" for this request when checkBookingAvailability says so —
   // not merely because some other (Shared) booking already exists on it.
@@ -116,27 +115,25 @@ export function BookingDatePicker({
     return last;
   }, [single, picking, selectedDate, fullDates, closedSet, maxStr]);
 
-  /* What the stay looks like right now, including the day being hovered
-     while the last day is still being chosen. */
-  const previewEnd =
-    picking && hover && selectedDate && hover > selectedDate && rangeLimit && hover <= rangeLimit
-      ? hover
-      : endDate && endDate > selectedDate ? endDate : selectedDate;
+  /* The last day of the stay as it stands.
+   *
+   * There is no hover preview any more. Passing the pointer over a date
+   * used to extend the stay to it, which meant the calendar changed under
+   * a guest who was only reading it, a stay could be "picked" by a stray
+   * sweep of the mouse on the way to somewhere else, and a touch screen
+   * — which has no hover — got a different calendar from a desktop. Both
+   * ends are clicked now: first day, then last. */
+  const stayEnd = !single && endDate && endDate > selectedDate ? endDate : selectedDate;
 
-  const stayDays = selectedDate && previewEnd
-    ? Math.round((Date.parse(`${previewEnd}T00:00:00Z`) - Date.parse(`${selectedDate}T00:00:00Z`)) / 86_400_000) + 1
+  const stayDays = selectedDate && stayEnd
+    ? Math.round((Date.parse(`${stayEnd}T00:00:00Z`) - Date.parse(`${selectedDate}T00:00:00Z`)) / 86_400_000) + 1
     : 0;
-
-  /** The last day currently COMMITTED — the hover preview does not count,
-   *  or merely passing over a date would change what a click means. */
-  const committedEnd = !single && endDate && endDate > selectedDate ? endDate : selectedDate;
 
   const pick = (ds: string) => {
     /* Clicking a date that is already part of the selection clears it, so
        a wrong pick can be undone rather than only replaced. */
-    if (selectedDate && ds >= selectedDate && ds <= committedEnd) {
+    if (selectedDate && ds >= selectedDate && ds <= stayEnd) {
       setPicking(false);
-      setHover("");
       onSelectRange("", "");
       return;
     }
@@ -263,7 +260,6 @@ export function BookingDatePicker({
 
       <div
         style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: "minmax(44px,1fr)", gap: 4 }}
-        onMouseLeave={() => setHover("")}
       >
         {Array.from({ length: firstDay }).map((_, i) => (
           <div key={`e${i}`} />
@@ -293,11 +289,11 @@ export function BookingDatePicker({
              starts a new stay there. */
           const beyondStay = !!rangeLimit && bookable && ds > rangeLimit && ds > selectedDate;
           const isStart = !!selectedDate && ds === selectedDate;
-          const isEnd = !!previewEnd && previewEnd !== selectedDate && ds === previewEnd;
-          const inRange = !!selectedDate && !!previewEnd && ds > selectedDate && ds < previewEnd;
+          const isEnd = !!stayEnd && stayEnd !== selectedDate && ds === stayEnd;
+          const inRange = !!selectedDate && !!stayEnd && ds > selectedDate && ds < stayEnd;
           const disabled = isPast || isBeyond || isBooked || isClosed || beyondStay;
           /* The connecting line, in one segment per day of the stay. */
-          const onLine = !!selectedDate && !!previewEnd && previewEnd !== selectedDate && ds >= selectedDate && ds <= previewEnd;
+          const onLine = !!selectedDate && !!stayEnd && stayEnd !== selectedDate && ds >= selectedDate && ds <= stayEnd;
           const legIndex = onLine ? daysApart(selectedDate, ds) : 0;
           const weekday = dayDate.getDay();
 
@@ -363,7 +359,7 @@ export function BookingDatePicker({
           }
           if (isStart || isEnd) { bg = "#2b6b30"; col = "#ffffff"; bdr = "1px solid #5cb85c"; dim = false; }
 
-          const label = isStart && previewEnd !== selectedDate
+          const label = isStart && stayEnd !== selectedDate
             ? " — first day of your stay"
             : isEnd ? " — last day of your stay"
             : inRange ? " — part of your stay"
@@ -378,8 +374,6 @@ export function BookingDatePicker({
               key={d}
               type="button"
               onClick={() => !disabled && pick(ds)}
-              onMouseEnter={() => setHover(ds)}
-              onFocus={() => setHover(ds)}
               disabled={disabled}
               aria-label={`${ds}${label}`}
               aria-pressed={isStart || isEnd || inRange}
@@ -421,29 +415,16 @@ export function BookingDatePicker({
               }}
             >
               {d}
-              {/* ── The line that joins the first day to the last ──
-                  The same connector the home-page calendar draws, because
-                  these two calendars are meant to read as one control. One
-                  segment per day, bleeding 6px past the tile to cross the
-                  grid gap and clipped at the week's edges, each scaling out
-                  from its left edge a beat after the one before. */}
+              {/* The thread joining the first day of the stay to the
+                  last. Shared with the home page's calendar so the two read
+                  as one control — see components/common/RangeConnector. */}
               {onLine && (
-                <m.span
-                  aria-hidden
-                  initial={{ scaleX: 0, opacity: 0 }}
-                  animate={{ scaleX: 1, opacity: 1 }}
-                  transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1], delay: legIndex * 0.07 }}
-                  style={{
-                    position: "absolute",
-                    bottom: 4,
-                    left: isStart ? "50%" : weekday === 0 ? 0 : -6,
-                    right: ds === previewEnd ? "50%" : weekday === 6 ? 0 : -6,
-                    height: 3,
-                    borderRadius: 2,
-                    background: "#5cb85c",
-                    transformOrigin: "left center",
-                    pointerEvents: "none",
-                  }}
+                <RangeConnector
+                  color="#5cb85c"
+                  isStart={isStart}
+                  isEnd={ds === stayEnd}
+                  weekday={weekday}
+                  legIndex={legIndex}
                 />
               )}
             </button>
@@ -469,7 +450,7 @@ export function BookingDatePicker({
           : picking
           ? <>Now click your <strong>last day</strong>, up to {MAX_STAY_DAYS} days. Or click {fmtDate(selectedDate)} again to clear it.</>
           : stayDays > 1
-          ? <><strong>{stayDays} days</strong> booked: {fmtDate(selectedDate)} to {fmtDate(previewEnd)}. Click any of them to clear.</>
+          ? <><strong>{stayDays} days</strong> booked: {fmtDate(selectedDate)} to {fmtDate(stayEnd)}. Click any of them to clear.</>
           : <>{fmtDate(selectedDate)} — one day. Click it again to clear, or another date to stay up to {MAX_STAY_DAYS} days.</>}
       </p>
 

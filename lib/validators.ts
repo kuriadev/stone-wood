@@ -64,9 +64,24 @@ export const EVENT_VENUE_RATE = 5000;
 // Shared group would pay, which is a starting point, not a rule.
 // ────────────────────────────────────────────────────────────────────
 
-/** Flat price for an Exclusive (whole-resort) buyout, however many of the
- *  fixed RESORT_MAX_CAPACITY guests actually attend. */
+/** Flat price for an Exclusive (whole-resort) buyout, per slot.
+ *
+ *  Flat means FLAT: the headcount does not enter the price at all. What is
+ *  being bought is the resort to yourselves, and five people buy exactly
+ *  the same thing as thirty. The guest count on an Exclusive booking is
+ *  therefore an operational number — how many towels, how many chairs,
+ *  who the kitchen cooks for — and the guest sets it themselves. */
 export const EXCLUSIVE_FLAT_RATE = 6000;
+
+/** What an Exclusive booking's guest count starts at.
+ *
+ *  Picking Exclusive used to slam the count to RESORT_MAX_CAPACITY and
+ *  disable the stepper, on the reasoning that a buyout reserves all 30
+ *  places. It does — but it made every buyout claim thirty arrivals, so
+ *  the kitchen, the towels and the arrivals board were all wrong for the
+ *  small private group that is the typical buyer. A low default that the
+ *  guest can raise tells the truth. */
+export const EXCLUSIVE_DEFAULT_GUESTS = 5;
 
 /** Per-guest rate for a Shared booking. */
 export const SHARED_PER_HEAD_RATE = 200;
@@ -119,6 +134,19 @@ export const BOOKING_WINDOW_MONTHS = 3;
  *  the pool for a week and is arranged with the owner directly instead.
  *  Every message that quotes the limit reads it from here. */
 export const MAX_STAY_DAYS = 3;
+
+/** Off every day of a stay AFTER the first.
+ *
+ *  A second and third day cost the resort far less than the first: there
+ *  is no second changeover, no second group to brief, no second full
+ *  turnover — just a housekeeping pass around guests who are already
+ *  there. Charging the headline rate three times over priced a three-day
+ *  stay out of reach for exactly the families it was meant for, so the
+ *  extra days are sold at a stay rate.
+ *
+ *  Whole Day Exclusive: ₱10,800 for one day, ₱29,160 for three
+ *  (₱9,720 a day) instead of ₱32,400. */
+export const MULTI_DAY_DISCOUNT_PCT = 0.15;
 
 // ════════════════════════════════════════════════════════════════════
 // DATES

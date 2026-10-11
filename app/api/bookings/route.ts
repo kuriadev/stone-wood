@@ -279,7 +279,8 @@ async function createWalkIn(body: Record<string, unknown>) {
     const tierIn: BookingTier = TIERS.includes(b.tier as BookingTier) ? (b.tier as BookingTier) : getPackageTier(Math.round(guests));
     const overtimeIn = slotIn === "Day" ? Math.min(OVERTIME_MAX, Math.max(0, Math.round(Number(b.overtime) || 0))) : 0;
     const roomIds = Array.isArray(b.rooms) ? b.rooms.map(Number).filter(Number.isFinite) : [];
-    const notOffered = pricingProblem(resourceIn, tierIn, slotIn);
+    // Includes the single-date rule: only a Whole Day can span dates.
+    const notOffered = pricingProblem(resourceIn, tierIn, slotIn, stayDays);
     if (notOffered) return NextResponse.json({ success: false, error: notOffered }, { status: 400 });
     let pkg: { price: number; requiresRoom: boolean } | null = null;
     if (typeof b.walkInPackageCode === "string" && b.walkInPackageCode) {

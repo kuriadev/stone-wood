@@ -19,6 +19,18 @@ export interface SlotInfo {
   endsNextDay: boolean;
   /** How many single slots this covers — Whole Day is Day + Night. */
   span: 1 | 2;
+  /** What a stay of several days in this slot actually is.
+   *
+   *  "returns" — the slot leaves a long gap every cycle, so the guest goes
+   *  home and comes back: three days of Day Tour is three daytime visits,
+   *  not one long one. "continuous" — the only gap is the 5–7 AM turnover,
+   *  so a run of them is one unbroken stay and the guest never leaves. */
+  stay: "returns" | "continuous";
+  /** The six-word version of `stay`, for a tile or a chip. */
+  stayHint: string;
+  /** What the guest does at the end of each cycle, as a verb phrase:
+   *  "head home at 5:00 PM". Used to build the long explanation. */
+  cycleEnd: string;
   /** 24-hour clock, for the live occupancy count. 24 = midnight. */
   startHour: number;
   endHour: number;
@@ -30,7 +42,10 @@ const hourLabel = (h: number): string => {
   return `${hh % 12 === 0 ? 12 : hh % 12}:00 ${suffix}`;
 };
 
-const slot = (id: BookingSlot, label: string, startHour: number, endHour: number, span: 1 | 2): SlotInfo => {
+const slot = (
+  id: BookingSlot, label: string, startHour: number, endHour: number, span: 1 | 2,
+  stay: SlotInfo["stay"], stayHint: string,
+): SlotInfo => {
   const start = hourLabel(startHour);
   const end = hourLabel(endHour);
   // Hours past 24 are the small hours of the NEXT morning. hourLabel wraps
@@ -41,6 +56,7 @@ const slot = (id: BookingSlot, label: string, startHour: number, endHour: number
     id, label, start, end, endsNextDay,
     hours: `${start} – ${end}${endsNextDay ? " (next day)" : ""}`,
     span, startHour, endHour,
+    stay, stayHint, cycleEnd: `head home at ${end}`,
   };
 };
 
@@ -58,11 +74,92 @@ const slot = (id: BookingSlot, label: string, startHour: number, endHour: number
 // stay from eating into the next morning's booking — the resort is empty
 // and cleanable from 5 to 7 every morning, exactly as it is from 5 to 7
 // every evening. Shorten this gap and the two groups meet.
+//
+// ── What a stay of SEVERAL days means, per slot ──
+//
+// This is the question the hours alone do not answer, and the one guests
+// kept asking: if I book a Day Tour for three days, do I sleep here?
+//
+// The answer falls out of the gap each slot leaves between its cycles:
+//
+//   Day Tour     5:00 PM → 7:00 AM next day = a 14-hour gap. The guest
+//                goes home for the night and comes back in the morning.
+//                Three days is three separate daytime visits. The resort
+//                is NOT theirs overnight, and those nights stay sellable.
+//
+//   Night Tour   5:00 AM → 7:00 PM same day = a 14-hour gap. The mirror
+//                image: the guest goes home at dawn and comes back in the
+//                evening. Three days is three nights, and the stay ends
+//                at 5:00 AM on the morning AFTER the last date.
+//
+//   Whole Day    5:00 AM → 7:00 AM next day = the two-hour turnover, and
+//                nothing else. Nobody goes home in a gap that short, so a
+//                run of Whole Days is ONE unbroken stay, 7:00 AM on the
+//                first day to 5:00 AM after the last night. The mornings
+//                in between are a housekeeping pass with the group still
+//                on site, not a turnover between two groups.
+//
+// `stay` is data rather than a judgement made at each call site because
+// the booking flow, the summary, the confirmation email and the staff
+// screens all have to tell the guest the same story about where they
+// sleep. getOccupancyWindow in lib/occupancy.ts already computes exactly
+// these windows; this is the same fact in words.
 export const SLOTS: Record<BookingSlot, SlotInfo> = {
-  Day: slot("Day", "Day Tour", 7, 17, 1),        // 7:00 AM – 5:00 PM
-  Night: slot("Night", "Night Tour", 19, 29, 1), // 7:00 PM – 5:00 AM next day
-  WholeDay: slot("WholeDay", "Whole Day", 7, 29, 2), // 7:00 AM – 5:00 AM next day
+  // 7:00 AM – 5:00 PM
+  Day: slot("Day", "Day Tour", 7, 17, 1, "returns", "You come back each morning"),
+  // 7:00 PM – 5:00 AM next day
+  Night: slot("Night", "Night Tour", 19, 29, 1, "returns", "You come back each evening"),
+  // 7:00 AM – 5:00 AM next day
+  WholeDay: slot("WholeDay", "Whole Day", 7, 29, 2, "continuous", "You stay right through"),
 };
+
+/** Is a run of several days in this slot one unbroken stay? */
+export const isContinuousStay = (id: BookingSlot): boolean => SLOTS[id].stay === "continuous";
+
+/** Can a booking in this slot cover more than one date at all?
+ *
+ *  Only the Whole Day. The Day and Night Tours are SINGLE-DATE visits, and
+ *  this is the rule rather than an accident: a run of them would mean
+ *  driving home at 5 PM and coming back at 7 the next morning, three times
+ *  over. Nobody wants to buy that. A guest who wants several days wants
+ *  the place to stay theirs in between, and the only slot that does that
+ *  is the Whole Day — so picking a second date moves the booking there
+ *  instead of refusing it. */
+export const allowsMultiDay = (id: BookingSlot): boolean => SLOTS[id].stay === "continuous";
+
+/** The slot a booking becomes when the guest picks more than one date. */
+export const MULTI_DAY_SLOT: BookingSlot = "WholeDay";
+
+/** Why this slot cannot run for this many days, if it cannot. */
+export function multiDayProblem(id: BookingSlot, days: number): string | null {
+  if (days <= 1 || allowsMultiDay(id)) return null;
+  return `The ${SLOTS[id].label} is a single-date visit. Choose the ${SLOTS[MULTI_DAY_SLOT].label} to book more than one date.`;
+}
+
+/** What a multi-day stay is counted in — nights for the Night Tour, days
+ *  for the others. "3 nights" reads truer than "3 days" for a booking
+ *  that starts at 7 PM and ends at dawn. */
+export function stayUnit(id: BookingSlot, days: number): string {
+  const n = Math.max(1, days);
+  if (id === "Night") return `${n} ${n === 1 ? "night" : "nights"}`;
+  return `${n} ${n === 1 ? "day" : "days"}`;
+}
+
+/** The plain-language answer to "so do I sleep there?" for a stay of
+ *  `days` days in this slot. Null for a single day, where the hours
+ *  already say everything. */
+export function stayPatternNote(id: BookingSlot, days: number): string | null {
+  if (days <= 1) return null;
+  const s = SLOTS[id];
+  if (s.stay === "continuous") {
+    return `The resort is yours without a break from ${s.start} on the first day until ${s.end} the morning after the last. Housekeeping works around you on the mornings in between.`;
+  }
+  const unit = stayUnit(id, days);
+  if (id === "Night") {
+    return `${unit}, one after another. You arrive at ${s.start} each evening and ${s.cycleEnd} — the resort is not yours during the day. Any room you book stays locked and held for you in between, so you can leave your things.`;
+  }
+  return `${unit}, one after another. You arrive at ${s.start} each morning and ${s.cycleEnd} — the resort is not yours overnight. Any room you book stays locked and held for you in between, so you can leave your things.`;
+}
 
 /** The two bookable single slots, in order. */
 export const SINGLE_SLOTS: BookingSlot[] = ["Day", "Night"];
