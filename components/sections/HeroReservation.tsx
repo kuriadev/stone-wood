@@ -309,7 +309,7 @@ export function HeroReservation({
             className="sw-btn h-auto w-full disabled:opacity-40"
             style={goldBtn}
           >
-            CHECK AVAILABILITY <span aria-hidden="true">→</span>
+            BOOK THIS DATE <span aria-hidden="true">→</span>
           </Button>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, flexWrap: "wrap" }}>
