@@ -29,7 +29,7 @@ import { AdminPageHeader, TableShell, Row, Cell, td, ActionButton, StatusBadge, 
 const CATEGORIES: { value: string; label: string }[] = [
   { value: "", label: "Everything" },
   { value: "booking", label: "Bookings" },
-  { value: "date_change", label: "Date changes" },
+  { value: "date_change", label: "Reschedules" },
   { value: "stay", label: "Check-in, inspection, closing" },
   { value: "payment", label: "Payments" },
   { value: "refund", label: "Refunds" },

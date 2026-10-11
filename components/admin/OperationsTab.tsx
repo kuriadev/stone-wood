@@ -1130,7 +1130,7 @@ export function OperationsTab({
               { value: "today", label: `Today (${todayCards.length})`, content: todayPanel },
               { value: "done", label: `Done today (${doneToday.length})`, content: donePanel },
               { value: "upcoming", label: `Coming up (${upcoming.length})`, content: upcomingPanel },
-              { value: "reschedule", label: `Date changes (${pendingMoves.length})`, content: reschedulePanel },
+              { value: "reschedule", label: `Reschedules (${pendingMoves.length})`, content: reschedulePanel },
             ]} />
           )}
         </div>
