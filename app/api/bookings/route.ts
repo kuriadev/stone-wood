@@ -28,6 +28,7 @@ import { isAdminRequest, requireAdmin } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { isValidEmail, isValidPHNumber, sanitizeName, sanitizeNotes, NAME_MIN, NAME_MAX, OVERTIME_MAX } from "@/lib/validators";
 import { buildBookingReceivedEmail, buildReceiptEmail } from "@/lib/emailTemplate";
+import { buildNewBookingAlert, adminNotifyTo } from "@/lib/adminNotify";
 import { logActivity } from "@/lib/activity.server";
 import { fmtDate, getPackageTier } from "@/lib/utils";
 import { priceBooking, pricingProblem } from "@/lib/pricing";
@@ -200,6 +201,14 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
     // reviewed" email, since the owner still has to look at it.
     const { subject, html } = confirmedNow ? buildReceiptEmail(saved) : buildBookingReceivedEmail(saved);
     const emailed = await trySendMail({ to: saved.email, subject, html }, `${confirmedNow ? "booking-confirmed" : "booking-received"} ${saved.id}`);
+
+    /* And the desk's own copy. One per booking — a rate that matches how
+       often it really happens — and it says whether anything is needed:
+       a booking the system already confirmed asks nothing of the owner,
+       one held for review does. trySendMail, so a slow Gmail cannot turn a
+       saved, paid booking into an error. */
+    const alert = buildNewBookingAlert(saved, paidPesos);
+    void trySendMail({ to: adminNotifyTo(), subject: alert.subject, html: alert.html }, `admin-new-booking ${saved.id}`);
 
     await logActivity([
       {

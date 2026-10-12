@@ -33,7 +33,8 @@ function formatStay(b: { date: string; endDate?: string }) {
  *
  *  "Date of Visit: October 10 – October 12" does not tell a Night Tour
  *  guest that their stay ends at 5 AM on the 13th, a date that appears
- *  nowhere else in the email. These two rows say it outright. Plain text:
+ *  nowhere else in the email. The Check in / Check out rows say it
+ *  outright, in the words a guest already knows. Plain text:
  *  every row value is escaped at the render site. */
 function arriveAt(b: Booking): string {
   return stayWindowLabel(b)?.arrive ?? "—";
@@ -112,8 +113,8 @@ export function buildBookingReceivedEmail(booking: Booking): { subject: string; 
                 ${[
                   ["Full Name", booking.name],
                   ["Date of Visit", formatStay(booking)],
-                  ["Arrive", arriveAt(booking)],
-                  ["Leave", departAt(booking)],
+                  ["Check in", arriveAt(booking)],
+                  ["Check out", departAt(booking)],
                   ["Package", booking.package],
                   ["Number of Guests", `${escapeHtml(booking.guests)} pax`],
                   ["Total Amount", fmt(booking.total)],
@@ -249,8 +250,8 @@ export function buildRejectionEmail(booking: Booking, reason: string, money?: Re
                 ${[
                   ["Full Name", booking.name],
                   ["Date of Visit", formatStay(booking)],
-                  ["Arrive", arriveAt(booking)],
-                  ["Leave", departAt(booking)],
+                  ["Check in", arriveAt(booking)],
+                  ["Check out", departAt(booking)],
                   ["Package", booking.package],
                   ["Number of Guests", `${escapeHtml(booking.guests)} pax`],
                   ["Total Amount", fmt(booking.total)],
@@ -380,8 +381,8 @@ export function buildGuestMessageEmail(
                 ${[
                   ["Reference", booking.id],
                   ["Date of Visit", formatStay(booking)],
-                  ["Arrive", arriveAt(booking)],
-                  ["Leave", departAt(booking)],
+                  ["Check in", arriveAt(booking)],
+                  ["Check out", departAt(booking)],
                   ["Visit Type", `${slotInfo.label} (${slotInfo.hours})`],
                 ].map(([label, value]) => `
                 <tr>
@@ -481,8 +482,8 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
                   ["Email Address", booking.email],
                   ["Number of Guests", `${escapeHtml(booking.guests)} pax`],
                   ["Date of Visit", formatStay(booking)],
-                  ["Arrive", arriveAt(booking)],
-                  ["Leave", departAt(booking)],
+                  ["Check in", arriveAt(booking)],
+                  ["Check out", departAt(booking)],
                   ["Package", booking.package],
                   ...(booking.overtime ? [["Overtime", `${escapeHtml(booking.overtime)} hour(s)`]] : []),
                   ["Payment Method", booking.package === "On-Site Reservation" ? "On-Site (Pay on Arrival)" : "GCash (Online Payment)"],

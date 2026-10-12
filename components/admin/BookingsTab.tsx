@@ -48,6 +48,8 @@ import { ChooseRefundDialog } from "@/components/admin/ChooseRefundDialog";
 import { DateChangeReview } from "@/components/admin/DateChangeReview";
 import { MoveBookingModal } from "@/components/admin/MoveBookingModal";
 import { EditGuestModal } from "@/components/admin/EditGuestModal";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -109,6 +111,15 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
   const [reviewReq, setReviewReq] = useState<number | null>(null);
   const reviewing = reviewReq === null ? null : ops.dateChanges.find((r) => r.id === reviewReq) ?? null;
   const [archiveOf, setArchiveOf] = useState<Booking | null>(null);
+
+  /* ── Acting on many bookings at once ──
+     Tidying a test season one row at a time is 50 confirmations. The
+     selection is held as ids rather than bookings so it survives the list
+     re-sorting or refreshing underneath it. */
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [bulk, setBulk] = useState<null | "archive" | "delete">(null);
+  const [typed, setTyped] = useState("");
+  const [working, setWorking] = useState(false);
   /** Finishing a stay: "complete" inspects and collects; "settle" collects
    *  the rest from a group already checked out. */
   const [finish, setFinish] = useState<{ kind: "complete" | "settle"; id: string } | null>(null);
@@ -146,6 +157,64 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
 
   const sel = { ...inp, padding: "8px 12px", width: "auto" } as const;
 
+  /* Only what is on screen. "Select all" that reaches rows behind a
+     filter or on another page is how people delete things they never saw. */
+  const pageIds = paged.rows.map((b) => b.id);
+  const pickedRows = bookings.filter((b) => picked.has(b.id));
+  /* Archiving is only meaningful once a booking is finished. A mixed
+     selection archives what it can and says how many that was, rather than
+     refusing the whole thing. */
+  const archivable = pickedRows.filter((b) => !b.archived && (b.status === "Completed" || b.status === "Cancelled"));
+  const allOnPage = pageIds.length > 0 && pageIds.every((id) => picked.has(id));
+  const someOnPage = pageIds.some((id) => picked.has(id));
+
+  const selectAllBox = (
+    <Checkbox
+      checked={allOnPage ? true : someOnPage ? "indeterminate" : false}
+      aria-label={allOnPage ? "Clear selection" : "Select every booking on this page"}
+      onCheckedChange={(v) => setPicked((prev) => {
+        const next = new Set(prev);
+        for (const id of pageIds) { if (v === true) next.add(id); else next.delete(id); }
+        return next;
+      })}
+    />
+  );
+
+  const runArchive = () => {
+    const ids = new Set(archivable.map((b) => b.id));
+    setBookings((bs) => bs.map((x) => ids.has(x.id) ? { ...x, archived: true, archivedAt: new Date().toISOString() } : x));
+    toast(`${ids.size} booking${ids.size === 1 ? "" : "s"} archived.`, "info");
+    setPicked(new Set());
+    setBulk(null);
+  };
+
+  /* Permanent. DELETE /api/bookings/[id] writes the whole row into the
+     activity log before removing it, so there is still a record of what
+     was destroyed — but the booking itself is gone from the database and
+     nothing in the app brings it back. One request per booking, because
+     that is the route that exists and that is what writes the log. */
+  const runDelete = async () => {
+    setWorking(true);
+    const ids = pickedRows.map((b) => b.id);
+    const gone: string[] = [];
+    const failed: string[] = [];
+    for (const id of ids) {
+      try {
+        const res = await fetch(`/api/bookings/${encodeURIComponent(id)}`, { method: "DELETE" });
+        if (res.ok) gone.push(id); else failed.push(id);
+      } catch { failed.push(id); }
+    }
+    if (gone.length) {
+      const removed = new Set(gone);
+      setBookings((bs) => bs.filter((x) => !removed.has(x.id)));
+    }
+    setWorking(false);
+    setPicked(new Set());
+    setBulk(null);
+    if (failed.length) toast(`Deleted ${gone.length}; ${failed.length} could not be deleted.`, "error");
+    else toast(`${gone.length} booking${gone.length === 1 ? "" : "s"} deleted permanently.`, "warning");
+  };
+
   // One list layout for both tabs (the Archived tab just filters to
   // archived rows), rendered into each TabsContent like Customer Service.
   const listPanel = (
@@ -169,7 +238,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" }}>
         <div style={{ position: "relative", flex: "1 1 260px" }}>
           <Icon name="search" size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: 0.45, color: C.textH }} />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, ID, email, phone, date or package" aria-label="Search bookings" style={{ ...sel, width: "100%", paddingLeft: 32 }} />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Booking ID, email, name, phone, date or package" aria-label="Search bookings" style={{ ...sel, width: "100%", paddingLeft: 32 }} />
         </div>
         <FullSelect value={source} onChange={(e) => setSource(e.target.value as typeof source)} aria-label="Source" style={{ ...sel, paddingRight: 40 }}>
           <option value="All">All sources</option><option>Online</option><option>Walk-In</option>
@@ -184,13 +253,58 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
         {filtersOn && <ActionButton size="sm" onClick={clear}>Clear filters</ActionButton>}
       </div>
 
-      <TableShell head={["ID", "Guest", "Visit", "Package", "Source", "Total", "Paid", "Status", ""]} minWidth={1020}
+      {/* ── What is selected, and what can be done with it ──
+          Sits between the filters and the table: it belongs to the rows
+          below it, and it must not move the table when it appears, so the
+          strip is always in the layout and only its contents come and go. */}
+      <div
+        aria-live="polite"
+        style={{
+          minHeight: 44, display: "flex", alignItems: "center", gap: 12,
+          flexWrap: "wrap", marginBottom: 8,
+        }}
+      >
+        {pickedRows.length > 0 && (
+          <>
+            <span style={{ color: C.textH, fontSize: 13, fontWeight: 600 }}>
+              {pickedRows.length} selected
+            </span>
+            <ActionButton size="sm" onClick={() => setPicked(new Set())}>Clear</ActionButton>
+            <span style={{ width: 1, height: 20, background: cBr }} />
+            <ActionButton size="sm" icon="folder" disabled={archivable.length === 0} onClick={() => setBulk("archive")}>
+              Archive{archivable.length !== pickedRows.length ? ` (${archivable.length})` : ""}
+            </ActionButton>
+            {/* Permanent, and named so nobody can mistake it for Archive. */}
+            <ActionButton size="sm" kind="red" icon="trash" onClick={() => { setTyped(""); setBulk("delete"); }}>
+              Delete permanently
+            </ActionButton>
+            {archivable.length !== pickedRows.length && (
+              <span style={{ color: C.textS, fontSize: 11.5 }}>
+                Only finished bookings can be archived; the rest stay as they are.
+              </span>
+            )}
+          </>
+        )}
+      </div>
+
+      <TableShell head={[selectAllBox, "ID", "Guest", "Visit", "Package", "Source", "Total", "Paid", "Status", ""]} minWidth={1060}
         empty={rows.length === 0 ? (filtersOn ? "No bookings match these filters." : status === "All" ? "No bookings yet." : `No ${status.toLowerCase()} bookings.`) : undefined}>
         {paged.rows.map((b, i) => {
           const m = bookingMoney(b, ops.payments, ops.damages);
           const s = SLOTS[getBookingSlot(b)];
           return (
             <Row key={b.id} style={{ background: rowBg(i) }}>
+              <Cell style={{ ...td, width: 36 }}>
+                <Checkbox
+                  checked={picked.has(b.id)}
+                  aria-label={`Select ${b.id}`}
+                  onCheckedChange={(v) => setPicked((prev) => {
+                    const next = new Set(prev);
+                    if (v === true) next.add(b.id); else next.delete(b.id);
+                    return next;
+                  })}
+                />
+              </Cell>
               <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace", fontWeight: 700, whiteSpace: "nowrap" }}>{b.id.startsWith("TMP-") ? "Saving…" : b.id}</Cell>
               {/* The email identifies the guest (clientKey), so it is the line
                   under the name. The phone is on the detail panel. */}
@@ -491,6 +605,68 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
           onClose={() => setEditId(null)}
           onSaved={(patch) => setBookings((prev) => prev.map((x) => (x.id === editId ? { ...x, ...patch } : x)))}
         />
+      )}
+
+      {bulk === "archive" && (
+        <ConfirmDialog
+          title={`Archive ${archivable.length} booking${archivable.length === 1 ? "" : "s"}?`}
+          description="They leave the active list and keep every payment, inspection and refund attached to them. You can restore them from the Archived tab."
+          onCancel={() => setBulk(null)}
+          confirm={<ActionButton kind="primary" onClick={runArchive}>Archive {archivable.length}</ActionButton>}
+        >
+          <ul style={{ margin: 0, paddingLeft: 18, color: C.textB, fontSize: 13, maxHeight: 160, overflowY: "auto" }}>
+            {archivable.map((b) => (
+              <li key={b.id}><span style={{ fontFamily: "monospace", fontWeight: 700 }}>{b.id}</span> · {b.name}</li>
+            ))}
+          </ul>
+        </ConfirmDialog>
+      )}
+
+      {/* Permanent deletion.
+
+          Archive is the ordinary way to clear the list, and this is not
+          that: the rows leave the database and nothing in the app brings
+          them back. So it asks for the word to be typed rather than for a
+          button to be found — a second button is just a second click, and
+          this is the one action in the app that no amount of care
+          afterwards can undo.
+
+          The server snapshots each booking into the activity log before
+          removing it, so there is a record of WHAT was destroyed even
+          though the booking is gone. */}
+      {bulk === "delete" && (
+        <ConfirmDialog
+          title={`Permanently delete ${pickedRows.length} booking${pickedRows.length === 1 ? "" : "s"}?`}
+          description="This erases them from the database. Their payments, inspections and refund records go with them, and this cannot be undone — Archive is what you want if you only need them out of the list."
+          onCancel={() => { setBulk(null); setTyped(""); }}
+          confirm={
+            <ActionButton
+              kind="red"
+              icon="trash"
+              disabled={typed.trim().toUpperCase() !== "DELETE" || working}
+              onClick={runDelete}
+            >
+              {working ? "Deleting…" : `Delete ${pickedRows.length} permanently`}
+            </ActionButton>
+          }
+        >
+          <ul style={{ margin: "0 0 16px", paddingLeft: 18, color: C.textB, fontSize: 13, maxHeight: 160, overflowY: "auto" }}>
+            {pickedRows.map((b) => (
+              <li key={b.id}>
+                <span style={{ fontFamily: "monospace", fontWeight: 700 }}>{b.id}</span> · {b.name} · {bookingStatusLabel(b)}
+              </li>
+            ))}
+          </ul>
+          <Label htmlFor="bulk-delete-confirm">Type DELETE to confirm</Label>
+          <Input
+            id="bulk-delete-confirm"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder="DELETE"
+            autoComplete="off"
+            style={inp}
+          />
+        </ConfirmDialog>
       )}
 
       {archiveOf && (

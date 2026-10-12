@@ -28,6 +28,7 @@ import { withHolds } from "@/lib/rebooking";
 import { useOps } from "@/contexts/OpsContext";
 import { useApp } from "@/contexts/AppContext";
 import type { Booking } from "@/types/booking";
+import { RetryNotice } from "@/components/admin/RetryNotice";
 
 interface MoveBookingModalProps {
   booking: Booking;
@@ -148,7 +149,12 @@ export function MoveBookingModal({ booking, onMoved, onClose }: MoveBookingModal
           </>
         )}
 
-        <ErrorNote>{error}</ErrorNote>
+        {/* A failed save is a state you are still in, not an event that
+            happened, so it stays and brings the retry with it — the button
+            you pressed is above the fold by now. */}
+        {error
+          ? <RetryNotice message={error} onRetry={() => void move()} busy={busy} />
+          : <ErrorNote>{error}</ErrorNote>}
       </div>
     </Modal>
   );

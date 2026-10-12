@@ -1596,3 +1596,70 @@ html {
   height: max(100%, 44px);
   transform: translate(-50%, -50%);
 }
+
+
+/* ── Native controls follow the theme ──
+   A date input draws its own calendar button, a <select> its own arrow, a
+   scrollable box its own scrollbars — and the browser picks the colour of
+   all of them from `color-scheme`, not from anything the stylesheet sets
+   on the element. With no `color-scheme` the browser assumes light, so the
+   date filters rendered a BLACK calendar icon on a near-black field: the
+   control was there, you simply could not see it.
+
+   One declaration per theme fixes the date pickers, the select arrows, the
+   scrollbars and the autofill colours together, and keeps them right if a
+   new native control is used later. */
+.sw-dark { color-scheme: dark; }
+.sw-light { color-scheme: light; }
+
+
+/* ── The dashboard clock's icon ──
+   One slow breath, not a spin or a blink. It sits beside a board staff
+   read all day, so it has to register as alive without ever pulling the
+   eye away from the work: 3 seconds, and an opacity range narrow enough
+   that you notice it only if you look for it. Honoured by the global
+   reduced-motion rule below, where the readout alone carries the message. */
+@keyframes sw-clock-breathe {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+.sw-clock-tick { animation: sw-clock-breathe 3s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sw-clock-tick { animation: none; opacity: 0.9; }
+}
+
+/* ── The tick that draws itself ──
+   Used once, on the screen that tells a guest their booking is real. The
+   ring sweeps, the tick strokes in behind it, and a halo breathes out
+   once; about 900ms, then it stops. A full stop, not an idle animation.
+   components/common/SuccessCheck.tsx. */
+@keyframes sw-success-draw { to { stroke-dashoffset: 0; } }
+@keyframes sw-success-halo {
+  0%   { transform: scale(0.6); opacity: 0; }
+  40%  { opacity: 0.35; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.sw-success-halo {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--sw-success-c, #6ec071);
+  animation: sw-success-halo .9s cubic-bezier(.22, 1, .36, 1) .12s both;
+}
+.sw-success-ring {
+  animation: sw-success-draw .55s cubic-bezier(.65, 0, .35, 1) both;
+}
+.sw-success-tick {
+  /* Starts a third of the way into the ring's sweep, so the two read as
+     one gesture rather than two animations queued up. */
+  animation: sw-success-draw .42s cubic-bezier(.65, 0, .35, 1) .2s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The mark carries the meaning; the movement never did. */
+  .sw-success-ring,
+  .sw-success-tick { animation: none; stroke-dashoffset: 0; }
+  .sw-success-halo { animation: none; opacity: 0; }
+}

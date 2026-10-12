@@ -407,7 +407,7 @@ export function TotalRow({ label, value }: { label: string; value: ReactNode }) 
   );
 }
 
-export function TableShell({ head, children, minWidth = 720, empty, label }: { head: string[]; children: ReactNode; minWidth?: number; empty?: ReactNode; label?: string }) {
+export function TableShell({ head, children, minWidth = 720, empty, label }: { head: ReactNode[]; children: ReactNode; minWidth?: number; empty?: ReactNode; label?: string }) {
   const { C, cBg, cBr, head: hBg } = useAdminStyle();
   return (
     <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, overflow: "hidden" }}>

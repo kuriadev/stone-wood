@@ -189,7 +189,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
         <FullSelect value={method} onChange={(e) => setMethod(e.target.value)} aria-label="Method" style={{ ...sel, width: "100%" }}>
           <option>All</option>{PAYMENT_METHODS.map((t) => <option key={t}>{t}</option>)}
         </FullSelect>
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Guest, booking or reference" className="sm:col-span-2 xl:flex-1" style={{ ...sel, width: "100%", minWidth: 0 }} />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Booking ID, email or guest" className="sm:col-span-2 xl:flex-1" style={{ ...sel, width: "100%", minWidth: 0 }} />
         <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 8, alignItems: "center", minHeight: 36 }}>
           <Checkbox checked={showVoided} onCheckedChange={(v) => setShowVoided(v === true)} /> Show voided
         </label>
@@ -270,6 +270,7 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
     .filter((r) => !search
       || r.b.id.toLowerCase().includes(search)
       || r.b.name.toLowerCase().includes(search)
+      || (r.b.email || "").toLowerCase().includes(search)
       || (r.b.contact ?? "").includes(search))
     // Newest visit first: monitoring starts from what just happened, while
     // Receivables counts down to the next date money is due.
@@ -427,7 +428,7 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
     .map((r) => ({ ...r, on: manilaDate(r.b.settledAt!) }))
     .filter(({ on }) => (!from || on >= from) && (!to || on <= to))
     .filter(({ m }) => !onlyUnpaid || m.due > 0)
-    .filter(({ b }) => !search || b.id.toLowerCase().includes(search) || b.name.toLowerCase().includes(search) || b.contact.includes(search))
+    .filter(({ b }) => !search || b.id.toLowerCase().includes(search) || (b.email || "").toLowerCase().includes(search) || b.name.toLowerCase().includes(search) || b.contact.includes(search))
     .sort((a, b) => b.b.settledAt!.localeCompare(a.b.settledAt!));
 
   const sum = (pick: (r: { b: Booking; m: BookingMoney }) => number) => round2(settled.reduce((n, r) => n + pick(r), 0));
@@ -512,7 +513,7 @@ function Clients({ bookings }: { bookings: Booking[] }) {
   const pagedCli = usePaged(shown);
   return (
     <div>
-      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search client name, email or phone" style={{ ...inp, marginBottom: 12 }} />
+      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search email, client name or phone" style={{ ...inp, marginBottom: 12 }} />
       <TableShell head={["Client", "Bookings", "Last visit", "Total paid", "Owed", ""]} minWidth={700}
         empty={shown.length === 0 ? "No clients match." : undefined}>
         {pagedCli.rows.map((c, i) => (

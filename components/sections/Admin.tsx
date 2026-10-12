@@ -24,6 +24,8 @@ import { PhotoSet } from "@/components/admin/PhotoSet";
 import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
 import { AccountModal } from "@/components/admin/AccountModal";
 import { draftReply } from "@/lib/autoReply";
+import { MonthStatusColumn } from "@/components/admin/MonthStatusColumn";
+import { manilaTime } from "@/lib/finance";
 import { ProfileMenu } from "@/components/admin/ProfileMenu";
 import { attentionTally } from "@/lib/operations";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
@@ -619,7 +621,17 @@ export function Admin({
                                 flexWrap: "wrap",
                               }}
                             >
+                              {/* The date alone could not separate two
+                                  messages from the same morning, and staff
+                                  answering an inbox need to know whether
+                                  something came in an hour ago or at
+                                  midnight. The clock time is only shown
+                                  when the record carries one — older rows
+                                  stored a date and nothing else. */}
                               {msg.email} · {msg.date}
+                              {msg.createdAt ? (
+                                <span style={{ color: C.textXS }}> · {manilaTime(msg.createdAt)}</span>
+                              ) : null}
                               {/* If this person has a booking, the owner can
                                   open it straight from the message instead of
                                   copying the reference into the Bookings tab. */}
@@ -1055,36 +1067,18 @@ export function Admin({
                 ];
                 return (
                   <div style={{ marginTop: 28, display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, minmax(0,1fr))", gap: 16 }}>
-                    {groups.map((g) => {
-                      const rows = inMonth.filter((b) => b.status === g.match);
-                      const tone = statusTone(g.match);
-                      return (
-                        <div key={g.label} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "16px 16px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                            <span style={{ width: 10, height: 10, borderRadius: 3, background: tone, flexShrink: 0 }} />
-                            <span style={{ color: C.textH, fontSize: 13, fontWeight: 600 }}>{g.label}</span>
-                            <span style={{ color: C.textS, fontSize: 12, marginLeft: "auto" }}>{rows.length}</span>
-                          </div>
-                          {rows.length === 0 ? (
-                            <p style={{ color: C.textS, fontSize: 12.5, margin: 0 }}>None this month.</p>
-                          ) : (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                              {rows.map((bk) => (
-                                <div key={bk.id} style={{ borderTop: `1px solid ${cBr}`, paddingTop: 12 }}>
-                                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                                    <span style={{ color: C.textH, fontSize: 13, fontWeight: 600, minWidth: 0, overflowWrap: "anywhere" }}>{bk.name}</span>
-                                    <span style={{ color: tone, fontSize: 11.5, whiteSpace: "nowrap" }}>{fmtDate(bk.date)}</span>
-                                  </div>
-                                  <div style={{ color: C.textS, fontSize: 12, marginTop: 4 }}>
-                                    {bk.guests} guests · {bk.id}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                    {/* Each column shows five and scrolls the rest, with its
+                        own "View all" — see MonthStatusColumn. It needs state
+                        per column, which is why it is a component and not
+                        more JSX inside this IIFE. */}
+                    {groups.map((g) => (
+                      <MonthStatusColumn
+                        key={g.label}
+                        label={g.label}
+                        tone={statusTone(g.match)}
+                        rows={inMonth.filter((b) => b.status === g.match)}
+                      />
+                    ))}
                   </div>
                 );
               })()}

@@ -56,7 +56,7 @@ export function RecordPaymentModal({
       .filter((b) => !b.id.startsWith("TMP-"))
       .map((b) => ({ b, m: bookingMoney(b, ops.payments, ops.damages) }))
       .filter(({ m }) => m.due > 0 || m.paid > 0)
-      .filter(({ b }) => !q || b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) || b.contact.includes(q))
+      .filter(({ b }) => !q || b.id.toLowerCase().includes(q) || (b.email || "").toLowerCase().includes(q) || b.name.toLowerCase().includes(q) || b.contact.includes(q))
       .sort((a, b) => b.m.due - a.m.due)
       .slice(0, 8);
   }, [bookings, ops.payments, ops.damages, search]);
@@ -93,7 +93,7 @@ export function RecordPaymentModal({
       {!bookingId && (
         <div style={{ marginBottom: 16 }}>
           <Label htmlFor="pay-search">Booking</Label>
-          <Input id="pay-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search guest name, booking ID or phone" style={inp} />
+          <Input id="pay-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search booking ID, email, guest or phone" style={inp} />
           <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8, maxHeight: 220, overflowY: "auto" }}>
             {candidates.map(({ b, m }) => (
               <button key={b.id} type="button" onClick={() => { setPickedId(b.id); setAmount(""); }}

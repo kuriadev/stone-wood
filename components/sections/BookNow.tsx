@@ -15,6 +15,7 @@
   import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
   import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
   import { SLOTS, QUIET_HOURS_POLICY, TURNOVER_WINDOW, stayPatternNote, stayUnit, allowsMultiDay, MULTI_DAY_SLOT } from "@/lib/resort";
+  import { SuccessCheck } from "@/components/common/SuccessCheck";
   import { stayWindowLabel } from "@/lib/occupancy";
   import type { Room } from "@/types/room";
   import type { Facility } from "@/types/facility";
@@ -1073,16 +1074,14 @@
                         </p>
                         {stayWin && (
                           <p style={{ margin: "8px 0 0", color: C.textB, fontSize: 13, lineHeight: 1.6 }}>
-                            You arrive <strong style={{ color: C.textH }}>{stayWin.arrive}</strong> and leave{" "}
+                            {/* "Check in" and "Check out", the words every
+                                guest already knows from anywhere else they
+                                have stayed, and the same two moments the
+                                admin board names. */}
+                            Check in <strong style={{ color: C.textH }}>{stayWin.arrive}</strong>, check out{" "}
                             <strong style={{ color: C.textH }}>{stayWin.depart}</strong>.
                           </p>
                         )}
-                        <p style={{ margin: "8px 0 0", color: C.textS, fontSize: 12.5, lineHeight: 1.6 }}>
-                          {stayPatternNote(slot, stayDays)}
-                        </p>
-                        <p style={{ margin: "8px 0 0", color: C.textS, fontSize: 12.5, lineHeight: 1.6 }}>
-                          Every {slot === "Night" ? "night" : "day"} is charged — the total below is for the whole stay.
-                        </p>
                       </div>
                     )}
 
@@ -1215,6 +1214,7 @@
                         }}
                       >
                         <button
+                          className="sw-gold-hover sw-hit"
                           onClick={() => setGuests((g) => clamp(g - 1, GUESTS_MIN, GUESTS_MAX))}
                           disabled={guests <= GUESTS_MIN || guestsLocked}
                           aria-label="Fewer guests"
@@ -1250,6 +1250,7 @@
                         </span>
 
                         <button
+                          className="sw-gold-hover sw-hit"
                           onClick={() => setGuests((g) => clamp(g + 1, GUESTS_MIN, GUESTS_MAX))}
                           disabled={guests >= GUESTS_MAX || guestsLocked}
                           aria-label="More guests"
@@ -1306,6 +1307,7 @@
                                 <button
                                   key={opt}
                                   type="button"
+                                  className={active ? "sw-hit" : "sw-gold-hover sw-hit"}
                                   onClick={() => setTierChoice(opt)}
                                   style={{
                                     flex: 1,
@@ -1358,7 +1360,7 @@
                       }}
                     >
                       <p style={{ color: C.goldInk, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 8 }}>
-                        YOUR SELECTED EXPERIENCE
+                        {slot === "WholeDay" ? "YOUR SELECTED PACKAGE" : "YOUR SELECTED BOOKING"}
                       </p>
                       <p style={{ color: C.textH, fontSize: 15, fontWeight: 600, margin: "0 0 8px" }}>
                         {SLOTS[slot].label} · {SLOTS[slot].hours}
@@ -1448,30 +1450,57 @@ reason: !date ? "Choose a date from the calendar to continue." : dateCapacity.re
                     const taken = takenRooms.has(r.id);
                     const discountedPrice = requiresRoom ? Math.round(r.price * (1 - ROOM_BUNDLE_DISCOUNT_PCT)) : r.price;
                     return (
+                      /* ── One row per room, two shapes ──
+
+                         Wide: circle, thumbnail, name and price on one line.
+
+                         Narrow: a column. The row used to stay a row and
+                         merely wrap, which looked like it would work and did
+                         not — the name sat in a `flex: 1, minWidth: 0` box
+                         between a 76px thumbnail and the price, and on a
+                         360px screen there was nothing left for it. minWidth
+                         0 means a flex child is ALLOWED to collapse, so it
+                         collapsed to exactly 0px and the name wrapped one
+                         character per line, 373px tall. The price and the
+                         VIEW ROOM button overlapped on top of that.
+
+                         Stacking is the fix rather than a min-width: at
+                         360px there is genuinely no room for four things
+                         side by side, and a min-width would only move the
+                         overflow somewhere else. */
                       <div
                         key={r.id}
-                        style={{ ...tileStyle(sel), opacity: taken && !sel ? 0.45 : 1, cursor: "default", padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: mob ? "wrap" : "nowrap" }}
+                        style={{ ...tileStyle(sel), opacity: taken && !sel ? 0.45 : 1, cursor: "default", padding: "16px 20px", display: "flex", flexDirection: mob ? "column" : "row", alignItems: mob ? "stretch" : "center", gap: mob ? 12 : 16 }}
                       >
                         <button
                           type="button"
                           aria-pressed={sel}
                           disabled={taken && !sel}
                           onClick={() => { if (!taken || sel) toggleRoom(r.id); }}
-                          style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 16, background: "none", border: "none", padding: 0, textAlign: "left", cursor: taken && !sel ? "not-allowed" : "pointer", font: "inherit", color: "inherit" }}
+                          style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: mob ? "column" : "row", alignItems: mob ? "stretch" : "center", gap: mob ? 10 : 16, background: "none", border: "none", padding: 0, textAlign: "left", cursor: taken && !sel ? "not-allowed" : "pointer", font: "inherit", color: "inherit" }}
                         >
-                          {pickCircle(sel)}
+                          {/* Narrow: the circle takes the top line with the
+                              name, so neither is left stranded on its own. */}
+                          <span style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                            {pickCircle(sel)}
+                            {mob && (
+                              <span style={{ color: C.textH, fontSize: 15, fontWeight: 600, minWidth: 0, overflowWrap: "anywhere" }}>{r.name}</span>
+                            )}
+                          </span>
                           {/* alt="" because the room name sits right beside it: a
                               screen reader would otherwise read it twice. */}
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img loading="lazy" decoding="async" src={r.img} alt="" style={{ width: 76, height: 50, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
+                          <img loading="lazy" decoding="async" src={r.img} alt="" style={{ width: mob ? "100%" : 76, height: mob ? 150 : 50, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
                           <span style={{ flex: 1, minWidth: 0 }}>
-                            <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 4 }}>{r.name}</span>
+                            {/* On a narrow screen the name is already on the
+                                top line with the circle. */}
+                            {!mob && <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 4 }}>{r.name}</span>}
                             <span style={{ display: "block", color: C.textS, fontSize: 12.5 }}>{r.beds} · Up to {r.capacity} guests</span>
                             {taken && <span style={{ display: "block", color: "#e07a7a", fontSize: 12, marginTop: 4 }}>Already booked on {fmtDate(date)}</span>}
                           </span>
-                          <span style={{ textAlign: "right", flexShrink: 0 }}>
+                          <span style={{ textAlign: mob ? "left" : "right", flexShrink: 0 }}>
                             {requiresRoom && <span style={{ display: "block", color: C.textXS, fontSize: 12, textDecoration: "line-through" }}>{fmt(r.price)}</span>}
-                            <span style={{ display: "block", color: C.goldInk, fontWeight: 700, fontSize: 15.5 }}>{fmt(discountedPrice)}</span>
+                            <span style={{ display: "block", color: C.goldInk, fontWeight: 700, fontSize: mob ? 17 : 15.5 }}>{fmt(discountedPrice)}</span>
                           </span>
                         </button>
 
@@ -1483,7 +1512,7 @@ reason: !date ? "Choose a date from the calendar to continue." : dateCapacity.re
                           type="button"
                           onClick={() => setRoomPhoto(r)}
                           aria-label={`View a photo of ${r.name}`}
-                          style={{ ...outBtn, color: C.goldInk, flexShrink: 0, minHeight: 44, padding: "0 16px", borderRadius: 8, fontSize: 11.5, letterSpacing: 1.2 }}
+                          style={{ ...outBtn, color: C.goldInk, flexShrink: 0, minHeight: 44, padding: "0 16px", borderRadius: 8, fontSize: 11.5, letterSpacing: 1.2, width: mob ? "100%" : undefined }}
                         >
                           VIEW ROOM
                         </button>
@@ -1626,8 +1655,8 @@ reason: !date ? "Choose a date from the calendar to continue." : dateCapacity.re
 
                   {([
                     [stayDays > 1 ? "Dates" : "Date", date ? stayLabel({ date, endDate: lastDay }) : "\u2014"],
-                    ["Arrive", stayWin ? stayWin.arrive : "\u2014"],
-                    ["Leave", stayWin ? stayWin.depart : "\u2014"],
+                    ["Check in", stayWin ? stayWin.arrive : "\u2014"],
+                    ["Check out", stayWin ? stayWin.depart : "\u2014"],
                     ["Package availed", `${packageLabel} · ${tier}`],
                     ["Guests", String(guests)],
                     ["Room", selRooms.length
@@ -1777,8 +1806,8 @@ reason: !date ? "Choose a date from the calendar to continue." : dateCapacity.re
                       {([
                         ["Guest", form.name || "\u2014"],
                         [stayDays > 1 ? "Dates" : "Date", date ? stayLabel({ date, endDate: lastDay }) : "\u2014"],
-                        ["Arrive", stayWin ? stayWin.arrive : "\u2014"],
-                        ["Leave", stayWin ? stayWin.depart : "\u2014"],
+                        ["Check in", stayWin ? stayWin.arrive : "\u2014"],
+                        ["Check out", stayWin ? stayWin.depart : "\u2014"],
                         ["Package availed", packageLabel],
                         ["Guests", overtime > 0 ? `${guests} \u00b7 +${overtime}hr OT` : String(guests)],
                         ["Full total", fmt(serverQuote?.total ?? total)],
@@ -1878,7 +1907,11 @@ reason: !date ? "Choose a date from the calendar to continue." : dateCapacity.re
                 ready, via the button below or the nav. */}
             {step === 7 && (
               <div style={{ padding: "8px 0", textAlign: "center" }}>
-                <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(76,175,80,0.10)", border: "1px solid rgba(76,175,80,0.45)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, color: "#6ec071", margin: "0 auto 24px" }} aria-hidden="true">✓</div>
+                {/* It used to be a static ✓ in a circle: the right mark,
+                    but it arrived already finished, so the one moment in the
+                    whole flow worth marking landed with no more weight than
+                    a bullet point. This one draws. */}
+                <SuccessCheck size={64} style={{ margin: "0 auto 24px", display: "flex" }} />
                 <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.6, fontWeight: 700, margin: "0 0 12px" }}>{confirmedNow ? "RESERVATION CONFIRMED" : "RESERVATION RECEIVED"}</p>
                 {/* The guest's own name, because this is the one screen that is
                     addressed to them rather than about the booking. */}

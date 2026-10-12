@@ -442,7 +442,7 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
   const q = search.toLowerCase().trim();
   const done = bookings
     .filter((b) => !b.id.startsWith("TMP-") && (b.checkedOutAt || b.status === "Completed"))
-    .filter((b) => !q || b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) || b.contact.includes(q))
+    .filter((b) => !q || b.id.toLowerCase().includes(q) || (b.email || "").toLowerCase().includes(q) || b.name.toLowerCase().includes(q) || b.contact.includes(q))
     .sort((a, b) => (b.checkedOutAt ?? b.date).localeCompare(a.checkedOutAt ?? a.date));
   const shown = showAll ? done : done.slice(0, 15);
 
@@ -456,7 +456,7 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
         <p style={{ color: C.textS, fontSize: 13, margin: 0 }}>Every visit&apos;s preparation and check-out inspection. Click one to see the checklists, damage and payments.</p>
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search guest, booking or phone" aria-label="Search inspection records" style={{ ...inp, width: 260, padding: "8px 12px" }} />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search booking ID, email, guest or phone" aria-label="Search inspection records" style={{ ...inp, width: 260, padding: "8px 12px" }} />
       </div>
       <TableShell head={["Guest", "Visit", "Facilities", "Prepared", "Damage", "Settlement", ""]} minWidth={900}
         empty={shown.length === 0 ? (q ? "No visits match." : "No visits checked out yet.") : undefined}>

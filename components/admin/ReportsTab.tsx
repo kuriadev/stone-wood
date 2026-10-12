@@ -203,6 +203,7 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
         </>}
       </div>
 
+      <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: "0 0 12px" }}>Financial Overview</h3>
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
         <StatCard label="Money received" value={fmt(collected)} note={`${pays.length} payment${pays.length === 1 ? "" : "s"}`} color="#2e9e4e" />
         <StatCard label="Expenses" value={fmt(spent)} note={`${exps.length} expense${exps.length === 1 ? "" : "s"}`} />

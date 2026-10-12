@@ -38,6 +38,7 @@ import {
 import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { EmailGuestModal } from "@/components/admin/EmailGuestModal";
+import { ManilaClock } from "@/components/admin/ManilaClock";
 import { opsBoard, closingBlockers, attentionTally, unclosedDays, prepBlocked, prepOpensOn, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, type OpsCard, type OpsView } from "@/lib/operations";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { bookingMoney, collectedBetween, expensesBetween, livePayments, manilaDate, manilaTime, monthRange, round2, type BookingMoney } from "@/lib/finance";
@@ -1030,7 +1031,7 @@ export function OperationsTab({
     </section>
   );
 
-  // ── Money summary ──────────────────────────────────────────────────
+  // ── Financial Overview ────────────────────────────────────────────
   const monthName = new Date(`${today}T00:00:00`).toLocaleDateString("en-PH", { month: "long", year: "numeric" });
   const leftMonth = round2(receivedMonth - spentMonth);
   const moneyFigure = (label: string, value: string, note: ReactNode, color?: string) => (
@@ -1045,7 +1046,7 @@ export function OperationsTab({
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 16px", borderBottom: `1px solid ${cBr}` }}>
         <Icon name="bar-chart" size={16} style={{ color: C.goldInk, flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h3 id="dash-money" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Money summary</h3>
+          <h3 id="dash-money" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Financial Overview</h3>
           <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>{monthName} · includes today&apos;s money</div>
         </div>
         {onGoTab && (
@@ -1088,6 +1089,11 @@ export function OperationsTab({
           <p style={{ color: C.textS, fontSize: 13.5, margin: "6px 0 0" }}>See what needs to be done at StoneWood today.</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {/* Every time on this board is Manila time; nothing said so, and
+              an owner reading it from elsewhere could not tell whose
+              afternoon "arrives 2 PM" meant. Fixed width inside, so the
+              buttons beside it do not shift as the hour rolls over. */}
+          <ManilaClock />
           <LiveStatus />
           <ActionButton icon="plus" onClick={() => setOpen({ kind: "walkin" })}>New booking</ActionButton>
           <ActionButton kind={closedToday ? "ghost" : "primary"} icon="wallet" onClick={() => openClosing()}>{closedToday ? "Day closed" : "Close the day"}</ActionButton>
@@ -1141,7 +1147,7 @@ export function OperationsTab({
           {/* ── Find a guest ── */}
           <div style={{ position: "relative", maxWidth: 420, marginBottom: 16 }}>
             <Icon name="search" size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: 0.5, color: C.textH }} />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a guest by name, booking ID or phone" aria-label="Find a guest"
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a booking by ID, email, name or phone" aria-label="Find a guest"
               style={{ ...inp, padding: "8px 12px", paddingLeft: 32, paddingRight: q ? 36 : 12 }} />
             {q && (
               <button type="button" onClick={() => setQ("")} aria-label="Clear search"

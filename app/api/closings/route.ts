@@ -24,6 +24,8 @@ import { cleanText, isDateStr } from "@/lib/money";
 import { manilaDate, round2, signedAmount } from "@/lib/finance";
 import { closingBlockers, CLOSE_NEED } from "@/lib/operations";
 import { logActivity } from "@/lib/activity.server";
+import { trySendMail } from "@/lib/mailer";
+import { buildDayClosedEmail, adminNotifyTo } from "@/lib/adminNotify";
 import { fmt } from "@/lib/utils";
 import type { DailyClosingRow, PaymentRow, ExpenseRow, BookingRow } from "@/types/database";
 
@@ -98,6 +100,18 @@ export async function POST(req: NextRequest) {
       summary: `${prior.data ? "Closed again" : "Closed"} ${date}: ${fmt(totalCollected)} received, ${fmt(totalExpenses)} spent. Cash counted ${fmt(counted)} against ${fmt(expected)} expected (${diff === 0 ? "balanced" : diff > 0 ? `over by ${fmt(diff)}` : `short by ${fmt(-diff)}`}).`,
       details: { openingFloat, cashIn, cashOut, expected, counted, difference: diff, totalCollected, totalExpenses, previous: prior.data ?? null },
     });
+    /* The day's summary, and the only place a checkout is reported by
+       email. Emailing each one as it happens would be several a day and
+       would train the owner to filter the sender — this gathers them into
+       the message they already expect at the end of the day, next to the
+       cash count that decides whether it was a good one. */
+    const finished = (open.data as BookingRow[]).map(rowToBooking)
+      .filter((x) => !!x.checkedOutAt && x.checkedOutAt.slice(0, 10) <= date && x.date === date);
+    const closedMail = buildDayClosedEmail({
+      date, counted, expected, checkedOut: finished,
+    });
+    void trySendMail({ to: adminNotifyTo(), subject: closedMail.subject, html: closedMail.html }, `admin-day-closed ${date}`);
+
     return NextResponse.json({ success: true, closing: rowToClosing(data as DailyClosingRow) });
   } catch (err) {
     console.error("[/api/closings POST]", err);
