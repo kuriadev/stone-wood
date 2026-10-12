@@ -15,7 +15,10 @@ import {
   rowToDamageRate, rowToInspection, rowToDamage, rowToDateChange,
 } from "@/lib/supabase";
 import { sweepExpired } from "@/lib/rebooking.server";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
+import { actingStaff } from "@/lib/staff.server";
+import { can } from "@/lib/permissions";
+import { rowToRequest, type OwnerRequestRow } from "@/lib/ownerRequests.server";
 import type {
   PaymentRow, ExpenseRow, DailyClosingRow, DamageRateRow, InspectionRow, DamageRecordRow, DateChangeRow,
 } from "@/types/database";
@@ -23,7 +26,7 @@ import type {
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "ops.view");
   if (denied) return denied;
 
   try {
@@ -34,6 +37,15 @@ export async function GET(req: NextRequest) {
     const dateChanges = await db.from("date_change_requests").select("*")
       .or(`status.eq.Pending,created_at.gte.${since}`).order("created_at", { ascending: false });
     if (dateChanges.error) console.error("[/api/ops GET] date changes:", dateChanges.error.message);
+    // Requests to the owner: every pending one and two weeks of answered
+    // ones. The owner sees everyone's, anyone else their own. Before the
+    // staff migration the table is missing and this is simply empty.
+    const me = actingStaff();
+    const reqSince = new Date(Date.now() - 14 * 86_400_000).toISOString();
+    let reqQuery = db.from("owner_requests").select("*")
+      .or(`status.eq.Pending,requested_at.gte.${reqSince}`).order("requested_at", { ascending: false }).limit(100);
+    if (!can(me?.role, "requests.decide")) reqQuery = reqQuery.eq("requested_by", me?.id ?? "00000000-0000-0000-0000-000000000000");
+    const requests = await reqQuery;
     const [payments, expenses, closings, rates, inspections, damages] = await Promise.all([
       db.from("payments").select("*").order("received_at", { ascending: false }),
       db.from("expenses").select("*").order("spent_on", { ascending: false }),
@@ -54,6 +66,7 @@ export async function GET(req: NextRequest) {
       inspections: (inspections.data as InspectionRow[]).map(rowToInspection),
       damages: (damages.data as DamageRecordRow[]).map(rowToDamage),
       dateChanges: dateChanges.error ? [] : (dateChanges.data as DateChangeRow[]).map(rowToDateChange),
+      requests: requests.error ? [] : (requests.data as OwnerRequestRow[]).map(rowToRequest),
     });
   } catch (err) {
     console.error("[/api/ops GET]", err);

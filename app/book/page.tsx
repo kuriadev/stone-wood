@@ -142,6 +142,7 @@ export default function BookPage() {
         key={initialPackage?.code ?? "custom"}
         bookings={bookings}
         onBooked={() => void refreshAvailability()}
+        onRefreshAvailability={() => void refreshAvailability()}
         rooms={rooms}
         closedDates={closedDates}
         facilities={facilities}

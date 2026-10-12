@@ -26,7 +26,9 @@ import { logActivity } from "@/lib/activity.server";
 import { fmt } from "@/lib/utils";
 import { getSupabaseAdmin, rowToFacility, rowToDamageRate } from "@/lib/supabase";
 import { facilitiesInUseByOthers, stayLongOver } from "@/lib/ops.server";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
+import { recordMovements, missingStockTable } from "@/lib/stock.server";
+import { actingStaff } from "@/lib/staff.server";
 import { loadBookingLedger } from "@/lib/ledger.server";
 import { cleanItems } from "@/lib/inspection.server";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
@@ -36,8 +38,13 @@ import type { FacilityRow, DamageRateRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
+/** Inspection photos: a few per facility, each a compressed image. */
+const MAX_PHOTOS_PER_FACILITY = 4;
+const MAX_PHOTOS = 16;
+const MAX_PHOTO_CHARS = 700_000;
+
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "facilities.inspect");
   if (denied) return denied;
 
   const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
@@ -116,14 +123,35 @@ export async function POST(req: NextRequest) {
 
     const notes = cleanText(b.notes, 300);
 
+    // ── Photos: the caretaker's evidence of how each facility was left ──
+    // Compressed data URLs (lib/image.ts), like room and receipt photos.
+    // Evidence only — nothing is decided from them automatically.
+    const perFacility = new Map<number, number>();
+    const photos = (Array.isArray(b.photos) ? b.photos : []).flatMap((p) => {
+      const x = (p ?? {}) as Record<string, unknown>;
+      const facilityId = Number(x.facilityId);
+      const src = typeof x.src === "string" ? x.src : "";
+      if (!usedIds.has(facilityId) || !/^data:image\/(jpeg|png|webp);base64,/.test(src) || src.length > MAX_PHOTO_CHARS) return [];
+      const n = perFacility.get(facilityId) ?? 0;
+      if (n >= MAX_PHOTOS_PER_FACILITY) return [];
+      perFacility.set(facilityId, n + 1);
+      return [{ facilityId, src }];
+    }).slice(0, MAX_PHOTOS);
+
     // ── Writes (undone again if any step fails) ──────────────────────
     const now = new Date().toISOString();
     let inspectionId: number | null = null;
     let stamped = false;
     try {
-      const insp = await db.from("facility_inspections").insert({
-        booking_id: booking.id, stage: "Checkout", items, notes,
+      const by = actingStaff()?.name ?? null;
+      let insp = await db.from("facility_inspections").insert({
+        booking_id: booking.id, stage: "Checkout", items, notes, inspected_by_name: by, ...(photos.length ? { photos } : {}),
       }).select("id").single();
+      // Before the stock migration there are no photos or name columns:
+      // keep the inspection, drop those.
+      if (insp.error && missingStockTable(insp.error)) {
+        insp = await db.from("facility_inspections").insert({ booking_id: booking.id, stage: "Checkout", items, notes }).select("id").single();
+      }
       if (insp.error) throw new Error(insp.error.message);
       inspectionId = (insp.data as { id: number }).id;
 
@@ -166,6 +194,17 @@ export async function POST(req: NextRequest) {
         last_used_guest_name: booking.name,
         last_checked_at: null,
       }).eq("id", f.id);
+    }
+
+    // Breakage of an item the owner linked to the inventory comes off its
+    // count too ("2 monobloc chairs broken" → chairs 40 → 38). After the
+    // check-out is safely saved; a failure here is logged, not fatal.
+    const broken = damages.flatMap((d) => {
+      const itemId = d.rate_id !== null ? rates.get(d.rate_id)?.inventoryItemId : null;
+      return itemId ? [{ itemId, delta: -d.quantity, reason: "Broken" as const, refType: "damage", refId: inspectionId ?? undefined, bookingId: booking.id, note: `${d.item_name} — ${d.facility_name}` }] : [];
+    });
+    if (broken.length) {
+      try { await recordMovements(broken); } catch (e) { console.error(`[/api/checkout] breakage for ${booking.id} not taken off stock:`, e); }
     }
 
     await logActivity({

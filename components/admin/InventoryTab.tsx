@@ -4,6 +4,7 @@ import { adminTabLabel } from "@/lib/labels";
 import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
+import { useStaff } from "@/contexts/StaffContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
@@ -51,6 +52,10 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
   const { isDark } = useTheme();
   const C = T(isDark);
   const { toast } = useToast();
+  // + / − is for everyone (each change is logged with their name); adding
+  // and editing items is the owner's; anyone else's delete asks the owner.
+  const staff = useStaff();
+  const isOwner = staff.can("inventory.manage");
   const w = useWidth();
   const mob = w < 768;
 
@@ -111,8 +116,22 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
     }
     setShowAddModal(false);
   };
-  const executeDelete = () => {
+  const executeDelete = async () => {
     if (!confirmDelete) return;
+    // Not the owner: removing a stock item is sent to the owner to approve,
+    // and stays on the list until they do.
+    if (!staff.can("inventory.delete")) {
+      const item = confirmDelete;
+      setConfirmDelete(null);
+      try {
+        const res = await fetch(`/api/inventory?id=${item.id}`, { method: "DELETE" });
+        const json = await res.json().catch(() => ({}));
+        toast(json?.requested ? `Removing "${item.name}" was sent to the owner for approval.` : (json?.error ?? "Could not send that to the owner."), json?.requested ? "info" : "error");
+      } catch {
+        toast("No connection to the server.", "error");
+      }
+      return;
+    }
     setItems((p) => p.filter((i) => i.id !== confirmDelete.id));
     setDeleted((p) => [...p, { ...confirmDelete, deletedAt: new Date().toLocaleDateString("en-PH") }]);
     toast(`"${confirmDelete.name}" moved to archive.`, "warning");
@@ -219,7 +238,8 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
           ))}
         </div>
 
-        {/* Add button */}
+        {/* Add button — what the resort stocks is the owner's to set up */}
+        {isOwner && (
         <button className="sw-btn"
           style={{ flexShrink: "0", ...goldBtn }}
           onClick={openAdd}
@@ -227,6 +247,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
         >
           + ADD ITEM
         </button>
+        )}
 
       </div>
 
@@ -390,6 +411,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
                       {/* Actions */}
                       <TableCell style={{ padding: "12px 16px" }}>
                         <div style={{ display: "flex", gap: 4 }}>
+                          {isOwner && (
                           <button
                             style={{ background: "transparent", padding: "4px 8px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, color: C.textS, border: `1px solid ${cBr}` }}
                             onClick={() => openEdit(item)}
@@ -397,6 +419,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
                           >
                             EDIT
                           </button>
+                          )}
                           <button
                             style={{ background: "transparent", color: "rgba(229, 85, 85, 0.7)", border: "1px solid rgba(229, 85, 85, 0.2)", padding: "4px 8px", fontSize: 12.5, cursor: "pointer", borderRadius: 3 }}
                             onClick={() => setConfirmDelete(item)}
@@ -507,7 +530,7 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
             </AlertDialogCancel>
             <AlertDialogAction
               style={{ background: "rgba(229, 85, 85, 0.08)", color: C.dangerInk, border: "1px solid rgba(229, 85, 85, 0.25)", padding: 12, height: "auto", fontSize: 12.5, fontWeight: 700, borderRadius: 6, letterSpacing: 1 }}
-              onClick={executeDelete}
+              onClick={() => void executeDelete()}
             >
               YES, ARCHIVE
             </AlertDialogAction>

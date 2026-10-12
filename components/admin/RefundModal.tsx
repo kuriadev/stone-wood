@@ -58,7 +58,8 @@ export function RefundModal({ booking, onClose }: { booking: Booking; onClose: (
       notes: "Refund to the guest (resort cancellation).", receipt: receipt ?? undefined,
     });
     setBusy(false);
-    if (!r.ok) return setError(r.error);
+    // Front desk: sent to the owner instead (already said on screen).
+    if (!r.ok) return r.requested ? onClose() : setError(r.error);
     toast(`${fmt(value)} refund to ${booking.name} recorded.`, "success");
     if (typeof r.data?.sms === "string") setSms(r.data.sms);
     else onClose();

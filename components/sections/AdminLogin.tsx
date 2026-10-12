@@ -44,7 +44,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.success) {
         onLogin();
-        toast("Welcome back, Admin!", "success");
+        toast(`Welcome back, ${typeof data?.staff?.name === "string" ? data.staff.name : "Admin"}!`, "success");
       } else {
         setErr(typeof data?.error === "string" ? data.error : "Invalid username or password.");
         toast("Login failed.", "error");

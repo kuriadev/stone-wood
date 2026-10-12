@@ -21,7 +21,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server";
 import { getSupabaseAdmin, rowToFacility } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission, ownerGate } from "@/lib/auth";
 import { sanitizeNotes } from "@/lib/validators";
 import type { FacilityRow } from "@/types/database";
 import type { AmenityArea, FacilityStatus } from "@/types/facility";
@@ -43,7 +43,7 @@ const checklist = (v: unknown): string[] | null =>
     : null;
 
 export async function GET(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "facilities.view");
   if (denied) return denied;
   try {
     const { data, error } = await getSupabaseAdmin().from("facilities").select("*").order("id");
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "facilities.manage");
   if (denied) return denied;
 
   try {
@@ -97,8 +97,13 @@ export async function POST(req: NextRequest) {
   }
 }
 
+/** Columns only the owner may change; see PATCH. */
+const OWNER_FACILITY_FIELDS = [
+  "name", "icon", "area", "description", "show_on_site", "active", "before_use_checklist", "after_use_checklist",
+] as const;
+
 export async function PATCH(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "facilities.status");
   if (denied) return denied;
 
   const id = Number(req.nextUrl.searchParams.get("id"));
@@ -158,6 +163,22 @@ export async function PATCH(req: NextRequest) {
     if (Object.keys(patch).length === 0) return NextResponse.json({ success: false, error: "Nothing to update." }, { status: 400 });
 
     const prev = await loadRow("facilities", id);
+    // Staff (a caretaker spotting a leak) may set the status and notes. What
+    // the facility IS — its name, area, whether it is offered, the checklists
+    // the caretakers work through — is the owner's to change. The admin
+    // screen sends the whole facility on every save, so only fields whose
+    // value actually changes count.
+    const ownerChange = OWNER_FACILITY_FIELDS.some((k) =>
+      k in patch && JSON.stringify((patch as Record<string, unknown>)[k]) !== JSON.stringify(prev?.[k] ?? null));
+    if (ownerChange) {
+      // Only taking it off offer (retiring) is a removal the others may ask
+      // for; renaming or rewriting checklists is the owner's alone.
+      const onlyRetiring = OWNER_FACILITY_FIELDS.every((k) =>
+        k === "active" ? true : !(k in patch) || JSON.stringify((patch as Record<string, unknown>)[k]) === JSON.stringify(prev?.[k] ?? null))
+        && patch.active === false;
+      const gate = await ownerGate(req, onlyRetiring ? "facilities.delete" : "facilities.manage", onlyRetiring ? { active: false } : b);
+      if (gate) return gate;
+    }
     const { data, error } = await getSupabaseAdmin().from("facilities").update(patch).eq("id", id).select().maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) return NextResponse.json({ success: false, error: "Facility not found." }, { status: 404 });
@@ -181,7 +202,8 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const denied = requireAdmin(req);
+  // Others' removals go to the owner as a request.
+  const denied = await requirePermission(req, "facilities.delete");
   if (denied) return denied;
 
   const id = Number(req.nextUrl.searchParams.get("id"));

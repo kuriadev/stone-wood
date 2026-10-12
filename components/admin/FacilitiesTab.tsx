@@ -20,6 +20,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useMemo, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
+import { useStaff } from "@/contexts/StaffContext";
+import { StockHistoryPanel, UpkeepSchedulePanel, CleaningSuppliesPanel } from "@/components/admin/StockSetup";
 import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
 import {
@@ -52,12 +54,15 @@ const F_COLOR: Record<FacilityStatus, string> = {
 };
 const STATUSES: FacilityStatus[] = ["Available", "In Use", "Needs Cleaning", "Under Maintenance"];
 
-type View = "Facilities" | "Inspections" | "Damages" | "Rates";
+type View = "Facilities" | "Inspections" | "Damages" | "Rates" | "Upkeep" | "Cleaning" | "Stock";
 
-async function send(url: string, method: string, body: unknown): Promise<{ ok: true } | { ok: false; error: string }> {
+/** `requested`: only the owner can do this, so it was sent to them to
+ *  approve; nothing has changed yet. */
+async function send(url: string, method: string, body: unknown): Promise<{ ok: true } | { ok: false; error: string; requested?: boolean }> {
   try {
     const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
+    const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string; requested?: boolean };
+    if (json.requested) return { ok: false, requested: true, error: json.error ?? "Sent to the owner for approval." };
     if (!res.ok || json.success === false) return { ok: false, error: json.error ?? "Something went wrong. Try again." };
     return { ok: true };
   } catch {
@@ -67,6 +72,7 @@ async function send(url: string, method: string, body: unknown): Promise<{ ok: t
 
 export function FacilitiesTab({ facilities, bookings, mob }: FacilitiesTabProps) {
   const { C } = useAdminStyle();
+  const staff = useStaff();
   const [view, setView] = useState<View>("Facilities");
 
   const needsClean = facilities.filter((f) => f.status === "Needs Cleaning").length;
@@ -75,7 +81,7 @@ export function FacilitiesTab({ facilities, bookings, mob }: FacilitiesTabProps)
   return (
     <div>
       <AdminPageHeader title={adminTabLabel("Facilities")} mob={mob}
-        subtitle="The resort's amenities and rooms, their condition, and every inspection and damage record. Preparing and checking out groups is done in Daily Operations." />
+        subtitle="The resort's amenities and rooms, their condition, and every inspection and damage record. Preparing, inspecting and cleaning are on the caretakers' My Tasks." />
 
       <p style={{ color: C.textS, fontSize: 13, margin: "-10px 0 20px" }}>
         {needsClean > 0 ? `${needsClean} need${needsClean === 1 ? "s" : ""} cleaning. ` : "Nothing waiting for cleaning. "}
@@ -86,7 +92,15 @@ export function FacilitiesTab({ facilities, bookings, mob }: FacilitiesTabProps)
         { value: "Facilities", label: "Facilities", content: <FacilityList facilities={facilities} bookings={bookings} mob={mob} /> },
         { value: "Inspections", label: "Inspection records", content: <Inspections bookings={bookings} facilities={facilities} /> },
         { value: "Damages", label: "Damage records", content: <Damages bookings={bookings} /> },
-        { value: "Rates", label: "Damage rates", content: <DamageRates /> },
+        // The price list for damage is the owner's, like every other price.
+        ...(staff.can("catalog.manage") ? [{ value: "Rates" as View, label: "Damage rates", content: <DamageRates /> }] : []),
+        // Self-updating stock (components/admin/StockSetup.tsx): what upkeep
+        // and cleaning use, and every change to a count.
+        ...(staff.can("inventory.manage") ? [
+          { value: "Upkeep" as View, label: "Upkeep schedule", content: <UpkeepSchedulePanel mob={mob} /> },
+          { value: "Cleaning" as View, label: "Cleaning supplies", content: <CleaningSuppliesPanel mob={mob} /> },
+        ] : []),
+        { value: "Stock" as View, label: "Stock history", content: <StockHistoryPanel mob={mob} /> },
       ]} />
     </div>
   );
@@ -101,6 +115,9 @@ export function FacilitiesTab({ facilities, bookings, mob }: FacilitiesTabProps)
 // mark them cleaned in one go (/api/facilities/cleaned).
 function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; bookings: Booking[]; mob: boolean }) {
   const { C, rowBg } = useAdminStyle();
+  // Adding, renaming and retiring amenities is the owner's; staff can still
+  // open one to set its status (a caretaker spotting a leak).
+  const canManage = useStaff().can("facilities.manage");
   const { reloadFacilities } = useApp();
   const { toast } = useToast();
   const [edit, setEdit] = useState<Facility | "new" | null>(null);
@@ -163,6 +180,7 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
 
   const setActive = async (f: Facility, on: boolean) => {
     const r = await send(`/api/facilities?id=${f.id}`, "PATCH", { active: on });
+    if (!r.ok && r.requested) { setRetiring(null); return toast(`${on ? "Offering" : "Stopping"} ${f.name} was sent to the owner for approval.`, "info"); }
     if (!r.ok) return toast(r.error, "error");
     await reloadFacilities();
     toast(on ? `${f.name} is offered again.` : `${f.name} is no longer offered. Its past records are kept.`, on ? "success" : "info");
@@ -173,6 +191,7 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
     setRemoveBusy(true);
     const r = await send(`/api/facilities?id=${f.id}`, "DELETE", {});
     setRemoveBusy(false);
+    if (!r.ok && r.requested) { setRemoving(null); return toast(`Removing ${f.name} was sent to the owner for approval.`, "info"); }
     if (!r.ok) return toast(r.error, "error");
     await reloadFacilities();
     toast(`${f.name} removed. Past inspections and damage records still name it.`, "info");
@@ -217,7 +236,7 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
       <section>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
           <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: 0 }}>Amenities <span style={{ color: C.textS, fontWeight: 400 }}>({active.length})</span></h3>
-          <ActionButton kind="primary" icon="plus" onClick={() => setEdit("new")}>Add amenity</ActionButton>
+          {canManage && <ActionButton kind="primary" icon="plus" onClick={() => setEdit("new")}>Add amenity</ActionButton>}
         </div>
         <TableShell head={["Amenity", "Used by", "Website", "Status", ""]} minWidth={760}
           empty={active.length === 0 ? "No amenities yet. Add the resort's first one." : undefined}>
@@ -458,11 +477,14 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
         <p style={{ color: C.textS, fontSize: 13, margin: 0 }}>Every visit&apos;s preparation and check-out inspection. Click one to see the checklists, damage and payments.</p>
         <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search booking ID, email, guest or phone" aria-label="Search inspection records" style={{ ...inp, width: 260, padding: "8px 12px" }} />
       </div>
-      <TableShell head={["Guest", "Visit", "Facilities", "Prepared", "Damage", "Settlement", ""]} minWidth={900}
+      <TableShell head={["Guest", "Visit", "Facilities", "Prepared", "Inspected by", "Damage", "Settlement", ""]} minWidth={1000}
         empty={shown.length === 0 ? (q ? "No visits match." : "No visits checked out yet.") : undefined}>
         {pagedChk.rows.map((b, i) => {
           const m = bookingMoney(b, ops.payments, ops.damages);
-          const prepared = ops.inspections.some((x) => x.bookingId === b.id && x.stage === "Preparation");
+          const prep = ops.inspections.find((x) => x.bookingId === b.id && x.stage === "Preparation");
+          const prepared = !!prep;
+          const check = ops.inspections.find((x) => x.bookingId === b.id && x.stage === "Checkout");
+          const photos = check?.photos?.length ?? 0;
           return (
             <Row key={b.id} className="sw-click-row" style={{ background: rowBg(i) }} onClick={() => setOpen(b)}>
               <Cell style={td}>
@@ -471,7 +493,11 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
               </Cell>
               <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
               <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{usesText(b)}</Cell>
-              <Cell style={td}>{prepared ? <StatusBadge color="#2e9e4e">Yes</StatusBadge> : <StatusBadge color="#8a7a66">Not recorded</StatusBadge>}</Cell>
+              <Cell style={td}>{prepared ? <StatusBadge color="#2e9e4e">{prep?.inspectedByName ? `By ${prep.inspectedByName}` : "Yes"}</StatusBadge> : <StatusBadge color="#8a7a66">Not recorded</StatusBadge>}</Cell>
+              <Cell style={{ ...td, color: C.textB, fontSize: 12.5 }}>
+                {check ? (check.inspectedByName ?? "—") : <span style={{ color: C.textS }}>Not yet</span>}
+                {photos > 0 && <div style={{ color: C.textS, fontSize: 11.5 }}><Icon name="image" size={11} style={{ verticalAlign: -1, marginRight: 4 }} />{photos} photo{photos === 1 ? "" : "s"}</div>}
+              </Cell>
               <Cell style={td}>{m.penaltyTotal > 0 ? <StatusBadge color="#d44">{fmt(m.penaltyTotal)} penalty</StatusBadge> : <span style={{ color: C.textS, fontSize: 12.5 }}>None</span>}</Cell>
               <Cell style={{ ...td, color: m.due > 0 ? "#d4a800" : C.textS, whiteSpace: "nowrap" }}>
                 {b.status === "Completed" ? (m.due > 0 ? `${fmt(m.due)} unpaid` : "Closed") : "Balance to collect"}
@@ -552,6 +578,16 @@ function DamageRates() {
   const { C, rowBg, inp } = useAdminStyle();
   const ops = useOps();
   const { toast } = useToast();
+  // Breakage of a rate-list item can also come off an inventory count
+  // ("Monobloc chair" -> the chairs in Supplies & Equipment).
+  const { inventory } = useApp();
+  const stockItems = inventory.filter((i) => !i.deletedAt);
+  const link = async (id: number, inventoryItemId: number | null) => {
+    setError("");
+    const r = await ops.saveRate({ id, inventoryItemId });
+    if (!r.ok) setError(r.error);
+    else toast(inventoryItemId ? "Breakage of this item now comes off the stock count." : "No longer linked to the stock.", "success");
+  };
   const [draft, setDraft] = useState<Record<number, string>>({});
   const [adding, setAdding] = useState({ name: "", category: "Furniture", unit: "pc", rate: "" });
   const [error, setError] = useState("");
@@ -595,7 +631,7 @@ function DamageRates() {
         The price charged for each damaged or lost item. At check-out the penalty is quantity × this rate.
         The starting prices are samples; replace them with the resort&apos;s real replacement costs.
       </p>
-      <TableShell head={["Item", "Category", "Unit", "Rate (₱)", "In use", ""]} minWidth={720}>
+      <TableShell head={["Item", "Category", "Unit", "Rate (₱)", "Comes off stock", "In use", ""]} minWidth={900}>
         {ops.damageRates.map((r, i) => {
           const edited = draft[r.id] !== undefined && Number(draft[r.id]) !== r.rate;
           return (
@@ -605,6 +641,13 @@ function DamageRates() {
               <Cell style={{ ...td, color: C.textS }}>{r.unit}</Cell>
               <Cell style={{ ...td, width: 140 }}>
                 <Input type="number" min={0} aria-label={`Rate for ${r.name}`} value={draft[r.id] ?? String(r.rate)} onChange={(e) => setDraft((d) => ({ ...d, [r.id]: e.target.value }))} style={cell} />
+              </Cell>
+              <Cell style={{ ...td, width: 200 }}>
+                <FullSelect aria-label={`Inventory item a broken ${r.name} comes off`} value={r.inventoryItemId ? String(r.inventoryItemId) : ""} style={cell}
+                  onChange={(e) => void link(r.id, e.target.value ? Number(e.target.value) : null)}>
+                  <option value="">— not tracked —</option>
+                  {stockItems.map((it) => <option key={it.id} value={it.id}>{it.name}</option>)}
+                </FullSelect>
               </Cell>
               <Cell style={td}>
                 <label style={{ color: C.textS, fontSize: 12.5, display: "flex", gap: 8, alignItems: "center" }}>
@@ -629,6 +672,7 @@ function DamageRates() {
           </Cell>
           <Cell style={td}><Input value={adding.unit} onChange={(e) => setAdding({ ...adding, unit: e.target.value })} aria-label="Unit" style={{ ...cell, width: 70 }} /></Cell>
           <Cell style={td}><Input type="number" min={0} value={adding.rate} onChange={(e) => setAdding({ ...adding, rate: e.target.value })} placeholder="0" aria-label="Rate" style={cell} /></Cell>
+          <Cell style={td} />
           <Cell style={td} />
           <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm" kind="primary" icon="plus" onClick={add}>Add</ActionButton></Cell>
         </Row>

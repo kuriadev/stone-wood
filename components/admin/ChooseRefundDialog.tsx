@@ -34,7 +34,8 @@ export function ChooseRefundDialog({ booking, onClose, onDone }: {
     setBusy(true);
     const r = await ops.chooseRefund(booking.id);
     setBusy(false);
-    if (!r.ok) return setError(r.error);
+    // Front desk: sent to the owner instead (already said on screen).
+    if (!r.ok) return r.requested ? onClose() : setError(r.error);
     toast(paid > 0 ? `${booking.id} cancelled. ${fmt(paid)} is to be refunded to ${booking.name}.` : `${booking.id} cancelled. Nothing was paid, so there's nothing to refund.`, "info");
     if (paid > 0 && r.data?.booking) onDone(r.data.booking as Booking);
     else onClose();

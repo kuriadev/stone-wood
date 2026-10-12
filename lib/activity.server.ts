@@ -13,6 +13,7 @@
 // written to the server log instead.
 
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { actingStaff } from "@/lib/staff.server";
 
 export type Actor = "Admin" | "Guest" | "System";
 
@@ -31,16 +32,36 @@ export interface ActivityInput {
 export async function logActivity(input: ActivityInput | ActivityInput[]): Promise<void> {
   const list = Array.isArray(input) ? input : [input];
   if (list.length === 0) return;
-  try {
-    const { error } = await getSupabaseAdmin().from("activity_log").insert(list.map((a) => ({
+  // WHICH admin: the staff member this request is acting for, set by the
+  // route's guard (requirePermission). Also copied into details, so the
+  // name survives on a database that doesn't have the columns yet.
+  const staff = actingStaff();
+  const rows = list.map((a) => {
+    const by = a.actor === "Admin" && staff ? staff : null;
+    return {
       actor: a.actor,
       action: a.action,
       summary: a.summary.slice(0, 500),
       booking_id: a.bookingId ?? null,
       entity: a.entity ?? a.action.split(".")[0],
       entity_id: a.entityId == null ? "" : String(a.entityId),
-      details: a.details ?? {},
-    })));
+      details: by ? { ...(a.details ?? {}), by: by.name, byRole: by.role } : (a.details ?? {}),
+      ...(by ? { staff_id: by.id, staff_name: by.name } : {}),
+    };
+  });
+  try {
+    const db = getSupabaseAdmin();
+    let { error } = await db.from("activity_log").insert(rows);
+    if (error && /staff_(id|name)/.test(error.message)) {
+      // Before 20261012120000_staff_and_owner_requests.sql.
+      const bare = rows.map((r) => {
+        const copy: Record<string, unknown> = { ...r };
+        delete copy.staff_id;
+        delete copy.staff_name;
+        return copy;
+      });
+      ({ error } = await db.from("activity_log").insert(bare));
+    }
     if (error) throw new Error(error.message);
   } catch (err) {
     console.error("[activity] could not record:", list.map((a) => a.action).join(", "), err);

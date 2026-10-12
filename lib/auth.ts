@@ -15,6 +15,12 @@
 import { createHmac, timingSafeEqual, createHash, randomBytes, scryptSync } from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { NextResponse, type NextRequest } from "next/server";
+import { can, canRequest, isStaffRole, type Permission, type StaffRole } from "@/lib/permissions";
+import {
+  enterStaff, findStaffById, identityOf, staffTableReady, checkStaffCredentials, bootstrapOwner,
+  type StaffIdentity,
+} from "@/lib/staff.server";
+import { ensureSettings } from "@/lib/settings.server";
 
 export const SESSION_COOKIE = "sw_admin_session";
 
@@ -50,6 +56,14 @@ interface SessionPayload {
   /** Last time the ADMIN did something, epoch ms. Absent on tokens issued
    *  before idle logout existed; those fall back to their issue time. */
   s?: number;
+  /** Staff id (lib/staff.server.ts). Absent for the single pre-staff
+   *  sign-in and for tokens issued before staff accounts existed. */
+  sid?: string;
+  /** Role at sign-in. The server re-reads the current role on each guarded
+   *  request; this is what a token without a staff row falls back to. */
+  r?: StaffRole;
+  /** Display name at sign-in, for the activity log. */
+  nm?: string;
 }
 
 function sessionSecret(): string {
@@ -145,14 +159,36 @@ function encodeSession(payload: SessionPayload): string {
   return `${encoded}.${sign(encoded)}`;
 }
 
-export function createSessionToken(username: string): string {
+/** A signed session for this person. A bare username is the single
+ *  pre-staff sign-in, which is the Owner. */
+export function createSessionToken(who: string | StaffIdentity): string {
   const now = Date.now();
+  const id: StaffIdentity = typeof who === "string" ? legacyOwner(who) : who;
   return encodeSession({
-    u: username,
+    u: id.username,
     exp: now + SESSION_TTL_MS,
     n: randomBytes(9).toString("base64url"),
     s: now,
+    ...(id.id ? { sid: id.id } : {}),
+    r: id.role,
+    nm: id.name,
   });
+}
+
+/** The one admin there was before staff accounts: the owner. */
+export const legacyOwner = (username: string): StaffIdentity => ({ id: null, name: username, username, role: "Owner" });
+
+/**
+ * Sign-in for anyone: a staff account once the staff table has rows, and
+ * otherwise the single pre-staff sign-in — which, the first time it
+ * succeeds after the migration, becomes the Owner's staff row.
+ */
+export async function authenticate(username: string, password: string): Promise<StaffIdentity | null> {
+  const staff = await checkStaffCredentials(username, password, hashPassword);
+  if (staff !== "legacy") return staff ? identityOf(staff) : null;
+  if (!(await checkAdminCredentials(username, password))) return null;
+  const owner = await bootstrapOwner(username, password, hashPassword, newSalt());
+  return owner ? identityOf(owner) : legacyOwner(username);
 }
 
 /** Restart the idle clock after real admin activity. The absolute expiry is
@@ -208,17 +244,130 @@ export function sessionOf(req: NextRequest): SessionPayload | null {
 }
 
 /** Guard for a route handler. Returns a 401 response to return as-is, or
- *  null when the caller is a signed-in admin.
+ *  null when the caller is signed in (any role).
  *
  *      const denied = requireAdmin(req);
  *      if (denied) return denied;
+ *
+ *  Most routes want requirePermission instead, which also checks the role.
  */
 export function requireAdmin(req: NextRequest): NextResponse | null {
-  if (isAdminRequest(req)) return null;
+  const s = sessionOf(req);
+  if (s) {
+    enterStaff(identityFromSession(s));
+    return null;
+  }
   return NextResponse.json(
     { success: false, error: "Not authorised." },
     { status: 401 }
   );
+}
+
+/** Who a session says it is, without a database read. */
+export function identityFromSession(s: SessionPayload): StaffIdentity {
+  return {
+    id: s.sid ?? null,
+    name: s.nm || s.u,
+    username: s.u,
+    role: isStaffRole(s.r) ? s.r : "Owner",
+  };
+}
+
+/**
+ * Who the session belongs to NOW: the staff row re-read (a few seconds'
+ * cache), so a deactivated person is out at their next click and a changed
+ * role applies at once. Null when the account is gone or deactivated.
+ *
+ * A token with no staff id is the single pre-staff sign-in (or one issued
+ * before the migration): the Owner, until it expires.
+ */
+export async function currentIdentity(s: SessionPayload): Promise<StaffIdentity | null> {
+  const fromToken = identityFromSession(s);
+  if (!s.sid) return fromToken;
+  if (!(await staffTableReady())) return fromToken;
+  try {
+    const row = await findStaffById(s.sid);
+    return row && row.active ? identityOf(row) : null;
+  } catch (err) {
+    // The database is unreachable: the route itself will fail on its own
+    // query in a moment. Judge by the token rather than lock everyone out.
+    console.error("[auth] could not re-read staff:", err);
+    return fromToken;
+  }
+}
+
+const unauthorised = (error = "Not authorised.") =>
+  NextResponse.json({ success: false, error }, { status: 401 });
+
+const forbidden = () =>
+  NextResponse.json({ success: false, error: "Your role can't do this. Ask the owner." }, { status: 403 });
+
+/**
+ * The guard every admin route uses: is this person signed in, still
+ * active, and allowed to do `perm`?
+ *
+ *     const denied = await requirePermission(req, "payments.void");
+ *     if (denied) return denied;
+ *
+ * When they can't but may ASK (front desk voiding a payment), the call is
+ * recorded as a request to the owner and answered with 202
+ * `{ success: false, requested: true }` — nothing happens until the owner
+ * approves it (lib/ownerRequests.server.ts).
+ *
+ * Deliberately not an `async function`: the part that marks who is acting
+ * (enterStaff) has to run in the route handler's own synchronous code for
+ * the activity log to see it through every later await. Only the checks
+ * after it are async.
+ */
+export function requirePermission(req: NextRequest, perm: Permission): Promise<NextResponse | null> {
+  const s = sessionOf(req);
+  if (!s) return Promise.resolve(unauthorised());
+  const acting = identityFromSession(s);
+  enterStaff(acting);
+  return (async () => {
+    const [who] = await Promise.all([currentIdentity(s), ensureSettings()]);
+    if (!who) return unauthorised("Your account is no longer active. Ask the owner.");
+    // The store holds the object enterStaff was given; refreshing it in
+    // place keeps the log's name and role current without a new context.
+    Object.assign(acting, who);
+    if (can(who.role, perm)) return null;
+    if (!canRequest(who.role, perm)) return forbidden();
+    return askOwner(req, perm, who, undefined);
+  })();
+}
+
+/**
+ * The same decision part-way through a route, once it knows what the call
+ * really is — a booking PATCH that turns out to be a cancellation, a
+ * payment that is a refund. `body` is what the route already parsed.
+ */
+export async function ownerGate(req: NextRequest, perm: Permission, body: unknown): Promise<NextResponse | null> {
+  const s = sessionOf(req);
+  if (!s) return unauthorised();
+  const who = await currentIdentity(s);
+  if (!who) return unauthorised("Your account is no longer active. Ask the owner.");
+  if (can(who.role, perm)) return null;
+  if (!canRequest(who.role, perm)) return forbidden();
+  return askOwner(req, perm, who, body);
+}
+
+async function askOwner(req: NextRequest, perm: Permission, who: StaffIdentity, body: unknown): Promise<NextResponse> {
+  // Loaded only when a request is actually made, so the guard on every
+  // other call stays light.
+  const { createOwnerRequest, peekBody, pathOf } = await import("@/lib/ownerRequests.server");
+  const r = await createOwnerRequest({
+    perm, method: req.method, path: pathOf(req), who,
+    body: body === undefined ? await peekBody(req) : body,
+  });
+  if (!r.ok) return NextResponse.json({ success: false, error: r.error }, { status: r.missingTable ? 403 : 500 });
+  return NextResponse.json({
+    success: false,
+    requested: true,
+    requestId: r.id,
+    error: r.duplicate
+      ? "This is already waiting for the owner's approval."
+      : "Sent to the owner for approval. It goes through once they approve it.",
+  }, { status: 202 });
 }
 
 export const sessionCookie = (token: string) =>

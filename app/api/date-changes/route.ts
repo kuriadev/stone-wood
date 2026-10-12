@@ -22,7 +22,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToBooking, rowToDateChange } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { cleanText } from "@/lib/money";
 import { checkMove, moveBooking, guestLinkFor, reopenChoice } from "@/lib/rebooking.server";
 import { holdActive, isRebookRequest, fmtDeadline, REBOOK_NOTE } from "@/lib/rebooking";
@@ -37,7 +37,7 @@ import type { BookingRow, DateChangeRow } from "@/types/database";
 export const dynamic = "force-dynamic";
 
 export async function PATCH(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "reschedules.decide");
   if (denied) return denied;
 
   const id = Number(req.nextUrl.searchParams.get("id"));

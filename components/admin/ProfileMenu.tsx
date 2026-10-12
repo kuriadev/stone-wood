@@ -22,8 +22,9 @@
  * one stroke weight. Nothing here mixes a filled glyph into an outline menu.
  */
 
-import { useEffect, useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useStaff } from "@/contexts/StaffContext";
+import { ROLE_LABEL } from "@/lib/permissions";
 import { T } from "@/lib/theme";
 import { gold } from "@/lib/styles";
 import { SPACE, TAP_MIN } from "@/lib/spacing";
@@ -48,31 +49,16 @@ interface ProfileMenuProps {
   variant?: "sidebar" | "bar";
 }
 
-/** What the account is, under the username. Not a stored role — there is one
- *  account and it belongs to whoever runs the resort. */
-const ROLE = "Resort manager";
-
+/** Under the name: the person's role, e.g. "Front desk". */
 export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar" }: ProfileMenuProps) {
   const { isDark, toggle } = useTheme();
   const C = T(isDark);
 
-  // The username the admin actually signed in with, rather than the word
-  // "Admin". Falls back to that if the request fails, so the menu is never
-  // blank.
-  const [username, setUsername] = useState("Admin");
-  useEffect(() => {
-    let alive = true;
-    void (async () => {
-      try {
-        const res = await fetch("/api/admin/account", { cache: "no-store" });
-        const json = await res.json().catch(() => null);
-        if (alive && json?.success && json.username) setUsername(json.username);
-      } catch {
-        /* keep the fallback */
-      }
-    })();
-    return () => { alive = false; };
-  }, []);
+  // The person signed in — their name, not the word "Admin" — and their
+  // role, from the staff account (StaffContext).
+  const { me } = useStaff();
+  const username = me?.name || "Admin";
+  const ROLE = me ? ROLE_LABEL[me.role] : "Resort manager";
 
   const initial = (username.trim()[0] ?? "A").toUpperCase();
 

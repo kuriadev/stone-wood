@@ -43,6 +43,9 @@ export function useDbCollection<T>(
   // the INIT_* constants — a hydration error on every page that reads the
   // collection. The cache is applied in an effect right after mount instead.
   const [state, setState] = useState<T[]>(initial);
+  /** The placeholder this hook started with, by reference. Never written
+   *  to the shared cache: see the mirror effect. */
+  const initialRef = useRef(initial);
 
   /** True once the server's version has been applied at least once. Until
    *  then this hook will not write anything back. */
@@ -141,6 +144,14 @@ export function useDbCollection<T>(
     // cache survives to be applied by the effect above.
     if (firstMirrorRef.current) { firstMirrorRef.current = false; return; }
     if (!cacheReadRef.current) return;
+    // Still the placeholder: nothing real has been applied yet, so there is
+    // nothing to save. React Strict Mode (on by default in development) runs
+    // every effect twice on mount, and the second run of this one used to
+    // get here with the placeholder still in state — writing the hardcoded
+    // INIT_* sample data into localStorage. Every OTHER open tab then
+    // received it through the "storage" event below and showed it: an admin
+    // Dashboard flashing four made-up March bookings until its next refresh.
+    if (state === initialRef.current) return;
     try {
       localStorage.setItem(key, JSON.stringify(state));
     } catch {

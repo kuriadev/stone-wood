@@ -7,7 +7,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { parseDateStr } from "@/lib/validators";
 import { closeDateInput, parseInput } from "@/lib/schemas";
 import type { ClosedDateRow } from "@/types/database";
@@ -28,7 +28,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "calendar.manage");
   if (denied) return denied;
   try {
     const parsed = parseInput(closeDateInput, await req.json().catch(() => ({})));
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "calendar.manage");
   if (denied) return denied;
 
   const date = req.nextUrl.searchParams.get("date")?.trim() ?? "";

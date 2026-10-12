@@ -19,11 +19,11 @@
  * would then reject.
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { T } from "@/lib/theme";
 import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS, MAX_STAY_DAYS } from "@/lib/validators";
 import { RangeConnector } from "@/components/common/RangeConnector";
-import { checkBookingAvailability, holdsDate, fmtDate } from "@/lib/utils";
+import { checkBookingAvailability, holdsDate, fmtDate, bookingDates } from "@/lib/utils";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 
 /** `ds` shifted by `n` days, in UTC so it cannot drift across a timezone. */
@@ -59,6 +59,11 @@ interface BookingDatePickerProps {
   /** Day, Night or Whole Day — each slot has its own availability, so a
    *  date whose Day is full can still be open for the Night. */
   slot?: BookingSlot;
+  /** The slot a stay of SEVERAL days is booked as (only the Whole Day can
+   *  span dates, lib/resort.ts). The days after the first are judged by it,
+   *  so a range can't be drawn over a night that is already taken and then
+   *  turn out unavailable once the booking becomes a Whole Day. */
+  rangeSlot?: BookingSlot;
 }
 
 export function BookingDatePicker({
@@ -73,6 +78,7 @@ export function BookingDatePicker({
   resource = "Pool",
   tier = "Shared",
   slot = "Day",
+  rangeSlot,
 }: BookingDatePickerProps) {
   // Bookable range: today → min(today + 3 months, 31 Dec of this year).
   // This component only mounts at step 2, after interaction, so reading the
@@ -88,14 +94,18 @@ export function BookingDatePicker({
 
   // A date is "full" for this request when checkBookingAvailability says so —
   // not merely because some other (Shared) booking already exists on it.
-  const fullDates = useMemo(() => {
-    const candidateDates = new Set(bookings.filter(holdsDate).map((b) => b.date));
+  // Every day a stay covers is a candidate, not only its first: day two of
+  // someone's three-day stay is just as taken.
+  const fullFor = useCallback((s: BookingSlot) => {
+    const candidateDates = new Set(bookings.filter(holdsDate).flatMap((b) => bookingDates(b)));
     const full = new Set<string>();
     candidateDates.forEach((ds) => {
-      if (!checkBookingAvailability(ds, slot, guests, tier, resource, bookings).ok) full.add(ds);
+      if (!checkBookingAvailability(ds, s, guests, tier, resource, bookings).ok) full.add(ds);
     });
     return full;
-  }, [bookings, guests, resource, tier, slot]);
+  }, [bookings, guests, resource, tier]);
+  const fullDates = useMemo(() => fullFor(slot), [fullFor, slot]);
+  const rangeFull = useMemo(() => (rangeSlot && rangeSlot !== slot ? fullFor(rangeSlot) : fullDates), [fullFor, rangeSlot, slot, fullDates]);
   const closedSet = useMemo(() => new Set(closedDates), [closedDates]);
 
   const maxStr = toDateStr(maxDate);
@@ -109,11 +119,11 @@ export function BookingDatePicker({
     for (let i = 1; i < MAX_STAY_DAYS; i++) {
       const next = addDays(selectedDate, i);
       if (next > maxStr) break;
-      if (fullDates.has(next) || closedSet.has(next)) break;
+      if (rangeFull.has(next) || closedSet.has(next)) break;
       last = next;
     }
     return last;
-  }, [single, picking, selectedDate, fullDates, closedSet, maxStr]);
+  }, [single, picking, selectedDate, rangeFull, closedSet, maxStr]);
 
   /* The last day of the stay as it stands.
    *

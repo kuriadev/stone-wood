@@ -28,6 +28,7 @@ import { bookingsOverlapping } from "@/lib/rebooking.server";
 import { multiDayProblem } from "@/lib/resort";
 import type { BookingRow, FacilityRow, PackageRow, RoomRow } from "@/types/database";
 import type { BookingResource, BookingSlot, BookingTier } from "@/types/booking";
+import { ensureSettings } from "@/lib/settings.server";
 
 /** What Book Now sends. Every field is re-checked here. */
 export interface BookingDraft {
@@ -75,6 +76,8 @@ const bad = (error: string, status = 400): QuoteResult => ({ ok: false, status, 
 
 export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
   if (!raw || typeof raw !== "object") return bad("Booking details are missing.");
+  // The owner's current rates, limits and hours (lib/settings.ts).
+  await ensureSettings();
   const d = raw as Record<string, unknown>;
 
   // ── Guest details ───────────────────────────────────────────────

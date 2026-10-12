@@ -13,7 +13,7 @@
 // carried over untouched by touchSessionToken.
 
 import { NextResponse, type NextRequest } from "next/server";
-import { refreshedSessionCookie, sessionOf } from "@/lib/auth";
+import { refreshedSessionCookie, sessionOf, currentIdentity } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +23,11 @@ export async function POST(req: NextRequest) {
   // back to the login page".
   if (!session) {
     return NextResponse.json({ success: false, error: "Not authorised." }, { status: 401 });
+  }
+  // A person the owner has deactivated is signed out here too, so even a
+  // screen that only reads (and never hits a guarded write) lets them go.
+  if (!(await currentIdentity(session))) {
+    return NextResponse.json({ success: false, error: "Your account is no longer active." }, { status: 401 });
   }
   const res = NextResponse.json({ success: true });
   res.cookies.set(refreshedSessionCookie(session));

@@ -75,9 +75,18 @@ export interface DamageRate {
   unit: string;
   rate: number;
   active: boolean;
+  /** Breakage of this item also comes off this inventory item's count. */
+  inventoryItemId?: number | null;
 }
 
 export type InspectionStage = "Preparation" | "Checkout";
+
+/** A photo a caretaker took at an inspection — evidence, not analysed. */
+export interface InspectionPhoto {
+  facilityId: number;
+  /** A compressed data URL, stored like room and receipt photos. */
+  src: string;
+}
 
 export interface InspectionItem {
   facilityId: number;
@@ -93,6 +102,9 @@ export interface Inspection {
   items: InspectionItem[];
   notes: string;
   inspectedAt: string;
+  photos?: InspectionPhoto[];
+  /** The staff member who did it (after the stock migration). */
+  inspectedByName?: string;
 }
 
 export interface DamageRecord {
@@ -121,6 +133,9 @@ export interface OpsData {
   damages: DamageRecord[];
   /** Guest date-change requests: every pending one, plus recent history. */
   dateChanges: DateChange[];
+  /** Requests to the owner: all of them for the owner, your own otherwise.
+   *  Empty before the staff migration. */
+  requests: import("@/types/admin").OwnerRequest[];
 }
 
 export interface DateChange {
@@ -147,4 +162,8 @@ export interface Activity {
   bookingId?: string;
   summary: string;
   details: Record<string, unknown>;
+  /** The staff member who did it, for Admin lines written after staff
+   *  accounts existed. Older lines have none and read as "Admin". */
+  staffId?: string;
+  staffName?: string;
 }

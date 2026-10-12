@@ -67,17 +67,23 @@ export const phoneNumber = z
 
 export const notes = z.string({ message: "Notes must be text." }).transform(sanitizeNotes).pipe(z.string().max(NOTES_MAX));
 
+// The upper limits are the owner's settings (lib/settings.ts), so they are
+// read when a value is checked rather than frozen when this file loads.
 export const guests = z.coerce
   .number()
   .int("Guest count must be a whole number.")
   .min(GUESTS_MIN, `At least ${GUESTS_MIN} guest is required.`)
-  .max(GUESTS_MAX, `Maximum ${GUESTS_MAX} guests per booking.`);
+  .superRefine((v, ctx) => {
+    if (v > GUESTS_MAX) ctx.addIssue({ code: "custom", message: `Maximum ${GUESTS_MAX} guests per booking.` });
+  });
 
 export const overtime = z.coerce
   .number()
   .int()
   .min(OVERTIME_MIN)
-  .max(OVERTIME_MAX, `Overtime is capped at ${OVERTIME_MAX} hours.`);
+  .superRefine((v, ctx) => {
+    if (v > OVERTIME_MAX) ctx.addIssue({ code: "custom", message: `Overtime is capped at ${OVERTIME_MAX} hours.` });
+  });
 
 export const bookingSlot = z.enum(["Day", "Night", "WholeDay"]);
 export const bookingTier = z.enum(["Shared", "Exclusive"]);
@@ -224,6 +230,7 @@ export const inventoryItemInput = z.object({
   // makes it optional for PATCH.
   minQty: nonNegative("minQty"),
   notes: z.string().transform(sanitizeNotes).optional().default(""),
+  kind: z.enum(["Supply", "Equipment"], { message: "Supply or equipment?" }).optional(),
 });
 
 /** PATCH /api/inventory?id= — every field optional, present ones still checked. */

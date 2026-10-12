@@ -11,7 +11,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToBooking } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission, requireAdmin, ownerGate } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { sanitizeNotes } from "@/lib/validators";
 import * as schemas from "@/lib/schemas";
@@ -85,9 +85,12 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 
     // What the guest's page shows besides the booking. Date changes are
     // optional until their migration has run.
-    const [pays, dc] = await Promise.all([
+    // Damage found at the check-out inspection is on the guest's bill, so
+    // it is on their page too: what, where and how much — not staff notes.
+    const [pays, dc, dmg] = await Promise.all([
       db.from("payments").select("*").eq("booking_id", booking.id).eq("voided", false).order("received_at"),
       db.from("date_change_requests").select("*").eq("booking_id", booking.id).order("created_at", { ascending: false }).limit(10),
+      db.from("damage_records").select("item_name, quantity, amount, facility_name, voided").eq("booking_id", booking.id),
     ]);
     if (pays.error) throw new Error(pays.error.message);
     const dateChanges = dc.error ? [] : (dc.data as DateChangeRow[]).map(rowToDateChange);
@@ -100,6 +103,9 @@ export async function GET(req: NextRequest, { params }: Ctx) {
         type: p.type, method: p.method, amount: p.amount, reference: p.reference, receivedAt: p.receivedAt,
       })),
       dateChanges,
+      damages: dmg.error ? [] : ((dmg.data ?? []) as { item_name: string; quantity: number; amount: number; facility_name: string; voided?: boolean }[])
+        .filter((d) => !d.voided)
+        .map((d) => ({ item: d.item_name, quantity: d.quantity, amount: Number(d.amount), facility: d.facility_name })),
       changesLeft: Math.max(0, GUEST_CHANGES_ALLOWED - used),
       today: manilaDate(),
     });
@@ -110,7 +116,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "bookings.edit");
   if (denied) return denied;
 
   const { id } = await params;
@@ -147,6 +153,13 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       if (body.status !== before.status) {
         const why = statusChangeError(before.status, body.status, !!before.checked_in_at);
         if (why) return NextResponse.json({ success: false, error: why }, { status: 409 });
+        // Cancelling (or a no-show) gives up the guest's date and keeps or
+        // forfeits their money: the owner's call. Front desk's attempt goes
+        // to the owner as a request carrying just the cancellation.
+        if (body.status === "Cancelled") {
+          const gate = await ownerGate(req, "bookings.cancel", { status: "Cancelled", cancelReason: body.cancelReason ?? null });
+          if (gate) return gate;
+        }
         if (body.status === "Confirmed") patch.confirmed_at = new Date().toISOString();
         if (body.status === "Cancelled") patch.cancelled_at = new Date().toISOString();
       }
@@ -234,7 +247,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "bookings.delete");
   if (denied) return denied;
 
   const { id } = await params;

@@ -73,6 +73,7 @@ export interface BookingRow {
   refund_status: "Owed" | "Sent" | null;
   refund_amount: number;
   refund_sent_at: string | null;
+  reminded_at?: string | null;
   refund_receipt: string | null;
 }
 
@@ -86,6 +87,8 @@ export interface ActivityRow {
   booking_id: string | null;
   summary: string;
   details: Record<string, unknown>;
+  staff_id?: string | null;
+  staff_name?: string | null;
 }
 
 export interface DateChangeRow {
@@ -111,6 +114,7 @@ export interface InventoryRow {
   notes: string;
   deleted_at: string | null;
   created_at: string;
+  kind?: "Supply" | "Equipment";
 }
 
 export interface CustomerMessageRow {
@@ -235,6 +239,7 @@ export interface DamageRateRow {
   rate: number;
   active: boolean;
   created_at: string;
+  inventory_item_id?: number | null;
 }
 
 export interface InspectionRow {
@@ -244,6 +249,8 @@ export interface InspectionRow {
   items: import("./finance").InspectionItem[];
   notes: string;
   inspected_at: string;
+  photos?: import("./finance").InspectionPhoto[];
+  inspected_by_name?: string | null;
 }
 
 export interface DamageRecordRow {

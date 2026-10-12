@@ -3,8 +3,10 @@
 //
 // GET filters: from, to (YYYY-MM-DD, Manila days), category (the part of
 // the action before the dot: booking, payment, room…), actor (Admin, Guest
-// or System), booking (a reference), q (words in the summary), before (an
-// id, to load older rows), limit (up to 200).
+// or System), booking (a reference), staff (a staff id — owner only), q
+// (words in the summary), before (an id, to load older rows), limit (up to
+// 200). Only the owner reads the whole log; staff get their own lines and
+// any booking's history.
 //
 // POST accepts only actions the app can't see on its own, such as the
 // owner texting a guest from their phone. Everything else is logged by the
@@ -12,15 +14,18 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToActivity, rowToBooking } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { cleanText, isDateStr } from "@/lib/money";
 import { logActivity } from "@/lib/activity.server";
+import { actingStaff } from "@/lib/staff.server";
+import { can } from "@/lib/permissions";
+import { fmt } from "@/lib/utils";
 import type { ActivityRow, BookingRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "ops.view");
   if (denied) return denied;
 
   const p = req.nextUrl.searchParams;
@@ -41,6 +46,17 @@ export async function GET(req: NextRequest) {
     if (isDateStr(to)) q = q.lt("at", new Date(new Date(`${to}T00:00:00+08:00`).getTime() + 86_400_000).toISOString());
     if (words) q = q.ilike("summary", `%${words}%`);
     if (Number.isFinite(before) && before > 0) q = q.lt("id", before);
+    // The owner reads everyone's lines and can pick one person's. Staff read
+    // their own — except a booking's history, which everyone at the counter
+    // needs whole to answer the guest.
+    const me = actingStaff();
+    const staffFilter = p.get("staff")?.trim();
+    if (can(me?.role, "activity.viewAll")) {
+      if (staffFilter && /^[0-9a-f-]{36}$/i.test(staffFilter)) q = q.eq("staff_id", staffFilter);
+    } else if (!booking) {
+      if (!me?.id) return NextResponse.json({ success: true, activity: [], more: false });
+      q = q.eq("staff_id", me.id);
+    }
 
     const { data, error } = await q;
     if (error) throw new Error(error.message);
@@ -52,10 +68,10 @@ export async function GET(req: NextRequest) {
   }
 }
 
-const OUTSIDE_ACTIONS = new Set(["guest.texted"]);
+const OUTSIDE_ACTIONS = new Set(["guest.texted", "day.count_reviewed"]);
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "ops.view");
   if (denied) return denied;
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
@@ -63,6 +79,24 @@ export async function POST(req: NextRequest) {
   if (!OUTSIDE_ACTIONS.has(action)) return NextResponse.json({ success: false, error: "Unknown action." }, { status: 400 });
   const bookingId = cleanText(body.bookingId, 40);
   const about = cleanText(body.about, 120);
+
+  // The owner looked into a day whose cash count was short or over and
+  // accepts the difference as it stands (components/admin/CashCountReview).
+  // On the record, so the task clears and anyone can see who decided.
+  if (action === "day.count_reviewed") {
+    if (!can(actingStaff()?.role, "activity.viewAll")) {
+      return NextResponse.json({ success: false, error: "Only the owner can accept a cash difference." }, { status: 403 });
+    }
+    if (!isDateStr(body.date)) return NextResponse.json({ success: false, error: "Which day?" }, { status: 400 });
+    const note = cleanText(body.note, 300);
+    const diff = Number(body.difference) || 0;
+    await logActivity({
+      actor: "Admin", action, entity: "daily_closing", entityId: body.date,
+      summary: `Reviewed the cash count for ${body.date}: accepted ${diff >= 0 ? "over" : "short"} by ${fmt(Math.abs(diff))}${note ? `. Note: ${note}` : "."}`,
+      details: { difference: diff, note },
+    });
+    return NextResponse.json({ success: true });
+  }
 
   try {
     const { data } = await getSupabaseAdmin().from("bookings").select("*").eq("id", bookingId).maybeSingle();

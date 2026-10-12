@@ -11,7 +11,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, roomToRow, facilityToRow, packageToRow } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import {
   INIT_ROOMS, INIT_FACILITIES, INIT_INVENTORY, INIT_PACKAGES, INIT_GALLERY,
 } from "@/lib/constants";
@@ -35,7 +35,7 @@ async function countOf(table: string): Promise<number | null> {
 }
 
 export async function GET(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
 
   const tables = ["rooms", "bookings", "inventory", "customer_messages", "closed_dates", "gallery", "facilities", "packages"];
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
 
   const db = getSupabaseAdmin();

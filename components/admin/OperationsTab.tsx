@@ -39,7 +39,8 @@ import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { EmailGuestModal } from "@/components/admin/EmailGuestModal";
 import { ManilaClock } from "@/components/admin/ManilaClock";
-import { opsBoard, closingBlockers, attentionTally, unclosedDays, prepBlocked, prepOpensOn, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, type OpsCard, type OpsView } from "@/lib/operations";
+import { opsBoard, closingBlockers, attentionTally, unclosedDays, lowStock, prepBlocked, prepOpensOn, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, type OpsCard, type OpsView } from "@/lib/operations";
+import { useApp } from "@/contexts/AppContext";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { bookingMoney, collectedBetween, expensesBetween, livePayments, manilaDate, manilaTime, monthRange, round2, type BookingMoney } from "@/lib/finance";
 import { fmt, fmtDate, getBookingSlot, holdsDate, bookingDays, bookingEndDate } from "@/lib/utils";
@@ -70,6 +71,10 @@ import { GuestMessagesPanel } from "@/components/admin/GuestMessagesPanel";
 import type { CustomerMessage } from "@/types/admin";
 import { TAP_MIN } from "@/lib/spacing";
 import type { AdminTab } from "@/types/admin";
+import { OwnerRequestsPanel } from "@/components/admin/OwnerRequestsPanel";
+import { TomorrowPanel } from "@/components/admin/TomorrowPanel";
+import { useStaff } from "@/contexts/StaffContext";
+import { call } from "@/contexts/OpsContext";
 
 interface OperationsTabProps {
   bookings: Booking[];
@@ -150,6 +155,8 @@ export function OperationsTab({
   const { C, cBg, cBr, soft, inp } = useAdminStyle();
   const ops = useOps();
   const { toast } = useToast();
+  const staff = useStaff();
+  const { inventory } = useApp();
 
   // A live clock, so "Time's up" and the day roll over on their own.
   const [now, setNow] = useState(() => new Date());
@@ -209,6 +216,15 @@ export function OperationsTab({
   const current = open && "id" in open ? find(open.id) : null;
   const reviewing = open?.kind === "datechange" ? ops.dateChanges.find((r) => r.id === open.reqId) ?? null : null;
   const go = (kind: Extract<Open, { id: string }>["kind"], b: Booking) => {
+    // Preparing and inspecting facilities is the caretakers' (it is on
+    // their My Tasks). Front desk is told where the stay is instead of
+    // being handed a window the server would refuse.
+    if ((kind === "checkout" || kind === "prep") && !staff.can("facilities.inspect")) {
+      toast(kind === "prep"
+        ? `Preparing for ${b.name} is on the caretakers' task list.`
+        : `${b.name}'s check-out inspection is on the caretakers' task list. Once it's done, the balance shows here under Balance to collect.`, "info");
+      return;
+    }
     if (kind === "reject" || kind === "noshow") setReason("");
     setOpen({ kind, id: b.id });
   };
@@ -344,6 +360,13 @@ export function OperationsTab({
         : <>{unclosed.length} days weren&apos;t closed: {unclosed.map(fmtDate).join(", ")}. Close each one, oldest first, so every cash count is right.</>,
       actions: <ActionButton size="sm" kind="primary" onClick={() => openClosing(first)}>Close {fmtDate(first)}</ActionButton> });
   }
+  // Supplies at or under their minimum: one shopping-list row.
+  const toBuy = lowStock(inventory);
+  if (toBuy.length > 0) {
+    attention.push({ key: "low-stock", kind: "reminder", tone: "amber", icon: "package",
+      text: <>Buy more: {toBuy.slice(0, 3).map((i) => `${i.name} (${i.qty} ${i.unit} left)`).join(", ")}{toBuy.length > 3 ? `, and ${toBuy.length - 3} more` : ""}.</>,
+      actions: <ActionButton size="sm" onClick={() => onGoTab?.("Inventory")}>Supplies</ActionButton> });
+  }
   const waitingConfirm = upcoming.filter((c) => c.stage === "confirm");
   if (waitingConfirm.length > 0) {
     attention.push({ key: "confirm-upcoming", kind: "reminder", tone: "blue", icon: "info",
@@ -358,7 +381,7 @@ export function OperationsTab({
     const tally = attentionTally({
       bookings, inspections: ops.inspections, dateChanges: ops.dateChanges,
       now, usedBy: (b) => facilitiesForBooking(b, facilities),
-      payments: ops.payments, expenses: ops.expenses, closings: ops.closings,
+      payments: ops.payments, expenses: ops.expenses, closings: ops.closings, inventory,
     });
     if (tally.total !== attention.length) {
       console.warn(
@@ -577,6 +600,9 @@ export function OperationsTab({
           {stage === "onsite" && c.endsAt && (c.timeUp
             ? <StatusBadge color="#d44">Time&apos;s up · {duration(now.getTime() - c.endsAt.getTime())} over</StatusBadge>
             : <StatusBadge color={C.textS}>Until {localTime(c.endsAt)}</StatusBadge>)}
+          {/* Damage the caretaker found at the check-out inspection: it is
+              part of what is collected here, so say so on the card. */}
+          {stage === "settle" && m.penaltyTotal > 0 && <StatusBadge color="#d44">{fmt(m.penaltyTotal)} damage</StatusBadge>}
           {(stage === "arriving" || stage === "onsite" || stage === "settle") && (m.due > 0
             ? <StatusBadge color="#d4a800">{fmt(m.due)} to collect</StatusBadge>
             : <StatusBadge color="#2e9e4e">Fully paid</StatusBadge>)}
@@ -1100,6 +1126,14 @@ export function OperationsTab({
         </div>
       </div>
 
+      {/* Front desk's refunds, voids and cancellations waiting on the
+          owner — first, because a guest is often waiting on them. */}
+      <OwnerRequestsPanel mob={mob} />
+
+      {/* Tomorrow's guests: the day-before email goes by itself, the text
+          from here with one tap. */}
+      <TomorrowPanel bookings={bookings} />
+
       {statsRow}
 
       {quickPanel}
@@ -1260,8 +1294,16 @@ export function OperationsTab({
         <ConfirmDialog title="Mark as a no-show?"
           description={`${current.name} · ${current.id} · ${fmtDate(current.date)}`}
           onCancel={() => setOpen(null)} cancelLabel="Go back" width={500}
-          confirm={<ActionButton kind="red" onClick={() => {
+          confirm={<ActionButton kind="red" onClick={async () => {
             const why = reason.trim() || "No-show: the group did not arrive.";
+            // Cancelling is the owner's: front desk's no-show goes to them
+            // as a request, and nothing changes until they approve it.
+            if (!staff.can("bookings.cancel")) {
+              const r = await call(`/api/bookings/${encodeURIComponent(current.id)}`, "PATCH", { status: "Cancelled", cancelReason: why });
+              toast(r.ok ? `${current.name} marked as a no-show.` : r.error, r.ok || r.requested ? "info" : "error");
+              if (r.ok || r.requested) { void ops.refresh(); setOpen(null); }
+              return;
+            }
             // A no-show isn't emailed a rejection.
             updateStatus(current.id, "Cancelled", why, { silent: true });
             setBookings((bs) => bs.map((x) => x.id === current.id ? { ...x, cancelReason: why } : x));

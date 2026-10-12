@@ -76,6 +76,9 @@
     bookings: Booking[];
     /** Called once the booking is saved, so calendars can refresh. */
     onBooked?: () => void;
+    /** Re-read the calendar, e.g. after the server says the date or a room
+     *  was taken while the guest was paying. */
+    onRefreshAvailability?: () => void;
     rooms: Room[];
     closedDates: string[];
     /** Used to hide/disable a room, the pool, or the events venue when
@@ -120,7 +123,7 @@
   }
 
   export function BookNow({
-    bookings, onBooked, rooms, closedDates,
+    bookings, onBooked, onRefreshAvailability, rooms, closedDates,
     facilities = [],
     preselectedRoom, clearPreselected,
     preselectedDate, preselectedEndDate, clearPreselectedDate,
@@ -166,7 +169,7 @@
     const overtime = 0;
     /* Set when picking a second date moved the booking off a single-date
        slot, so the change can be announced instead of just happening. */
-    const [switchedFrom, setSwitchedFrom] = useState<string | null>(null);
+    const [switchedFrom, setSwitchedFrom] = useState<BookingSlot | null>(null);
     /* When the guest really arrives and really leaves. Not the same as the
        first and last dates: a Night Tour booked for the 10th ends at 5 AM
        on the 11th, a date the booking never mentions anywhere. Guests were
@@ -1015,10 +1018,22 @@
                       closedDates={closedDates}
                       selectedDate={date}
                       endDate={endDate}
+                      single={isPackage && initialPackage?.slotMode !== "WholeDay"}
+                      rangeSlot={allowsMultiDay(slot) ? slot : MULTI_DAY_SLOT}
                       onSelectRange={(from, to) => {
                         setDate(from);
                         const range = to === from ? "" : to;
                         setEndDate(range);
+                        /* Back to one date after a range moved the booking
+                           to the Whole Day: put it back on the Day or Night
+                           Tour the guest had chosen, as the note promised.
+                           Leaving it on the Whole Day charged both slots
+                           for a single date. */
+                        if (!range && switchedFrom) {
+                          setSlot(switchedFrom);
+                          setSwitchedFrom(null);
+                          setTierChoice(null);
+                        }
                         /* A Day or Night Tour is a single-date visit. Rather
                            than refuse the second click, move the booking to
                            the Whole Day, which is the only slot that keeps
@@ -1027,7 +1042,7 @@
                            instead of carrying an Exclusive they chose for a
                            different slot. */
                         if (range && !allowsMultiDay(slot)) {
-                          setSwitchedFrom(SLOTS[slot].label);
+                          setSwitchedFrom(slot);
                           setSlot(MULTI_DAY_SLOT);
                           setTierChoice(null);
                         }
@@ -1053,7 +1068,7 @@
                         style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.textB, fontSize: 13, lineHeight: 1.6, margin: "16px 0 0", borderLeft: `3px solid ${C.goldInk}`, paddingLeft: 12 }}
                       >
                         <span>
-                          The {switchedFrom} is a single-date visit, so this is now a{" "}
+                          The {SLOTS[switchedFrom].label} is a single-date visit, so this is now a{" "}
                           <strong style={{ color: C.textH }}>{SLOTS[MULTI_DAY_SLOT].label}</strong> booking — the only
                           one that keeps the resort yours overnight. Pick one date again to go back.
                         </span>
@@ -1143,7 +1158,13 @@
                               <button
                                 key={sl}
                                 type="button"
-                                onClick={() => setSlot(sl)}
+                                onClick={() => {
+                                  setSlot(sl);
+                                  // A single-slot package is one date: drop
+                                  // any range left over from before.
+                                  setEndDate("");
+                                  setSwitchedFrom(null);
+                                }}
                                 style={{
                                   flex: 1, padding: "12px 8px", borderRadius: 8, cursor: "pointer",
                                   border: `1px solid ${active ? gold : cBr}`,
@@ -1776,7 +1797,17 @@ reason: !date ? "Choose a date from the calendar to continue." : dateCapacity.re
                         <div style={{ textAlign: "center", padding: 12 }}>
                           <div style={{ fontSize: 24, marginBottom: 8 }}>⚠️</div>
                           <div style={{ color: "#c0392b", fontSize: 12.5, lineHeight: 1.6, marginBottom: 12 }}>{qrError}</div>
-                          <button onClick={() => setQrRetryKey((k) => k + 1)} style={{ background: "#00a952", color: "#fff", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, cursor: "pointer", letterSpacing: 1 }}>RETRY</button>
+                          <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                            <button onClick={() => setQrRetryKey((k) => k + 1)} style={{ background: "#00a952", color: "#fff", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, cursor: "pointer", letterSpacing: 1 }}>RETRY</button>
+                            {/* The date or a room was taken while the guest
+                                was filling in the form. Retrying can't fix
+                                that, so take them back to choose again with
+                                the calendar re-read. Nothing was charged. */}
+                            <button onClick={() => { onRefreshAvailability?.(); setStep(showRoomPicker && /room/i.test(qrError) ? 4 : 3); }}
+                              style={{ background: "transparent", color: "#00a952", border: "1px solid #00a952", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, cursor: "pointer", letterSpacing: 1 }}>
+                              {showRoomPicker && /room/i.test(qrError) ? "CHOOSE ANOTHER ROOM" : "CHOOSE ANOTHER DATE"}
+                            </button>
+                          </div>
                         </div>
                       )}
                       {!qrLoading && !qrError && qrData && (

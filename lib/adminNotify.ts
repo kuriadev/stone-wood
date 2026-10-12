@@ -115,6 +115,24 @@ export function buildNewBookingAlert(b: Booking, paid: number): MailOut {
   };
 }
 
+// ── 1b. Front desk asked the owner for something ────────────────────────
+
+/** A refund, void, cancellation or write-off waiting for the owner. The
+ *  badge in the admin panel is the main signal; this is for the owner who
+ *  is not looking at it, because these hold up a guest at the counter. */
+export function buildOwnerRequestAlert(r: { label: string; summary: string; reason: string; by: string }): MailOut {
+  return {
+    subject: `Approval needed · ${r.label}`,
+    html: shell(
+      "Front desk needs your approval",
+      `${r.by} sent this to you. Nothing has happened yet: it goes through only when you approve it.`,
+      section(r.label, [escapeHtml(r.summary), ...(r.reason ? [`Reason given: ${escapeHtml(r.reason)}`] : [])]) +
+        section("What to do", ["Open the admin panel. It is at the top of the Dashboard under Requests — approve or decline it there."]),
+      "#e0a020",
+    ),
+  };
+}
+
 // ── 2. The morning briefing ──────────────────────────────────────────────
 
 export interface BriefingInput {

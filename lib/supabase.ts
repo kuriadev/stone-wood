@@ -15,6 +15,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Room } from "@/types/room";
 import { GALLERY_MAX } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
+import { guessKind } from "@/types/inventory";
 import type { InventoryItem } from "@/types/inventory";
 import type { CustomerMessage } from "@/types/admin";
 import type { Facility } from "@/types/facility";
@@ -167,6 +168,7 @@ export const rowToBooking = (b: BookingRow): Booking => ({
   refundStatus: b.refund_status ?? undefined,
   refundAmount: b.refund_amount != null ? Number(b.refund_amount) : undefined,
   refundSentAt: b.refund_sent_at ?? undefined,
+  remindedAt: b.reminded_at ?? undefined,
   refundReceipt: b.refund_receipt ?? undefined,
 });
 
@@ -209,11 +211,12 @@ export const rowToInventoryItem = (i: InventoryRow): InventoryItem => ({
   id: i.id,
   category: i.category,
   name: i.name,
-  qty: i.qty,
+  qty: Number(i.qty),
   unit: i.unit,
-  minQty: i.min_qty,
+  minQty: Number(i.min_qty),
   notes: i.notes,
   deletedAt: i.deleted_at ?? undefined,
+  kind: i.kind ?? guessKind(i),
 });
 
 export const rowToCustomerMessage = (m: CustomerMessageRow): CustomerMessage => ({
@@ -359,6 +362,7 @@ export const rowToDamageRate = (r: DamageRateRow): DamageRate => ({
   unit: r.unit,
   rate: Number(r.rate),
   active: r.active,
+  inventoryItemId: r.inventory_item_id ?? null,
 });
 
 export const rowToInspection = (i: InspectionRow): Inspection => ({
@@ -368,6 +372,8 @@ export const rowToInspection = (i: InspectionRow): Inspection => ({
   items: Array.isArray(i.items) ? i.items : [],
   notes: i.notes ?? "",
   inspectedAt: i.inspected_at,
+  photos: Array.isArray(i.photos) ? i.photos : [],
+  inspectedByName: i.inspected_by_name ?? undefined,
 });
 
 export const rowToDamage = (d: DamageRecordRow): DamageRecord => ({
@@ -396,6 +402,9 @@ export const rowToActivity = (a: ActivityRow): Activity => ({
   bookingId: a.booking_id ?? undefined,
   summary: a.summary,
   details: a.details ?? {},
+  staffId: a.staff_id ?? undefined,
+  // Lines written before the column existed still carry the name in details.
+  staffName: a.staff_name ?? (typeof a.details?.by === "string" ? a.details.by : undefined),
 });
 
 export const rowToDateChange = (r: DateChangeRow): DateChange => ({

@@ -17,7 +17,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server";
 import { fmt } from "@/lib/utils";
 import { getSupabaseAdmin, rowToDamageRate } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { cleanText } from "@/lib/money";
 import type { DamageRateRow } from "@/types/database";
 
@@ -29,7 +29,7 @@ const rate = (v: unknown) => {
 };
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
   const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const name = cleanText(b?.name, 80);
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
   const id = Number(req.nextUrl.searchParams.get("id"));
   if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "An item id is required." }, { status: 400 });
@@ -71,10 +71,23 @@ export async function PATCH(req: NextRequest) {
   if (b.category !== undefined) patch.category = cleanText(b.category, 40) || "General";
   if (b.unit !== undefined) patch.unit = cleanText(b.unit, 20) || "pc";
   if (b.active !== undefined) patch.active = !!b.active;
+  // Which inventory item a breakage of this comes off (null: none).
+  if (b.inventoryItemId !== undefined) {
+    const item = b.inventoryItemId === null || b.inventoryItemId === "" ? null : Number(b.inventoryItemId);
+    if (item !== null && (!Number.isInteger(item) || item <= 0)) return NextResponse.json({ success: false, error: "Unknown inventory item." }, { status: 400 });
+    patch.inventory_item_id = item;
+  }
   if (Object.keys(patch).length === 0) return NextResponse.json({ success: false, error: "Nothing to update." }, { status: 400 });
   try {
     const prev = await loadRow("damage_rates", id);
-    const { data, error } = await getSupabaseAdmin().from("damage_rates").update(patch).eq("id", id).select().maybeSingle();
+    let { data, error } = await getSupabaseAdmin().from("damage_rates").update(patch).eq("id", id).select().maybeSingle();
+    // Before the stock migration the link column doesn't exist yet.
+    if (error && "inventory_item_id" in patch && /inventory_item_id/.test(error.message)) {
+      const { inventory_item_id: _skip, ...rest } = patch;
+      void _skip;
+      if (Object.keys(rest).length === 0) return NextResponse.json({ success: false, error: "Linking to inventory switches on once the database update is applied." }, { status: 409 });
+      ({ data, error } = await getSupabaseAdmin().from("damage_rates").update(rest).eq("id", id).select().maybeSingle());
+    }
     if (error) throw new Error(error.message);
     if (!data) return NextResponse.json({ success: false, error: "Item not found." }, { status: 404 });
     const diff = changes(prev, data as Record<string, unknown>);
@@ -89,7 +102,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
   const id = Number(req.nextUrl.searchParams.get("id"));
   if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "An item id is required." }, { status: 400 });

@@ -81,6 +81,7 @@ export const paymentLine = (p: { type: string; method: string }) => `${payTypeLa
  */
 export const ADMIN_TAB_LABEL: Record<AdminTab, string> = {
   Operations: "Dashboard",              // the home screen: today's work, money and quick actions
+  Tasks: "My Tasks",                    // the caretaker's phone screen: prepare, inspect, clean, upkeep
   Bookings: "All Bookings",
   Occupancy: "Booking Calendar",
   Facilities: "Facilities & Inspections",
@@ -93,19 +94,22 @@ export const ADMIN_TAB_LABEL: Record<AdminTab, string> = {
   "Customer Service": "Guest Messages",
   Maintenance: "Website Maintenance",   // the switch that closes the public site
   Activity: "Activity History",         // was "Audit Log"
+  Staff: "Staff Accounts",
+  Settings: "Rates & Settings",
 };
 
 export const adminTabLabel = (t: AdminTab) => ADMIN_TAB_LABEL[t] ?? t;
 
 /** Sidebar sections, top to bottom. */
 export const ADMIN_NAV_GROUPS: { label: string; tabs: AdminTab[] }[] = [
-  { label: "TODAY", tabs: ["Operations"] },
+  { label: "TODAY", tabs: ["Operations", "Tasks"] },
   { label: "RESERVATIONS", tabs: ["Bookings", "Occupancy"] },
   { label: "RESORT UPKEEP", tabs: ["Facilities", "Inventory"] },
   { label: "MONEY", tabs: ["Sales", "Reports"] },
   { label: "WHAT GUESTS SEE", tabs: ["Rooms", "Packages", "Gallery"] },
   { label: "GUESTS", tabs: ["Customer Service"] },
   { label: "WEBSITE", tabs: ["Maintenance"] },
+  { label: "TEAM & SETUP", tabs: ["Staff", "Settings"] },
   // Everything done in the system, not just money, so not under Money.
   { label: "HISTORY", tabs: ["Activity"] },
 ];

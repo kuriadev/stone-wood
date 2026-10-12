@@ -7,6 +7,8 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { HERO_BG } from "@/lib/constants";
 import { imageAt } from "@/lib/img";
 import { SITE, resortJsonLd } from "@/lib/seo";
+import { SettingsBoot } from "@/components/layout/SettingsBoot";
+import { ensureSettings } from "@/lib/settings.server";
 
 /* Satoshi, self-hosted. It used to come from a Fontshare stylesheet: a
    render-blocking request to a third origin, then a second hop for the files,
@@ -55,6 +57,11 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false },
 };
 
+/* Pages are pre-built, and the layout reads the owner's Rates & Settings.
+   Rebuilt at most a minute after a change — and at once when the owner
+   saves, which revalidates the whole site (app/api/settings). */
+export const revalidate = 60;
+
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: dark)", color: "#121212" },
@@ -62,7 +69,11 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // The owner's rates, limits, hours and contacts (Rates & Settings), read
+  // here once per request (cached a minute) and handed to the browser so
+  // both render the same numbers.
+  const settings = await ensureSettings();
   return (
     /* `sw-dark` is set here, in the server HTML, because dark is the default
        theme. It used to be added by an effect after hydration, so the first
@@ -82,9 +93,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <JsonLd data={resortJsonLd()} />
-        <Providers>
-          <ClientShell>{children}</ClientShell>
-        </Providers>
+        <SettingsBoot settings={settings}>
+          <Providers>
+            <ClientShell>{children}</ClientShell>
+          </Providers>
+        </SettingsBoot>
       </body>
     </html>
   );

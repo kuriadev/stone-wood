@@ -19,7 +19,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToPayment } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission, ownerGate } from "@/lib/auth";
 import { loadBookingLedger } from "@/lib/ledger.server";
 import { parseAmount, cleanText } from "@/lib/money";
 import { fmt, fmtDate } from "@/lib/utils";
@@ -36,7 +36,7 @@ export const dynamic = "force-dynamic";
 const TYPES: PaymentType[] = ["Downpayment", "Balance", "Full", "Penalty", "Refund"];
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "payments.record");
   if (denied) return denied;
 
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
@@ -53,6 +53,12 @@ export async function POST(req: NextRequest) {
   if (amount === null) return NextResponse.json({ success: false, error: "Enter an amount greater than zero." }, { status: 400 });
   if (method !== "Cash" && !cleanText(body.reference, 80)) {
     return NextResponse.json({ success: false, error: `Enter the ${method} reference number.` }, { status: 400 });
+  }
+  // Money going back to a guest is the owner's call. Front desk's refund
+  // waits for the owner as a request, with everything they typed.
+  if (type === "Refund") {
+    const gate = await ownerGate(req, "payments.refund", body);
+    if (gate) return gate;
   }
 
   try {
@@ -172,7 +178,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "payments.void");
   if (denied) return denied;
 
   const id = Number(req.nextUrl.searchParams.get("id"));

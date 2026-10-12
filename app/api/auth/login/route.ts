@@ -5,7 +5,8 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity } from "@/lib/activity.server";
-import { checkAdminCredentials, createSessionToken, sessionCookie, currentAdminUsername } from "@/lib/auth";
+import { authenticate, createSessionToken, sessionCookie, currentAdminUsername } from "@/lib/auth";
+import { enterStaff, staffTableReady, type StaffIdentity } from "@/lib/staff.server";
 import { rateLimit, tooManyRequests, resetRateLimit } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +46,8 @@ export async function POST(req: NextRequest) {
   // Either source counts: a deployment that has saved credentials from the
   // Admin account screen no longer needs the env vars set at all.
   const configured = Boolean(process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD)
-    || Boolean(await currentAdminUsername());
+    || Boolean(await currentAdminUsername())
+    || await staffTableReady();
   if (!configured) {
     console.error(
       "[/api/auth/login] ADMIN_USERNAME and/or ADMIN_PASSWORD is not set on this " +
@@ -59,7 +61,10 @@ export async function POST(req: NextRequest) {
   }
 
   const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
-  if (!(await checkAdminCredentials(username, password))) {
+  // A staff account, or — before any exist — the single owner sign-in,
+  // which becomes the Owner's staff row the first time (lib/auth.ts).
+  const who: StaffIdentity | null = await authenticate(username, password);
+  if (!who) {
     await logActivity({ actor: "Guest", action: "security.login_failed", entity: "admin", summary: `A failed admin sign-in attempt (username "${username.slice(0, 40)}", from ${ip}).`, details: { ip } });
     // One message for both wrong username and wrong password — naming which
     // one was wrong confirms valid usernames to an attacker.
@@ -75,7 +80,7 @@ export async function POST(req: NextRequest) {
   // in the response to say the secret was the problem.
   let token: string;
   try {
-    token = createSessionToken(username);
+    token = createSessionToken(who);
   } catch (err) {
     console.error("[/api/auth/login] cannot sign a session:", err);
     return NextResponse.json(
@@ -84,8 +89,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  await logActivity({ actor: "Admin", action: "security.login", entity: "admin", summary: `Signed in to the admin panel (from ${ip}).`, details: { ip } });
-  const res = NextResponse.json({ success: true });
+  enterStaff(who);
+  await logActivity({ actor: "Admin", action: "security.login", entity: "admin", summary: `${who.name} signed in to the admin panel (from ${ip}).`, details: { ip } });
+  const res = NextResponse.json({
+    success: true,
+    staff: { id: who.id, name: who.name, username: who.username, role: who.role, mustChangePassword: !!who.mustChangePassword },
+  });
   res.cookies.set(sessionCookie(token));
   resetRateLimit(req, LIMIT.name);
   return res;

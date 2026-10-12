@@ -23,12 +23,15 @@ import { trySendMail } from "@/lib/mailer";
 import { logActivity } from "@/lib/activity.server";
 import { fmtDate } from "@/lib/utils";
 import type { DateChangeRow } from "@/types/database";
+import { ensureSettings } from "@/lib/settings.server";
 
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Ctx) {
+  // The owner's contact details and hours go into the email.
+  await ensureSettings();
   const limited = rateLimit(req, { name: "booking-date-change", limit: 10, windowMs: 60 * 60 * 1000 });
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 

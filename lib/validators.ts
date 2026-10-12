@@ -23,7 +23,7 @@ export const NOTES_MAX = 200;
  *  capacity is reserved, not however many people happen to show up), and the
  *  running total every date's Shared bookings are capped against together.
  *  PLACEHOLDER — tune to the venue's real headcount limit. */
-export const RESORT_MAX_CAPACITY = 30;
+export let RESORT_MAX_CAPACITY = 30;
 
 /** How many photos a room or a package may carry. Enforced by the API as
  *  well as the admin UI -- the UI cap is a courtesy, the API cap is the rule. */
@@ -32,25 +32,25 @@ export const GALLERY_MAX = 5;
 export const GUESTS_MIN = 1;
 /** No single booking can ask for more guests than the resort can physically
  *  hold. */
-export const GUESTS_MAX = RESORT_MAX_CAPACITY;
+export let GUESTS_MAX = RESORT_MAX_CAPACITY;
 
 /** Guest count at/below which a booking defaults to "Shared" (the resort's
  *  pool/venue is shared with other same-day bookings) rather than
  *  "Exclusive" (whole-resort buyout — no other booking allowed that day).
  *  Only used as a smart DEFAULT before the guest/staff explicitly picks a
  *  tier — see getPackageTier() in lib/utils.ts. */
-export const GUESTS_SHARED_MAX = RESORT_MAX_CAPACITY;
+export let GUESTS_SHARED_MAX = RESORT_MAX_CAPACITY;
 
 /** Total guests allowed across all concurrent "Shared" bookings on one date
  *  — the same physical ceiling as RESORT_MAX_CAPACITY, since Shared bookings
  *  are just multiple parties splitting that one capacity. */
-export const RESORT_SHARED_CAPACITY = RESORT_MAX_CAPACITY;
+export let RESORT_SHARED_CAPACITY = RESORT_MAX_CAPACITY;
 
 /** Events venue, per slot (Day or Night). Lowered from ₱8,000 after
  *  comparing Rizal resorts: party/function halls there rent for about
  *  ₱5,000 per slot (e.g. Tyvo Resort's A/C hall, 8 hrs; Casa de Amarella's
  *  day rate). Always exclusive — one event per slot. */
-export const EVENT_VENUE_RATE = 5000;
+export let EVENT_VENUE_RATE = 5000;
 
 // ────────────────────────────────────────────────────────────────────
 // TOUR PRICING
@@ -71,7 +71,7 @@ export const EVENT_VENUE_RATE = 5000;
  *  the same thing as thirty. The guest count on an Exclusive booking is
  *  therefore an operational number — how many towels, how many chairs,
  *  who the kitchen cooks for — and the guest sets it themselves. */
-export const EXCLUSIVE_FLAT_RATE = 6000;
+export let EXCLUSIVE_FLAT_RATE = 6000;
 
 /** What an Exclusive booking's guest count starts at.
  *
@@ -81,10 +81,10 @@ export const EXCLUSIVE_FLAT_RATE = 6000;
  *  the kitchen, the towels and the arrivals board were all wrong for the
  *  small private group that is the typical buyer. A low default that the
  *  guest can raise tells the truth. */
-export const EXCLUSIVE_DEFAULT_GUESTS = 5;
+export let EXCLUSIVE_DEFAULT_GUESTS = 5;
 
 /** Per-guest rate for a Shared booking. */
-export const SHARED_PER_HEAD_RATE = 200;
+export let SHARED_PER_HEAD_RATE = 200;
 
 // ────────────────────────────────────────────────────────────────────
 // DISCOUNTS
@@ -105,16 +105,16 @@ export const SHARED_PER_HEAD_RATE = 200;
 // built by hand.
 
 /** Exclusive pool buyout, one slot. */
-export const EXCLUSIVE_DISCOUNT_PCT = 0.05;
+export let EXCLUSIVE_DISCOUNT_PCT = 0.05;
 
 /** Bundles: Whole Day, and Pool + Venue. */
-export const PACKAGE_BUNDLE_DISCOUNT_PCT = 0.10;
+export let PACKAGE_BUNDLE_DISCOUNT_PCT = 0.10;
 
 /** A room booked as part of a "Pool + Room" package costs less than renting
  *  it on its own — applied to that one room's own price. Keeps the
  *  incentive on both sides: the guest saves on the room, the resort still
  *  sells the room (which would otherwise sit empty) plus the pool slot. */
-export const ROOM_BUNDLE_DISCOUNT_PCT = 0.08;
+export let ROOM_BUNDLE_DISCOUNT_PCT = 0.08;
 
 export const OVERTIME_MIN = 0;
 /** Day Tour overtime is admin-only and capped at 2 hours (5–7 PM): it can
@@ -122,18 +122,18 @@ export const OVERTIME_MIN = 0;
  *  Night slot is free. Anyone wanting the evening books Whole Day instead —
  *  selling the night as ₱500/hr overtime would undercut the Night Tour.
  *  The Night Tour and Whole Day have no overtime. */
-export const OVERTIME_MAX = 2;
+export let OVERTIME_MAX = 2;
 /** Per hour of Day Tour overtime. */
-export const OVERTIME_RATE = 500;
+export let OVERTIME_RATE = 500;
 
 /** How far ahead a guest may reserve. */
-export const BOOKING_WINDOW_MONTHS = 3;
+export let BOOKING_WINDOW_MONTHS = 3;
 
 /** The most days one booking may run for. A stay is a run of day-use days
  *  (lib/occupancy.ts). Three is the resort's limit: a longer booking ties up
  *  the pool for a week and is arranged with the owner directly instead.
  *  Every message that quotes the limit reads it from here. */
-export const MAX_STAY_DAYS = 3;
+export let MAX_STAY_DAYS = 3;
 
 /** Off every day of a stay AFTER the first.
  *
@@ -146,7 +146,7 @@ export const MAX_STAY_DAYS = 3;
  *
  *  Whole Day Exclusive: ₱10,800 for one day, ₱29,160 for three
  *  (₱9,720 a day) instead of ₱32,400. */
-export const MULTI_DAY_DISCOUNT_PCT = 0.15;
+export let MULTI_DAY_DISCOUNT_PCT = 0.15;
 
 // ════════════════════════════════════════════════════════════════════
 // DATES
@@ -378,4 +378,48 @@ export function validateOnsiteForm(form: {
     return "Please enter a valid Gmail address.";
   }
   return null;
+}
+
+// ── The owner's own numbers ─────────────────────────────────────────
+//
+// The values above are the DEFAULTS. The owner can change the prices,
+// discounts and limits in Rates & Settings (lib/settings.ts); applying
+// them reassigns these exported bindings, and because ES module exports
+// are live, every price, capacity check and limit in the app reads the new
+// number on its next call — nothing that uses them had to change.
+//
+// Only lib/settings.ts calls this. Each field is validated there first.
+export interface LimitValues {
+  resortCapacity: number;
+  exclusiveDefaultGuests: number;
+  venueRate: number;
+  exclusiveFlatRate: number;
+  sharedPerHeadRate: number;
+  exclusiveDiscountPct: number;
+  bundleDiscountPct: number;
+  roomBundleDiscountPct: number;
+  multiDayDiscountPct: number;
+  overtimeMax: number;
+  overtimeRate: number;
+  bookingWindowMonths: number;
+  maxStayDays: number;
+}
+
+export function applyLimitValues(v: LimitValues): void {
+  RESORT_MAX_CAPACITY = v.resortCapacity;
+  GUESTS_MAX = v.resortCapacity;
+  GUESTS_SHARED_MAX = v.resortCapacity;
+  RESORT_SHARED_CAPACITY = v.resortCapacity;
+  EXCLUSIVE_DEFAULT_GUESTS = Math.min(v.exclusiveDefaultGuests, v.resortCapacity);
+  EVENT_VENUE_RATE = v.venueRate;
+  EXCLUSIVE_FLAT_RATE = v.exclusiveFlatRate;
+  SHARED_PER_HEAD_RATE = v.sharedPerHeadRate;
+  EXCLUSIVE_DISCOUNT_PCT = v.exclusiveDiscountPct;
+  PACKAGE_BUNDLE_DISCOUNT_PCT = v.bundleDiscountPct;
+  ROOM_BUNDLE_DISCOUNT_PCT = v.roomBundleDiscountPct;
+  MULTI_DAY_DISCOUNT_PCT = v.multiDayDiscountPct;
+  OVERTIME_MAX = v.overtimeMax;
+  OVERTIME_RATE = v.overtimeRate;
+  BOOKING_WINDOW_MONTHS = v.bookingWindowMonths;
+  MAX_STAY_DAYS = v.maxStayDays;
 }

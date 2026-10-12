@@ -30,6 +30,11 @@ import { ProfileMenu } from "@/components/admin/ProfileMenu";
 import { attentionTally } from "@/lib/operations";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { useOps } from "@/contexts/OpsContext";
+import { useStaff } from "@/contexts/StaffContext";
+import { canOpenTab, landingTab } from "@/lib/permissions";
+import { StaffTab } from "@/components/admin/StaffTab";
+import { TasksTab } from "@/components/admin/TasksTab";
+import { SettingsTab } from "@/components/admin/SettingsTab";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -91,8 +96,8 @@ interface AdminProps {
 }
 
 // Sidebar sections and screen names live in lib/labels.ts (ADMIN_NAV_GROUPS,
-// ADMIN_TAB_LABEL), so the sidebar and each heading always agree.
-const SIDEBAR_GROUPS = ADMIN_NAV_GROUPS;
+// ADMIN_TAB_LABEL), so the sidebar and each heading always agree. Which of
+// them a person sees depends on their role (canOpenTab, lib/permissions.ts).
 
 // ── Admin Component ───────────────────────────────────────────────────────────
 export function Admin({
@@ -109,7 +114,31 @@ export function Admin({
   const mob = w < 768;
 
 
-  const [tab, setTab] = useState<AdminTab>("Operations");
+  const staff = useStaff();
+  const role = staff.me?.role ?? "Owner";
+  const [tab, setTab] = useState<AdminTab>(() => landingTab(role));
+  /* Each role sees its own screens: a caretaker their tasks and the
+     facilities, front desk the counter, the owner everything. The Staff
+     page waits for the database update that makes accounts possible. */
+  const SIDEBAR_GROUPS = ADMIN_NAV_GROUPS
+    .map((g) => ({ ...g, tabs: g.tabs.filter((t) => canOpenTab(role, t) && (t !== "Staff" || staff.staffEnabled)) }))
+    .filter((g) => g.tabs.length > 0);
+  // Signed in as someone who can't open the screen on show (the role
+  // arrived after the first render, or the owner just changed it): go to
+  // where that role starts.
+  const landed = useRef(false);
+  useEffect(() => {
+    if (!staff.ready) return;
+    if (!landed.current) {
+      // The first time the role is known: start where that role starts.
+      landed.current = true;
+      setTab(landingTab(role));
+    } else if (!canOpenTab(role, tab)) {
+      setTab(landingTab(role));
+    }
+  }, [staff.ready, role, tab]);
+  // A temporary password from the owner: choose your own before anything else.
+  const mustChangePassword = !!staff.me?.mustChangePassword;
   const [sideOpen, setSideOpen] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
@@ -268,7 +297,7 @@ export function Admin({
     Occupancy: "calendar", Rooms: "bed", Packages: "gift",
     Facilities: "toolbox", Gallery: "image", Inventory: "package",
     Reports: "bar-chart", "Customer Service": "message", Activity: "history",
-    Maintenance: "toolbox",
+    Maintenance: "toolbox", Tasks: "check-circle", Staff: "users", Settings: "cash",
   };
 
   // Completing a stay goes through Daily Operations: Check out (inspect,
@@ -305,8 +334,12 @@ export function Admin({
   const attention = attentionTally({
     bookings, inspections: ops.inspections, dateChanges: ops.dateChanges,
     now: opsNow, usedBy: (b) => facilitiesForBooking(b, facilities),
-    payments: ops.payments, expenses: ops.expenses, closings: ops.closings,
+    payments: ops.payments, expenses: ops.expenses, closings: ops.closings, inventory,
   });
+  /* Requests from front desk waiting on the owner count too, and always as
+     urgent: someone is usually standing at the counter with the guest. */
+  const pendingRequests = staff.can("requests.decide") ? ops.requests.filter((r) => r.status === "Pending").length : 0;
+  const attentionCount = attention.total + pendingRequests;
 
   // Calendar
   const daysInMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0).getDate();
@@ -382,7 +415,23 @@ export function Admin({
     if (closedDates.includes(ds)) return "Closed";
     return bookings.find((x) => bookingCoversDate(x, ds))?.status || null;
   };
-  const toggleClosed = (ds: string) => { setClosedDates((p) => p.includes(ds) ? p.filter((x) => x !== ds) : [...p, ds]); toast("Date availability updated.", "info"); };
+  const toggleClosed = (ds: string) => {
+    // Closing or reopening a date changes what guests can book: the
+    // owner's call. Anyone else's click is sent to them as a request.
+    if (!staff.can("calendar.manage")) {
+      const closing = !closedDates.includes(ds);
+      void fetch(closing ? "/api/closed-dates" : `/api/closed-dates?date=${encodeURIComponent(ds)}`, {
+        method: closing ? "POST" : "DELETE",
+        headers: closing ? { "Content-Type": "application/json" } : undefined,
+        body: closing ? JSON.stringify({ date: ds }) : undefined,
+      }).then((r) => r.json()).then((json) => {
+        toast(json?.requested ? `${closing ? "Closing" : "Reopening"} ${fmtDate(ds)} was sent to the owner for approval.` : (json?.error ?? "Could not send that."), json?.requested ? "info" : "error");
+        void ops.refresh();
+      }).catch(() => toast("No connection to the server.", "error"));
+      return;
+    }
+    setClosedDates((p) => p.includes(ds) ? p.filter((x) => x !== ds) : [...p, ds]); toast("Date availability updated.", "info");
+  };
 
   // Rooms
   const openAdd = () => { setEditRoom(null); setRf({ name: "", beds: "", capacity: "", price: "", desc: "", img: "" }); setRPhotos([]); setShowModal(true); };
@@ -742,6 +791,12 @@ export function Admin({
                 )}
     </>
   );
+  // Until the role is known, nothing: a caretaker must not see the owner's
+  // screens flash past. This is one short request after sign-in.
+  if (!staff.ready) {
+    return <div role="status" aria-label="Loading your account" style={{ background: adminBg, height: "100dvh" }} />;
+  }
+
   return (
     <div style={{ background: adminBg, height: "100dvh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
       {/* Mobile Top Bar */}
@@ -849,15 +904,15 @@ export function Admin({
                       </span>
 
                       {/* Bookings badge */}
-                      {t === "Operations" && attention.total > 0 && (
+                      {t === "Operations" && attentionCount > 0 && (
                         <Badge
                           variant="outline"
-                          aria-label={`${attention.total} ${attention.total === 1 ? "item needs" : "items need"} your attention`}
+                          aria-label={`${attentionCount} ${attentionCount === 1 ? "item needs" : "items need"} your attention`}
                           style={{
                             /* Red when something is overdue or money is owed,
                                gold when it can wait. */
-                            background: attention.urgent > 0 ? "#e55" : gold,
-                            color: attention.urgent > 0 ? "#fff" : "#000",
+                            background: attention.urgent > 0 || pendingRequests > 0 ? "#e55" : gold,
+                            color: attention.urgent > 0 || pendingRequests > 0 ? "#fff" : "#000",
                             fontSize: 10.5, fontWeight: 700,
                             borderRadius: 20, padding: "4px 7px", letterSpacing: 0,
                             display: "inline-flex", alignItems: "center", gap: 3,
@@ -870,7 +925,7 @@ export function Admin({
                               the same at 9 as at 90 and the label beside it
                               never has to give way. The real figure is on the
                               aria-label above, and on the board itself. */}
-                          {attention.total > 9 ? "9+" : attention.total}
+                          {attentionCount > 9 ? "9+" : attentionCount}
                         </Badge>
                       )}
 
@@ -1255,6 +1310,15 @@ export function Admin({
           {/* AUDIT LOG (tab id "Activity") */}
           {tab === "Activity" && <ActivityTab mob={mob} />}
 
+          {/* MY TASKS — the caretakers' phone screen */}
+          {tab === "Tasks" && <TasksTab mob={mob} onGoTab={goTab} onOpenBooking={openBooking} />}
+
+          {/* RATES & SETTINGS — the owner's */}
+          {tab === "Settings" && <SettingsTab mob={mob} />}
+
+          {/* STAFF ACCOUNTS — the owner's */}
+          {tab === "Staff" && <StaffTab mob={mob} />}
+
           {/* CUSTOMER SERVICE */}
           {tab === "Customer Service" && (
             <div>
@@ -1508,8 +1572,9 @@ export function Admin({
       </div>
 
       {/* Logout Confirm */}
-      {showAccount && (
+      {(showAccount || mustChangePassword) && (
         <AccountModal
+          forced={mustChangePassword}
           onClose={() => setShowAccount(false)}
           onSignedOut={() => { setShowAccount(false); onLogout(); }}
         />

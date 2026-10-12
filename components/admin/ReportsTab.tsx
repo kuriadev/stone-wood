@@ -13,10 +13,13 @@ import { statusLabel, bookingStatusLabel, payTypeLabel, payMethodLabel, adminTab
 import { Input } from "@/components/ui/input";
 import { useMemo, useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
+import { useApp } from "@/contexts/AppContext";
+import { downloadWorkbook } from "@/lib/excelReport";
+import type { StockMovement } from "@/types/tasks";
 import {
   bookingMoney, manilaDate, manilaTime, monthRange, livePayments, liveExpenses, signedAmount, round2, downloadCsv,
 } from "@/lib/finance";
-import { fmt, fmtDate, getBookingSlot, holdsDate } from "@/lib/utils";
+import { fmt, fmtDate, getBookingSlot, holdsDate, bookingEndDate, stayRange, bookingCoversDate } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { EXPENSE_CATEGORIES, type PaymentType } from "@/types/finance";
@@ -33,6 +36,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; rooms: Room[]; mob: boolean }) {
   const { C, soft, inp } = useAdminStyle();
   const ops = useOps();
+  const { inventory } = useApp();
   const today = manilaDate();
 
   const [period, setPeriod] = useState<Period>("Month");
@@ -112,7 +116,8 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
     for (let d = dayjs(from, DATE_FMT, true), n = 0; !d.isAfter(end, "day") && n < 93; d = d.add(1, "day"), n++) {
       const ds = d.format(DATE_FMT);
       const money = pays.filter((p) => manilaDate(p.receivedAt) === ds).reduce((s, p) => s + signedAmount(p), 0);
-      const count = kept.filter((b) => b.date === ds);
+      // Groups at the resort that day: a three-day stay counts on all three.
+      const count = kept.filter((b) => bookingCoversDate(b, ds));
       out.push({ label: String(d.date()), money: round2(money), bookings: count.length, guests: count.reduce((s, b) => s + b.guests, 0) });
     }
     return out;
@@ -122,10 +127,10 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
   const roomNames = (b: Booking) => (b.rooms || []).map((id) => rooms.find((r) => r.id === id)?.name ?? `#${id}`).join(" | ") || "None";
 
   const exportBookings = () => downloadCsv(`StoneWood_Bookings_${fileTag}.csv`, [
-    ["Booking ID", "Guest", "Contact", "Email", "Visit date", "Slot", "Package", "Source", "Guests", "Rooms", "Total (PHP)", "Paid (PHP)", "Penalties (PHP)", "Owed (PHP)", "Status", "Notes"],
+    ["Booking ID", "Guest", "Contact", "Email", "Visit date", "Last day", "Slot", "Package", "Source", "Guests", "Rooms", "Total (PHP)", "Paid (PHP)", "Penalties (PHP)", "Owed (PHP)", "Status", "Notes"],
     ...bks.map((b) => {
       const m = bookingMoney(b, ops.payments, ops.damages);
-      return [b.id, b.name, b.contact, b.email, b.date, SLOTS[getBookingSlot(b)].label, b.package, b.source ?? "Online", b.guests, roomNames(b),
+      return [b.id, b.name, b.contact, b.email, b.date, bookingEndDate(b), SLOTS[getBookingSlot(b)].label, b.package, b.source ?? "Online", b.guests, roomNames(b),
         b.total, m.paid, m.penaltyTotal, m.due, b.status, b.notes];
     }),
     [],
@@ -162,7 +167,7 @@ table{border-collapse:collapse;width:100%}td,th{padding:4px 6px;border-bottom:1p
 <h2>Reservations (${bks.length})</h2><table><tr><th>Booking</th><th>Guest</th><th>Contact</th><th>Visit</th><th>Time</th><th>Package</th><th class="n">Guests</th><th class="n">Total</th><th class="n">Paid</th><th class="n">Owed</th><th>Status</th></tr>
 ${bks.map((b) => {
       const m = bookingMoney(b, ops.payments, ops.damages);
-      return `<tr><td>${escapeHtml(b.id)}</td><td>${escapeHtml(b.name)}</td><td>${escapeHtml(b.contact)}</td><td>${escapeHtml(fmtDate(b.date))}</td><td>${escapeHtml(SLOTS[getBookingSlot(b)].label)}</td><td>${escapeHtml(String(b.package))}</td><td class="n">${b.guests}</td><td class="n">${escapeHtml(fmt(b.total))}</td><td class="n">${escapeHtml(fmt(m.paid))}</td><td class="n">${escapeHtml(fmt(m.due))}</td><td>${escapeHtml(bookingStatusLabel(b))}</td></tr>`;
+      return `<tr><td>${escapeHtml(b.id)}</td><td>${escapeHtml(b.name)}</td><td>${escapeHtml(b.contact)}</td><td>${escapeHtml(stayRange(b))}</td><td>${escapeHtml(SLOTS[getBookingSlot(b)].label)}</td><td>${escapeHtml(String(b.package))}</td><td class="n">${b.guests}</td><td class="n">${escapeHtml(fmt(b.total))}</td><td class="n">${escapeHtml(fmt(m.paid))}</td><td class="n">${escapeHtml(fmt(m.due))}</td><td>${escapeHtml(bookingStatusLabel(b))}</td></tr>`;
     }).join("") || "<tr><td class='muted' colspan='11'>No reservations in this period.</td></tr>"}
 ${bks.length ? `<tr><td colspan="7"><strong>Totals</strong></td><td class="n"><strong>${escapeHtml(fmt(round2(bks.reduce((n, b) => n + b.total, 0))))}</strong></td><td class="n"><strong>${escapeHtml(fmt(round2(bks.reduce((n, b) => n + bookingMoney(b, ops.payments, ops.damages).paid, 0))))}</strong></td><td class="n"><strong>${escapeHtml(fmt(round2(bks.reduce((n, b) => n + bookingMoney(b, ops.payments, ops.damages).due, 0))))}</strong></td><td></td></tr>` : ""}</table>
 <h2>Payments</h2><table><tr><th>Date</th><th>Booking</th><th>Guest</th><th>Type</th><th>Method</th><th class="n">Amount</th></tr>
@@ -173,15 +178,104 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
     w.document.open(); w.document.write(html); w.document.close();
   };
 
+  /* One workbook for the accountant: a sheet per table, pesos formatted as
+     money (lib/excelReport.ts). Stock movements for the period come along,
+     so the supplies bought and used sit next to the money spent on them. */
+  const [exporting, setExporting] = useState(false);
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      const mv = await fetch(`/api/inventory/movements?since=${from}&limit=300`, { cache: "no-store" })
+        .then((r) => r.json()).catch(() => null) as { movements?: StockMovement[] } | null;
+      const moves = (mv?.movements ?? []).filter((m) => manilaDate(m.at) <= to);
+      const itemName = (id: number) => inventory.find((i) => i.id === id);
+      await downloadWorkbook(`StoneWood_Report_${fileTag}`, `StoneWood report · ${label}`, [
+        {
+          name: "Summary",
+          columns: [{ header: "What", key: "k", width: 34 }, { header: "Amount", key: "v", width: 18, money: true }],
+          rows: [
+            { k: "Money received", v: collected },
+            ...summary.map(([k, v]) => ({ k: `  ${k}`, v })),
+            ...byMethod.map(([k, v]) => ({ k: `  by ${k}`, v })),
+            { k: "Expenses", v: -spent },
+            ...byCat.map(([k, v]) => ({ k: `  ${k}`, v: -v })),
+            { k: "Net income", v: round2(collected - spent) },
+            { k: "Still owed on these bookings", v: owed },
+          ],
+          footer: [["Period", label], ["Bookings", bks.length], ["Guests (not cancelled)", guests]],
+        },
+        {
+          name: "Bookings",
+          columns: [
+            { header: "Booking", key: "id", width: 12 }, { header: "Guest", key: "name", width: 22 }, { header: "Contact", key: "contact", width: 15 },
+            { header: "Email", key: "email", width: 24 }, { header: "First day", key: "date", width: 12 }, { header: "Last day", key: "end", width: 12 },
+            { header: "Slot", key: "slot", width: 11 }, { header: "Package", key: "pkg", width: 26 }, { header: "Source", key: "src", width: 9 },
+            { header: "Guests", key: "guests", width: 8 }, { header: "Rooms", key: "rooms", width: 18 },
+            { header: "Total", key: "total", width: 12, money: true }, { header: "Paid", key: "paid", width: 12, money: true },
+            { header: "Penalties", key: "pen", width: 12, money: true }, { header: "Owed", key: "due", width: 12, money: true },
+            { header: "Status", key: "status", width: 16 },
+          ],
+          rows: bks.map((b) => {
+            const m = bookingMoney(b, ops.payments, ops.damages);
+            return {
+              id: b.id, name: b.name, contact: b.contact, email: b.email, date: b.date, end: bookingEndDate(b),
+              slot: SLOTS[getBookingSlot(b)].label, pkg: String(b.package), src: b.source ?? "Online", guests: b.guests,
+              rooms: roomNames(b), total: b.total, paid: m.paid, pen: m.penaltyTotal, due: m.due, status: bookingStatusLabel(b),
+            };
+          }),
+        },
+        {
+          name: "Payments",
+          columns: [
+            { header: "Date", key: "d", width: 12 }, { header: "Time", key: "t", width: 9 }, { header: "Booking", key: "b", width: 12 },
+            { header: "Guest", key: "g", width: 22 }, { header: "Type", key: "type", width: 14 }, { header: "Method", key: "m", width: 13 },
+            { header: "Reference", key: "ref", width: 18 }, { header: "Amount", key: "amt", width: 13, money: true },
+          ],
+          rows: pays.map((p) => ({
+            d: manilaDate(p.receivedAt), t: manilaTime(p.receivedAt), b: p.bookingId ?? "", g: p.guestName,
+            type: payTypeLabel(p.type), m: payMethodLabel(p.method), ref: p.reference, amt: signedAmount(p),
+          })),
+          footer: [["Money received", collected]],
+        },
+        {
+          name: "Expenses",
+          columns: [
+            { header: "Date", key: "d", width: 12 }, { header: "Category", key: "c", width: 18 }, { header: "Description", key: "desc", width: 36 },
+            { header: "Method", key: "m", width: 13 }, { header: "Amount", key: "amt", width: 13, money: true },
+          ],
+          rows: exps.map((e) => ({ d: e.spentOn, c: e.category, desc: e.description, m: e.method, amt: e.amount })),
+          footer: [["Expenses", spent]],
+        },
+        {
+          name: "Stock",
+          columns: [
+            { header: "When", key: "d", width: 17 }, { header: "Item", key: "item", width: 24 }, { header: "Change", key: "delta", width: 9 },
+            { header: "Unit", key: "unit", width: 8 }, { header: "Why", key: "why", width: 12 }, { header: "Note", key: "note", width: 30 },
+            { header: "Who", key: "who", width: 16 }, { header: "Cost each", key: "cost", width: 12, money: true },
+          ],
+          rows: moves.map((m) => ({
+            d: `${manilaDate(m.at)} ${manilaTime(m.at)}`, item: itemName(m.itemId)?.name ?? `#${m.itemId}`, delta: m.delta,
+            unit: itemName(m.itemId)?.unit ?? "", why: m.reason, note: m.note, who: m.staffName ?? "", cost: m.unitCost,
+          })),
+        },
+      ]);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const sel = { ...inp, padding: "8px 12px", width: "auto" } as const;
 
   return (
     <div>
       <AdminPageHeader title={adminTabLabel("Reports")} mob={mob} subtitle={`Summary for ${label}.`}
         action={<div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <ActionButton icon="download" disabled={exporting} onClick={() => void exportExcel()}>{exporting ? "Preparing…" : "Excel (.xlsx)"}</ActionButton>
           <ActionButton icon="download" onClick={exportMoney}>Sales CSV</ActionButton>
           <ActionButton icon="download" onClick={exportBookings}>Bookings CSV</ActionButton>
-          <ActionButton kind="primary" icon="printer" onClick={print}>Print report</ActionButton>
+          {/* The print view's own "Save as PDF" makes the PDF: the same
+              report, laid out for paper. */}
+          <ActionButton kind="primary" icon="printer" onClick={print} title="Opens the report to print, or to save as a PDF">Print / Save as PDF</ActionButton>
         </div>} />
 
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>

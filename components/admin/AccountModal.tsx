@@ -1,6 +1,9 @@
 "use client";
 
-/* The admin's own sign-in: username and password.
+/* Your own sign-in: username and password. Every staff member has one;
+ * someone the owner just set up (or whose password the owner reset) is
+ * shown this straight after signing in (`forced`) to choose their own,
+ * so the temporary one the owner knows stops working.
  *
  * Changing these used to mean editing ADMIN_USERNAME / ADMIN_PASSWORD in the
  * hosting dashboard and redeploying, which in practice meant never changing
@@ -15,12 +18,24 @@ import { useToast } from "@/contexts/ToastContext";
 import { Modal, Label, ActionButton, ErrorNote, useAdminStyle } from "@/components/admin/ui";
 import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/common/Icon";
+import { useStaff } from "@/contexts/StaffContext";
+import { ROLE_LABEL } from "@/lib/permissions";
 
-const MIN_PASSWORD = 10;
+/** The single pre-staff admin sign-in asked for 10; staff accounts 8
+ *  (STAFF_PASSWORD_MIN in lib/staff.server.ts), which the server enforces. */
+const MIN_PASSWORD_ADMIN = 10;
+const MIN_PASSWORD_STAFF = 8;
 
-export function AccountModal({ onClose, onSignedOut }: { onClose: () => void; onSignedOut: () => void }) {
+export function AccountModal({ onClose, onSignedOut, forced = false }: {
+  onClose: () => void;
+  onSignedOut: () => void;
+  /** A temporary password from the owner: a new one must be chosen. */
+  forced?: boolean;
+}) {
   const { C, inp, cBr } = useAdminStyle();
   const { toast } = useToast();
+  const { me } = useStaff();
+  const MIN_PASSWORD = me?.id ? MIN_PASSWORD_STAFF : MIN_PASSWORD_ADMIN;
 
   const [username, setUsername] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -50,6 +65,7 @@ export function AccountModal({ onClose, onSignedOut }: { onClose: () => void; on
   if (username.trim().length < 3) problems.push("The username must be at least 3 characters.");
   if (/\s/.test(username.trim())) problems.push("The username cannot contain spaces.");
   if (!currentPassword) problems.push("Enter your current password to confirm this change.");
+  if (forced && !changingPassword) problems.push("Choose a new password of your own.");
   if (changingPassword && newPassword.length < MIN_PASSWORD) problems.push(`The new password must be at least ${MIN_PASSWORD} characters.`);
   if (changingPassword && confirm !== newPassword) problems.push("The two new passwords do not match.");
 
@@ -83,13 +99,13 @@ export function AccountModal({ onClose, onSignedOut }: { onClose: () => void; on
 
   return (
     <Modal
-      title="Admin account"
-      subtitle="Your sign-in for this panel"
-      onClose={onClose}
+      title={forced ? "Choose your own password" : "Your account"}
+      subtitle={me ? `${me.name} · ${ROLE_LABEL[me.role]}` : "Your sign-in for this panel"}
+      onClose={forced ? onSignedOut : onClose}
       width={560}
       footer={
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-          <ActionButton onClick={onClose}>Cancel</ActionButton>
+          <ActionButton onClick={forced ? onSignedOut : onClose}>{forced ? "Sign out" : "Cancel"}</ActionButton>
           <ActionButton kind="primary" icon="check" disabled={busy || !loaded} onClick={() => void save()}>
             {busy ? "Saving…" : "Save changes"}
           </ActionButton>
@@ -97,6 +113,11 @@ export function AccountModal({ onClose, onSignedOut }: { onClose: () => void; on
       }
     >
       <div style={{ display: "grid", gap: 16 }}>
+        {forced && (
+          <p style={{ color: C.textB, fontSize: 13.5, margin: 0, lineHeight: 1.6 }}>
+            The owner gave you a temporary password. Pick one only you know before you start — the temporary one stops working when you save.
+          </p>
+        )}
         <div>
           <Label htmlFor="acc-username">USERNAME</Label>
           <Input id="acc-username" value={username} onChange={(e) => setUsername(e.target.value)}
@@ -106,7 +127,7 @@ export function AccountModal({ onClose, onSignedOut }: { onClose: () => void; on
         <div style={{ borderTop: `1px solid ${cBr}`, paddingTop: 16 }}>
           <Label htmlFor="acc-new">NEW PASSWORD</Label>
           <p style={{ color: C.textS, fontSize: 12, margin: "0 0 8px" }}>
-            At least {MIN_PASSWORD} characters. Leave both boxes empty to keep your current password and only change the username.
+            At least {MIN_PASSWORD} characters.{forced ? "" : " Leave both boxes empty to keep your current password and only change the username."}
           </p>
           <Input id="acc-new" type={show ? "text" : "password"} value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password"
@@ -128,7 +149,7 @@ export function AccountModal({ onClose, onSignedOut }: { onClose: () => void; on
         {/* Last, and visually separated: this is the gate, not another field
             to fill in on the way past. */}
         <div style={{ borderTop: `1px solid ${cBr}`, paddingTop: 16 }}>
-          <Label htmlFor="acc-current">CURRENT PASSWORD</Label>
+          <Label htmlFor="acc-current">{forced ? "TEMPORARY PASSWORD (THE ONE YOU SIGNED IN WITH)" : "CURRENT PASSWORD"}</Label>
           <p style={{ color: C.textS, fontSize: 12, margin: "0 0 8px", display: "flex", gap: 8, alignItems: "flex-start" }}>
             <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, marginTop: 4 }}>
               <Icon name="lock" size={13} strokeWidth={1.75} />

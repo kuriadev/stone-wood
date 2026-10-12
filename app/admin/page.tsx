@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { Admin } from "@/components/sections/Admin";
 import { OpsProvider } from "@/contexts/OpsContext";
+import { StaffProvider, announceSignIn } from "@/contexts/StaffContext";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -40,6 +41,7 @@ export default function AdminPage() {
   if (!adminAuth) return null;
 
   return (
+    <StaffProvider>
     <OpsProvider>
     <Admin
       bookings={bookings}
@@ -54,7 +56,7 @@ export default function AdminPage() {
       onLogout={() => {
         // The session cookie is httpOnly, so clearing the React flag alone
         // would leave a working session behind. Only the server can expire it.
-        void fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+        void fetch("/api/auth/logout", { method: "POST" }).catch(() => {}).finally(announceSignIn);
         setAdminAuth(false);
         router.push("/");
       }}
@@ -68,5 +70,6 @@ export default function AdminPage() {
       setPackages={setPackages}
     />
     </OpsProvider>
+    </StaffProvider>
   );
 }

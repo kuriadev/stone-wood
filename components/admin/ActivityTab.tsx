@@ -17,6 +17,8 @@
 // a spreadsheet.
 
 import { adminTabLabel } from "@/lib/labels";
+import { useStaff } from "@/contexts/StaffContext";
+import { ROLE_LABEL, type StaffRole } from "@/lib/permissions";
 import { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { downloadCsv, manilaDate } from "@/lib/finance";
@@ -46,19 +48,35 @@ const CATEGORIES: { value: string; label: string }[] = [
   { value: "email", label: "Emails" },
   { value: "guest", label: "Texts to guests" },
   { value: "security", label: "Sign-ins" },
+  { value: "request", label: "Requests to the owner" },
+  { value: "staff", label: "Staff accounts" },
+  { value: "upkeep", label: "Upkeep tasks" },
+  { value: "settings", label: "Rates & settings" },
 ];
 
 /** Who did it: the owner, a guest on the website, or the system itself
  *  (a deadline passing, an online payment arriving). */
 const ACTORS: { value: "" | Activity["actor"]; label: string }[] = [
   { value: "", label: "Anyone" },
-  { value: "Admin", label: "The owner (Admin)" },
+  { value: "Admin", label: "Staff (any)" },
   { value: "Guest", label: "Guests" },
   { value: "System", label: "The system" },
 ];
 
 export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBooking?: (id: string) => void }) {
   const { C, rowBg, inp } = useAdminStyle();
+  /* The owner audits everyone: pick one person to see everything they did.
+     Everyone else sees their own lines (the server decides, /api/activity). */
+  const staff = useStaff();
+  const isOwner = staff.can("activity.viewAll");
+  const [people, setPeople] = useState<{ id: string; name: string; role: StaffRole; active: boolean }[]>([]);
+  const [person, setPerson] = useState("");
+  useEffect(() => {
+    if (!isOwner || !staff.staffEnabled) return;
+    void fetch("/api/staff", { cache: "no-store" }).then((r) => r.json()).then((j) => {
+      if (j?.success) setPeople(j.staff ?? []);
+    }).catch(() => {});
+  }, [isOwner, staff.staffEnabled]);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [category, setCategory] = useState("");
@@ -79,6 +97,7 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
     if (to) p.set("to", to);
     if (category) p.set("category", category);
     if (actor) p.set("actor", actor);
+    if (person) p.set("staff", person);
     if (booking.trim()) p.set("booking", booking.trim().toUpperCase());
     if (words.trim()) p.set("q", words.trim());
     if (before) p.set("before", String(before));
@@ -93,7 +112,7 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
     } finally {
       setLoading(false);
     }
-  }, [from, to, category, actor, booking, words]);
+  }, [from, to, category, actor, person, booking, words]);
 
   // Reload when a filter changes; typing in the text boxes waits a moment.
   useEffect(() => {
@@ -103,15 +122,18 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
 
   const exportCsv = () => downloadCsv(`StoneWood_Audit_Log_${manilaDate()}.csv`, [
     ["When", "Who", "Action", "Booking", "What happened"],
-    ...rows.map((a) => [fmtWhen(a.at), a.actor, a.action, a.bookingId ?? "", a.summary]),
+    ...rows.map((a) => [fmtWhen(a.at), a.staffName ?? a.actor, a.action, a.bookingId ?? "", a.summary]),
   ]);
 
   const sel = { ...inp, padding: "8px 12px", width: "auto" } as const;
-  const filtersOn = !!(from || to || category || actor || booking || words);
+  const filtersOn = !!(from || to || category || actor || person || booking || words);
 
   return (
     <div>
-      <AdminPageHeader title={adminTabLabel("Activity")} mob={mob} subtitle="Everything that happened, who did it and when. Entries can't be edited or deleted."
+      <AdminPageHeader title={adminTabLabel("Activity")} mob={mob}
+        subtitle={isOwner
+          ? "Everything that happened, who did it and when — every staff member's actions included. Entries can't be edited or deleted."
+          : "What you've done, and the full history of any booking you look up. Entries can't be edited or deleted."}
         action={<ActionButton icon="download" onClick={exportCsv} disabled={rows.length === 0}>Download CSV</ActionButton>} />
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" }}>
@@ -120,13 +142,19 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
         <FullSelect value={actor} onChange={(e) => setActor(e.target.value)} aria-label="Who did it" style={{ ...sel, paddingRight: 40 }}>
           {ACTORS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
         </FullSelect>
+        {isOwner && people.length > 0 && (
+          <FullSelect value={person} onChange={(e) => setPerson(e.target.value)} aria-label="Person" style={{ ...sel, paddingRight: 40 }}>
+            <option value="">Every person</option>
+            {people.map((p) => <option key={p.id} value={p.id}>{p.name} ({ROLE_LABEL[p.role]}){p.active ? "" : " — deactivated"}</option>)}
+          </FullSelect>
+        )}
         <FullSelect value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Kind of activity" style={{ ...sel, paddingRight: 40 }}>
           {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
         </FullSelect>
         <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From" style={sel} />
         <span style={{ color: C.textS, fontSize: 13 }}>to</span>
         <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To" style={sel} />
-        {filtersOn && <ActionButton size="sm" onClick={() => { setFrom(""); setTo(""); setCategory(""); setActor(""); setBooking(""); setWords(""); }}>Clear filters</ActionButton>}
+        {filtersOn && <ActionButton size="sm" onClick={() => { setFrom(""); setTo(""); setCategory(""); setActor(""); setPerson(""); setBooking(""); setWords(""); }}>Clear filters</ActionButton>}
       </div>
 
       {error && <p style={{ color: C.dangerInk, fontSize: 13.5 }}>{error}</p>}
@@ -136,7 +164,7 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
         {paged.rows.map((a, i) => (
           <Row key={a.id} style={{ background: rowBg(i) }}>
             <Cell style={{ ...td, color: C.textS, whiteSpace: "nowrap", fontSize: 12.5 }}>{fmtWhen(a.at)}</Cell>
-            <Cell style={td}><StatusBadge color={ACTOR_COLOR[a.actor]}>{a.actor}</StatusBadge></Cell>
+            <Cell style={td}><StatusBadge color={ACTOR_COLOR[a.actor]}>{a.staffName ?? a.actor}</StatusBadge></Cell>
             <Cell style={{ ...td, color: C.textB }}>{a.summary}</Cell>
             <Cell style={{ ...td, whiteSpace: "nowrap" }}>
               {a.bookingId

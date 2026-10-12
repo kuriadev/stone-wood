@@ -9,7 +9,7 @@
 import nodemailer from "nodemailer";
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity } from "@/lib/activity.server";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { escapeHtml, sanitizeHeaderValue } from "@/lib/escapeHtml";
 import { isValidEmail } from "@/lib/validators";
@@ -17,7 +17,7 @@ import { isValidEmail } from "@/lib/validators";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "messages.handle");
   if (denied) return denied;
 
   const limited = rateLimit(req, { name: "customer-reply", limit: 30, windowMs: 60 * 60 * 1000 });

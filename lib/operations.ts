@@ -23,6 +23,7 @@
 //   upcoming   still ahead: bookings to confirm and facilities to prepare
 //   done       settled today
 
+import type { InventoryItem } from "@/types/inventory";
 import type { Booking } from "@/types/booking";
 import type { Inspection, DateChange, Payment, Expense, DailyClosing } from "@/types/finance";
 import { choiceOpen, choiceExpired, holdActive } from "@/lib/rebooking";
@@ -272,8 +273,10 @@ export function attentionTally(args: {
   payments: Payment[];
   expenses: Expense[];
   closings: DailyClosing[];
+  /** For the "buy more" reminder (lowStock). Omitted: no such row. */
+  inventory?: Pick<InventoryItem, "qty" | "minQty" | "deletedAt">[];
 }): AttentionTally {
-  const { bookings, inspections, dateChanges, now, usedBy, payments, expenses, closings } = args;
+  const { bookings, inspections, dateChanges, now, usedBy, payments, expenses, closings, inventory = [] } = args;
   const today = manilaDate(now);
   const cards = opsBoard(bookings, inspections, now);
   let total = 0;
@@ -312,5 +315,16 @@ export function attentionTally(args: {
   const unclosed = unclosedDays({ payments, expenses, closings, today });
   if (unclosed.length > 0) add(unclosed.length > 1);
 
+  // One reminder for everything at or under its minimum.
+  if (lowStock(inventory).length > 0) add(false);
+
   return { total, urgent };
+}
+
+// ── Supplies to buy ──────────────────────────────────────────────────
+/** Items at or under the minimum the owner set ("buy more below"). The
+ *  count follows the work now (lib/stock.server.ts), so this is a real
+ *  shopping list rather than a guess. */
+export function lowStock<T extends Pick<InventoryItem, "qty" | "minQty" | "deletedAt">>(inventory: T[]): T[] {
+  return inventory.filter((i) => !i.deletedAt && i.qty <= i.minQty);
 }

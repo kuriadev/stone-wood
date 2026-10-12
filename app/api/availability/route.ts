@@ -12,41 +12,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { startOfToday, toDateStr } from "@/lib/validators";
-import { heldBookings } from "@/lib/rebooking.server";
-import type { BookingResource, BookingSlot, BookingStatus, BookingTier } from "@/types/booking";
-import type { FacilityStatus } from "@/types/facility";
+import { heldBookings, FREED_STATUS_LIST } from "@/lib/rebooking.server";
+import type { AvailabilitySlot, AvailabilityFacility } from "@/lib/publicAvailability";
+
+export type { AvailabilitySlot, AvailabilityFacility };
 
 export const dynamic = "force-dynamic";
 
-export interface AvailabilitySlot {
-  date: string;
-  guests: number;
-  status: BookingStatus;
-  rooms: number[];
-  resource: BookingResource | null;
-  tier: BookingTier | null;
-  slot: BookingSlot | null;
-  /** Day overtime hours — a Day group with overtime also holds the Night. */
-  overtime: number;
-  /** Only used to tell a legacy night booking (no slot) from a day one. */
-  package: string;
-}
-
-/**
- * The parts of a facility a guest is allowed to see.
- *
- * Deliberately narrow. A Facility row also carries `notes`, the caretaker
- * checklists, `lastUsedBookingId` and `lastUsedGuestName` — that last one is
- * a previous guest's name, so the whole row can never be returned publicly.
- * Only what blocks a booking is exposed.
- */
-export interface AvailabilityFacility {
-  id: number;
-  category: "Amenity" | "Room";
-  name: string;
-  status: FacilityStatus;
-  room_id: number | null;
-}
+const SLOT_COLUMNS = "date, guests, status, rooms, resource, tier, slot, overtime, package";
 
 export async function GET(req: NextRequest) {
   const limited = rateLimit(req, { name: "availability", limit: 300, windowMs: 60 * 60 * 1000 });
@@ -57,28 +30,41 @@ export async function GET(req: NextRequest) {
   // would show it as free.
   const from = startOfToday();
   from.setDate(from.getDate() - 1);
+  const fromStr = toDateStr(from);
 
   try {
     const db = getSupabaseAdmin();
 
+    /* Every booking still running on or after `from`, judged by its LAST
+       day — a stay that began last week and ends tomorrow still holds
+       tomorrow. Its end date is sent too, or the calendar would read it
+       as a one-day booking and offer the rest of the stay as free.
+
+       Before 20261010120000_multi_day_bookings.sql there is no end_date
+       column and every booking is a single day, so the start date is the
+       last day and the old query is exactly right. */
+    const currentBookings = async () => {
+      const ranged = await db.from("bookings").select(`${SLOT_COLUMNS}, end_date`)
+        .not("status", "in", FREED_STATUS_LIST).gte("end_date", fromStr).order("date");
+      if (!ranged.error || !/end_date/i.test(ranged.error.message)) return ranged;
+      return db.from("bookings").select(SLOT_COLUMNS)
+        .not("status", "in", FREED_STATUS_LIST).gte("date", fromStr).order("date");
+    };
+
     // Both in parallel — this endpoint sits in front of every guest calendar,
     // so it should not cost two round trips in series.
     const [bookingsRes, facilitiesRes] = await Promise.all([
-      db
-        .from("bookings")
-        .select("date, guests, status, rooms, resource, tier, slot, overtime, package")
-        .not("status", "in", "(Cancelled,ResortCancelled)")
-        .gte("date", toDateStr(from))
-        .order("date"),
+      currentBookings(),
       // Column list, not select("*"): the omitted columns are staff-only and
       // one of them holds a past guest's name.
       db.from("facilities").select("id, category, name, status, room_id").order("id"),
     ]);
     // Dates held for a guest's pending date change count as booked, so the
-    // calendar never offers a date someone is already waiting on.
-    const holds = (await heldBookings({ fromDate: toDateStr(from) })).map((b) => ({
-      date: b.date, guests: b.guests, status: b.status, rooms: b.rooms, resource: b.resource ?? null,
-      tier: b.tier ?? null, slot: b.slot ?? null, overtime: b.overtime, package: b.package,
+    // calendar never offers a date someone is already waiting on. A hold
+    // covers the whole stay it would move, so it carries its end date too.
+    const holds: AvailabilitySlot[] = (await heldBookings({ fromDate: fromStr })).map((b) => ({
+      date: b.date, end_date: b.endDate ?? b.date, guests: b.guests, status: b.status, rooms: b.rooms,
+      resource: b.resource ?? null, tier: b.tier ?? null, slot: b.slot ?? null, overtime: b.overtime, package: b.package,
     }));
 
     if (bookingsRes.error) throw new Error(bookingsRes.error.message);
@@ -86,7 +72,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      slots: [...((bookingsRes.data ?? []) as AvailabilitySlot[]), ...(holds as AvailabilitySlot[])],
+      slots: [...((bookingsRes.data ?? []) as AvailabilitySlot[]), ...holds],
       // Lets a guest see that a room is Under Maintenance. Without it their
       // copy of the facility list was the hardcoded INIT_FACILITIES, where
       // everything is "Available" — so a room pulled out of circulation in

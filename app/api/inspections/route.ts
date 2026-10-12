@@ -17,7 +17,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin, rowToInspection, rowToBooking, rowToFacility } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
+import { actingStaff } from "@/lib/staff.server";
 import { cleanText } from "@/lib/money";
 import { cleanItems } from "@/lib/inspection.server";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
@@ -28,7 +29,7 @@ import type { BookingRow, FacilityRow, InspectionRow } from "@/types/database";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "facilities.inspect");
   if (denied) return denied;
 
   const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
@@ -67,11 +68,15 @@ export async function POST(req: NextRequest) {
     const existing = await db.from("facility_inspections").select("id")
       .eq("booking_id", booking.id).eq("stage", "Preparation").maybeSingle();
     if (existing.error) throw new Error(existing.error.message);
-    const { data, error } = existing.data
-      ? await db.from("facility_inspections").update({ items, notes, inspected_at: now })
+    // Who prepared it, on the record itself (after the stock migration).
+    const by = actingStaff()?.name ?? null;
+    const save = (extra: Record<string, unknown>) => existing.data
+      ? db.from("facility_inspections").update({ items, notes, inspected_at: now, ...extra })
           .eq("id", (existing.data as { id: number }).id).select().single()
-      : await db.from("facility_inspections").insert({ booking_id: booking.id, stage: "Preparation", items, notes })
+      : db.from("facility_inspections").insert({ booking_id: booking.id, stage: "Preparation", items, notes, ...extra })
           .select().single();
+    let { data, error } = await save({ inspected_by_name: by });
+    if (error && /inspected_by_name/.test(error.message)) ({ data, error } = await save({}));
     if (error) throw new Error(error.message);
 
     const readyIds = used.filter((f) => f.status === "Needs Cleaning").map((f) => f.id);

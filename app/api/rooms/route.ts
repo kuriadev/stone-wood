@@ -8,7 +8,7 @@ import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server
 import { fmt } from "@/lib/utils";
 import { getSupabaseAdmin, rowToRoom, roomToRow } from "@/lib/supabase";
 import { GALLERY_MAX } from "@/lib/validators";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { sanitizeLabel, sanitizeNotes } from "@/lib/validators";
 import type { RoomRow } from "@/types/database";
 import type { Room } from "@/types/room";
@@ -70,7 +70,7 @@ function problemWith(b: Record<string, unknown>, partial: boolean): string | nul
 }
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
   try {
     const b = await req.json().catch(() => ({}));
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
 
   const id = Number(req.nextUrl.searchParams.get("id"));
@@ -164,7 +164,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
 
   const id = Number(req.nextUrl.searchParams.get("id"));

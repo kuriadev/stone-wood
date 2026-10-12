@@ -21,6 +21,30 @@ const visit = (b: Booking, date = b.date) => `${fmtDate(date)} (${SLOTS[getBooki
 const button = (link: string, label = "Open my booking") => ({ label, url: link });
 
 export const notices = {
+  /** The day before the visit. `balance` is what is still to pay on
+   *  arrival (0 when paid in full). */
+  reminder(b: Booking, link: string, balance: number): NoticeText {
+    const s = SLOTS[getBookingSlot(b)];
+    return {
+      email: {
+        subject: `See you tomorrow – ${b.id}`,
+        title: "See you tomorrow",
+        tagline: `${fmtDate(b.date)}, from ${s.start}`,
+        name: b.name,
+        paragraphs: [
+          `A reminder that your ${s.label} at StoneWood is tomorrow, ${visit(b)}: ${s.hours}.`,
+          balance > 0
+            ? `The balance of ${fmt(balance)} is paid when you arrive — cash or GCash.`
+            : "Your booking is fully paid. Just bring yourselves.",
+          "If anything has changed, open your booking or call us.",
+        ],
+        rows: [["Booking", b.id], ["Date", visit(b)], ["Hours", s.hours], ["Guests", String(b.guests)], ...(balance > 0 ? [["Balance on arrival", fmt(balance)] as [string, string]] : [])],
+        button: button(link),
+      },
+      sms: `StoneWood Resort: See you tomorrow, ${fmtDate(b.date)}! Your ${s.label} is ${s.hours}.${balance > 0 ? ` Balance ${fmt(balance)} is due on arrival.` : ""} Booking ${b.id}: ${link}`,
+    };
+  },
+
   /** The resort can't host the booking: the guest picks a new date.
    *
    *  What the guest has paid is kept against the booking and carries to

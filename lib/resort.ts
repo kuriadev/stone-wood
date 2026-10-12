@@ -165,12 +165,12 @@ export function stayPatternNote(id: BookingSlot, days: number): string | null {
 export const SINGLE_SLOTS: BookingSlot[] = ["Day", "Night"];
 
 /** 5–7 PM: cleaning and turnover between the Day and Night groups. */
-export const TURNOVER_WINDOW = "5:00 – 7:00 PM";
+export let TURNOVER_WINDOW = "5:00 – 7:00 PM";
 
 /** 5–7 AM: cleaning and turnover after the Night group leaves, before the
  *  next morning's Day Tour. The mirror of TURNOVER_WINDOW, and the reason
  *  an overnight booking does not block the following day. */
-export const MORNING_TURNOVER_WINDOW = "5:00 – 7:00 AM";
+export let MORNING_TURNOVER_WINDOW = "5:00 – 7:00 AM";
 
 /** Videoke and speakers off from this time — keeps the neighbours happy. */
 export const QUIET_HOURS_START = "10:00 PM";
@@ -224,4 +224,38 @@ export function occupiedSlots(slot: BookingSlot, overtime = 0): Array<"Day" | "N
   if (slot === "WholeDay") return ["Day", "Night"];
   if (slot === "Day" && overtime > 0) return ["Day", "Night"];
   return [slot];
+}
+
+// ── The owner's own hours and contacts ──────────────────────────────
+//
+// The hours and contact details above are the defaults. The owner sets the
+// real ones in Rates & Settings (lib/settings.ts), which calls this. SLOTS
+// and RESORT_CONTACT are updated IN PLACE, so every page, the booking
+// flow, the occupancy count and the emails — which all read these same
+// objects — follow without being changed. lib/settings.ts validates the
+// hours first (each slot at least four hours, at least an hour's turnover
+// between groups, the night ending by the next morning).
+export interface ResortValues {
+  dayStart: number;
+  dayEnd: number;
+  nightStart: number;
+  /** Past 24 = the next morning (29 = 5 AM). */
+  nightEnd: number;
+  contact: { phone: string; viber: string; email: string; messenger: string };
+}
+
+const twoHours = (from: number, to: number) => {
+  const a = hourLabel(from).replace(/ (AM|PM)$/, "");
+  const end = hourLabel(to);
+  const sameHalf = hourLabel(from).slice(-2) === end.slice(-2);
+  return `${sameHalf ? a : hourLabel(from)} – ${end}`;
+};
+
+export function applyResortValues(v: ResortValues): void {
+  Object.assign(SLOTS.Day, slot("Day", "Day Tour", v.dayStart, v.dayEnd, 1, "returns", "You come back each morning"));
+  Object.assign(SLOTS.Night, slot("Night", "Night Tour", v.nightStart, v.nightEnd, 1, "returns", "You come back each evening"));
+  Object.assign(SLOTS.WholeDay, slot("WholeDay", "Whole Day", v.dayStart, v.nightEnd, 2, "continuous", "You stay right through"));
+  TURNOVER_WINDOW = twoHours(v.dayEnd, v.nightStart);
+  MORNING_TURNOVER_WINDOW = twoHours(v.nightEnd % 24, v.dayStart);
+  Object.assign(RESORT_CONTACT, v.contact);
 }

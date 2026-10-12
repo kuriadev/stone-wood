@@ -10,7 +10,7 @@ import { useMemo, useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { bookingMoney } from "@/lib/finance";
-import { fmt } from "@/lib/utils";
+import { fmt, fmtDate } from "@/lib/utils";
 import { MANUAL_METHODS, type PaymentType } from "@/types/finance";
 import type { Booking } from "@/types/booking";
 import { Modal, Label, ChoiceButtons, ActionButton, AmountRow, ErrorNote, useAdminStyle } from "@/components/admin/ui";
@@ -18,8 +18,11 @@ import { Modal, Label, ChoiceButtons, ActionButton, AmountRow, ErrorNote, useAdm
 type Kind = "Stay" | "Penalty" | "Refund";
 
 export function RecordPaymentModal({
-  bookings, bookingId, onClose, defaultKind = "Stay",
+  bookings, bookingId, onClose, defaultKind = "Stay", receivedOn,
 }: {
+  /** Record it on this past day (YYYY-MM-DD) rather than now: a cash
+   *  payment taken that day and missed, found while checking its count. */
+  receivedOn?: string;
   bookings: Booking[];
   bookingId?: string;
   onClose: () => void;
@@ -68,7 +71,7 @@ export function RecordPaymentModal({
     if (value > max) return setError(`The most you can record here is ${fmt(max)}.`);
     if (method !== "Cash" && !reference.trim()) return setError(`Enter the ${method} reference number.`);
     setBusy(true);
-    const r = await ops.recordPayment({ bookingId: booking.id, type, amount: value, method, reference, notes });
+    const r = await ops.recordPayment({ bookingId: booking.id, type, amount: value, method, reference, notes, ...(receivedOn ? { receivedAt: `${receivedOn}T12:00:00+08:00` } : {}) });
     setBusy(false);
     if (!r.ok) return setError(r.error);
     toast(`${type === "Refund" ? "Refund" : "Payment"} of ${fmt(value)} recorded for ${booking.name}.`, "success");
@@ -77,7 +80,7 @@ export function RecordPaymentModal({
 
   return (
     <Modal
-      title="Record payment"
+      title={receivedOn ? `Record payment for ${fmtDate(receivedOn)}` : "Record payment"}
       subtitle={booking ? `${booking.name} · ${booking.id}` : "Money received for a booking"}
       onClose={onClose}
       width={620}

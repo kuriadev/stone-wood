@@ -18,7 +18,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission, ownerGate } from "@/lib/auth";
 import { loadBookingLedger } from "@/lib/ledger.server";
 import { cleanText, parseAmount } from "@/lib/money";
 import { round2 } from "@/lib/finance";
@@ -30,7 +30,7 @@ export const dynamic = "force-dynamic";
 type Method = (typeof MANUAL_METHODS)[number];
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "payments.record");
   if (denied) return denied;
 
   const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
@@ -73,6 +73,12 @@ export async function POST(req: NextRequest) {
     }
     const paidNow = pay?.amount ?? 0;
     const leftOwing = round2(owed - paidNow);
+    // Closing a stay with money still owed writes that money off (it stays a
+    // receivable, but the stay is done): the owner's call.
+    if (closeUnpaid && leftOwing > 0) {
+      const gate = await ownerGate(req, "payments.writeOff", b);
+      if (gate) return gate;
+    }
     const completing = leftOwing <= 0 || closeUnpaid;
     if (leftOwing > 0 && closeUnpaid && note.length < 3) {
       return NextResponse.json({ success: false, error: "Say why the booking is being settled with money still owed." }, { status: 400 });

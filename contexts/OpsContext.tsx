@@ -18,10 +18,14 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { useToast } from "@/contexts/ToastContext";
-import { fmtDate } from "@/lib/utils";
+import { fmt, fmtDate } from "@/lib/utils";
+import { useStaff } from "@/contexts/StaffContext";
 import type { OpsData, InspectionItem, PaymentType } from "@/types/finance";
 
-type Result = { ok: true; data?: Record<string, unknown> } | { ok: false; error: string };
+/** `requested`: the person's role can't do this, so the server sent it to
+ *  the owner for approval instead. Nothing has changed yet. Screens show
+ *  that as "sent to the owner", not as a failure. */
+export type Result = { ok: true; data?: Record<string, unknown> } | { ok: false; error: string; requested?: boolean };
 
 export interface CheckoutDamageInput {
   facilityName: string;
@@ -61,12 +65,12 @@ interface OpsState extends OpsData {
   /** Online bookings that arrived while the panel was open. */
   freshIds: ReadonlySet<string>;
   /** `receipt`: a photo of a refund transfer (data URL), refunds only. */
-  recordPayment: (p: { bookingId: string; type: PaymentType } & PayInput & { notes?: string; receipt?: string }) => Promise<Result>;
+  recordPayment: (p: { bookingId: string; type: PaymentType } & PayInput & { notes?: string; receipt?: string; receivedAt?: string }) => Promise<Result>;
   voidPayment: (id: number, reason: string) => Promise<Result>;
   addExpense: (e: { category: string; description: string; amount: number; method: string; spentOn: string }) => Promise<Result>;
   voidExpense: (id: number, reason: string) => Promise<Result>;
   closeDay: (c: { date: string; openingFloat: number; countedCash: number; notes: string }) => Promise<Result>;
-  saveRate: (r: { id?: number; name?: string; category?: string; unit?: string; rate?: number; active?: boolean }) => Promise<Result>;
+  saveRate: (r: { id?: number; name?: string; category?: string; unit?: string; rate?: number; active?: boolean; inventoryItemId?: number | null }) => Promise<Result>;
   /** Delete an item from the damage rate list for good. */
   deleteRate: (id: number) => Promise<Result>;
   savePreparation: (p: { bookingId: string; items: InspectionItem[]; notes: string }) => Promise<Result>;
@@ -79,6 +83,8 @@ interface OpsState extends OpsData {
     damages: CheckoutDamageInput[];
     maintenanceFacilityIds: number[];
     notes: string;
+    /** The caretaker's photos of how each facility was left. */
+    photos?: { facilityId: number; src: string }[];
   }) => Promise<Result>;
   /** Per-booking liquidation: final payment, then Completed. */
   settle: (s: { bookingId: string; payment: PayInput | null; closeUnpaid: boolean; note: string }) => Promise<Result>;
@@ -96,13 +102,19 @@ interface OpsState extends OpsData {
   guestLink: (bookingId: string) => Promise<string | null>;
   /** Note in the activity log that the owner texted the guest. */
   noteTexted: (bookingId: string, about: string) => void;
+  /** The owner answers a request from front desk. Approving runs it. */
+  decideRequest: (id: number, approve: boolean, note: string) => Promise<Result>;
+  /** Take back a request you sent that the owner hasn't answered. */
+  withdrawRequest: (id: number) => Promise<Result>;
 }
 
-const EMPTY: OpsData = { payments: [], expenses: [], closings: [], damageRates: [], inspections: [], damages: [], dateChanges: [] };
+const EMPTY: OpsData = { payments: [], expenses: [], closings: [], damageRates: [], inspections: [], damages: [], dateChanges: [], requests: [] };
 
 const Ctx = createContext<OpsState | null>(null);
 
-async function call(url: string, method: string, body?: unknown): Promise<Result> {
+/** One admin API call, as a Result. Exported for the few screens that call
+ *  a route directly rather than through an Ops action. */
+export async function call(url: string, method: string, body?: unknown): Promise<Result> {
   try {
     const res = await fetch(url, {
       method,
@@ -110,6 +122,9 @@ async function call(url: string, method: string, body?: unknown): Promise<Result
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (json.requested === true) {
+      return { ok: false, requested: true, error: typeof json.error === "string" ? json.error : "Sent to the owner for approval." };
+    }
     if (!res.ok || json.success === false) {
       return { ok: false, error: typeof json.error === "string" ? json.error : "Something went wrong. Try again." };
     }
@@ -146,6 +161,7 @@ export function OpsProvider({ children }: { children: ReactNode }) {
         inspections: json.inspections ?? [],
         damages: json.damages ?? [],
         dateChanges: json.dateChanges ?? [],
+        requests: json.requests ?? [],
       });
       setLoaded(true);
       return true;
@@ -218,6 +234,31 @@ export function OpsProvider({ children }: { children: ReactNode }) {
       : `${online.length} new bookings came in. They're waiting in Daily Operations.`, "info");
   }, [adminAuth, bookings, syncedAt, toast]);
 
+  // ── A caretaker's inspection found damage ────────────────────────────
+  // The inspection is done on the caretaker's phone; front desk and the
+  // owner hear about it here the moment the live sync brings it in, since
+  // the damage is now part of what the guest pays at the counter. Not told
+  // to whoever did the inspection, and not on the first load.
+  const staff = useStaff();
+  const seenChecks = useRef<Set<number> | null>(null);
+  useEffect(() => {
+    if (!adminAuth || !loaded) return;
+    const checks = data.inspections.filter((i) => i.stage === "Checkout");
+    if (!seenChecks.current) { seenChecks.current = new Set(checks.map((i) => i.id)); return; }
+    const seen = seenChecks.current;
+    const fresh = checks.filter((i) => !seen.has(i.id));
+    fresh.forEach((i) => seen.add(i.id));
+    if (!staff.can("payments.record")) return;
+    for (const i of fresh) {
+      if (i.inspectedByName && i.inspectedByName === staff.me?.name) continue;
+      const found = data.damages.filter((d) => d.inspectionId === i.id && !d.voided);
+      if (found.length === 0) continue;
+      const total = found.reduce((s, d) => s + d.amount, 0);
+      const guest = bookings.find((b) => b.id === i.bookingId)?.name ?? i.bookingId;
+      toast(`${i.inspectedByName ?? "The caretaker"} found damage after ${guest}: ${found.map((d) => `${d.quantity} × ${d.itemName}`).join(", ")} (${fmt(total)}). It's on their bill under Balance to collect.`, "warning");
+    }
+  }, [adminAuth, loaded, data.inspections, data.damages, bookings, staff, toast]);
+
   /** Run an action, then re-read whatever it may have changed. */
   const act = useCallback(
     async (p: Promise<Result>, also: { bookings?: boolean; facilities?: boolean } = {}) => {
@@ -228,10 +269,15 @@ export function OpsProvider({ children }: { children: ReactNode }) {
           also.bookings ? reloadBookings() : Promise.resolve(),
           also.facilities ? reloadFacilities() : Promise.resolve(),
         ]);
+      } else if (r.requested) {
+        // Front desk asked for something only the owner can do. Said here
+        // once, so every screen that can trigger it says the same thing.
+        toast(r.error, "info");
+        void refresh();
       }
       return r;
     },
-    [refresh, reloadBookings, reloadFacilities],
+    [refresh, reloadBookings, reloadFacilities, toast],
   );
 
   const value: OpsState = {
@@ -266,6 +312,10 @@ export function OpsProvider({ children }: { children: ReactNode }) {
       return r.ok && typeof r.data?.link === "string" ? r.data.link : null;
     },
     noteTexted: (bookingId, about) => { void call("/api/activity", "POST", { action: "guest.texted", bookingId, about }); },
+    decideRequest: (id, approve, note) =>
+      act(call(`/api/requests?id=${id}`, "PATCH", { decision: approve ? "approve" : "decline", note }), { bookings: true, facilities: true })
+        .then(async (r) => { if (!r.ok) await refresh(); return r; }),
+    withdrawRequest: (id) => act(call(`/api/requests?id=${id}`, "DELETE")),
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

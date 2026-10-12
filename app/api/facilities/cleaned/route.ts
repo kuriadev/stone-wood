@@ -1,6 +1,11 @@
 // ── POST /api/facilities/cleaned → mark facilities cleaned     (admin only)
 //
-// Body: { ids: number[] }
+// Body: { ids: number[], supplies?: [{ itemId, qty }], note? }
+//
+// A caretaker cleaning ONE facility from My Tasks also sends what they
+// used (pre-filled from the facility's cleaning supplies); it comes off the
+// stock, and a cleaning record says who did it and when. The owner's bulk
+// "Mark as cleaned" sends ids only and moves no stock.
 //
 // Check-out flags what a group used "Needs Cleaning"; preparing the next
 // reservation that uses a facility puts it back to "Available" on its own
@@ -15,14 +20,17 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { logActivity } from "@/lib/activity.server";
+import { actingStaff } from "@/lib/staff.server";
+import { recordMovements, parseSupplies, itemNames, describeSupplies } from "@/lib/stock.server";
+import { cleanText } from "@/lib/money";
 import type { FacilityRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "facilities.clean");
   if (denied) return denied;
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
@@ -39,10 +47,28 @@ export async function POST(req: NextRequest) {
     if (error) throw new Error(error.message);
     const cleaned = (data ?? []) as Pick<FacilityRow, "id" | "name">[];
 
+    // One facility, cleaned by someone at it: what they used, and a record
+    // of the cleaning. Best effort before the stock migration (the cleaning
+    // itself has already been saved above).
+    const supplies = ids.length === 1 && cleaned.length === 1 ? parseSupplies(body.supplies) : [];
+    const note = cleanText(body.note, 300);
+    let usedLine = "";
+    if (cleaned.length === 1 && ids.length === 1) {
+      const who = actingStaff();
+      const rec = await getSupabaseAdmin().from("facility_cleanings").insert({
+        facility_id: cleaned[0].id, done_by: who?.id ?? null, done_by_name: who?.name ?? null, note,
+      }).select("id").maybeSingle();
+      const cleaningId = rec.data ? (rec.data as { id: number }).id : undefined;
+      if (supplies.length) {
+        await recordMovements(supplies.map((s) => ({ itemId: s.itemId, delta: -s.qty, reason: "Used" as const, refType: "cleaning", refId: cleaningId, note: `Cleaning ${cleaned[0].name}` })));
+        usedLine = `, using ${describeSupplies(supplies, await itemNames(supplies.map((s) => s.itemId)))}`;
+      }
+    }
+
     if (cleaned.length) {
       await logActivity({
         actor: "Admin", action: "facility.cleaned", entity: "facility", entityId: cleaned.length === 1 ? cleaned[0].id : null,
-        summary: `Marked ${cleaned.length === 1 ? cleaned[0].name : `${cleaned.length} facilities`} as cleaned${cleaned.length > 1 ? `: ${cleaned.map((f) => f.name).join(", ")}` : ""}.`,
+        summary: `Marked ${cleaned.length === 1 ? cleaned[0].name : `${cleaned.length} facilities`} as cleaned${cleaned.length > 1 ? `: ${cleaned.map((f) => f.name).join(", ")}` : ""}${usedLine}.${note ? ` Note: ${note}` : ""}`,
         details: { ids: cleaned.map((f) => f.id) },
       });
     }

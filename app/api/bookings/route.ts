@@ -24,7 +24,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToBooking, bookingToRow, missingNewColumn, withoutNewColumns } from "@/lib/supabase";
-import { isAdminRequest, requireAdmin } from "@/lib/auth";
+import { requirePermission, isAdminRequest } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { isValidEmail, isValidPHNumber, sanitizeName, sanitizeNotes, NAME_MIN, NAME_MAX, OVERTIME_MAX } from "@/lib/validators";
 import { buildBookingReceivedEmail, buildReceiptEmail } from "@/lib/emailTemplate";
@@ -50,7 +50,7 @@ const SOURCES: BookingSource[] = ["Online", "Walk-In"];
 const SLOTS: BookingSlot[] = ["Day", "Night", "WholeDay"];
 
 export async function GET(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "bookings.view");
   if (denied) return denied;
 
   try {
@@ -76,7 +76,11 @@ export async function POST(req: NextRequest) {
   // A payment reference always means the guest path, even from a browser
   // that happens to hold an admin session.
   if (typeof body.paymentIntentId === "string") return createGuestBooking(req, body);
-  if (isAdminRequest(req)) return createWalkIn(body);
+  if (isAdminRequest(req)) {
+    const denied = await requirePermission(req, "bookings.edit");
+    if (denied) return denied;
+    return createWalkIn(body);
+  }
   return NextResponse.json(
     { success: false, error: "Bookings are created through the payment step." },
     { status: 401 }

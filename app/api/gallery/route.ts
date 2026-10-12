@@ -10,7 +10,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { cleanImageList } from "@/lib/image";
 import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin, rowsToGalleryUrls } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import type { GalleryRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
 
   try {

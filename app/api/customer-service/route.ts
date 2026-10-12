@@ -8,10 +8,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin, rowToCustomerMessage } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { sanitizeName, sanitizeNotes, isValidEmail, NAME_MIN, NAME_MAX } from "@/lib/validators";
 import type { CustomerMessageRow } from "@/types/database";
+import { ensureSettings } from "@/lib/settings.server";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ const MESSAGE_MAX = 2000;
 const VALID_TYPES = ["Inquiry", "Complaint", "Feedback", "Suggestion", "Refund", "Other"];
 
 export async function GET(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "messages.handle");
   if (denied) return denied;
   try {
     const { data, error } = await getSupabaseAdmin()
@@ -37,6 +38,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // The owner's contact details and hours go into the email.
+  await ensureSettings();
   const limited = rateLimit(req, { name: "customer-service", limit: 10, windowMs: 60 * 60 * 1000 });
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
@@ -78,7 +81,7 @@ export async function POST(req: NextRequest) {
 
 /** PATCH /api/customer-service?id=  → archive / unarchive   (admin only) */
 export async function PATCH(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "messages.handle");
   if (denied) return denied;
 
   const id = Number(req.nextUrl.searchParams.get("id"));
@@ -94,7 +97,12 @@ export async function PATCH(req: NextRequest) {
       .eq("id", id).select().maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) return NextResponse.json({ success: false, error: "Message not found." }, { status: 404 });
-    return NextResponse.json({ success: true, message: rowToCustomerMessage(data as CustomerMessageRow) });
+    const m = rowToCustomerMessage(data as CustomerMessageRow);
+    await logActivity({
+      actor: "Admin", action: archived ? "message.archived" : "message.restored", entity: "customer_message", entityId: id,
+      summary: `${archived ? "Archived" : "Restored"} the message from ${m.name} (${m.type}).`,
+    });
+    return NextResponse.json({ success: true, message: m });
   } catch (err) {
     console.error("[/api/customer-service PATCH]", err);
     return NextResponse.json({ success: false, error: "Could not update that message." }, { status: 500 });

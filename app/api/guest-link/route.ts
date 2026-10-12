@@ -8,14 +8,14 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToBooking } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { guestLinkFor } from "@/lib/rebooking.server";
 import type { BookingRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "bookings.edit");
   if (denied) return denied;
 
   const id = req.nextUrl.searchParams.get("id") ?? "";

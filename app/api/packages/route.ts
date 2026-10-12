@@ -9,7 +9,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server";
 import { fmt } from "@/lib/utils";
 import { getSupabaseAdmin, rowToPackage } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { pricingProblem } from "@/lib/pricing";
 import { GALLERY_MAX, sanitizeLabel, sanitizeNotes } from "@/lib/validators";
 import type { PackageRow } from "@/types/database";
@@ -96,7 +96,7 @@ function problemWith(b: Record<string, unknown>): string | null {
 }
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
   try {
     const b = await req.json().catch(() => ({}));
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
   const id = Number(req.nextUrl.searchParams.get("id"));
   if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "A numeric package id is required." }, { status: 400 });
@@ -143,7 +143,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
   const id = Number(req.nextUrl.searchParams.get("id"));
   if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "A numeric package id is required." }, { status: 400 });

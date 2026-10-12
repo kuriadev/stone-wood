@@ -20,7 +20,7 @@ import {
   bookingEndDate, bookingDays, checkRangeAvailability, roomsTakenInRange, fmtDate,
   getBookingSlot, getBookingResource, getBookingTier, fmt,
 } from "@/lib/utils";
-import { isWithinBookingWindow, describeDateProblem } from "@/lib/validators";
+import { isWithinBookingWindow, describeDateProblem, MAX_STAY_DAYS } from "@/lib/validators";
 import { logActivity, type ActivityInput } from "@/lib/activity.server";
 import { GUEST_CHOICE_DAYS } from "@/lib/rebooking";
 import { notices } from "@/lib/notices";
@@ -29,6 +29,7 @@ import { trySendMail } from "@/lib/mailer";
 import { loadBookingLedger } from "@/lib/ledger.server";
 import type { Booking } from "@/types/booking";
 import type { BookingRow, FacilityRow, DateChangeRow } from "@/types/database";
+import { ensureSettings } from "@/lib/settings.server";
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/+$/, "");
 
@@ -84,7 +85,10 @@ export async function heldBookings(opts: { date?: string; fromDate?: string; exc
     .eq("status", "Pending")
     .gt("hold_until", new Date().toISOString());
   if (opts.date) q = q.eq("to_date", opts.date);
-  if (opts.fromDate) q = q.gte("to_date", opts.fromDate);
+  // A hold that STARTS before fromDate can still cover it (a three-day stay
+  // moving to the 9th holds the 9th to the 11th), so look back by the
+  // longest stay and let the caller trim by overlap.
+  if (opts.fromDate) q = q.gte("to_date", shiftStay({ date: opts.fromDate }, opts.fromDate, -(MAX_STAY_DAYS - 1)).date);
   const { data, error } = await q;
   if (error) {
     console.error("[holds]", error.message);
@@ -103,7 +107,8 @@ export async function heldBookings(opts: { date?: string; fromDate?: string; exc
 
 /** Move a stay to a new first day, keeping how long it runs.
  *  A one-day booking just lands on the new date. */
-export function shiftStay(b: Pick<Booking, "date" | "endDate">, date: string): { date: string; endDate: string } {
+export function shiftStay(b: Pick<Booking, "date" | "endDate">, date: string, offsetDays = 0): { date: string; endDate: string } {
+  if (offsetDays) date = new Date(Date.parse(`${date}T00:00:00Z`) + offsetDays * 86_400_000).toISOString().slice(0, 10);
   const length = bookingDays(b);
   const endDate = length <= 1
     ? date
@@ -143,8 +148,10 @@ export async function bookingsOverlapping(
   if (error) throw new Error(error.message);
 
   // A date another guest is waiting to move to is held for them.
+  // Overlap, like the bookings above: a held three-day stay starting the
+  // day before `from` still holds `from`.
   const holds = (await heldBookings({ fromDate: from, excludeBookingId: opts.excludeBookingId }))
-    .filter((h) => h.date >= from && h.date <= to);
+    .filter((h) => h.date <= to && bookingEndDate(h) >= from);
 
   return { others: [...(data as BookingRow[]).map(rowToBooking), ...holds], rangeSupported };
 }
@@ -152,6 +159,7 @@ export async function bookingsOverlapping(
 // ── Can this booking move to that date? ─────────────────────────────
 export async function checkMove(b: Booking, date: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const no = (error: string) => ({ ok: false as const, error });
+  await ensureSettings();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return no("Choose a date.");
   if (date === b.date) return no("Your booking is already on that date.");
   if (!isWithinBookingWindow(date)) return no(describeDateProblem(date) ?? "That date can't be booked.");
@@ -180,6 +188,7 @@ export async function checkMove(b: Booking, date: string): Promise<{ ok: true } 
  *  double-book a room. */
 export async function checkFits(b: Booking): Promise<{ ok: true } | { ok: false; error: string }> {
   const no = (error: string) => ({ ok: false as const, error });
+  await ensureSettings();
   const db = getSupabaseAdmin();
   const last = bookingEndDate(b);
   const [overlap, fac] = await Promise.all([

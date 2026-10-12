@@ -16,12 +16,15 @@ import { loadGuestBooking } from "@/lib/rebooking.server";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { sanitizeNotes, startOfToday, toDateStr } from "@/lib/validators";
 import type { BookingRow } from "@/types/database";
+import { ensureSettings } from "@/lib/settings.server";
 
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Ctx) {
+  // The owner's contact details and hours go into the email.
+  await ensureSettings();
   const limited = rateLimit(req, { name: "booking-cancel", limit: 10, windowMs: 60 * 60 * 1000 });
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 

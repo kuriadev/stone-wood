@@ -8,7 +8,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server";
 import { fmt } from "@/lib/utils";
 import { getSupabaseAdmin, rowToExpense } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { parseAmount, cleanText, isDateStr } from "@/lib/money";
 import { EXPENSE_CATEGORIES, MANUAL_METHODS } from "@/types/finance";
 import type { ExpenseRow } from "@/types/database";
@@ -16,7 +16,7 @@ import type { ExpenseRow } from "@/types/database";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "expenses.record");
   if (denied) return denied;
 
   const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "expenses.void");
   if (denied) return denied;
 
   const id = Number(req.nextUrl.searchParams.get("id"));

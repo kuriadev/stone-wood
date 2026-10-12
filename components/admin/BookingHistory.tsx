@@ -48,7 +48,7 @@ export function BookingHistory({ bookingId }: { bookingId: string }) {
             <li key={a.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "4px 12px", padding: "8px 0", borderTop: `1px solid ${cBr}`, fontSize: 13 }}>
               <span style={{ color: C.textS, fontSize: 12, whiteSpace: "nowrap" }}>{fmtWhen(a.at)}</span>
               <span style={{ color: C.textB }}>
-                <StatusBadge color={ACTOR_COLOR[a.actor]} style={{ marginRight: 8, padding: "4px 8px", fontSize: 10.5 }}>{a.actor}</StatusBadge>
+                <StatusBadge color={ACTOR_COLOR[a.actor]} style={{ marginRight: 8, padding: "4px 8px", fontSize: 10.5 }}>{a.staffName ?? a.actor}</StatusBadge>
                 {a.summary}
               </span>
             </li>

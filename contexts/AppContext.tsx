@@ -7,11 +7,8 @@ import { useMaintenance } from "@/hooks/useMaintenance";
 import type { MaintenanceState } from "@/types/maintenance";
 import { COLLECTIONS } from "@/lib/collections";
 import {
-  INIT_BOOKINGS,
   INIT_ROOMS,
   INIT_GALLERY,
-  INIT_FACILITIES,
-  INIT_INVENTORY,
   INIT_PACKAGES,
 } from "@/lib/constants";
 
@@ -90,9 +87,18 @@ interface AppState {
    *  server could not be reached. */
   reloadBookings: () => Promise<boolean>;
   reloadFacilities: () => Promise<boolean>;
+  /** Re-read the inventory after a stock movement (use, purchase, count)
+   *  changed a count on the server. Admin only. */
+  reloadInventory: () => Promise<boolean>;
 }
 
 const AppCtx = createContext<AppState | null>(null);
+
+/* Empty starting lists for the admin-only collections, one stable reference
+   each (useDbCollection tells "still the placeholder" by reference). */
+const NO_BOOKINGS: Booking[] = [];
+const NO_FACILITIES: Facility[] = [];
+const NO_INVENTORY: InventoryItem[] = [];
 
 export function AppProvider({ children }: { children: ReactNode }) {
   // Not persisted on purpose — admin login should require signing in again
@@ -106,8 +112,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // difference. See lib/collections.ts for the per-collection rules.
   //
   // The INIT_* constants stay as the offline fallback for a browser that has
-  // never loaded the site and cannot reach the API.
-  const [adminBookings, setBookings, bookingsMeta] = useDbCollection<Booking>(COLLECTIONS.bookings, INIT_BOOKINGS, adminAuth);
+  // never loaded the site and cannot reach the API — for what GUESTS see
+  // (rooms, packages, gallery). The admin's own records (bookings,
+  // facilities, inventory) start EMPTY instead: sample bookings on the
+  // owner's Dashboard, even for a moment, are made-up guests with real
+  // "Complete stay" and "No-show" buttons next to them.
+  const [adminBookings, setBookings, bookingsMeta] = useDbCollection<Booking>(COLLECTIONS.bookings, NO_BOOKINGS, adminAuth);
   const publicAvailability = usePublicAvailability(!adminAuth);
   const { maintenance, refreshMaintenance, applyMaintenance } = useMaintenance();
   const bookings = adminAuth ? adminBookings : publicAvailability.bookings;
@@ -115,14 +125,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [galleryImgs, setGalleryImgs, galleryMeta] = useDbCollection<string>(COLLECTIONS.gallery, INIT_GALLERY);
   const [closedDates, setClosedDates] = useDbCollection<string>(COLLECTIONS.closedDates, []);
   const [customerMessages, setCustomerMessages] = useDbCollection<CustomerMessage>(COLLECTIONS.customerMessages, [], adminAuth);
-  const [adminFacilities, setFacilities, facilitiesMeta] = useDbCollection<Facility>(COLLECTIONS.facilities, INIT_FACILITIES, adminAuth);
+  const [adminFacilities, setFacilities, facilitiesMeta] = useDbCollection<Facility>(COLLECTIONS.facilities, NO_FACILITIES, adminAuth);
   // Same split as bookings above: the full facility rows are admin-only
   // (they carry caretaker notes and the last guest's name), so a guest
   // reads statuses from /api/availability instead. Without this their
   // copy was INIT_FACILITIES, where everything is hardcoded "Available",
   // and a room set to Under Maintenance was still bookable publicly.
   const facilities = adminAuth ? adminFacilities : publicAvailability.facilities;
-  const [inventory, setInventory] = useDbCollection<InventoryItem>(COLLECTIONS.inventory, INIT_INVENTORY, adminAuth);
+  const [inventory, setInventory, inventoryMeta] = useDbCollection<InventoryItem>(COLLECTIONS.inventory, NO_INVENTORY, adminAuth);
   const [packages, setPackages, packagesMeta] = useDbCollection<ResortPackage>(COLLECTIONS.packages, INIT_PACKAGES);
 
   return (
@@ -149,6 +159,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       refreshMaintenance,
       reloadBookings: bookingsMeta.reload,
       reloadFacilities: facilitiesMeta.reload,
+      reloadInventory: inventoryMeta.reload,
       skeleton: {
         rooms: roomsMeta.loading && !roomsMeta.hydrated,
         packages: packagesMeta.loading && !packagesMeta.hydrated,

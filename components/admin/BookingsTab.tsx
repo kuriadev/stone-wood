@@ -27,8 +27,9 @@ import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
 import { useOps } from "@/contexts/OpsContext";
+import { useStaff } from "@/contexts/StaffContext";
 import { bookingMoney, manilaDate, manilaTime, livePayments } from "@/lib/finance";
-import { fmt, fmtDate, getBookingSlot, stayLabel, stayRange, bookingDays } from "@/lib/utils";
+import { fmt, fmtDate, getBookingSlot, stayLabel, stayRange, bookingDays, bookingEndDate } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
 import { OVERTIME_RATE } from "@/lib/validators";
 import type { Booking, BookingSlot } from "@/types/booking";
@@ -124,18 +125,23 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
    *  the rest from a group already checked out. */
   const [finish, setFinish] = useState<{ kind: "complete" | "settle"; id: string } | null>(null);
   const today = manilaDate();
-  /** The finishing step a booking is ready for, if any. */
+  const staff = useStaff();
+  /** The finishing step a booking is ready for, if any. "complete" starts
+   *  with the check-out inspection, which is the caretakers' (and the
+   *  owner's); front desk picks the stay up at "settle" once it is done. */
   const finishStep = (b: Booking): "complete" | "settle" | null =>
     b.archived || b.status !== "Confirmed" ? null
       : b.checkedOutAt ? "settle"
-        : b.date <= today ? "complete" : null;
+        : bookingEndDate(b) <= today && staff.can("facilities.inspect") ? "complete" : null;
 
   const q = search.toLowerCase().trim();
   const pool = bookings.filter((b) => (bView === "archived" ? !!b.archived : !b.archived));
   const filteredNoStatus = pool.filter((b) => {
     if (source !== "All" && (b.source ?? "Online") !== source) return false;
     if (slot !== "All" && getBookingSlot(b) !== slot) return false;
-    if (from && b.date < from) return false;
+    // A stay is in the range when any of its days is, so a booking that
+    // starts before `from` but is still running is not hidden.
+    if (from && bookingEndDate(b) < from) return false;
     if (to && b.date > to) return false;
     return !q || b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) ||
       (b.email || "").toLowerCase().includes(q) || b.contact.includes(q) || b.date.includes(q) || b.package.toLowerCase().includes(q);
@@ -198,11 +204,22 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
     const ids = pickedRows.map((b) => b.id);
     const gone: string[] = [];
     const failed: string[] = [];
+    // Front desk: each delete becomes a request for the owner (202).
+    const asked: string[] = [];
     for (const id of ids) {
       try {
         const res = await fetch(`/api/bookings/${encodeURIComponent(id)}`, { method: "DELETE" });
-        if (res.ok) gone.push(id); else failed.push(id);
+        const json = await res.json().catch(() => ({}));
+        if (json?.requested) asked.push(id);
+        else if (res.ok) gone.push(id); else failed.push(id);
       } catch { failed.push(id); }
+    }
+    if (asked.length) {
+      setWorking(false);
+      setPicked(new Set());
+      setBulk(null);
+      toast(`Sent ${asked.length} deletion${asked.length === 1 ? "" : "s"} to the owner for approval.`, "info");
+      return;
     }
     if (gone.length) {
       const removed = new Set(gone);

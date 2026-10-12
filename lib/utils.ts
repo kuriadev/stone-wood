@@ -1,5 +1,5 @@
 import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
-import { occupiedSlots } from "@/lib/resort";
+import { occupiedSlots, TURNOVER_WINDOW } from "@/lib/resort";
 import type { Facility } from "@/types/facility";
 import { dayjs, DATE_FMT } from "@/lib/dayjs";
 import {
@@ -259,7 +259,7 @@ export function checkPoolCapacity(
     if (s === "Night" && slot === "Day" && overtime > 0) {
       return {
         ok: false,
-        reason: "The Night Tour is booked that date — overtime isn't possible (5–7 PM is cleaning time).",
+        reason: `The Night Tour is booked that date — overtime isn't possible (${TURNOVER_WINDOW} is cleaning time).`,
       };
     }
 

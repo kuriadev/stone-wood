@@ -23,7 +23,7 @@
 import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
 import { SLOTS } from "@/lib/resort";
-import { getBookingSlot, getBookingResource, getBookingTier } from "@/lib/utils";
+import { getBookingSlot, getBookingResource, getBookingTier, bookingDays } from "@/lib/utils";
 import { OVERTIME_MAX, OVERTIME_RATE, SHARED_PER_HEAD_RATE, GUESTS_MAX } from "@/lib/validators";
 
 export type ChargeKind = "overtime" | "guests" | "room";
@@ -63,6 +63,10 @@ export function priceCharge(b: Booking, req: ChargeRequest, rooms: Room[]): Char
   if (blocked === undefined) return no("Choose what to charge for.");
   if (blocked) return no(blocked);
   const slots = SLOTS[getBookingSlot(b)].span;
+  // Extra guests and a room are there for the whole stay, so a three-day
+  // Whole Day pays for them three times — as the booking itself was priced.
+  // (Overtime is a Day Tour thing, and Day Tours are one date.)
+  const days = bookingDays(b);
   const keep = { overtime: b.overtime ?? 0, guests: b.guests, rooms: b.rooms ?? [] };
 
   if (req.kind === "overtime") {
@@ -82,8 +86,8 @@ export function priceCharge(b: Booking, req: ChargeRequest, rooms: Room[]): Char
     if (extra < 1) return no("Enter how many more guests came.");
     if (keep.guests + extra > GUESTS_MAX) return no(`That would make ${keep.guests + extra} guests; the most for one booking is ${GUESTS_MAX}.`);
     return {
-      ok: true, amount: extra * SHARED_PER_HEAD_RATE * slots,
-      label: `${extra} extra guest${extra === 1 ? "" : "s"}`,
+      ok: true, amount: extra * SHARED_PER_HEAD_RATE * slots * days,
+      label: `${extra} extra guest${extra === 1 ? "" : "s"}${days > 1 ? ` × ${days} days` : ""}`,
       next: { ...keep, guests: keep.guests + extra },
     };
   }
@@ -92,8 +96,8 @@ export function priceCharge(b: Booking, req: ChargeRequest, rooms: Room[]): Char
   if (!room) return no("Choose a room.");
   if (keep.rooms.includes(room.id)) return no(`${room.name} is already part of this booking.`);
   return {
-    ok: true, amount: room.price * slots,
-    label: `room: ${room.name}`,
+    ok: true, amount: room.price * slots * days,
+    label: `room: ${room.name}${days > 1 ? ` × ${days} days` : ""}`,
     next: { ...keep, rooms: [...keep.rooms, room.id] },
   };
 }

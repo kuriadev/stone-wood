@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { gold } from "@/lib/styles";
 import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS, MAX_STAY_DAYS } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
-import { checkBookingAvailability, holdsDate } from "@/lib/utils";
+import { checkBookingAvailability, holdsDate, bookingDates } from "@/lib/utils";
 import { RangeConnector } from "@/components/common/RangeConnector";
 
 /** `ds` shifted by `n` days, in UTC so it cannot drift across a timezone. */
@@ -72,7 +72,9 @@ export function AvailabilityCalendar({
   // none of that yet, so it errs toward not advertising a date it cannot
   // promise.
   const bookedDates = useMemo(() => {
-    const dates = new Set(bookings.filter(holdsDate).map((b) => b.date));
+    // Every day a stay covers, not only its first: day two of someone's
+    // three-day stay is just as taken.
+    const dates = new Set(bookings.filter(holdsDate).flatMap((b) => bookingDates(b)));
     const full = new Set<string>();
     dates.forEach((d) => {
       const anySlotFull = (["Day", "Night"] as const).some(

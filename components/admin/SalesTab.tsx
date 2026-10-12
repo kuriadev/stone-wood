@@ -235,7 +235,8 @@ function VoidModal({ what, kind, id, onClose }: { what: string; kind: "payment" 
     setBusy(true); setError("");
     const r = kind === "payment" ? await ops.voidPayment(id, reason) : await ops.voidExpense(id, reason);
     setBusy(false);
-    if (!r.ok) return setError(r.error);
+    // Front desk: sent to the owner instead (already said on screen).
+    if (!r.ok) return r.requested ? onClose() : setError(r.error);
     toast(`${kind === "payment" ? "Payment" : "Expense"} voided.`, "info");
     onClose();
   };
@@ -635,11 +636,11 @@ function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void 
   );
 }
 
-function ExpenseModal({ onClose }: { onClose: () => void }) {
+export function ExpenseModal({ onClose, initialDate }: { onClose: () => void; initialDate?: string }) {
   const { C, inp } = useAdminStyle();
   const ops = useOps();
   const { toast } = useToast();
-  const [f, setF] = useState({ category: "Supplies", description: "", amount: "", method: "Cash" as (typeof MANUAL_METHODS)[number], spentOn: manilaDate() });
+  const [f, setF] = useState({ category: "Supplies", description: "", amount: "", method: "Cash" as (typeof MANUAL_METHODS)[number], spentOn: initialDate ?? manilaDate() });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const save = async () => {
@@ -766,7 +767,11 @@ export function Closing({ onAct, initialDate }: {
     setBusy(true);
     const r = await ops.closeDay({ date, openingFloat: floatNum, countedCash: noCash ? 0 : Number(counted), notes });
     setBusy(false);
-    if (!r.ok) return setError(r.error);
+    if (!r.ok) {
+      // Front desk counts; the owner approves the close (already said on screen).
+      if (r.requested) { setCounted(""); setNotes(""); return; }
+      return setError(r.error);
+    }
     toast(`${fmtDate(date)} closed.`, "success");
     setCounted(""); setNotes("");
   };

@@ -13,7 +13,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToBooking } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { chooseRefund } from "@/lib/rebooking.server";
 import type { BookingRow } from "@/types/database";
 
@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "payments.refund");
   if (denied) return denied;
 
   const { id } = await params;

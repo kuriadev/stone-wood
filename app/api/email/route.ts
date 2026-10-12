@@ -11,7 +11,7 @@ import {
   buildReceiptEmail, buildRejectionEmail, buildGuestMessageEmail,
   GUEST_MESSAGE_MAX, GUEST_SUBJECT_MAX, type RejectionMoney,
 } from "@/lib/emailTemplate";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { isValidEmail } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   // Only an admin confirms or rejects a booking. Unauthenticated, this route
   // sent attacker-supplied content to an attacker-supplied address from the
   // resort's Gmail account.
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "bookings.edit");
   if (denied) return denied;
 
   const limited = rateLimit(req, { name: "email", limit: 60, windowMs: 60 * 60 * 1000 });

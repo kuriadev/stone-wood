@@ -14,8 +14,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import {
   requireAdmin, checkAdminCredentials, hashPassword, newSalt,
-  currentAdminUsername, SESSION_COOKIE,
+  currentAdminUsername, SESSION_COOKIE, sessionOf, currentIdentity,
 } from "@/lib/auth";
+import { checkOwnPassword, updateOwnLogin, StaffError, usernameProblem, passwordProblem } from "@/lib/staff.server";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { logActivity } from "@/lib/activity.server";
 
@@ -32,6 +33,11 @@ export async function GET(req: NextRequest) {
   const denied = requireAdmin(req);
   if (denied) return denied;
   try {
+    // A staff account answers with its own username; the single pre-staff
+    // sign-in with the one in force.
+    const s = sessionOf(req);
+    const me = s ? await currentIdentity(s) : null;
+    if (me?.id) return NextResponse.json({ success: true, username: me.username, name: me.name, role: me.role });
     return NextResponse.json({ success: true, username: await currentAdminUsername() });
   } catch (err) {
     console.error("[/api/admin/account GET]", err);
@@ -53,6 +59,11 @@ export async function PATCH(req: NextRequest) {
     const currentPassword = String(b.currentPassword ?? "");
     const username = String(b.username ?? "").trim();
     const newPassword = String(b.newPassword ?? "");
+
+    // ── A staff account changes its own sign-in ──
+    const s = sessionOf(req);
+    const me = s ? await currentIdentity(s) : null;
+    if (me?.id) return changeOwnStaffLogin(req, me.id, me.name, { currentPassword, username, newPassword });
 
     if (username.length < MIN_USERNAME || username.length > MAX_USERNAME) {
       return NextResponse.json({ success: false, error: `The username must be ${MIN_USERNAME} to ${MAX_USERNAME} characters.` }, { status: 400 });
@@ -121,4 +132,43 @@ export async function PATCH(req: NextRequest) {
     console.error("[/api/admin/account PATCH]", err);
     return NextResponse.json({ success: false, error: "Could not save the account." }, { status: 500 });
   }
+}
+
+/** The same rules, against the person's own staff row instead of the single
+ *  admin_credentials row. Signs them out afterwards, exactly as above. */
+async function changeOwnStaffLogin(
+  req: NextRequest,
+  id: string,
+  name: string,
+  { currentPassword, username, newPassword }: { currentPassword: string; username: string; newPassword: string },
+) {
+  const uBad = usernameProblem(username);
+  if (uBad) return NextResponse.json({ success: false, error: uBad }, { status: 400 });
+  if (newPassword) {
+    const pBad = passwordProblem(newPassword);
+    if (pBad) return NextResponse.json({ success: false, error: pBad }, { status: 400 });
+    if (newPassword === currentPassword) return NextResponse.json({ success: false, error: "The new password is the same as the current one." }, { status: 400 });
+  }
+  if (!currentPassword || !(await checkOwnPassword(id, currentPassword, hashPassword))) {
+    const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
+    await logActivity({
+      actor: "Admin", action: "security.account_change_denied", entity: "staff", entityId: id,
+      summary: `${name}'s account change was refused: the current password did not match (from ${ip}).`,
+      details: { ip },
+    });
+    return NextResponse.json({ success: false, error: "That is not the current password." }, { status: 401 });
+  }
+  try {
+    await updateOwnLogin(id, { username, password: newPassword || currentPassword }, hashPassword, newSalt());
+  } catch (err) {
+    if (err instanceof StaffError) return NextResponse.json({ success: false, error: err.message }, { status: 409 });
+    throw err;
+  }
+  await logActivity({
+    actor: "Admin", action: "security.account_changed", entity: "staff", entityId: id,
+    summary: `${name} changed their sign-in${newPassword ? " (new password)" : ""}.`,
+  });
+  const res = NextResponse.json({ success: true, signedOut: true });
+  res.cookies.set(SESSION_COOKIE, "", { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 0 });
+  return res;
 }

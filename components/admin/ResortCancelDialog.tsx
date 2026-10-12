@@ -58,7 +58,8 @@ export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onC
     setBusy(true);
     const r = await ops.resortCancel(booking.id, reason.trim());
     setBusy(false);
-    if (!r.ok) return setError(r.error);
+    // Front desk: sent to the owner instead (already said on screen).
+    if (!r.ok) return r.requested ? onClose() : setError(r.error);
     toast(`${booking.id} cancelled. ${booking.name} will choose a new date or a refund.`, "warning");
     setDone({ sms: String(r.data?.sms ?? ""), emailed: r.data?.emailed === true });
   };

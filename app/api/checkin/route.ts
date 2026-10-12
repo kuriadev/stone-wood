@@ -16,7 +16,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin, rowToBooking } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { cleanText } from "@/lib/money";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { loadBookingAndFacilities, facilitiesInUseByOthers, stayLongOver } from "@/lib/ops.server";
@@ -25,7 +25,7 @@ import type { BookingRow } from "@/types/database";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "bookings.edit");
   if (denied) return denied;
 
   const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;

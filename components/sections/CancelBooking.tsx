@@ -83,6 +83,8 @@ export function ManageBooking(_props: ManageBookingProps) {
 
   const [found, setFound] = useState<Booking | null>(null);
   const [payments, setPayments] = useState<GuestPayment[]>([]);
+  /** Damage found at the check-out inspection, charged on this booking. */
+  const [damages, setDamages] = useState<{ item: string; quantity: number; amount: number; facility: string }[]>([]);
   const [dateChanges, setDateChanges] = useState<DateChange[]>([]);
   const [changesLeft, setChangesLeft] = useState(0);
   const [today, setToday] = useState("");
@@ -128,6 +130,7 @@ export function ManageBooking(_props: ManageBookingProps) {
       if (res.ok && json?.booking) {
         setFound(json.booking as Booking);
         setPayments((json.payments ?? []) as GuestPayment[]);
+        setDamages(Array.isArray(json.damages) ? json.damages : []);
         setDateChanges((json.dateChanges ?? []) as DateChange[]);
         setChangesLeft(Number(json.changesLeft) || 0);
         setToday(String(json.today ?? ""));
@@ -626,6 +629,32 @@ export function ManageBooking(_props: ManageBookingProps) {
                   : <>Your request to move to {fmtDate(lastDecided.toDate)} wasn&rsquo;t answered in time, so the date wasn&rsquo;t kept. You can ask again.</>}
               </p>
             )}
+
+            {/* ── DAMAGE CHARGES ─────────────────────────────────────────────
+                From the check-out inspection. Shown here so the guest sees
+                exactly what was charged and why, not just a bigger total. */}
+            {damages.length > 0 && (() => {
+              const total = damages.reduce((s, d) => s + d.amount, 0);
+              const paidPenalties = payments.filter((p) => p.type === "Penalty").reduce((s, p) => s + p.amount, 0);
+              const left = Math.max(0, total - paidPenalties);
+              return (
+                <div style={{ ...card, marginBottom: 20 }}>
+                  <p style={{ ...eyebrow, marginBottom: 12 }}>DAMAGE CHARGES</p>
+                  {damages.map((d, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "12px 0", borderTop: i ? `1px solid ${C.border}` : "none" }}>
+                      <div>
+                        <div style={{ color: C.textH, fontSize: 14 }}>{d.item}{d.quantity > 1 ? ` × ${d.quantity}` : ""}</div>
+                        {d.facility && <div style={{ color: C.textS, fontSize: 12 }}>{d.facility}</div>}
+                      </div>
+                      <div style={{ color: C.textB, fontWeight: 700, fontSize: 14.5, whiteSpace: "nowrap" }}>{fmt(d.amount)}</div>
+                    </div>
+                  ))}
+                  <p style={{ color: left > 0 ? "#d4a800" : C.textS, fontSize: 13, margin: "8px 0 0" }}>
+                    {left > 0 ? `${fmt(left)} of this is still to pay.` : "Paid."} Questions about a charge? Contact the resort.
+                  </p>
+                </div>
+              );
+            })()}
 
             {/* ── PAYMENTS ────────────────────────────────────────────────── */}
             {payments.length > 0 && (

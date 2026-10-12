@@ -31,6 +31,7 @@ import { trySendMail, isMailConfigured } from "@/lib/mailer";
 import { buildMorningBriefing, adminNotifyTo } from "@/lib/adminNotify";
 import { manilaDate } from "@/lib/finance";
 import type { BookingRow } from "@/types/database";
+import { ensureSettings } from "@/lib/settings.server";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,8 @@ function schedulerAuthorised(req: NextRequest): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  // The owner's contact details and hours go into the email.
+  await ensureSettings();
   if (!schedulerAuthorised(req)) {
     const denied = requireAdmin(req);
     if (denied) return denied;

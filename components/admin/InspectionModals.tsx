@@ -27,6 +27,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useMemo, useState } from "react";
 import { useOps, type CheckoutDamageInput } from "@/contexts/OpsContext";
+import { useStaff } from "@/contexts/StaffContext";
+import { compressImage } from "@/lib/image";
 import { useApp } from "@/contexts/AppContext";
 import { useToast } from "@/contexts/ToastContext";
 import { facilitiesForBooking, checklistFor } from "@/lib/facilityUsage";
@@ -162,13 +164,23 @@ export function PrepModal({ booking, facilities, onClose }: { booking: Booking; 
 // booking at a real step (checked out, waiting to settle), never half-done.
 interface DamageDraft extends CheckoutDamageInput { key: number; custom: boolean; adjusting: boolean }
 
-export function CheckoutModal({ booking, facilities, onClose, mob }: {
+export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly = false }: {
   booking: Booking; facilities: Facility[]; onClose: () => void;
   mob: boolean;
+  /** The caretaker's version (My Tasks): the inspection, damage and photos
+   *  only. Collecting the balance is front desk's, under Balance to collect. */
+  inspectOnly?: boolean;
 }) {
   const { C, cBr, soft, inp } = useAdminStyle();
   const ops = useOps();
   const { toast } = useToast();
+  const staff = useStaff();
+  // Money is handled here only by someone who records payments, and not
+  // from the caretaker's task list.
+  const handlesMoney = !inspectOnly && staff.can("payments.record");
+  /** facilityId -> photos taken of it (compressed data URLs). */
+  const [photos, setPhotos] = useState<Record<number, string[]>>({});
+  const [photoBusy, setPhotoBusy] = useState(false);
   const used = facilitiesForBooking(booking, facilities);
   const rates = ops.damageRates.filter((r) => r.active);
   const money = bookingMoney(booking, ops.payments, ops.damages);
@@ -184,6 +196,18 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const addPhoto = async (facilityId: number, file: File | undefined) => {
+    if (!file) return;
+    setPhotoBusy(true);
+    try {
+      const src = await compressImage(file, 1024);
+      setPhotos((p) => ({ ...p, [facilityId]: [...(p[facilityId] ?? []), src].slice(0, 4) }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't use that photo.");
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
 
   const toggle = (fi: number, ci: number) => setItems((xs) => xs.map((x, i) => i !== fi ? x : { ...x, checklist: x.checklist.map((c, j) => j === ci ? { ...c, done: !c.done } : c) }));
   const allTicked = items.every((x) => x.checklist.every((c) => c.done));
@@ -235,6 +259,9 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
     if (paying > 0 && method !== "Cash" && !reference.trim()) return setError(`Enter the ${method} reference number.`);
     if (left > 0 && closeUnpaid && unpaidNote.trim().length < 3) return setError("Say why the guest is leaving with money still owed.");
 
+    if (!booking.checkedInAt && !staff.can("bookings.edit")) {
+      return setError("Front desk hasn't checked this group in yet. Ask them to check the group in first.");
+    }
     setBusy(true);
     if (!booking.checkedInAt) {
       const r = await ops.checkIn(booking.id);
@@ -249,8 +276,14 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
       })),
       maintenanceFacilityIds: outOfService,
       notes,
+      photos: Object.entries(photos).flatMap(([fid, list]) => list.map((src) => ({ facilityId: Number(fid), src }))),
     });
     if (!r.ok) { setBusy(false); return setError(r.error); }
+    if (!handlesMoney) {
+      setBusy(false);
+      toast(`Inspection saved for ${booking.name}.${newPenalty > 0 ? ` ${fmt(newPenalty)} in damage added to their bill.` : " No damage."} Front desk collects the balance.`, "success");
+      return onClose();
+    }
 
     const damageNote = newPenalty > 0 ? ` ${fmt(newPenalty)} in damage penalties.` : "";
     // Nothing paid and nothing to close: the booking simply waits under
@@ -267,6 +300,10 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
       note: unpaidNote.trim(),
     });
     setBusy(false);
+    if (!s.ok && s.requested) {
+      toast(`${booking.name} checked out.${damageNote} Closing it with ${fmt(left)} unpaid is waiting for the owner's approval.`, "info");
+      return onClose();
+    }
     if (!s.ok) {
       // The check-out is saved; only the money is missing, and Settle
       // under To settle picks it up from there.
@@ -281,16 +318,17 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
 
   const damagedCount = items.filter((x) => x.condition === "Damaged").length;
   const buttonLabel = busy ? "Saving…"
+    : !handlesMoney ? "Save inspection"
     : completes ? (paying > 0 ? `Complete stay · collect ${fmt(paying)}` : "Complete stay")
       : paying > 0 ? `Check out · record ${fmt(paying)}` : "Check out, collect later";
 
   return (
-    <Modal title={wasCheckedIn ? `Check out ${booking.name}` : `Complete ${booking.name}'s stay`} subtitle={<BookingSummary b={booking} />} onClose={onClose} width={1160}
+    <Modal title={!handlesMoney ? `Inspect after ${booking.name}` : wasCheckedIn ? `Check out ${booking.name}` : `Complete ${booking.name}'s stay`} subtitle={<BookingSummary b={booking} />} onClose={onClose} width={1160}
       footer={
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ color: C.textS, fontSize: 13.5 }}>
-            {damagedCount ? <><strong style={{ color: "#d44" }}>{fmt(newPenalty)}</strong> in penalties · </> : "No damage · "}
-            {left > 0
+            {damagedCount ? <><strong style={{ color: "#d44" }}>{fmt(newPenalty)}</strong> in penalties{handlesMoney ? " · " : ""}</> : handlesMoney ? "No damage · " : "No damage"}
+            {!handlesMoney ? null : left > 0
               ? <strong style={{ color: "#d4a800" }}>{fmt(left)} {closeUnpaid ? "left unpaid" : "still owed after this"}</strong>
               : "Fully paid after this"}
           </span>
@@ -327,6 +365,27 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
                   </div>
                 </div>
                 <Checklist items={x.checklist} onToggle={(ci) => toggle(fi, ci)} />
+                {/* Photos: how it was left. Evidence for the owner and the
+                    guest, nothing more; no one is charged from a photo. */}
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 8 }}>
+                  {(photos[f.id] ?? []).map((src, pi) => (
+                    <span key={pi} style={{ position: "relative" }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={src} alt={`${x.facilityName}, photo ${pi + 1}`} width={64} height={64} style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: `1px solid ${cBr}` }} />
+                      <button type="button" aria-label="Remove photo" onClick={() => setPhotos((p) => ({ ...p, [f.id]: (p[f.id] ?? []).filter((_, k) => k !== pi) }))}
+                        style={{ position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: "50%", border: "none", background: "#333", color: "#fff", cursor: "pointer", lineHeight: 0 }}>
+                        <Icon name="x" size={12} />
+                      </button>
+                    </span>
+                  ))}
+                  {(photos[f.id] ?? []).length < 4 && (
+                    <label className="sw-hit" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", border: `1px dashed ${cBr}`, borderRadius: 8, color: C.textS, fontSize: 12.5, cursor: "pointer" }}>
+                      <Icon name="image" size={14} /> {photoBusy ? "Adding..." : "Add photo"}
+                      <input type="file" accept="image/*" capture="environment" style={{ display: "none" }}
+                        onChange={(e) => { void addPhoto(f.id, e.target.files?.[0]); e.target.value = ""; }} />
+                    </label>
+                  )}
+                </div>
 
                 {x.condition === "Damaged" && (
                   <div style={{ marginTop: 12, borderTop: `1px dashed ${cBr}`, paddingTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -396,6 +455,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
 
         {/* ── The bill and the payment ── */}
         <div style={{ position: mob ? "static" : "sticky", top: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+          {handlesMoney ? (<>
           <div style={{ background: soft, borderRadius: 10, padding: "12px 16px" }}>
             <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Bill</div>
             <AmountRow label="Booking total" value={fmt(booking.total)} />
@@ -456,6 +516,15 @@ export function CheckoutModal({ booking, facilities, onClose, mob }: {
               <Icon name="check-circle" size={15} style={{ marginRight: 8, verticalAlign: -2 }} />
               Nothing to collect. Everything is already paid.
             </p>
+          )}
+          </>) : (
+            <div style={{ background: soft, borderRadius: 10, padding: "12px 16px", color: C.textB, fontSize: 13.5, lineHeight: 1.6 }}>
+              <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>After you save</div>
+              {newPenalty > 0
+                ? <>The damage ({fmt(newPenalty)}) goes on {booking.name}&apos;s bill, and front desk collects it with the balance.</>
+                : <>Front desk collects any balance. You don&apos;t handle money here.</>}
+              {" "}What they used is flagged <strong>Needs Cleaning</strong> and appears on your task list.
+            </div>
           )}
           <ErrorNote>{error}</ErrorNote>
         </div>
@@ -544,7 +613,8 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
       note: note.trim(),
     });
     setBusy(false);
-    if (!r.ok) return setError(r.error);
+    // Closing with money unpaid is the owner's: sent to them instead.
+    if (!r.ok) return r.requested ? onClose() : setError(r.error);
     if (completes) {
       toast(left > 0
         ? `${booking.name} closed with ${fmt(left)} unpaid. It stays under Sales → Receivables.`
@@ -664,7 +734,7 @@ export function VisitRecord({ booking, onClose }: { booking: Booking; onClose: (
     <div style={{ border: `1px solid ${cBr}`, borderRadius: 10, padding: "12px 16px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
         <strong style={{ color: C.textH }}>{title}</strong>
-        <span style={{ color: C.textS, fontSize: 12.5 }}>{at(i.inspectedAt)}</span>
+        <span style={{ color: C.textS, fontSize: 12.5 }}>{at(i.inspectedAt)}{i.inspectedByName ? ` · by ${i.inspectedByName}` : ""}</span>
       </div>
       {i.items.map((it) => {
         const done = it.checklist.filter((c) => c.done).length;
@@ -679,6 +749,18 @@ export function VisitRecord({ booking, onClose }: { booking: Booking; onClose: (
         );
       })}
       {i.notes && <p style={{ color: C.textS, fontSize: 12.5, margin: "8px 0 0" }}>Note: {i.notes}</p>}
+      {/* The caretaker's photos of how each facility was left. */}
+      {(i.photos ?? []).length > 0 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+          {(i.photos ?? []).map((p, k) => (
+            <a key={k} href={p.src} target="_blank" rel="noreferrer" title={i.items.find((it) => it.facilityId === p.facilityId)?.facilityName ?? "Photo"}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.src} alt={`${i.items.find((it) => it.facilityId === p.facilityId)?.facilityName ?? "Facility"}, photo ${k + 1}`} width={72} height={72}
+                style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, border: `1px solid ${cBr}`, display: "block" }} />
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 

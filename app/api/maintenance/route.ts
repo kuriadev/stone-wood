@@ -8,7 +8,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { maintenanceInput, parseInput } from "@/lib/schemas";
 import {
   MAINTENANCE_DEFAULT,
@@ -55,7 +55,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
 
   try {

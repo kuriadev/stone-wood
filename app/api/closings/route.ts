@@ -19,7 +19,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToClosing, rowToPayment, rowToExpense, rowToBooking } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { cleanText, isDateStr } from "@/lib/money";
 import { manilaDate, round2, signedAmount } from "@/lib/finance";
 import { closingBlockers, CLOSE_NEED } from "@/lib/operations";
@@ -32,7 +32,7 @@ import type { DailyClosingRow, PaymentRow, ExpenseRow, BookingRow } from "@/type
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "day.close");
   if (denied) return denied;
 
   const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
        the message they already expect at the end of the day, next to the
        cash count that decides whether it was a good one. */
     const finished = (open.data as BookingRow[]).map(rowToBooking)
-      .filter((x) => !!x.checkedOutAt && x.checkedOutAt.slice(0, 10) <= date && x.date === date);
+      .filter((x) => !!x.checkedOutAt && manilaDate(x.checkedOutAt) === date);
     const closedMail = buildDayClosedEmail({
       date, counted, expected, checkedOut: finished,
     });

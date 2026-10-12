@@ -27,7 +27,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { checkMove, moveBooking, guestLinkFor, sweepExpired } from "@/lib/rebooking.server";
 import { manilaDate } from "@/lib/finance";
 import { sanitizeNotes } from "@/lib/validators";
@@ -42,7 +42,7 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = await requirePermission(req, "bookings.edit");
   if (denied) return denied;
 
   const { id } = await params;

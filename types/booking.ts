@@ -143,6 +143,8 @@ export interface Booking {
   refundStatus?: RefundStatus;
   refundAmount?: number;
   refundSentAt?: string;
+  /** When the day-before reminder email went out (app/api/reminders). */
+  remindedAt?: string;
   /** A photo of the transfer receipt (data URL). */
   refundReceipt?: string;
   /** Client → server only, on a walk-in create: the money taken at the desk
