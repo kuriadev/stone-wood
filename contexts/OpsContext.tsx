@@ -23,7 +23,7 @@ import { useStaff } from "@/contexts/StaffContext";
 import type { OpsData, InspectionItem, PaymentType } from "@/types/finance";
 
 /** `requested`: the person's role can't do this, so the server sent it to
- *  the owner for approval instead. Nothing has changed yet. Screens show
+ *  the super admin for approval instead. Nothing has changed yet. Screens show
  *  that as "sent to the owner", not as a failure. */
 export type Result = { ok: true; data?: Record<string, unknown> } | { ok: false; error: string; requested?: boolean };
 
@@ -91,6 +91,8 @@ interface OpsState extends OpsData {
   /** The resort can't host it: the guest picks a new date or a refund.
    *  The result's data carries `guestLink` and the `sms` text. */
   resortCancel: (bookingId: string, reason: string) => Promise<Result>;
+  /** A walk-in that never paid: just cancelled, no new date or refund owed. */
+  cancelUnpaid: (bookingId: string, reason: string) => Promise<Result>;
   /** Approve or decline a guest's date-change request. */
   decideDateChange: (id: number, approve: boolean, note: string) => Promise<Result>;
   /** Overtime, extra guests or a room taken on the day: raises the total. */
@@ -123,7 +125,7 @@ export async function call(url: string, method: string, body?: unknown): Promise
     });
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     if (json.requested === true) {
-      return { ok: false, requested: true, error: typeof json.error === "string" ? json.error : "Sent to the owner for approval." };
+      return { ok: false, requested: true, error: typeof json.error === "string" ? json.error : "Sent to the super admin for approval." };
     }
     if (!res.ok || json.success === false) {
       return { ok: false, error: typeof json.error === "string" ? json.error : "Something went wrong. Try again." };
@@ -301,6 +303,8 @@ export function OpsProvider({ children }: { children: ReactNode }) {
     settle: (st) => act(call("/api/settle", "POST", st), { bookings: true }),
     resortCancel: (bookingId, reason) =>
       act(call(`/api/bookings/${encodeURIComponent(bookingId)}/resort-cancel`, "POST", { reason }), { bookings: true }),
+    cancelUnpaid: (bookingId, reason) =>
+      act(call(`/api/bookings/${encodeURIComponent(bookingId)}`, "PATCH", { status: "Cancelled", cancelReason: reason }), { bookings: true }),
     decideDateChange: (id, approve, note) =>
       act(call(`/api/date-changes?id=${id}`, "PATCH", { action: approve ? "approve" : "decline", note }), { bookings: true }),
     addCharge: (bookingId, c) =>

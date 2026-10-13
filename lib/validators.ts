@@ -161,9 +161,26 @@ export let MULTI_DAY_DISCOUNT_PCT = 0.15;
 // code was the wrong one (see fmtDate in lib/utils.ts).
 // ════════════════════════════════════════════════════════════════════
 
-/** Local midnight today. */
+/** The resort's wall clock: today's date and the hour in Manila,
+ *  whatever time zone the machine running this is set to.
+ *
+ *  "Today" used to be the machine's local day. That is Manila on a guest's
+ *  phone and on a laptop here, but a server in UTC (Vercel's default) is
+ *  eight hours behind, so from midnight to 8 AM in Manila it still thought
+ *  it was yesterday and accepted bookings for a date that had passed. */
+export function manilaNow(at: Date = new Date()): { date: string; hour: number } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", hourCycle: "h23",
+  }).formatToParts(at);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return { date: `${get("year")}-${get("month")}-${get("day")}`, hour: Number(get("hour")) % 24 };
+}
+
+/** Midnight at the start of today in Manila, as a local Date (the same
+ *  shape parseDateStr returns, so the two compare directly). */
 export function startOfToday(): Date {
-  return dayjs().startOf("day").toDate();
+  return dayjs(manilaNow().date, DATE_FMT, true).startOf("day").toDate();
 }
 
 /** Parse "YYYY-MM-DD" as a local date. Returns null if malformed.
@@ -187,7 +204,7 @@ export function toDateStr(d: Date): string {
  * when the three-month window would otherwise spill into January.
  */
 export function getBookingWindow(): { min: Date; max: Date } {
-  const min = dayjs().startOf("day");
+  const min = dayjs(startOfToday());
   // dayjs clamps the month-length rollover itself: 31 Aug + 3 months is
   // 30 Nov, not 1 Dec. The hand-written guard this replaced did the same
   // thing with setDate(0).

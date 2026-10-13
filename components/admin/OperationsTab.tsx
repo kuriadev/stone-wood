@@ -158,6 +158,7 @@ export function OperationsTab({
   const ops = useOps();
   const { toast } = useToast();
   const staff = useStaff();
+  const canDecideMoves = staff.can("reschedules.decide");
   const { inventory } = useApp();
 
   // A live clock, so "Time's up" and the day roll over on their own.
@@ -1165,7 +1166,10 @@ export function OperationsTab({
 
       {/* Front desk's refunds, voids and cancellations waiting on the
           owner — first, because a guest is often waiting on them. */}
-      <OwnerRequestsPanel mob={mob} />
+      <OwnerRequestsPanel mob={mob} reschedules={canDecideMoves ? pendingMoves.length : 0} onReviewReschedules={() => {
+        setView("reschedule");
+        document.getElementById("dash-bookings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }} />
 
       {/* Tomorrow's guests: the day-before email goes by itself, the text
           from here with one tap. */}
@@ -1240,7 +1244,9 @@ export function OperationsTab({
               { value: "today", label: `Today (${todayCards.length})`, content: todayPanel },
               { value: "done", label: `Done today (${doneToday.length})`, content: donePanel },
               { value: "upcoming", label: `Coming up (${upcoming.length})`, content: upcomingPanel },
-              { value: "reschedule", label: `Reschedules (${pendingMoves.length})`, content: reschedulePanel },
+              // Only the super admin decides reschedules, so only they see
+              // the list (front desk can't act on it).
+              ...(canDecideMoves ? [{ value: "reschedule" as OpsView, label: `Reschedules (${pendingMoves.length})`, content: reschedulePanel }] : []),
             ]} />
           )}
         </div>

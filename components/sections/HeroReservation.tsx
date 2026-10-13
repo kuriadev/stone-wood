@@ -1,21 +1,23 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
-import { daysInRange, stayLabel } from "@/lib/utils";
-import { SLOTS, stayPatternNote, allowsMultiDay, MULTI_DAY_SLOT } from "@/lib/resort";
+import { daysInRange, stayLabel, checkRangeAvailability, isPoolOpen } from "@/lib/utils";
+import { SLOTS, stayPatternNote, allowsMultiDay, MULTI_DAY_SLOT, slotStartedProblem } from "@/lib/resort";
+import { useApp } from "@/contexts/AppContext";
 import { priceBooking } from "@/lib/pricing";
 import {
   GUESTS_MIN, GUESTS_MAX, SHARED_PER_HEAD_RATE, MAX_STAY_DAYS,
 } from "@/lib/validators";
 import { AvailabilityCalendar } from "@/components/common/AvailabilityCalendar";
+import { GuestInput, useHoldStep } from "@/components/common/GuestCount";
 import { Icon } from "@/components/common/Icon";
 import { Button } from "@/components/ui/button";
-import type { Booking, BookingSlot } from "@/types/booking";
+import type { Booking, BookingSlot, BookingTier } from "@/types/booking";
 
 /**
  * The hero reservation card.
@@ -47,7 +49,7 @@ const stayNoteStyle: CSSProperties = {
 interface HeroReservationProps {
   bookings: Booking[];
   closedDates: string[];
-  onBookWithDate: (date: string, opts?: { slot?: BookingSlot; guests?: number; endDate?: string }) => void;
+  onBookWithDate: (date: string, opts?: { slot?: BookingSlot; guests?: number; endDate?: string; tier?: BookingTier }) => void;
   onBrowseRooms: () => void;
   onManageBooking: () => void;
 }
@@ -78,9 +80,45 @@ export function HeroReservation({
     priceBooking({ resource: "Pool", tier, slot, guests, overtime: 0, roomPrices: [], days: stayDays }).total;
   const sharedTotal = quote("Shared");
   const exclusiveTotal = quote("Exclusive");
-  // Show whichever the guest count actually lands on, so the number moves
-  // as they change it rather than staying a decorative "from".
-  const goesExclusive = sharedTotal >= exclusiveTotal;
+  /* Pool access. A Staycation is Exclusive only (lib/pricing.ts); a tour
+     can be either, and the guest may choose. Until they do, the card
+     SUGGESTS one: the cheaper of the two that fits the picked date.
+     Exclusive needs the whole date empty, so 30 guests on a Night with a
+     Day group already booked can only go Shared, even though Exclusive is
+     cheaper. Picking the tier by price alone used to grey out every such
+     date. */
+  const [tierChoice, setTierChoice] = useState<BookingTier | null>(null);
+  const allowed = useMemo<BookingTier[]>(() => (slot === "WholeDay" ? ["Exclusive"] : ["Shared", "Exclusive"]), [slot]);
+  /* The pool under maintenance, and today's tour once it has started,
+     close the card the same way Book Now and the server do. The calendar
+     used to stay green through both and Book Now then said "closed". */
+  const { facilities } = useApp();
+  const poolClosed = !isPoolOpen(facilities);
+  const fits = (t: BookingTier): { ok: boolean; reason?: string } => {
+    if (poolClosed) return { ok: false, reason: "The pool is under maintenance, so it can't be booked right now. Please check back soon." };
+    if (!date) return { ok: true };
+    const started = slotStartedProblem(date, slot);
+    if (started) return { ok: false, reason: started };
+    return checkRangeAvailability(date, lastDay, slot, guests, t, "Pool", bookings);
+  };
+  const fitting = allowed.filter((t) => fits(t).ok);
+  const pool = fitting.length ? fitting : allowed;
+  const suggested: BookingTier = pool.length === 1
+    ? pool[0]
+    : sharedTotal >= exclusiveTotal ? "Exclusive" : "Shared";
+  const tier: BookingTier = slot === "WholeDay" ? "Exclusive" : (tierChoice ?? suggested);
+  const goesExclusive = tier === "Exclusive";
+
+  /* The calendar shows a date open when the chosen tier fits it, or when
+     either does while the guest hasn't chosen. Same check as Book Now. */
+  const tiers = useMemo<BookingTier[]>(
+    () => (slot === "WholeDay" ? ["Exclusive"] : tierChoice ? [tierChoice] : ["Shared", "Exclusive"]),
+    [slot, tierChoice],
+  );
+  const request = useMemo(() => ({ slot, guests, tiers }), [slot, guests, tiers]);
+  const tierFit = fits(tier);
+  const dateOk = tierFit.ok;
+  const dateProblem = dateOk ? null : tierFit;
 
   const prettyDate = date
     ? stayLabel({ date, endDate: lastDay })
@@ -165,15 +203,27 @@ export function HeroReservation({
             selectedDate={date}
             endDate={endDate}
             onSelectDate={setDate}
-            onSelectRange={(from, to) => {
+            request={request}
+            // Day and Night are single-date visits, so the calendar picks
+            // one date for them; only a Staycation picks a range. The
+            // calendar never changes the visit type, same as the booking page.
+            onSelectRange={allowsMultiDay(slot) ? (from, to) => {
               setDate(from);
-              const range = to === from ? "" : to;
-              setEndDate(range);
-              // Day and Night are single-date visits; a second date moves
-              // the booking to the Whole Day, as it does on the booking page.
-              if (range && !allowsMultiDay(slot)) setSlot(MULTI_DAY_SLOT);
-            }}
+              setEndDate(to === from ? "" : to);
+            } : undefined}
           />
+          {!allowsMultiDay(slot) && (
+            <p style={{ fontSize: 12.5, color: "rgba(238,232,220,0.6)", margin: "12px 0 0", textAlign: "center" }}>
+              Staying more than one day?{" "}
+              <button
+                type="button"
+                onClick={() => setSlot(MULTI_DAY_SLOT)}
+                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: gold, fontSize: 12.5, textDecoration: "underline", textUnderlineOffset: 3 }}
+              >
+                Choose {SLOTS[MULTI_DAY_SLOT].label}
+              </button>
+            </p>
+          )}
         </div>
 
         {/* Your visit */}
@@ -184,7 +234,7 @@ export function HeroReservation({
             display: "flex", flexDirection: "column", gap: 20, minWidth: 0,
           }}
         >
-          <p style={{ ...label, margin: 0 }}>YOUR VISIT</p>
+          <p style={{ ...label, margin: 0 }}>YOUR RESERVATION</p>
 
           {/* Selected date */}
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -217,7 +267,7 @@ export function HeroReservation({
 
           {/* Visit type */}
           <div>
-            <p style={{ ...label, margin: "0 0 12px" }}>VISIT TYPE</p>
+            <p style={{ ...label, margin: "0 0 12px" }}>RESERVATION TYPE</p>
             <div
               role="radiogroup"
               aria-label="Visit type"
@@ -261,35 +311,26 @@ export function HeroReservation({
                 );
               })}
             </div>
-            {/* What the chosen slot means over several days.
+            {/* What a Staycation over several days means.
 
-                The space is RESERVED whether or not there is a note to put
-                in it. This note is three or four lines long and used to
-                appear only on the second click, which grew the card by
-                ~62px; the calendar column is flex:1, so it took that height
-                and handed it to the week rows, and every date tile visibly
-                stretched (67px to 80px) under the guest's cursor mid-pick.
-
-                All three slots' notes are stacked in one grid cell: every
-                child occupies the same cell, so the cell is as tall as the
-                tallest of them at whatever width the card happens to be,
-                and the real note is laid over the hidden ones. Measuring it
-                this way rather than guessing a pixel height is what makes
-                it hold up when the text or the breakpoint changes. */}
-            <div style={{ display: "grid", margin: "10px 0 0" }}>
-              {SLOT_ORDER.map((k) => (
-                <p
-                  key={k}
-                  aria-hidden
-                  style={{ ...stayNoteStyle, gridArea: "1 / 1", visibility: "hidden" }}
-                >
-                  {stayPatternNote(k, MAX_STAY_DAYS)}
+                Only a Staycation can span dates, so only it gets this note,
+                and its space is RESERVED from the moment it is chosen. The
+                note used to appear on the second date click, growing the
+                card mid-pick so every date tile visibly stretched under the
+                guest's cursor. The hidden copy (the longest note, at the
+                longest stay) sizes the cell; the real note is laid over it.
+                Day and Night Tours are single-date, so they reserve nothing
+                and leave no gap. */}
+            {allowsMultiDay(slot) && (
+              <div style={{ display: "grid", margin: "10px 0 0" }}>
+                <p aria-hidden style={{ ...stayNoteStyle, gridArea: "1 / 1", visibility: "hidden" }}>
+                  {stayPatternNote(slot, MAX_STAY_DAYS)}
                 </p>
-              ))}
-              <p style={{ ...stayNoteStyle, gridArea: "1 / 1" }}>
-                {stayDays > 1 ? stayPatternNote(slot, stayDays) : ""}
-              </p>
-            </div>
+                <p style={{ ...stayNoteStyle, gridArea: "1 / 1" }}>
+                  {stayDays > 1 ? stayPatternNote(slot, stayDays) : ""}
+                </p>
+              </div>
+            )}
           </div>
 
           <div style={rule} />
@@ -299,7 +340,7 @@ export function HeroReservation({
             <div>
               <p style={{ ...label, margin: "0 0 4px" }}>GUESTS</p>
               <p style={{ fontSize: 12, color: "rgba(238,232,220,0.55)", margin: 0 }}>
-                {fmt(SHARED_PER_HEAD_RATE)} per guest, per slot
+                {slot === "WholeDay" ? "Flat rate, however many come" : `${fmt(SHARED_PER_HEAD_RATE)} per guest, per slot`}
               </p>
             </div>
             <div
@@ -314,21 +355,70 @@ export function HeroReservation({
                 label="Fewer guests"
                 glyph="−"
                 disabled={guests <= GUESTS_MIN}
-                onClick={() => setGuests((g) => Math.max(GUESTS_MIN, g - 1))}
+                step={() => setGuests((g) => Math.max(GUESTS_MIN, g - 1))}
               />
-              <span
-                aria-live="polite"
-                style={{ minWidth: 36, textAlign: "center", fontSize: 16, color: "#fff", fontWeight: 500 }}
-              >
-                {guests}
-              </span>
+              <GuestInput
+                value={guests}
+                onChange={setGuests}
+                min={GUESTS_MIN}
+                max={GUESTS_MAX}
+                style={{ width: 36, fontSize: 16, color: "#fff", fontWeight: 500 }}
+              />
               <Stepper
                 label="More guests"
                 glyph="+"
                 disabled={guests >= GUESTS_MAX}
-                onClick={() => setGuests((g) => Math.min(GUESTS_MAX, g + 1))}
+                step={() => setGuests((g) => Math.min(GUESTS_MAX, g + 1))}
               />
             </div>
+          </div>
+
+          {/* Pool access, as on Book Now. A Staycation is never shared. */}
+          <div>
+            <p style={{ ...label, margin: "0 0 10px" }}>POOL ACCESS</p>
+            {slot === "WholeDay" ? (
+              <p style={{ display: "inline-flex", alignItems: "center", gap: 6, margin: 0, padding: "6px 12px", borderRadius: 20, background: `${gold}22`, border: `1px solid ${gold}66`, color: gold, fontSize: 11.5, fontWeight: 700, letterSpacing: 1 }}>
+                <Icon name="lock" size={12} /> EXCLUSIVE — {SLOTS.WholeDay.label.toUpperCase()}
+              </p>
+            ) : (
+              <div role="radiogroup" aria-label="Pool access" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {(["Shared", "Exclusive"] as const).map((opt) => {
+                  const on = tier === opt;
+                  const unavailable = !!date && !fits(opt).ok;
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => setTierChoice(opt)}
+                      // Unavailable on the picked date: really disabled, not
+                      // just dimmed, so a click can't pick it.
+                      disabled={unavailable && !on}
+                      title={unavailable ? fits(opt).reason : undefined}
+                      style={{
+                        minHeight: 44, borderRadius: 9,
+                        border: `1px solid ${on ? gold : `rgba(201,168,76,${isDark ? "0.18" : "0.26"})`}`,
+                        background: on ? `${gold}26` : "transparent",
+                        color: on ? gold : "rgba(238,232,220,0.85)",
+                        opacity: unavailable && !on ? 0.4 : 1,
+                        cursor: unavailable && !on ? "not-allowed" : "pointer",
+                        fontSize: 11.5, fontWeight: 700, letterSpacing: 0.8,
+                        display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "6px 8px",
+                      }}
+                    >
+                      <Icon name={opt === "Exclusive" ? "lock" : "handshake"} size={12} />
+                      {opt.toUpperCase()}{unavailable && !on ? " · NOT THIS DATE" : tierChoice === null && opt === suggested ? " (SUGGESTED)" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <p style={{ fontSize: 12, color: "rgba(238,232,220,0.5)", margin: "8px 0 0", lineHeight: 1.5 }}>
+              {goesExclusive
+                ? `The whole resort is yours that date — no other group, up to ${GUESTS_MAX} guests. The events venue isn't included; it can be added.`
+                : `Pool shared with other groups in your ${SLOTS[slot].label} — billed per guest, up to ${GUESTS_MAX} guests in total.`}
+            </p>
           </div>
 
           <div style={rule} />
@@ -354,9 +444,16 @@ export function HeroReservation({
             </p>
           </div>
 
+          {!dateOk && dateProblem?.reason && (
+            <p role="status" style={{ fontSize: 12.5, color: "#e8a0a0", margin: "-8px 0 0", lineHeight: 1.5 }}>
+              {dateProblem.reason}
+              {poolClosed || (date && slotStartedProblem(date, slot)) ? "" : " Try another date, fewer guests or another visit type."}
+            </p>
+          )}
+
           <Button
-            onClick={() => onBookWithDate(date, { slot, guests, endDate: lastDay })}
-            disabled={!date}
+            onClick={() => onBookWithDate(date, { slot, guests, endDate: lastDay, tier })}
+            disabled={!date || !dateOk}
             className="sw-btn h-auto w-full disabled:opacity-40"
             style={goldBtn}
           >
@@ -375,15 +472,18 @@ export function HeroReservation({
 }
 
 function Stepper({
-  label, glyph, disabled, onClick,
-}: { label: string; glyph: string; disabled: boolean; onClick: () => void }) {
+  label, glyph, disabled, step,
+}: { label: string; glyph: string; disabled: boolean; step: () => void }) {
+  // Hold to keep counting (components/common/GuestCount.tsx).
+  const hold = useHoldStep(step);
   return (
     <button
       type="button"
       aria-label={label}
       disabled={disabled}
-      onClick={onClick}
+      {...hold}
       style={{
+        touchAction: "manipulation",
         // 44x44, the HIG default control size.
         width: 44, height: 44, borderRadius: "50%",
         background: "rgba(255,255,255,0.05)", border: "none",

@@ -21,7 +21,8 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { T } from "@/lib/theme";
-import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS, MAX_STAY_DAYS } from "@/lib/validators";
+import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS, MAX_STAY_DAYS, manilaNow } from "@/lib/validators";
+import { slotStartedProblem } from "@/lib/resort";
 import { RangeConnector } from "@/components/common/RangeConnector";
 import { checkBookingAvailability, holdsDate, fmtDate, bookingDates } from "@/lib/utils";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
@@ -48,6 +49,9 @@ interface BookingDatePickerProps {
    *  has (shiftStay in lib/rebooking.server.ts), so letting them redraw the
    *  length here would quietly change what they are paying for. */
   single?: boolean;
+  /** The prompt under a single-date calendar before anything is picked.
+   *  Defaults to the reschedule wording. */
+  singleHint?: string;
   isDark: boolean;
   /** Guest count for the booking being made, so a "Shared" date with room
    *  left is still shown as available instead of flatly "booked". */
@@ -73,6 +77,7 @@ export function BookingDatePicker({
   endDate = "",
   onSelectRange,
   single = false,
+  singleHint = "Click the date you would like to move to.",
   isDark,
   guests = 1,
   resource = "Pool",
@@ -104,7 +109,13 @@ export function BookingDatePicker({
     });
     return full;
   }, [bookings, guests, resource, tier]);
-  const fullDates = useMemo(() => fullFor(slot), [fullFor, slot]);
+  const fullDates = useMemo(() => {
+    const full = fullFor(slot);
+    // Today, once this tour has started, can't be booked (lib/resort.ts).
+    const today = manilaNow().date;
+    if (slotStartedProblem(today, slot)) full.add(today);
+    return full;
+  }, [fullFor, slot]);
   const rangeFull = useMemo(() => (rangeSlot && rangeSlot !== slot ? fullFor(rangeSlot) : fullDates), [fullFor, rangeSlot, slot, fullDates]);
   const closedSet = useMemo(() => new Set(closedDates), [closedDates]);
 
@@ -454,7 +465,7 @@ export function BookingDatePicker({
         }}
       >
         {single
-          ? (selectedDate ? <>{fmtDate(selectedDate)} selected. Click it again to clear.</> : <>Click the date you would like to move to.</>)
+          ? (selectedDate ? <>{fmtDate(selectedDate)} selected. Click it again to clear.</> : <>{singleHint}</>)
           : !selectedDate
           ? <>Click a date to start. You can book up to <strong>{MAX_STAY_DAYS} days</strong> in a row — click your first day, then your last.</>
           : picking

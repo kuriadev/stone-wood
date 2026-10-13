@@ -48,7 +48,7 @@ const CATEGORIES: { value: string; label: string }[] = [
   { value: "email", label: "Emails" },
   { value: "guest", label: "Texts to guests" },
   { value: "security", label: "Sign-ins" },
-  { value: "request", label: "Requests to the owner" },
+  { value: "request", label: "Requests to the super admin" },
   { value: "staff", label: "Staff accounts" },
   { value: "upkeep", label: "Upkeep tasks" },
   { value: "settings", label: "Rates & settings" },

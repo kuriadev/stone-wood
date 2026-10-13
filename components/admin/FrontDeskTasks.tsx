@@ -36,7 +36,7 @@ import type { Booking } from "@/types/booking";
 
 type Group = "money" | "counter" | "guests";
 const GROUP: Record<Group, { title: string; hint: string; color: string; stat: string }> = {
-  money: { title: "Money", hint: "Balances to collect and days to close. The owner sees every peso you record.", color: "#d4a800", stat: "Money" },
+  money: { title: "Money", hint: "Balances to collect and days to close. The super admin sees every peso you record.", color: "#d4a800", stat: "Money" },
   counter: { title: "At the counter", hint: "Arrivals to check in and walk-ins still to pay.", color: "#3a8fc4", stat: "Counter" },
   guests: { title: "Guests", hint: "Messages waiting for an answer.", color: "#2e9e4e", stat: "Messages" },
 };
@@ -119,7 +119,7 @@ export function FrontDeskTasks({ mob, onGoTab }: { mob: boolean; onGoTab?: (t: A
     tasks.push({
       key: `arrive-${b.id}`, group: "counter", icon: "log-in",
       title: `Check in ${b.name}`,
-      meta: `${b.id} · ${s.label} (${s.hours}) · ${b.guests} guests${b.arrivalTime ? ` · arrives ${b.arrivalTime}` : ""}`,
+      meta: `${b.id} · ${s.label} (${s.hours}) · ${b.guests} guest${b.guests === 1 ? "" : "s"}${b.arrivalTime ? ` · arrives ${b.arrivalTime}` : ""}`,
       detail: ready ? "The caretaker has prepared their facilities." : "Waiting for the caretaker to prepare their facilities.",
       badge: ready ? { text: "Ready", color: "#2e9e4e" } : { text: "Not prepared", color: "#d4a800" },
       action: <ActionButton size="sm" kind={ready ? "primary" : "ghost"} icon="log-in" disabled={!ready || busy === b.id}

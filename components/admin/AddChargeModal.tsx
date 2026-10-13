@@ -17,11 +17,11 @@ import { chargeKindsFor, priceCharge, type ChargeKind } from "@/lib/charges";
 import { bookingMoney } from "@/lib/finance";
 import { SLOTS, TURNOVER_WINDOW } from "@/lib/resort";
 import { fmt, fmtDate, getBookingSlot, roomsTakenOn } from "@/lib/utils";
-import { OVERTIME_MAX, OVERTIME_RATE, SHARED_PER_HEAD_RATE } from "@/lib/validators";
+import { OVERTIME_MAX, OVERTIME_RATE, SHARED_PER_HEAD_RATE, EVENT_VENUE_RATE } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
 import { ActionButton, ErrorNote, FullSelect, Label, AmountRow, Modal, ChoiceButtons, useAdminStyle } from "@/components/admin/ui";
 
-const KIND_LABEL: Record<ChargeKind, string> = { overtime: "Overtime", guests: "Extra guests", room: "A room" };
+const KIND_LABEL: Record<ChargeKind, string> = { overtime: "Overtime", guests: "Extra guests", room: "A room", venue: "Events venue" };
 
 export function AddChargeModal({ booking, onClose }: { booking: Booking; onClose: () => void }) {
   const { C, soft, inp } = useAdminStyle();
@@ -68,7 +68,7 @@ export function AddChargeModal({ booking, onClose }: { booking: Booking; onClose
       </div>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <p style={{ color: C.textS, fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-          For anything the group takes on top of what they booked. It&apos;s added to the booking&apos;s total and collected with the balance, so it shows in Sales and in the day&apos;s cash count.
+          For anything the group takes on top of what they booked. It&apos;s added to the booking&apos;s total and collected with the balance, so it shows in Payments &amp; Expenses and in the day&apos;s cash count.
         </p>
 
         <div>
@@ -112,6 +112,12 @@ export function AddChargeModal({ booking, onClose }: { booking: Booking; onClose
               ))}
             </FullSelect>
           </div>
+        )}
+
+        {kind === "venue" && !blocked.venue && (
+          <p style={{ color: C.textS, fontSize: 12.5, margin: 0, lineHeight: 1.6 }}>
+            Their Exclusive booking keeps the hall free of other groups but doesn&apos;t include it. This adds it at {fmt(EVENT_VENUE_RATE)} per slot, and the booking becomes Resort visit + Events Venue.
+          </p>
         )}
 
         {priced.ok && (

@@ -112,8 +112,10 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
   const effectiveCode = normCode(form.code.trim() || form.title);
   /* Two packages sharing a code would collide everywhere the code is the
      identity -- the deep link from Home, the lookup on the Packages page,
-     and the `packageCode` already written onto past bookings. */
-  const codeTaken = effectiveCode !== "" && packages.some((x) => x.code === effectiveCode && x.id !== editPkg?.id);
+     and the `packageCode` already written onto past bookings. Only while
+     the window is open: once saved, the new package is in the list as the
+     window fades out, and would be flagged as clashing with itself. */
+  const codeTaken = showModal && effectiveCode !== "" && packages.some((x) => x.code === effectiveCode && x.id !== editPkg?.id);
 
   const savePkg = () => {
     const cover = form.photos[0] || form.cover || "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&q=80";
@@ -189,7 +191,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
               </div>
               <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5, marginBottom: 8 }}>{p.blurb}</p>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                <Badge variant="outline" style={{ fontSize: 10.5, color: C.goldInk, border: `1px solid ${gold}55`, borderRadius: 20, padding: "4px 8px" }}>{p.slotMode === "WholeDay" ? "WHOLE DAY" : "DAY OR NIGHT"}</Badge>
+                <Badge variant="outline" style={{ fontSize: 10.5, color: C.goldInk, border: `1px solid ${gold}55`, borderRadius: 20, padding: "4px 8px" }}>{p.slotMode === "WholeDay" ? "STAYCATION" : "DAY OR NIGHT"}</Badge>
                 {p.requiresRoom && <Badge variant="outline" style={{ fontSize: 10.5, color: C.goldInk, border: `1px solid ${gold}55`, borderRadius: 20, padding: "4px 8px" }}>ROOM REQUIRED</Badge>}
                 <Badge variant="outline" style={{ fontSize: 10.5, color: C.textS, border: `1px solid ${cBr}`, borderRadius: 20, padding: "4px 8px" }}>Cap {p.capacity}</Badge>
               </div>
@@ -296,7 +298,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                 <Label htmlFor="pkg-when" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">WHEN</Label>
                 <FullSelect id="pkg-when" value={form.slotMode} onChange={(e) => setF("slotMode", e.target.value as PackageSlotMode)} className="sw-input" style={selS}>
                   <option value="Single">Day or Night — guest picks ({SLOTS.Day.hours} / {SLOTS.Night.hours})</option>
-                  <option value="WholeDay">Whole Day ({SLOTS.WholeDay.hours})</option>
+                  <option value="WholeDay">Staycation ({SLOTS.WholeDay.hours})</option>
                 </FullSelect>
               </div>
               <div className="sm:col-span-6">
@@ -319,7 +321,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   pool, the venue or both can be booked freely. A package
                   should beat that, or offer something Book Now can't. */}
               {(() => {
-                const problem = pricingProblem(form.resource, form.status, form.slotMode === "WholeDay" ? "WholeDay" : "Day");
+                const problem = pricingProblem(form.resource, form.status, form.slotMode === "WholeDay" ? "WholeDay" : "Day", 1, true);
                 if (problem) return <p className="sm:col-span-12" style={{ color: C.dangerInk, fontSize: 12.5, margin: 0 }}>{problem}</p>;
                 const price = Number(form.price);
                 const v = packageValue({ resource: form.resource, status: form.status, slotMode: form.slotMode, capacity: Number(form.capacity) || 1, price });

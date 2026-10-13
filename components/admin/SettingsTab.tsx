@@ -131,7 +131,7 @@ export function SettingsTab({ mob }: { mob: boolean }) {
 
       {section("Discounts", "Shown to guests as their own lines, so they can see what earned them.", <>
         {num("discounts", "exclusive", "Exclusive pool, one slot", `${fmt(Number(r.exclusiveFlat || 0))} becomes ${fmt(Math.round(Number(r.exclusiveFlat || 0) * (1 - Number(d.exclusive || 0) / 100)))}.`, "%")}
-        {num("discounts", "bundle", "Bundles (Whole Day, Pool + Venue)", "Off the exclusive and venue parts.", "%")}
+        {num("discounts", "bundle", "Bundles (Staycation, Pool + Venue)", "Off the exclusive and venue parts.", "%")}
         {num("discounts", "roomBundle", "Room with a package", "Off the room when a package includes one.", "%")}
         {num("discounts", "multiDay", "Each extra day of a stay", "Off every day after the first.", "%")}
       </>)}
@@ -140,11 +140,11 @@ export function SettingsTab({ mob }: { mob: boolean }) {
         {num("limits", "resortCapacity", "Most guests at once", "Caps a booking, and all Shared groups in a slot together.", "")}
         {num("limits", "exclusiveDefaultGuests", "Exclusive booking starts at", "The guest count a buyout starts at; guests can raise it.", "")}
         {num("limits", "overtimeMaxHours", "Most overtime, hours", "0 turns overtime off.", "")}
-        {num("limits", "maxStayDays", "Longest stay, days", "For Whole Day stays over several dates.", "")}
+        {num("limits", "maxStayDays", "Longest stay, days", "For Staycations over several dates.", "")}
         {num("limits", "bookingWindowMonths", "Guests can book up to, months ahead", "Dates further out are greyed out on the calendar.", "")}
       </>)}
 
-      {section("Hours", "The two tours. Whole Day runs from the Day Tour's start to the Night Tour's end.", <>
+      {section("Hours", "The two tours. A Staycation runs from the Day Tour's start to the Night Tour's end.", <>
         {hour("dayStart", "Day Tour starts", 4, 12)}
         {hour("dayEnd", "Day Tour ends", 9, 21)}
         {hour("nightStart", "Night Tour starts", 14, 23)}

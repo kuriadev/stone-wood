@@ -4,7 +4,7 @@ import { pageMetadata } from "@/lib/seo";
 // Server layout so this Client Component route can still declare its metadata.
 export const metadata = pageMetadata({
   title: "Packages",
-  description: "Day Tour, Night Tour and Whole Day packages at StoneWood Private Resort — pool, events venue, or both, with what each includes.",
+  description: "Day Tour, Night Tour and Staycation packages at StoneWood Private Resort — pool, events venue, or both, with what each includes.",
   path: "/packages",
 });
 

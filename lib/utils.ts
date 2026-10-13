@@ -59,7 +59,10 @@ export function fmtDate(ds: string): string {
  *  (whole-pool buyout) — a smart DEFAULT suggested from guest count. The
  *  guest/staff can still override this explicitly (see BookingTier); this
  *  is only what gets pre-selected before they choose. */
-export function getPackageTier(guests: number): BookingTier {
+export function getPackageTier(guests: number, slot?: BookingSlot, resource?: BookingResource): BookingTier {
+  // A Staycation, the venue, and Pool + Venue are Exclusive only
+  // (pricingProblem in lib/pricing.ts).
+  if (slot === "WholeDay" || resource === "Venue" || resource === "Pool+Venue") return "Exclusive";
   return guests > GUESTS_SHARED_MAX ? "Exclusive" : "Shared";
 }
 
@@ -317,6 +320,38 @@ export function isRoomOpen(roomId: number, facilities: Facility[]): boolean {
   return !f || f.status !== "Under Maintenance";
 }
 
+/** One group, two bookings: the events venue on its own plus a Shared pool
+ *  tour on the same date gets them both for less than "Resort visit +
+ *  Events Venue", which is Exclusive only — and puts their party beside
+ *  strangers in the pool, the thing that rule exists to prevent.
+ *
+ *  `same` is another booking that date with the same email or phone: the
+ *  same guest for certain, so the request is refused. `maybe` matches only
+ *  on name: it could be a coincidence, so it is flagged for staff instead.
+ *  A guest using a different name, email AND phone is not caught here;
+ *  that is left to the front desk (venue guests aren't pool guests). */
+export function splitBookingMatch(
+  req: { resource: BookingResource; tier: BookingTier; name: string; email: string; contact: string },
+  sameDay: Booking[],
+): { same?: Booking; maybe?: Booking } {
+  const wantsVenueOnly = req.resource === "Venue";
+  const wantsSharedPool = req.resource === "Pool" && req.tier === "Shared";
+  if (!wantsVenueOnly && !wantsSharedPool) return {};
+  const other = (b: Booking) => wantsVenueOnly
+    ? getBookingResource(b) === "Pool" && getBookingTier(b) === "Shared"
+    : getBookingResource(b) === "Venue";
+  const phone = (s: string) => s.replace(/\D/g, "").slice(-10);
+  const name = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+  const email = req.email.trim().toLowerCase();
+  const tel = phone(req.contact);
+  const candidates = sameDay.filter((b) => holdsDate(b) && other(b));
+  const same = candidates.find((b) =>
+    (!!email && b.email?.trim().toLowerCase() === email) || (tel.length >= 7 && phone(b.contact ?? "") === tel));
+  if (same) return { same };
+  const maybe = candidates.find((b) => !!name(req.name) && name(b.name ?? "") === name(req.name));
+  return maybe ? { maybe } : {};
+}
+
 /** Combined availability check for a booking request, covering whichever
  *  resource(s) it uses, in whichever slot(s) it occupies. `facilities` is
  *  optional — omit it and only the date/headcount rules apply. */
@@ -330,6 +365,22 @@ export function checkBookingAvailability(
   facilities?: Facility[],
   overtime = 0
 ): { ok: boolean; reason?: string } {
+  // ── Exclusive means the whole resort, events venue included ─────────
+  // A venue-only booking is stored as Exclusive too (the hall is never
+  // shared), so "the whole resort is taken" is an Exclusive booking that
+  // USES THE POOL. checkPoolCapacity only looks at pool bookings, so these
+  // two cases used to slip through: a group renting just the hall on the
+  // date of someone's Exclusive buyout, and an Exclusive buyout on a date
+  // whose hall another group had already rented.
+  const live = liveOn(date, bookings);
+  const wholeResort = (b: Booking) => getBookingTier(b) === "Exclusive" && usesPool(b);
+  if (resource === "Venue" && live.some(wholeResort)) {
+    return { ok: false, reason: "The resort is booked Exclusive that date — an Exclusive booking takes the whole resort, events venue included." };
+  }
+  if (resource !== "Venue" && tier === "Exclusive" && live.some((b) => getBookingResource(b) === "Venue")) {
+    return { ok: false, reason: "Another group has the events venue that date, and an Exclusive booking takes the whole resort." };
+  }
+
   if (resource !== "Venue") {
     if (facilities && !isPoolOpen(facilities)) {
       return { ok: false, reason: "The pool is temporarily closed for maintenance." };

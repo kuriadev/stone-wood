@@ -9,6 +9,10 @@
 //                 and the venue is a flat rate)
 //   a room        a room added to a booking that didn't have it, at the
 //                 room's own rate for each slot
+//   the venue     the events venue added to an Exclusive pool booking, at
+//                 the venue's own rate for each slot. An Exclusive booking
+//                 keeps the hall from other groups but doesn't include it;
+//                 a group that decides on the day pays for it here.
 //
 // Before this there was nowhere to put that money: the booking's total
 // couldn't change, and Record payment won't take more than the balance. So it
@@ -24,9 +28,9 @@ import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
 import { SLOTS } from "@/lib/resort";
 import { getBookingSlot, getBookingResource, getBookingTier, bookingDays } from "@/lib/utils";
-import { OVERTIME_MAX, OVERTIME_RATE, SHARED_PER_HEAD_RATE, GUESTS_MAX } from "@/lib/validators";
+import { OVERTIME_MAX, OVERTIME_RATE, SHARED_PER_HEAD_RATE, GUESTS_MAX, EVENT_VENUE_RATE } from "@/lib/validators";
 
-export type ChargeKind = "overtime" | "guests" | "room";
+export type ChargeKind = "overtime" | "guests" | "room" | "venue";
 
 export interface ChargeRequest {
   kind: ChargeKind;
@@ -39,7 +43,7 @@ export interface ChargeRequest {
 }
 
 export type ChargeResult =
-  | { ok: true; amount: number; label: string; next: Pick<Booking, "overtime" | "guests" | "rooms"> }
+  | { ok: true; amount: number; label: string; next: Pick<Booking, "overtime" | "guests" | "rooms" | "resource"> }
   | { ok: false; error: string };
 
 /** Which charges this booking can take at all, for the admin window. */
@@ -54,6 +58,9 @@ export function chargeKindsFor(b: Booking): Record<ChargeKind, string | null> {
       : getBookingTier(b) !== "Shared" ? `An Exclusive booking already covers up to ${GUESTS_MAX} guests at a flat rate.`
       : null,
     room: !pool ? "A venue-only booking doesn't include rooms." : null,
+    venue: getBookingResource(b) !== "Pool" ? "This booking already has the events venue."
+      : getBookingTier(b) !== "Exclusive" ? "The events venue can only be added to an Exclusive booking. A shared tour can't have it."
+      : null,
   };
 }
 
@@ -67,7 +74,7 @@ export function priceCharge(b: Booking, req: ChargeRequest, rooms: Room[]): Char
   // Whole Day pays for them three times — as the booking itself was priced.
   // (Overtime is a Day Tour thing, and Day Tours are one date.)
   const days = bookingDays(b);
-  const keep = { overtime: b.overtime ?? 0, guests: b.guests, rooms: b.rooms ?? [] };
+  const keep = { overtime: b.overtime ?? 0, guests: b.guests, rooms: b.rooms ?? [], resource: getBookingResource(b) };
 
   if (req.kind === "overtime") {
     const hours = Math.round(Number(req.hours) || 0);
@@ -89,6 +96,16 @@ export function priceCharge(b: Booking, req: ChargeRequest, rooms: Room[]): Char
       ok: true, amount: extra * SHARED_PER_HEAD_RATE * slots * days,
       label: `${extra} extra guest${extra === 1 ? "" : "s"}${days > 1 ? ` × ${days} days` : ""}`,
       next: { ...keep, guests: keep.guests + extra },
+    };
+  }
+
+  if (req.kind === "venue") {
+    // The venue's own rate per slot and day, as on the rate card. The 10%
+    // bundle is for booking the two together in advance.
+    return {
+      ok: true, amount: EVENT_VENUE_RATE * slots * days,
+      label: `the events venue${days > 1 ? ` × ${days} days` : ""}`,
+      next: { ...keep, resource: "Pool+Venue" },
     };
   }
 

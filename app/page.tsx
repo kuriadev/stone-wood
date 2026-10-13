@@ -75,6 +75,7 @@ const nav = (p: string) => {
           if (opts?.endDate && opts.endDate > d) q.set("end", opts.endDate);
           if (opts?.slot) q.set("slot", opts.slot);
           if (opts?.guests) q.set("guests", String(opts.guests));
+          if (opts?.tier) q.set("tier", opts.tier);
           router.push(`/book?${q.toString()}`);
         }}
         onBookPackage={(pkg, resource, tier) => router.push(buildPackageBookingUrl(pkg, resource, tier))}

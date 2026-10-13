@@ -14,11 +14,11 @@ import { useOps } from "@/contexts/OpsContext";
 import { useStaff } from "@/contexts/StaffContext";
 import { ActionButton, StatusBadge, useAdminStyle } from "@/components/admin/ui";
 import { TextGuest } from "@/components/admin/TextGuest";
-import { Icon } from "@/components/common/Icon";
 import { notices } from "@/lib/notices";
 import { bookingMoney, manilaDate } from "@/lib/finance";
 import { fmt, getBookingSlot } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
+import { FoldHeader, useFold } from "@/components/admin/FoldHeader";
 import type { Booking } from "@/types/booking";
 
 export function TomorrowPanel({ bookings }: { bookings: Booking[] }) {
@@ -27,6 +27,7 @@ export function TomorrowPanel({ bookings }: { bookings: Booking[] }) {
   const staff = useStaff();
   const [openId, setOpenId] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
+  const [shown, toggleShown] = useFold("tomorrow");
   const today = manilaDate();
   const tomorrow = manilaDate(new Date(Date.now() + 86_400_000));
 
@@ -56,11 +57,10 @@ export function TomorrowPanel({ bookings }: { bookings: Booking[] }) {
   };
 
   return (
-    <section aria-labelledby="tomorrow" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, padding: "16px 20px 8px", marginBottom: 24 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <Icon name="calendar-clock" size={17} style={{ color: "#3a8fc4" }} />
-        <h2 id="tomorrow" style={{ margin: 0, fontSize: 15, fontWeight: 600, color: C.textH }}>Tomorrow&apos;s arrivals ({arriving.length})</h2>
-      </div>
+    <section aria-labelledby="tomorrow" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, padding: shown ? "16px 20px 8px" : "16px 20px", marginBottom: 24 }}>
+      <FoldHeader id="tomorrow" icon="calendar-clock" iconColor="#3a8fc4" open={shown} onToggle={toggleShown}
+        title={<>Tomorrow&apos;s arrivals ({arriving.length})</>} />
+      {shown && (<div id="tomorrow-body">
       <p style={{ color: C.textS, fontSize: 12.5, margin: "6px 0 10px" }}>
         Guests with an email get a reminder by themselves. Send a text too — most guests read those first.
       </p>
@@ -74,7 +74,7 @@ export function TomorrowPanel({ bookings }: { bookings: Booking[] }) {
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <div style={{ color: C.textH, fontWeight: 600 }}>{b.name} <span style={{ color: C.textS, fontWeight: 400, fontSize: 12.5 }}>· {b.id}</span></div>
                   <div style={{ color: C.textS, fontSize: 12.5 }}>
-                    {s.label} {s.hours} · {b.guests} guests{m.balance > 0 ? ` · ${fmt(m.balance)} due on arrival` : " · paid"}
+                    {s.label} {s.hours} · {b.guests} guest{b.guests === 1 ? "" : "s"}{m.balance > 0 ? ` · ${fmt(m.balance)} due on arrival` : " · paid"}
                   </div>
                 </div>
                 {b.status === "Pending" && <StatusBadge color="#e0a020">Not confirmed</StatusBadge>}
@@ -92,6 +92,7 @@ export function TomorrowPanel({ bookings }: { bookings: Booking[] }) {
           );
         })}
       </ul>
+      </div>)}
     </section>
   );
 }

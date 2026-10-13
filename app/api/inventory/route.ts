@@ -1,6 +1,7 @@
 // ── GET    /api/inventory      → list items            (admin only)
 // ── POST   /api/inventory      → add an item           (admin only)
-// ── PATCH  /api/inventory?id=  → update an item; a new qty is a COUNT
+// ── PATCH  /api/inventory?id=  → update an item; a new qty is a COUNT;
+//                                 { restore: true } takes it out of the archive
 // ── DELETE /api/inventory?id=  → soft-delete an item   (admin only)
 //
 // Replaces the Mongoose placeholder. Inventory has no anon RLS policy at
@@ -87,7 +88,23 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: false, error: "A numeric item id is required." }, { status: 400 });
   }
   try {
-    const parsed = parseInput(inventoryItemPatch, await req.json().catch(() => ({})));
+    const raw = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+
+    // { restore: true } brings an archived item back: the owner's call, like
+    // archiving it was.
+    if (raw.restore === true) {
+      const gate = await ownerGate(req, "inventory.manage", raw);
+      if (gate) return gate;
+      const { data, error } = await getSupabaseAdmin().from("inventory")
+        .update({ deleted_at: null }).eq("id", id).not("deleted_at", "is", null)
+        .select().maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!data) return NextResponse.json({ success: false, error: "That item isn't in the archive." }, { status: 404 });
+      await logActivity({ actor: "Admin", action: "inventory.restored", entity: "inventory", entityId: id, summary: `Restored "${(data as InventoryRow).name}" from the archive.` });
+      return NextResponse.json({ success: true, item: rowToInventoryItem(data as InventoryRow) });
+    }
+
+    const parsed = parseInput(inventoryItemPatch, raw);
     if (!parsed.ok) return NextResponse.json({ success: false, error: parsed.error }, { status: 400 });
     const fields = parsed.data;
 
@@ -159,7 +176,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  // Others' removals go to the owner as a request.
+  // Others' removals go to the super admin as a request.
   const denied = await requirePermission(req, "inventory.delete");
   if (denied) return denied;
 

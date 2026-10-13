@@ -372,7 +372,7 @@ export async function updateStaff(id: string, patch: StaffPatch, hash: Hasher, s
   const otherOwners = all.filter((s) => s.id !== id && s.role === "Owner" && s.active).length;
   const staysOwner = (patch.role ?? cur.role) === "Owner" && (patch.active ?? cur.active);
   if (cur.role === "Owner" && cur.active && !staysOwner && otherOwners === 0) {
-    throw new StaffError("This is the only active owner. Make someone else an owner first.");
+    throw new StaffError("This is the only active super admin. Make someone else a super admin first.");
   }
 
   const row: Record<string, unknown> = {};

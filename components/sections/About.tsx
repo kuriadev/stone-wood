@@ -292,7 +292,7 @@ export function About({
               details: [
                 "Share the pool with other groups, billed per guest",
                 "Or buy out the whole pool for your group alone",
-                "Day, Night, or Whole Day — you choose the slot",
+                "Day Tour, Night Tour, or Staycation — you choose",
               ],
             },
             {

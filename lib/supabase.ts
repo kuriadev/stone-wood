@@ -14,6 +14,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { Room } from "@/types/room";
 import { GALLERY_MAX } from "@/lib/validators";
+import { SLOTS } from "@/lib/resort";
 import type { Booking } from "@/types/booking";
 import { guessKind } from "@/types/inventory";
 import type { InventoryItem } from "@/types/inventory";
@@ -131,6 +132,12 @@ export const roomToRow = (r: Room): Omit<RoomRow, "id" | "created_at"> => ({
   gallery: (r.gallery?.length ? r.gallery : r.img ? [r.img] : []).slice(0, GALLERY_MAX),
 });
 
+/** Bookings made before "Whole Day" became Staycation carry the old name the
+ *  system made up for them ("Whole Day", "Whole Day + Room" …). Only those
+ *  exact names: a package title the owner chose is left as it is. */
+const OLD_STAY_NAME = /^Whole Day(?= \+ |$)/;
+const bookingName = (p: string) => (p ? p.replace(OLD_STAY_NAME, SLOTS.WholeDay.label) : p);
+
 export const rowToBooking = (b: BookingRow): Booking => ({
   id: b.id,
   name: b.name,
@@ -139,7 +146,7 @@ export const rowToBooking = (b: BookingRow): Booking => ({
   date: b.date,
   endDate: b.end_date ?? b.date,
   guests: b.guests,
-  package: b.package,
+  package: bookingName(b.package),
   rooms: b.rooms ?? [],
   overtime: b.overtime,
   total: Number(b.total),

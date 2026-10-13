@@ -45,7 +45,7 @@ const KIND: Record<TaskKind, { section: string; hint: string; stat: string; icon
   inspect: { section: "Groups leaving", hint: "Inspect what they used as they go. Damage goes on their bill.", stat: "To inspect", icon: "search", color: "#d4644a", verb: "Inspect", verbIcon: "clipboard-check" },
   prepare: { section: "Arrivals", hint: "Get their facilities ready. Opens the day before they arrive.", stat: "To prepare", icon: "clipboard", color: "#3a8fc4", verb: "Prepare", verbIcon: "clipboard-check" },
   clean: { section: "To clean", hint: "Left by a check-out. Confirm what you used when you're done.", stat: "To clean", icon: "toolbox", color: "#d4a800", verb: "Mark cleaned", verbIcon: "check" },
-  upkeep: { section: "Upkeep", hint: "The owner's schedule. Its supplies come off the stock when you finish.", stat: "Upkeep due", icon: "refresh", color: "#2e9e4e", verb: "Done", verbIcon: "check" },
+  upkeep: { section: "Upkeep", hint: "The super admin's schedule. Its supplies come off the stock when you finish.", stat: "Upkeep due", icon: "refresh", color: "#2e9e4e", verb: "Done", verbIcon: "check" },
 };
 const ORDER: TaskKind[] = ["inspect", "prepare", "clean", "upkeep"];
 

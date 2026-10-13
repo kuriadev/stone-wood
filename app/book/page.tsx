@@ -13,6 +13,7 @@ import type { ResortPackage } from "@/types/package";
 import { isEventPackage } from "@/lib/packages";
 import { buildPackageBookingUrl } from "@/lib/utils";
 import { packageValue } from "@/lib/pricing";
+import { GUESTS_MIN, GUESTS_MAX } from "@/lib/validators";
 
 export default function BookPage() {
   const router = useRouter();
@@ -33,7 +34,11 @@ export default function BookPage() {
   const initialSlot =
     slotParam === "Day" || slotParam === "Night" || slotParam === "WholeDay" ? slotParam : undefined;
   const guestsParam = Number(params.get("guests"));
-  const initialGuests = Number.isFinite(guestsParam) && guestsParam > 0 ? guestsParam : undefined;
+  // Kept to a whole number within the booking limits: ?guests=999 used to
+  // show 999 guests and a price to match until the server refused it.
+  const initialGuests = Number.isFinite(guestsParam) && guestsParam > 0
+    ? Math.min(GUESTS_MAX, Math.max(GUESTS_MIN, Math.round(guestsParam)))
+    : undefined;
   // Support ?resource=Venue&tier=Exclusive from a Home page package card —
   // lets a package deep-link straight into the matching Book Now setup
   // instead of a separate checkout flow.

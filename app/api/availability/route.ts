@@ -12,7 +12,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { startOfToday, toDateStr } from "@/lib/validators";
-import { heldBookings, FREED_STATUS_LIST } from "@/lib/rebooking.server";
+import { heldBookings, FREED_STATUS_LIST, sweepExpired } from "@/lib/rebooking.server";
 import type { AvailabilitySlot, AvailabilityFacility } from "@/lib/publicAvailability";
 
 export type { AvailabilitySlot, AvailabilityFacility };
@@ -33,6 +33,9 @@ export async function GET(req: NextRequest) {
   const fromStr = toDateStr(from);
 
   try {
+    // Release unpaid walk-ins and expired holds first, so a date a forgotten
+    // walk-in was holding shows as open (lib/rebooking.server.ts).
+    await sweepExpired();
     const db = getSupabaseAdmin();
 
     /* Every booking still running on or after `from`, judged by its LAST

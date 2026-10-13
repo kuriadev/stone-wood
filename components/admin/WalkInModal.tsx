@@ -20,8 +20,9 @@ import { useToast } from "@/contexts/ToastContext";
 import { fmt } from "@/lib/utils";
 import { getPackageTier, checkRangeAvailability, isRoomOpen, roomsTakenInRange, daysInRange, fmtDate } from "@/lib/utils";
 import { MAX_STAY_DAYS } from "@/lib/validators";
+import { UNPAID_HOLD_HOURS } from "@/lib/rebooking";
 import { priceBooking, bookingLabel } from "@/lib/pricing";
-import { SLOTS } from "@/lib/resort";
+import { SLOTS, multiDayProblem } from "@/lib/resort";
 import { manilaDate } from "@/lib/finance";
 import {
   sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail,
@@ -97,7 +98,7 @@ export function WalkInModal({
   // the quote engine applies server-side (lib/bookingQuote.ts).
   const tier: BookingTier = isPkg
     ? pkg!.status
-    : !usesPool
+    : resource !== "Pool" || slot === "WholeDay"
       ? "Exclusive"
       : (tierChoice ?? getPackageTier(guests));
 
@@ -105,10 +106,17 @@ export function WalkInModal({
   // what staff should prepare for, not a locked 30. Switching to Exclusive
   // seeds a sensible number; the desk can type over it.
   useEffect(() => {
-    if (!isPkg && usesPool && tier === "Exclusive") set("guests", String(EXCLUSIVE_DEFAULT_GUESTS));
+    // Only when the desk picks Exclusive, not when the venue or a
+    // Staycation forces it on a group whose size is already known.
+    if (!isPkg && resource === "Pool" && slot !== "WholeDay" && tier === "Exclusive") set("guests", String(EXCLUSIVE_DEFAULT_GUESTS));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tier, isPkg, usesPool]);
 
+  // A Staycation includes the resort, never the hall alone (lib/pricing.ts).
+  const stayVenueOnly = !isPkg && slot === "WholeDay" && resource === "Venue";
+  // Only a Staycation spans dates. The window let the desk pick a Day Tour
+  // over three days, and the server then refused it on Save.
+  const tourTooLong = multiDayProblem(slot, stayDays);
   const capacity = wf.date
     ? checkRangeAvailability(wf.date, lastDay, slot, guests, tier, resource, bookings, facilities, overtime)
     : { ok: true as const };
@@ -174,7 +182,7 @@ export function WalkInModal({
       walkInPackageCode: pkg?.code,
     }]);
     toast(payChoice === "None"
-      ? `Walk-in saved for ${wf.name}. It stays Pending until they pay.`
+      ? `Walk-in saved for ${wf.name}. It stays Pending until they pay, and the date is released if nothing is paid within ${UNPAID_HOLD_HOURS} hours.`
       : `Walk-in saved for ${wf.name}. ${fmt(payNow)} recorded in Sales.`, "success");
     onClose();
   };
@@ -198,7 +206,7 @@ export function WalkInModal({
             {" · "}
             {payChoice === "None" ? "nothing collected yet" : <>collecting <strong style={{ color: "#2e9e4e" }}>{fmt(payNow)}</strong> now by {method}</>}
           </div>
-          <ActionButton kind="primary" icon="check" onClick={save} disabled={stayTooLong}>Save reservation</ActionButton>
+          <ActionButton kind="primary" icon="check" onClick={save} disabled={stayTooLong || stayVenueOnly || !!tourTooLong}>Save reservation</ActionButton>
         </div>
       }
     >
@@ -227,9 +235,11 @@ export function WalkInModal({
                 charges for each of them. */}
             <Label htmlFor="wi-end-date">Last day (leave blank for one day)</Label>
             <Input id="wi-end-date" type="date" min={wf.date} value={wf.endDate} onChange={(e) => set("endDate", e.target.value)} style={inp} />
-            <p style={{ color: stayTooLong ? "#d44" : C.textS, fontSize: 12, margin: "6px 0 0", lineHeight: 1.5 }}>
+            <p style={{ color: stayTooLong || tourTooLong ? "#d44" : C.textS, fontSize: 12, margin: "6px 0 0", lineHeight: 1.5 }}>
               {stayTooLong
                 ? `A booking can run for at most ${MAX_STAY_DAYS} days.`
+                : tourTooLong
+                ? tourTooLong
                 : stayDays > 1
                   ? `${stayDays} days, ${fmtDate(wf.date)} to ${fmtDate(lastDay)}. Every day is charged.`
                   : "One day."}
@@ -296,7 +306,13 @@ export function WalkInModal({
               </div>
               <div>
                 <Label>Pool use</Label>
-                {usesPool ? (
+                {usesPool && (slot === "WholeDay" || resource === "Pool+Venue") ? (
+                  <p style={{ color: C.textS, fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.5 }}>
+                    {resource === "Pool+Venue"
+                      ? "Exclusive. With the events venue, the whole resort is theirs."
+                      : `Exclusive. A ${SLOTS.WholeDay.label} is never shared.`}
+                  </p>
+                ) : usesPool ? (
                   <ChoiceButtons<BookingTier> value={tier} onChange={setTierChoice} size="sm" options={[
                     { value: "Shared", label: "Shared" },
                     { value: "Exclusive", label: "Exclusive" },
@@ -313,11 +329,16 @@ export function WalkInModal({
           <div>
             <Label>When</Label>
             {pkg?.slotMode === "WholeDay" ? (
-              <p style={{ color: C.textH, fontSize: 13.5, margin: 0 }}>Whole day · {SLOTS.WholeDay.hours}</p>
+              <p style={{ color: C.textH, fontSize: 13.5, margin: 0 }}>{SLOTS.WholeDay.label} · {SLOTS.WholeDay.hours}</p>
             ) : (
               <ChoiceButtons<BookingSlot> value={slot} size="sm"
                 onChange={(t) => set("slot", t)}
                 options={((isPkg ? ["Day", "Night"] : ["Day", "Night", "WholeDay"]) as BookingSlot[]).map((t) => ({ value: t, label: SLOTS[t].label, hint: SLOTS[t].hours }))} />
+            )}
+            {stayVenueOnly && (
+              <p style={{ color: "#d44", fontSize: 12, margin: "6px 0 0", lineHeight: 1.5 }}>
+                A {SLOTS.WholeDay.label} includes the resort. Choose the pool, or the pool + events venue.
+              </p>
             )}
           </div>
 

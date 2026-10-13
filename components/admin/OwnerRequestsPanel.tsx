@@ -1,8 +1,10 @@
 "use client";
 
-/* Requests to the owner, at the top of the Dashboard.
+/* Approvals, at the top of the Dashboard. It folds away like a dropdown
+ * (FoldHeader), but the header and its count always stay on screen, and the
+ * super admin always sees it.
  *
- * Owner: every pending request, each one line the owner can decide on
+ * Super admin: every pending request, each one line they can decide on
  * ("Void the ₱2,000 GCash payment on SW-10150 (Juan)") with who asked and
  * why. Approve runs it — the same route the owner's own button would — and
  * Decline sends a note back. Nothing reaches the guest until then.
@@ -10,16 +12,21 @@
  * Front desk: what they sent, and what happened to it, so nobody has to
  * walk over and ask "did you see my refund?".
  *
- * Hidden when there is nothing to show.
+ * Guest reschedules waiting for a decision are counted here too, with a
+ * button to the Reschedules list, so every approval starts in one place.
+ *
+ * The super admin always sees the panel ("Nothing waiting" when empty);
+ * front desk sees it once they have sent something.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
 import { useStaff } from "@/contexts/StaffContext";
 import { useToast } from "@/contexts/ToastContext";
 import { ActionButton, ConfirmDialog, Label, StatusBadge, useAdminStyle } from "@/components/admin/ui";
 import { Textarea } from "@/components/ui/textarea";
 import { Icon } from "@/components/common/Icon";
+import { FoldHeader, useFold } from "@/components/admin/FoldHeader";
 import { manilaTime } from "@/lib/finance";
 import type { OwnerRequest } from "@/types/admin";
 
@@ -27,26 +34,19 @@ const STATUS_COLOR: Record<OwnerRequest["status"], string> = {
   Pending: "#e0a020", Approved: "#2e9e4e", Declined: "#e55", Withdrawn: "#888",
 };
 
-export function OwnerRequestsPanel({ mob }: { mob: boolean }) {
+export function OwnerRequestsPanel({ mob, reschedules = 0, onReviewReschedules }: {
+  mob: boolean;
+  /** Guest date changes waiting for the super admin (Dashboard → Reschedules). */
+  reschedules?: number;
+  onReviewReschedules?: () => void;
+}) {
   const { C, cBr, cBg, inp } = useAdminStyle();
   const ops = useOps();
   const { can, staffEnabled } = useStaff();
   const { toast } = useToast();
   const isOwner = can("requests.decide");
-  const { me } = useStaff();
   const [busy, setBusy] = useState<number | null>(null);
-  /* Folded away or open, like a dropdown: the arrow at the top right. Each
-     person's choice is remembered on this browser. Folding only tucks the
-     list away — the count stays in the header, nothing is removed. */
-  const openKey = `sw_requests_open:${me?.id ?? "me"}`;
-  const [open, setOpen] = useState(true);
-  useEffect(() => {
-    try { const v = localStorage.getItem(openKey); if (v !== null) setOpen(v === "1"); } catch { /* none */ }
-  }, [openKey]);
-  const toggle = () => setOpen((o) => {
-    try { localStorage.setItem(openKey, o ? "0" : "1"); } catch { /* private mode */ }
-    return !o;
-  });
+  const [open, toggle] = useFold("requests");
   const [declining, setDeclining] = useState<OwnerRequest | null>(null);
   /* Approving carries out a refund, a void or a cancellation, so it asks. */
   const [approving, setApproving] = useState<OwnerRequest | null>(null);
@@ -60,7 +60,8 @@ export function OwnerRequestsPanel({ mob }: { mob: boolean }) {
   const answered = isOwner ? [] : ops.requests
     .filter((r) => (r.status === "Approved" || r.status === "Declined") && (r.decidedAt ?? r.requestedAt) >= recent)
     .slice(0, 5);
-  if (pending.length === 0 && answered.length === 0) return null;
+  const waiting = pending.length + (isOwner ? reschedules : 0);
+  if (!isOwner && pending.length === 0 && answered.length === 0) return null;
 
   const approve = async (r: OwnerRequest) => {
     setBusy(r.id);
@@ -82,7 +83,7 @@ export function OwnerRequestsPanel({ mob }: { mob: boolean }) {
         <p style={{ color: C.textH, fontSize: 14, margin: 0, lineHeight: 1.55 }}>{r.summary}</p>
         {r.reason && <p style={{ color: C.textS, fontSize: 13, margin: "4px 0 0" }}>Reason: {r.reason}</p>}
         {r.status !== "Pending" && r.decisionNote && (
-          <p style={{ color: C.textB, fontSize: 13, margin: "4px 0 0" }}>{r.decidedByName ?? "Owner"}: {r.decisionNote}</p>
+          <p style={{ color: C.textB, fontSize: 13, margin: "4px 0 0" }}>{r.decidedByName ?? "Super admin"}: {r.decisionNote}</p>
         )}
         {r.status === "Pending" && r.lastError && (
           <p style={{ color: "var(--sw-danger-ink)", fontSize: 12.5, margin: "6px 0 0", display: "flex", gap: 6 }}>
@@ -110,33 +111,35 @@ export function OwnerRequestsPanel({ mob }: { mob: boolean }) {
   );
 
   return (
-    <section aria-labelledby="owner-requests" style={{ border: `1px solid ${pending.length && isOwner ? "#e0a02088" : cBr}`, borderRadius: 12, background: cBg, padding: open ? "16px 20px 4px" : "16px 20px", marginBottom: 24 }}>
-      {/* The whole header opens and closes the box; the arrow at the top
-          right says which way it will go. */}
-      <button type="button" onClick={toggle} aria-expanded={open} aria-controls="owner-requests-list" className="sw-hit"
-        style={{ background: "none", border: "none", padding: 0, margin: 0, font: "inherit", color: "inherit", textAlign: "left", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-        <Icon name="handshake" size={17} style={{ color: "#e0a020", flexShrink: 0 }} />
-        <h2 id="owner-requests" style={{ margin: 0, fontSize: 15, fontWeight: 600, color: C.textH, flex: 1, minWidth: 0 }}>
-          {isOwner ? `Waiting for your approval${pending.length ? ` (${pending.length})` : ""}` : "Your requests to the owner"}
-          {!open && !isOwner && (
-            <span style={{ color: C.textS, fontWeight: 400, fontSize: 13 }}>
-              {" "}· {[pending.length ? `${pending.length} waiting` : "", answered.length ? `${answered.length} answered` : ""].filter(Boolean).join(", ")}
-            </span>
-          )}
-        </h2>
-        <span aria-hidden style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${cBr}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: C.textB, flexShrink: 0 }}>
-          <Icon name={open ? "chevron-up" : "chevron-down"} size={16} />
-        </span>
-        <span className="sr-only">{open ? "Fold away" : "Show"}</span>
-      </button>
-      {open && (
-        <div id="owner-requests-list">
+    <section aria-labelledby="owner-requests" style={{ border: `1px solid ${waiting && isOwner ? "#e0a02088" : cBr}`, borderRadius: 12, background: cBg, padding: open && (waiting || answered.length) ? "16px 20px 4px" : "16px 20px", marginBottom: 24 }}>
+      <FoldHeader id="owner-requests" icon="handshake" iconColor="#e0a020" open={open} onToggle={toggle}
+        title={isOwner ? `Waiting for your approval${waiting ? ` (${waiting})` : ""}` : "Your requests to the super admin"}
+        folded={isOwner
+          ? (waiting ? null : "nothing waiting")
+          : [pending.length ? `${pending.length} waiting` : "", answered.length ? `${answered.length} answered` : ""].filter(Boolean).join(", ")} />
+      {!open ? null : isOwner && waiting === 0 ? (
+        <p style={{ color: C.textS, fontSize: 13, margin: "6px 0 0" }}>Nothing waiting for your approval.</p>
+      ) : (
+        <div id="owner-requests-body">
           <p style={{ color: C.textS, fontSize: 12.5, margin: "6px 0 10px" }}>
             {isOwner
               ? "Front desk can't refund, void, cancel or remove records on their own. Approving does it now, exactly as if you had pressed the button."
-              : "These happen only once the owner approves them. Answers stay here for three days; all of them are in Activity History."}
+              : "These happen only once the super admin approves them. Answers stay here for three days; all of them are in Activity History."}
           </p>
           <ul style={{ margin: 0, padding: 0 }}>
+            {isOwner && reschedules > 0 && (
+              <li style={{ listStyle: "none", borderTop: `1px solid ${cBr}`, padding: "14px 0", display: "flex", gap: 16, alignItems: "center", flexWrap: mob ? "wrap" : "nowrap" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <StatusBadge color="#e0a020">Reschedule</StatusBadge>
+                  <p style={{ color: C.textH, fontSize: 14, margin: "4px 0 0", lineHeight: 1.55 }}>
+                    {reschedules} guest{reschedules === 1 ? " wants" : "s want"} a new date. The date is held for them while you decide.
+                  </p>
+                </div>
+                {onReviewReschedules && (
+                  <ActionButton size="sm" kind="primary" icon="calendar" onClick={onReviewReschedules}>Review</ActionButton>
+                )}
+              </li>
+            )}
             {pending.map(row)}
             {answered.map(row)}
           </ul>

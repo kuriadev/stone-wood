@@ -202,7 +202,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  // Others' removals go to the owner as a request.
+  // Others' removals go to the super admin as a request.
   const denied = await requirePermission(req, "facilities.delete");
   if (denied) return denied;
 

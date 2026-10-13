@@ -9,15 +9,20 @@
 //   • the date is freed and their payment stays with the booking
 //   • they're emailed, and the owner can text them from the next screen
 //   • on their booking page they pick a new date within GUEST_CHOICE_DAYS;
-//     it comes to Daily Operations → Reschedules for the owner to approve
+//     it comes to Dashboard → Reschedules for the owner to approve
 //   • a refund instead is arranged with the owner by call or chat
 //
 // So a paying guest is never just "rejected" and left wondering where
 // their money went. (/api/bookings/[id]/resort-cancel does the work.)
+//
+// A walk-in that never paid is different: there is no money to hold and
+// nothing to rebook, so it is simply cancelled, as the 24-hour release
+// would do, only sooner.
 
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { useOps } from "@/contexts/OpsContext";
+import { useStaff } from "@/contexts/StaffContext";
 import { useToast } from "@/contexts/ToastContext";
 import { bookingMoney } from "@/lib/finance";
 import { GUEST_CHOICE_DAYS } from "@/lib/rebooking";
@@ -46,7 +51,9 @@ export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onC
   const { C, cBr, soft, inp } = useAdminStyle();
   const ops = useOps();
   const { toast } = useToast();
+  const staff = useStaff();
   const paid = Math.max(0, bookingMoney(booking, ops.payments, ops.damages).paid);
+  const unpaidWalkIn = booking.source === "Walk-In" && booking.status === "Pending" && paid === 0;
 
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -56,10 +63,16 @@ export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onC
   const confirm = async () => {
     setError("");
     setBusy(true);
-    const r = await ops.resortCancel(booking.id, reason.trim());
+    const r = unpaidWalkIn
+      ? await ops.cancelUnpaid(booking.id, reason.trim())
+      : await ops.resortCancel(booking.id, reason.trim());
     setBusy(false);
     // Front desk: sent to the owner instead (already said on screen).
     if (!r.ok) return r.requested ? onClose() : setError(r.error);
+    if (unpaidWalkIn) {
+      toast(`${booking.id} cancelled. The date is open again.`, "warning");
+      return onClose();
+    }
     toast(`${booking.id} cancelled. ${booking.name} will choose a new date or a refund.`, "warning");
     setDone({ sms: String(r.data?.sms ?? ""), emailed: r.data?.emailed === true });
   };
@@ -75,6 +88,27 @@ export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onC
         </p>
         {done.sms && <TextGuest booking={booking} message={done.sms} about="the cancellation" />}
       </Modal>
+    );
+  }
+
+  if (unpaidWalkIn) {
+    return (
+      <ConfirmDialog title="Cancel this walk-in?" description={`${booking.name} · ${booking.id} · ${fmtDate(booking.date)}`}
+        onCancel={onClose} cancelLabel="Go back" width={560}
+        confirm={<ActionButton kind="red" disabled={busy || reason.trim().length < 3} onClick={confirm}>{busy ? "Saving…" : "Cancel walk-in"}</ActionButton>}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div>
+            <Label htmlFor="cancel-reason">Reason</Label>
+            <Textarea id="cancel-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. The group decided not to stay." style={{ ...inp, resize: "none" }} />
+          </div>
+          <p style={{ color: C.textB, fontSize: 13, margin: 0, lineHeight: 1.6 }}>
+            Nothing was paid, so there is no new date or refund to offer. The date opens up for other guests.
+            {!staff.can("bookings.cancel") && " It is sent to the super admin for approval first."}
+          </p>
+          <ErrorNote>{error}</ErrorNote>
+        </div>
+      </ConfirmDialog>
     );
   }
 
@@ -101,7 +135,7 @@ export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onC
           <strong style={{ color: C.textH, display: "block", marginBottom: 4 }}>What happens next</strong>
           The date opens up for other guests.{" "}
           {paid > 0 ? <>The <strong style={{ color: C.textH }}>{fmt(paid)}</strong> they paid stays with the booking. </> : null}
-          {booking.name} gets {GUEST_CHOICE_DAYS} days to pick a new date on their booking page. The date they pick comes to Daily Operations → Reschedules for you to approve before it&apos;s confirmed.
+          {booking.name} gets {GUEST_CHOICE_DAYS} days to pick a new date on their booking page. The date they pick comes to Dashboard → Reschedules for {staff.can("reschedules.decide") ? "you" : "the super admin"} to approve before it&apos;s confirmed.
           {paid > 0 && <> If they&apos;d rather have a refund, they&apos;ll call or message you to arrange it.</>}
         </div>
         <ErrorNote>{error}</ErrorNote>

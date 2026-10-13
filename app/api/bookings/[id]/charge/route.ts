@@ -1,6 +1,6 @@
 // ── POST /api/bookings/[id]/charge → add a charge on the day      (admin only)
 //
-// Body: { kind: "overtime" | "guests" | "room", hours?, guests?, roomId? }
+// Body: { kind: "overtime" | "guests" | "room" | "venue", hours?, guests?, roomId? }
 //
 // Overtime, extra guests or a room the group took at the resort (see
 // lib/charges.ts for the rules and prices). The price is worked out here from
@@ -8,7 +8,9 @@
 // the day with the change (checkFits: no overtime into a booked Night slot, no
 // overbooking the shared pool, no room someone else has). The booking's
 // total goes up by the charge; the money is collected like any balance, so it
-// reaches Sales and the day's cash count by the usual route.
+// reaches Payments & Expenses and the day's cash count by the usual route.
+// A room or the events venue also renames a custom booking ("Day Tour" →
+// "Day Tour + Event Venue"), so the lists say what the group has now.
 //
 // Allowed until the booking is settled (Completed): overtime is usually
 // noticed as the group checks out. Every charge is in the activity log.
@@ -18,9 +20,11 @@ import { getSupabaseAdmin, rowToBooking, rowToRoom } from "@/lib/supabase";
 import { requirePermission } from "@/lib/auth";
 import { checkFits } from "@/lib/rebooking.server";
 import { priceCharge, type ChargeRequest } from "@/lib/charges";
+import { bookingLabel } from "@/lib/pricing";
 import { logActivity } from "@/lib/activity.server";
-import { fmt } from "@/lib/utils";
+import { fmt, getBookingResource, getBookingSlot } from "@/lib/utils";
 import type { BookingRow, RoomRow } from "@/types/database";
+import type { BookingResource } from "@/types/booking";
 
 export const dynamic = "force-dynamic";
 
@@ -63,10 +67,16 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (!fits.ok) return no(fits.error);
 
     const total = b.total + priced.amount;
+    // Only a name this system made up is redone; a package keeps its title.
+    const slot = getBookingSlot(b);
+    const made = (resource: BookingResource, rooms: unknown[]) => bookingLabel({ resource, slot, hasRoom: rooms.length > 0 });
+    const label = b.package === made(getBookingResource(b), b.rooms ?? [])
+      ? made(priced.next.resource ?? getBookingResource(b), priced.next.rooms ?? [])
+      : b.package;
     // Only if nothing changed the booking since it was read, so a double
     // click can't add the same charge twice.
     const { data, error } = await db.from("bookings")
-      .update({ overtime: priced.next.overtime, guests: priced.next.guests, rooms: priced.next.rooms, total })
+      .update({ overtime: priced.next.overtime, guests: priced.next.guests, rooms: priced.next.rooms, resource: priced.next.resource, package: label, total })
       .eq("id", b.id).eq("total", b.total).in("status", ["Pending", "Confirmed"])
       .select().maybeSingle();
     if (error) throw new Error(error.message);

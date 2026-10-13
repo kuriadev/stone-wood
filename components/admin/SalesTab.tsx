@@ -385,7 +385,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
         </div>
       )}
       <p style={{ color: C.textS, fontSize: 13, marginTop: 0 }}>
-        Online guests pay the remaining balance on the day of their visit, normally when the booking is settled in Daily Operations. Money that comes in later is recorded here.
+        Online guests pay the remaining balance on the day of their visit, normally when the booking is settled on the Dashboard. Money that comes in later is recorded here.
       </p>
       <TableShell head={["Booking", "Guest", "Visit", "Status", "Total", "Paid", "Balance", "Penalty", "Owed", ""]} minWidth={940}
         empty={sorted.length === 0 ? "Nothing to collect. Every booking is paid up." : undefined}>
@@ -442,7 +442,7 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
   return (
     <div>
       <p style={{ color: C.textS, fontSize: 13, marginTop: 0 }}>
-        Each booking settled in Daily Operations: the stay and any damage penalties, against what was paid. The daily cash count is under Daily liquidation.
+        Each booking settled on the Dashboard: the stay and any damage penalties, against what was paid. The daily cash count is under Daily liquidation.
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginBottom: 16 }}>
         <StatCard label="Settled bookings" value={settled.length} />
@@ -878,7 +878,7 @@ export function Closing({ onAct, initialDate }: {
               </li>
             ))}
           </ul>
-          {!onAct && <p style={{ color: C.textS, fontSize: 12.5, margin: "8px 0 0" }}>Finish them in Daily Operations, then come back to close the day.</p>}
+          {!onAct && <p style={{ color: C.textS, fontSize: 12.5, margin: "8px 0 0" }}>Finish them on the Dashboard, then come back to close the day.</p>}
         </section>
       )}
 
@@ -965,7 +965,7 @@ export function Closing({ onAct, initialDate }: {
                   ))}
                 </ul>
                 <p style={{ color: C.textXS, fontSize: 11.5, margin: "8px 0 0", lineHeight: 1.5 }}>
-                  Recorded as Cash by mistake? Void it in Sales → Transactions (or Expenses) and record it again with the right method.
+                  Recorded as Cash by mistake? Undo it under Transactions (or Expenses) and record it again with the right method.
                 </p>
               </details>
             </>

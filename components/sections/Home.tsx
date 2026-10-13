@@ -40,7 +40,7 @@ interface HomeProps {
   /** Shown as a coverflow deck. Empty while the first fetch is in flight, and
    *  the whole section is skipped then rather than rendering an empty deck. */
   rooms: Room[];
-  onBookWithDate: (d: string, opts?: { slot?: BookingSlot; guests?: number; endDate?: string }) => void;
+  onBookWithDate: (d: string, opts?: { slot?: BookingSlot; guests?: number; endDate?: string; tier?: BookingTier }) => void;
   bookings: Booking[];
   closedDates: string[];
   /** True while that package list is still on its first fetch and nothing
@@ -191,8 +191,8 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
   const [pkgGroup, setPkgGroup] = useState("DAY OR NIGHT");
 
   const groupOf = (p: ResortPackage) =>
-    p.resource !== "Pool" ? "EVENTS & CELEBRATIONS" : p.slotMode === "WholeDay" ? "WHOLE DAY" : "DAY OR NIGHT";
-  const packageGroups = ["DAY OR NIGHT", "WHOLE DAY", "EVENTS & CELEBRATIONS"]
+    p.resource !== "Pool" ? "EVENTS & CELEBRATIONS" : p.slotMode === "WholeDay" ? "STAYCATION" : "DAY OR NIGHT";
+  const packageGroups = ["DAY OR NIGHT", "STAYCATION", "EVENTS & CELEBRATIONS"]
     .map((label) => ({
       label,
       tiers: visiblePackages.map((p, i) => ({ p, i })).filter(({ p }) => groupOf(p) === label),

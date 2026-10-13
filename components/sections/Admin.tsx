@@ -75,6 +75,8 @@ import type { InventoryItem } from "@/types/inventory";
 import type { ResortPackage } from "@/types/package";
 import { Badge } from "@/components/ui/badge";
 
+/** What a calendar tile can say in the space it has. */
+const CAL_TILE_LABEL: Record<string, string> = { ResortCancelled: "New date" };
 
 interface AdminProps {
   bookings: Booking[];
@@ -400,7 +402,7 @@ export function Admin({
         <div key={bk.id} style={{ marginTop: bi ? 12 : 0, paddingTop: bi ? 12 : 0, borderTop: bi ? `1px solid ${cBr}` : "none" }}>
           <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600, marginBottom: 4 }}>{bk.name}</div>
           <div style={{ color: C.textS, fontSize: 12, marginBottom: 8 }}>
-            {bk.guests} guests{typeof bk.package === "string" && bk.package ? ` · ${bk.package}` : ""}
+            {bk.guests} guest{bk.guests === 1 ? "" : "s"}{typeof bk.package === "string" && bk.package ? ` · ${bk.package}` : ""}
           </div>
           <span style={{ color: statusTone(bk.status), fontSize: 11, fontWeight: 700, letterSpacing: 0.6 }}>
             {bk.status.toUpperCase()}
@@ -419,7 +421,9 @@ export function Admin({
   /* Closing or reopening a date changes what guests can book, and a date
      cell is one mis-tap wide, so the click asks first. */
   const [closeAsk, setCloseAsk] = useState<string | null>(null);
-  const toggleClosed = (ds: string) => setCloseAsk(ds);
+  // Caretakers only look: closing a date is the owner's, or front desk's to ask for.
+  const canCloseDates = staff.can("calendar.manage") || staff.canRequest("calendar.manage");
+  const toggleClosed = (ds: string) => { if (canCloseDates) setCloseAsk(ds); };
   const applyClosed = (ds: string) => {
     // Closing or reopening a date changes what guests can book: the
     // owner's call. Anyone else's click is sent to them as a request.
@@ -430,7 +434,7 @@ export function Admin({
         headers: closing ? { "Content-Type": "application/json" } : undefined,
         body: closing ? JSON.stringify({ date: ds }) : undefined,
       }).then((r) => r.json()).then((json) => {
-        toast(json?.requested ? `${closing ? "Closing" : "Reopening"} ${fmtDate(ds)} was sent to the owner for approval.` : (json?.error ?? "Could not send that."), json?.requested ? "info" : "error");
+        toast(json?.requested ? `${closing ? "Closing" : "Reopening"} ${fmtDate(ds)} was sent to the super admin for approval.` : (json?.error ?? "Could not send that."), json?.requested ? "info" : "error");
         void ops.refresh();
       }).catch(() => toast("No connection to the server.", "error"));
       return;
@@ -1024,7 +1028,11 @@ export function Admin({
               <div style={{ marginBottom: 28 }}>
                 <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>CALENDAR VIEW</p>
                 <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 8px" }}>{ADMIN_TAB_LABEL.Occupancy}</h2>
-                <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>Click a date to toggle it as closed.</p>
+                <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>
+                  {staff.can("calendar.manage") ? "Click a free date to close it, or a closed date to reopen it."
+                    : canCloseDates ? "Click a free date to ask the super admin to close it, or a closed date to reopen it."
+                    : "View only. The super admin and front desk close and reopen dates."}
+                </p>
               </div>
               {closeAsk && (() => {
                 const closing = !closedDates.includes(closeAsk);
@@ -1105,7 +1113,7 @@ export function Admin({
                       color: col, 
                       fontSize: mob ? 12.5 : 14.5, 
                       cursor:
-                        isPast
+                        isPast || !canCloseDates
                           ? "default"
                           : ["Confirmed", "Pending", "Completed"].includes(status || "")
                           ? "default"
@@ -1114,7 +1122,7 @@ export function Admin({
                       transition: "all .15s", 
                       position: "relative" }}>
                       {d}
-                      {status && <div style={{ fontSize: 11, marginTop: 4, opacity: 0.85, letterSpacing: 0.4, lineHeight: 1.2, overflowWrap: "anywhere" }}>{status.toUpperCase()}</div>}
+                      {status && <div style={{ fontSize: 11, marginTop: 4, opacity: 0.85, letterSpacing: 0.4, lineHeight: 1.2, overflowWrap: "anywhere" }}>{(CAL_TILE_LABEL[status] ?? status).toUpperCase()}</div>}
 
                       {hoverDay === ds && showDayCard && dayCard(ds, dayBookings, colIdx, cardAbove)}
                     </div>

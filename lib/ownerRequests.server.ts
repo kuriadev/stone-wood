@@ -18,6 +18,7 @@ import { logActivity } from "@/lib/activity.server";
 import { trySendMail } from "@/lib/mailer";
 import { adminNotifyTo, buildOwnerRequestAlert } from "@/lib/adminNotify";
 import { fmt, fmtDate } from "@/lib/utils";
+import { payMethodLabel, payTypeLabel } from "@/lib/labels";
 import { REQUEST_LABEL, type Permission } from "@/lib/permissions";
 import { missingStaffTable, type StaffIdentity } from "@/lib/staff.server";
 import type { BookingRow, ExpenseRow, PaymentRow } from "@/types/database";
@@ -117,9 +118,11 @@ async function describe(perm: Permission, path: string, body: unknown, bookingId
         const id = queryId(path);
         const { data } = id ? await db.from("payments").select("*").eq("id", id).maybeSingle() : { data: null };
         const p = data as PaymentRow | null;
-        return p
-          ? `Void the ${fmt(Number(p.amount))} ${p.method} ${p.type.toLowerCase()} payment${p.booking_id ? ` on ${p.booking_id}` : ""} (${p.guest_name}).`
-          : "Void a payment.";
+        if (!p) return "Void a payment.";
+        // "down payment", "full payment", "damage fee" — and "balance payment".
+        const kind = payTypeLabel(p.type).toLowerCase();
+        const what = /payment|fee|refund/.test(kind) ? kind : `${kind} payment`;
+        return `Void the ${fmt(Number(p.amount))} ${payMethodLabel(p.method)} ${what}${p.booking_id ? ` on ${p.booking_id}` : ""} (${p.guest_name}).`;
       }
       case "expenses.void": {
         const id = queryId(path);
@@ -195,8 +198,8 @@ export async function createOwnerRequest(input: {
     .eq("status", "Pending").eq("kind", perm);
   if (pending.error) {
     return missingStaffTable(pending.error)
-      ? { ok: false, missingTable: true, error: "Only the owner can do this. (Requests to the owner switch on once the database update is applied.)" }
-      : { ok: false, error: "Could not send this to the owner. Try again." };
+      ? { ok: false, missingTable: true, error: "Only the super admin can do this. (Requests to the super admin switch on once the database update is applied.)" }
+      : { ok: false, error: "Could not send this to the super admin. Try again." };
   }
   const dup = (pending.data as OwnerRequestRow[]).find((r) => sameAs(r, perm, method, path, bookingId, body));
   if (dup) return { ok: true, id: dup.id, duplicate: true, summary: dup.summary };
@@ -216,7 +219,7 @@ export async function createOwnerRequest(input: {
   }).select("id").single();
   if (error) {
     console.error("[owner_requests] insert:", error.message);
-    return { ok: false, error: "Could not send this to the owner. Try again." };
+    return { ok: false, error: "Could not send this to the super admin. Try again." };
   }
   let id = (data as { id: number }).id;
 
@@ -234,7 +237,7 @@ export async function createOwnerRequest(input: {
 
   await logActivity({
     actor: "Admin", action: "request.created", bookingId, entity: "owner_request", entityId: id,
-    summary: `${who.name} asked the owner: ${summary}${reason ? ` Reason: ${reason}` : ""}`,
+    summary: `${who.name} asked the super admin: ${summary}${reason ? ` Reason: ${reason}` : ""}`,
     details: { kind: perm, method, path },
   });
   if (EMAILED.has(perm)) {

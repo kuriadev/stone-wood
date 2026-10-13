@@ -149,8 +149,8 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
   const rows = (status === "All" ? filteredNoStatus : filteredNoStatus.filter((b) => b.status === status))
     .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
   const paged = usePaged(rows);
-  const filtersOn = source !== "All" || slot !== "All" || !!from || !!to || !!q;
-  const clear = () => { setSource("All"); setSlot("All"); setFrom(""); setTo(""); setSearch(""); };
+  const filtersOn = status !== "All" || source !== "All" || slot !== "All" || !!from || !!to || !!q;
+  const clear = () => { setStatus("All"); setSource("All"); setSlot("All"); setFrom(""); setTo(""); setSearch(""); };
 
   const viewing = bookings.find((b) => b.id === viewId) ?? null;
 
@@ -218,7 +218,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
       setWorking(false);
       setPicked(new Set());
       setBulk(null);
-      toast(`Sent ${asked.length} deletion${asked.length === 1 ? "" : "s"} to the owner for approval.`, "info");
+      toast(`Sent ${asked.length} deletion${asked.length === 1 ? "" : "s"} to the super admin for approval.`, "info");
       return;
     }
     if (gone.length) {
@@ -307,7 +307,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
       </div>
 
       <TableShell head={[selectAllBox, "ID", "Guest", "Visit", "Package", "Source", "Total", "Paid", "Status", ""]} minWidth={1060}
-        empty={rows.length === 0 ? (filtersOn ? "No bookings match these filters." : status === "All" ? "No bookings yet." : `No ${status.toLowerCase()} bookings.`) : undefined}>
+        empty={rows.length === 0 ? (filtersOn ? "No bookings match these filters." : "No bookings yet.") : undefined}>
         {paged.rows.map((b, i) => {
           const m = bookingMoney(b, ops.payments, ops.damages);
           const s = SLOTS[getBookingSlot(b)];
@@ -582,7 +582,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                     <div style={{ color: p.type === "Refund" ? "#d44" : C.textH, fontWeight: 600, textDecoration: p.voided ? "line-through" : "none" }}>{p.type === "Refund" ? "−" : ""}{fmt(p.amount)}</div>
                   </div>
                 ))}
-                {livePayments(pays).length > 0 && <p style={{ color: C.textS, fontSize: 12, marginTop: 8 }}>To correct a payment, void it in Sales → Transactions.</p>}
+                {livePayments(pays).length > 0 && <p style={{ color: C.textS, fontSize: 12, marginTop: 8 }}>To correct a payment, undo it in Payments &amp; Expenses → Transactions.</p>}
               </div>
             </div>
             <div style={{ marginTop: 20 }}><BookingHistory bookingId={b.id} /></div>

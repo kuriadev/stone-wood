@@ -7,13 +7,15 @@
 // Pure data: safe to import from client components and from the server.
 
 import type { BookingSlot } from "@/types/booking";
+import { manilaNow } from "@/lib/validators";
 
 export interface SlotInfo {
   id: BookingSlot;
   label: string;
   start: string;
   end: string;
-  /** "7:00 AM – 5:00 PM", or "7:00 PM – 5:00 AM (next day)". */
+  /** "7:00 AM – 5:00 PM", or "7:00 PM – 5:00 AM, next day" (no brackets of
+   *  its own: screens print it as "Night Tour (…)"). */
   hours: string;
   /** True when the slot ends after midnight, on the following morning. */
   endsNextDay: boolean;
@@ -54,7 +56,7 @@ const slot = (
   const endsNextDay = endHour > 24;
   return {
     id, label, start, end, endsNextDay,
-    hours: `${start} – ${end}${endsNextDay ? " (next day)" : ""}`,
+    hours: `${start} – ${end}${endsNextDay ? ", next day" : ""}`,
     span, startHour, endHour,
     stay, stayHint, cycleEnd: `head home at ${end}`,
   };
@@ -110,7 +112,7 @@ export const SLOTS: Record<BookingSlot, SlotInfo> = {
   // 7:00 PM – 5:00 AM next day
   Night: slot("Night", "Night Tour", 19, 29, 1, "returns", "You come back each evening"),
   // 7:00 AM – 5:00 AM next day
-  WholeDay: slot("WholeDay", "Whole Day", 7, 29, 2, "continuous", "You stay right through"),
+  WholeDay: slot("WholeDay", "Staycation", 7, 29, 2, "continuous", "You stay right through"),
 };
 
 /** Is a run of several days in this slot one unbroken stay? */
@@ -159,6 +161,19 @@ export function stayPatternNote(id: BookingSlot, days: number): string | null {
     return `${unit}, one after another. You arrive at ${s.start} each evening and ${s.cycleEnd} — the resort is not yours during the day. Any room you book stays locked and held for you in between, so you can leave your things.`;
   }
   return `${unit}, one after another. You arrive at ${s.start} each morning and ${s.cycleEnd} — the resort is not yours overnight. Any room you book stays locked and held for you in between, so you can leave your things.`;
+}
+
+/** Today's tour can't be booked online once it has started.
+ *
+ *  The booking window opens at midnight, so a guest could pay at 9 PM for
+ *  that day's Day Tour (7 AM – 5 PM), or at 4 AM for a Night Tour that had
+ *  nearly ended. Only the first date matters: the later days of a stay are
+ *  all in the future. Walk-ins at the front desk are not held to this; the
+ *  staff can see who is actually there. */
+export function slotStartedProblem(date: string, slot: BookingSlot, at: Date = new Date()): string | null {
+  const now = manilaNow(at);
+  if (date !== now.date || now.hour < SLOTS[slot].startHour) return null;
+  return `Today's ${SLOTS[slot].label} has already started (${SLOTS[slot].start}), so it can't be booked online. Choose another date, or visit the front desk.`;
 }
 
 /** The two bookable single slots, in order. */
@@ -254,7 +269,7 @@ const twoHours = (from: number, to: number) => {
 export function applyResortValues(v: ResortValues): void {
   Object.assign(SLOTS.Day, slot("Day", "Day Tour", v.dayStart, v.dayEnd, 1, "returns", "You come back each morning"));
   Object.assign(SLOTS.Night, slot("Night", "Night Tour", v.nightStart, v.nightEnd, 1, "returns", "You come back each evening"));
-  Object.assign(SLOTS.WholeDay, slot("WholeDay", "Whole Day", v.dayStart, v.nightEnd, 2, "continuous", "You stay right through"));
+  Object.assign(SLOTS.WholeDay, slot("WholeDay", "Staycation", v.dayStart, v.nightEnd, 2, "continuous", "You stay right through"));
   TURNOVER_WINDOW = twoHours(v.dayEnd, v.nightStart);
   MORNING_TURNOVER_WINDOW = twoHours(v.nightEnd % 24, v.dayStart);
   Object.assign(RESORT_CONTACT, v.contact);

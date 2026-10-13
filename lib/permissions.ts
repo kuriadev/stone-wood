@@ -34,15 +34,15 @@ export type StaffRole = "Owner" | "FrontDesk" | "Caretaker";
 export const STAFF_ROLES: StaffRole[] = ["Owner", "FrontDesk", "Caretaker"];
 
 export const ROLE_LABEL: Record<StaffRole, string> = {
-  Owner: "Owner",
+  Owner: "Super admin",
   FrontDesk: "Front desk",
   Caretaker: "Caretaker",
 };
 
 /** One line per role, for the Staff screen. */
 export const ROLE_HINT: Record<StaffRole, string> = {
-  Owner: "Everything, including approving requests, prices and staff accounts.",
-  FrontDesk: "Bookings, walk-ins, payments, check-in, guest messages and closing the day. Refunds, voids, cancellations and removals go to the owner.",
+  Owner: "Approval and supervision. Can still do everything: approving requests, prices and staff accounts included.",
+  FrontDesk: "Bookings, walk-ins, payments, check-in, guest messages and closing the day. Refunds, voids, cancellations and removals go to the super admin.",
   Caretaker: "Preparing facilities, check-out inspections, cleaning, pool upkeep and supplies. Works from a phone.",
 };
 

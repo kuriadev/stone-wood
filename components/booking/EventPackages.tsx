@@ -46,7 +46,7 @@ const COPY: Record<StepPackageKind, {
   events: {
     eyebrow: "EVENT PACKAGES",
     heading: "Or book a ready-made celebration",
-    lede: "Fixed-price packages for the events hall. Choosing one replaces the visit above with that package.",
+    lede: "Fixed-price packages for the events hall. Pick one, then choose your date.",
     plural: "EVENTS",
     single: "EVENT PACKAGE",
     add: "ADD THIS EVENT",
@@ -55,7 +55,7 @@ const COPY: Record<StepPackageKind, {
   resort: {
     eyebrow: "RESORT PACKAGES",
     heading: "Or book a ready-made package",
-    lede: "Fixed-price packages for a resort visit. Choosing one replaces the visit above with that package.",
+    lede: "Fixed-price packages for a resort visit. Pick one, then choose your date.",
     plural: "PACKAGES",
     single: "RESORT PACKAGE",
     add: "ADD THIS PACKAGE",

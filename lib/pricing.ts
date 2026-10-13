@@ -95,24 +95,37 @@ export interface PriceBreakdown {
  *  `days` defaults to 1 so the call sites that only validate a shape (the
  *  Packages admin, /api/packages) need not pass it.
  *
- *  Whole Day USED TO BE refused unless Exclusive. That rule turned the new
- *  multi-date flow into a trap: picking three days moves a booking to the
- *  Whole Day, which then forced a ₱10,800-a-day whole-resort buyout on a
- *  family of six who only wanted the pool. A Whole Day is two slots, so
- *  Shared simply means both of them are shared — the pool still fills to
- *  the same capacity with other groups, and the resort still sells the
- *  date. It is now offered at both tiers, and getPackageTier picks the
- *  cheaper one for the group's size (Shared stops being cheaper at 27
- *  guests, where 2 x ₱200 a head passes the ₱10,800 flat rate).
+ *  A Staycation (the WholeDay slot) is Exclusive only: it promises the
+ *  resort is the group's own, right through, for up to MAX_STAY_DAYS. It
+ *  was briefly offered Shared because picking a second date used to move
+ *  a Day Tour there on its own, pushing small groups into a buyout they
+ *  never chose. The calendar no longer switches the visit type, so a guest
+ *  only reaches a Staycation by choosing it. The Day and Night Tours are
+ *  still offered at both tiers.
  *
- *  To put the old rule back, restore the refusal here — nothing else
- *  depends on it. */
+ *  A Staycation is a stay at the resort, so it is never the events venue
+ *  on its own: Resort visit, or Resort visit + Events Venue. The owner's
+ *  own packages are exempt (`isPackage`) — they decide what a package
+ *  includes, and a venue-only package at Staycation hours is theirs to
+ *  offer. */
 export function pricingProblem(
   resource: BookingResource,
   tier: BookingTier,
   slot: BookingSlot,
-  days = 1
+  days = 1,
+  isPackage = false
 ): string | null {
+  if (slot === "WholeDay" && tier !== "Exclusive") {
+    return `The ${SLOTS.WholeDay.label} is Exclusive only. Choose the Day or Night Tour to share the pool.`;
+  }
+  // Pool + Venue is an event with the resort to itself: a party in the
+  // hall beside strangers in a shared pool is the complaint it avoids.
+  if (resource === "Pool+Venue" && tier !== "Exclusive") {
+    return "Resort visit + Events Venue is Exclusive only — the whole resort is yours for the event.";
+  }
+  if (slot === "WholeDay" && resource === "Venue" && !isPackage) {
+    return `A ${SLOTS.WholeDay.label} includes the resort. Choose Resort visit, or Resort visit + Events Venue.`;
+  }
   return multiDayProblem(slot, days);
 }
 
@@ -228,7 +241,7 @@ export function bookingLabel(opts: {
   slot: BookingSlot;
   hasRoom: boolean;
 }): string {
-  const when = SLOTS[opts.slot].label; // "Day Tour" / "Night Tour" / "Whole Day"
+  const when = SLOTS[opts.slot].label; // "Day Tour" / "Night Tour" / "Staycation"
   const room = opts.hasRoom ? " + Room" : "";
   if (opts.packageTitle) return `${opts.packageTitle} (${when})`;
   if (opts.resource === "Venue") return `Event Venue Rental (${when})`;

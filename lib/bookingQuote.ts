@@ -14,6 +14,8 @@ import {
   checkRangeAvailability,
   daysInRange,
   fmtDate,
+  getPackageTier,
+  splitBookingMatch,
   isRoomOpen,
   roomsTakenInRange,
 } from "@/lib/utils";
@@ -25,7 +27,7 @@ import {
   isWithinBookingWindow, describeDateProblem, MAX_STAY_DAYS,
 } from "@/lib/validators";
 import { bookingsOverlapping } from "@/lib/rebooking.server";
-import { multiDayProblem } from "@/lib/resort";
+import { multiDayProblem, slotStartedProblem } from "@/lib/resort";
 import type { BookingRow, FacilityRow, PackageRow, RoomRow } from "@/types/database";
 import type { BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 import { ensureSettings } from "@/lib/settings.server";
@@ -62,6 +64,9 @@ export interface BookingQuote {
   /** false when the date/pool/venue/room is no longer free. */
   available: boolean;
   unavailableReason?: string;
+  /** Another booking that date under the same name, split between the
+   *  venue and a shared pool tour. Saved for staff to check, not refused. */
+  splitWarning?: string;
 }
 
 export type QuoteResult =
@@ -172,7 +177,7 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
     // exclusive pool buyout is for the resort's full capacity.
     tier = resource === "Venue"
       ? "Exclusive"
-      : TIERS.includes(d.tier as BookingTier) ? (d.tier as BookingTier) : "Shared";
+      : TIERS.includes(d.tier as BookingTier) ? (d.tier as BookingTier) : getPackageTier(1, slot, resource);
 
     guests = Math.round(Number(d.guests));
     if (!Number.isFinite(guests) || guests < GUESTS_MIN || guests > GUESTS_MAX) {
@@ -212,6 +217,10 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
   // Everyone occupying any day of the stay, holds included.
   const sameDay = overlap.others;
 
+  // Today's tour, once it has started (lib/resort.ts).
+  const started = slotStartedProblem(date, slot);
+  if (started) return bad(started, 409);
+
   // ── Availability ────────────────────────────────────────────────
   let available = true;
   let unavailableReason: string | undefined;
@@ -232,6 +241,22 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
   } else if (available && closedRoom) {
     available = false;
     unavailableReason = `${closedRoom.name} is closed for maintenance.`;
+  }
+
+  // The venue and a shared pool tour booked separately by the same guest
+  // (lib/utils.ts splitBookingMatch). Reported as unavailable, not as an
+  // error, so a guest who has already paid is still saved (as Pending).
+  let splitWarning: string | undefined;
+  if (!pkg) {
+    const split = splitBookingMatch({ resource, tier, name, email, contact }, sameDay);
+    if (split.same && available) {
+      available = false;
+      unavailableReason = resource === "Venue"
+        ? `You already have a shared pool booking that date (${split.same.id}). To have the events venue too, book "Resort visit + Events Venue" instead, or contact us to change your booking.`
+        : `You already have the events venue that date (${split.same.id}). To use the pool too, book "Resort visit + Events Venue" instead, or contact us to change your booking.`;
+    } else if (split.maybe) {
+      splitWarning = `possibly the same group as ${split.maybe.id} (same name; one has the events venue, the other a shared pool tour).`;
+    }
   }
 
   // ── Price ───────────────────────────────────────────────────────
@@ -268,6 +293,7 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
       dueNow: d.payFull === true ? price.total : price.down,
       available,
       unavailableReason,
+      splitWarning,
     },
   };
 }

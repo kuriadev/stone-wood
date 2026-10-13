@@ -101,15 +101,17 @@ export const ADMIN_TAB_LABEL: Record<AdminTab, string> = {
 export const adminTabLabel = (t: AdminTab) => ADMIN_TAB_LABEL[t] ?? t;
 
 /** Sidebar sections, top to bottom. */
+// Six sections, one per kind of work. Each role sees only the screens it can
+// open (canOpenTab), so a section with none of them disappears: a caretaker
+// sees Today and Facilities, front desk adds Reservations and Money, and the
+// super admin sees all six.
 export const ADMIN_NAV_GROUPS: { label: string; tabs: AdminTab[] }[] = [
   { label: "TODAY", tabs: ["Operations", "Tasks"] },
-  { label: "RESERVATIONS", tabs: ["Bookings", "Occupancy"] },
-  { label: "RESORT UPKEEP", tabs: ["Facilities", "Inventory"] },
+  // Guest messages are about reservations, so they sit with them.
+  { label: "RESERVATIONS", tabs: ["Bookings", "Occupancy", "Customer Service"] },
   { label: "MONEY", tabs: ["Sales", "Reports"] },
-  { label: "WHAT GUESTS SEE", tabs: ["Rooms", "Packages", "Gallery"] },
-  { label: "GUESTS", tabs: ["Customer Service"] },
-  { label: "WEBSITE", tabs: ["Maintenance"] },
-  { label: "TEAM & SETUP", tabs: ["Staff", "Settings"] },
-  // Everything done in the system, not just money, so not under Money.
-  { label: "HISTORY", tabs: ["Activity"] },
+  { label: "FACILITIES", tabs: ["Facilities", "Inventory"] },
+  { label: "WEBSITE", tabs: ["Rooms", "Packages", "Gallery", "Maintenance"] },
+  // Who works here, the rates they work to, and the record of what was done.
+  { label: "SETUP & HISTORY", tabs: ["Staff", "Settings", "Activity"] },
 ];

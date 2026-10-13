@@ -36,7 +36,6 @@ import {
   sanitizeName,
   sanitizeNotes,
 } from "@/lib/validators";
-import { isGmailAddress } from "@/lib/validators";
 import { isMaintenanceReason } from "@/types/maintenance";
 
 // ── Primitives ───────────────────────────────────────────────────────
@@ -138,9 +137,9 @@ export const CUSTOMER_MESSAGE_MAX = 1000;
 export const customerServiceForm = z.object({
   name: guestName,
   email: z
-    .string({ message: "A Gmail address is required." })
+    .string({ message: "An email address is required." })
     .transform((v) => v.trim())
-    .refine(isGmailAddress, "Please enter a valid Gmail address."),
+    .refine(isValidEmail, "Please enter a valid email address."),
   // No .default() here: the form supplies it via defaultValues, and a
   // defaulted field makes the schema's input type optional while its
   // output stays required, which react-hook-form's resolver rejects.

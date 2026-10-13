@@ -137,6 +137,7 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
     if (!quote.available) {
       flags.push(`⚠ CHECK: ${quote.unavailableReason ?? "date no longer available"} (taken while the guest was paying).`);
     }
+    if (quote.splitWarning) flags.push(`⚠ CHECK: ${quote.splitWarning}`);
     if (paidPesos !== quote.dueNow) {
       flags.push(`⚠ CHECK: paid ${fmt(paidPesos)} but ${quote.draft.payFull ? "the full total" : "the down payment"} is ${fmt(quote.dueNow)}.`);
     }
@@ -222,7 +223,7 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
       },
       confirmedNow
         ? { actor: "System", action: "booking.confirmed", bookingId: saved.id, entity: "booking", entityId: saved.id, summary: `Confirmed ${saved.id} automatically: payment verified with PayMongo and the date was free.` }
-        : { actor: "System", action: "booking.needs_review", bookingId: saved.id, entity: "booking", entityId: saved.id, summary: `${saved.id} needs the owner's review: ${flags.join(" ")}`, details: { flags } },
+        : { actor: "System", action: "booking.needs_review", bookingId: saved.id, entity: "booking", entityId: saved.id, summary: `${saved.id} needs the super admin's review: ${flags.join(" ")}`, details: { flags } },
     ]);
 
     return NextResponse.json({ success: true, booking: saved, emailed }, { status: 201 });
@@ -289,11 +290,12 @@ async function createWalkIn(body: Record<string, unknown>) {
     const db0 = getSupabaseAdmin();
     const slotIn: BookingSlot = SLOTS.includes(b.slot as BookingSlot) ? (b.slot as BookingSlot) : "Day";
     const resourceIn: BookingResource = RESOURCES.includes(b.resource as BookingResource) ? (b.resource as BookingResource) : "Pool";
-    const tierIn: BookingTier = TIERS.includes(b.tier as BookingTier) ? (b.tier as BookingTier) : getPackageTier(Math.round(guests));
+    const tierIn: BookingTier = TIERS.includes(b.tier as BookingTier) ? (b.tier as BookingTier) : getPackageTier(Math.round(guests), slotIn, resourceIn);
     const overtimeIn = slotIn === "Day" ? Math.min(OVERTIME_MAX, Math.max(0, Math.round(Number(b.overtime) || 0))) : 0;
     const roomIds = Array.isArray(b.rooms) ? b.rooms.map(Number).filter(Number.isFinite) : [];
     // Includes the single-date rule: only a Whole Day can span dates.
-    const notOffered = pricingProblem(resourceIn, tierIn, slotIn, stayDays);
+    const isWalkInPackage = typeof b.walkInPackageCode === "string" && !!b.walkInPackageCode;
+    const notOffered = pricingProblem(resourceIn, tierIn, slotIn, stayDays, isWalkInPackage);
     if (notOffered) return NextResponse.json({ success: false, error: notOffered }, { status: 400 });
     let pkg: { price: number; requiresRoom: boolean } | null = null;
     if (typeof b.walkInPackageCode === "string" && b.walkInPackageCode) {

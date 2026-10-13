@@ -90,7 +90,7 @@ function problemWith(b: Record<string, unknown>): string | null {
   if (!Number.isFinite(price) || price < 0) return "Price must be zero or more.";
   const cap = Number(b.capacity);
   if (!Number.isFinite(cap) || cap < 1) return "Capacity must be at least 1.";
-  const problem = pricingProblem(b.resource as BookingResource, b.status as BookingTier, b.slotMode === "WholeDay" ? "WholeDay" : "Day");
+  const problem = pricingProblem(b.resource as BookingResource, b.status as BookingTier, b.slotMode === "WholeDay" ? "WholeDay" : "Day", 1, true);
   if (problem) return problem;
   return null;
 }

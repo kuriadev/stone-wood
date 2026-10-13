@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useStaff } from "@/contexts/StaffContext";
+import { useApp } from "@/contexts/AppContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
@@ -48,7 +49,7 @@ interface InventoryTabProps {
   setInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
 }
 
-export function InventoryTab({ inventory: items, setInventory: setItems }: InventoryTabProps) {
+export function InventoryTab({ inventory: all, setInventory: setItems }: InventoryTabProps) {
   const { isDark } = useTheme();
   const C = T(isDark);
   const { toast } = useToast();
@@ -58,8 +59,12 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
   const isOwner = staff.can("inventory.manage");
   const w = useWidth();
   const mob = w < 768;
+  const { reloadInventory } = useApp();
 
-  const [deleted, setDeleted] = useState<InventoryItem[]>([]);
+  // An archived item is still in the server's list, marked with deletedAt,
+  // so the archive is the same after a reload as before it.
+  const items = all.filter((i) => !i.deletedAt);
+  const deleted = all.filter((i) => i.deletedAt);
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("All");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -116,33 +121,30 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
     }
     setShowAddModal(false);
   };
+  /** Archive or restore on the server, then re-read the list. */
+  const archiveCall = async (item: InventoryItem, restore: boolean) => {
+    try {
+      const res = await fetch(`/api/inventory?id=${item.id}`, restore
+        ? { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ restore: true }) }
+        : { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      // Not the owner: removing a stock item is sent to the owner to
+      // approve, and stays on the list until they do.
+      if (json?.requested) return toast(`Removing "${item.name}" was sent to the super admin for approval.`, "info");
+      if (!res.ok || json?.success === false) return toast(json?.error ?? "Could not save that. Try again.", "error");
+      await reloadInventory();
+      toast(restore ? `"${item.name}" restored.` : `"${item.name}" moved to archive.`, restore ? "success" : "warning");
+    } catch {
+      toast("No connection to the server.", "error");
+    }
+  };
   const executeDelete = async () => {
     if (!confirmDelete) return;
-    // Not the owner: removing a stock item is sent to the owner to approve,
-    // and stays on the list until they do.
-    if (!staff.can("inventory.delete")) {
-      const item = confirmDelete;
-      setConfirmDelete(null);
-      try {
-        const res = await fetch(`/api/inventory?id=${item.id}`, { method: "DELETE" });
-        const json = await res.json().catch(() => ({}));
-        toast(json?.requested ? `Removing "${item.name}" was sent to the owner for approval.` : (json?.error ?? "Could not send that to the owner."), json?.requested ? "info" : "error");
-      } catch {
-        toast("No connection to the server.", "error");
-      }
-      return;
-    }
-    setItems((p) => p.filter((i) => i.id !== confirmDelete.id));
-    setDeleted((p) => [...p, { ...confirmDelete, deletedAt: new Date().toLocaleDateString("en-PH") }]);
-    toast(`"${confirmDelete.name}" moved to archive.`, "warning");
+    const item = confirmDelete;
     setConfirmDelete(null);
+    await archiveCall(item, false);
   };
-  const restoreItem = (item: InventoryItem) => {
-    setDeleted((p) => p.filter((i) => i.id !== item.id));
-    const { deletedAt, ...rest } = item as InventoryItem & { deletedAt?: string };
-    setItems((p) => [...p, rest]);
-    toast(`"${item.name}" restored.`, "success");
-  };
+  const restoreItem = (item: InventoryItem) => void archiveCall(item, true);
   const updateQty = (id: number, delta: number) =>
     setItems((p) => p.map((i) => i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i));
   const rowBg = (idx: number) =>
@@ -489,16 +491,18 @@ export function InventoryTab({ inventory: items, setInventory: setItems }: Inven
                     <TableCell style={{ padding: "12px 16px", fontSize: 12.5, color: C.textS }}>{item.qty}</TableCell>
                     <TableCell style={{ padding: "12px 16px", fontSize: 12.5, color: C.textS }}>{item.unit}</TableCell>
                     <TableCell style={{ padding: "12px 16px", fontSize: 12.5, color: C.textXS }}>
-                      {(item as InventoryItem & { deletedAt?: string }).deletedAt}
+                      {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", month: "long", day: "numeric", year: "numeric" }) : ""}
                     </TableCell>
                     <TableCell style={{ padding: "12px 16px", fontSize: 12.5 }}>
-                      <button
-                        style={{ background: "rgba(76, 175, 80, 0.08)", color: "#4caf50", border: "1px solid rgba(76, 175, 80, 0.25)", padding: "4px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}
-                        onClick={() => restoreItem(item)}
-                        aria-label={`Restore ${item.name} from archive`}
-                      >
-                        RESTORE
-                      </button>
+                      {isOwner ? (
+                        <button
+                          style={{ background: "rgba(76, 175, 80, 0.08)", color: "#4caf50", border: "1px solid rgba(76, 175, 80, 0.25)", padding: "4px 12px", fontSize: 11.5, cursor: "pointer", borderRadius: 4, letterSpacing: 1 }}
+                          onClick={() => restoreItem(item)}
+                          aria-label={`Restore ${item.name} from archive`}
+                        >
+                          RESTORE
+                        </button>
+                      ) : <span style={{ color: C.textXS }}>—</span>}
                     </TableCell>
                   </TableRow>
                 ))}

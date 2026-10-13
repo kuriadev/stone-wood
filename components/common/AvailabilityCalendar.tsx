@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { gold } from "@/lib/styles";
-import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS, MAX_STAY_DAYS } from "@/lib/validators";
-import type { Booking } from "@/types/booking";
+import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS, MAX_STAY_DAYS, manilaNow } from "@/lib/validators";
+import { slotStartedProblem } from "@/lib/resort";
+import type { Booking, BookingSlot, BookingTier } from "@/types/booking";
 import { checkBookingAvailability, holdsDate, bookingDates } from "@/lib/utils";
 import { RangeConnector } from "@/components/common/RangeConnector";
 
@@ -25,6 +26,13 @@ interface AvailabilityCalendarProps {
    *  day, then a last one. Without it the calendar stays single-date, which
    *  is what moving an existing booking needs (admin MoveBookingModal). */
   onSelectRange?: (from: string, to: string) => void;
+  /** What is being booked, when the caller knows it (the home page card
+   *  does). Dates are then judged for THIS visit type and group size, the
+   *  same check the booking page's picker makes, so the two calendars
+   *  agree. A date is open when ANY of `tiers` fits: the guest can still
+   *  choose Shared or Exclusive on the next step. Without a request a date
+   *  is shown taken once any slot is full. */
+  request?: { slot: BookingSlot; guests: number; tiers: readonly BookingTier[] };
 }
 
 export function AvailabilityCalendar({
@@ -34,6 +42,7 @@ export function AvailabilityCalendar({
   selectedDate,
   endDate = "",
   onSelectRange,
+  request,
 }: AvailabilityCalendarProps) {
   /* Range mode is opt-in: the home page picks a stay, the admin's move
      window picks one new date. */
@@ -66,24 +75,29 @@ export function AvailabilityCalendar({
   // clickable, indistinguishable from an empty one. The guest only found out
   // after picking it and reaching the booking form.
   //
-  // It is intentionally stricter than the booking page's own picker, which
-  // knows the slot, tier and headcount being requested and can therefore
-  // still offer the free half of a part-booked date. This calendar knows
-  // none of that yet, so it errs toward not advertising a date it cannot
-  // promise.
+  // That strict rule is only the fallback, for callers that don't pass a
+  // `request`. With one, a date is judged for the slot, tier and headcount
+  // actually being booked, exactly as the booking page's picker does. The
+  // home page card used to check for a single Shared guest only, so a date
+  // too full for the group showed green there and taken on Book Now.
   const bookedDates = useMemo(() => {
     // Every day a stay covers, not only its first: day two of someone's
     // three-day stay is just as taken.
     const dates = new Set(bookings.filter(holdsDate).flatMap((b) => bookingDates(b)));
     const full = new Set<string>();
     dates.forEach((d) => {
-      const anySlotFull = (["Day", "Night"] as const).some(
-        (sl) => !checkBookingAvailability(d, sl, 1, "Shared", "Pool", bookings).ok
-      );
-      if (anySlotFull) full.add(d);
+      const taken = request
+        ? !request.tiers.some((t) => checkBookingAvailability(d, request.slot, request.guests, t, "Pool", bookings).ok)
+        : (["Day", "Night"] as const).some(
+            (sl) => !checkBookingAvailability(d, sl, 1, "Shared", "Pool", bookings).ok
+          );
+      if (taken) full.add(d);
     });
+    // Today, once the requested tour has started, can't be booked online.
+    const today = manilaNow().date;
+    if (request && slotStartedProblem(today, request.slot)) full.add(today);
     return full;
-  }, [bookings]);
+  }, [bookings, request]);
   const closedSet = useMemo(() => new Set(closedDates), [closedDates]);
 
   /* The furthest day this stay may reach: MAX_STAY_DAYS long at most, and

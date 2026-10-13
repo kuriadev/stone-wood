@@ -31,7 +31,7 @@ describe("the defaults are what the code always used", () => {
     expect(V.MAX_STAY_DAYS).toBe(3);
     expect(V.EXCLUSIVE_DISCOUNT_PCT).toBeCloseTo(0.05);
     expect(SLOTS.Day.hours).toBe("7:00 AM – 5:00 PM");
-    expect(SLOTS.Night.hours).toBe("7:00 PM – 5:00 AM (next day)");
+    expect(SLOTS.Night.hours).toBe("7:00 PM – 5:00 AM, next day");
   });
 
   it("treats an empty record as all defaults", () => {

@@ -22,7 +22,8 @@ import {
 } from "@/lib/utils";
 import { isWithinBookingWindow, describeDateProblem, MAX_STAY_DAYS } from "@/lib/validators";
 import { logActivity, type ActivityInput } from "@/lib/activity.server";
-import { GUEST_CHOICE_DAYS } from "@/lib/rebooking";
+import { GUEST_CHOICE_DAYS, UNPAID_HOLD_HOURS } from "@/lib/rebooking";
+import { slotStartedProblem } from "@/lib/resort";
 import { notices } from "@/lib/notices";
 import { buildNoticeEmail } from "@/lib/emailTemplate";
 import { trySendMail } from "@/lib/mailer";
@@ -163,6 +164,8 @@ export async function checkMove(b: Booking, date: string): Promise<{ ok: true } 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return no("Choose a date.");
   if (date === b.date) return no("Your booking is already on that date.");
   if (!isWithinBookingWindow(date)) return no(describeDateProblem(date) ?? "That date can't be booked.");
+  const started = slotStartedProblem(date, getBookingSlot(b));
+  if (started) return no(started);
 
   // Moving a stay moves all of it, so every day of the new range has to be
   // inside the booking window and open.
@@ -361,6 +364,35 @@ export async function sweepExpired(force = false): Promise<void> {
         details: { from: r.from_date, to: r.to_date },
       });
     }
+    /* A walk-in saved with no payment is Pending, and Pending holds its
+       date. With nothing paid it used to hold it forever, so one the desk
+       forgot about blocked that date for everyone. After UNPAID_HOLD_HOURS
+       it is released (Cancelled). No money is involved: any payment makes a
+       walk-in Confirmed, and a booking with payment rows is skipped anyway.
+       Online bookings are never touched here: a Pending online booking has
+       been paid and is waiting for the owner to check it. */
+    const cutoff = new Date(Date.now() - UNPAID_HOLD_HOURS * 3600_000).toISOString();
+    const stale = await db.from("bookings").select("*")
+      .eq("status", "Pending").neq("source", "Online").is("payment_intent_id", null).lt("created_at", cutoff);
+    const staleRows = (stale.data ?? []) as BookingRow[];
+    if (staleRows.length) {
+      const paid = await db.from("payments").select("booking_id").in("booking_id", staleRows.map((r) => r.id));
+      const hasPayment = new Set(((paid.data ?? []) as { booking_id: string }[]).map((p) => p.booking_id));
+      for (const row of staleRows) {
+        if (paid.error || hasPayment.has(row.id)) continue;
+        const b = rowToBooking(row);
+        const note = `Released automatically: no payment within ${UNPAID_HOLD_HOURS} hours of the walk-in.`;
+        const done = await db.from("bookings")
+          .update({ status: "Cancelled", notes: [b.notes, note].filter(Boolean).join(" ") })
+          .eq("id", b.id).eq("status", "Pending").select("id").maybeSingle();
+        if (!done.data) continue;
+        logs.push({
+          actor: "System", action: "booking.unpaid_released", bookingId: b.id, entity: "booking", entityId: b.id,
+          summary: `${b.id} (${b.name}, ${fmtDate(b.date)}) was released: a walk-in with no payment after ${UNPAID_HOLD_HOURS} hours. The date is open again.`,
+        });
+      }
+    }
+
     await logActivity(logs);
   } catch (err) {
     // Before the migration the columns and table don't exist; nothing to do.

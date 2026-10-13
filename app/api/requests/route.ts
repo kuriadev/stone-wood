@@ -98,7 +98,7 @@ export async function PATCH(req: NextRequest) {
   const r = cur.data as OwnerRequestRow;
   if (r.status !== "Pending") return NextResponse.json({ success: false, error: `This request was already ${r.status.toLowerCase()}.` }, { status: 409 });
 
-  const decided = { decided_by: owner?.id ?? null, decided_by_name: owner?.name ?? "Owner", decided_at: new Date().toISOString(), decision_note: note || null };
+  const decided = { decided_by: owner?.id ?? null, decided_by_name: owner?.name ?? "Super admin", decided_at: new Date().toISOString(), decision_note: note || null };
 
   if (decision === "decline") {
     const { data, error } = await db.from("owner_requests").update({ status: "Declined", ...decided })
@@ -180,7 +180,7 @@ export async function DELETE(req: NextRequest) {
   const { data, error } = await db.from("owner_requests").update({ status: "Withdrawn", decided_at: new Date().toISOString(), decided_by_name: me?.name ?? null })
     .eq("id", id).eq("status", "Pending").select().maybeSingle();
   if (error) return NextResponse.json({ success: false, error: "Could not withdraw it." }, { status: 500 });
-  if (!data) return NextResponse.json({ success: false, error: "The owner already answered this request." }, { status: 409 });
+  if (!data) return NextResponse.json({ success: false, error: "The super admin already answered this request." }, { status: 409 });
   await logActivity({
     actor: "Admin", action: "request.withdrawn", bookingId: r.booking_id, entity: "owner_request", entityId: id,
     summary: `Withdrew the request: ${r.summary}`,

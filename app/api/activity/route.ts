@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
   // On the record, so the task clears and anyone can see who decided.
   if (action === "day.count_reviewed") {
     if (!can(actingStaff()?.role, "activity.viewAll")) {
-      return NextResponse.json({ success: false, error: "Only the owner can accept a cash difference." }, { status: 403 });
+      return NextResponse.json({ success: false, error: "Only the super admin can accept a cash difference." }, { status: 403 });
     }
     if (!isDateStr(body.date)) return NextResponse.json({ success: false, error: "Which day?" }, { status: 400 });
     const note = cleanText(body.note, 300);

@@ -64,7 +64,7 @@ function Checklist({ items, onToggle }: { items: { label: string; done: boolean 
 
 function BookingSummary({ b }: { b: Booking }) {
   const slot = SLOTS[getBookingSlot(b)];
-  return <>{b.id} · {fmtDate(b.date)} · {slot.label} ({slot.hours}){b.arrivalTime ? ` · arriving ${b.arrivalTime}` : ""} · {b.guests} guests</>;
+  return <>{b.id} · {fmtDate(b.date)} · {slot.label} ({slot.hours}){b.arrivalTime ? ` · arriving ${b.arrivalTime}` : ""} · {b.guests} guest{b.guests === 1 ? "" : "s"}</>;
 }
 
 // ── Preparation ───────────────────────────────────────────────────────
@@ -301,7 +301,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
     });
     setBusy(false);
     if (!s.ok && s.requested) {
-      toast(`${booking.name} checked out.${damageNote} Closing it with ${fmt(left)} unpaid is waiting for the owner's approval.`, "info");
+      toast(`${booking.name} checked out.${damageNote} Closing it with ${fmt(left)} unpaid is waiting for the super admin's approval.`, "info");
       return onClose();
     }
     if (!s.ok) {
@@ -311,8 +311,8 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
       return onClose();
     }
     if (!completes) toast(`${booking.name} checked out.${damageNote} ${fmt(paying)} recorded; ${fmt(left)} still to collect under Balance to collect.`, "warning");
-    else if (left > 0) toast(`${booking.name} completed with ${fmt(left)} unpaid. It stays under Sales → Receivables.`, "warning");
-    else toast(`${booking.name}'s stay is complete.${damageNote}${paying > 0 ? ` ${fmt(paying)} recorded in Sales.` : " Nothing was owed."}`, "success");
+    else if (left > 0) toast(`${booking.name} completed with ${fmt(left)} unpaid. It stays under Payments & Expenses → Receivables.`, "warning");
+    else toast(`${booking.name}'s stay is complete.${damageNote}${paying > 0 ? ` ${fmt(paying)} recorded in Payments & Expenses.` : " Nothing was owed."}`, "success");
     onClose();
   };
 
@@ -497,7 +497,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
                   </p>
                   <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 8, alignItems: "flex-start" }}>
                     <Checkbox checked={closeUnpaid} onCheckedChange={(v) => setCloseUnpaid(v === true)} style={{ marginTop: 4 }} />
-                    Complete it anyway: the guest leaves with {fmt(left)} unpaid (it stays a receivable in Sales)
+                    Complete it anyway: the guest leaves with {fmt(left)} unpaid (it stays a receivable in Payments &amp; Expenses)
                   </label>
                   {closeUnpaid && (
                     <div>
@@ -550,7 +550,7 @@ export function BookingStatement({ booking }: { booking: Booking }) {
   return (
     <div>
       <div style={sub}>CHARGES</div>
-      <AmountRow label={`${booking.package} · ${slot.label}, ${fmtDate(booking.date)} · ${booking.guests} guests`} value={fmt(round2(booking.total - overtimeFee))} />
+      <AmountRow label={`${booking.package} · ${slot.label}, ${fmtDate(booking.date)} · ${booking.guests} guest${booking.guests === 1 ? "" : "s"}`} value={fmt(round2(booking.total - overtimeFee))} />
       {overtimeFee > 0 && <AmountRow label={`Overtime (${booking.overtime} hr)`} value={fmt(overtimeFee)} />}
       {damages.map((d) => (
         <AmountRow key={d.id} label={`Damage: ${d.itemName} × ${d.quantity} (${d.facilityName})`} value={fmt(d.amount)} color="#d44" />
@@ -617,8 +617,8 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
     if (!r.ok) return r.requested ? onClose() : setError(r.error);
     if (completes) {
       toast(left > 0
-        ? `${booking.name} closed with ${fmt(left)} unpaid. It stays under Sales → Receivables.`
-        : `${booking.name} paid and closed.${paying > 0 ? ` ${fmt(paying)} recorded in Sales.` : ""}`, left > 0 ? "warning" : "success");
+        ? `${booking.name} closed with ${fmt(left)} unpaid. It stays under Payments & Expenses → Receivables.`
+        : `${booking.name} paid and closed.${paying > 0 ? ` ${fmt(paying)} recorded in Payments & Expenses.` : ""}`, left > 0 ? "warning" : "success");
     } else {
       toast(`${fmt(paying)} recorded. ${fmt(left)} is still owed before ${booking.name} can be closed.`, "info");
     }
@@ -662,7 +662,7 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
               {left > 0 && (
                 <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 8, alignItems: "flex-start" }}>
                   <Checkbox checked={closeUnpaid} onCheckedChange={(v) => setCloseUnpaid(v === true)} style={{ marginTop: 4 }} />
-                  Settle anyway: the guest leaves with {fmt(left)} unpaid (it stays a receivable in Sales)
+                  Settle anyway: the guest leaves with {fmt(left)} unpaid (it stays a receivable in Payments &amp; Expenses)
                 </label>
               )}
               {left > 0 && closeUnpaid && (
@@ -672,7 +672,7 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
                 </div>
               )}
               <p style={{ color: C.textS, fontSize: 12.5, margin: 0 }}>
-                The stay balance is paid first, then the damage penalties. Each is recorded in Sales as its own payment.
+                The stay balance is paid first, then the damage penalties. Each is recorded in Payments &amp; Expenses as its own payment.
               </p>
             </>
           ) : (

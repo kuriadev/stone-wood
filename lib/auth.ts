@@ -300,7 +300,7 @@ const unauthorised = (error = "Not authorised.") =>
   NextResponse.json({ success: false, error }, { status: 401 });
 
 const forbidden = () =>
-  NextResponse.json({ success: false, error: "Your role can't do this. Ask the owner." }, { status: 403 });
+  NextResponse.json({ success: false, error: "Your role can't do this. Ask the super admin." }, { status: 403 });
 
 /**
  * The guard every admin route uses: is this person signed in, still
@@ -326,7 +326,7 @@ export function requirePermission(req: NextRequest, perm: Permission): Promise<N
   enterStaff(acting);
   return (async () => {
     const [who] = await Promise.all([currentIdentity(s), ensureSettings()]);
-    if (!who) return unauthorised("Your account is no longer active. Ask the owner.");
+    if (!who) return unauthorised("Your account is no longer active. Ask the super admin.");
     // The store holds the object enterStaff was given; refreshing it in
     // place keeps the log's name and role current without a new context.
     Object.assign(acting, who);
@@ -345,7 +345,7 @@ export async function ownerGate(req: NextRequest, perm: Permission, body: unknow
   const s = sessionOf(req);
   if (!s) return unauthorised();
   const who = await currentIdentity(s);
-  if (!who) return unauthorised("Your account is no longer active. Ask the owner.");
+  if (!who) return unauthorised("Your account is no longer active. Ask the super admin.");
   if (can(who.role, perm)) return null;
   if (!canRequest(who.role, perm)) return forbidden();
   return askOwner(req, perm, who, body);
@@ -365,8 +365,8 @@ async function askOwner(req: NextRequest, perm: Permission, who: StaffIdentity, 
     requested: true,
     requestId: r.id,
     error: r.duplicate
-      ? "This is already waiting for the owner's approval."
-      : "Sent to the owner for approval. It goes through once they approve it.",
+      ? "This is already waiting for the super admin's approval."
+      : "Sent to the super admin for approval. It goes through once they approve it.",
   }, { status: 202 });
 }
 

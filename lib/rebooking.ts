@@ -85,3 +85,7 @@ export function fmtDeadline(iso: string): string {
     timeZone: "Asia/Manila", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
   }).format(new Date(iso));
 }
+
+/** How long a walk-in saved with no payment holds its date before it is
+ *  released (sweepExpired in lib/rebooking.server.ts). */
+export const UNPAID_HOLD_HOURS = 24;

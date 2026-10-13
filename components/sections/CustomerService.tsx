@@ -14,7 +14,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import {
-  isGmailAddress,
+  isValidEmail,
   isValidName,
   sanitizeName,
   NAME_MAX,
@@ -71,8 +71,9 @@ export function CustomerService({ onSubmitMessage }: CustomerServiceProps) {
   // distinguish "valid" from "invalid" from "empty", which a single error
   // string cannot express.
   const nameOk    = isValidName(form.name ?? "");
-  // Was endsWith("@gmail.com") && length > 10, which accepted "!!!!@gmail.com".
-  const emailOk   = isGmailAddress(form.email ?? "");
+  // Any address the booking form accepts: replies go out by email, and
+  // nothing about them needs Gmail.
+  const emailOk   = isValidEmail(form.email ?? "");
   const messageOk = (form.message ?? "").trim().length >= 10 && (form.message ?? "").length <= MESSAGE_MAX;
   const formOk    = nameOk && emailOk && messageOk;
 
@@ -205,7 +206,7 @@ const submit = handleSubmit(async (values) => {
               {/* ── EMAIL ADDRESS ── */}
               <div>
                 <Label htmlFor="cs-email" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">
-                  EMAIL ADDRESS <span style={{ color: C.dangerInk, fontSize: 10.5 }}>*Gmail only</span>
+                  EMAIL ADDRESS
                 </Label>
                 <Input
                   id="cs-email"
@@ -213,17 +214,17 @@ const submit = handleSubmit(async (values) => {
                   {...register("email")}
                   maxLength={254}
                   autoComplete="email"
-                  placeholder="yourname@gmail.com"
+                  placeholder="you@example.com"
                   aria-invalid={touched.email && !emailOk}
                 />
                 {touched.email && form.email.length > 0 && !emailOk && (
-                  <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 4 }}>⚠ Must be a Gmail address (@gmail.com)</p>
+                  <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 4 }}>⚠ Enter a valid email address</p>
                 )}
                 {touched.email && form.email.length === 0 && (
                   <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 4 }}>⚠ Email address is required</p>
                 )}
                 {touched.email && emailOk && (
-                  <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Valid Gmail address</p>
+                  <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Looks good</p>
                 )}
               </div>
 

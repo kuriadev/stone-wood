@@ -1,18 +1,16 @@
 /* Who can book several dates, and what it costs.
  *
  * The rule the owner set: the Day and Night Tours are SINGLE-DATE visits.
- * Only the Whole Day can span dates, because it is the only slot that
- * keeps the resort the guest's overnight. Picking a second date moves the
- * booking to the Whole Day rather than refusing it.
+ * Only the Staycation (the WholeDay slot) can span dates, because it is
+ * the only slot that keeps the resort the guest's overnight. The calendar
+ * never moves a booking there by itself; the guest chooses it.
  *
- * The money that rule depends on: a Whole Day used to be Exclusive-only,
- * so a family of six picking three dates was silently moved onto a
- * P10,800-a-day whole-resort buyout - P32,400 for a pool they wanted to
- * share. Whole Day is now offered Shared as well, and every day after the
- * first carries MULTI_DAY_DISCOUNT_PCT.
+ * A Staycation is Exclusive only, and every day after the first carries
+ * MULTI_DAY_DISCOUNT_PCT.
  */
 
 import { priceBooking, pricingProblem } from "@/lib/pricing";
+import { getPackageTier } from "@/lib/utils";
 import { allowsMultiDay, multiDayProblem, MULTI_DAY_SLOT, SLOTS } from "@/lib/resort";
 import {
   EXCLUSIVE_FLAT_RATE, SHARED_PER_HEAD_RATE, PACKAGE_BUNDLE_DISCOUNT_PCT,
@@ -47,30 +45,47 @@ describe("only the Whole Day can span dates", () => {
 
   it("is enforced by pricingProblem, which the server calls", () => {
     expect(pricingProblem("Pool", "Shared", "Day", 3)).not.toBeNull();
-    expect(pricingProblem("Pool", "Shared", "WholeDay", 3)).toBeNull();
+    expect(pricingProblem("Pool", "Exclusive", "WholeDay", 3)).toBeNull();
     // The default keeps the call sites that only validate a shape working.
     expect(pricingProblem("Pool", "Shared", "Day")).toBeNull();
   });
 });
 
-describe("a Whole Day is no longer Exclusive-only", () => {
-  it("prices a small group's Whole Day per head, not as a buyout", () => {
-    const six = pool({ slot: "WholeDay", tier: "Shared", guests: 6 });
-    // Two slots at P200 a head.
-    expect(six.total).toBe(SHARED_PER_HEAD_RATE * 6 * 2);
-    expect(six.total).toBeLessThan(WHOLE_DAY_EXCLUSIVE);
+describe("a Staycation is Exclusive only", () => {
+  it("refuses a Shared Staycation, on one date or several", () => {
+    expect(pricingProblem("Pool", "Shared", "WholeDay")).not.toBeNull();
+    expect(pricingProblem("Pool", "Shared", "WholeDay", 3)).not.toBeNull();
+    expect(pricingProblem("Pool+Venue", "Shared", "WholeDay")).not.toBeNull();
   });
 
-  it("still offers the buyout, and it wins for a big group", () => {
-    const thirty = pool({ slot: "WholeDay", tier: "Shared", guests: 30 });
-    const buyout = pool({ slot: "WholeDay", tier: "Exclusive", guests: 30 });
-    expect(buyout.total).toBe(WHOLE_DAY_EXCLUSIVE);
-    // Sharing stops being the cheaper answer once the group is big enough.
-    expect(thirty.total).toBeGreaterThan(buyout.total);
+  it("allows the Exclusive one", () => {
+    expect(pricingProblem("Pool", "Exclusive", "WholeDay")).toBeNull();
+    expect(pool({ slot: "WholeDay", tier: "Exclusive", guests: 6 }).total).toBe(WHOLE_DAY_EXCLUSIVE);
   });
 
-  it("no longer refuses the combination", () => {
-    expect(pricingProblem("Pool", "Shared", "WholeDay")).toBeNull();
+  it("defaults a Staycation to Exclusive, whatever the group size", () => {
+    expect(getPackageTier(6, "WholeDay")).toBe("Exclusive");
+    expect(getPackageTier(6, "Day")).toBe("Shared");
+    expect(getPackageTier(6, "Night")).toBe("Shared");
+  });
+
+  it("is never the events venue on its own, except in the owner's packages", () => {
+    expect(pricingProblem("Venue", "Exclusive", "WholeDay")).not.toBeNull();
+    expect(pricingProblem("Venue", "Exclusive", "WholeDay", 2)).not.toBeNull();
+    expect(pricingProblem("Pool+Venue", "Exclusive", "WholeDay")).toBeNull();
+    expect(pricingProblem("Pool", "Exclusive", "WholeDay")).toBeNull();
+    // A package (e.g. "Events Venue — Whole Day") is the owner's to define.
+    expect(pricingProblem("Venue", "Exclusive", "WholeDay", 1, true)).toBeNull();
+    // The tours can still be venue-only.
+    expect(pricingProblem("Venue", "Exclusive", "Day")).toBeNull();
+    expect(pricingProblem("Venue", "Exclusive", "Night")).toBeNull();
+  });
+
+  it("still offers the tours at both tiers", () => {
+    for (const slot of ["Day", "Night"] as const) {
+      expect(pricingProblem("Pool", "Shared", slot)).toBeNull();
+      expect(pricingProblem("Pool", "Exclusive", slot)).toBeNull();
+    }
   });
 });
 
@@ -113,18 +128,10 @@ describe("days after the first are discounted", () => {
   });
 });
 
-describe("the family this was for", () => {
-  it("prices three days for six guests within reach", () => {
-    const stay = pool({ slot: "WholeDay", tier: "Shared", guests: 6, days: 3 });
-    const perDay = SHARED_PER_HEAD_RATE * 6 * 2; // P2,400
-    expect(stay.perDay).toBe(perDay);
-    expect(stay.total).toBe(perDay * 3 - Math.round(perDay * 2 * MULTI_DAY_DISCOUNT_PCT));
-    // Against P32,400 under the old forced-Exclusive rule.
-    expect(stay.total).toBeLessThan(WHOLE_DAY_EXCLUSIVE);
-  });
-
+describe("a three-day Staycation", () => {
   it("halves the total for the down payment, rounded up", () => {
-    const stay = pool({ slot: "WholeDay", tier: "Shared", guests: 6, days: 3 });
+    const stay = pool({ slot: "WholeDay", tier: "Exclusive", guests: 6, days: 3 });
+    expect(stay.total).toBe(WHOLE_DAY_EXCLUSIVE * 3 - Math.round(WHOLE_DAY_EXCLUSIVE * 2 * MULTI_DAY_DISCOUNT_PCT));
     expect(stay.down).toBe(Math.ceil(stay.total / 2));
   });
 });

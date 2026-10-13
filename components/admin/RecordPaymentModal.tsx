@@ -11,6 +11,7 @@ import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { bookingMoney } from "@/lib/finance";
 import { fmt, fmtDate } from "@/lib/utils";
+import { payTypeLabel } from "@/lib/labels";
 import { MANUAL_METHODS, type PaymentType } from "@/types/finance";
 import type { Booking } from "@/types/booking";
 import { Modal, Label, ChoiceButtons, ActionButton, AmountRow, ErrorNote, useAdminStyle } from "@/components/admin/ui";
@@ -48,6 +49,7 @@ export function RecordPaymentModal({
   const max = !money ? 0 : kind === "Stay" ? money.balance : kind === "Penalty" ? money.penaltyDue : money.paid;
   const shownAmount = amount === "" ? (max > 0 ? String(max) : "") : amount;
   const value = Number(shownAmount) || 0;
+  const tooMuch = value > max;
 
   const type: PaymentType = kind === "Penalty" ? "Penalty" : kind === "Refund" ? "Refund"
     : money && money.paid <= 0 ? (value >= (booking?.total ?? 0) ? "Full" : "Downpayment") : "Balance";
@@ -87,7 +89,7 @@ export function RecordPaymentModal({
       footer={
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <ActionButton onClick={onClose}>Cancel</ActionButton>
-          <ActionButton kind="primary" onClick={save} disabled={busy || !booking || max <= 0}>
+          <ActionButton kind="primary" onClick={save} disabled={busy || !booking || max <= 0 || tooMuch}>
             {busy ? "Saving…" : kind === "Refund" ? `Record refund of ${fmt(value)}` : `Record ${fmt(value)}`}
           </ActionButton>
         </div>
@@ -131,7 +133,7 @@ export function RecordPaymentModal({
               ]}
             />
             <p style={{ color: C.textS, fontSize: 12, margin: "8px 0 0" }}>
-              Saved as <strong style={{ color: C.textB }}>{type}</strong>.{kind === "Refund" ? " Refunds are subtracted from money collected." : ""}
+              Saved as <strong style={{ color: C.textB }}>{payTypeLabel(type)}</strong>.{kind === "Refund" ? " Refunds are subtracted from money collected." : ""}
             </p>
           </div>
 
@@ -140,7 +142,7 @@ export function RecordPaymentModal({
               <Label htmlFor="pay-amount">Amount (₱)</Label>
               <Input id="pay-amount" type="number" min={0} step="0.01" max={max} value={shownAmount}
                 onChange={(e) => setAmount(e.target.value)} style={inp} />
-              <p style={{ color: C.textS, fontSize: 12, margin: "4px 0 0" }}>Up to {fmt(max)}</p>
+              <p style={{ color: tooMuch ? C.dangerInk : C.textS, fontSize: 12, margin: "4px 0 0" }}>{tooMuch ? `More than the ${fmt(max)} owed.` : `Up to ${fmt(max)}`}</p>
             </div>
             <div>
               <Label>Method</Label>

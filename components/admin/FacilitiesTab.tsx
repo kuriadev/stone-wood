@@ -62,7 +62,7 @@ async function send(url: string, method: string, body: unknown): Promise<{ ok: t
   try {
     const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string; requested?: boolean };
-    if (json.requested) return { ok: false, requested: true, error: json.error ?? "Sent to the owner for approval." };
+    if (json.requested) return { ok: false, requested: true, error: json.error ?? "Sent to the super admin for approval." };
     if (!res.ok || json.success === false) return { ok: false, error: json.error ?? "Something went wrong. Try again." };
     return { ok: true };
   } catch {
@@ -180,7 +180,7 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
 
   const setActive = async (f: Facility, on: boolean) => {
     const r = await send(`/api/facilities?id=${f.id}`, "PATCH", { active: on });
-    if (!r.ok && r.requested) { setRetiring(null); return toast(`${on ? "Offering" : "Stopping"} ${f.name} was sent to the owner for approval.`, "info"); }
+    if (!r.ok && r.requested) { setRetiring(null); return toast(`${on ? "Offering" : "Stopping"} ${f.name} was sent to the super admin for approval.`, "info"); }
     if (!r.ok) return toast(r.error, "error");
     await reloadFacilities();
     toast(on ? `${f.name} is offered again.` : `${f.name} is no longer offered. Its past records are kept.`, on ? "success" : "info");
@@ -191,7 +191,7 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
     setRemoveBusy(true);
     const r = await send(`/api/facilities?id=${f.id}`, "DELETE", {});
     setRemoveBusy(false);
-    if (!r.ok && r.requested) { setRemoving(null); return toast(`Removing ${f.name} was sent to the owner for approval.`, "info"); }
+    if (!r.ok && r.requested) { setRemoving(null); return toast(`Removing ${f.name} was sent to the super admin for approval.`, "info"); }
     if (!r.ok) return toast(r.error, "error");
     await reloadFacilities();
     toast(`${f.name} removed. Past inspections and damage records still name it.`, "info");
@@ -288,7 +288,7 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
           {rooms.map((f, i) => (
             <Row key={f.id} style={{ background: rowBg(i) }}>
               <Cell style={{ ...td, color: C.textH, fontWeight: 600 }}>{tick(f)}<Icon name="bed" size={15} style={{ marginRight: 8, verticalAlign: -2 }} />{f.name}</Cell>
-              <Cell style={{ ...td, color: C.textS }}>{f.lastUsedGuestName ? `${f.lastUsedGuestName} (${f.lastUsedBookingId})` : "—"}</Cell>
+              <Cell style={{ ...td, color: C.textS }}>{f.lastUsedGuestName ? `${f.lastUsedGuestName}${f.lastUsedBookingId ? ` (${f.lastUsedBookingId})` : ""}` : "—"}</Cell>
               <Cell style={td}>{statusCell(f)}</Cell>
               <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm" icon="edit" onClick={() => setEdit(f)}>Edit</ActionButton></Cell>
             </Row>
@@ -381,7 +381,7 @@ function FacilityModal({ facility, mob, onClose }: { facility: Facility | null; 
 
   return (
     <Modal title={isNew ? "Add amenity" : facility.name}
-      subtitle={isNew ? "It appears in preparations and inspections for the bookings that use it, and on the website." : facility.lastUsedGuestName ? `Last used by ${facility.lastUsedGuestName} (${facility.lastUsedBookingId})` : "Not used yet"}
+      subtitle={isNew ? "It appears in preparations and inspections for the bookings that use it, and on the website." : facility.lastUsedGuestName ? `Last used by ${facility.lastUsedGuestName}${facility.lastUsedBookingId ? ` (${facility.lastUsedBookingId})` : ""}` : "Not used yet"}
       onClose={onClose} width={820}
       footer={<div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
         <ActionButton onClick={onClose}>Cancel</ActionButton>
@@ -489,7 +489,7 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
             <Row key={b.id} className="sw-click-row" style={{ background: rowBg(i) }} onClick={() => setOpen(b)}>
               <Cell style={td}>
                 <span style={{ color: C.textH, fontWeight: 600 }}>{b.name}</span>
-                <div style={{ color: C.textS, fontSize: 11.5 }}><span style={{ color: C.goldInk, fontFamily: "monospace", fontWeight: 700 }}>{b.id}</span> · {b.guests} guests</div>
+                <div style={{ color: C.textS, fontSize: 11.5 }}><span style={{ color: C.goldInk, fontFamily: "monospace", fontWeight: 700 }}>{b.id}</span> · {b.guests} guest{b.guests === 1 ? "" : "s"}</div>
               </Cell>
               <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
               <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{usesText(b)}</Cell>
