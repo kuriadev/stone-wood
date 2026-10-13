@@ -34,6 +34,8 @@ interface StaffMember {
   mustChangePassword: boolean;
   createdAt: string;
   lastLoginAt: string | null;
+  /** A copy of the password is saved, so the eye can show it. */
+  canReveal: boolean;
 }
 
 const ROLE_COLOR: Record<StaffRole, string> = { Owner: "#c9a84c", FrontDesk: "#4a9fd4", Caretaker: "#2e9e4e" };
@@ -45,6 +47,59 @@ function tempPassword(): string {
   const pick = () => words[crypto.getRandomValues(new Uint32Array(1))[0] % words.length];
   const n = crypto.getRandomValues(new Uint32Array(1))[0] % 90 + 10;
   return `${pick()}-${pick()}-${pick()}${n}`;
+}
+
+/** How long a looked-up password stays on screen before it hides itself. */
+const REVEAL_SECONDS = 30;
+
+/** One person's password behind an eye. It is fetched only when the eye is
+ *  pressed (the list never carries it), shown in monospace, and hides again
+ *  after REVEAL_SECONDS so it isn't left on a screen someone walks past. */
+function PasswordCell({ person }: { person: StaffMember }) {
+  const { C } = useAdminStyle();
+  const [shown, setShown] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+
+  useEffect(() => {
+    if (shown === null) return;
+    const t = setTimeout(() => setShown(null), REVEAL_SECONDS * 1000);
+    return () => clearTimeout(t);
+  }, [shown]);
+
+  const toggle = async () => {
+    if (shown !== null) { setShown(null); return; }
+    setBusy(true);
+    setNote("");
+    try {
+      const res = await fetch(`/api/staff/password?id=${encodeURIComponent(person.id)}`, { cache: "no-store" });
+      const json = await res.json().catch(() => null);
+      if (json?.success) setShown(String(json.password));
+      else setNote(json?.error ?? "Could not look that up.");
+    } catch {
+      setNote("No connection to the server.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!person.canReveal) {
+    return (
+      <span title="Saved the next time they sign in, or reset it to set a new one." style={{ color: C.textS, fontSize: 12 }}>
+        Not saved yet
+      </span>
+    );
+  }
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <span style={{ fontFamily: "monospace", color: shown === null ? C.textS : C.textH, letterSpacing: shown === null ? 2 : 0, userSelect: shown === null ? "none" : "all" }}>
+        {shown ?? "••••••••"}
+      </span>
+      <ActionButton size="sm" icon={shown === null ? "eye" : "eye-off"} disabled={busy} onClick={() => void toggle()}
+        aria-label={shown === null ? `Show ${person.name}'s password` : `Hide ${person.name}'s password`} />
+      {note && <span role="alert" style={{ color: "#d44", fontSize: 11.5 }}>{note}</span>}
+    </div>
+  );
 }
 
 export function StaffTab({ mob }: { mob: boolean }) {
@@ -118,8 +173,8 @@ export function StaffTab({ mob }: { mob: boolean }) {
         <>
           <TableShell
             label="Staff"
-            minWidth={mob ? 560 : 720}
-            head={["Name", "Username", "Role", "Last signed in", ""]}
+            minWidth={mob ? 760 : 940}
+            head={["Name", "Username", "Password", "Role", "Last signed in", ""]}
             empty={loaded && active.length === 0 ? "No one yet." : undefined}
           >
             {active.map((s) => (
@@ -130,6 +185,7 @@ export function StaffTab({ mob }: { mob: boolean }) {
                   {s.mustChangePassword && <div style={{ color: C.textS, fontSize: 11.5, marginTop: 4 }}>Hasn&apos;t chosen a password yet</div>}
                 </Cell>
                 <Cell style={{ ...td, fontFamily: "monospace" }}>{s.username}</Cell>
+                <Cell style={td}><PasswordCell person={s} /></Cell>
                 <Cell style={td}><StatusBadge color={ROLE_COLOR[s.role]}>{ROLE_LABEL[s.role]}</StatusBadge></Cell>
                 <Cell style={{ ...td, color: C.textS }}>{s.lastLoginAt ? manilaTime(s.lastLoginAt) : "Never"}</Cell>
                 <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>

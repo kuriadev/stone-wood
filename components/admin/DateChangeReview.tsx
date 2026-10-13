@@ -21,7 +21,7 @@ import { SLOTS } from "@/lib/resort";
 import type { Booking } from "@/types/booking";
 import type { DateChange } from "@/types/finance";
 import { TextGuest } from "@/components/admin/TextGuest";
-import { ActionButton, ErrorNote, Label, AmountRow, Modal, useAdminStyle } from "@/components/admin/ui";
+import { ActionButton, ConfirmDialog, ErrorNote, Label, AmountRow, Modal, useAdminStyle } from "@/components/admin/ui";
 
 export function DateChangeReview({ request, booking, onClose }: { request: DateChange; booking: Booking; onClose: () => void }) {
   const { C, soft, inp } = useAdminStyle();
@@ -32,6 +32,8 @@ export function DateChangeReview({ request, booking, onClose }: { request: DateC
      (only a decline sends one), the second sends it. The box isn't shown
      while the owner is still deciding, where it read as part of approving. */
   const [declining, setDeclining] = useState(false);
+  /* Moving the booking changes the calendar and emails the guest. */
+  const [confirmMove, setConfirmMove] = useState(false);
   const [busy, setBusy] = useState<"approve" | "decline" | null>(null);
   const [error, setError] = useState("");
   const [done, setDone] = useState<{ sms: string; approved: boolean } | null>(null);
@@ -68,6 +70,17 @@ export function DateChangeReview({ request, booking, onClose }: { request: DateC
   }
 
   return (
+    <>
+    {confirmMove && (
+      <ConfirmDialog title={`Move ${booking.name} to ${fmtDate(request.toDate)}?`}
+        description={`${booking.id} · from ${fmtDate(request.fromDate)}`}
+        onCancel={() => setConfirmMove(false)} cancelLabel="Go back"
+        confirm={<ActionButton kind="primary" icon="check" onClick={() => { setConfirmMove(false); void decide(true); }}>Move the booking</ActionButton>}>
+        <p style={{ color: C.textS, fontSize: 14, margin: 0, lineHeight: 1.6 }}>
+          The calendar changes and the guest is emailed the new date. Their payment carries over.
+        </p>
+      </ConfirmDialog>
+    )}
     <Modal title={rebook ? "New date after a resort cancellation" : "Date change request"} subtitle={`${booking.name} · ${booking.id}`} onClose={onClose} width={560}
       footer={<div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
         {declining ? <>
@@ -75,7 +88,7 @@ export function DateChangeReview({ request, booking, onClose }: { request: DateC
           <ActionButton kind="red" icon="x" disabled={!!busy} onClick={() => decide(false)}>{busy === "decline" ? "Saving…" : "Decline and tell the guest"}</ActionButton>
         </> : <>
           <ActionButton kind="red" disabled={!!busy} onClick={() => { setDeclining(true); setError(""); }}>Decline</ActionButton>
-          <ActionButton kind="primary" icon="check" disabled={!!busy || !held} onClick={() => decide(true)}>{busy === "approve" ? "Saving…" : `Move to ${fmtDate(request.toDate)}`}</ActionButton>
+          <ActionButton kind="primary" icon="check" disabled={!!busy || !held} onClick={() => setConfirmMove(true)}>{busy === "approve" ? "Saving…" : `Move to ${fmtDate(request.toDate)}`}</ActionButton>
         </>}
       </div>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -103,5 +116,6 @@ export function DateChangeReview({ request, booking, onClose }: { request: DateC
         <ErrorNote>{error}</ErrorNote>
       </div>
     </Modal>
+    </>
   );
 }

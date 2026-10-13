@@ -297,7 +297,9 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
             </ActionButton>
             {archivable.length !== pickedRows.length && (
               <span style={{ color: C.textS, fontSize: 11.5 }}>
-                Only finished bookings can be archived; the rest stay as they are.
+                {pickedRows.length === 1
+                  ? `${pickedRows[0].id} is ${bookingStatusLabel(pickedRows[0]).toLowerCase()}, so it can't be archived yet. Archive works once a booking is completed or cancelled.`
+                  : "Only finished bookings can be archived; the rest stay as they are."}
               </span>
             )}
           </>

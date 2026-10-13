@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { Icon } from "@/components/common/Icon";
+import { ActionButton, ConfirmDialog } from "@/components/admin/ui";
 import {
   MAINTENANCE_REASONS,
   MAINTENANCE_REASON_LIST,
@@ -74,6 +75,9 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
     }
   };
 
+  /* Closing the site stops every guest from booking; reopening publishes it
+     again. Neither happens on a single click. true = close, false = reopen. */
+  const [ask, setAsk] = useState<boolean | null>(null);
   const live = maintenance.active;
   const dirty = reason !== maintenance.reason || message !== maintenance.message;
 
@@ -213,7 +217,7 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
             <button className="sw-btn"
               type="button"
               disabled={saving}
-              onClick={() => void save(false)}
+              onClick={() => setAsk(false)}
               style={{
                 ...goldBtn,
                 padding: "12px 28px",
@@ -240,7 +244,7 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
           <button
             type="button"
             disabled={saving}
-            onClick={() => void save(true)}
+            onClick={() => setAsk(true)}
             style={{
               background: "#c0392b",
               color: "#fff",
@@ -265,6 +269,21 @@ export function MaintenanceTab({ mob }: { mob: boolean }) {
         Visitors already on the site see the change within a minute, without refreshing. The
         admin panel and login page are never blocked, so you can always switch this back off.
       </p>
+
+      {ask !== null && (
+        <ConfirmDialog
+          title={ask ? "Close the public site?" : "Reopen the public site?"}
+          onCancel={() => setAsk(null)} cancelLabel="Go back"
+          confirm={<ActionButton kind={ask ? "red" : "primary"} onClick={() => { const close = ask; setAsk(null); void save(close); }}>
+            {ask ? "Close the site" : "Reopen the site"}
+          </ActionButton>}>
+          <p style={{ color: C.textS, fontSize: 14, margin: 0, lineHeight: 1.6 }}>
+            {ask
+              ? "Visitors will see the maintenance notice and cannot browse or book until you reopen it. You can still use this admin panel."
+              : "The public site goes live again and guests can book."}
+          </p>
+        </ConfirmDialog>
+      )}
     </div>
   );
 }

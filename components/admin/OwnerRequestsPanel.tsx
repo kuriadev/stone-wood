@@ -48,6 +48,8 @@ export function OwnerRequestsPanel({ mob }: { mob: boolean }) {
     return !o;
   });
   const [declining, setDeclining] = useState<OwnerRequest | null>(null);
+  /* Approving carries out a refund, a void or a cancellation, so it asks. */
+  const [approving, setApproving] = useState<OwnerRequest | null>(null);
   const [note, setNote] = useState("");
 
   if (!staffEnabled) return null;
@@ -92,7 +94,7 @@ export function OwnerRequestsPanel({ mob }: { mob: boolean }) {
         {r.status === "Pending" && isOwner && (
           <>
             <ActionButton size="sm" onClick={() => { setDeclining(r); setNote(""); }} disabled={busy === r.id}>Decline</ActionButton>
-            <ActionButton size="sm" kind="primary" icon="check" onClick={() => void approve(r)} disabled={busy === r.id}>
+            <ActionButton size="sm" kind="primary" icon="check" onClick={() => setApproving(r)} disabled={busy === r.id}>
               {busy === r.id ? "Working…" : "Approve"}
             </ActionButton>
           </>
@@ -139,6 +141,19 @@ export function OwnerRequestsPanel({ mob }: { mob: boolean }) {
             {answered.map(row)}
           </ul>
         </div>
+      )}
+
+      {approving && (
+        <ConfirmDialog
+          title="Approve this request?"
+          description={approving.summary}
+          onCancel={() => setApproving(null)} cancelLabel="Go back"
+          confirm={<ActionButton kind="primary" icon="check" disabled={busy === approving.id} onClick={() => { const r = approving; setApproving(null); void approve(r); }}>Approve</ActionButton>}
+        >
+          <p style={{ color: C.textS, fontSize: 14, margin: 0, lineHeight: 1.6 }}>
+            It happens right away, exactly as if you had pressed the button yourself.
+          </p>
+        </ConfirmDialog>
       )}
 
       {declining && (

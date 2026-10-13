@@ -23,7 +23,7 @@
 // and password and nobody has to type staff in before work can start.
 
 import { AsyncLocalStorage } from "node:async_hooks";
-import { createHash, timingSafeEqual } from "crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { isStaffRole, type StaffRole } from "@/lib/permissions";
 
@@ -46,6 +46,8 @@ export interface StaffRecord {
   mustChangePassword: boolean;
   createdAt: string;
   lastLoginAt: string | null;
+  /** The owner can look this password up (the eye on Staff Accounts). */
+  canReveal: boolean;
 }
 
 interface StaffRow {
@@ -59,6 +61,9 @@ interface StaffRow {
   must_change_password: boolean | null;
   created_at: string;
   last_login_at: string | null;
+  /** The password, encrypted. Null until saved (older accounts, or the
+   *  migration is not applied). See sealPassword. */
+  password_reveal?: string | null;
 }
 
 const toRecord = (r: StaffRow): StaffRecord => ({
@@ -70,6 +75,7 @@ const toRecord = (r: StaffRow): StaffRecord => ({
   mustChangePassword: !!r.must_change_password,
   createdAt: r.created_at,
   lastLoginAt: r.last_login_at,
+  canReveal: !!r.password_reveal,
 });
 
 export const identityOf = (r: StaffRecord): StaffIdentity => ({
@@ -183,6 +189,71 @@ export function usernameProblem(u: string): string | null {
   return USERNAME_RE.test(u) ? null : "Usernames are 3 to 32 letters, numbers, dots, dashes or underscores — no spaces.";
 }
 
+// ── Looking a password up (the owner's eye) ──────────────────────────
+//
+// Sign-in checks the scrypt hash and never reads this. The copy exists only
+// so the owner can read a password back to someone who forgot it, so it is
+// ENCRYPTED, not stored as text: AES-256-GCM with a key derived from
+// SESSION_SECRET, which lives in the server's environment and not in the
+// database. If that secret is ever changed the copies stop opening, and the
+// screen says so ("reset it to see one") instead of showing rubbish.
+
+function revealKey(): Buffer | null {
+  const secret = process.env.SESSION_SECRET ?? "";
+  if (secret.length < 32) return null;
+  return createHash("sha256").update(`sw-staff-reveal:${secret}`).digest();
+}
+
+/** "v1.<iv>.<tag>.<ciphertext>", or null when there is no key to seal with. */
+export function sealPassword(password: string): string | null {
+  const key = revealKey();
+  if (!key) return null;
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const body = Buffer.concat([cipher.update(password, "utf8"), cipher.final()]);
+  return ["v1", iv.toString("base64url"), cipher.getAuthTag().toString("base64url"), body.toString("base64url")].join(".");
+}
+
+/** The password inside a sealed copy, or null when it can't be opened. */
+export function openPassword(sealed: string | null | undefined): string | null {
+  const key = revealKey();
+  if (!key || !sealed) return null;
+  const [v, iv, tag, body] = sealed.split(".");
+  if (v !== "v1" || !iv || !tag || !body) return null;
+  try {
+    const d = createDecipheriv("aes-256-gcm", key, Buffer.from(iv, "base64url"));
+    d.setAuthTag(Buffer.from(tag, "base64url"));
+    return Buffer.concat([d.update(Buffer.from(body, "base64url")), d.final()]).toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
+/** Run a write with the sealed copy attached. If the column isn't there yet
+ *  (the migration is the partner's to apply) the same write runs without it,
+ *  so adding people and changing passwords never breaks over this. */
+async function withReveal<R extends { error: { message: string } | null }>(
+  password: string,
+  run: (extra: Record<string, unknown>) => PromiseLike<R>,
+): Promise<R> {
+  const sealed = sealPassword(password);
+  if (!sealed) return run({});
+  const res = await run({ password_reveal: sealed });
+  if (res.error && /password_reveal/i.test(res.error.message)) return run({});
+  return res;
+}
+
+/** The owner's eye: what this person's password is, or null when none is
+ *  saved (or it can't be opened). */
+export async function revealStaffPassword(id: string): Promise<string | null> {
+  const { data, error } = await getSupabaseAdmin().from("staff").select("password_reveal").eq("id", id).maybeSingle();
+  if (error) {
+    if (/password_reveal/i.test(error.message)) return null;
+    throw new Error(error.message);
+  }
+  return openPassword((data as { password_reveal?: string | null } | null)?.password_reveal);
+}
+
 // ── Sign-in ──────────────────────────────────────────────────────────
 export type Hasher = (password: string, salt: string) => string;
 
@@ -210,6 +281,12 @@ export async function checkStaffCredentials(
 
   void getSupabaseAdmin().from("staff").update({ last_login_at: new Date().toISOString() }).eq("id", row.id)
     .then(({ error }) => { if (error) console.error("[staff] last_login_at:", error.message); });
+  // An account made before the owner's eye existed has no copy yet. This is
+  // the one moment the password is in hand, so save it now.
+  if (!row.password_reveal) {
+    void withReveal(password, (extra) => getSupabaseAdmin().from("staff").update(extra).eq("id", row.id))
+      .then(({ error }) => { if (error && !/password_reveal/i.test(error.message)) console.error("[staff] reveal copy:", error.message); });
+  }
   return toRecord(row);
 }
 
@@ -226,14 +303,15 @@ export async function bootstrapOwner(username: string, password: string, hash: H
       const existing = await findRowByUsername(username.trim());
       return existing ? toRecord(existing) : null;
     }
-    const { data, error } = await getSupabaseAdmin().from("staff").insert({
+    const { data, error } = await withReveal(password, (extra) => getSupabaseAdmin().from("staff").insert({
       name: username.trim().slice(0, 60).padEnd(2, "."),
       username: username.trim(),
       role: "Owner",
       password_hash: hash(password, salt),
       password_salt: salt,
       last_login_at: new Date().toISOString(),
-    }).select().single();
+      ...extra,
+    }).select().single());
     if (error) {
       const existing = await findRowByUsername(username.trim());
       return existing ? toRecord(existing) : null;
@@ -256,7 +334,7 @@ export interface NewStaff {
 export async function createStaff(input: NewStaff, hash: Hasher, salt: string): Promise<StaffRecord> {
   const existing = await findRowByUsername(input.username);
   if (existing) throw new StaffError(`The username "${input.username}" is already taken.`);
-  const { data, error } = await getSupabaseAdmin().from("staff").insert({
+  const { data, error } = await withReveal(input.password, (extra) => getSupabaseAdmin().from("staff").insert({
     name: input.name,
     username: input.username,
     role: input.role,
@@ -264,7 +342,8 @@ export async function createStaff(input: NewStaff, hash: Hasher, salt: string): 
     password_salt: salt,
     // Whoever the owner set up picks their own password at first sign-in.
     must_change_password: true,
-  }).select().single();
+    ...extra,
+  }).select().single());
   if (error) {
     if (error.code === "23505") throw new StaffError(`The username "${input.username}" is already taken.`);
     throw new Error(error.message);
@@ -307,7 +386,8 @@ export async function updateStaff(id: string, patch: StaffPatch, hash: Hasher, s
   }
   if (Object.keys(row).length === 0) return cur;
 
-  const { data, error } = await getSupabaseAdmin().from("staff").update(row).eq("id", id).select().single();
+  const { data, error } = await withReveal(patch.password ?? "", (extra) =>
+    getSupabaseAdmin().from("staff").update(patch.password === undefined ? row : { ...row, ...extra }).eq("id", id).select().single());
   if (error) throw new Error(error.message);
   forgetStaff(id);
   return toRecord(data as StaffRow);
@@ -317,12 +397,13 @@ export async function updateStaff(id: string, patch: StaffPatch, hash: Hasher, s
 export async function updateOwnLogin(id: string, input: { username: string; password: string }, hash: Hasher, salt: string): Promise<StaffRecord> {
   const clash = await findRowByUsername(input.username);
   if (clash && clash.id !== id) throw new StaffError(`The username "${input.username}" is already taken.`);
-  const { data, error } = await getSupabaseAdmin().from("staff").update({
+  const { data, error } = await withReveal(input.password, (extra) => getSupabaseAdmin().from("staff").update({
     username: input.username,
     password_hash: hash(input.password, salt),
     password_salt: salt,
     must_change_password: false,
-  }).eq("id", id).select().single();
+    ...extra,
+  }).eq("id", id).select().single());
   if (error) throw new Error(error.message);
   forgetStaff(id);
   return toRecord(data as StaffRow);

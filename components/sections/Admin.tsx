@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton, ConfirmDialog } from "@/components/admin/ui";
 import { statusLabel, bookingStatusLabel, ADMIN_NAV_GROUPS, ADMIN_TAB_LABEL } from "@/lib/labels";
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -415,7 +416,11 @@ export function Admin({
     if (closedDates.includes(ds)) return "Closed";
     return bookings.find((x) => bookingCoversDate(x, ds))?.status || null;
   };
-  const toggleClosed = (ds: string) => {
+  /* Closing or reopening a date changes what guests can book, and a date
+     cell is one mis-tap wide, so the click asks first. */
+  const [closeAsk, setCloseAsk] = useState<string | null>(null);
+  const toggleClosed = (ds: string) => setCloseAsk(ds);
+  const applyClosed = (ds: string) => {
     // Closing or reopening a date changes what guests can book: the
     // owner's call. Anyone else's click is sent to them as a request.
     if (!staff.can("calendar.manage")) {
@@ -1021,6 +1026,23 @@ export function Admin({
                 <h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: "0 0 8px" }}>{ADMIN_TAB_LABEL.Occupancy}</h2>
                 <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>Click a date to toggle it as closed.</p>
               </div>
+              {closeAsk && (() => {
+                const closing = !closedDates.includes(closeAsk);
+                return (
+                  <ConfirmDialog
+                    title={closing ? `Close ${fmtDate(closeAsk)}?` : `Reopen ${fmtDate(closeAsk)}?`}
+                    onCancel={() => setCloseAsk(null)} cancelLabel="Go back"
+                    confirm={<ActionButton kind={closing ? "red" : "primary"} onClick={() => { const ds = closeAsk; setCloseAsk(null); applyClosed(ds); }}>
+                      {closing ? "Close this date" : "Reopen this date"}
+                    </ActionButton>}>
+                    <p style={{ color: C.textS, fontSize: 14, margin: 0, lineHeight: 1.6 }}>
+                      {closing
+                        ? "Guests will not be able to book it. Bookings already made for it are not touched."
+                        : "Guests will be able to book it again."}
+                    </p>
+                  </ConfirmDialog>
+                );
+              })()}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                 <button onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))} style={{ background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", borderRadius: 4, padding: "8px 16px", fontSize: 14.5 }}>‹</button>
                 <span style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18 }}>{calMonth.toLocaleString("default", { month: "long", year: "numeric" })}</span>

@@ -39,7 +39,7 @@ import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { EmailGuestModal } from "@/components/admin/EmailGuestModal";
 import { ManilaClock } from "@/components/admin/ManilaClock";
-import { opsBoard, closingBlockers, attentionTally, unclosedDays, lowStock, prepBlocked, prepOpensOn, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, type OpsCard, type OpsView } from "@/lib/operations";
+import { opsBoard, closingBlockers, attentionTally, unclosedDays, lowStock, prepBlocked, prepOpensOn, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, cardTimer, type OpsCard, type OpsView, type TimerTone } from "@/lib/operations";
 import { useApp } from "@/contexts/AppContext";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { bookingMoney, collectedBetween, expensesBetween, livePayments, manilaDate, manilaTime, monthRange, round2, type BookingMoney } from "@/lib/finance";
@@ -129,6 +129,8 @@ interface Attention {
 
 const TONE: Record<Attention["tone"], string> = { red: "#d44", amber: "#d4a800", blue: "#3a8fc4" };
 const ATTENTION_SHOWN = 4;
+/** The card clock's colours (see cardTimer). */
+const TIMER_COLOR: Record<TimerTone, string> = { blue: "#3a8fc4", green: "#2e9e4e", orange: "#f08a24", red: "#d44" };
 
 const localTime = (d: Date) => d.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
 
@@ -253,6 +255,18 @@ export function OperationsTab({
     setBusyId(null);
     if (!r.ok) return toast(r.error, "error");
     toast(undo ? `Check-in undone for ${b.name}.` : `${b.name} checked in. ${b.guests} guest${b.guests === 1 ? "" : "s"} on site.`, undo ? "info" : "success");
+  };
+
+  /* Check in and Undo check-in used to act on the first tap. They change
+     what the whole board says about a group (on site, the clock, the
+     headcount), and a card is a short thumb-reach from the next one, so
+     both ask first. "Prepare first" is still a plain message: there is
+     nothing to confirm when the answer is no. */
+  const [archiveMsg, setArchiveMsg] = useState<CustomerMessage | null>(null);
+  const [checkInAsk, setCheckInAsk] = useState<{ b: Booking; opts: { prepared?: boolean; undo?: boolean } } | null>(null);
+  const askCheckIn = (b: Booking, opts: { prepared?: boolean; undo?: boolean } = {}) => {
+    if (!opts.undo && opts.prepared === false) return void checkIn(b, opts);
+    setCheckInAsk({ b, opts });
   };
 
   const usesText = (b: Booking) => {
@@ -459,11 +473,11 @@ export function OperationsTab({
              it takes the primary button. Check in stays on the card and
              stays clickable — it just says what has to happen first. */
           primary = c.prepared
-            ? <ActionButton kind="primary" icon="log-in" disabled={busy} onClick={() => checkIn(b, { prepared: true })}>{busy ? "Checking in…" : "Check in"}</ActionButton>
+            ? <ActionButton kind="primary" icon="log-in" disabled={busy} onClick={() => askCheckIn(b, { prepared: true })}>{busy ? "Checking in…" : "Check in"}</ActionButton>
             : <ActionButton kind="primary" icon="clipboard-check" onClick={() => go("prep", b)}>Prepare for arrival</ActionButton>;
           secondary = c.prepared
             ? null
-            : <ActionButton icon="log-in" disabled={busy} onClick={() => checkIn(b, { prepared: false })}>{busy ? "Checking in…" : "Check in"}</ActionButton>;
+            : <ActionButton icon="log-in" disabled={busy} onClick={() => askCheckIn(b, { prepared: false })}>{busy ? "Checking in…" : "Check in"}</ActionButton>;
         }
         break;
       case "onsite":
@@ -553,8 +567,8 @@ export function OperationsTab({
               {stage !== "done" && <DropdownMenuItem onSelect={() => go("charge", b)}><Icon name="plus" />Add a charge (overtime, guests, room)</DropdownMenuItem>}
               {canPrep && <DropdownMenuItem onSelect={() => go("prep", b)}><Icon name="clipboard-check" />{c.prepared ? "Edit preparation" : "Prepare facilities"}</DropdownMenuItem>}
               {stage === "arriving" && !c.overdue && <DropdownMenuItem onSelect={() => go("checkout", b)}><Icon name="check" />Complete stay in one step</DropdownMenuItem>}
-              {stage === "arriving" && c.overdue && <DropdownMenuItem disabled={busy} onSelect={() => checkIn(b, { prepared: c.prepared })}><Icon name="log-in" />Check in only</DropdownMenuItem>}
-              {stage === "onsite" && <DropdownMenuItem disabled={busy} onSelect={() => checkIn(b, { undo: true })}><Icon name="history" />Undo check-in</DropdownMenuItem>}
+              {stage === "arriving" && c.overdue && <DropdownMenuItem disabled={busy} onSelect={() => askCheckIn(b, { prepared: c.prepared })}><Icon name="log-in" />Check in only</DropdownMenuItem>}
+              {stage === "onsite" && <DropdownMenuItem disabled={busy} onSelect={() => askCheckIn(b, { undo: true })}><Icon name="history" />Undo check-in</DropdownMenuItem>}
               {stage === "arriving" && <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onSelect={() => go("noshow", b)}><Icon name="x" />Mark as no-show</DropdownMenuItem>
@@ -567,6 +581,29 @@ export function OperationsTab({
           </DropdownMenu>
           </div>
         </div>
+
+        {/* The clock: blue until they are due, red once late; green while
+            on site, orange as check-out comes up, red once past it. The
+            rules live in lib/operations.ts (cardTimer). */}
+        {(() => {
+          const t = cardTimer(c, now);
+          if (!t) return null;
+          const col = TIMER_COLOR[t.tone];
+          return (
+            <div role="timer" aria-label={`${t.label}. ${t.detail}`}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap",
+                padding: "8px 12px", borderRadius: 10,
+                background: `color-mix(in srgb, ${col} 12%, transparent)`,
+                border: `1px solid color-mix(in srgb, ${col} 45%, transparent)`,
+              }}>
+              <span className="sw-ink" style={{ ["--ink-c" as string]: col, display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13.5, fontVariantNumeric: "tabular-nums" }}>
+                <Icon name="clock" size={14} />{t.label}
+              </span>
+              <span style={{ color: C.textS, fontSize: 11.5 }}>{t.detail}</span>
+            </div>
+          );
+        })()}
 
         <div style={{ color: C.textB, fontSize: 12.5, lineHeight: 1.6 }}>
           <div><Icon name="users" size={12} style={{ marginRight: 8, verticalAlign: -1 }} />{b.guests} guest{b.guests === 1 ? "" : "s"} · {b.package}</div>
@@ -1219,7 +1256,7 @@ export function OperationsTab({
             messages={customerMessages}
             mob={mob}
             bookingFor={(m) => bookingForMessage?.(m) ?? null}
-            onArchive={(m) => onArchiveMessage?.(m)}
+            onArchive={(m) => setArchiveMsg(m)}
             onRestore={(m) => onRestoreMessage?.(m)}
             onReply={(m) => onReplyMessage?.(m)}
             onOpenAll={() => onGoTab?.("Customer Service")}
@@ -1276,6 +1313,32 @@ export function OperationsTab({
                 {current.email ? `A confirmation email goes to ${current.email}.` : "This guest has no email, so no confirmation is sent."}
               </p>
             </div>
+          </ConfirmDialog>
+        );
+      })()}
+      {archiveMsg && (
+        <ConfirmDialog title="Archive this message?" description={`${archiveMsg.name} · ${archiveMsg.message.slice(0, 80)}${archiveMsg.message.length > 80 ? "…" : ""}`}
+          onCancel={() => setArchiveMsg(null)} cancelLabel="Go back"
+          confirm={<ActionButton kind="primary" icon="folder" onClick={() => { const m = archiveMsg; setArchiveMsg(null); onArchiveMessage?.(m); }}>Archive</ActionButton>}>
+          <p style={{ color: C.textS, fontSize: 14, margin: 0, lineHeight: 1.6 }}>It moves to the Archive. You can restore it any time.</p>
+        </ConfirmDialog>
+      )}
+      {checkInAsk && (() => {
+        const { b, opts } = checkInAsk;
+        const undo = !!opts.undo;
+        return (
+          <ConfirmDialog
+            title={undo ? `Undo check-in for ${b.name}?` : `Check in ${b.name}?`}
+            description={`${b.id} · ${b.guests} guest${b.guests === 1 ? "" : "s"} · ${b.package}`}
+            onCancel={() => setCheckInAsk(null)} cancelLabel="Go back" width={480}
+            confirm={<ActionButton kind={undo ? "red" : "primary"} icon={undo ? "history" : "log-in"} onClick={() => { setCheckInAsk(null); void checkIn(b, opts); }}>
+              {undo ? "Undo check-in" : "Check in"}
+            </ActionButton>}>
+            <p style={{ color: C.textS, fontSize: 14, margin: 0, lineHeight: 1.6 }}>
+              {undo
+                ? "They go back to Arriving and stop counting as on site. Use this only if they were checked in by mistake."
+                : "They move to On site, their stay clock starts now, and they count toward the guests at the resort."}
+            </p>
           </ConfirmDialog>
         );
       })()}

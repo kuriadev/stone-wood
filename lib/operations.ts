@@ -169,6 +169,94 @@ export function opsBoard(bookings: Booking[], inspections: Inspection[], now: Da
     (x.b.createdAt ?? 0) - (y.b.createdAt ?? 0));
 }
 
+// ── The clock on each card ───────────────────────────────────────────
+//
+// One glance should tell the admin what needs doing, so each card in
+// Arriving / On site / Balance to collect carries a coloured timer:
+//
+//   Arriving          blue    their arrival time has not come yet
+//                     red     it has passed and they are not checked in: late
+//   On site           green   inside the booked hours
+//                     orange  the last 30 minutes, up to the end time:
+//                             check-out is pending
+//                     red     past the end time (a minute after, e.g. 5:01 AM)
+//   Balance to collect orange checked out and waiting to pay
+//                     red     waiting 2 hours or more, or since another day
+//
+// Pure, so the thresholds are tested rather than remembered.
+
+export type TimerTone = "blue" | "green" | "orange" | "red";
+export interface CardTimer {
+  tone: TimerTone;
+  /** The headline, e.g. "Arrives in 45 min", "Late 25 min". */
+  label: string;
+  /** The reference time under it, e.g. "Arrival 7:00 AM". */
+  detail: string;
+}
+
+/** On site: how long before the end time "check-out is due" turns orange. */
+export const CHECKOUT_SOON_MS = 30 * 60_000;
+/** On site: how far past the end time before it reads overdue (5:01 AM). */
+export const OVERDUE_AFTER_MS = 60_000;
+/** Balance to collect: how long a checked-out group may wait before red. */
+export const COLLECT_RED_AFTER_MS = 2 * 60 * 60_000;
+
+const clockTime = (d: Date) => d.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
+
+/** "1 hr 20 min", "2 days 3 hr", "45 min". */
+export function timerSpan(ms: number): string {
+  const min = Math.max(1, Math.round(ms / 60_000));
+  const days = Math.floor(min / 1440);
+  const h = Math.floor((min % 1440) / 60);
+  if (days) return `${days} day${days === 1 ? "" : "s"}${h ? ` ${h} hr` : ""}`;
+  return h ? `${h} hr${min % 60 ? ` ${min % 60} min` : ""}` : `${min} min`;
+}
+
+/** When this booking is expected: the arrival time the guest or the desk
+ *  gave, otherwise the start of the booked slot. */
+export function expectedArrival(b: Booking): Date | null {
+  const w = getOccupancyWindow(b);
+  if (!w) return null;
+  const m = /^(\d{2}):(\d{2})$/.exec(b.arrivalTime ?? "");
+  if (!m) return w.start;
+  const at = new Date(w.start);
+  at.setHours(Number(m[1]), Number(m[2]), 0, 0);
+  return at;
+}
+
+export function cardTimer(c: OpsCard, now: Date): CardTimer | null {
+  const { b } = c;
+  if (c.column === "arriving") {
+    const due = expectedArrival(b);
+    if (!due) return null;
+    const diff = due.getTime() - now.getTime();
+    return diff > 0
+      ? { tone: "blue", label: `Arrives in ${timerSpan(diff)}`, detail: `Arrival ${clockTime(due)}` }
+      : { tone: "red", label: `Late ${timerSpan(-diff)}`, detail: `Was due ${clockTime(due)}` };
+  }
+  if (c.column === "onsite" && c.endsAt) {
+    const left = c.endsAt.getTime() - now.getTime();
+    const since = b.checkedInAt ? new Date(b.checkedInAt) : null;
+    const from = since ? `In ${clockTime(since)} · out ${clockTime(c.endsAt)}` : `Out ${clockTime(c.endsAt)}`;
+    if (-left >= OVERDUE_AFTER_MS) return { tone: "red", label: `Overdue ${timerSpan(-left)}`, detail: `Check-out was ${clockTime(c.endsAt)}` };
+    if (left <= CHECKOUT_SOON_MS) {
+      return { tone: "orange", label: left > 0 ? `Check-out in ${timerSpan(left)}` : "Check-out due now", detail: from };
+    }
+    return { tone: "green", label: `${timerSpan(left)} left`, detail: from };
+  }
+  if (c.column === "settle" && b.checkedOutAt) {
+    const out = new Date(b.checkedOutAt);
+    const waited = now.getTime() - out.getTime();
+    const sameDay = manilaDate(out) === manilaDate(now);
+    return {
+      tone: !sameDay || waited >= COLLECT_RED_AFTER_MS ? "red" : "orange",
+      label: `Waiting ${timerSpan(Math.max(0, waited))}`,
+      detail: `Checked out ${clockTime(out)}`,
+    };
+  }
+  return null;
+}
+
 // ── Closing the day ──────────────────────────────────────────────────
 // A day can be closed only once every reservation up to it is finished:
 // completed (inspected and paid, or closed unpaid with a reason) or

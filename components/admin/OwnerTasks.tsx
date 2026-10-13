@@ -65,6 +65,8 @@ export function OwnerTasks({ mob, onGoTab, onOpenBooking }: {
   const { toast } = useToast();
   const [busy, setBusy] = useState<number | null>(null);
   const [declining, setDeclining] = useState<OwnerRequest | null>(null);
+  /* Approving carries out a refund, a void or a cancellation, so it asks. */
+  const [approving, setApproving] = useState<OwnerRequest | null>(null);
   const [note, setNote] = useState("");
   const [reviewing, setReviewing] = useState<DateChange | null>(null);
   const [refunding, setRefunding] = useState<Booking | null>(null);
@@ -106,7 +108,7 @@ export function OwnerTasks({ mob, onGoTab, onOpenBooking }: {
       badge: r.lastError ? { text: "Last try failed", color: "#d44" } : undefined,
       actions: <>
         <ActionButton size="sm" disabled={busy === r.id} onClick={() => { setDeclining(r); setNote(""); }}>Decline</ActionButton>
-        <ActionButton size="sm" kind="primary" icon="check" disabled={busy === r.id} onClick={() => void approve(r)}>{busy === r.id ? "Working…" : "Approve"}</ActionButton>
+        <ActionButton size="sm" kind="primary" icon="check" disabled={busy === r.id} onClick={() => setApproving(r)}>{busy === r.id ? "Working…" : "Approve"}</ActionButton>
       </>,
     });
   }
@@ -263,6 +265,14 @@ export function OwnerTasks({ mob, onGoTab, onOpenBooking }: {
         </section>
       ))}
 
+      {approving && (
+        <ConfirmDialog title="Approve this request?" description={approving.summary} onCancel={() => setApproving(null)} cancelLabel="Go back"
+          confirm={<ActionButton kind="primary" icon="check" disabled={busy === approving.id} onClick={() => { const r = approving; setApproving(null); void approve(r); }}>Approve</ActionButton>}>
+          <p style={{ color: C.textS, fontSize: 14, margin: 0, lineHeight: 1.6 }}>
+            It happens right away, exactly as if you had pressed the button yourself.
+          </p>
+        </ConfirmDialog>
+      )}
       {declining && (
         <ConfirmDialog title="Decline this request?" description={declining.summary} onCancel={() => setDeclining(null)}
           confirm={

@@ -176,7 +176,18 @@ export const COLLECTIONS = {
           const saved = created?.booking as Booking | undefined;
           if (saved) reconciled[i] = saved;
         } else if (JSON.stringify(before) !== JSON.stringify(b)) {
-          await send("/api/bookings/" + encodeURIComponent(b.id), "PATCH", b);
+          /* Only what THIS person changed. Several staff use the panel at
+             once, and each screen can be up to a refresh behind. Sending the
+             whole booking would carry this screen's old status / archived
+             flag / notes back over what someone else just saved (or get the
+             edit refused for a status that is no longer current). */
+          const changed: Record<string, unknown> = {};
+          for (const k of Object.keys(b) as (keyof Booking)[]) {
+            if (JSON.stringify(before[k]) !== JSON.stringify(b[k])) changed[k] = b[k];
+          }
+          // The route stamps archived_at from the same request.
+          if ("archived" in changed && b.archivedAt) changed.archivedAt = b.archivedAt;
+          await send("/api/bookings/" + encodeURIComponent(b.id), "PATCH", changed);
         }
       }
       return reconciled;
