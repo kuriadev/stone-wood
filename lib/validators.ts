@@ -13,7 +13,7 @@ import { dayjs, DATE_FMT } from "@/lib/dayjs";
 // ════════════════════════════════════════════════════════════════════
 
 export const NAME_MIN = 2;
-export const NAME_MAX = 60;
+export const NAME_MAX = 40;
 export const NOTES_MAX = 200;
 
 /** The resort's actual physical ceiling — how many people can be on-site for
