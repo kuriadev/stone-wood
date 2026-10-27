@@ -200,12 +200,13 @@ const SLOT_WORD: Record<"Day" | "Night", string> = { Day: "Day Tour", Night: "Ni
  *  within a slot up to RESORT_SHARED_CAPACITY guests. A request with
  *  overtime also needs the Night slot completely free.
  *
- *  Exclusive is the exception, and it is deliberately NOT per slot: it is a
- *  whole-resort buyout of the DATE, as types/booking.ts has always defined
- *  it. This used to be enforced per slot, so an Exclusive Day buyout left
- *  the Night open — the calendar showed such a date as plainly available
- *  and a second group could book over a buyout. Confirmed as the intended
- *  rule by the owner on 2026-09-25. */
+ *  Exclusive is per slot too: it buys out the tour it is priced for
+ *  (EXCLUSIVE_FLAT_RATE is per slot), so an Exclusive Day leaves the Night
+ *  open to other groups. A Staycation holds both slots, and a Day with
+ *  overtime holds the Night as well, so those still close the evening.
+ *  From 2026-09-25 an Exclusive booking closed the whole date, on the
+ *  owner's word at the time; the owner's rule changed to per tour on
+ *  2026-10-24. */
 export function checkPoolCapacity(
   date: string,
   slot: BookingSlot,
@@ -215,29 +216,37 @@ export function checkPoolCapacity(
   overtime = 0
 ): { ok: boolean; reason?: string } {
   const live = liveOn(date, bookings).filter(usesPool);
+  const wanted = occupiedSlots(slot, overtime);
+  const clashSlot = (b: Booking) => wanted.find((s) => bookingHeldSlots(b).includes(s));
+  const overlapping = live.filter((b) => clashSlot(b) !== undefined);
 
-  // ── Whole-date rules, before any per-slot arithmetic ────────────────
-  // An Exclusive booking anywhere on this date closes the date outright,
-  // and a new Exclusive request needs the date completely clear.
-  const heldExclusive = live.find((b) => getBookingTier(b) === "Exclusive");
+  // ── Exclusive rules, before any per-slot arithmetic ─────────────────
+  // An Exclusive booking in a slot this request needs closes it outright,
+  // and a new Exclusive request needs its slot(s) completely clear.
+  const heldExclusive = overlapping.find((b) => getBookingTier(b) === "Exclusive");
   if (heldExclusive) {
+    const s = clashSlot(heldExclusive)!;
+    const runsLate = s === "Night" && getBookingSlot(heldExclusive) === "Day";
     return {
       ok: false,
-      reason: `The resort is booked Exclusive that date (${SLOT_WORD[occupiedSlots(getBookingSlot(heldExclusive), heldExclusive.overtime ?? 0)[0]]}) — an Exclusive booking takes the whole day.`,
+      reason: runsLate
+        ? "The Exclusive Day Tour that date runs overtime into the evening, so the Night Tour isn't free."
+        : `The resort is booked Exclusive for the ${SLOT_WORD[s]} that date.`,
     };
   }
-  if (tier === "Exclusive" && live.length > 0) {
+  if (tier === "Exclusive" && overlapping.length > 0) {
+    const s = clashSlot(overlapping[0])!;
     return {
       ok: false,
-      reason: "An Exclusive booking takes the whole date, and that date already has bookings.",
+      reason: `An Exclusive booking needs the pool to itself, and the ${SLOT_WORD[s]} already has bookings that date.`,
     };
   }
 
-  // Past this point every booking involved is Shared, in both directions:
-  // an Exclusive booking already ON the date, and an Exclusive booking being
-  // REQUESTED, have both returned above. That leaves overtime as the only
-  // thing that can still block a slot — it is what makes a Shared group
-  // occupy a slot it did not book.
+  // Past this point every booking in the slots this request needs is
+  // Shared, in both directions: an Exclusive booking already IN them, and
+  // an Exclusive booking being REQUESTED, have both returned above. That
+  // leaves overtime as the only thing that can still block a slot — it is
+  // what makes a Shared group occupy a slot it did not book.
   for (const s of occupiedSlots(slot, overtime)) {
     const inSlot = live.filter((b) => bookingHeldSlots(b).includes(s));
     if (inSlot.length === 0) continue;
@@ -321,7 +330,7 @@ export function isRoomOpen(roomId: number, facilities: Facility[]): boolean {
 }
 
 /** One group, two bookings: the events venue on its own plus a Shared pool
- *  tour on the same date gets them both for less than "Resort visit +
+ *  tour on the same date gets them both for less than "Resort & pool +
  *  Events Venue", which is Exclusive only — and puts their party beside
  *  strangers in the pool, the thing that rule exists to prevent.
  *
@@ -365,22 +374,12 @@ export function checkBookingAvailability(
   facilities?: Facility[],
   overtime = 0
 ): { ok: boolean; reason?: string } {
-  // ── Exclusive means the whole resort, events venue included ─────────
-  // A venue-only booking is stored as Exclusive too (the hall is never
-  // shared), so "the whole resort is taken" is an Exclusive booking that
-  // USES THE POOL. checkPoolCapacity only looks at pool bookings, so these
-  // two cases used to slip through: a group renting just the hall on the
-  // date of someone's Exclusive buyout, and an Exclusive buyout on a date
-  // whose hall another group had already rented.
-  const live = liveOn(date, bookings);
-  const wholeResort = (b: Booking) => getBookingTier(b) === "Exclusive" && usesPool(b);
-  if (resource === "Venue" && live.some(wholeResort)) {
-    return { ok: false, reason: "The resort is booked Exclusive that date — an Exclusive booking takes the whole resort, events venue included." };
-  }
-  if (resource !== "Venue" && tier === "Exclusive" && live.some((b) => getBookingResource(b) === "Venue")) {
-    return { ok: false, reason: "Another group has the events venue that date, and an Exclusive booking takes the whole resort." };
-  }
-
+  // The pool and the events venue are booked independently: an Exclusive
+  // pool buyout keeps the pool to one group, and the hall can still go to
+  // another group's event in the same tour (owner's rule, 2026-10-27).
+  // From 2026-09-25 an Exclusive buyout took the hall as well. Each part is
+  // still one group's when it is booked: the pool by checkPoolCapacity, the
+  // hall by checkVenueAvailability.
   if (resource !== "Venue") {
     if (facilities && !isPoolOpen(facilities)) {
       return { ok: false, reason: "The pool is temporarily closed for maintenance." };

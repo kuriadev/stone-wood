@@ -23,6 +23,7 @@ import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { fmt, fmtDate, getBookingSlot, getBookingResource, getBookingTier, stayLabel } from "@/lib/utils";
+import { packageAvailed } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
 import { choiceOpen, fmtDeadline, holdActive, HOLD_HOURS } from "@/lib/rebooking";
 import type { Booking, BookingSlot } from "@/types/booking";
@@ -319,7 +320,7 @@ export function ManageBooking(_props: ManageBookingProps) {
   const actions: { key: ActionKey; icon: IconName; title: string; sub: string; disabled?: string }[] = [
     {
       key: "reschedule", icon: "calendar", title: "Change the date", sub: "Pick another free date",
-      disabled: !canMove ? "Only a confirmed booking can be moved, before the day of the visit."
+      disabled: !canMove ? "Only a confirmed booking can be moved, before its reserved date."
         : pendingChange ? "You already have a request waiting."
           : changesLeft <= 0 ? "This booking's date has already been changed once." : undefined,
     },
@@ -343,7 +344,7 @@ export function ManageBooking(_props: ManageBookingProps) {
         slot={getBookingSlot(found)}
       />
       <p style={{ color: C.textS, fontSize: 12.5, margin: "12px 0 0" }}>
-        Same package and time slot ({SLOTS[getBookingSlot(found)].label}); your payment carries over.
+        Same package and time ({SLOTS[getBookingSlot(found)].label}); your payment carries over.
       </p>
     </div>
   );
@@ -448,9 +449,9 @@ export function ManageBooking(_props: ManageBookingProps) {
                 </span>
 
                 <div style={{ minWidth: 0 }}>
-                  <p style={microLabel}>PRIVATE RESORT RESERVATION</p>
+                  <p style={microLabel}>YOUR RESERVATION</p>
                   <h3 style={{ color: C.textH, fontFamily: serif, fontSize: 23, fontWeight: 400, margin: 0, lineHeight: 1.2 }}>
-                    {found.package || "Resort booking"}
+                    {packageAvailed(found) || "Resort booking"}
                   </h3>
                 </div>
 
@@ -459,7 +460,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                   <p style={{ color: C.textB, fontSize: 13.5, fontWeight: 600, margin: 0 }}>{stayLabel(found)}</p>
                 </div>
                 <div>
-                  <p style={microLabel}>TIME SLOT</p>
+                  <p style={microLabel}>TIME</p>
                   <p style={{ color: C.textB, fontSize: 13.5, fontWeight: 600, margin: 0 }}>{slotHours ?? "—"}</p>
                 </div>
                 <div>

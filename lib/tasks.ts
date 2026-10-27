@@ -25,6 +25,7 @@ import type { UpkeepRun, UpkeepTask } from "@/types/tasks";
 import { prepBlocked } from "@/lib/operations";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { bookingEndDate } from "@/lib/utils";
+import { getOccupancyWindow, departureDate } from "@/lib/occupancy";
 
 export type TaskKind = "prepare" | "inspect" | "clean" | "upkeep";
 
@@ -44,6 +45,11 @@ export interface CaretakerTask {
   booking?: Booking;
   facilities: Facility[];
   upkeep?: UpkeepTask;
+  /** Inspect only: when the group's booked time ends, overtime included.
+   *  The inspection happens as they leave, and nothing else told the
+   *  caretaker when that is: the "time is up" alert is on the Dashboard,
+   *  which caretakers don't open. */
+  endsAt?: Date;
 }
 
 const DAY_MS = 86_400_000;
@@ -97,12 +103,16 @@ export function caretakerTasks(input: {
   for (const b of live) {
     if (b.status !== "Confirmed" || !b.checkedInAt || b.checkedOutAt) continue;
     const used = facilitiesForBooking(b, facilities);
+    // Late only once the day they LEAVE has passed. A Night Tour leaves at
+    // 5 AM the morning after its date, so judging by the booking's date
+    // called a group still on site "Overdue" from midnight.
+    const leaves = departureDate(b) ?? bookingEndDate(b);
     tasks.push({
       key: `inspect:${b.id}`, kind: "inspect",
       title: `Inspect when ${b.name} leaves`,
       detail: used.length ? used.map((f) => f.name).join(", ") : "No listed facilities",
-      date: bookingEndDate(b), overdue: bookingEndDate(b) < today,
-      booking: b, facilities: used,
+      date: leaves, overdue: leaves < today,
+      booking: b, facilities: used, endsAt: getOccupancyWindow(b)?.end,
     });
   }
 
@@ -147,10 +157,12 @@ export function caretakerTasks(input: {
   }
 
   // Groups leaving first (they won't wait), then arrivals, then the rest;
-  // within each, what has fallen behind first.
+  // within each, what has fallen behind first, and the group leaving
+  // soonest before the others.
   const order: Record<TaskKind, number> = { inspect: 0, prepare: 1, clean: 2, upkeep: 3 };
+  const leaves = (t: CaretakerTask) => t.endsAt?.getTime() ?? 0;
   return tasks.sort((a, b) =>
-    order[a.kind] - order[b.kind] || Number(b.overdue) - Number(a.overdue) || a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
+    order[a.kind] - order[b.kind] || Number(b.overdue) - Number(a.overdue) || leaves(a) - leaves(b) || a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
 }
 
 /** Upkeep coming up in the next `days` days, for the "coming up" list. */

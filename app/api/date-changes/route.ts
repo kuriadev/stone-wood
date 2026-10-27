@@ -128,10 +128,10 @@ export async function PATCH(req: NextRequest) {
        so the hold can still be live a day AFTER the visit was due. Without
        this, approving such a request would move a booking whose date had
        already come and gone -- a no-show quietly becoming a future booking.
-       The guest is told "date changes close on the day of your visit"; this
+       The guest is told "date changes close on your reserved date"; this
        makes that true no matter who is clicking. */
     if (b.date <= manilaDate()) {
-      return no("That visit date has already passed, so this booking can no longer be moved. Decline the request and book them in again if they still want to come.");
+      return no("That reserved date has already passed, so this booking can no longer be moved. Decline the request and book them in again if they still want to come.");
     }
     const check = await checkMove(b, request.toDate);
     if (!check.ok) return no(`${check.error} Decline the request and let the guest pick another date.`);

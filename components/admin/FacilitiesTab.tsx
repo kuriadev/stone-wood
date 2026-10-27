@@ -18,7 +18,7 @@ import { adminTabLabel } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { useStaff } from "@/contexts/StaffContext";
 import { StockHistoryPanel, UpkeepSchedulePanel, CleaningSuppliesPanel } from "@/components/admin/StockSetup";
@@ -114,7 +114,7 @@ export function FacilitiesTab({ facilities, bookings, mob }: FacilitiesTabProps)
 // would wait indefinitely, so the owner can tick any of them, or all, and
 // mark them cleaned in one go (/api/facilities/cleaned).
 function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; bookings: Booking[]; mob: boolean }) {
-  const { C, rowBg } = useAdminStyle();
+  const { C, cBr, rowBg } = useAdminStyle();
   // Adding, renaming and retiring amenities is the owner's; staff can still
   // open one to set its status (a caretaker spotting a leak).
   const canManage = useStaff().can("facilities.manage");
@@ -212,6 +212,21 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
     );
   };
 
+  const lastUsed = (f: Facility) =>
+    f.lastUsedGuestName ? `${f.lastUsedGuestName}${f.lastUsedBookingId ? ` (${f.lastUsedBookingId})` : ""}` : "—";
+
+  /* On a phone the tables needed a sideways swipe to reach Status and
+     Edit, the two things a caretaker opens this screen for. There, each
+     facility is a card with both in view. */
+  const phoneCard = (f: Facility, i: number, icon: ReactNode, meta: ReactNode, actions: ReactNode) => (
+    <div key={f.id} style={{ background: rowBg(i), border: `1px solid ${cBr}`, borderRadius: 10, padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ color: C.textH, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>{tick(f)}{icon}{f.name}</div>
+      <div style={{ color: C.textS, fontSize: 12.5 }}>{meta}</div>
+      <div>{statusCell(f)}</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{actions}</div>
+    </div>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       {dirty.length > 0 && (
@@ -238,6 +253,20 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
           <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: 0 }}>Amenities <span style={{ color: C.textS, fontWeight: 400 }}>({active.length})</span></h3>
           {canManage && <ActionButton kind="primary" icon="plus" onClick={() => setEdit("new")}>Add amenity</ActionButton>}
         </div>
+        {mob ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {active.length === 0 && <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>No amenities yet. Add the resort&apos;s first one.</p>}
+            {active.map((f, i) => phoneCard(f, i, <Icon name={facilityIcon(f)} size={15} />,
+              <>{f.description ? `${f.description} · ` : ""}{AREA_LABEL[amenityArea(f)]} · {f.showOnSite === false ? "Hidden on the website" : "Shown on the website"}</>,
+              <>
+                <ActionButton icon="edit" onClick={() => setEdit(f)}>Edit</ActionButton>
+                {!isCoreAmenity(f) && <>
+                  <ActionButton onClick={() => setRetiring(f)}>Stop offering</ActionButton>
+                  <ActionButton kind="red" onClick={() => setRemoving(f)}>Remove</ActionButton>
+                </>}
+              </>))}
+          </div>
+        ) : (
         <TableShell head={["Amenity", "Used by", "Website", "Status", ""]} minWidth={760}
           empty={active.length === 0 ? "No amenities yet. Add the resort's first one." : undefined}>
           {active.map((f, i) => (
@@ -262,6 +291,7 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
             </Row>
           ))}
         </TableShell>
+        )}
         {retired.length > 0 && (
           <div style={{ marginTop: 12 }}>
             <ActionButton size="sm" onClick={() => setShowRetired((s) => !s)}>{showRetired ? "Hide" : "Show"} no longer offered ({retired.length})</ActionButton>
@@ -283,17 +313,26 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
       <section>
         <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Rooms <span style={{ color: C.textS, fontWeight: 400 }}>({rooms.length})</span></h3>
         <p style={{ color: C.textS, fontSize: 12.5, margin: "0 0 12px" }}>Rooms are added and renamed in the Rooms module. Here you keep their status and checklists.</p>
+        {mob ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {rooms.length === 0 && <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>No rooms.</p>}
+            {rooms.map((f, i) => phoneCard(f, i, <Icon name="bed" size={15} />,
+              `Last used by ${lastUsed(f)}`,
+              <ActionButton icon="edit" onClick={() => setEdit(f)}>Edit</ActionButton>))}
+          </div>
+        ) : (
         <TableShell head={["Room", "Last used by", "Status", ""]} minWidth={620}
           empty={rooms.length === 0 ? "No rooms." : undefined}>
           {rooms.map((f, i) => (
             <Row key={f.id} style={{ background: rowBg(i) }}>
               <Cell style={{ ...td, color: C.textH, fontWeight: 600 }}>{tick(f)}<Icon name="bed" size={15} style={{ marginRight: 8, verticalAlign: -2 }} />{f.name}</Cell>
-              <Cell style={{ ...td, color: C.textS }}>{f.lastUsedGuestName ? `${f.lastUsedGuestName}${f.lastUsedBookingId ? ` (${f.lastUsedBookingId})` : ""}` : "—"}</Cell>
+              <Cell style={{ ...td, color: C.textS }}>{lastUsed(f)}</Cell>
               <Cell style={td}>{statusCell(f)}</Cell>
               <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm" icon="edit" onClick={() => setEdit(f)}>Edit</ActionButton></Cell>
             </Row>
           ))}
         </TableShell>
+        )}
       </section>
 
       {confirmClean && chosen.length > 0 && (
@@ -474,11 +513,11 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-        <p style={{ color: C.textS, fontSize: 13, margin: 0 }}>Every visit&apos;s preparation and check-out inspection. Click one to see the checklists, damage and payments.</p>
+        <p style={{ color: C.textS, fontSize: 13, margin: 0 }}>Every booking&apos;s preparation and check-out inspection. Click one to see the checklists, damage and payments.</p>
         <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search booking ID, email, guest or phone" aria-label="Search inspection records" style={{ ...inp, width: 260, padding: "8px 12px" }} />
       </div>
-      <TableShell head={["Guest", "Visit", "Facilities", "Prepared", "Inspected by", "Damage", "Settlement", ""]} minWidth={1000}
-        empty={shown.length === 0 ? (q ? "No visits match." : "No visits checked out yet.") : undefined}>
+      <TableShell head={["Guest", "Date", "Facilities", "Prepared", "Inspected by", "Damage", "Settlement", ""]} minWidth={1000}
+        empty={shown.length === 0 ? (q ? "No bookings match." : "No bookings checked out yet.") : undefined}>
         {pagedChk.rows.map((b, i) => {
           const m = bookingMoney(b, ops.payments, ops.damages);
           const prep = ops.inspections.find((x) => x.bookingId === b.id && x.stage === "Preparation");

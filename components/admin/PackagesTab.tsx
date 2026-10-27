@@ -69,8 +69,8 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
   const [confirmDelete, setConfirmDelete] = useState<ResortPackage | null>(null);
   const [form, setForm] = useState(BLANK_FORM);
 
-  const cBg = isDark ? "#121212" : "#ffffff";
-  const cBr = isDark ? "#2a2a2a" : "#e4ddd1";
+  const cBg = isDark ? "var(--sw-bg)" : "#ffffff";
+  const cBr = isDark ? "var(--sw-border)" : "#e4ddd1";
   /* Delete stays red in both themes, but #e55 is a pale red: it reads on the
      dark card and washes out to about 3:1 on the white one. The ink follows
      the theme so the icon is legible either way. */
@@ -335,7 +335,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                     <p style={{ color: C.textS, margin: 0 }}>
                       The same setup in Book Now costs <strong style={{ color: C.goldInk }}>{fmt(v.diy)}</strong>.
                       {priced && price > v.diy && <> This package adds <strong style={{ color: C.textH }}>{fmt(price - v.diy)}</strong> for its extras; list them under Includes.</>}
-                      {form.requiresRoom && <> The room is 8% off on top.</>}
+                      {form.requiresRoom && <> The room the guest picks is added at its own rate.</>}
                     </p>
                     {priced && v.save > 0 && (
                       <p style={{ color: "#f5c518", margin: "4px 0 0" }}>

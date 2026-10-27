@@ -59,6 +59,8 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
   const isOwner = staff.can("inventory.manage");
   const w = useWidth();
   const mob = w < 768;
+  // The + / − buttons, thumb-sized on a phone.
+  const stepSize = mob ? 36 : 22;
   const { reloadInventory } = useApp();
 
   // An archived item is still in the server's list, marked with deletedAt,
@@ -87,8 +89,8 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
   };
 
   // Theme-driven values kept as inline only where CSS variables can't reach
-  const cBg  = isDark ? "#121212" : "#ffffff";
-  const cBr  = isDark ? "#2a2a2a" : "#e4ddd1";
+  const cBg  = isDark ? "var(--sw-bg)" : "#ffffff";
+  const cBr  = isDark ? "var(--sw-border)" : "#e4ddd1";
   const inpS: React.CSSProperties = { ...C.inp, borderRadius: 4 };
 
   const filtered = items.filter(
@@ -151,6 +153,43 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
     isDark
       ? idx % 2 === 0 ? "#090909" : "#080808"
       : idx % 2 === 0 ? "#ffffff" : "#faf7f2";
+
+  // One item's − qty + controls, status and actions, shared by the table
+  // and the phone list.
+  const stepBtn: React.CSSProperties = { width: stepSize, height: stepSize, borderRadius: 3, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: "0", background: isDark ? "var(--sw-bg-card-2)" : "#eee", border: `1px solid ${cBr}`, color: C.textS };
+  const stepper = (item: InventoryItem, low: boolean) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <button style={stepBtn} onClick={() => updateQty(item.id, -1)} aria-label={`Decrease quantity of ${item.name}`}>−</button>
+      <span style={{ fontWeight: "700", fontSize: 14.5, minWidth: 24, textAlign: "center", color: low ? "#e55" : gold }} aria-label={`Current quantity: ${item.qty}`}>
+        {item.qty}
+      </span>
+      <button style={stepBtn} onClick={() => updateQty(item.id, 1)} aria-label={`Increase quantity of ${item.name}`}>+</button>
+    </div>
+  );
+  const statusBadge = (low: boolean) => low
+    ? <Badge variant="outline" style={{ background: "rgba(229, 85, 85, 0.08)", color: C.dangerInk, fontSize: 10.5, padding: "4px 8px", borderRadius: 20, border: "1px solid rgba(229, 85, 85, 0.2)", letterSpacing: 1 }}>LOW STOCK</Badge>
+    : <Badge variant="outline" style={{ background: "rgba(76, 175, 80, 0.08)", color: "#4caf50", fontSize: 10.5, padding: "4px 8px", borderRadius: 20, border: "1px solid rgba(76, 175, 80, 0.2)", letterSpacing: 1 }}>OK</Badge>;
+  const rowActions = (item: InventoryItem) => (
+    <div style={{ display: "flex", gap: mob ? 8 : 4 }}>
+      {isOwner && (
+      <button
+        style={{ background: "transparent", padding: mob ? "8px 12px" : "4px 8px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, color: C.textS, border: `1px solid ${cBr}` }}
+        onClick={() => openEdit(item)}
+        aria-label={`Edit ${item.name}`}
+      >
+        EDIT
+      </button>
+      )}
+      <button
+        style={{ background: "transparent", color: "rgba(229, 85, 85, 0.7)", border: "1px solid rgba(229, 85, 85, 0.2)", padding: mob ? "8px 12px" : "4px 8px", fontSize: 12.5, cursor: "pointer", borderRadius: 3 }}
+        onClick={() => setConfirmDelete(item)}
+        aria-label={`Archive ${item.name}`}
+        title={`Archive ${item.name}`}
+      >
+        <Icon name="trash" size={13} />
+      </button>
+    </div>
+  );
 
   return (
     <div >
@@ -226,7 +265,7 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
             <button
               key={c}
               style={{ padding: "8px 12px", fontSize: 11.5, fontWeight: "700", borderRadius: 20, cursor: "pointer", letterSpacing: 1, background: filterCat === c
-                  ? (c === "All" ? (isDark ? "#1f1f1f" : "#e8e8e8") : `${catC[c]}18`)
+                  ? (c === "All" ? (isDark ? "var(--sw-bg-card)" : "#e8e8e8") : `${catC[c]}18`)
                   : "transparent", color: filterCat === c
                   ? (c === "All" ? gold : catC[c])
                   : C.textS, border: `1px solid ${filterCat === c
@@ -323,14 +362,43 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
           <p style={{ padding: "40px 20px", textAlign: "center", fontSize: 14.5, color: C.textS }}>
             No items found{search ? ` for "${search}"` : ""}.
           </p>
+        ) : mob ? (
+          /* On a phone the table ran to 900px and the − / + buttons
+             started past the screen's edge, so every count meant a
+             sideways swipe. Here each item is a row with them in reach. */
+          <ul aria-label="Inventory items" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {filtered.map((item, idx) => {
+              const low = item.qty <= item.minQty;
+              const cc = catC[item.category] || "#888";
+              return (
+                <li key={item.id} style={{ padding: "12px 16px", background: rowBg(idx), borderBottom: idx < filtered.length - 1 ? `1px solid ${cBr}` : "none", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ color: C.textH, fontSize: 14.5, fontWeight: 600 }}>{item.name}</div>
+                      <div style={{ color: C.textS, fontSize: 12, marginTop: 4 }}>
+                        <span style={{ color: cc, fontSize: 10.5, fontWeight: "700", letterSpacing: 1 }}>{item.category.toUpperCase()}</span>
+                        {" · "}{item.unit} · min {item.minQty}
+                      </div>
+                    </div>
+                    {statusBadge(low)}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    {stepper(item, low)}
+                    {rowActions(item)}
+                  </div>
+                  {item.notes && <div style={{ color: C.textS, fontSize: 12.5 }}>{item.notes}</div>}
+                </li>
+              );
+            })}
+          </ul>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <Table
-              style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 520 : undefined }}
+              style={{ width: "100%", borderCollapse: "collapse" }}
               aria-label="Inventory items"
             >
               <TableHeader>
-                <TableRow style={{ background: isDark ? "#121212" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
+                <TableRow style={{ background: isDark ? "var(--sw-bg)" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
                   {["Category", "Item Name", "Qty", "Unit", "Min", "Status", "Notes", "Actions"].map((h) => (
                     <TableHead key={h} scope="col" style={{ padding: "12px 16px", fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap", fontWeight: "600", color: C.textXS }}>
                       {h}
@@ -363,28 +431,7 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
 
                       {/* Qty controls */}
                       <TableCell style={{ padding: "12px 16px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <button
-                            style={{ width: 22, height: 22, borderRadius: 3, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: "0", background: isDark ? "#1a1a1a" : "#eee", border: `1px solid ${cBr}`, color: C.textS }}
-                            onClick={() => updateQty(item.id, -1)}
-                            aria-label={`Decrease quantity of ${item.name}`}
-                          >
-                            −
-                          </button>
-                          <span
-                            style={{ fontWeight: "700", fontSize: 14.5, minWidth: 24, textAlign: "center", color: low ? "#e55" : gold }}
-                            aria-label={`Current quantity: ${item.qty}`}
-                          >
-                            {item.qty}
-                          </span>
-                          <button
-                            style={{ width: 22, height: 22, borderRadius: 3, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: "0", background: isDark ? "#1a1a1a" : "#eee", border: `1px solid ${cBr}`, color: C.textS }}
-                            onClick={() => updateQty(item.id, 1)}
-                            aria-label={`Increase quantity of ${item.name}`}
-                          >
-                            +
-                          </button>
-                        </div>
+                        {stepper(item, low)}
                       </TableCell>
 
                       {/* Unit */}
@@ -399,10 +446,7 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
 
                       {/* Status */}
                       <TableCell style={{ padding: "12px 16px" }}>
-                        {low
-                          ? <Badge variant="outline" style={{ background: "rgba(229, 85, 85, 0.08)", color: C.dangerInk, fontSize: 10.5, padding: "4px 8px", borderRadius: 20, border: "1px solid rgba(229, 85, 85, 0.2)", letterSpacing: 1 }}>LOW STOCK</Badge>
-                          : <Badge variant="outline" style={{ background: "rgba(76, 175, 80, 0.08)", color: "#4caf50", fontSize: 10.5, padding: "4px 8px", borderRadius: 20, border: "1px solid rgba(76, 175, 80, 0.2)", letterSpacing: 1 }}>OK</Badge>
-                        }
+                        {statusBadge(low)}
                       </TableCell>
 
                       {/* Notes */}
@@ -412,25 +456,7 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
 
                       {/* Actions */}
                       <TableCell style={{ padding: "12px 16px" }}>
-                        <div style={{ display: "flex", gap: 4 }}>
-                          {isOwner && (
-                          <button
-                            style={{ background: "transparent", padding: "4px 8px", fontSize: 11.5, cursor: "pointer", borderRadius: 3, letterSpacing: 1, color: C.textS, border: `1px solid ${cBr}` }}
-                            onClick={() => openEdit(item)}
-                            aria-label={`Edit ${item.name}`}
-                          >
-                            EDIT
-                          </button>
-                          )}
-                          <button
-                            style={{ background: "transparent", color: "rgba(229, 85, 85, 0.7)", border: "1px solid rgba(229, 85, 85, 0.2)", padding: "4px 8px", fontSize: 12.5, cursor: "pointer", borderRadius: 3 }}
-                            onClick={() => setConfirmDelete(item)}
-                            aria-label={`Archive ${item.name}`}
-                            title={`Archive ${item.name}`}
-                          >
-                            <Icon name="trash" size={13} />
-                          </button>
-                        </div>
+                        {rowActions(item)}
                       </TableCell>
                     </TableRow>
                   );
@@ -456,7 +482,7 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
           style={{ borderRadius: 10, overflow: "hidden", background: cBg, border: `1px solid ${cBr}`, boxShadow: C.shadowCard }}
         >
           <div
-            style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${cBr}`, background: isDark ? "#121212" : "#f5f0e8" }}
+            style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${cBr}`, background: isDark ? "var(--sw-bg)" : "#f5f0e8" }}
           >
             <Icon name="trash" size={16} />
             <span style={{ fontSize: 12.5, letterSpacing: 2, fontWeight: "700", color: C.textS }}>
@@ -472,7 +498,7 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
               aria-label="Archived inventory items"
             >
               <TableHeader>
-                <TableRow style={{ background: isDark ? "#121212" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
+                <TableRow style={{ background: isDark ? "var(--sw-bg)" : "#f5f0e8", borderBottom: `1px solid ${cBr}` }}>
                   {["Category", "Item Name", "Qty", "Unit", "Deleted On", "Action"].map((h) => (
                     <TableHead key={h} scope="col" style={{ padding: "12px 16px", fontSize: 10.5, letterSpacing: 2, textAlign: "left", whiteSpace: "nowrap", fontWeight: "600", color: C.textXS }}>
                       {h}

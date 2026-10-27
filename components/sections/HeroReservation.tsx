@@ -5,7 +5,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
-import { fmt } from "@/lib/utils";
+import { fmt, fmtDate } from "@/lib/utils";
 import { daysInRange, stayLabel, checkRangeAvailability, isPoolOpen } from "@/lib/utils";
 import { SLOTS, stayPatternNote, allowsMultiDay, MULTI_DAY_SLOT, slotStartedProblem } from "@/lib/resort";
 import { useApp } from "@/contexts/AppContext";
@@ -73,9 +73,8 @@ export function HeroReservation({
 
   /* Priced with the same function the booking page and the server use.
      This card used to do its own arithmetic — one slot's rate times the
-     days — which ignored that a Whole Day is two slots and that days after
-     the first are discounted, so a three-day Whole Day was advertised at
-     well under what Book Now then charged. */
+     days — which ignored that a Whole Day is two slots, so a three-day
+     Whole Day was advertised at well under what Book Now then charged. */
   const quote = (tier: "Shared" | "Exclusive") =>
     priceBooking({ resource: "Pool", tier, slot, guests, overtime: 0, roomPrices: [], days: stayDays }).total;
   const sharedTotal = quote("Shared");
@@ -83,8 +82,8 @@ export function HeroReservation({
   /* Pool access. A Staycation is Exclusive only (lib/pricing.ts); a tour
      can be either, and the guest may choose. Until they do, the card
      SUGGESTS one: the cheaper of the two that fits the picked date.
-     Exclusive needs the whole date empty, so 30 guests on a Night with a
-     Day group already booked can only go Shared, even though Exclusive is
+     Exclusive needs its tour empty, so 30 guests on a Night with a Shared
+     Night group already booked can only go Shared, even though Exclusive is
      cheaper. Picking the tier by price alone used to grey out every such
      date. */
   const [tierChoice, setTierChoice] = useState<BookingTier | null>(null);
@@ -270,7 +269,7 @@ export function HeroReservation({
             <p style={{ ...label, margin: "0 0 12px" }}>RESERVATION TYPE</p>
             <div
               role="radiogroup"
-              aria-label="Visit type"
+              aria-label="Reservation type"
               style={{
                 display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 4,
                 background: "rgba(255,255,255,0.04)",
@@ -326,8 +325,16 @@ export function HeroReservation({
                 <p aria-hidden style={{ ...stayNoteStyle, gridArea: "1 / 1", visibility: "hidden" }}>
                   {stayPatternNote(slot, MAX_STAY_DAYS)}
                 </p>
+                {/* Until a range is down, the same space says HOW to pick
+                    one. The calendar's own hints are hover titles, which a
+                    phone never shows, so nothing on this card used to say
+                    a Staycation takes two taps. */}
                 <p style={{ ...stayNoteStyle, gridArea: "1 / 1" }}>
-                  {stayDays > 1 ? stayPatternNote(slot, stayDays) : ""}
+                  {stayDays > 1
+                    ? stayPatternNote(slot, stayDays)
+                    : date
+                      ? `Now choose your last day, up to ${MAX_STAY_DAYS} days in a row. Or keep just ${fmtDate(date)} for a one-day ${SLOTS[slot].label}.`
+                      : `Choose your first day on the calendar, then your last day. You can stay up to ${MAX_STAY_DAYS} days in a row.`}
                 </p>
               </div>
             )}
@@ -340,7 +347,7 @@ export function HeroReservation({
             <div>
               <p style={{ ...label, margin: "0 0 4px" }}>GUESTS</p>
               <p style={{ fontSize: 12, color: "rgba(238,232,220,0.55)", margin: 0 }}>
-                {slot === "WholeDay" ? "Flat rate, however many come" : `${fmt(SHARED_PER_HEAD_RATE)} per guest, per slot`}
+                {slot === "WholeDay" ? "Flat rate, however many come" : `${fmt(SHARED_PER_HEAD_RATE)} per guest, per tour`}
               </p>
             </div>
             <div
@@ -416,7 +423,7 @@ export function HeroReservation({
             )}
             <p style={{ fontSize: 12, color: "rgba(238,232,220,0.5)", margin: "8px 0 0", lineHeight: 1.5 }}>
               {goesExclusive
-                ? `The whole resort is yours that date — no other group, up to ${GUESTS_MAX} guests. The events venue isn't included; it can be added.`
+                ? `The pool and resort are your group's alone for your ${SLOTS[slot].label} — no other group, up to ${GUESTS_MAX} guests. The events venue isn't included and another group may rent it; you can add it.`
                 : `Pool shared with other groups in your ${SLOTS[slot].label} — billed per guest, up to ${GUESTS_MAX} guests in total.`}
             </p>
           </div>
@@ -447,7 +454,7 @@ export function HeroReservation({
           {!dateOk && dateProblem?.reason && (
             <p role="status" style={{ fontSize: 12.5, color: "#e8a0a0", margin: "-8px 0 0", lineHeight: 1.5 }}>
               {dateProblem.reason}
-              {poolClosed || (date && slotStartedProblem(date, slot)) ? "" : " Try another date, fewer guests or another visit type."}
+              {poolClosed || (date && slotStartedProblem(date, slot)) ? "" : " Try another date, fewer guests or another reservation type."}
             </p>
           )}
 

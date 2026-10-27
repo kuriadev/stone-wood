@@ -5,6 +5,7 @@ import { statusLabel, bookingStatusLabel, ADMIN_NAV_GROUPS, ADMIN_TAB_LABEL } fr
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
+import { CAL } from "@/components/common/calendarColors";
 import { useToast } from "@/contexts/ToastContext";
 import { T } from "@/lib/theme";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
@@ -65,7 +66,7 @@ import { compressImage } from "@/lib/image";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { priceBooking, bookingLabel } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
-import { sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail, RESORT_MAX_CAPACITY, ROOM_BUNDLE_DISCOUNT_PCT, OVERTIME_MAX, OVERTIME_RATE, GALLERY_MAX } from "@/lib/validators";
+import { sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail, RESORT_MAX_CAPACITY, OVERTIME_MAX, OVERTIME_RATE, GALLERY_MAX } from "@/lib/validators";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 import type { Room } from "@/types/room";
 import type { AdminTab, CustomerMessage } from "@/types/admin";
@@ -544,10 +545,10 @@ export function Admin({
   const openBooking = (id: string) => { setFocusBookingId(id); goTab("Bookings"); };
 
   const adminBg = isDark ? "#080706" : "#f2ede6";
-  const sideBg = isDark ? "#121212" : "#ffffff";
+  const sideBg = isDark ? "var(--sw-bg)" : "#ffffff";
   const sideBorder = isDark ? "#141210" : "#ede8df";
-  const cBg = isDark ? "#121212" : "#ffffff";
-  const cBr = isDark ? "#2a2a2a" : "#e4ddd1";
+  const cBg = isDark ? "var(--sw-bg)" : "#ffffff";
+  const cBr = isDark ? "var(--sw-border)" : "#e4ddd1";
   const inpS: React.CSSProperties = { ...C.inp, borderRadius: 6 };
   const sideS = (t: AdminTab): React.CSSProperties => ({
     padding: "12px 20px 12px 24px", cursor: "pointer", fontSize: 12.5, letterSpacing: 1.5,
@@ -1067,11 +1068,13 @@ export function Admin({
                   const isPast = new Date(calMonth.getFullYear(), calMonth.getMonth(), d) < new Date(new Date().setHours(0, 0, 0, 0));
                   let bg = isDark ? "#111" : "#f0ede7", col = C.textB, border = `1px solid ${cBr}`;
                   let dim = false;
-                  if (isPast) { bg = isDark ? "#121212" : "#f8f6f3"; col = C.textB; dim = true; }
-                  else if (status === "Closed") { bg = isDark ? "#1a0a0a" : "#fff0f0"; col = "#e07070"; border = "1px solid rgba(229,85,85,0.3)"; }
-                  else if (status === "Pending") { bg = isDark ? "#241f08" : "#fdf6dd"; col = "#f5c518"; border = "1px solid rgba(245,197,24,0.35)"; }
-                  else if (status === "Confirmed") { bg = isDark ? "#0f2018" : "#eafaf0"; col = "#4caf50"; border = "1px solid rgba(76,175,80,0.3)"; }
-                  else if (status === "Completed") { bg = isDark ? "#0f1a2a" : "#e8f4fb"; col = "#4a9fd4"; border = "1px solid rgba(74,159,212,0.3)"; }
+                  if (isPast) { bg = isDark ? "var(--sw-bg)" : "#f8f6f3"; col = C.textB; dim = true; }
+                  // Solid fills, the same palette as the guest calendars
+                  // (components/common/calendarColors.ts).
+                  else if (status === "Closed") { bg = CAL.closed.bg; col = CAL.closed.ink; border = `1px solid ${CAL.closed.rim}`; }
+                  else if (status === "Pending") { bg = CAL.pending.bg; col = CAL.pending.ink; border = `1px solid ${CAL.pending.rim}`; }
+                  else if (status === "Confirmed") { bg = CAL.available.bg; col = CAL.available.ink; border = `1px solid ${CAL.available.rim}`; }
+                  else if (status === "Completed") { bg = CAL.completed.bg; col = CAL.completed.ink; border = `1px solid ${CAL.completed.rim}`; }
                   const dayBookings = bookingsOn(ds);
                   /* History the admin cannot act on: a date already gone by
                      whose bookings are all finished. The cell itself states
@@ -1122,7 +1125,13 @@ export function Admin({
                       transition: "all .15s", 
                       position: "relative" }}>
                       {d}
-                      {status && <div style={{ fontSize: 11, marginTop: 4, opacity: 0.85, letterSpacing: 0.4, lineHeight: 1.2, overflowWrap: "anywhere" }}>{(CAL_TILE_LABEL[status] ?? status).toUpperCase()}</div>}
+                      {/* A phone's day tile is ~43px wide, too narrow for the
+                          word: "CONFIRMED" broke into "CONFI / RMED". There the
+                          tile's colour says it, read with the legend below,
+                          and a dot marks the day; the aria-label still says it. */}
+                      {status && (mob
+                        ? <div aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", margin: "6px auto 0" }} />
+                        : <div style={{ fontSize: 11, marginTop: 4, opacity: 0.85, letterSpacing: 0.4, lineHeight: 1.2, overflowWrap: "anywhere" }}>{(CAL_TILE_LABEL[status] ?? status).toUpperCase()}</div>)}
 
                       {hoverDay === ds && showDayCard && dayCard(ds, dayBookings, colIdx, cardAbove)}
                     </div>
@@ -1130,7 +1139,7 @@ export function Admin({
                 })}
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                {[["Booked/Confirmed", "#4caf50"], ["Pending", "#f5c518"], ["Completed", "#4a9fd4"], ["Closed", "#e07070"]].map(([l, c]) => (
+                {[["Booked/Confirmed", CAL.available.bg], ["Pending", CAL.pending.bg], ["Completed", CAL.completed.bg], ["Closed", CAL.closed.bg]].map(([l, c]) => (
                   <div key={l} style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: c }} /><span style={{ color: C.textS, fontSize: 12.5 }}>{l}</span></div>
                 ))}
               </div>

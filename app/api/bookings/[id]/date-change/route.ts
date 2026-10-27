@@ -45,7 +45,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const b = await loadGuestBooking(id, { email: body.email as string, token: body.t as string });
     if (!b) return no("No booking found for those details.", 404);
     if (b.status !== "Confirmed") return no("Only a confirmed booking can be moved.");
-    if (b.checkedInAt || b.date <= manilaDate()) return no("Date changes close on the day of your visit. Please contact the resort.");
+    if (b.checkedInAt || b.date <= manilaDate()) return no("Date changes close on your reserved date. Please contact the resort.");
 
     const db = getSupabaseAdmin();
     const { data: past, error: pastErr } = await db.from("date_change_requests").select("*").eq("booking_id", b.id);

@@ -26,7 +26,7 @@ import { SLOTS, multiDayProblem } from "@/lib/resort";
 import { manilaDate } from "@/lib/finance";
 import {
   sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail,
-  RESORT_MAX_CAPACITY, ROOM_BUNDLE_DISCOUNT_PCT, EXCLUSIVE_DEFAULT_GUESTS,
+  RESORT_MAX_CAPACITY, SHARED_PER_HEAD_RATE, EXCLUSIVE_DEFAULT_GUESTS,
 } from "@/lib/validators";
 import { DESK_METHODS } from "@/types/finance";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
@@ -344,7 +344,7 @@ export function WalkInModal({
 
           {showRooms && (
             <div>
-              <Label>{requiresRoom ? `Room (included, ${Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}% off)` : "Rooms (optional)"}</Label>
+              <Label>{requiresRoom ? "Room (included in the package)" : "Rooms (optional)"}</Label>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {bookableRooms.map((r) => {
                   const on = wf.rooms.includes(r.id);
@@ -368,25 +368,21 @@ export function WalkInModal({
             {/* One line per thing being charged. A single "pool" line read
                 wrong the moment the venue could be booked without one. */}
             {isPkg ? (
-              <AmountRow label="Package" value={fmt(price.tourBase + price.exclusiveDiscount + price.bundleDiscount)} />
+              <AmountRow label="Package" value={fmt(price.tourBase)} />
             ) : (
               <>
                 {price.poolFee > 0 && (
                   <AmountRow
-                    label={tier === "Exclusive" ? `Exclusive pool${price.slots === 2 ? " × 2 slots" : ""}` : `Shared pool (${guests} × ₱200)`}
+                    label={tier === "Exclusive" ? `Exclusive pool${price.slots === 2 ? " × 2 tours" : ""}` : `Shared pool (${guests} × ${fmt(SHARED_PER_HEAD_RATE)})`}
                     value={fmt(price.poolFee)}
                   />
                 )}
                 {price.venueFee > 0 && (
-                  <AmountRow label={`Events venue${price.slots === 2 ? " × 2 slots" : ""}`} value={fmt(price.venueFee)} />
+                  <AmountRow label={`Events venue${price.slots === 2 ? " × 2 tours" : ""}`} value={fmt(price.venueFee)} />
                 )}
               </>
             )}
-            {price.exclusiveDiscount + price.bundleDiscount > 0 && (
-              <AmountRow label={price.bundleDiscount > 0 ? "Bundle discount" : "Exclusive discount"} value={`−${fmt(price.exclusiveDiscount + price.bundleDiscount)}`} color="#2e9e4e" />
-            )}
-            {price.roomsFeeRaw > 0 && <AmountRow label="Rooms" value={fmt(price.roomsFeeRaw)} />}
-            {price.roomBundleDiscount > 0 && <AmountRow label="Room discount" value={`−${fmt(price.roomBundleDiscount)}`} color="#2e9e4e" />}
+            {price.roomsFee > 0 && <AmountRow label="Rooms" value={fmt(price.roomsFee)} />}
             <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 8, paddingTop: 4 }}>
               <AmountRow label="Total" value={fmt(total)} strong />
             </div>

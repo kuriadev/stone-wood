@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { HERO_BG } from "@/lib/constants";
 import { RESORT_CONTACT } from "@/lib/resort";
+import { publicOrigin } from "@/lib/siteUrl";
 
 /* ── SEO: one place for titles, canonicals, social cards and schema ──────
  *
@@ -8,14 +9,14 @@ import { RESORT_CONTACT } from "@/lib/resort";
  * export `metadata`. So each public route gets a tiny server `layout.tsx`
  * that calls pageMetadata() — the page itself stays exactly as it is.
  *
- * NEXT_PUBLIC_SITE_URL must be the production origin (no trailing slash).
- * Without it, canonicals and OG URLs point at localhost.
+ * NEXT_PUBLIC_SITE_URL should be the production origin. Without it, the
+ * Vercel production domain is used, and off Vercel, localhost.
  */
 
 export const SITE = {
   name: "StoneWood Private Resort",
   shortName: "StoneWood",
-  url: (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, ""),
+  url: publicOrigin(process.env.NEXT_PUBLIC_SITE_URL),
   locale: "en_PH",
   description:
     "An exclusive private resort experience crafted for those who seek luxury, privacy, and nature. Located in Angono, Rizal, Philippines.",

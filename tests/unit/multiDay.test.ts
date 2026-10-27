@@ -108,14 +108,15 @@ describe("the pool is NOT held through the gaps", () => {
     expect(r.ok).toBe(true);
   });
 
-  it("still closes the whole date for an Exclusive run", () => {
-    // Exclusive is a buyout of the DATE, which a multi-day run does not
-    // change: every date of the run is closed in both slots.
+  it("closes the Day of every date of an Exclusive Day run, and leaves the Nights open", () => {
+    // Exclusive is a buyout of its tour, which a multi-day run does not
+    // change: every date of the run is closed in the slot it bought.
     const stay = [booking({
       date: "2026-10-10", endDate: "2026-10-12", slot: "Day",
       tier: "Exclusive", guests: 50,
     })];
-    expect(checkPoolCapacity("2026-10-11", "Night", 10, "Shared", stay).ok).toBe(false);
+    expect(checkPoolCapacity("2026-10-11", "Day", 10, "Shared", stay).ok).toBe(false);
+    expect(checkPoolCapacity("2026-10-11", "Night", 10, "Shared", stay).ok).toBe(true);
   });
 });
 

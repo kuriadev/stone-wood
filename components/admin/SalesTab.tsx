@@ -34,6 +34,7 @@ import {
   livePayments, liveExpenses, signedAmount, clientKey, round2, downloadCsv,
 } from "@/lib/finance";
 import { fmt, fmtDate } from "@/lib/utils";
+import { packageAvailed } from "@/lib/pricing";
 import { EXPENSE_CATEGORIES, MANUAL_METHODS, PAYMENT_TYPES, PAYMENT_METHODS, type Payment, type Expense } from "@/types/finance";
 import type { BookingMoney } from "@/lib/finance";
 import type { Booking } from "@/types/booking";
@@ -317,7 +318,7 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
       {/* Two columns were both headed "Booking" — the reference and the
           booking's status — which read as a mistake and collided as React
           keys. Each says which status it means. */}
-      <TableShell head={["Reference", "Guest", "Visit", "Booking status", "Payment status", "Total", "Paid", "Balance", "Penalty due", ""]} minWidth={1080}
+      <TableShell head={["Reference", "Guest", "Date", "Booking status", "Payment status", "Total", "Paid", "Balance", "Penalty due", ""]} minWidth={1080}
         empty={shown.length === 0 ? (rows.length === 0 ? "No bookings yet." : "No bookings match this filter.") : undefined}>
         {paged.rows.map(({ b, m }, i) => (
           <Row key={b.id} style={{ background: rowBg(i) }}>
@@ -371,7 +372,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
       {refunds.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <h4 style={{ color: "#e07a3a", fontSize: 14, margin: "0 0 8px" }}>Refunds owed to guests ({fmt(refundTotal)})</h4>
-          <TableShell head={["Booking", "Guest", "Original visit", "Refund owed", ""]} minWidth={640}>
+          <TableShell head={["Booking", "Guest", "Original date", "Refund owed", ""]} minWidth={640}>
             {refunds.map((b, i) => (
               <Row key={b.id} style={{ background: rowBg(i) }}>
                 <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace" }}>{b.id}</Cell>
@@ -385,9 +386,9 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
         </div>
       )}
       <p style={{ color: C.textS, fontSize: 13, marginTop: 0 }}>
-        Online guests pay the remaining balance on the day of their visit, normally when the booking is settled on the Dashboard. Money that comes in later is recorded here.
+        Online guests pay the remaining balance on their reserved date, normally when the booking is settled on the Dashboard. Money that comes in later is recorded here.
       </p>
-      <TableShell head={["Booking", "Guest", "Visit", "Status", "Total", "Paid", "Balance", "Penalty", "Owed", ""]} minWidth={940}
+      <TableShell head={["Booking", "Guest", "Date", "Status", "Total", "Paid", "Balance", "Penalty", "Owed", ""]} minWidth={940}
         empty={sorted.length === 0 ? "Nothing to collect. Every booking is paid up." : undefined}>
         {pagedRec.rows.map(({ b, m }, i) => (
           <Row key={b.id} style={{ background: rowBg(i) }}>
@@ -465,7 +466,7 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
           <Row key={b.id} style={{ background: rowBg(i) }}>
             <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(on)}<div style={{ color: C.textS, fontSize: 11.5 }}>{manilaTime(b.settledAt!)}</div></Cell>
             <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace" }}>{b.id}</Cell>
-            <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>Visit {fmtDate(b.date)}</div></Cell>
+            <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>Booked for {fmtDate(b.date)}</div></Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(b.total)}</Cell>
             <Cell style={{ ...td, color: m.penaltyTotal > 0 ? "#d44" : C.textS }}>{fmt(m.penaltyTotal)}</Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(round2(m.paid + m.penaltyPaid))}</Cell>
@@ -515,7 +516,7 @@ function Clients({ bookings }: { bookings: Booking[] }) {
   return (
     <div>
       <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search email, client name or phone" style={{ ...inp, marginBottom: 12 }} />
-      <TableShell head={["Client", "Bookings", "Last visit", "Total paid", "Owed", ""]} minWidth={700}
+      <TableShell head={["Client", "Bookings", "Last booking", "Total paid", "Owed", ""]} minWidth={700}
         empty={shown.length === 0 ? "No clients match." : undefined}>
         {pagedCli.rows.map((c, i) => (
           <Row key={c.key} className="sw-click-row" style={{ background: rowBg(i) }} onClick={() => setOpen(c.key)}>
@@ -539,14 +540,14 @@ function Clients({ bookings }: { bookings: Booking[] }) {
             <StatCard label="Owed" value={fmt(current.owed)} color={current.owed > 0 ? "#d4a800" : undefined} />
           </div>
           <h4 style={{ color: C.textH, fontSize: 14, margin: "0 0 8px" }}>Bookings</h4>
-          <TableShell head={["Booking", "Visit", "Package", "Status", "Total", "Paid", "Owed"]} minWidth={640}>
+          <TableShell head={["Booking", "Date", "Package", "Status", "Total", "Paid", "Owed"]} minWidth={640}>
             {[...current.bookings].sort((a, b) => b.date.localeCompare(a.date)).map((b, i) => {
               const m = bookingMoney(b, ops.payments, ops.damages);
               return (
                 <Row key={b.id} style={{ background: rowBg(i) }}>
                   <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace" }}>{b.id}</Cell>
                   <Cell style={{ ...td, color: C.textB }}>{fmtDate(b.date)}</Cell>
-                  <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{b.package}</Cell>
+                  <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{packageAvailed(b)}</Cell>
                   <Cell style={td}><StatusBadge color={STATUS_COLOR[b.status]}>{bookingStatusLabel(b)}</StatusBadge></Cell>
                   <Cell style={{ ...td, color: C.textB }}>{fmt(b.total)}</Cell>
                   <Cell style={{ ...td, color: C.textB }}>{fmt(m.paid + m.penaltyPaid)}</Cell>

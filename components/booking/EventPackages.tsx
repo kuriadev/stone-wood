@@ -5,7 +5,7 @@
  * Until now the only way to buy one was the Packages page: a guest who had
  * already started Book Now had no way to see them. This is that same
  * catalogue, in step 1, filtered to what the guest just chose: the resort
- * packages under "Resort visit", the event packages once the events hall is
+ * packages under "Resort & pool", the event packages once the events hall is
  * in the booking.
  *
  * "Add this package" does not invent any pricing. It hands the package back to

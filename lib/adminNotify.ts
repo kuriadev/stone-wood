@@ -31,6 +31,7 @@
 import { RESORT_CONTACT, SLOTS } from "@/lib/resort";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { fmt, fmtDate, getBookingSlot, stayLabel, bookingEndDate } from "@/lib/utils";
+import { packageAvailed } from "@/lib/pricing";
 import type { Booking } from "@/types/booking";
 
 export interface MailOut { subject: string; html: string }
@@ -95,7 +96,7 @@ export function buildNewBookingAlert(b: Booking, paid: number): MailOut {
   const rows = [
     `<strong>${escapeHtml(b.name)}</strong> · ${escapeHtml(b.email || b.contact || "no contact given")}`,
     `${escapeHtml(stayLabel(b))} · ${escapeHtml(slot.label)} (${escapeHtml(slot.hours)})`,
-    `${b.guests} guest${b.guests === 1 ? "" : "s"} · ${escapeHtml(b.package as string)}`,
+    `${b.guests} guest${b.guests === 1 ? "" : "s"} · ${escapeHtml(packageAvailed(b))}`,
     `Total ${escapeHtml(fmt(b.total))} · paid ${escapeHtml(fmt(paid))}${paid >= b.total ? " (in full)" : ` · ${escapeHtml(fmt(b.total - paid))} on arrival`}`,
   ];
   return {

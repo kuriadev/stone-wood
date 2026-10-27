@@ -56,11 +56,11 @@ export function useAdminStyle() {
     /** C.inp for shadcn Input / Textarea / NativeSelect: they carry a fixed
      *  h-9, so the app's padded fields need height back to auto. */
     inp: { ...C.inp, height: "auto" } as CSSProperties,
-    cBg: isDark ? "#121212" : "#ffffff",
-    cBr: isDark ? "#2a2a2a" : "#e4ddd1",
+    cBg: isDark ? "var(--sw-bg)" : "#ffffff",
+    cBr: isDark ? "var(--sw-border)" : "#e4ddd1",
     soft: isDark ? "#11100d" : "#f7f3ec",
     rowBg: (i: number) => (isDark ? (i % 2 === 0 ? "#121212" : "#121212") : (i % 2 === 0 ? "#ffffff" : "#faf7f2")),
-    head: isDark ? "#121212" : "#f5f0e8",
+    head: isDark ? "var(--sw-bg)" : "#f5f0e8",
   };
 }
 
@@ -105,18 +105,22 @@ export function Modal({
   const rem = Math.round((width / 16) * 10) / 10;
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      {/* Phones get the room back: a narrower margin and padding, and a
+          height in dvh, so the footer's buttons stay above a phone
+          browser's toolbar instead of under it (vh counts the space the
+          toolbar covers). Caretakers work these windows from a phone. */}
       <DialogContent
-        className="flex max-h-[92vh] flex-col gap-0 p-0"
-        style={{ maxWidth: `min(${rem}rem, calc(100% - 2rem))`, width: "100%" }}
+        className="flex max-h-[92dvh] flex-col gap-0 p-0"
+        style={{ maxWidth: `min(${rem}rem, calc(100% - 1rem))`, width: "100%" }}
       >
-        <DialogHeader className="shrink-0 border-b px-6 py-4 pr-12 text-left">
+        <DialogHeader className="shrink-0 border-b px-4 py-4 pr-12 text-left sm:px-6">
           <DialogTitle style={{ color: C.textH, fontFamily: serif, fontSize: 22, fontWeight: 400 }}>{title}</DialogTitle>
           {subtitle
             ? <DialogDescription style={{ color: C.textS, fontSize: 13 }}>{subtitle}</DialogDescription>
             : <DialogDescription className="sr-only">Details</DialogDescription>}
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">{children}</div>
-        {footer && <DialogFooter className="shrink-0 border-t px-6 py-3 sm:justify-stretch [&>*]:w-full">{footer}</DialogFooter>}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">{children}</div>
+        {footer && <DialogFooter className="shrink-0 border-t px-4 py-3 sm:justify-stretch sm:px-6 [&>*]:w-full">{footer}</DialogFooter>}
       </DialogContent>
     </Dialog>
   );

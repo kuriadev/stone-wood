@@ -77,7 +77,7 @@ export default function BookPage() {
 
   /* Packages offered inside step 1, split by the same rule as the Packages
      page's EVENTS tab: hall packages under the venue choices, pool-only ones
-     under "Resort visit". Inactive ones never reach a guest. */
+     under "Resort & pool". Inactive ones never reach a guest. */
   const eventPackages = packages.filter((p) => p.active && isEventPackage(p));
   const resortPackages = packages.filter((p) => p.active && !isEventPackage(p));
 

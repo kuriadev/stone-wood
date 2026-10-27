@@ -77,7 +77,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       // Same cut-off the guest and approval routes enforce: a visit that has
       // been and gone is not rescheduled, it is rebooked. (A resort-cancelled
       // booking's old date was called off, so only the new date matters.)
-      return no("That visit date has already passed. Take a new booking instead.");
+      return no("That reserved date has already passed. Take a new booking instead.");
     }
 
     const check = await checkMove(b, date);

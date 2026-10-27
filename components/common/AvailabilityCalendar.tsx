@@ -7,6 +7,7 @@ import { slotStartedProblem } from "@/lib/resort";
 import type { Booking, BookingSlot, BookingTier } from "@/types/booking";
 import { checkBookingAvailability, holdsDate, bookingDates } from "@/lib/utils";
 import { RangeConnector } from "@/components/common/RangeConnector";
+import { CAL, CAL_LINE, GUEST_LEGEND } from "@/components/common/calendarColors";
 
 /** `ds` shifted by `n` days, in UTC so it cannot drift across a timezone. */
 const addDays = (ds: string, n: number) =>
@@ -67,8 +68,8 @@ export function AvailabilityCalendar({
   const { min: minDate, max: maxDate } = useMemo(() => getBookingWindow(), [mounted]);
 
   // "Booked" means at least one slot on the date can no longer take even a
-  // single extra Shared guest — an Exclusive buyout (which closes the whole
-  // date) or a slot at capacity.
+  // single extra Shared guest — an Exclusive buyout of that slot, or a slot
+  // at capacity.
   //
   // This used to require EVERY slot to be full before greying a date, so a
   // date whose Day was sold out still rendered plain green and fully
@@ -331,59 +332,22 @@ export function AvailabilityCalendar({
           const legIndex = onLine ? daysApart(selectedDate, ds) : 0;
           const weekday = dayDate.getDay();
 
-          /* ── Available (default): green tint ──
-             The tints were once 10–12% alpha. Over the hero PHOTO that
-             composited to rgb(18,27,13) for available and rgb(23,13,12) for
-             closed — 1.08:1 apart, so measured by pixel the four states were
-             the same near-black rectangle and only the numeral's colour told
-             them apart. The alpha is now high enough that the fill itself
-             carries the state. Text contrast was never the problem here and
-             is unchanged: available measured 11.18:1, booked 13.25:1 and
-             closed 12.81:1 against their own tiles. */
-          let bg  = "rgba(76,175,80,0.26)";
-          // 4.85:1 on the scrim this calendar sits on. #6ec071 was 3.44:1.
-          let col = "#9ade9a";
-          let bdr = "1px solid rgba(118,205,122,0.5)";
+          /* Solid fills from the shared palette (calendarColors.ts): the
+             state reads from the tile itself, not only from its numeral.
+             Past and out-of-range dates are not states, just no option, so
+             they keep a neutral tile and are dimmed instead. */
+          let bg: string = CAL.available.bg;
+          let col: string = CAL.available.ink;
+          let bdr = `1px solid ${CAL.available.rim}`;
           let cur: string = "pointer";
-
-          // Unavailable states stay quiet: a neutral tile for past, out of
-          // range and booked, and a red-tinted one for a closed date.
-          /* Two different ideas, told two different ways.
-             BOOKED is a STATE: somebody has that date, so it gets a solid
-             grey chip you can read.
-             PAST and OUT-OF-RANGE are not states, they are the absence of an
-             option, so they keep the neutral tile and are dimmed by opacity
-             instead. Painting both of them grey is what made them
-             indistinguishable. */
-          /* A past or out-of-range date measured 1.75:1 — a 0.38 opacity
-             applied on top of ink that was already 55% alpha. WCAG exempts
-             disabled controls, so it was not a violation, but a date nobody
-             can read is not information either. The dimming now comes from
-             ONE place (a higher opacity, below) with solid ink, so the date
-             stays legible while still reading as unpressable. */
           let dim = false;
           if (isPast)   { bg = "rgba(255,255,255,0.05)"; col = "rgba(238,232,220,0.92)"; bdr = "1px solid rgba(255,255,255,0.08)"; cur = "default";     dim = true; }
           if (isBeyond) { bg = "rgba(255,255,255,0.05)"; col = "rgba(238,232,220,0.92)"; bdr = "1px solid rgba(255,255,255,0.08)"; cur = "not-allowed"; dim = true; }
-          /* Booked started as near-white ink on a 42% white chip: 3.63:1, too
-             low. Making the CHIP light fixed the number and broke the panel --
-             two solid white blocks shouted louder than any available date, so
-             the eye went straight to the dates you cannot have.
-             The ink is what gets lightened instead. A quiet dark chip, like
-             every other unavailable state, with near-white text on it. */
-          if (isBooked) { bg = "rgba(255,255,255,0.20)"; col = "rgba(245,242,236,0.95)"; bdr = "1px solid rgba(255,255,255,0.34)"; cur = "not-allowed"; }
-          /* A touch more chroma in both the fill and the ink, so a closed
-             date reads as red rather than as "dark". #f5c9c9 was so pale it
-             was carrying the whole signal on its own. */
-          if (isClosed) { bg = "rgba(214,86,86,0.26)";    col = "#ffb4b4"; bdr = "1px solid rgba(224,110,110,0.55)"; cur = "not-allowed"; }
-          // The selection is the same green, stated louder: solid fill, a
-          // brighter rim and white text. Keeping it in the green family means
-          // "available" and "the one you picked" read as one idea rather than
-          // two unrelated colours.
+          if (isBooked) { bg = CAL.booked.bg; col = CAL.booked.ink; bdr = `1px solid ${CAL.booked.rim}`; cur = "not-allowed"; }
+          if (isClosed) { bg = CAL.closed.bg; col = CAL.closed.ink; bdr = `1px solid ${CAL.closed.rim}`; cur = "not-allowed"; }
           if (beyondStay) { cur = "not-allowed"; dim = true; }
-          /* The stay is the same green stated louder: a band for the days
-             between, solid tiles at the two ends. */
-          if (inRange)  { bg = "rgba(76,175,80,0.28)";  col = "#dff5df";                bdr = "1px solid rgba(76,175,80,0.45)"; }
-          if (isSel)    { bg = "#2b6b30";                col = "#ffffff";                bdr = "1px solid #5cb85c"; dim = false; }
+          // Every day of the stay the guest picked is gold, first to last.
+          if (inRange || isSel) { bg = CAL.selected.bg; col = CAL.selected.ink; bdr = `1px solid ${CAL.selected.rim}`; dim = false; }
 
           return (
             <button
@@ -450,7 +414,7 @@ export function AvailabilityCalendar({
                   instant state for anyone who asks for that. */}
               {onLine && (
                 <RangeConnector
-                  color="#7fd48a"
+                  color={CAL_LINE}
                   isStart={isStart}
                   isEnd={ds === stayEnd}
                   weekday={weekday}
@@ -475,16 +439,7 @@ export function AvailabilityCalendar({
           alignItems: "center",
         }}
       >
-        {/* The swatches are the PURE hue of each state, not the pale ink
-            the tiles print their numerals in. The tints are translucent, so
-            a swatch matching them exactly came out as a pastel that read as
-            "greyish" at 8px. Contrast was never the problem (these measured
-            11.8-16.0:1 as pastels); naming the HUE on sight was. */}
-        {[
-          ["Available", "#3fbf52"],
-          ["Booked",    "#b8b8b8"],
-          ["Closed",    "#ff4d4d"],
-        ].map(([l, c]) => (
+        {GUEST_LEGEND.map(([l, c]) => (
           <div key={l} style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <div aria-hidden style={{ width: 9, height: 9, borderRadius: "50%", background: c, flexShrink: 0 }} />
             <span style={{ color: "rgba(238,232,220,0.78)", fontSize: 12 }}>{l}</span>

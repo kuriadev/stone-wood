@@ -26,28 +26,22 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToBooking, bookingToRow, missingNewColumn, withoutNewColumns } from "@/lib/supabase";
 import { requirePermission, isAdminRequest } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
-import { isValidEmail, isValidPHNumber, sanitizeName, sanitizeNotes, NAME_MIN, NAME_MAX, OVERTIME_MAX } from "@/lib/validators";
 import { buildBookingReceivedEmail, buildReceiptEmail } from "@/lib/emailTemplate";
 import { buildNewBookingAlert, adminNotifyTo } from "@/lib/adminNotify";
 import { logActivity } from "@/lib/activity.server";
-import { fmtDate, getPackageTier } from "@/lib/utils";
-import { priceBooking, pricingProblem } from "@/lib/pricing";
+import { fmtDate } from "@/lib/utils";
+import { packageAvailed } from "@/lib/pricing";
 import { trySendMail } from "@/lib/mailer";
 import { getPaymentStatus } from "@/lib/paymongo";
 import { quoteBooking } from "@/lib/bookingQuote";
-import { checkFits } from "@/lib/rebooking.server";
-import { daysInRange, fmt } from "@/lib/utils";
-import { MAX_STAY_DAYS } from "@/lib/validators";
+import { checkWalkIn, saveWalkIn } from "@/lib/walkIn.server";
+import { fmt } from "@/lib/utils";
 import type { BookingRow } from "@/types/database";
-import type { Booking, BookingResource, BookingSlot, BookingSource, BookingTier } from "@/types/booking";
+import type { Booking } from "@/types/booking";
 
 export const dynamic = "force-dynamic";
 
 const STATUSES = ["Pending", "Confirmed", "Completed", "Cancelled"] as const;
-const RESOURCES: BookingResource[] = ["Pool", "Venue", "Pool+Venue"];
-const TIERS: BookingTier[] = ["Shared", "Exclusive"];
-const SOURCES: BookingSource[] = ["Online", "Walk-In"];
-const SLOTS: BookingSlot[] = ["Day", "Night", "WholeDay"];
 
 export async function GET(req: NextRequest) {
   const denied = await requirePermission(req, "bookings.view");
@@ -218,7 +212,7 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
     await logActivity([
       {
         actor: "Guest", action: "booking.created", bookingId: saved.id, entity: "booking", entityId: saved.id,
-        summary: `${saved.name} booked ${saved.package} for ${fmtDate(saved.date)} online and paid ${fmt(paidPesos)}${paidPesos >= saved.total ? " (in full)" : ""} by PayMongo.`,
+        summary: `${saved.name} booked ${packageAvailed(saved)} for ${fmtDate(saved.date)} online and paid ${fmt(paidPesos)}${paidPesos >= saved.total ? " (in full)" : ""} by PayMongo.`,
         details: { total: saved.total, paid: paidPesos, paymentIntentId, emailed },
       },
       confirmedNow
@@ -237,165 +231,13 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
 }
 
 // ── Admin: walk-in encoded at the front desk ────────────────────────
+// The rules live in lib/walkIn.server.ts, shared with the import of
+// bookings taken while offline (/api/bookings/import).
 async function createWalkIn(body: Record<string, unknown>) {
-  const b = body as Partial<Booking>;
   try {
-    const name = sanitizeName(String(b.name ?? "")).trim();
-    const email = String(b.email ?? "").trim().toLowerCase();
-    const contact = String(b.contact ?? "").trim();
-
-    if (name.length < NAME_MIN || name.length > NAME_MAX) {
-      return NextResponse.json({ success: false, error: "A valid name is required." }, { status: 400 });
-    }
-    // Walk-in guests often have no email, and that's fine. One that IS
-    // given must be real, or confirmation emails would bounce.
-    if (email && !isValidEmail(email)) {
-      return NextResponse.json({ success: false, error: "That email address isn't valid." }, { status: 400 });
-    }
-    if (!isValidPHNumber(contact)) {
-      return NextResponse.json({ success: false, error: "A valid PH contact number is required." }, { status: 400 });
-    }
-    if (!b.date || !/^\d{4}-\d{2}-\d{2}$/.test(String(b.date))) {
-      return NextResponse.json({ success: false, error: "A valid date is required." }, { status: 400 });
-    }
-    // A walk-in can be booked over several days too. Unset or equal to the
-    // start means one day, which is what every older record is.
-    const startDate = String(b.date);
-    const endDate = typeof b.endDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(b.endDate) ? b.endDate : startDate;
-    if (endDate < startDate) {
-      return NextResponse.json({ success: false, error: "The last day of the stay must be on or after the first." }, { status: 400 });
-    }
-    const stayDays = daysInRange(startDate, endDate);
-    if (stayDays < 1 || stayDays > MAX_STAY_DAYS) {
-      return NextResponse.json({ success: false, error: `A booking can run for at most ${MAX_STAY_DAYS} days.` }, { status: 400 });
-    }
-    if (stayDays > 1) {
-      // Every day of the stay has to be open, not just the first.
-      const shut = await getSupabaseAdmin().from("closed_dates").select("date")
-        .gte("date", startDate).lte("date", endDate).order("date").limit(1);
-      if (shut.error) throw new Error(shut.error.message);
-      if (shut.data && shut.data.length > 0) {
-        return NextResponse.json({ success: false, error: `The resort is closed on ${(shut.data as { date: string }[])[0].date}.` }, { status: 409 });
-      }
-    }
-    const guests = Number(b.guests);
-    if (!Number.isFinite(guests) || guests < 1) {
-      return NextResponse.json({ success: false, error: "Guest count must be at least 1." }, { status: 400 });
-    }
-
-    // Priced here from the database's own package and room prices, with the
-    // same priceBooking the walk-in window and Book Now use, rather than
-    // taken from the screen. The total decides the balance every later
-    // payment is checked against, so it has to be the real one.
-    const db0 = getSupabaseAdmin();
-    const slotIn: BookingSlot = SLOTS.includes(b.slot as BookingSlot) ? (b.slot as BookingSlot) : "Day";
-    const resourceIn: BookingResource = RESOURCES.includes(b.resource as BookingResource) ? (b.resource as BookingResource) : "Pool";
-    const tierIn: BookingTier = TIERS.includes(b.tier as BookingTier) ? (b.tier as BookingTier) : getPackageTier(Math.round(guests), slotIn, resourceIn);
-    const overtimeIn = slotIn === "Day" ? Math.min(OVERTIME_MAX, Math.max(0, Math.round(Number(b.overtime) || 0))) : 0;
-    const roomIds = Array.isArray(b.rooms) ? b.rooms.map(Number).filter(Number.isFinite) : [];
-    // Includes the single-date rule: only a Whole Day can span dates.
-    const isWalkInPackage = typeof b.walkInPackageCode === "string" && !!b.walkInPackageCode;
-    const notOffered = pricingProblem(resourceIn, tierIn, slotIn, stayDays, isWalkInPackage);
-    if (notOffered) return NextResponse.json({ success: false, error: notOffered }, { status: 400 });
-    let pkg: { price: number; requiresRoom: boolean } | null = null;
-    if (typeof b.walkInPackageCode === "string" && b.walkInPackageCode) {
-      const p = await db0.from("packages").select("price, requires_room, active").eq("code", b.walkInPackageCode).maybeSingle();
-      if (p.error) throw new Error(p.error.message);
-      if (!p.data || !(p.data as { active: boolean }).active) {
-        return NextResponse.json({ success: false, error: "That package is no longer offered." }, { status: 409 });
-      }
-      const row = p.data as { price: number; requires_room: boolean };
-      pkg = { price: Number(row.price), requiresRoom: !!row.requires_room };
-    }
-    const roomRows = roomIds.length ? await db0.from("rooms").select("id, price").in("id", roomIds) : { data: [], error: null };
-    if (roomRows.error) throw new Error(roomRows.error.message);
-    const roomPrices = (roomRows.data as { id: number; price: number }[]).map((r) => Number(r.price));
-    const total = priceBooking({ pkg, resource: resourceIn, tier: tierIn, slot: slotIn, guests: Math.round(guests), overtime: overtimeIn, roomPrices, days: stayDays }).total;
-    const downpayment = Math.ceil(total / 2);
-
-    // The same check the walk-in window shows, enforced here too: the pool
-    // or the events venue Under Maintenance, a full pool, a taken slot or
-    // room. The window can be stale (another tab, a guest booking online
-    // meanwhile), and the server is what decides.
-    const fits = await checkFits({
-      ...(b as Booking), id: "", date: startDate, endDate, guests: Math.round(guests),
-      resource: resourceIn, tier: tierIn, slot: slotIn, overtime: overtimeIn, rooms: roomIds,
-    });
-    if (!fits.ok) return NextResponse.json({ success: false, error: fits.error }, { status: 409 });
-    // The money taken at the desk decides the status: any payment makes it
-    // a real reservation (Confirmed); none leaves it Pending until the guest
-    // pays. The booking itself stores the REQUIRED down payment (50%); what
-    // was actually received goes into the payments ledger below.
-    const pay = b.initialPayment;
-    const payAmount = pay ? Math.round(Number(pay.amount) * 100) / 100 : 0;
-    const payMethods = ["Cash", "GCash", "Bank Transfer"];
-    if (pay && (!Number.isFinite(payAmount) || payAmount <= 0 || payAmount > total || !payMethods.includes(pay.method))) {
-      return NextResponse.json({ success: false, error: "The payment taken at the desk is not valid." }, { status: 400 });
-    }
-    if (pay && pay.method !== "Cash" && !String(pay.reference ?? "").trim()) {
-      return NextResponse.json({ success: false, error: `Enter the ${pay.method} reference number.` }, { status: 400 });
-    }
-    const status = pay ? "Confirmed" : "Pending";
-
-    const row = bookingToRow({
-      ...(b as Booking),
-      id: "",
-      name,
-      email,
-      contact,
-      date: startDate,
-      endDate,
-      guests: Math.round(guests),
-      total,
-      downpayment,
-      status,
-      paymentProof: !!pay,
-      arrivalTime: typeof b.arrivalTime === "string" && /^\d{2}:\d{2}$/.test(b.arrivalTime) ? b.arrivalTime : undefined,
-      rooms: Array.isArray(b.rooms) ? b.rooms.map(Number).filter(Number.isFinite) : [],
-      // Overtime is Day-only and capped (see OVERTIME_MAX).
-      overtime: b.slot === "Day" || !b.slot
-        ? Math.min(OVERTIME_MAX, Math.max(0, Math.round(Number(b.overtime) || 0)))
-        : 0,
-      notes: sanitizeNotes(String(b.notes ?? "")),
-      source: SOURCES.includes(b.source as BookingSource) ? b.source : "Walk-In",
-      resource: RESOURCES.includes(b.resource as BookingResource) ? b.resource : undefined,
-      tier: TIERS.includes(b.tier as BookingTier) ? b.tier : undefined,
-      slot: SLOTS.includes(b.slot as BookingSlot) ? b.slot : "Day",
-      archived: false,
-      archivedAt: undefined,
-      paymentIntentId: undefined,
-      cancelReason: null,
-    });
-
-    const db = getSupabaseAdmin();
-    const full = { ...row, confirmed_at: status === "Confirmed" ? new Date().toISOString() : null };
-    let { data, error } = await db.from("bookings").insert(full).select().single();
-    if (error && missingNewColumn(error)) ({ data, error } = await db.from("bookings").insert(withoutNewColumns(full)).select().single());
-    if (error) throw new Error(error.message);
-    const saved = rowToBooking(data as BookingRow);
-
-    if (pay) {
-      const ledgerRow = await db.from("payments").insert({
-        booking_id: saved.id,
-        guest_name: saved.name,
-        type: payAmount >= total ? "Full" : "Downpayment",
-        method: pay.method,
-        amount: payAmount,
-        reference: String(pay.reference ?? "").replace(/[<>]/g, "").trim().slice(0, 80),
-        notes: "Collected at the front desk (walk-in).",
-      });
-      if (ledgerRow.error) {
-        // Undo the booking rather than keep a Confirmed walk-in whose money
-        // is missing from the ledger.
-        await db.from("bookings").delete().eq("id", saved.id);
-        throw new Error(ledgerRow.error.message);
-      }
-    }
-    await logActivity({
-      actor: "Admin", action: "booking.created", bookingId: saved.id, entity: "booking", entityId: saved.id,
-      summary: `Encoded a walk-in: ${saved.name}, ${saved.package}, ${fmtDate(saved.date)}. ${pay ? `${fmt(payAmount)} received by ${pay.method}; confirmed.` : "Nothing paid yet; pending."}`,
-      details: { total, paid: payAmount, method: pay?.method ?? null },
-    });
+    const checked = await checkWalkIn(body);
+    if (!checked.ok) return NextResponse.json({ success: false, error: checked.error }, { status: checked.status });
+    const saved = await saveWalkIn(checked.plan);
     return NextResponse.json({ success: true, booking: saved }, { status: 201 });
   } catch (err) {
     console.error("[/api/bookings POST walk-in]", err);

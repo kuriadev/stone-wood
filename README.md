@@ -183,7 +183,8 @@ deployment. **`.env*` is gitignored and must stay that way.**
 | `PAYMONGO_API_BASE` | server only | optional override of the API base URL |
 | `GMAIL_USER` | server only | SMTP account for outbound mail |
 | `GMAIL_APP_PASSWORD` | server only | Gmail app password |
-| `NEXT_PUBLIC_APP_URL` | public | absolute base URL used in email links |
+| `NEXT_PUBLIC_APP_URL` | public | absolute base URL used in email links (falls back to the Vercel production domain) |
+| `NEXT_PUBLIC_SITE_URL` | public | absolute base URL for canonicals, social cards and the sitemap (same fallback) |
 
 ---
 

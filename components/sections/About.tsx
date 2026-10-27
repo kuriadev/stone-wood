@@ -7,6 +7,8 @@ import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
+// The owner's phone and email from Rates & Settings, not a typed-in copy.
+import { RESORT_CONTACT } from "@/lib/resort";
 
 interface AboutProps {
   setPage: (p: string) => void;
@@ -529,8 +531,8 @@ export function About({
         </h3>
 
         <div style={{ marginBottom: 20 }}>
-          <p style={{ color: C.textB }}><Icon name="phone" size={14} style={{ marginRight: 8 }} />+63 912 345 6789</p>
-          <p style={{ color: C.textB }}><Icon name="mail" size={14} style={{ marginRight: 8 }} />stonewoodresort.ph@gmail.com</p>
+          <p style={{ color: C.textB }}><Icon name="phone" size={14} style={{ marginRight: 8 }} />{RESORT_CONTACT.phone}</p>
+          <p style={{ color: C.textB }}><Icon name="mail" size={14} style={{ marginRight: 8 }} />{RESORT_CONTACT.email}</p>
         </div>
 
         {/* CTA BUTTON (FIXED LOGIC) */}

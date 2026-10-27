@@ -5,10 +5,9 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
-import { PACKAGES, HERO_BG } from "@/lib/constants";
+import { rateCards, HERO_BG } from "@/lib/constants";
 import { CardGridSkeleton } from "@/components/common/Skeleton";
 import { SLOTS, QUIET_HOURS_POLICY } from "@/lib/resort";
-import { SHARED_PER_HEAD_RATE, EXCLUSIVE_FLAT_RATE, EXCLUSIVE_DISCOUNT_PCT } from "@/lib/validators";
 import { fmt } from "@/lib/utils";
 import { HeroReservation } from "@/components/sections/HeroReservation";
 import { MediaGallery } from "@/components/common/MediaGallery";
@@ -380,7 +379,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
       </div>
 
       {/* ── PACKAGES — click a card to expand it at centre screen ── */}
-      <div style={{ background: isDark ? "#121212" : "#f7f2ea", padding: mob ? "52px 20px" : "88px 24px", borderBottom: `1px solid ${C.border}` }}>
+      <div style={{ background: isDark ? "var(--sw-bg)" : "#f7f2ea", padding: mob ? "52px 20px" : "88px 24px", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ maxWidth: 1280, margin: "0 auto" }}>
 
           <Reveal style={{ textAlign: "center", marginBottom: mob ? 32 : 44 }}>
@@ -520,7 +519,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                           You save {fmt(packageValue(p).save)} compared with booking it yourself
                         </p>
                       ) : p.requiresRoom ? (
-                        <p className="mt-2 text-[12.5px] text-faint">Plus a room of your choice, at a discounted rate</p>
+                        <p className="mt-2 text-[12.5px] text-faint">Plus a room of your choice</p>
                       ) : (
                         <p className="mt-2 text-[12.5px] text-faint">Flat price for up to {p.capacity} guests</p>
                       )}
@@ -591,7 +590,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
       </Dialog>
 
       {/* ── RATES & FACILITIES (unchanged) ── */}
-      <div style={{ background: isDark ? "#121212" : "#fdf9f4", padding: mob ? "52px 20px" : "88px 24px", borderBottom: `1px solid ${C.border}` }}>
+      <div style={{ background: isDark ? "var(--sw-bg)" : "#fdf9f4", padding: mob ? "52px 20px" : "88px 24px", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
           <Reveal>
             <p style={eyebrow}>What&rsquo;s Included</p>
@@ -600,7 +599,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           </Reveal>
 
           <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 20, marginBottom: 48, maxWidth: 1100, margin: "0 auto 48px" }}>
-            {PACKAGES.map((p, i) => (
+            {rateCards(rooms).map((p, i) => (
               /* The hover lift has to sit on a plain element: Reveal is a
                  Motion component and writes `transform` inline, which beats
                  the .sw-card:hover rule and left the lift dead. Entrance
@@ -709,17 +708,17 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
       </div>
 
       {/* ── TESTIMONIALS — infinite marquee (unchanged) ── */}
-      <div style={{ background: isDark ? "#121212" : "#f5f0e8", padding: mob ? "52px 0" : "88px 0", overflow: "hidden" }}>
+      <div style={{ background: isDark ? "var(--sw-bg)" : "#f5f0e8", padding: mob ? "52px 0" : "88px 0", overflow: "hidden" }}>
         <Reveal style={{ textAlign: "center", marginBottom: mob ? 44 : 60, padding: "0 20px" }}>
           <p style={eyebrow}>Testimonials</p>
           <h2 style={h2}>What Our Guests Say</h2>
         </Reveal>
         <div style={{ position: "relative" }}>
-          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to right,${isDark ? "#121212" : "#f5f0e8"},transparent)`, zIndex: 2, pointerEvents: "none" }} />
-          <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to left,${isDark ? "#121212" : "#f5f0e8"},transparent)`, zIndex: 2, pointerEvents: "none" }} />
+          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to right,${isDark ? "var(--sw-bg)" : "#f5f0e8"},transparent)`, zIndex: 2, pointerEvents: "none" }} />
+          <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to left,${isDark ? "var(--sw-bg)" : "#f5f0e8"},transparent)`, zIndex: 2, pointerEvents: "none" }} />
           <div className="sw-marquee-track" style={{ animationDuration: `${marquee.seconds}s` }}>
             {[...marquee.cards, ...marquee.cards].map((r, i) => (
-              <div key={i} style={{ flexShrink: 0, width: mob ? 280 : 330, marginRight: 16, background: isDark ? "#1a1a1a" : "#fff", border: `1px solid ${isDark ? "rgba(201,168,76,0.1)" : "rgba(201,168,76,0.15)"}`, borderRadius: 12, padding: "28px 24px", boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.35)" : "0 4px 16px rgba(100,70,20,0.08)" }}>
+              <div key={i} style={{ flexShrink: 0, width: mob ? 280 : 330, marginRight: 16, background: isDark ? "var(--sw-bg-card-2)" : "#fff", border: `1px solid ${isDark ? "rgba(201,168,76,0.1)" : "rgba(201,168,76,0.15)"}`, borderRadius: 12, padding: "28px 24px", boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.35)" : "0 4px 16px rgba(100,70,20,0.08)" }}>
                 <div aria-label={`${r.rating} out of 5 stars`} style={{ display: "flex", gap: 4, marginBottom: 12 }}>
                   {[1, 2, 3, 4, 5].map((n) => (
                     <Icon key={n} name="star" size={14} filled={n <= r.rating} style={{ color: n <= r.rating ? C.goldInk : C.border }} />
@@ -750,7 +749,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
         <Reveal style={{ position: "relative", zIndex: 2, maxWidth: 620, margin: "0 auto" }}>
           <p style={{ ...eyebrow, marginBottom: 20 }}>Angono, Rizal</p>
           <h2 style={{ ...h2, color: "#fff", marginBottom: 20 }}>
-            The resort is yours<br />for the day
+            Your day at<br />StoneWood
           </h2>
           <p style={{ color: "rgba(238,232,220,0.78)", fontSize: mob ? 15 : 17, lineHeight: 1.85, fontWeight: 300, marginBottom: 36 }}>
             Check an open date and reserve in a few minutes.

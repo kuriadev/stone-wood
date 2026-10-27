@@ -8,6 +8,7 @@
 
 import { DEFAULT_SETTINGS, validateSettings, applySettings, settingsChanges, hourOption, type BusinessSettings } from "@/lib/settings";
 import { priceBooking } from "@/lib/pricing";
+import { rateCards } from "@/lib/constants";
 import * as V from "@/lib/validators";
 import { SLOTS, RESORT_CONTACT, TURNOVER_WINDOW as _T } from "@/lib/resort";
 import * as R from "@/lib/resort";
@@ -29,7 +30,6 @@ describe("the defaults are what the code always used", () => {
     expect(V.EVENT_VENUE_RATE).toBe(5000);
     expect(V.RESORT_MAX_CAPACITY).toBe(30);
     expect(V.MAX_STAY_DAYS).toBe(3);
-    expect(V.EXCLUSIVE_DISCOUNT_PCT).toBeCloseTo(0.05);
     expect(SLOTS.Day.hours).toBe("7:00 AM – 5:00 PM");
     expect(SLOTS.Night.hours).toBe("7:00 PM – 5:00 AM, next day");
   });
@@ -49,9 +49,24 @@ describe("a saved record changes what the app uses", () => {
     expect(after).toBe(2500);
   });
 
-  it("applies the exclusive discount the owner set", () => {
-    applySettings(withChanges({ discounts: { exclusive: 10 } }));
-    expect(priceBooking({ resource: "Pool", tier: "Exclusive", slot: "Day", guests: 5, overtime: 0, roomPrices: [] }).total).toBe(5400);
+  it("prices an Exclusive tour at the owner's flat rate, with no discount", () => {
+    applySettings(withChanges({ rates: { exclusiveFlat: 7000 } }));
+    expect(priceBooking({ resource: "Pool", tier: "Exclusive", slot: "Day", guests: 5, overtime: 0, roomPrices: [] }).total).toBe(7000);
+  });
+
+  it("reads a record saved with the old discounts, without them", () => {
+    const v = validateSettings({ ...DEFAULT_SETTINGS, discounts: { exclusive: 5, bundle: 10, roomBundle: 8, multiDay: 15 } });
+    expect(v.ok && v.settings).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it("puts the owner's rates and hours on the home page's rate cards", () => {
+    applySettings(withChanges({ rates: { sharedPerHead: 250, exclusiveFlat: 7000 }, hours: { dayStart: 8, dayEnd: 16, nightStart: 18, nightEnd: 28 } }));
+    const [day] = rateCards([{ price: 1800 }, { price: 2600 }]);
+    expect(day.base).toBe(250);
+    expect(day.desc).toContain("8:00 AM – 4:00 PM");
+    expect(day.details.join(" ")).toContain("₱7,000");
+    const room = rateCards([{ price: 1800 }, { price: 2600 }]).find((c) => c.id === "room")!;
+    expect(room.details[0]).toBe("₱1,800–₱2,600 per room, per tour");
   });
 
   it("moves the capacity everywhere it is read", () => {
@@ -76,10 +91,10 @@ describe("a saved record changes what the app uses", () => {
 });
 
 describe("a bad record is refused with a reason", () => {
-  it("refuses a discount over 90%", () => {
-    const v = validateSettings({ discounts: { bundle: 120 } });
+  it("refuses an Exclusive rate of zero", () => {
+    const v = validateSettings({ rates: { exclusiveFlat: 0 } });
     expect(v.ok).toBe(false);
-    expect(!v.ok && v.error).toMatch(/Bundle discount/);
+    expect(!v.ok && v.error).toMatch(/Exclusive rate/);
   });
 
   it("refuses a fractional capacity", () => {

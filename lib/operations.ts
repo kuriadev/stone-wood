@@ -35,7 +35,7 @@ export type OpsStage = "confirm" | "prepare" | "arriving" | "onsite" | "settle" 
 
 export const OPS_STAGES: { id: OpsStage; label: string; hint: string; color: string }[] = [
   { id: "confirm", label: "To confirm", hint: "New reservations. Check the payment, then accept or reject.", color: "#d4a800" },
-  { id: "prepare", label: "To prepare", hint: "Confirmed and coming up. Preparation opens the day before each visit.", color: "#9a7bd0" },
+  { id: "prepare", label: "To prepare", hint: "Confirmed and coming up. Preparation opens the day before each booking.", color: "#9a7bd0" },
   { id: "arriving", label: "Arriving", hint: "Due today. Check them in when the group arrives.", color: "#3a8fc4" },
   { id: "onsite", label: "On site", hint: "Checked in. Inspect the facilities, collect what's owed and check them out when they leave.", color: "#2e9e4e" },
   { id: "settle", label: "Balance to collect", hint: "Checked out without paying everything. Collect the rest, then close the booking.", color: "#e07a3a" },
@@ -72,8 +72,8 @@ export function prepOpensOn(b: Pick<Booking, "date">): string {
  *  what closes preparation is the LAST day passing, not the first. */
 export function prepBlocked(b: Pick<Booking, "date" | "endDate" | "checkedInAt">, today: string): string | null {
   if (b.checkedInAt) return "This group has already checked in, so preparation is closed.";
-  if (bookingEndDate(b) < today) return `The visit date (${fmtDate(b.date)}) has passed, so it can no longer be prepared.`;
-  if (today < prepOpensOn(b)) return `Preparation opens on ${fmtDate(prepOpensOn(b))}, the day before the visit.`;
+  if (bookingEndDate(b) < today) return `The reserved date (${fmtDate(b.date)}) has passed, so it can no longer be prepared.`;
+  if (today < prepOpensOn(b)) return `Preparation opens on ${fmtDate(prepOpensOn(b))}, the day before the booking.`;
   return null;
 }
 
@@ -201,7 +201,7 @@ export const OVERDUE_AFTER_MS = 60_000;
 /** Balance to collect: how long a checked-out group may wait before red. */
 export const COLLECT_RED_AFTER_MS = 2 * 60 * 60_000;
 
-const clockTime = (d: Date) => d.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
+export const clockTime = (d: Date) => d.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
 
 /** "1 hr 20 min", "2 days 3 hr", "45 min". */
 export function timerSpan(ms: number): string {

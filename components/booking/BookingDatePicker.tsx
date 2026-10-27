@@ -24,6 +24,7 @@ import { T } from "@/lib/theme";
 import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS, MAX_STAY_DAYS, manilaNow } from "@/lib/validators";
 import { slotStartedProblem } from "@/lib/resort";
 import { RangeConnector } from "@/components/common/RangeConnector";
+import { CAL, CAL_LINE, GUEST_LEGEND } from "@/components/common/calendarColors";
 import { checkBookingAvailability, holdsDate, fmtDate, bookingDates } from "@/lib/utils";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 
@@ -318,67 +319,24 @@ export function BookingDatePicker({
           const legIndex = onLine ? daysApart(selectedDate, ds) : 0;
           const weekday = dayDate.getDay();
 
-          /* Same palette as AvailabilityCalendar on the home page, with light
-             equivalents added: these two calendars are the same control and a
-             guest moving from the hero card to /book should not meet a second
-             colour language. Booked is DARKER than past in both themes -- it
-             used to be lighter, so the two states looked alike. */
-          /* Measured by sampling the rendered pixels, not by reading CSS.
-             The tints were weak enough that the four states composited to
-             almost the same dark rectangle, leaving the numeral's colour to
-             carry the whole signal; they are stronger now so the fill says
-             the state too. Same treatment as the home-page calendar, which
-             this is meant to read as one control with. */
-          let bg = isDark ? "rgba(76,175,80,0.22)" : "#e8f5ea";
-          let col = isDark ? "#8fd492" : "#1f7a38";
-          let bdr = `1px solid ${isDark ? "rgba(118,205,122,0.45)" : "rgba(76,175,80,0.35)"}`;
+          /* The same solid palette as the home page's calendar
+             (calendarColors.ts): the two are one control. Past and
+             out-of-range dates keep a neutral tile and are dimmed. */
+          let bg: string = CAL.available.bg;
+          let col: string = CAL.available.ink;
+          let bdr = `1px solid ${CAL.available.rim}`;
           let cur: string = "pointer";
           const quiet = isDark ? "rgba(255,255,255,0.05)" : "#f4f2ee";
-          /* A past date measured 1.84:1 — 0.38 opacity stacked on ink that
-             was already 55% alpha, which is two dimmings for one idea. The
-             ink is solid now and the dimming happens once, in `opacity`
-             below, so the date stays readable while still reading as
-             unpressable. WCAG exempts disabled controls; a date nobody can
-             read is still not information. */
           const quietInk = isDark ? "rgba(238,232,220,0.9)" : "#4a4338";
           const quietBdr = `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#eae5dc"}`;
-          /* Two different ideas, told two different ways.
-             BOOKED is a STATE: somebody has that date, so it gets a solid
-             grey chip you can read.
-             PAST and OUT-OF-RANGE are not states, they are the absence of an
-             option, so they keep the neutral tile and are dimmed by opacity
-             instead. Painting both of them grey is what made them
-             indistinguishable. */
           let dim = false;
           if (isPast) { bg = quiet; col = quietInk; bdr = quietBdr; cur = "not-allowed"; dim = true; }
           if (isBeyond) { bg = quiet; col = quietInk; bdr = quietBdr; cur = "not-allowed"; dim = true; }
-          if (isBooked) {
-            bg = isDark ? "rgba(200,200,200,0.42)" : "#d6d6d6";
-            col = isDark ? "rgba(244,244,244,0.92)" : "#4f4f4f";
-            bdr = `1px solid ${isDark ? "rgba(210,210,210,0.5)" : "#c0c0c0"}`;
-            cur = "not-allowed";
-          }
-          if (isClosed) {
-            /* The one state that genuinely failed AA here: the old ink
-               measured 3.89:1 on its own tile. Solid, brighter ink and a
-               stronger tint take it to roughly 9:1, and the tile finally
-               reads as red rather than as dark. */
-            bg = isDark ? "rgba(214,86,86,0.22)" : "#fde4e4";
-            col = isDark ? "#ffb4b4" : "#a32b2b";
-            bdr = `1px solid ${isDark ? "rgba(224,110,110,0.5)" : "rgba(180,70,70,0.4)"}`;
-            cur = "not-allowed";
-          }
+          if (isBooked) { bg = CAL.booked.bg; col = CAL.booked.ink; bdr = `1px solid ${CAL.booked.rim}`; cur = "not-allowed"; }
+          if (isClosed) { bg = CAL.closed.bg; col = CAL.closed.ink; bdr = `1px solid ${CAL.closed.rim}`; cur = "not-allowed"; }
           if (beyondStay) { cur = "not-allowed"; dim = true; }
-          /* The stay is the available green stated louder: its two ends are
-             solid, the nights between them a band. "Open", "the days you
-             picked" and "the edges of your stay" are one idea at three
-             strengths, not three accent colours. */
-          if (inRange) {
-            bg = isDark ? "rgba(76,175,80,0.30)" : "#bfe3c6";
-            col = isDark ? "#d9f2db" : "#15532a";
-            bdr = `1px solid ${isDark ? "rgba(76,175,80,0.45)" : "rgba(76,175,80,0.5)"}`;
-          }
-          if (isStart || isEnd) { bg = "#2b6b30"; col = "#ffffff"; bdr = "1px solid #5cb85c"; dim = false; }
+          // Every day of the stay the guest picked is gold, first to last.
+          if (inRange || isStart || isEnd) { bg = CAL.selected.bg; col = CAL.selected.ink; bdr = `1px solid ${CAL.selected.rim}`; dim = false; }
 
           const label = isStart && stayEnd !== selectedDate
             ? " — first day of your stay"
@@ -441,7 +399,7 @@ export function BookingDatePicker({
                   as one control — see components/common/RangeConnector. */}
               {onLine && (
                 <RangeConnector
-                  color="#5cb85c"
+                  color={CAL_LINE}
                   isStart={isStart}
                   isEnd={ds === stayEnd}
                   weekday={weekday}
@@ -484,15 +442,7 @@ export function BookingDatePicker({
           justifyContent: "center",
         }}
       >
-        {[
-          /* "Selected" is gone: the chosen day is a solid green tile, which
-             needs no key, and three entries match the home page legend. */
-          /* The pure hue of each state, matching the home-page legend:
-             these two calendars are meant to read as one control. */
-          ["Available", isDark ? "#3fbf52" : "#2e9e4e"],
-          ["Booked", isDark ? "#b8b8b8" : "#8a8a8a"],
-          ["Closed", isDark ? "#ff4d4d" : "#d12d2d"],
-        ].map(([l, c]) => (
+        {GUEST_LEGEND.map(([l, c]) => (
           <div key={l} style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <div aria-hidden style={{ width: 9, height: 9, borderRadius: "50%", background: c, flexShrink: 0 }} />
             <span style={{ color: C.textS, fontSize: 12 }}>{l}</span>

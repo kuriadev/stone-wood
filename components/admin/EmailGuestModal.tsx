@@ -64,7 +64,7 @@ export function EmailGuestModal({ booking, onClose }: { booking: Booking; onClos
     ["Booking", booking.id],
     ["Email", booking.email || "— none on this booking"],
     ["Contact", booking.contact || "—"],
-    ["Visit", stayLabel(booking)],
+    ["Date", stayLabel(booking)],
   ];
 
   return (

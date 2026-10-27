@@ -3,14 +3,16 @@ import { SLOTS, QUIET_HOURS_POLICY, RESORT_CONTACT, contactChannels, stayPattern
 import { stayWindowLabel } from "@/lib/occupancy";
 import { getBookingSlot, bookingDays } from "@/lib/utils";
 import { OVERTIME_RATE } from "@/lib/validators";
+import { packageAvailed } from "@/lib/pricing";
 
 import type { Booking } from "@/types/booking";
 import { dayjs, DATE_FMT } from "@/lib/dayjs";
+import { publicOrigin } from "@/lib/siteUrl";
 
 /** Absolute base URL for links inside an email. The cancellation link was
  *  hardcoded to http://localhost:3000, so every confirmation sent from a
  *  deployed site carried a link that only worked on the developer's laptop. */
-const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/+$/, "");
+const APP_URL = publicOrigin(process.env.NEXT_PUBLIC_APP_URL);
 
 function fmt(n: number) {
   return `₱${Number(n).toLocaleString()}`;
@@ -43,6 +45,31 @@ function arriveAt(b: Booking): string {
 function departAt(b: Booking): string {
   return stayWindowLabel(b)?.depart ?? "—";
 }
+
+/** "2 guests". "pax" is the trade's word, not every guest's. */
+function guestCount(b: Booking): string {
+  return `${b.guests} guest${b.guests === 1 ? "" : "s"}`;
+}
+
+/** What has been paid, and what is left for the resort. A deposit used to
+ *  read "Downpayment Required" beside the amount already paid, so guests
+ *  took it for money still owed. */
+function paidRows(b: Booking): [string, string][] {
+  if (b.downpayment >= b.total) return [["Paid in Full", fmt(b.downpayment)]];
+  return [
+    [b.downpayment > 0 ? "Down Payment Paid" : "Paid So Far", fmt(b.downpayment)],
+    ["Balance at the Resort", fmt(b.total - b.downpayment)],
+  ];
+}
+
+/** The guest's booking page, where they move their date or cancel. The
+ *  button used to say "Request Cancellation" in red: cancelling is not a
+ *  request and refunds nothing, and the free date change on that page,
+ *  the better choice for most guests, went unseen. */
+const manageUrl = (b: Booking) =>
+  `${APP_URL}/my-booking?booking=${encodeURIComponent(b.id)}&amp;email=${encodeURIComponent(b.email)}`;
+const MANAGE_NOTE = "Need a different date, or need to cancel? Open your booking page. You can move your date once for free; cancelling doesn't refund what you paid.";
+const MANAGE_BUTTON = "display:inline-block;background:#8a6d3b;color:#ffffff;font-size:12px;font-weight:700;letter-spacing:2px;text-decoration:none;padding:12px 28px;border-radius:6px;text-transform:uppercase;";
 
 function formatDate(ds: string) {
   // Explicit format rather than toLocaleDateString("en-PH"): a mail template
@@ -112,15 +139,13 @@ export function buildBookingReceivedEmail(booking: Booking): { subject: string; 
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
                 ${[
                   ["Full Name", booking.name],
-                  ["Date of Visit", formatStay(booking)],
+                  ["Date of Reservation", formatStay(booking)],
                   ["Check in", arriveAt(booking)],
                   ["Check out", departAt(booking)],
-                  ["Package", booking.package],
-                  ["Number of Guests", `${escapeHtml(booking.guests)} pax`],
+                  ["Package", packageAvailed(booking)],
+                  ["Number of Guests", guestCount(booking)],
                   ["Total Amount", fmt(booking.total)],
-                  booking.downpayment >= booking.total
-                    ? ["Paid Online", `${fmt(booking.downpayment)} (paid in full)`]
-                    : ["Downpayment", fmt(booking.downpayment)],
+                  ...paidRows(booking),
                 ].map(([label, value]) => `
                 <tr>
                   <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#8a6d3b;font-size:12px;width:40%;">${escapeHtml(label)}</td>
@@ -140,11 +165,11 @@ export function buildBookingReceivedEmail(booking: Booking): { subject: string; 
 
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
                 <tr>
-                  <td style="background:#fdf5f5;border:1px solid #f0d0d0;border-radius:8px;padding:20px 24px;text-align:center;">
-                    <p style="margin:0 0 16px;color:#7a5a5a;font-size:12px;line-height:1.6;">Plans changed? You can request a cancellation before your visit date.</p>
-                    <a href="${APP_URL}/my-booking?booking=${encodeURIComponent(booking.id)}&amp;email=${encodeURIComponent(booking.email)}"
-                      style="display:inline-block;background:#c0392b;color:#ffffff;font-size:12px;font-weight:700;letter-spacing:2px;text-decoration:none;padding:12px 28px;border-radius:6px;text-transform:uppercase;">
-                      Request Cancellation
+                  <td style="background:#faf5e8;border:1px solid #e2d5b0;border-radius:8px;padding:20px 24px;text-align:center;">
+                    <p style="margin:0 0 16px;color:#5a4a35;font-size:12px;line-height:1.6;">${MANAGE_NOTE}</p>
+                    <a href="${manageUrl(booking)}"
+                      style="${MANAGE_BUTTON}">
+                      Manage My Booking
                     </a>
                   </td>
                 </tr>
@@ -249,11 +274,11 @@ export function buildRejectionEmail(booking: Booking, reason: string, money?: Re
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
                 ${[
                   ["Full Name", booking.name],
-                  ["Date of Visit", formatStay(booking)],
+                  ["Date of Reservation", formatStay(booking)],
                   ["Check in", arriveAt(booking)],
                   ["Check out", departAt(booking)],
-                  ["Package", booking.package],
-                  ["Number of Guests", `${escapeHtml(booking.guests)} pax`],
+                  ["Package", packageAvailed(booking)],
+                  ["Number of Guests", guestCount(booking)],
                   ["Total Amount", fmt(booking.total)],
                 ].map(([label, value]) => `
                 <tr>
@@ -380,10 +405,10 @@ export function buildGuestMessageEmail(
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
                 ${[
                   ["Reference", booking.id],
-                  ["Date of Visit", formatStay(booking)],
+                  ["Date of Reservation", formatStay(booking)],
                   ["Check in", arriveAt(booking)],
                   ["Check out", departAt(booking)],
-                  ["Visit Type", `${slotInfo.label} (${slotInfo.hours})`],
+                  ["Reservation Type", `${slotInfo.label} (${slotInfo.hours})`],
                 ].map(([label, value]) => `
                 <tr>
                   <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#8a6d3b;font-size:12px;width:40%;">${escapeHtml(label)}</td>
@@ -480,14 +505,16 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
                   ["Full Name", booking.name],
                   ["Contact Number", booking.contact],
                   ["Email Address", booking.email],
-                  ["Number of Guests", `${escapeHtml(booking.guests)} pax`],
-                  ["Date of Visit", formatStay(booking)],
+                  ["Number of Guests", guestCount(booking)],
+                  ["Date of Reservation", formatStay(booking)],
                   ["Check in", arriveAt(booking)],
                   ["Check out", departAt(booking)],
-                  ["Package", booking.package],
+                  ["Package", packageAvailed(booking)],
                   ...(booking.overtime ? [["Overtime", `${escapeHtml(booking.overtime)} hour(s)`]] : []),
-                  ["Payment Method", booking.package === "On-Site Reservation" ? "On-Site (Pay on Arrival)" : "GCash (Online Payment)"],
-                  
+                  // Walk-ins pay at the counter. This used to look for a
+                  // package named "On-Site Reservation", which nothing
+                  // creates, so every walk-in's receipt said GCash.
+                  ["Payment Method", booking.source === "Walk-In" ? "At the front desk" : "GCash (Online Payment)"],
                 ].map(([label, value]) => `
                 <tr>
                   <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#8a6d3b;font-size:12px;width:40%;">${escapeHtml(label)}</td>
@@ -510,7 +537,7 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
               <p style="margin:0 0 12px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;border-bottom:1px solid #e8e0cc;padding-bottom:8px;">Payment Summary</p>
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
                 <tr>
-                  <td style="padding:9px 0;color:#5a4a35;font-size:13px;">${slotInfo.id === "Night" ? "🌙" : "☀️"} ${escapeHtml(booking.package)}${(booking.rooms?.length ?? 0) > 0 ? " (rooms included)" : ""}</td>
+                  <td style="padding:9px 0;color:#5a4a35;font-size:13px;">${slotInfo.id === "Night" ? "🌙" : "☀️"} ${escapeHtml(packageAvailed(booking))}${(booking.rooms?.length ?? 0) > 0 ? " (rooms included)" : ""}</td>
                   <td style="padding:9px 0;color:#2a1f0e;font-size:13px;text-align:right;font-weight:600;">${fmt(baseFee)}</td>
                 </tr>
                 ${overtimeFee > 0 ? `
@@ -525,10 +552,11 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
                   <td style="padding:14px 0 4px;color:#8a6d3b;font-size:12px;font-weight:700;letter-spacing:1px;">TOTAL AMOUNT</td>
                   <td style="padding:14px 0 4px;color:#1a1108;font-size:20px;font-weight:700;text-align:right;">${fmt(booking.total)}</td>
                 </tr>
+                ${paidRows(booking).map(([label, value]) => `
                 <tr>
-                  <td style="padding:0 0 12px;color:#8a6d3b;font-size:12px;">${booking.downpayment >= booking.total ? "Paid in Full" : "Downpayment Required"}</td>
-                  <td style="padding:0 0 12px;color:#e67e22;font-size:14px;text-align:right;font-weight:700;">${fmt(booking.downpayment)}</td>
-                </tr>
+                  <td style="padding:0 0 12px;color:#8a6d3b;font-size:12px;">${escapeHtml(label)}</td>
+                  <td style="padding:0 0 12px;color:#e67e22;font-size:14px;text-align:right;font-weight:700;">${escapeHtml(value)}</td>
+                </tr>`).join("")}
               </table>
 
               <!-- What to bring -->
@@ -540,7 +568,7 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">⏰ Your ${slotInfo.label}: <strong>${slotInfo.start}</strong> to <strong>${slotInfo.end}</strong>${stayDays > 1 ? ", each day of your stay" : ""}.</p>
                     ${stayNote ? `<p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">${escapeHtml(stayNote)}</p>` : ""}
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">🔇 ${QUIET_HOURS_POLICY}</p>
-                    <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">💳 ${booking.downpayment >= booking.total ? "Your stay is fully paid. Nothing more is due on arrival." : booking.package === "On-Site Reservation" ? "Pay the full balance on arrival." : `The remaining balance of ${fmt(booking.total - booking.downpayment)} is paid at the resort.`}</p>
+                    <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">💳 ${booking.downpayment >= booking.total ? "Your stay is fully paid. Nothing more is due on arrival." : `The remaining balance of ${fmt(booking.total - booking.downpayment)} is paid at the resort.`}</p>
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">📅 If the resort has to cancel, you choose a free new date or a full refund. If you cancel, payments aren't refunded, but you can move your booking to another date once from your booking page.</p>
                     <p style="margin:0;color:#4a3a28;font-size:13px;line-height:1.7;">📞 For questions, call or text us at <strong>${escapeHtml(RESORT_CONTACT.phone)}</strong> or email ${escapeHtml(RESORT_CONTACT.email)}.</p>
                   </td>
@@ -555,12 +583,12 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
               <!-- Cancellation Button -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="background:#fdf5f5;border:1px solid #f0d0d0;border-radius:8px;padding:20px 24px;text-align:center;">
-                    <p style="margin:0 0 6px;color:#8a5a5a;font-size:11px;letter-spacing:2px;text-transform:uppercase;">Need to cancel?</p>
-                    <p style="margin:0 0 16px;color:#7a5a5a;font-size:12px;line-height:1.6;">Plans changed? You can request a cancellation before your visit date.</p>
-                    <a href="${APP_URL}/my-booking?booking=${encodeURIComponent(booking.id)}&amp;email=${encodeURIComponent(booking.email)}"
-                      style="display:inline-block;background:#c0392b;color:#ffffff;font-size:12px;font-weight:700;letter-spacing:2px;text-decoration:none;padding:12px 28px;border-radius:6px;text-transform:uppercase;">
-                      Request Cancellation
+                  <td style="background:#faf5e8;border:1px solid #e2d5b0;border-radius:8px;padding:20px 24px;text-align:center;">
+                    <p style="margin:0 0 6px;color:#8a6d3b;font-size:11px;letter-spacing:2px;text-transform:uppercase;">Change of plans?</p>
+                    <p style="margin:0 0 16px;color:#5a4a35;font-size:12px;line-height:1.6;">${MANAGE_NOTE}</p>
+                    <a href="${manageUrl(booking)}"
+                      style="${MANAGE_BUTTON}">
+                      Manage My Booking
                     </a>
                     <p style="margin:12px 0 0;color:#aaa;font-size:10px;">Booking ID: ${escapeHtml(booking.id)}</p>
                   </td>

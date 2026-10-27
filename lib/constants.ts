@@ -6,8 +6,6 @@ import type { ResortPackage } from "@/types/package";
 import {
   SHARED_PER_HEAD_RATE,
   EXCLUSIVE_FLAT_RATE,
-  EXCLUSIVE_DISCOUNT_PCT,
-  EVENT_VENUE_RATE,
   OVERTIME_MAX,
   OVERTIME_RATE,
   RESORT_MAX_CAPACITY,
@@ -53,76 +51,93 @@ export const INIT_ROOMS: Room[] = [
 ];
 
 export const AMENITIES = [
-  { icon: "pool", name: "Swimming Pool", desc: "Private pool for whole-day rental, up to 30 guests." },
+  { icon: "pool", name: "Swimming Pool", desc: "Share it with other groups, or book it for your group alone." },
   { icon: "flame", name: "BBQ / Grilling Area", desc: "Open-air grilling stations for group cookouts." },
   { icon: "billiards", name: "Billiards", desc: "Full-size billiards table available for all guests." },
   { icon: "mic", name: "Videoke", desc: "Full videoke setup for group entertainment." },
   { icon: "car", name: "Parking Area", desc: "Secure on-site parking for all guests." },
 ] as const;
 
-// The "Tours & Room Add-ons" rate cards on Home. Built from the same
-// constants the price is calculated from, so the cards can't drift from
-// what Book Now charges.
-const EXCLUSIVE_ONE_SLOT = Math.round(EXCLUSIVE_FLAT_RATE * (1 - EXCLUSIVE_DISCOUNT_PCT)); // ₱5,700
+// The "Tours & Room Add-ons" rate cards on Home.
+//
+// Built when the page renders, from the rates, hours and capacity the
+// owner set in Rates & Settings and from the real rooms. These used to be
+// worked out once, when the code loaded, from the built-in defaults, so a
+// price or hours changed in Settings never reached them; the room card was
+// typed in by hand ("₱2,000–₱2,500", "3 room options").
 const peso = (n: number) => `₱${n.toLocaleString()}`;
 
-export const PACKAGES = [
-  {
-    id: "day",
-    label: SLOTS.Day.label,
-    icon: "sun",
-    desc: `Resort use ${SLOTS.Day.hours}.`,
-    base: SHARED_PER_HEAD_RATE,
-    unit: "/guest",
-    details: [
-      `Shared: ${peso(SHARED_PER_HEAD_RATE)} per guest`,
-      `Exclusive (up to ${RESORT_MAX_CAPACITY}): ${peso(EXCLUSIVE_ONE_SLOT)}`,
-      `Overtime on request: ${peso(OVERTIME_RATE)}/hr, up to ${OVERTIME_MAX} hrs`,
-    ],
-  },
-  {
-    id: "night",
-    label: SLOTS.Night.label,
-    icon: "moon",
-    desc: `Resort use ${SLOTS.Night.hours}.`,
-    base: SHARED_PER_HEAD_RATE,
-    unit: "/guest",
-    details: [
-      `Shared: ${peso(SHARED_PER_HEAD_RATE)} per guest`,
-      `Exclusive (up to ${RESORT_MAX_CAPACITY}): ${peso(EXCLUSIVE_ONE_SLOT)}`,
-      `Quiet hours from ${QUIET_HOURS_START}`,
-    ],
-  },
-  {
-    id: "wholeday",
-    label: SLOTS.WholeDay.label,
-    icon: "clock",
-    desc: `Exclusive, ${SLOTS.WholeDay.hours}.`,
-    base: standardPackagePrice({ resource: "Pool", tier: "Exclusive", slotMode: "WholeDay", capacity: RESORT_MAX_CAPACITY }).price,
-    unit: "",
-    details: [
-      `Up to ${RESORT_MAX_CAPACITY} guests, whole resort`,
-      `Day + Night for 10% less (${peso(EXCLUSIVE_FLAT_RATE * 2)} regular)`,
-      "No turnover — stay through the evening",
-    ],
-  },
-  {
-    id: "room",
-    label: "Room Add-on",
-    icon: "bed",
-    desc: "Add a room to any booking.",
-    base: 2000,
-    unit: "/slot",
-    details: [
-      "₱2,000–₱2,500 per room, per slot",
-      "3 room options available",
-      "8% off when part of a package",
-    ],
-  },
-] as const;
+export interface RateCard {
+  id: "day" | "night" | "wholeday" | "room";
+  label: string;
+  icon: string;
+  desc: string;
+  base: number;
+  unit: string;
+  details: string[];
+}
 
-/** The events venue, for pages that quote it. */
-export const VENUE_RATE_LABEL = `${peso(EVENT_VENUE_RATE)} per slot`;
+export function rateCards(rooms: { price: number }[]): RateCard[] {
+  const prices = rooms.map((r) => r.price).filter((n) => n > 0);
+  const low = prices.length ? Math.min(...prices) : 0;
+  const high = prices.length ? Math.max(...prices) : 0;
+  const cards: RateCard[] = [
+    {
+      id: "day",
+      label: SLOTS.Day.label,
+      icon: "sun",
+      desc: `Resort use ${SLOTS.Day.hours}.`,
+      base: SHARED_PER_HEAD_RATE,
+      unit: "/guest",
+      details: [
+        `Shared: ${peso(SHARED_PER_HEAD_RATE)} per guest`,
+        `Exclusive (up to ${RESORT_MAX_CAPACITY}): ${peso(EXCLUSIVE_FLAT_RATE)}`,
+        ...(OVERTIME_MAX > 0 ? [`Overtime on request: ${peso(OVERTIME_RATE)}/hr, up to ${OVERTIME_MAX} hrs`] : []),
+      ],
+    },
+    {
+      id: "night",
+      label: SLOTS.Night.label,
+      icon: "moon",
+      desc: `Resort use ${SLOTS.Night.hours}.`,
+      base: SHARED_PER_HEAD_RATE,
+      unit: "/guest",
+      details: [
+        `Shared: ${peso(SHARED_PER_HEAD_RATE)} per guest`,
+        `Exclusive (up to ${RESORT_MAX_CAPACITY}): ${peso(EXCLUSIVE_FLAT_RATE)}`,
+        `Quiet hours from ${QUIET_HOURS_START}`,
+      ],
+    },
+    {
+      id: "wholeday",
+      label: SLOTS.WholeDay.label,
+      icon: "clock",
+      desc: `Exclusive, ${SLOTS.WholeDay.hours}.`,
+      base: standardPackagePrice({ resource: "Pool", tier: "Exclusive", slotMode: "WholeDay", capacity: RESORT_MAX_CAPACITY }).price,
+      unit: "",
+      details: [
+        `Up to ${RESORT_MAX_CAPACITY} guests, the pool to yourselves`,
+        `The Day and Night Tours together (${peso(EXCLUSIVE_FLAT_RATE)} each)`,
+        "No break between Day and Night — stay through the evening",
+      ],
+    },
+  ];
+  if (prices.length) {
+    cards.push({
+      id: "room",
+      label: "Room Add-on",
+      icon: "bed",
+      desc: "Add a room to any booking.",
+      base: low,
+      unit: "/tour",
+      details: [
+        `${low === high ? peso(low) : `${peso(low)}–${peso(high)}`} per room, per tour`,
+        `${prices.length} room${prices.length === 1 ? "" : "s"} to choose from`,
+      ],
+    });
+  }
+  return cards;
+}
 
 export const INIT_GALLERY: string[] = [
   "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=800&q=85",

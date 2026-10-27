@@ -31,8 +31,9 @@ import { loadBookingLedger } from "@/lib/ledger.server";
 import type { Booking } from "@/types/booking";
 import type { BookingRow, FacilityRow, DateChangeRow } from "@/types/database";
 import { ensureSettings } from "@/lib/settings.server";
+import { publicOrigin } from "@/lib/siteUrl";
 
-const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/+$/, "");
+const APP_URL = publicOrigin(process.env.NEXT_PUBLIC_APP_URL);
 
 /** Statuses whose booking no longer occupies its date, as a PostgREST list. */
 export const FREED_STATUS_LIST = "(Cancelled,ResortCancelled)";
@@ -189,7 +190,7 @@ export async function checkMove(b: Booking, date: string): Promise<{ ok: true } 
  *  charge added on the day (the booking with its extra guests, overtime or
  *  room), so neither can overbook the pool, take the Night slot or
  *  double-book a room. */
-export async function checkFits(b: Booking): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function checkFits(b: Booking, alsoHeld: Booking[] = []): Promise<{ ok: true } | { ok: false; error: string }> {
   const no = (error: string) => ({ ok: false as const, error });
   await ensureSettings();
   const db = getSupabaseAdmin();
@@ -203,7 +204,9 @@ export async function checkFits(b: Booking): Promise<{ ok: true } | { ok: false;
     return no("Multi-day bookings need the database update (20261010120000_multi_day_bookings.sql) to be applied first.");
   }
 
-  const others = overlap.others;
+  // `alsoHeld`: bookings not saved yet that this one must fit beside too
+  // (the earlier rows of an import being checked).
+  const others = [...overlap.others, ...alsoHeld];
   const facilities = (fac.data as FacilityRow[]).map(rowToFacility);
   const slot = getBookingSlot(b);
   const overtime = b.overtime ?? 0;

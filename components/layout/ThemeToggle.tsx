@@ -1,15 +1,20 @@
 "use client";
 
-import { useTheme } from "@/contexts/ThemeContext";
-import { Icon } from "@/components/common/Icon";
+import { useTheme, nextTheme, THEME_LABEL, type ThemeMode } from "@/contexts/ThemeContext";
+import { Icon, type IconName } from "@/components/common/Icon";
 
+/** The glyph of the theme a tap switches TO. */
+const NEXT_ICON: Record<ThemeMode, IconName> = { light: "sun", dim: "sun-moon", dark: "moon" };
+
+/** Light → Dim → Dark → Light. Dim is the medium theme. */
 export function ThemeToggle() {
-  const { isDark, toggle } = useTheme();
+  const { isDark, mode, toggle } = useTheme();
+  const next = nextTheme(mode);
   return (
     <button
       onClick={toggle}
-      title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      title={`${THEME_LABEL[mode]} theme · switch to ${THEME_LABEL[next]}`}
+      aria-label={`Switch to the ${THEME_LABEL[next].toLowerCase()} theme`}
       style={{
         position: "fixed",
         bottom: 20,
@@ -41,7 +46,7 @@ export function ThemeToggle() {
     >
       {/* 20px in a 52px disc: the old 17px emoji had a solid colour fill to
           carry it, a 1.75-weight outline at that size does not. */}
-      <Icon name={isDark ? "sun" : "moon"} size={20} strokeWidth={2} />
+      <Icon name={NEXT_ICON[next]} size={20} strokeWidth={2} />
     </button>
   );
 }

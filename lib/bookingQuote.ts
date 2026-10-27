@@ -64,20 +64,26 @@ export interface BookingQuote {
   /** false when the date/pool/venue/room is no longer free. */
   available: boolean;
   unavailableReason?: string;
+  /** Where in Book Now the guest fixes it, when not available. */
+  unavailableStep?: QuoteStep;
   /** Another booking that date under the same name, split between the
    *  venue and a shared pool tour. Saved for staff to check, not refused. */
   splitWarning?: string;
 }
 
+/** The Book Now step a problem is fixed on: the date and what is booked,
+ *  the room, or the guest's details. */
+export type QuoteStep = "date" | "room" | "contact";
+
 export type QuoteResult =
   | { ok: true; quote: BookingQuote }
-  | { ok: false; status: number; error: string };
+  | { ok: false; status: number; error: string; step: QuoteStep };
 
 const RESOURCES: BookingResource[] = ["Pool", "Venue", "Pool+Venue"];
 const TIERS: BookingTier[] = ["Shared", "Exclusive"];
 const SLOTS_OK: BookingSlot[] = ["Day", "Night", "WholeDay"];
 
-const bad = (error: string, status = 400): QuoteResult => ({ ok: false, status, error });
+const bad = (error: string, status = 400, step: QuoteStep = "date"): QuoteResult => ({ ok: false, status, error, step });
 
 export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
   if (!raw || typeof raw !== "object") return bad("Booking details are missing.");
@@ -90,9 +96,9 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
   const email = String(d.email ?? "").trim().toLowerCase();
   const contact = sanitizeContact(String(d.contact ?? ""));
   const notes = sanitizeNotes(String(d.notes ?? ""));
-  if (!isValidName(name)) return bad("A valid name is required.");
-  if (!isValidEmail(email)) return bad("A valid email address is required.");
-  if (!isValidPHNumber(contact)) return bad("A valid PH mobile number (09XXXXXXXXX) is required.");
+  if (!isValidName(name)) return bad("A valid name is required.", 400, "contact");
+  if (!isValidEmail(email)) return bad("A valid email address is required.", 400, "contact");
+  if (!isValidPHNumber(contact)) return bad("A valid PH mobile number (09XXXXXXXXX) is required.", 400, "contact");
 
   // ── The stay ────────────────────────────────────────────────────
   // One booking can run over several days: `date` is the first and
@@ -167,8 +173,8 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
     const packageStay = multiDayProblem(slot, stayDays);
     if (packageStay) return bad(packageStay);
 
-    if (pkg.requiresRoom && roomIds.length !== 1) return bad("This package needs exactly one room.");
-    if (!pkg.requiresRoom && roomIds.length > 0) return bad("This package doesn't include a room.");
+    if (pkg.requiresRoom && roomIds.length !== 1) return bad("This package needs exactly one room.", 400, "room");
+    if (!pkg.requiresRoom && roomIds.length > 0) return bad("This package doesn't include a room.", 400, "room");
   } else {
     if (!RESOURCES.includes(d.resource as BookingResource)) return bad("Unknown booking type.");
     resource = d.resource as BookingResource;
@@ -193,7 +199,7 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
 
     const notOffered = pricingProblem(resource, tier, slot, stayDays);
     if (notOffered) return bad(notOffered);
-    if (resource === "Venue" && roomIds.length > 0) return bad("Rooms can't be added to a venue-only booking.");
+    if (resource === "Venue" && roomIds.length > 0) return bad("Rooms can't be added to a venue-only booking.", 400, "room");
   }
 
   // ── Rooms, facilities and the date's other bookings ─────────────
@@ -211,7 +217,7 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
   }
 
   const rooms = (roomsRes.data as RoomRow[]).map(rowToRoom);
-  if (rooms.length !== roomIds.length) return bad("One of the chosen rooms no longer exists.", 409);
+  if (rooms.length !== roomIds.length) return bad("One of the chosen rooms no longer exists.", 409, "room");
 
   const facilities = (facRes.data as FacilityRow[]).map(rowToFacility);
   // Everyone occupying any day of the stay, holds included.
@@ -224,11 +230,13 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
   // ── Availability ────────────────────────────────────────────────
   let available = true;
   let unavailableReason: string | undefined;
+  let unavailableStep: QuoteStep | undefined;
 
   const capacity = checkRangeAvailability(date, endDate, slot, guests, tier, resource, sameDay, facilities, overtime);
   if (!capacity.ok) {
     available = false;
     unavailableReason = capacity.reason;
+    unavailableStep = "date";
   }
   const taken = roomsTakenInRange(date, endDate, slot, sameDay, overtime);
   const clash = rooms.find((r) => taken.has(r.id));
@@ -238,9 +246,11 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
     unavailableReason = stayDays > 1
       ? `${clash.name} is already booked on one of those dates.`
       : `${clash.name} is already booked that date.`;
+    unavailableStep = "room";
   } else if (available && closedRoom) {
     available = false;
     unavailableReason = `${closedRoom.name} is closed for maintenance.`;
+    unavailableStep = "room";
   }
 
   // The venue and a shared pool tour booked separately by the same guest
@@ -251,9 +261,10 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
     const split = splitBookingMatch({ resource, tier, name, email, contact }, sameDay);
     if (split.same && available) {
       available = false;
+      unavailableStep = "date";
       unavailableReason = resource === "Venue"
-        ? `You already have a shared pool booking that date (${split.same.id}). To have the events venue too, book "Resort visit + Events Venue" instead, or contact us to change your booking.`
-        : `You already have the events venue that date (${split.same.id}). To use the pool too, book "Resort visit + Events Venue" instead, or contact us to change your booking.`;
+        ? `You already have a shared pool booking that date (${split.same.id}). To have the events venue too, book "Resort & pool + Events Venue" instead, or contact us to change your booking.`
+        : `You already have the events venue that date (${split.same.id}). To use the pool too, book "Resort & pool + Events Venue" instead, or contact us to change your booking.`;
     } else if (split.maybe) {
       splitWarning = `possibly the same group as ${split.maybe.id} (same name; one has the events venue, the other a shared pool tour).`;
     }
@@ -293,6 +304,7 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
       dueNow: d.payFull === true ? price.total : price.down,
       available,
       unavailableReason,
+      unavailableStep,
       splitWarning,
     },
   };

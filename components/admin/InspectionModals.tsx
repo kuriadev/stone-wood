@@ -34,6 +34,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { facilitiesForBooking, checklistFor } from "@/lib/facilityUsage";
 import { bookingMoney, round2, manilaDate, manilaTime, livePayments } from "@/lib/finance";
 import { fmt, fmtDate, getBookingSlot, getBookingResource, getBookingTier } from "@/lib/utils";
+import { packageAvailed } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
 import { MANUAL_METHODS, type InspectionItem, type Inspection } from "@/types/finance";
 import { facilityIcon } from "@/lib/facilityUsage";
@@ -51,10 +52,12 @@ function Checklist({ items, onToggle }: { items: { label: string; done: boolean 
   const { C, inp } = useAdminStyle();
   if (items.length === 0) return <p style={{ color: C.textS, fontSize: 12.5, margin: 0 }}>No checklist for this facility.</p>;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+    // Each row is a full-width, 40px-tall target: caretakers tick these
+    // with a thumb, walking round the resort.
+    <div style={{ display: "flex", flexDirection: "column" }}>
       {items.map((c, i) => (
-        <label key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", color: c.done ? C.textS : C.textB, fontSize: 13, cursor: "pointer" }}>
-          <Checkbox checked={c.done} onCheckedChange={() => onToggle(i)} style={{ marginTop: 4 }} />
+        <label key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", color: c.done ? C.textS : C.textB, fontSize: 13.5, cursor: "pointer", minHeight: 40, padding: "8px 0" }}>
+          <Checkbox checked={c.done} onCheckedChange={() => onToggle(i)} style={{ marginTop: 2 }} />
           <span style={{ textDecoration: c.done ? "line-through" : "none" }}>{c.label}</span>
         </label>
       ))}
@@ -108,7 +111,7 @@ export function PrepModal({ booking, facilities, onClose }: { booking: Booking; 
       footer={
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ color: left ? "#d4a800" : "#2e9e4e", fontSize: 13 }}>{left ? `${left} item${left === 1 ? "" : "s"} not ticked yet` : "Everything is ticked"}</span>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <ActionButton onClick={tickAll}>{all ? "Untick all" : "Tick all"}</ActionButton>
             <ActionButton kind="primary" icon="clipboard-check" disabled={busy} onClick={save}>{busy ? "Saving…" : last ? "Update preparation" : "Mark as prepared"}</ActionButton>
           </div>
@@ -120,7 +123,7 @@ export function PrepModal({ booking, facilities, onClose }: { booking: Booking; 
           Prepared on {fmtDate(manilaDate(last.inspectedAt))} at {manilaTime(last.inspectedAt)}. Changes here update that record.
         </p>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(270px,1fr))", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(270px,100%),1fr))", gap: 12 }}>
         {items.map((x, fi) => {
           const f = used[fi];
           return (
@@ -373,13 +376,13 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={src} alt={`${x.facilityName}, photo ${pi + 1}`} width={64} height={64} style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: `1px solid ${cBr}` }} />
                       <button type="button" aria-label="Remove photo" onClick={() => setPhotos((p) => ({ ...p, [f.id]: (p[f.id] ?? []).filter((_, k) => k !== pi) }))}
-                        style={{ position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: "50%", border: "none", background: "#333", color: "#fff", cursor: "pointer", lineHeight: 0 }}>
+                        style={{ position: "absolute", top: -8, right: -8, width: 28, height: 28, borderRadius: "50%", border: "none", background: "#333", color: "#fff", cursor: "pointer", lineHeight: 0 }}>
                         <Icon name="x" size={12} />
                       </button>
                     </span>
                   ))}
                   {(photos[f.id] ?? []).length < 4 && (
-                    <label className="sw-hit" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", border: `1px dashed ${cBr}`, borderRadius: 8, color: C.textS, fontSize: 12.5, cursor: "pointer" }}>
+                    <label className="sw-hit" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", minHeight: 40, border: `1px dashed ${cBr}`, borderRadius: 8, color: C.textS, fontSize: 12.5, cursor: "pointer" }}>
                       <Icon name="image" size={14} /> {photoBusy ? "Adding..." : "Add photo"}
                       <input type="file" accept="image/*" capture="environment" style={{ display: "none" }}
                         onChange={(e) => { void addPhoto(f.id, e.target.files?.[0]); e.target.value = ""; }} />
@@ -411,10 +414,10 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
                           <div style={{ color: C.textH, fontWeight: 600, fontSize: 14, paddingBottom: 8, textAlign: "right" }}>
                             {d.quantity} × {fmt(d.unitRate)} = {fmt(lineAmount(d))}
                           </div>
-                          <button type="button" onClick={() => removeDamage(f.id, d.key)} aria-label="Remove item" style={{ background: "transparent", border: "none", color: C.textS, cursor: "pointer", paddingBottom: 8 }}><Icon name="trash" size={15} /></button>
+                          <button type="button" onClick={() => removeDamage(f.id, d.key)} aria-label="Remove item" style={{ background: "transparent", border: "none", color: C.textS, cursor: "pointer", minWidth: 40, minHeight: 40, justifySelf: mob ? "end" : undefined }}><Icon name="trash" size={15} /></button>
                         </div>
                         {d.custom && (
-                          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8, marginTop: 8 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "2fr 1fr", gap: 8, marginTop: 8 }}>
                             <Input value={d.itemName} onChange={(e) => patchDamage(f.id, d.key, { itemName: e.target.value })} placeholder="Item name" style={{ ...inp, padding: "8px 12px" }} />
                             <Input type="number" min={0} value={d.unitRate || ""} onChange={(e) => patchDamage(f.id, d.key, { unitRate: Math.max(0, Number(e.target.value) || 0) })} placeholder="Price each (₱)" style={{ ...inp, padding: "8px 12px" }} />
                           </div>
@@ -426,7 +429,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
                           </label>
                         </div>
                         {d.adjusting && (
-                          <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 8, marginTop: 8 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "140px 1fr", gap: 8, marginTop: 8 }}>
                             <Input type="number" value={d.adjustment || ""} onChange={(e) => patchDamage(f.id, d.key, { adjustment: Number(e.target.value) || 0 })} placeholder="− or + ₱" aria-label="Adjustment" style={{ ...inp, padding: "8px 12px" }} />
                             <Input value={d.adjustmentReason} onChange={(e) => patchDamage(f.id, d.key, { adjustmentReason: e.target.value })} placeholder="Reason, e.g. only a small crack, repairable" style={{ ...inp, padding: "8px 12px" }} />
                           </div>
@@ -550,7 +553,7 @@ export function BookingStatement({ booking }: { booking: Booking }) {
   return (
     <div>
       <div style={sub}>CHARGES</div>
-      <AmountRow label={`${booking.package} · ${slot.label}, ${fmtDate(booking.date)} · ${booking.guests} guest${booking.guests === 1 ? "" : "s"}`} value={fmt(round2(booking.total - overtimeFee))} />
+      <AmountRow label={`${packageAvailed(booking)} · ${slot.label}, ${fmtDate(booking.date)} · ${booking.guests} guest${booking.guests === 1 ? "" : "s"}`} value={fmt(round2(booking.total - overtimeFee))} />
       {overtimeFee > 0 && <AmountRow label={`Overtime (${booking.overtime} hr)`} value={fmt(overtimeFee)} />}
       {damages.map((d) => (
         <AmountRow key={d.id} label={`Damage: ${d.itemName} × ${d.quantity} (${d.facilityName})`} value={fmt(d.amount)} color="#d44" />
@@ -638,7 +641,7 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
           </ActionButton>
         </div>
       }>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 20, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(300px,100%),1fr))", gap: 20, alignItems: "start" }}>
         <div style={{ background: soft, borderRadius: 10, padding: "4px 16px 12px" }}>
           <BookingStatement booking={booking} />
         </div>
@@ -707,16 +710,15 @@ export function VisitRecord({ booking, onClose }: { booking: Booking; onClose: (
   const at = (iso?: string | null) => (iso ? `${fmtDate(manilaDate(iso))}, ${manilaTime(iso)}` : null);
 
   const fields: [string, React.ReactNode][] = [
-    ["Visit", b.date ? fmtDate(b.date) : "—"],
+    ["Date", b.date ? fmtDate(b.date) : "—"],
     ["Time", `${slot.label} · ${slot.hours}${b.arrivalTime ? ` · arrives ${b.arrivalTime}` : ""}`],
-    ["Package", b.package],
+    ["Package", packageAvailed(b)],
     ["Guests", String(b.guests)],
     ["Uses", resource === "Pool+Venue" ? "Pool + events venue" : resource === "Venue" ? "Events venue" : `Pool (${getBookingTier(b)})`],
     ["Rooms", roomNames.length ? roomNames.join(", ") : "None"],
     ...(slot.id === "Day" && b.overtime ? [["Overtime", `${b.overtime} hr`] as [string, string]] : []),
     ["Email", b.email || "—"],
     ["Contact", b.contact || "—"],
-    ["Email", b.email || "—"],
     ["Source", b.source ?? "Online"],
     ["Booked on", b.createdAt ? at(new Date(b.createdAt).toISOString()) : "—"],
   ];
@@ -770,7 +772,7 @@ export function VisitRecord({ booking, onClose }: { booking: Booking; onClose: (
     <Modal title={b.name}
       subtitle={<><span style={{ fontFamily: "monospace", fontWeight: 700 }}>{b.id}</span> · <span className="sw-ink" style={{ ["--ink-c" as string]: STATUS_COLOR[b.status] }}>{bookingStatusLabel(b)}</span>{b.checkedOutAt && b.status === "Confirmed" ? " · checked out, to settle" : b.checkedInAt && b.status === "Confirmed" ? " · on site" : ""}</>}
       onClose={onClose} width={1040}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 20, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(320px,100%),1fr))", gap: 20, alignItems: "start" }}>
         {/* ── The reservation ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>

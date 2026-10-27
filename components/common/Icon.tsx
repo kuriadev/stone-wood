@@ -11,7 +11,7 @@ import {
   SunMoon, Handshake, Siren, Info, Circle, Bookmark,
   Plus, Minus, SquarePen, Pencil, LogOut, Eye, EyeOff,
   Wallet, Receipt, ClipboardCheck, LogIn, ShieldAlert, Printer, History, UserRound, CalendarClock,
-  RefreshCw, Ellipsis, CloudOff, ArrowRight,
+  RefreshCw, Ellipsis, CloudOff, ArrowRight, Upload,
   type LucideIcon,
 } from "lucide-react";
 
@@ -117,6 +117,7 @@ const REGISTRY = {
   more: Ellipsis,        // overflow menu
   "cloud-off": CloudOff, // server unreachable
   "arrow-right": ArrowRight,
+  upload: Upload,        // import a file
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof REGISTRY;

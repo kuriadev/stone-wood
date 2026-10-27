@@ -36,7 +36,7 @@ import { caretakerTasks, upcomingUpkeep, addDaysIso, type CaretakerTask, type Ta
 import { manilaDate } from "@/lib/finance";
 import { fmtDate, getBookingSlot } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
-import { prepBlocked, prepOpensOn } from "@/lib/operations";
+import { prepBlocked, prepOpensOn, clockTime } from "@/lib/operations";
 import type { Facility } from "@/types/facility";
 import type { InventoryItem } from "@/types/inventory";
 import type { SupplyLine, UpkeepData } from "@/types/tasks";
@@ -116,10 +116,14 @@ function CaretakerTasks({ mob }: { mob: boolean }) {
     await Promise.all([ops.refresh(), reloadFacilities(), reloadInventory(), loadUpkeep()]);
   };
 
+  /** A group whose booked time is over: inspect now. */
+  const timeUp = (t: CaretakerTask) => t.kind === "inspect" && !!t.endsAt && Date.now() >= t.endsAt.getTime();
+
   /** The badge that says how pressing it is. */
   const when = (t: CaretakerTask) => {
     if (t.overdue) return <StatusBadge color="#d44">{t.kind === "upkeep" ? `Late · was ${fmtDate(t.date)}` : "Overdue"}</StatusBadge>;
-    if (t.kind === "inspect") return <StatusBadge color="#2e9e4e">On site</StatusBadge>;
+    if (timeUp(t)) return <StatusBadge color="#d44">Time&apos;s up · inspect now</StatusBadge>;
+    if (t.kind === "inspect") return <StatusBadge color="#2e9e4e">{t.endsAt ? `On site · out ${clockTime(t.endsAt)}` : "On site"}</StatusBadge>;
     if (t.kind === "prepare") return t.date === today ? <StatusBadge color="#d4a800">Today</StatusBadge> : <StatusBadge color="#3a8fc4">Tomorrow</StatusBadge>;
     return <StatusBadge color="#d4a800">Today</StatusBadge>;
   };
@@ -129,7 +133,7 @@ function CaretakerTasks({ mob }: { mob: boolean }) {
     const b = t.booking;
     const slot = b ? SLOTS[getBookingSlot(b)] : null;
     const title = b ? b.name : t.kind === "clean" ? t.facilities[0]?.name ?? t.title : t.title;
-    const edge = t.overdue ? "#d4444066" : cBr;
+    const edge = t.overdue || timeUp(t) ? "#d4444066" : cBr;
     return (
       <article key={t.key} aria-label={`${k.verb}: ${title}`}
         style={{ background: cBg, borderTop: `1px solid ${edge}`, borderRight: `1px solid ${edge}`, borderBottom: `1px solid ${edge}`, borderLeft: `3px solid ${k.color}`, borderRadius: 12, padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>

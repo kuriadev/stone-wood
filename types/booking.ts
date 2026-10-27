@@ -26,7 +26,8 @@ export type BookingSource = "Online" | "Walk-In";
 export type BookingResource = "Pool" | "Venue" | "Pool+Venue";
 
 /** "Shared" = the pool may be used by other same-day Shared bookings too;
- *  "Exclusive" = whole-resort buyout, no other booking allowed that date.
+ *  "Exclusive" = whole-resort buyout of its slot(s), no other booking
+ *  allowed in them; the other tour that date stays open.
  *  Chosen explicitly by the guest/staff rather than only inferred from
  *  guest count. Undefined on legacy records ⇒ derived from guest count via
  *  getPackageTier(). Only meaningful when resource includes "Pool" — a

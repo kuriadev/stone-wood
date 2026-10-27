@@ -11,7 +11,7 @@
   import { EventPackages } from "@/components/booking/EventPackages";
   import type { ResortPackage } from "@/types/package";
   import { MediaGallery } from "@/components/common/MediaGallery";
-  import { priceBooking, bookingLabel } from "@/lib/pricing";
+  import { priceBooking, bookingLabel, labelWithTier } from "@/lib/pricing";
   import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
   import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
   import { SLOTS, QUIET_HOURS_POLICY, TURNOVER_WINDOW, stayPatternNote, stayUnit, allowsMultiDay, MULTI_DAY_SLOT, slotStartedProblem } from "@/lib/resort";
@@ -41,8 +41,6 @@
     OVERTIME_RATE,
     RESORT_MAX_CAPACITY,
     EXCLUSIVE_DEFAULT_GUESTS,
-    ROOM_BUNDLE_DISCOUNT_PCT,
-    MULTI_DAY_DISCOUNT_PCT,
     EVENT_VENUE_RATE,
     SHARED_PER_HEAD_RATE,
   } from "@/lib/validators";
@@ -110,7 +108,7 @@
     initialPackage?: PackageDeepLink;
     /** Packages offered in step 1, so they can be booked without leaving
      *  for the Packages page: the event ones (they use the hall) under the
-     *  two venue choices, the pool-only ones under "Resort visit". Empty or
+     *  two venue choices, the pool-only ones under "Resort & pool". Empty or
      *  omitted hides the section. */
     eventPackages?: ResortPackage[];
     resortPackages?: ResortPackage[];
@@ -167,7 +165,7 @@
     );
     const lastDay = endDate && endDate > date ? endDate : date;
     const stayDays = date ? Math.max(1, daysInRange(date, lastDay)) : 1;
-    const [guests, setGuests] = useState(initialPackage?.capacity ?? initialGuests ?? 10);
+    const [guests, setGuests] = useState(initialPackage?.capacity ?? initialGuests ?? 2);
     const holdFewer = useHoldStep(() => setGuests((g) => clamp(g - 1, GUESTS_MIN, GUESTS_MAX)));
     const holdMore = useHoldStep(() => setGuests((g) => clamp(g + 1, GUESTS_MIN, GUESTS_MAX)));
     // Guests don't choose overtime any more: staff add it at the resort when
@@ -228,6 +226,9 @@
     // Modal states
     const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
     const [showGcashWarning, setShowGcashWarning] = useState(false);
+    /** What the server refused before payment, and for which choices. */
+    const [blocked, setBlocked] = useState<{ key: string; step: "date" | "room" | "contact"; reason: string } | null>(null);
+    const [checking, setChecking] = useState(false);
     const [showCancelPay, setShowCancelPay] = useState(false);
     const [roomPhoto, setRoomPhoto] = useState<Room | null>(null);
     const [policyChecked, setPolicyChecked] = useState(false);
@@ -269,7 +270,7 @@
        with Exclusive already chosen keeps the count they set there. Nor
        when Exclusive is forced by the choice of venue or Staycation: that
        group already said how many they are, and a party of 30 picking
-       "Resort visit + Events Venue" must not drop to 5. */
+       "Resort & pool + Events Venue" must not drop to 5. */
     const prevTier = useRef(tier);
     useEffect(() => {
       if (prevTier.current === tier) return;
@@ -354,6 +355,9 @@
       slot,
       hasRoom: selRooms.length > 0,
     });
+    // What the guest sees: Shared or Exclusive in front, unless a package
+    // names it (packageAvailed in lib/pricing.ts, for saved bookings).
+    const availedLabel = isPackage ? packageLabel : labelWithTier(packageLabel, tier, resource);
 
     const requiresRoom = !!initialPackage?.requiresRoom;
     // Rooms under maintenance are hidden; rooms already rented to another
@@ -367,8 +371,7 @@
     // what's shown here is what gets charged. Named fields are unpacked
     // because the breakdown below displays each line.
     const {
-      tourBase, poolFee, venueFee, exclusiveDiscount, bundleDiscount,
-      roomsFeeRaw, roomBundleDiscount, stayDiscount, total, down, slots: slotCount,
+      tourBase, poolFee, venueFee, total, down, slots: slotCount,
     } = priceBooking({
       pkg: isPackage ? { price: initialPackage!.price, requiresRoom } : null,
       resource,
@@ -395,17 +398,55 @@
     const fullTotal = serverQuote?.total ?? total;
     const paidInFull = serverQuote?.payFull ?? payFull;
     const roomsFree = selRooms.every((r) => !takenRooms.has(r));
+
+    /* Checked with the server as the guest leaves the contact step, before
+       the payment screen. Some problems only show once the guest has said
+       who they are: the same guest already holding the shared pool that
+       date and now booking the venue alone. That used to appear on the QR
+       screen. Now the guest is sent back to the step that fixes it, and it
+       stays blocked there until they change what made it fail. */
+    const pickKey = JSON.stringify([date, lastDay, slot, resource, tier, guests, selRooms, form.email, form.contact]);
+    const blockedNow = blocked && blocked.key === pickKey ? blocked : null;
+    const checkBeforePayment = async () => {
+      setChecking(true);
+      try {
+        const res = await fetch("/api/bookings/check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ draft }),
+        });
+        const json = await res.json().catch(() => null);
+        if (json?.success) {
+          setBlocked(null);
+          setShowGcashWarning(true);
+          return;
+        }
+        const at: "date" | "room" | "contact" = json?.step === "room" && showRoomPicker ? "room" : json?.step === "contact" ? "contact" : "date";
+        setBlocked({ key: pickKey, step: at, reason: json?.error ?? "This booking can't go ahead as it is. Please check your choices." });
+        if (at !== "contact") {
+          onRefreshAvailability?.();
+          setStep(at === "room" ? 4 : 3);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      } catch {
+        // No answer (a dropped connection): don't strand the guest here.
+        // The payment step checks the same things before any QR is made.
+        setShowGcashWarning(true);
+      } finally {
+        setChecking(false);
+      }
+    };
     // One line per part of the price, in the same order the server adds
     // them up. Whole Day doubles the per-slot parts, and says so.
     /* What each line is multiplied by, spelled out. The room and package
        lines used to show ONE day's price beside a total that charged for
        three, because only the suffix knew about slots and nothing knew
        about days. Both now multiply by the same `stayDays` the total does. */
-    const perSlot = [slotCount === 2 ? "2 slots" : "", stayDays > 1 ? `${stayDays} days` : ""]
+    const perSlot = [slotCount === 2 ? "2 tours" : "", stayDays > 1 ? `${stayDays} days` : ""]
       .filter(Boolean)
       .map((x) => ` × ${x}`)
       .join("");
-    const priceLines: { label: string; amount: number; discount?: boolean; strike?: number }[] = isPackage
+    const priceLines: { label: string; amount: number; strike?: number }[] = isPackage
       ? [
           {
             label: `${initialPackage!.title} — ${SLOTS[slot].label}${stayDays > 1 ? ` × ${stayDays} days` : ""}`,
@@ -413,9 +454,6 @@
             strike: initialPackage!.listPrice ? initialPackage!.listPrice * stayDays : undefined,
           },
           ...selectedRoomDetails.map((r) => ({ label: `Room — ${r.name}${perSlot}`, amount: r.price * slotCount * stayDays })),
-          ...(roomBundleDiscount > 0
-            ? [{ label: `Room package discount (-${Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}%)`, amount: roomBundleDiscount, discount: true }]
-            : []),
         ]
       : [
           ...(poolFee > 0
@@ -427,19 +465,8 @@
               }]
             : []),
           ...(venueFee > 0 ? [{ label: `Events venue${perSlot}`, amount: venueFee }] : []),
-          ...(exclusiveDiscount > 0 ? [{ label: "Exclusive discount (-5%)", amount: exclusiveDiscount, discount: true }] : []),
-          ...(bundleDiscount > 0 ? [{ label: "Bundle discount (-10%)", amount: bundleDiscount, discount: true }] : []),
           ...selectedRoomDetails.map((r) => ({ label: `Room — ${r.name}${perSlot}`, amount: r.price * slotCount * stayDays })),
         ];
-    // Off every day after the first, so it comes after the day lines.
-    if (stayDiscount > 0) {
-      priceLines.push({
-        label: `Stay discount (-${Math.round(MULTI_DAY_DISCOUNT_PCT * 100)}% on ${stayDays - 1} extra ${stayDays - 1 === 1 ? "day" : "days"})`,
-        amount: stayDiscount,
-        discount: true,
-      });
-    }
-    void roomsFeeRaw; void tourBase;
     // A package requiring a room only ever wants ONE — picking a new one
     // replaces the selection instead of adding to it.
     const toggleRoom = (id: number) => {
@@ -876,6 +903,14 @@
                   note: "UPDATED IN REAL TIME",
                   live: true,
                 })}
+                {/* Sent back here from the contact step (checkBeforePayment):
+                    first thing on the screen, so the guest sees why. */}
+                {blockedNow?.step === "date" && (
+                  <div role="alert" style={{ display: "flex", gap: 12, alignItems: "flex-start", margin: "12px 0 8px", padding: "12px 16px", borderRadius: 10, border: "1px solid rgba(229,85,85,0.35)", background: "rgba(229,85,85,0.08)", color: C.dangerInk, fontSize: 13.5, lineHeight: 1.6 }}>
+                    <span aria-hidden="true">⚠</span>
+                    <span>{blockedNow.reason}</span>
+                  </div>
+                )}
 
                 {/* Build your own, or a ready-made package. Packages used to sit
                     under everything else, past the Continue button, where few
@@ -1056,7 +1091,7 @@
                       <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>
                         Fixed price of <strong style={{ color: C.goldInk }}>{fmt(initialPackage!.price)}</strong> for up to{" "}
                         <strong style={{ color: C.textH }}>{initialPackage!.capacity} guests</strong>
-                        {initialPackage!.slotMode === "WholeDay" ? <>, {SLOTS.WholeDay.hours}</> : " per slot"}.
+                        {initialPackage!.slotMode === "WholeDay" ? <>, {SLOTS.WholeDay.hours}</> : " per tour"}.
                         {requiresRoom ? " Pick your room next." : ""}
                       </p>
                       {/* A single-slot package: the guest chooses when. Availability
@@ -1095,7 +1130,7 @@
                       {/* Visit type */}
                       <div>
                         <p style={sideLabel}>RESERVATION TYPE</p>
-                        <div role="radiogroup" aria-label="Visit type" style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 6 }}>
+                        <div role="radiogroup" aria-label="Reservation type" style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 6 }}>
                           {(["Day", "Night", "WholeDay"] as const).map((id) => {
                             const on = slot === id;
                             // A Staycation includes the resort, never the hall alone.
@@ -1107,7 +1142,7 @@
                                 role="radio"
                                 aria-checked={on}
                                 disabled={off}
-                                title={off ? "A Staycation includes the resort. Choose Resort visit first." : undefined}
+                                title={off ? "A Staycation includes the resort. Choose Resort & pool first." : undefined}
                                 onClick={() => {
                                   setSlot(id);
                                   // A single-date slot drops any range; keeping
@@ -1139,15 +1174,15 @@
                           ? "The pool and the events venue are both under maintenance, so nothing can be booked right now. Please check back soon."
                           : poolClosed
                             ? "The pool is under maintenance, so only the events venue can be booked right now."
-                            : "The events venue is under maintenance, so only resort visits can be booked right now."}
+                            : "The events venue is under maintenance, so only the resort & pool can be booked right now."}
                       </span>
                     </p>
                   )}
                         <div role="radiogroup" aria-label="What you are booking" style={{ display: "grid", gap: 6 }}>
                           {([
-                            { id: "Pool", title: "Resort visit", sub: "Pool & amenities" },
-                            { id: "Pool+Venue", title: "Resort visit + Events Venue", sub: `Exclusive · +${fmt(EVENT_VENUE_RATE)} per slot` },
-                            { id: "Venue", title: "Events Venue only", sub: `No pool · ${fmt(EVENT_VENUE_RATE)} per slot` },
+                            { id: "Pool", title: "Resort & pool", sub: "Everything but the events hall" },
+                            { id: "Pool+Venue", title: "Resort & pool + Events Venue", sub: `Exclusive · +${fmt(EVENT_VENUE_RATE)} per tour` },
+                            { id: "Venue", title: "Events Venue only", sub: `No pool · ${fmt(EVENT_VENUE_RATE)} per tour` },
                           ] as const).map((opt) => {
                             const closed = resourceClosed(opt.id);
                             // Not for a Staycation, which is a stay at the resort.
@@ -1213,14 +1248,11 @@
                         </div>
                       {isBuyout && (
                         <p style={{ color: C.goldInk, fontSize: 12.5, marginTop: 12 }}>
-                          {/* PER DAY once the stay runs long: `tourBase` is the
-                              flat rate times the days and does NOT carry the
-                              stay discount, so printing it whole claimed
-                              ₱32,400 beside a real total of ₱29,160. The rate
-                              is a per-day idea; the summary carries the total. */}
+                          {/* Per day once the stay runs long: the rate is a
+                              per-day idea, and the summary carries the total. */}
                           🔒 Exclusive buyout — {fmt(tourBase / stayDays)} flat
                           {stayDays > 1 ? " per day" : slotCount === 2 ? " for the whole day" : ""}, however many of you come.
-                          No other group books {stayDays > 1 ? "your dates" : "your date"}. Set the count so we prepare for the right number.
+                          No other group shares the pool with you. Set the count so we prepare for the right number.
                         </p>
                       )}
                       {guests >= GUESTS_MAX && (
@@ -1292,7 +1324,7 @@
                           </div>
                           <p style={{ color: C.textS, fontSize: 11.5, marginTop: 8, opacity: 0.75, lineHeight: 1.5 }}>
                             {tier === "Exclusive"
-                              ? `The whole resort is yours that date — no other group, whatever your headcount, up to ${RESORT_MAX_CAPACITY} guests. 5% off the flat rate. The events venue isn't included: choose "Resort visit + Events Venue" above, or add it at the front desk.`
+                              ? `The pool and resort are your group's alone for your ${SLOTS[slot].label} — no other group, whatever your headcount, up to ${RESORT_MAX_CAPACITY} guests. The events venue isn't included and another group may rent it: choose "Resort & pool + Events Venue" above to have it too.`
                               : `Pool shared with other groups in your ${SLOTS[slot].label} — billed per guest, up to ${RESORT_MAX_CAPACITY} guests in total.`}
                           </p>
                         </div>
@@ -1326,7 +1358,7 @@
                           ? `Want to stay a little later? Up to ${OVERTIME_MAX} hrs of overtime (${fmt(OVERTIME_RATE)}/hr) can be arranged at the resort when no Night group is booked — ${TURNOVER_WINDOW} is otherwise cleaning time.`
                           : slot === "Night"
                           ? `The resort is yours for the whole night — ${SLOTS.Night.start} until ${SLOTS.Night.end} the next morning. ${QUIET_HOURS_POLICY}`
-                          : `The resort is yours all day and night — no turnover in between. ${QUIET_HOURS_POLICY}`}
+                          : `The resort is yours all day and night — no break between the Day and Night Tours. ${QUIET_HOURS_POLICY}`}
                       </p>
                       </div>
                       <div style={{ textAlign: mob ? "left" : "right" }}>
@@ -1347,7 +1379,7 @@
                                 Exclusive only, so it has no Shared price. */}
                             {!tierFixed && <>Shared {fmt(SHARED_PER_HEAD_RATE * SLOTS[slot].span)} / guest · </>}Exclusive{" "}
                             {fmt(priceBooking({ resource: "Pool", tier: "Exclusive", slot, guests: 1, overtime: 0, roomPrices: [] }).total)}
-                            {resource === "Pool+Venue" && <> · plus the events venue, {fmt(EVENT_VENUE_RATE)} per slot</>}
+                            {resource === "Pool+Venue" && <> · plus the events venue, {fmt(EVENT_VENUE_RATE)} per tour</>}
                           </>
                         )}
                       </p>
@@ -1359,10 +1391,10 @@
                     no room to pick (venue-only, or a package without one). */}
                 {navRow(
                   { label: isPackage ? "BACK" : "BACK TO HOME", onClick: () => { if (isPackage) onClearPackage?.(); else onGoHome?.(); } },
-                  { label: "CONTINUE", onClick: () => setStep(showRoomPicker ? 4 : 5), disabled: !date || !dateOk || resourceClosed(resource) || stayVenueOnly,
+                  { label: "CONTINUE", onClick: () => setStep(showRoomPicker ? 4 : 5), disabled: !date || !dateOk || resourceClosed(resource) || stayVenueOnly || blockedNow?.step === "date",
                     /* The exact reason is already printed in red under the
                        calendar, and it is often not about the headcount. */
-                    reason: stayVenueOnly ? `A ${SLOTS.WholeDay.label} includes the resort. Choose Resort visit, or Resort visit + Events Venue.` : resourceClosed(resource) ? "That part of the resort is closed. Choose another option." : !date ? "Choose a date from the calendar to continue." : startedProblem ?? dateCapacity.reason ?? "That date isn’t available for this booking. Try another date." },
+                    reason: blockedNow?.step === "date" ? "Change the date or what you're booking to continue." : stayVenueOnly ? `A ${SLOTS.WholeDay.label} includes the resort. Choose Resort & pool, or Resort & pool + Events Venue.` : resourceClosed(resource) ? "That part of the resort is closed. Choose another option." : !date ? "Choose a date from the calendar to continue." : startedProblem ?? dateCapacity.reason ?? "That date isn’t available for this booking. Try another date." },
                 )}
 
                 </>
@@ -1380,7 +1412,7 @@
                   eyebrow: requiresRoom ? "INCLUDED WITH YOUR PACKAGE" : "OPTIONAL ADD-ON",
                   title: requiresRoom ? "Choose your room" : "Would you like a room?",
                   note: requiresRoom
-                    ? `${Math.round(ROOM_BUNDLE_DISCOUNT_PCT * 100)}% off its normal rate.`
+                    ? "Your package includes one room. Pick the one you'd like."
                     : "Skip this step if you only need the pool.",
                 })}
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 20, marginBottom: 20 }}>
@@ -1409,7 +1441,6 @@
                   {bookableRooms.map((r) => {
                     const sel = selRooms.includes(r.id);
                     const taken = takenRooms.has(r.id);
-                    const discountedPrice = requiresRoom ? Math.round(r.price * (1 - ROOM_BUNDLE_DISCOUNT_PCT)) : r.price;
                     return (
                       /* ── One row per room, two shapes ──
 
@@ -1460,8 +1491,7 @@
                             {taken && <span style={{ display: "block", color: "#e07a7a", fontSize: 12, marginTop: 4 }}>Already booked on {fmtDate(date)}</span>}
                           </span>
                           <span style={{ textAlign: mob ? "left" : "right", flexShrink: 0 }}>
-                            {requiresRoom && <span style={{ display: "block", color: C.textXS, fontSize: 12, textDecoration: "line-through" }}>{fmt(r.price)}</span>}
-                            <span style={{ display: "block", color: C.goldInk, fontWeight: 700, fontSize: mob ? 17 : 15.5 }}>{fmt(discountedPrice)}</span>
+                            <span style={{ display: "block", color: C.goldInk, fontWeight: 700, fontSize: mob ? 17 : 15.5 }}>{fmt(r.price)}</span>
                           </span>
                         </button>
 
@@ -1491,7 +1521,7 @@
                 )}
 
                 {venueFee > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", background: isDark ? "#121212" : "#f5f0e8", border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", background: isDark ? "var(--sw-bg)" : "#f5f0e8", border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 12 }}>
                     <span style={{ color: C.textS, fontSize: 13.5 }}>Event Venue Rental</span>
                     <span style={{ color: C.goldInk, fontWeight: 700, fontSize: 14.5 }}>{fmt(venueFee)}</span>
                   </div>
@@ -1503,9 +1533,13 @@
                   </p>
                 )}
 
+                {blockedNow?.step === "room" && (
+                  <p role="alert" style={{ color: C.dangerInk, fontSize: 13.5, margin: "16px 0 0" }}>⚠ {blockedNow.reason}</p>
+                )}
                 {navRow(
                   { label: "BACK", onClick: () => setStep(3) },
-                  { label: "CONTINUE", onClick: () => setStep(5), disabled: (requiresRoom && selRooms.length === 0) || !roomsFree, reason: requiresRoom && selRooms.length === 0 ? "This package includes a room — pick one to continue." : "A room you picked is taken on that date. Choose another." },
+                  { label: "CONTINUE", onClick: () => setStep(5), disabled: (requiresRoom && selRooms.length === 0) || !roomsFree || blockedNow?.step === "room",
+                    reason: blockedNow?.step === "room" ? "Choose a different room to continue." : requiresRoom && selRooms.length === 0 ? "This package includes a room — pick one to continue." : "A room you picked is taken on that date. Choose another." },
                 )}
               </div>
             )}
@@ -1618,7 +1652,7 @@
                     [stayDays > 1 ? "Dates" : "Date", date ? stayLabel({ date, endDate: lastDay }) : "\u2014"],
                     ["Check in", stayWin ? stayWin.arrive : "\u2014"],
                     ["Check out", stayWin ? stayWin.depart : "\u2014"],
-                    ["Package availed", `${packageLabel} · ${tier}`],
+                    ["Package availed", availedLabel],
                     ["Guests", String(guests)],
                     ["Room", selRooms.length
                       ? rooms.filter((r) => selRooms.includes(r.id)).map((r) => r.name).join(", ")
@@ -1627,16 +1661,6 @@
                     <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "12px 0", borderTop: `1px solid ${C.border}` }}>
                       <span style={{ color: C.textS, fontSize: 13 }}>{l}</span>
                       <span style={{ color: C.textB, fontSize: 13, fontWeight: 600, textAlign: "right" }}>{v}</span>
-                    </div>
-                  ))}
-
-                  {/* Discounts stay on the page. Everything else in the total is
-                      something the guest picked and saw priced; a discount is
-                      not, so hiding it would make the total unexplainable. */}
-                  {priceLines.filter((l) => l.discount).map((l) => (
-                    <div key={l.label} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "12px 0", borderTop: `1px solid ${C.border}` }}>
-                      <span style={{ color: "#6ec071", fontSize: 13 }}>{l.label}</span>
-                      <span style={{ color: "#6ec071", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>-{fmt(l.amount)}</span>
                     </div>
                   ))}
 
@@ -1683,12 +1707,15 @@
                 {/* dateOk is re-checked here as well as at step 2: the guest
                     may have sat on this screen past midnight, or the date may
                     have been taken in the meantime. */}
+                {blockedNow?.step === "contact" && (
+                  <p role="alert" style={{ color: C.dangerInk, fontSize: 13.5, marginBottom: 12 }}>⚠ {blockedNow.reason}</p>
+                )}
                 {navRow(
                   { label: "BACK", onClick: () => setStep(showRoomPicker ? 4 : 3) },
                   {
-                    label: "REVIEW PAYMENT POLICY",
-                    onClick: () => setShowGcashWarning(true),
-                    disabled: !!validateBookingForm(form) || !dateOk || !roomsFree,
+                    label: checking ? "CHECKING…" : "REVIEW PAYMENT POLICY",
+                    onClick: () => void checkBeforePayment(),
+                    disabled: checking || !!validateBookingForm(form) || !dateOk || !roomsFree || !!blockedNow,
                   },
                 )}
               </div>
@@ -1781,7 +1808,7 @@
                         [stayDays > 1 ? "Dates" : "Date", date ? stayLabel({ date, endDate: lastDay }) : "\u2014"],
                         ["Check in", stayWin ? stayWin.arrive : "\u2014"],
                         ["Check out", stayWin ? stayWin.depart : "\u2014"],
-                        ["Package availed", packageLabel],
+                        ["Package availed", availedLabel],
                         ["Guests", overtime > 0 ? `${guests} \u00b7 +${overtime}hr OT` : String(guests)],
                         ["Full total", fmt(serverQuote?.total ?? total)],
                       ] as const).map(([l, v]) => (
@@ -1894,7 +1921,7 @@
                 <p style={{ color: C.textS, fontSize: 14.5, margin: "0 auto 28px", lineHeight: 1.7, maxWidth: 520 }}>
                   We received your {fmt(dueNow)} {paidInFull ? "payment, so your stay is fully paid" : "deposit"}.{" "}
                   {confirmedNow
-                    ? <>Your reservation is confirmed. See you on {date ? fmtDate(date) : "your visit"}!</>
+                    ? <>Your reservation is confirmed. See you on {date ? fmtDate(date) : "your reserved date"}!</>
                     : <>The resort needs to check one detail and will contact you within 24 hours.</>}
                 </p>
 
@@ -2017,9 +2044,9 @@
                     <div style={{ marginTop: "auto", borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
                       <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 16 }}>
                         <span style={{ color: C.goldInk, fontSize: 24, fontWeight: 700, lineHeight: 1 }}>
-                          {requiresRoom ? fmt(Math.round(roomPhoto.price * (1 - ROOM_BUNDLE_DISCOUNT_PCT))) : fmt(roomPhoto.price)}
+                          {fmt(roomPhoto.price)}
                         </span>
-                        <span style={{ color: C.textS, fontSize: 12.5 }}>per slot</span>
+                        <span style={{ color: C.textS, fontSize: 12.5 }}>per tour</span>
                         {requiresRoom && (
                           <span style={{ color: C.textXS, fontSize: 12, textDecoration: "line-through" }}>{fmt(roomPhoto.price)}</span>
                         )}

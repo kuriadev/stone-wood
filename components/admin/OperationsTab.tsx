@@ -44,6 +44,7 @@ import { useApp } from "@/contexts/AppContext";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { bookingMoney, collectedBetween, expensesBetween, livePayments, manilaDate, manilaTime, monthRange, round2, type BookingMoney } from "@/lib/finance";
 import { fmt, fmtDate, getBookingSlot, holdsDate, bookingDays, bookingEndDate } from "@/lib/utils";
+import { packageAvailed } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
 import { gold } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
@@ -53,6 +54,7 @@ import type { Facility } from "@/types/facility";
 import type { ResortPackage } from "@/types/package";
 import { PrepModal, CheckoutModal, SettleModal, VisitRecord } from "@/components/admin/InspectionModals";
 import { WalkInModal } from "@/components/admin/WalkInModal";
+import { printOfflineSheet } from "@/components/admin/offlineSheet";
 import { RecordPaymentModal } from "@/components/admin/RecordPaymentModal";
 import { LiveStatus } from "@/components/admin/LiveStatus";
 import { ResortCancelDialog, type UpdateStatus } from "@/components/admin/ResortCancelDialog";
@@ -222,6 +224,14 @@ export function OperationsTab({
     // Preparing and inspecting facilities is the caretakers' (it is on
     // their My Tasks). Front desk is told where the stay is instead of
     // being handed a window the server would refuse.
+    //
+    // The one exception is a group nobody checked in: the caretakers'
+    // inspection only appears once a group is checked in, so "Complete
+    // stay" used to send front desk to a task that didn't exist. Front desk
+    // checks them in late instead, and the inspection then appears.
+    if (kind === "checkout" && !b.checkedInAt && !staff.can("facilities.inspect")) {
+      return askCheckIn(b, { prepared: false });
+    }
     if ((kind === "checkout" || kind === "prep") && !staff.can("facilities.inspect")) {
       toast(kind === "prep"
         ? `Preparing for ${b.name} is on the caretakers' task list.`
@@ -243,9 +253,15 @@ export function OperationsTab({
     <span style={{ fontFamily: "monospace", fontWeight: 700, color: C.textH }}>{id}</span>
   );
 
+  /** Preparation comes first while the stay is still on. Once its last day
+   *  has passed it can't be prepared any more, and a late check-in (a group
+   *  nobody tapped through on the day) is let through. The server keeps
+   *  the same rule (/api/checkin). */
+  const needsPrep = (b: Booking, prepared: boolean) => !prepared && bookingEndDate(b) >= today;
+
   const checkIn = async (b: Booking, opts: { prepared?: boolean; undo?: boolean } = {}) => {
     const { prepared = true, undo = false } = opts;
-    if (!undo && !prepared) {
+    if (!undo && needsPrep(b, prepared)) {
       return toast(
         `Prepare the resort for ${b.name} first — then check them in.`,
         "warning",
@@ -255,7 +271,9 @@ export function OperationsTab({
     const r = await ops.checkIn(b.id, undo);
     setBusyId(null);
     if (!r.ok) return toast(r.error, "error");
-    toast(undo ? `Check-in undone for ${b.name}.` : `${b.name} checked in. ${b.guests} guest${b.guests === 1 ? "" : "s"} on site.`, undo ? "info" : "success");
+    const late = !undo && bookingEndDate(b) < today && !staff.can("facilities.inspect")
+      ? " Their check-out inspection is now on the caretakers' task list." : "";
+    toast(undo ? `Check-in undone for ${b.name}.` : `${b.name} checked in. ${b.guests} guest${b.guests === 1 ? "" : "s"} on site.${late}`, undo ? "info" : "success");
   };
 
   /* Check in and Undo check-in used to act on the first tap. They change
@@ -266,7 +284,7 @@ export function OperationsTab({
   const [archiveMsg, setArchiveMsg] = useState<CustomerMessage | null>(null);
   const [checkInAsk, setCheckInAsk] = useState<{ b: Booking; opts: { prepared?: boolean; undo?: boolean } } | null>(null);
   const askCheckIn = (b: Booking, opts: { prepared?: boolean; undo?: boolean } = {}) => {
-    if (!opts.undo && opts.prepared === false) return void checkIn(b, opts);
+    if (!opts.undo && needsPrep(b, opts.prepared ?? true)) return void checkIn(b, opts);
     setCheckInAsk({ b, opts });
   };
 
@@ -277,6 +295,10 @@ export function OperationsTab({
     return [amenities && `${amenities} amenit${amenities === 1 ? "y" : "ies"}`, ...roomNames].filter(Boolean).join(" · ") || "No listed facilities";
   };
 
+  // A group never checked in: whoever can inspect finishes the stay in one
+  // go; front desk checks them in late and the caretaker inspects (go()).
+  const completeLabel = staff.can("facilities.inspect") ? "Complete stay" : "Check in late";
+
   // ── Needs attention ────────────────────────────────────────────────
   const attention: Attention[] = [];
   for (const c of cards) {
@@ -286,7 +308,7 @@ export function OperationsTab({
       attention.push({ key: `late-${b.id}`, kind: "urgent", tone: "red", icon: "alert",
         text: <>{who} was due on {fmtDate(b.date)} and was never checked in. Complete the stay if they came, or mark a no-show.</>,
         actions: <>
-          <ActionButton size="sm" kind="primary" onClick={() => go("checkout", b)}>Complete stay</ActionButton>
+          <ActionButton size="sm" kind="primary" onClick={() => go("checkout", b)}>{completeLabel}</ActionButton>
           <ActionButton size="sm" kind="red" onClick={() => go("noshow", b)}>No-show</ActionButton>
         </> });
     }
@@ -467,7 +489,7 @@ export function OperationsTab({
         // A past date the owner never tapped through: the group most likely
         // came and went, so finishing the stay is the main button.
         if (c.overdue) {
-          primary = <ActionButton kind="primary" icon="check" onClick={() => go("checkout", b)}>Complete stay</ActionButton>;
+          primary = <ActionButton kind="primary" icon="check" onClick={() => go("checkout", b)}>{completeLabel}</ActionButton>;
           secondary = <ActionButton kind="red" onClick={() => go("noshow", b)}>No-show</ActionButton>;
         } else {
           /* Until the facilities are prepared, THAT is the next step, so
@@ -607,7 +629,7 @@ export function OperationsTab({
         })()}
 
         <div style={{ color: C.textB, fontSize: 12.5, lineHeight: 1.6 }}>
-          <div><Icon name="users" size={12} style={{ marginRight: 8, verticalAlign: -1 }} />{b.guests} guest{b.guests === 1 ? "" : "s"} · {b.package}</div>
+          <div><Icon name="users" size={12} style={{ marginRight: 8, verticalAlign: -1 }} />{b.guests} guest{b.guests === 1 ? "" : "s"} · {packageAvailed(b)}</div>
           <div style={{ color: C.textS }}><Icon name="toolbox" size={12} style={{ marginRight: 8, verticalAlign: -1 }} />{usesText(b)}</div>
         </div>
 
@@ -811,7 +833,7 @@ export function OperationsTab({
                   <div style={{ color: C.textH, fontSize: 14.5, fontWeight: 600 }}>{b.name}</div>
                   <div style={{ color: C.textS, fontSize: 12.5, fontFamily: "monospace", fontWeight: 700 }}>{b.id}</div>
                 </div>
-                <StatusBadge color={stale ? "#e55" : "#d4a800"}>{datePassed ? "Visit date passed" : active ? "Awaiting you" : "Hold expired"}</StatusBadge>
+                <StatusBadge color={stale ? "#e55" : "#d4a800"}>{datePassed ? "Date passed" : active ? "Awaiting you" : "Hold expired"}</StatusBadge>
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 13 }}>
@@ -1091,6 +1113,11 @@ export function OperationsTab({
           else toast("No group is on site to check out.", "info");
         })}
         {quickTask("calendar", "Block dates", "Open the calendar", () => onGoTab?.("Occupancy"))}
+        {/* On paper before the internet drops: today's and tomorrow's
+            bookings, the caretaker's to-dos and blank forms to import
+            later (components/admin/offlineSheet.ts). */}
+        {quickTask("printer", "Offline sheet", "Print in case the internet drops", () =>
+          printOfflineSheet({ bookings, payments: ops.payments, damages: ops.damages, inspections: ops.inspections, facilities, rooms }))}
       </div>
     </section>
   );
@@ -1335,7 +1362,7 @@ export function OperationsTab({
         return (
           <ConfirmDialog
             title={undo ? `Undo check-in for ${b.name}?` : `Check in ${b.name}?`}
-            description={`${b.id} · ${b.guests} guest${b.guests === 1 ? "" : "s"} · ${b.package}`}
+            description={`${b.id} · ${b.guests} guest${b.guests === 1 ? "" : "s"} · ${packageAvailed(b)}`}
             onCancel={() => setCheckInAsk(null)} cancelLabel="Go back" width={480}
             confirm={<ActionButton kind={undo ? "red" : "primary"} icon={undo ? "history" : "log-in"} onClick={() => { setCheckInAsk(null); void checkIn(b, opts); }}>
               {undo ? "Undo check-in" : "Check in"}

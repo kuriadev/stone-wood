@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/common/Icon";
 import { AvailabilityCalendar } from "@/components/common/AvailabilityCalendar";
 import { SPACE } from "@/lib/spacing";
-import { fmtDate } from "@/lib/utils";
+import { fmtDate, getBookingSlot, getBookingTier, usesPool } from "@/lib/utils";
 import { withHolds } from "@/lib/rebooking";
 import { useOps } from "@/contexts/OpsContext";
 import { useApp } from "@/contexts/AppContext";
@@ -136,6 +136,12 @@ export function MoveBookingModal({ booking, onMoved, onClose }: MoveBookingModal
               closedDates={closedDates}
               selectedDate={date}
               onSelectDate={(d) => { setDate(d); setError(""); }}
+              // Judged for this booking's own tour, so a Night booking can
+              // move onto a date whose Day is taken (an Exclusive Day leaves
+              // the Night open). A venue-only booking keeps the plain check.
+              request={usesPool(booking)
+                ? { slot: getBookingSlot(booking), guests: booking.guests, tiers: [getBookingTier(booking)] }
+                : undefined}
             />
             <div>
               <Label>WHY (OPTIONAL — SHOWS IN THE AUDIT LOG AND RESCHEDULES)</Label>

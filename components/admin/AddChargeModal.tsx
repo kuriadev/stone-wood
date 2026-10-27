@@ -116,7 +116,7 @@ export function AddChargeModal({ booking, onClose }: { booking: Booking; onClose
 
         {kind === "venue" && !blocked.venue && (
           <p style={{ color: C.textS, fontSize: 12.5, margin: 0, lineHeight: 1.6 }}>
-            Their Exclusive booking keeps the hall free of other groups but doesn&apos;t include it. This adds it at {fmt(EVENT_VENUE_RATE)} per slot, and the booking becomes Resort visit + Events Venue.
+            Their Exclusive booking doesn&apos;t include the hall, and another group may book it. This adds it at {fmt(EVENT_VENUE_RATE)} per tour while it is free, and the booking becomes Resort & pool + Events Venue.
           </p>
         )}
 

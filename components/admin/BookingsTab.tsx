@@ -29,7 +29,8 @@ import { useToast } from "@/contexts/ToastContext";
 import { useOps } from "@/contexts/OpsContext";
 import { useStaff } from "@/contexts/StaffContext";
 import { bookingMoney, manilaDate, manilaTime, livePayments } from "@/lib/finance";
-import { fmt, fmtDate, getBookingSlot, stayLabel, stayRange, bookingDays, bookingEndDate } from "@/lib/utils";
+import { fmt, fmtDate, getBookingSlot, getBookingTier, getBookingResource, stayLabel, stayRange, bookingDays, bookingEndDate } from "@/lib/utils";
+import { packageAvailed } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
 import { OVERTIME_RATE } from "@/lib/validators";
 import type { Booking, BookingSlot } from "@/types/booking";
@@ -39,6 +40,8 @@ import type { ResortPackage } from "@/types/package";
 import { gold } from "@/lib/styles";
 import { Icon } from "@/components/common/Icon";
 import { WalkInModal } from "@/components/admin/WalkInModal";
+import { ImportBookingsModal } from "@/components/admin/ImportBookingsModal";
+import { printOfflineSheet } from "@/components/admin/offlineSheet";
 import { RecordPaymentModal } from "@/components/admin/RecordPaymentModal";
 import { LiveStatus } from "@/components/admin/LiveStatus";
 import { CheckoutModal, SettleModal } from "@/components/admin/InspectionModals";
@@ -89,8 +92,13 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
   const [slot, setSlot] = useState<"All" | BookingSlot>("All");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  /** What was booked: the pool Shared or Exclusive, or the events venue. */
+  const [kind, setKind] = useState<"All" | "Shared" | "Exclusive" | "Venue">("All");
+  /** What a booking has on it: damage, the caretaker's photos, money owed. */
+  const [has, setHas] = useState<"All" | "Penalty" | "Photos" | "Owed">("All");
 
   const [walkIn, setWalkIn] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [viewId, setViewId] = useState<string | null>(null);
 
   /* Arriving from a message. The id is cleared once consumed so reopening
@@ -136,21 +144,28 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
 
   const q = search.toLowerCase().trim();
   const pool = bookings.filter((b) => (bView === "archived" ? !!b.archived : !b.archived));
+  const penalised = new Set(ops.damages.filter((d) => !d.voided).map((d) => d.bookingId));
+  const photographed = new Set(ops.inspections.filter((i) => (i.photos ?? []).length > 0).map((i) => i.bookingId));
   const filteredNoStatus = pool.filter((b) => {
     if (source !== "All" && (b.source ?? "Online") !== source) return false;
     if (slot !== "All" && getBookingSlot(b) !== slot) return false;
+    if (kind === "Venue" && getBookingResource(b) === "Pool") return false;
+    if ((kind === "Shared" || kind === "Exclusive") && (getBookingResource(b) === "Venue" || getBookingTier(b) !== kind)) return false;
+    if (has === "Penalty" && !penalised.has(b.id)) return false;
+    if (has === "Photos" && !photographed.has(b.id)) return false;
+    if (has === "Owed" && (b.status === "Cancelled" || bookingMoney(b, ops.payments, ops.damages).due <= 0)) return false;
     // A stay is in the range when any of its days is, so a booking that
     // starts before `from` but is still running is not hidden.
     if (from && bookingEndDate(b) < from) return false;
     if (to && b.date > to) return false;
     return !q || b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) ||
-      (b.email || "").toLowerCase().includes(q) || b.contact.includes(q) || b.date.includes(q) || b.package.toLowerCase().includes(q);
+      (b.email || "").toLowerCase().includes(q) || b.contact.includes(q) || b.date.includes(q) || packageAvailed(b).toLowerCase().includes(q);
   });
   const rows = (status === "All" ? filteredNoStatus : filteredNoStatus.filter((b) => b.status === status))
     .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
   const paged = usePaged(rows);
-  const filtersOn = status !== "All" || source !== "All" || slot !== "All" || !!from || !!to || !!q;
-  const clear = () => { setStatus("All"); setSource("All"); setSlot("All"); setFrom(""); setTo(""); setSearch(""); };
+  const filtersOn = status !== "All" || source !== "All" || slot !== "All" || kind !== "All" || has !== "All" || !!from || !!to || !!q;
+  const clear = () => { setStatus("All"); setSource("All"); setSlot("All"); setKind("All"); setHas("All"); setFrom(""); setTo(""); setSearch(""); };
 
   const viewing = bookings.find((b) => b.id === viewId) ?? null;
 
@@ -264,9 +279,21 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
           <option value="All">All slots</option>
           {(["Day", "Night", "WholeDay"] as BookingSlot[]).map((s) => <option key={s} value={s}>{SLOTS[s].label}</option>)}
         </FullSelect>
-        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Visit date from" style={sel} />
+        <FullSelect value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} aria-label="What was booked" style={{ ...sel, paddingRight: 40 }}>
+          <option value="All">Shared &amp; Exclusive</option>
+          <option value="Shared">Shared pool</option>
+          <option value="Exclusive">Exclusive pool</option>
+          <option value="Venue">With the events venue</option>
+        </FullSelect>
+        <FullSelect value={has} onChange={(e) => setHas(e.target.value as typeof has)} aria-label="What the booking has" style={{ ...sel, paddingRight: 40 }}>
+          <option value="All">Any booking</option>
+          <option value="Penalty">Has damage penalties</option>
+          <option value="Photos">Has inspection photos</option>
+          <option value="Owed">Still owes money</option>
+        </FullSelect>
+        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Date from" style={sel} />
         <span style={{ color: C.textS, fontSize: 13 }}>to</span>
-        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Visit date to" style={sel} />
+        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Date to" style={sel} />
         {filtersOn && <ActionButton size="sm" onClick={clear}>Clear filters</ActionButton>}
       </div>
 
@@ -306,7 +333,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
         )}
       </div>
 
-      <TableShell head={[selectAllBox, "ID", "Guest", "Visit", "Package", "Source", "Total", "Paid", "Status", ""]} minWidth={1060}
+      <TableShell head={[selectAllBox, "ID", "Guest", "Date", "Package", "Source", "Total", "Paid", "Status", ""]} minWidth={1060}
         empty={rows.length === 0 ? (filtersOn ? "No bookings match these filters." : "No bookings yet.") : undefined}>
         {paged.rows.map((b, i) => {
           const m = bookingMoney(b, ops.payments, ops.damages);
@@ -329,7 +356,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                   under the name. The phone is on the detail panel. */}
               <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.email || b.contact}</div></Cell>
               <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{stayRange(b)}<div style={{ color: C.textS, fontSize: 11.5 }}>{s.label}{bookingDays(b) > 1 ? ` · ${bookingDays(b)} days` : ""}</div></Cell>
-              <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{b.package}</Cell>
+              <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{packageAvailed(b)}</Cell>
               <Cell style={td}><StatusBadge color={b.source === "Walk-In" ? "#3a8fc4" : gold}>{b.source ?? "Online"}</StatusBadge></Cell>
               <Cell style={{ ...td, color: C.textH, fontWeight: 600, whiteSpace: "nowrap" }}>{fmt(b.total)}</Cell>
               <Cell style={{ ...td, whiteSpace: "nowrap" }}>
@@ -454,6 +481,9 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
         action={
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <LiveStatus />
+            {/* Bookings taken while the internet was down (or on the
+                printed offline sheet), brought in from a spreadsheet. */}
+            <ActionButton icon="upload" onClick={() => setImporting(true)}>Import</ActionButton>
             <ActionButton kind="primary" icon="plus" onClick={() => setWalkIn(true)}>New walk-in</ActionButton>
           </div>
         } />
@@ -471,6 +501,8 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
         const overtimeFee = s.id === "Day" ? (b.overtime || 0) * OVERTIME_RATE : 0;
         const bookedRooms = rooms.filter((r) => (b.rooms || []).includes(r.id));
         const pays = ops.payments.filter((p) => p.bookingId === b.id);
+        const damages = ops.damages.filter((d) => d.bookingId === b.id && !d.voided);
+        const photoSets = ops.inspections.filter((i) => i.bookingId === b.id && (i.photos ?? []).length > 0);
         const request = ops.dateChanges.find((r) => r.bookingId === b.id && r.status === "Pending");
         return (
           <Modal title={<span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
@@ -509,7 +541,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
             <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 20 }}>
               <div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-                  {[["Visit", stayLabel(b)], ["Time", `${s.label} · ${s.hours}`], ["Email", b.email || "—"], ["Contact", b.contact], ["Guests", `${b.guests}`], ["Status", bookingStatusLabel(b)],
+                  {[["Date", stayLabel(b)], ["Time", `${s.label} · ${s.hours}`], ["Email", b.email || "—"], ["Contact", b.contact], ["Guests", `${b.guests}`], ["Status", bookingStatusLabel(b)],
                     ...(b.checkedInAt ? [["Checked in", `${fmtDate(manilaDate(b.checkedInAt))}, ${manilaTime(b.checkedInAt)}`]] : []),
                     ...(b.checkedOutAt ? [["Checked out", `${fmtDate(manilaDate(b.checkedOutAt))}, ${manilaTime(b.checkedOutAt)}`]] : []),
                     ...(b.settledAt ? [["Settled", `${fmtDate(manilaDate(b.settledAt))}, ${manilaTime(b.settledAt)}`]] : []),
@@ -522,7 +554,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                 </div>
                 {b.arrivalTime && <p style={{ color: C.textB, fontSize: 13, margin: "0 0 8px" }}>Arrival time: {b.arrivalTime}</p>}
                 <div style={{ border: `1px solid ${cBr}`, borderRadius: 10, padding: "12px 16px" }}>
-                  <AmountRow label={b.package} value={fmt(Math.max(0, b.total - overtimeFee))} />
+                  <AmountRow label={packageAvailed(b)} value={fmt(Math.max(0, b.total - overtimeFee))} />
                   {overtimeFee > 0 && <AmountRow label={`Overtime (${b.overtime} hr)`} value={fmt(overtimeFee)} />}
                   {bookedRooms.map((r) => <AmountRow key={r.id} label={r.name} value="included" />)}
                   <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}><AmountRow label="Total" value={fmt(b.total)} strong /></div>
@@ -583,6 +615,48 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                   </div>
                 ))}
                 {livePayments(pays).length > 0 && <p style={{ color: C.textS, fontSize: 12, marginTop: 8 }}>To correct a payment, undo it in Payments &amp; Expenses → Transactions.</p>}
+
+                {/* What the caretaker found and photographed. These used to
+                    be only under Facilities & Inspections → Inspection
+                    records; the booking is where the owner looks first. */}
+                {damages.length > 0 && (
+                  <>
+                    <div style={{ color: C.textH, fontWeight: 600, fontSize: 14, margin: "16px 0 8px" }}>Damage</div>
+                    {damages.map((d) => (
+                      <div key={d.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderBottom: `1px solid ${cBr}` }}>
+                        <div>
+                          <div style={{ color: C.textH, fontSize: 13 }}>{d.itemName}{d.quantity > 1 ? ` × ${d.quantity}` : ""}</div>
+                          <div style={{ color: C.textS, fontSize: 11.5 }}>{d.facilityName}{d.description ? ` · ${d.description}` : ""}</div>
+                        </div>
+                        <div style={{ color: "#d44", fontWeight: 600 }}>{fmt(d.amount)}</div>
+                      </div>
+                    ))}
+                  </>
+                )}
+                {photoSets.length > 0 && (
+                  <>
+                    <div style={{ color: C.textH, fontWeight: 600, fontSize: 14, margin: "16px 0 8px" }}>Inspection photos</div>
+                    {photoSets.map((i) => (
+                      <div key={i.id} style={{ marginBottom: 12 }}>
+                        <div style={{ color: C.textS, fontSize: 12, marginBottom: 6 }}>
+                          {i.stage === "Checkout" ? "After they left" : "Before they arrived"} · {fmtDate(manilaDate(i.inspectedAt))}, {manilaTime(i.inspectedAt)}{i.inspectedByName ? ` · by ${i.inspectedByName}` : ""}
+                        </div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          {(i.photos ?? []).map((ph, k) => {
+                            const where = i.items.find((it) => it.facilityId === ph.facilityId)?.facilityName ?? "Facility";
+                            return (
+                              <a key={k} href={ph.src} target="_blank" rel="noreferrer" title={where}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={ph.src} alt={`${where}, photo ${k + 1}`} width={84} height={84}
+                                  style={{ width: 84, height: 84, objectFit: "cover", borderRadius: 8, border: `1px solid ${cBr}`, display: "block" }} />
+                              </a>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
             </div>
             <div style={{ marginTop: 20 }}><BookingHistory bookingId={b.id} /></div>
@@ -698,6 +772,10 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
         </ConfirmDialog>
       )}
 
+      {importing && (
+        <ImportBookingsModal onClose={() => setImporting(false)}
+          onPrintOffline={() => printOfflineSheet({ bookings, payments: ops.payments, damages: ops.damages, inspections: ops.inspections, facilities, rooms })} />
+      )}
       {walkIn && <WalkInModal bookings={withHolds(bookings, ops.dateChanges)} setBookings={setBookings} rooms={rooms} packages={packages} facilities={facilities} mob={mob} onClose={() => setWalkIn(false)} />}
       {payFor && <RecordPaymentModal bookings={bookings} bookingId={payFor} onClose={() => setPayFor(null)} />}
       {finish && (() => {

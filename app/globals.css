@@ -188,6 +188,53 @@
   --sw-shadow-card: 0 2px 16px rgba(0, 0, 0, 0.4);
 }
 
+/* Dim: the medium theme between light and dark. A softer charcoal than
+   the near-black dark theme, for a room that is neither bright nor dark.
+   It IS a dark theme to the code (isDark is true, and .sw-dark stays on
+   <html>); only the palette changes. Text measured above 5:1 on its cards. */
+.sw-dark.sw-dim {
+  --sw-bg: #23262b;
+  --sw-bg-card: #2c3036;
+  --sw-bg-card-2: #292d32;
+  --sw-border: #3a3f46;
+  --sw-border-light: #343940;
+  --sw-text-h: #f3efe8;
+  --sw-text-b: #d6cdb6;
+  --sw-text-s: #b1a58f;
+  --sw-text-xs: #a99e8b;
+  --sw-gold-ink: #d6b65e;
+  --sw-danger-ink: #ff8f8f;
+  --sw-input-bg: #2a2e34;
+  --sw-input-border: #7a8088;
+  --sw-nav-bg: rgba(35, 38, 43, 0.97);
+  --sw-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  --sw-shadow-card: 0 2px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* ── Switching themes ──
+   A slow cross-fade instead of a cut: the old page fades out while the new
+   one fades in, so going to light is never a flash. Browsers with view
+   transitions get the whole page faded as one picture; the others get the
+   colours themselves eased (.sw-theme-fade, set for the length of the
+   switch). Anyone who asks for less motion gets the plain switch. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.9s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+.sw-theme-fade,
+.sw-theme-fade *,
+.sw-theme-fade *::before,
+.sw-theme-fade *::after {
+  transition: background-color 0.9s ease, color 0.9s ease, border-color 0.9s ease, fill 0.9s ease, stroke 0.9s ease !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
 :root {
   --radius: 0.625rem;
 

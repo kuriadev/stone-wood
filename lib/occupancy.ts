@@ -89,6 +89,13 @@ export function getOccupancyWindow(booking: StayWindowInput): { start: Date; end
 const isoDay = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
+/** The date the group actually leaves: for a Night Tour, the morning after
+ *  its last date. */
+export function departureDate(booking: StayWindowInput): string | null {
+  const w = getOccupancyWindow(booking);
+  return w ? isoDay(w.end) : null;
+}
+
 /** An hour of the day as "5:00 AM". Every window boundary in this system
  *  is set with setHours(h, 0, 0, 0), so there are never minutes to show. */
 const clockLabel = (d: Date): string => {

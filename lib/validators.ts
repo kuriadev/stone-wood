@@ -36,7 +36,7 @@ export let GUESTS_MAX = RESORT_MAX_CAPACITY;
 
 /** Guest count at/below which a booking defaults to "Shared" (the resort's
  *  pool/venue is shared with other same-day bookings) rather than
- *  "Exclusive" (whole-resort buyout — no other booking allowed that day).
+ *  "Exclusive" (whole-resort buyout — no other booking allowed in its tour).
  *  Only used as a smart DEFAULT before the guest/staff explicitly picks a
  *  tier — see getPackageTier() in lib/utils.ts. */
 export let GUESTS_SHARED_MAX = RESORT_MAX_CAPACITY;
@@ -86,35 +86,11 @@ export let EXCLUSIVE_DEFAULT_GUESTS = 5;
 /** Per-guest rate for a Shared booking. */
 export let SHARED_PER_HEAD_RATE = 200;
 
-// ────────────────────────────────────────────────────────────────────
-// DISCOUNTS
-// Shown as their own line items in the price breakdown, never silently
-// folded into a total, so a guest can see exactly what earned the discount.
-// All PLACEHOLDERS — tune the percentages to whatever promotions the resort
-// actually wants to run.
-// ────────────────────────────────────────────────────────────────────
-
-// Two discounts, and they never stack on the same part of the price:
-//   • 5% Exclusive — an exclusive POOL buyout for one slot (₱6,000 → ₱5,700).
-//     It exists because Exclusive competes with Shared per-head pricing;
-//     the venue has no Shared option, so it doesn't get it.
-//   • 10% Bundle — booking more than one thing together: Whole Day (two
-//     slots), or Pool + Venue. Replaces the 5%.
-// Applied everywhere by lib/pricing.ts — custom bookings, packages and
-// walk-ins alike — so a package can never cost more than the same booking
-// built by hand.
-
-/** Exclusive pool buyout, one slot. */
-export let EXCLUSIVE_DISCOUNT_PCT = 0.05;
-
-/** Bundles: Whole Day, and Pool + Venue. */
-export let PACKAGE_BUNDLE_DISCOUNT_PCT = 0.10;
-
-/** A room booked as part of a "Pool + Room" package costs less than renting
- *  it on its own — applied to that one room's own price. Keeps the
- *  incentive on both sides: the guest saves on the room, the resort still
- *  sells the room (which would otherwise sit empty) plus the pool slot. */
-export let ROOM_BUNDLE_DISCOUNT_PCT = 0.08;
+// There are no automatic discounts. A booking built by hand pays the plain
+// rates above; a package's own price, set by the owner in Packages & Prices,
+// is where any deal lives. (Until 2026-10-27 the owner could also set 5%
+// Exclusive, 10% bundle, 8% room-in-package and 15% extra-day discounts in
+// Rates & Settings.)
 
 export const OVERTIME_MIN = 0;
 /** Day Tour overtime is admin-only and capped at 2 hours (5–7 PM): it can
@@ -134,19 +110,6 @@ export let BOOKING_WINDOW_MONTHS = 3;
  *  the pool for a week and is arranged with the owner directly instead.
  *  Every message that quotes the limit reads it from here. */
 export let MAX_STAY_DAYS = 3;
-
-/** Off every day of a stay AFTER the first.
- *
- *  A second and third day cost the resort far less than the first: there
- *  is no second changeover, no second group to brief, no second full
- *  turnover — just a housekeeping pass around guests who are already
- *  there. Charging the headline rate three times over priced a three-day
- *  stay out of reach for exactly the families it was meant for, so the
- *  extra days are sold at a stay rate.
- *
- *  Whole Day Exclusive: ₱10,800 for one day, ₱29,160 for three
- *  (₱9,720 a day) instead of ₱32,400. */
-export let MULTI_DAY_DISCOUNT_PCT = 0.15;
 
 // ════════════════════════════════════════════════════════════════════
 // DATES
@@ -399,8 +362,8 @@ export function validateOnsiteForm(form: {
 
 // ── The owner's own numbers ─────────────────────────────────────────
 //
-// The values above are the DEFAULTS. The owner can change the prices,
-// discounts and limits in Rates & Settings (lib/settings.ts); applying
+// The values above are the DEFAULTS. The owner can change the prices and
+// limits in Rates & Settings (lib/settings.ts); applying
 // them reassigns these exported bindings, and because ES module exports
 // are live, every price, capacity check and limit in the app reads the new
 // number on its next call — nothing that uses them had to change.
@@ -412,10 +375,6 @@ export interface LimitValues {
   venueRate: number;
   exclusiveFlatRate: number;
   sharedPerHeadRate: number;
-  exclusiveDiscountPct: number;
-  bundleDiscountPct: number;
-  roomBundleDiscountPct: number;
-  multiDayDiscountPct: number;
   overtimeMax: number;
   overtimeRate: number;
   bookingWindowMonths: number;
@@ -431,10 +390,6 @@ export function applyLimitValues(v: LimitValues): void {
   EVENT_VENUE_RATE = v.venueRate;
   EXCLUSIVE_FLAT_RATE = v.exclusiveFlatRate;
   SHARED_PER_HEAD_RATE = v.sharedPerHeadRate;
-  EXCLUSIVE_DISCOUNT_PCT = v.exclusiveDiscountPct;
-  PACKAGE_BUNDLE_DISCOUNT_PCT = v.bundleDiscountPct;
-  ROOM_BUNDLE_DISCOUNT_PCT = v.roomBundleDiscountPct;
-  MULTI_DAY_DISCOUNT_PCT = v.multiDayDiscountPct;
   OVERTIME_MAX = v.overtimeMax;
   OVERTIME_RATE = v.overtimeRate;
   BOOKING_WINDOW_MONTHS = v.bookingWindowMonths;

@@ -2,7 +2,7 @@
 
 /* Rates & Settings — the owner's numbers.
  *
- * Prices, discounts, capacity, booking limits, opening hours and the
+ * Prices, capacity, booking limits, opening hours and the
  * contact details guests are shown. Changing any of these used to need a
  * developer; now the owner saves them here and every price, availability
  * check, page and email follows (lib/settings.ts). Bookings already made
@@ -104,7 +104,6 @@ export function SettingsTab({ mob }: { mob: boolean }) {
   );
 
   const r = form.rates;
-  const d = form.discounts;
   return (
     <div style={{ maxWidth: 900 }}>
       <AdminPageHeader title="Rates & Settings" mob={mob}
@@ -122,18 +121,13 @@ export function SettingsTab({ mob }: { mob: boolean }) {
         </p>
       )}
 
-      {section("Prices", "What a visit costs before any package. Each package keeps its own price in Packages & Prices.", <>
-        {num("rates", "sharedPerHead", "Shared pool, per guest", `Per slot. ${r.sharedPerHead || 0 ? `A group of 10 pays ${fmt(10 * Number(r.sharedPerHead || 0))} for one slot.` : ""}`, "₱")}
-        {num("rates", "exclusiveFlat", "Exclusive pool, per slot", "The whole pool to one group, whatever their number.", "₱")}
-        {num("rates", "venue", "Events venue, per slot", "Always exclusive: one event per slot.", "₱")}
-        {num("rates", "overtimePerHour", "Day Tour overtime, per hour", "Added by staff on the day, only when the Night slot is free.", "₱")}
-      </>)}
-
-      {section("Discounts", "Shown to guests as their own lines, so they can see what earned them.", <>
-        {num("discounts", "exclusive", "Exclusive pool, one slot", `${fmt(Number(r.exclusiveFlat || 0))} becomes ${fmt(Math.round(Number(r.exclusiveFlat || 0) * (1 - Number(d.exclusive || 0) / 100)))}.`, "%")}
-        {num("discounts", "bundle", "Bundles (Staycation, Pool + Venue)", "Off the exclusive and venue parts.", "%")}
-        {num("discounts", "roomBundle", "Room with a package", "Off the room when a package includes one.", "%")}
-        {num("discounts", "multiDay", "Each extra day of a stay", "Off every day after the first.", "%")}
+      {/* No discounts section: a booking built by hand pays these rates, and
+          a deal is a package's own price (owner's call, 2026-10-27). */}
+      {section("Prices", "What a booking built by hand costs. For a deal, set a package's own price in Packages & Prices.", <>
+        {num("rates", "sharedPerHead", "Shared pool, per guest", `Per tour. ${r.sharedPerHead || 0 ? `A group of 10 pays ${fmt(10 * Number(r.sharedPerHead || 0))} for one tour.` : ""}`, "₱")}
+        {num("rates", "exclusiveFlat", "Exclusive pool, per tour", "The whole pool to one group, whatever their number.", "₱")}
+        {num("rates", "venue", "Events venue, per tour", "Always exclusive: one event per tour, whoever has the pool.", "₱")}
+        {num("rates", "overtimePerHour", "Day Tour overtime, per hour", "Added by staff on the day, only when the Night Tour is free.", "₱")}
       </>)}
 
       {section("Limits", "How many people, how long and how far ahead.", <>

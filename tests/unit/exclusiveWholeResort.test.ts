@@ -1,13 +1,14 @@
-/* Exclusive means the whole resort, the events venue included.
+/* The pool and the events venue are booked independently.
  *
- * checkPoolCapacity only looks at bookings that use the pool, and a
- * venue-only booking does not. So a group could rent just the hall on the
- * date of someone's Exclusive buyout, and a buyout could be made on a date
- * whose hall another group already had, while the guest was told "the whole
- * resort is yours". checkBookingAvailability now closes both directions.
+ * Owner's rule from 2026-10-27: an Exclusive pool buyout keeps the pool to
+ * one group, and another group may still rent the events venue in the same
+ * tour; a group that has the hall doesn't stop someone else buying out the
+ * pool. Each part is still one group's: the hall takes one event per tour,
+ * and an Exclusive pool takes no one else in the pool. (From 2026-09-25 an
+ * Exclusive buyout took the hall too.)
  *
- * And Resort visit + Events Venue is Exclusive only: an event with the
- * resort to itself, never a party beside strangers in a shared pool.
+ * And Resort & pool + Events Venue is Exclusive only: an event with the
+ * pool to itself, never a party beside strangers in a shared pool.
  */
 
 import type { Booking } from "@/types/booking";
@@ -26,37 +27,43 @@ const booking = (over: Partial<Booking>): Booking => ({
 const hall = booking({ id: "V1", resource: "Venue", tier: "Exclusive", slot: "Day", package: "Events Venue" });
 const buyout = booking({ id: "X1", resource: "Pool", tier: "Exclusive", slot: "Day" });
 const shared = booking({ id: "S1", resource: "Pool", tier: "Shared", slot: "Day", guests: 5 });
+const party = booking({ id: "P1", resource: "Pool+Venue", tier: "Exclusive", slot: "Day" });
 
-describe("an Exclusive buyout keeps the events venue to itself", () => {
-  it("refuses a venue-only booking on a buyout's date, in either slot", () => {
-    expect(checkBookingAvailability(DATE, "Day", 20, "Exclusive", "Venue", [buyout]).ok).toBe(false);
-    expect(checkBookingAvailability(DATE, "Night", 20, "Exclusive", "Venue", [buyout]).ok).toBe(false);
+describe("the pool and the events venue are booked independently", () => {
+  it("rents the hall to another group during an Exclusive pool buyout", () => {
+    expect(checkBookingAvailability(DATE, "Day", 20, "Exclusive", "Venue", [buyout]).ok).toBe(true);
+    expect(checkBookingAvailability(DATE, "Night", 20, "Exclusive", "Venue", [buyout]).ok).toBe(true);
   });
 
-  it("refuses a buyout on a date whose hall another group has", () => {
-    expect(checkBookingAvailability(DATE, "Night", 10, "Exclusive", "Pool", [hall]).ok).toBe(false);
-    expect(checkBookingAvailability(DATE, "WholeDay", 10, "Exclusive", "Pool", [hall]).ok).toBe(false);
-    expect(checkBookingAvailability(DATE, "Night", 10, "Exclusive", "Pool+Venue", [hall]).ok).toBe(false);
+  it("lets a group buy out the pool while another group has the hall", () => {
+    expect(checkBookingAvailability(DATE, "Day", 10, "Exclusive", "Pool", [hall]).ok).toBe(true);
+    expect(checkBookingAvailability(DATE, "WholeDay", 10, "Exclusive", "Pool", [hall]).ok).toBe(true);
   });
 
-  it("treats a Pool + Venue buyout as the whole resort too", () => {
-    const party = booking({ id: "P1", resource: "Pool+Venue", tier: "Exclusive", slot: "Day" });
-    expect(checkBookingAvailability(DATE, "Night", 20, "Exclusive", "Venue", [party]).ok).toBe(false);
+  it("still takes one event per tour in the hall", () => {
+    expect(checkBookingAvailability(DATE, "Day", 20, "Exclusive", "Venue", [hall]).ok).toBe(false);
+    expect(checkBookingAvailability(DATE, "Day", 10, "Exclusive", "Pool+Venue", [hall]).ok).toBe(false);
+    expect(checkBookingAvailability(DATE, "Day", 20, "Exclusive", "Venue", [party]).ok).toBe(false);
+    expect(checkBookingAvailability(DATE, "Night", 20, "Exclusive", "Venue", [party]).ok).toBe(true);
   });
 
-  it("still lets a group rent only the hall beside shared tours", () => {
+  it("still keeps an Exclusive pool to one group", () => {
+    expect(checkBookingAvailability(DATE, "Day", 10, "Exclusive", "Pool", [buyout]).ok).toBe(false);
+    expect(checkBookingAvailability(DATE, "Day", 5, "Shared", "Pool", [party]).ok).toBe(false);
+  });
+
+  it("leaves the hall alone when a buyout's overtime runs into the evening", () => {
+    const late = booking({ id: "X2", resource: "Pool", tier: "Exclusive", slot: "Day", overtime: 2 });
+    expect(checkBookingAvailability(DATE, "Night", 20, "Exclusive", "Venue", [late]).ok).toBe(true);
+  });
+
+  it("lets shared groups and the hall share a tour", () => {
     expect(checkBookingAvailability(DATE, "Day", 20, "Exclusive", "Venue", [shared]).ok).toBe(true);
-    // and shared groups can still join a date whose hall is rented
     expect(checkBookingAvailability(DATE, "Day", 5, "Shared", "Pool", [hall]).ok).toBe(true);
-  });
-
-  it("does not count a venue-only booking as a whole-resort buyout", () => {
-    // Venue bookings are stored as Exclusive, but they don't take the pool.
-    expect(checkBookingAvailability(DATE, "Night", 5, "Shared", "Pool", [hall]).ok).toBe(true);
   });
 });
 
-describe("Resort visit + Events Venue is Exclusive only", () => {
+describe("Resort & pool + Events Venue is Exclusive only", () => {
   it("refuses it Shared, for tours and stays alike", () => {
     expect(pricingProblem("Pool+Venue", "Shared", "Day")).not.toBeNull();
     expect(pricingProblem("Pool+Venue", "Shared", "Night")).not.toBeNull();

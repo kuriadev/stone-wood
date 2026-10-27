@@ -135,7 +135,7 @@ export const MULTI_DAY_SLOT: BookingSlot = "WholeDay";
 /** Why this slot cannot run for this many days, if it cannot. */
 export function multiDayProblem(id: BookingSlot, days: number): string | null {
   if (days <= 1 || allowsMultiDay(id)) return null;
-  return `The ${SLOTS[id].label} is a single-date visit. Choose the ${SLOTS[MULTI_DAY_SLOT].label} to book more than one date.`;
+  return `The ${SLOTS[id].label} is for one date only. Choose the ${SLOTS[MULTI_DAY_SLOT].label} to book more than one date.`;
 }
 
 /** What a multi-day stay is counted in — nights for the Night Tour, days

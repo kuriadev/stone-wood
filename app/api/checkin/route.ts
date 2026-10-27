@@ -10,8 +10,9 @@
 // `undo` reverses a check-in tapped by mistake, as long as the group has
 // not been checked out yet.
 //
-// A check-in recorded long after the visit (an overdue booking completed
-// later) stamps the booking but leaves facility statuses alone.
+// A check-in recorded long after the stay (an overdue booking completed
+// later) stamps the booking but leaves facility statuses alone. Until the
+// stay is over, the facilities must have been prepared first.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity } from "@/lib/activity.server";
@@ -20,6 +21,8 @@ import { requirePermission } from "@/lib/auth";
 import { cleanText } from "@/lib/money";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { loadBookingAndFacilities, facilitiesInUseByOthers, stayLongOver } from "@/lib/ops.server";
+import { manilaDate } from "@/lib/finance";
+import { bookingEndDate } from "@/lib/utils";
 import type { BookingRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +49,19 @@ export async function POST(req: NextRequest) {
 
     if (!undo) {
       if (booking.checkedInAt) return NextResponse.json({ success: false, error: "This group is already checked in." }, { status: 409 });
+      // Checking a group in says the resort is ready for them, so until
+      // their stay is over the preparation has to be saved first. The
+      // screens always asked for it; the server now does too. A stay whose
+      // last day has passed can't be prepared any more, so a late check-in
+      // (a group nobody tapped through on the day) is let through.
+      if (bookingEndDate(booking) >= manilaDate()) {
+        const prep = await db.from("facility_inspections").select("id")
+          .eq("booking_id", booking.id).eq("stage", "Preparation").limit(1);
+        if (prep.error) throw new Error(prep.error.message);
+        if (!prep.data?.length) {
+          return NextResponse.json({ success: false, error: "The facilities haven't been prepared for this group yet. It's on the caretakers' task list; check them in once it's done." }, { status: 409 });
+        }
+      }
       const now = new Date().toISOString();
       const { data, error } = await db.from("bookings").update({ checked_in_at: now })
         .eq("id", booking.id).eq("status", "Confirmed").is("checked_in_at", null).select().maybeSingle();

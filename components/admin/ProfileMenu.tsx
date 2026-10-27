@@ -22,7 +22,7 @@
  * one stroke weight. Nothing here mixes a filled glyph into an outline menu.
  */
 
-import { useTheme } from "@/contexts/ThemeContext";
+import { useTheme, nextTheme, THEME_LABEL } from "@/contexts/ThemeContext";
 import { useStaff } from "@/contexts/StaffContext";
 import { ROLE_LABEL } from "@/lib/permissions";
 import { T } from "@/lib/theme";
@@ -51,7 +51,8 @@ interface ProfileMenuProps {
 
 /** Under the name: the person's role, e.g. "Front desk". */
 export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar" }: ProfileMenuProps) {
-  const { isDark, toggle } = useTheme();
+  const { isDark, mode, toggle } = useTheme();
+  const nextMode = nextTheme(mode);
   const C = T(isDark);
 
   // The person signed in — their name, not the word "Admin" — and their
@@ -237,7 +238,7 @@ export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar" }: P
         <DropdownMenuSeparator style={{ background: C.borderLight }} />
 
         {item("lock", "Username & password", onAccountSettings)}
-        {item(isDark ? "sun" : "moon", isDark ? "Light theme" : "Dark theme", toggle)}
+        {item(nextMode === "light" ? "sun" : nextMode === "dim" ? "sun-moon" : "moon", `${THEME_LABEL[nextMode]} theme`, toggle)}
         {item("home", "View public site", () => window.open("/", "_blank", "noopener"))}
 
         <DropdownMenuSeparator style={{ background: C.borderLight }} />

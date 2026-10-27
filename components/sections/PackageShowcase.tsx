@@ -46,7 +46,7 @@ const TIERS: { key: TierKey; label: string; icon: IconName; tagline: string; blu
   { key: "SHARED", label: "Shared", icon: "pool", tagline: "Come together",
     blurb: "Share the pool with other groups and pay per guest." },
   { key: "EXCLUSIVE", label: "Exclusive", icon: "lock", tagline: "Make it entirely yours",
-    blurb: "Private resort access with no other groups in your time slot." },
+    blurb: "The whole resort for your group alone — no other groups during your tour." },
   { key: "EVENTS", label: "Events", icon: "gift", tagline: "Celebrate beautifully",
     blurb: "The events hall for parties, birthdays and celebrations." },
 ];
@@ -392,7 +392,7 @@ function PackageCard({
                 className="rounded-full px-3 py-1 text-[11px] tracking-[1.5px]"
                 style={{ color: C.goldInk, borderColor: `${gold}44` }}
               >
-                ROOM DISCOUNTED
+                ROOM INCLUDED
               </Badge>
             )}
           </div>

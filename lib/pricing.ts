@@ -15,31 +15,20 @@
 //   Room              its own rate, per slot.
 //   Day overtime      ₱500/hr, max 2 hrs, admin only (see OVERTIME_MAX).
 //
-//   Discounts — never two on the same part of the price:
-//     5%  Exclusive pool, one slot, nothing else bundled.
-//     10% Bundle: Whole Day, or Pool (exclusive) + Venue. Applies to the
-//         pool + venue part and replaces the 5%.
-//     8%  A room booked as part of a package.
-//     15% Every day of a stay AFTER the first. This one is on a different
-//         axis from the others — they discount a PART of a day's price,
-//         this discounts the repeat of a whole day — so it stacks with
-//         them rather than replacing them.
-//
-// Whole Day ₱12,000 → ₱10,800. Party (pool + venue, one slot) ₱11,000 →
-// ₱9,900. Grand (pool + venue, Whole Day) ₱22,000 → ₱19,800.
+// No automatic discounts: a booking built by hand pays these rates, every
+// day of a stay alike. A package's own price (Packages & Prices) is where
+// any deal lives. Until 2026-10-27 there were four: 5% Exclusive, 10%
+// bundle, 8% room in a package, 15% each extra day.
 
-import type { BookingResource, BookingSlot, BookingTier } from "@/types/booking";
+import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 import {
   EXCLUSIVE_FLAT_RATE,
   SHARED_PER_HEAD_RATE,
   EVENT_VENUE_RATE,
-  EXCLUSIVE_DISCOUNT_PCT,
-  PACKAGE_BUNDLE_DISCOUNT_PCT,
-  ROOM_BUNDLE_DISCOUNT_PCT,
-  MULTI_DAY_DISCOUNT_PCT,
   OVERTIME_RATE,
 } from "@/lib/validators";
 import { SLOTS, multiDayProblem } from "@/lib/resort";
+import { getBookingResource, getBookingSlot, getBookingTier } from "@/lib/utils";
 
 export { OVERTIME_RATE };
 
@@ -56,27 +45,18 @@ export interface PriceInput {
   roomPrices: number[];
   /** How many days the stay runs for. 1 (the default) is a single day.
    *  The tour and the rooms are charged for each day; overtime is not,
-   *  because staff add it once, on the day it actually happened. Days
-   *  after the first carry MULTI_DAY_DISCOUNT_PCT. */
+   *  because staff add it once, on the day it actually happened. */
   days?: number;
 }
 
 export interface PriceBreakdown {
-  /** Pool part before discounts (0 for venue-only). */
+  /** Pool part (0 for venue-only, and for a package). */
   poolFee: number;
-  /** Venue part before discounts (0 when no venue). */
+  /** Venue part (0 when no venue, and for a package). */
   venueFee: number;
-  /** 5% exclusive discount, when it applies. */
-  exclusiveDiscount: number;
-  /** 10% bundle discount, when it applies. */
-  bundleDiscount: number;
   overtimeFee: number;
-  /** Rooms before the package room discount (already × slots). */
-  roomsFeeRaw: number;
-  roomBundleDiscount: number;
+  /** Rooms, already × slots and × days. */
   roomsFee: number;
-  /** 15% off every day of the stay after the first. 0 for one day. */
-  stayDiscount: number;
   total: number;
   /** 50% down payment, rounded up to the peso. */
   down: number;
@@ -104,7 +84,7 @@ export interface PriceBreakdown {
  *  still offered at both tiers.
  *
  *  A Staycation is a stay at the resort, so it is never the events venue
- *  on its own: Resort visit, or Resort visit + Events Venue. The owner's
+ *  on its own: Resort & pool, or Resort & pool + Events Venue. The owner's
  *  own packages are exempt (`isPackage`) — they decide what a package
  *  includes, and a venue-only package at Staycation hours is theirs to
  *  offer. */
@@ -121,10 +101,10 @@ export function pricingProblem(
   // Pool + Venue is an event with the resort to itself: a party in the
   // hall beside strangers in a shared pool is the complaint it avoids.
   if (resource === "Pool+Venue" && tier !== "Exclusive") {
-    return "Resort visit + Events Venue is Exclusive only — the whole resort is yours for the event.";
+    return "Resort & pool + Events Venue is Exclusive only — the whole resort is yours for the event.";
   }
   if (slot === "WholeDay" && resource === "Venue" && !isPackage) {
-    return `A ${SLOTS.WholeDay.label} includes the resort. Choose Resort visit, or Resort visit + Events Venue.`;
+    return `A ${SLOTS.WholeDay.label} includes the resort. Choose Resort & pool, or Resort & pool + Events Venue.`;
   }
   return multiDayProblem(slot, days);
 }
@@ -132,8 +112,7 @@ export function pricingProblem(
 export function priceBooking(input: PriceInput): PriceBreakdown {
   const { pkg, resource, slot, guests, overtime, roomPrices } = input;
   // A stay repeats the same day, so it is priced a day at a time and then
-  // multiplied. Discounts are worked out per day and multiplied too, which
-  // keeps every line consistent with the total instead of rounding twice.
+  // multiplied.
   const days = Math.max(1, Math.floor(input.days ?? 1));
   const slots = SLOTS[slot].span;
   const usesPool = resource !== "Venue";
@@ -145,40 +124,22 @@ export function priceBooking(input: PriceInput): PriceBreakdown {
   const poolFee = !usesPool ? 0 : exclusivePool ? EXCLUSIVE_FLAT_RATE * slots : guests * SHARED_PER_HEAD_RATE * slots;
   const venueFee = usesVenue ? EVENT_VENUE_RATE * slots : 0;
 
-  // Only the exclusive parts earn a discount; a Shared pool is per head.
-  const discountable = (exclusivePool ? poolFee : 0) + venueFee;
-  const isBundle = slots === 2 || (exclusivePool && usesVenue);
-  const bundleDiscount = isBundle ? Math.round(discountable * PACKAGE_BUNDLE_DISCOUNT_PCT) : 0;
-  const exclusiveDiscount = !isBundle && exclusivePool ? Math.round(poolFee * EXCLUSIVE_DISCOUNT_PCT) : 0;
-
   // Overtime exists only on a Day booking.
   const overtimeFee = slot === "Day" ? Math.max(0, overtime) * OVERTIME_RATE : 0;
 
-  const roomsFeeRaw = roomPrices.reduce((sum, p) => sum + p, 0) * slots;
-  const roomBundleDiscount = pkg?.requiresRoom ? Math.round(roomsFeeRaw * ROOM_BUNDLE_DISCOUNT_PCT) : 0;
-  const roomsFee = roomsFeeRaw - roomBundleDiscount;
+  const roomsFee = roomPrices.reduce((sum, p) => sum + p, 0) * slots;
 
-  // A package's own price replaces the pool + venue part. It's seeded to
-  // exactly what these rules give (see standardPackagePrice), and the
-  // owner may set a promo price on top in the Packages tab.
-  const stayFee = pkg ? pkg.price : poolFee + venueFee - bundleDiscount - exclusiveDiscount;
+  // A package's own price replaces the pool + venue part. The owner sets it
+  // in the Packages tab.
+  const stayFee = pkg ? pkg.price : poolFee + venueFee;
 
   const perDay = stayFee + roomsFee;
-  // Days after the first are sold at the stay rate. Taken off the whole
-  // of each extra day (tour and room together) rather than off one part,
-  // because what is being discounted is the repeat itself.
-  const stayDiscount = Math.round(perDay * Math.max(0, days - 1) * MULTI_DAY_DISCOUNT_PCT);
-  const total = perDay * days - stayDiscount + overtimeFee;
+  const total = perDay * days + overtimeFee;
   return {
     poolFee: pkg ? 0 : poolFee * days,
     venueFee: pkg ? 0 : venueFee * days,
-    exclusiveDiscount: pkg ? 0 : exclusiveDiscount * days,
-    bundleDiscount: pkg ? 0 : bundleDiscount * days,
     overtimeFee,
-    roomsFeeRaw: roomsFeeRaw * days,
-    roomBundleDiscount: roomBundleDiscount * days,
     roomsFee: roomsFee * days,
-    stayDiscount,
     total,
     down: Math.ceil(total / 2),
     slots,
@@ -216,12 +177,10 @@ export function standardPackagePrice(p: {
  *    compare    the price to show struck through: `diy`, only when the
  *               package really is cheaper
  *
- *  This replaced the admin-typed list price on the public pages. That was
- *  the pre-discount total (₱6,000 for a private pool), but booking it
- *  yourself already gets the same discount (₱5,700), so "SAVE ₱300" on a
- *  package at ₱5,700 claimed a saving that didn't exist. The 8% room
- *  discount (requiresRoom) is on top and isn't counted here: it depends on
- *  which room the guest picks. */
+ *  This replaced the admin-typed list price on the public pages, which
+ *  could claim a saving the guest didn't get by booking the same thing
+ *  themselves. Rooms aren't counted: they depend on which room the guest
+ *  picks. */
 export function packageValue(p: {
   resource: BookingResource;
   status: BookingTier;
@@ -234,7 +193,8 @@ export function packageValue(p: {
   return { diy, save, compare: save > 0 ? diy : undefined };
 }
 
-/** The label stored on the booking and shown on receipts. */
+/** The label stored on the booking. Shown to people through
+ *  packageAvailed(), which adds Shared or Exclusive. */
 export function bookingLabel(opts: {
   packageTitle?: string;
   resource: BookingResource;
@@ -247,4 +207,26 @@ export function bookingLabel(opts: {
   if (opts.resource === "Venue") return `Event Venue Rental (${when})`;
   if (opts.resource === "Pool+Venue") return `${when} + Event Venue${room}`;
   return `${when}${room}`;
+}
+
+/** A self-built booking's label with its tier in front: "Exclusive Day
+ *  Tour + Room". The venue on its own has no pool to share, so it reads
+ *  as it is. */
+export function labelWithTier(label: string, tier: BookingTier, resource: BookingResource): string {
+  return resource === "Venue" ? label : `${tier} ${label}`;
+}
+
+/** What the guest availed, the way they read it: a package keeps its own
+ *  name ("Private Pool (Day Tour)"); a booking they built themselves says
+ *  Shared or Exclusive ("Exclusive Day Tour").
+ *
+ *  The stored label never carried the tier, so a 2-guest Exclusive Day
+ *  Tour read "Day Tour" on a ₱5,700 receipt and looked overcharged. Worked
+ *  out when shown rather than stored, so older bookings read the same way
+ *  and the stored label stays what /api/bookings/[id]/charge compares. */
+export function packageAvailed(b: Booking): string {
+  const resource = getBookingResource(b);
+  const made = bookingLabel({ resource, slot: getBookingSlot(b), hasRoom: (b.rooms?.length ?? 0) > 0 });
+  // Only a name this system made up gets the tier; a package keeps its title.
+  return b.package === made ? labelWithTier(made, getBookingTier(b), resource) : String(b.package ?? "");
 }

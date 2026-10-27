@@ -1,6 +1,6 @@
 // ── Rates & Settings — the owner's numbers, not the developer's
 //
-// Prices, discounts, capacity, booking limits, opening hours and contact
+// Prices, capacity, booking limits, opening hours and contact
 // details used to be constants in the code: changing the per-head rate
 // meant a developer and a redeploy. They are now one validated record the
 // owner edits in Rates & Settings (app/api/settings), stored in
@@ -17,7 +17,10 @@
 // resort of the same kind sets its own numbers here instead of in code.
 //
 // Pure: safe on client and server. Package prices are NOT here — each
-// package keeps the price the owner gives it in Packages & Prices.
+// package keeps the price the owner gives it in Packages & Prices, and that
+// price is where any deal lives. The four automatic discounts that used to
+// be here were dropped on 2026-10-27; a stored record that still has them
+// is read without them.
 
 import { applyLimitValues } from "@/lib/validators";
 import { applyResortValues } from "@/lib/resort";
@@ -32,13 +35,6 @@ export interface BusinessSettings {
     venue: number;
     /** Day Tour overtime, per hour. */
     overtimePerHour: number;
-  };
-  /** Percentages, 0–90. */
-  discounts: {
-    exclusive: number;
-    bundle: number;
-    roomBundle: number;
-    multiDay: number;
   };
   limits: {
     /** The most guests at once; also caps a single booking and Shared. */
@@ -66,7 +62,6 @@ export interface BusinessSettings {
 /** What the code has always used. An empty settings row means these. */
 export const DEFAULT_SETTINGS: BusinessSettings = {
   rates: { sharedPerHead: 200, exclusiveFlat: 6000, venue: 5000, overtimePerHour: 500 },
-  discounts: { exclusive: 5, bundle: 10, roomBundle: 8, multiDay: 15 },
   limits: { resortCapacity: 30, exclusiveDefaultGuests: 5, overtimeMaxHours: 2, maxStayDays: 3, bookingWindowMonths: 3 },
   hours: { dayStart: 7, dayEnd: 17, nightStart: 19, nightEnd: 29 },
   contact: {
@@ -84,12 +79,6 @@ const NUMS: { [G in keyof Omit<BusinessSettings, "contact">]: { [K in keyof Busi
     exclusiveFlat: { min: 1, max: 1_000_000, label: "Exclusive rate" },
     venue: { min: 1, max: 1_000_000, label: "Events venue rate" },
     overtimePerHour: { min: 0, max: 100_000, label: "Overtime per hour" },
-  },
-  discounts: {
-    exclusive: { min: 0, max: 90, label: "Exclusive discount" },
-    bundle: { min: 0, max: 90, label: "Bundle discount" },
-    roomBundle: { min: 0, max: 90, label: "Room discount" },
-    multiDay: { min: 0, max: 90, label: "Multi-day discount" },
   },
   limits: {
     resortCapacity: { min: 1, max: 1000, whole: true, label: "Capacity" },
@@ -169,10 +158,6 @@ export function applySettings(s: BusinessSettings): void {
     venueRate: s.rates.venue,
     exclusiveFlatRate: s.rates.exclusiveFlat,
     sharedPerHeadRate: s.rates.sharedPerHead,
-    exclusiveDiscountPct: s.discounts.exclusive / 100,
-    bundleDiscountPct: s.discounts.bundle / 100,
-    roomBundleDiscountPct: s.discounts.roomBundle / 100,
-    multiDayDiscountPct: s.discounts.multiDay / 100,
     overtimeMax: s.limits.overtimeMaxHours,
     overtimeRate: s.rates.overtimePerHour,
     bookingWindowMonths: s.limits.bookingWindowMonths,

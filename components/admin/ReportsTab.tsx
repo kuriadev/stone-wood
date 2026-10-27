@@ -20,6 +20,7 @@ import {
   bookingMoney, manilaDate, manilaTime, monthRange, livePayments, liveExpenses, signedAmount, round2, downloadCsv,
 } from "@/lib/finance";
 import { fmt, fmtDate, getBookingSlot, holdsDate, bookingEndDate, stayRange, bookingCoversDate } from "@/lib/utils";
+import { packageAvailed } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { EXPENSE_CATEGORIES, type PaymentType } from "@/types/finance";
@@ -127,10 +128,10 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
   const roomNames = (b: Booking) => (b.rooms || []).map((id) => rooms.find((r) => r.id === id)?.name ?? `#${id}`).join(" | ") || "None";
 
   const exportBookings = () => downloadCsv(`StoneWood_Bookings_${fileTag}.csv`, [
-    ["Booking ID", "Guest", "Contact", "Email", "Visit date", "Last day", "Slot", "Package", "Source", "Guests", "Rooms", "Total (PHP)", "Paid (PHP)", "Penalties (PHP)", "Owed (PHP)", "Status", "Notes"],
+    ["Booking ID", "Guest", "Contact", "Email", "Date", "Last day", "Slot", "Package", "Source", "Guests", "Rooms", "Total (PHP)", "Paid (PHP)", "Penalties (PHP)", "Owed (PHP)", "Status", "Notes"],
     ...bks.map((b) => {
       const m = bookingMoney(b, ops.payments, ops.damages);
-      return [b.id, b.name, b.contact, b.email, b.date, bookingEndDate(b), SLOTS[getBookingSlot(b)].label, b.package, b.source ?? "Online", b.guests, roomNames(b),
+      return [b.id, b.name, b.contact, b.email, b.date, bookingEndDate(b), SLOTS[getBookingSlot(b)].label, packageAvailed(b), b.source ?? "Online", b.guests, roomNames(b),
         b.total, m.paid, m.penaltyTotal, m.due, b.status, b.notes];
     }),
     [],
@@ -164,10 +165,10 @@ table{border-collapse:collapse;width:100%}td,th{padding:4px 6px;border-bottom:1p
 <h2>Payment Method</h2><table>${rows(byMethod)}</table></div>
 <div><h2>Expenses by category</h2><table>${byCat.length ? rows(byCat) : "<tr><td class='muted'>None</td></tr>"}</table>
 <h2>Bookings</h2><table>${rows([["Total bookings", String(bks.length)], ["Guests (not cancelled)", String(guests)], ...statusCount.map(([s, n]) => [statusLabel(s), String(n)] as const)])}</table></div></div>
-<h2>Reservations (${bks.length})</h2><table><tr><th>Booking</th><th>Guest</th><th>Contact</th><th>Visit</th><th>Time</th><th>Package</th><th class="n">Guests</th><th class="n">Total</th><th class="n">Paid</th><th class="n">Owed</th><th>Status</th></tr>
+<h2>Reservations (${bks.length})</h2><table><tr><th>Booking</th><th>Guest</th><th>Contact</th><th>Date</th><th>Time</th><th>Package</th><th class="n">Guests</th><th class="n">Total</th><th class="n">Paid</th><th class="n">Owed</th><th>Status</th></tr>
 ${bks.map((b) => {
       const m = bookingMoney(b, ops.payments, ops.damages);
-      return `<tr><td>${escapeHtml(b.id)}</td><td>${escapeHtml(b.name)}</td><td>${escapeHtml(b.contact)}</td><td>${escapeHtml(stayRange(b))}</td><td>${escapeHtml(SLOTS[getBookingSlot(b)].label)}</td><td>${escapeHtml(String(b.package))}</td><td class="n">${b.guests}</td><td class="n">${escapeHtml(fmt(b.total))}</td><td class="n">${escapeHtml(fmt(m.paid))}</td><td class="n">${escapeHtml(fmt(m.due))}</td><td>${escapeHtml(bookingStatusLabel(b))}</td></tr>`;
+      return `<tr><td>${escapeHtml(b.id)}</td><td>${escapeHtml(b.name)}</td><td>${escapeHtml(b.contact)}</td><td>${escapeHtml(stayRange(b))}</td><td>${escapeHtml(SLOTS[getBookingSlot(b)].label)}</td><td>${escapeHtml(packageAvailed(b))}</td><td class="n">${b.guests}</td><td class="n">${escapeHtml(fmt(b.total))}</td><td class="n">${escapeHtml(fmt(m.paid))}</td><td class="n">${escapeHtml(fmt(m.due))}</td><td>${escapeHtml(bookingStatusLabel(b))}</td></tr>`;
     }).join("") || "<tr><td class='muted' colspan='11'>No reservations in this period.</td></tr>"}
 ${bks.length ? `<tr><td colspan="7"><strong>Totals</strong></td><td class="n"><strong>${escapeHtml(fmt(round2(bks.reduce((n, b) => n + b.total, 0))))}</strong></td><td class="n"><strong>${escapeHtml(fmt(round2(bks.reduce((n, b) => n + bookingMoney(b, ops.payments, ops.damages).paid, 0))))}</strong></td><td class="n"><strong>${escapeHtml(fmt(round2(bks.reduce((n, b) => n + bookingMoney(b, ops.payments, ops.damages).due, 0))))}</strong></td><td></td></tr>` : ""}</table>
 <h2>Payments</h2><table><tr><th>Date</th><th>Booking</th><th>Guest</th><th>Type</th><th>Method</th><th class="n">Amount</th></tr>
@@ -219,7 +220,7 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
             const m = bookingMoney(b, ops.payments, ops.damages);
             return {
               id: b.id, name: b.name, contact: b.contact, email: b.email, date: b.date, end: bookingEndDate(b),
-              slot: SLOTS[getBookingSlot(b)].label, pkg: String(b.package), src: b.source ?? "Online", guests: b.guests,
+              slot: SLOTS[getBookingSlot(b)].label, pkg: packageAvailed(b), src: b.source ?? "Online", guests: b.guests,
               rooms: roomNames(b), total: b.total, paid: m.paid, pen: m.penaltyTotal, due: m.due, status: bookingStatusLabel(b),
             };
           }),
