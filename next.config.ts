@@ -58,6 +58,10 @@ const nextConfig: NextConfig = {
   // LAN address here if you test from a phone.
   allowedDevOrigins: ["localhost", "127.0.0.1"],
 
+  experimental: {
+    agentUpgrade: "security",
+  },
+
   // Don't advertise the framework and version to anyone scanning for
   // known-vulnerable Next.js releases.
   poweredByHeader: false,
