@@ -2,8 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
-import { useTheme } from "@/contexts/ThemeContext";
-import { T } from "@/lib/theme";
+import { THEME_COLORS } from "@/lib/theme";
 import { CustomerService } from "@/components/sections/CustomerService";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -12,8 +11,7 @@ import type { CustomerMessage } from "@/types/admin";
 
 export default function CustomerPage() {
   const router = useRouter();
-  const { isDark } = useTheme();
-  const C = T(isDark);
+  const C = THEME_COLORS;
   const { setCustomerMessages } = useApp();
 
   const nav = (p: string) => {

@@ -59,8 +59,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { BookingHistory } from "@/components/admin/BookingHistory";
 import { choiceOpen, fmtDeadline, holdActive, withHolds } from "@/lib/rebooking";
-import {
-  AdminPageHeader, TableShell, td, ActionButton, StatusBadge, Modal, AmountRow, useAdminStyle, STATUS_COLOR, STATUS_LABEL, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewSwitcherTabs, usePaged, Pager, FullSelect,} from "@/components/admin/ui";
+import { AdminPageHeader, TableShell, td, ActionButton, StatusBadge, Modal, AmountRow, useAdminStyle, STATUS_COLOR, STATUS_LABEL, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewSwitcherTabs, usePaged, Pager, FullSelect, FilterSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
 
 interface BookingsTabProps {
   bookings: Booking[];
@@ -251,51 +250,63 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
   // archived rows), rendered into each TabsContent like Customer Service.
   const listPanel = (
     <>
-      {/* Status */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12, alignItems: "center" }}>
-        {STATUSES.map((s) => {
-          const n = s === "All" ? filteredNoStatus.length : filteredNoStatus.filter((b) => b.status === s).length;
-          const on = status === s;
-          const col = s === "All" ? gold : STATUS_COLOR[s];
-          return (
-            <button key={s} type="button" onClick={() => setStatus(s)} aria-pressed={on}
-              style={{ padding: "8px 16px", fontSize: 12.5, fontWeight: 600, borderRadius: 20, cursor: "pointer", background: on ? `${col}1c` : "transparent", color: on ? col : C.textS, border: `1px solid ${on ? col + "77" : cBr}` }}>
-              {s === "All" ? "All bookings" : statusLabel(s)} ({n})
-            </button>
-          );
-        })}
+      {/* Status: one select with a count per status, instead of six pills
+          wrapping onto three lines. */}
+      <div style={{ display: "flex", marginBottom: 12 }}>
+        <FilterSelect<typeof status>
+          label="Status"
+          value={status}
+          onChange={setStatus}
+          options={STATUSES.map((s) => ({
+            value: s,
+            label: s === "All" ? "All bookings" : statusLabel(s),
+            count: s === "All" ? filteredNoStatus.length : filteredNoStatus.filter((b) => b.status === s).length,
+          }))}
+        />
       </div>
 
-      {/* Search + filters */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" }}>
-        <div style={{ position: "relative", flex: "1 1 260px" }}>
-          <Icon name="search" size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: 0.45, color: C.textH }} />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Booking ID, email, name, phone, date or package" aria-label="Search bookings" style={{ ...sel, width: "100%", paddingLeft: 32 }} />
-        </div>
-        <FullSelect value={source} onChange={(e) => setSource(e.target.value as typeof source)} aria-label="Source" style={{ ...sel, paddingRight: 40 }}>
-          <option value="All">All sources</option><option>Online</option><option>Walk-In</option>
-        </FullSelect>
-        <FullSelect value={slot} onChange={(e) => setSlot(e.target.value as typeof slot)} aria-label="Slot" style={{ ...sel, paddingRight: 40 }}>
-          <option value="All">All slots</option>
-          {(["Day", "Night", "WholeDay"] as BookingSlot[]).map((s) => <option key={s} value={s}>{SLOTS[s].label}</option>)}
-        </FullSelect>
-        <FullSelect value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} aria-label="What was booked" style={{ ...sel, paddingRight: 40 }}>
-          <option value="All">Shared &amp; Exclusive</option>
-          <option value="Shared">Shared pool</option>
-          <option value="Exclusive">Exclusive pool</option>
-          <option value="Venue">With the events venue</option>
-        </FullSelect>
-        <FullSelect value={has} onChange={(e) => setHas(e.target.value as typeof has)} aria-label="What the booking has" style={{ ...sel, paddingRight: 40 }}>
-          <option value="All">Any booking</option>
-          <option value="Penalty">Has damage penalties</option>
-          <option value="Photos">Has inspection photos</option>
-          <option value="Owed">Still owes money</option>
-        </FullSelect>
-        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Date from" style={sel} />
-        <span style={{ color: C.textS, fontSize: 13 }}>to</span>
-        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Date to" style={sel} />
-        {filtersOn && <ActionButton size="sm" onClick={clear}>Clear filters</ActionButton>}
-      </div>
+      {/* Search, and the rest of the filters behind one Filters button. */}
+      <FilterBar
+        active={[source !== "All", slot !== "All", kind !== "All", has !== "All", !!from || !!to].filter(Boolean).length}
+        onClear={() => { setSource("All"); setSlot("All"); setKind("All"); setHas("All"); setFrom(""); setTo(""); }}
+        search={
+          <div style={{ position: "relative" }}>
+            <Icon name="search" size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: 0.45, color: C.textH }} />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Booking ID, email, name, phone, date or package" aria-label="Search bookings" style={{ ...sel, width: "100%", paddingLeft: 32 }} />
+          </div>
+        }
+      >
+        <FilterField label="Source">
+          <FullSelect value={source} onChange={(e) => setSource(e.target.value as typeof source)} aria-label="Source" style={{ ...sel, width: "100%", paddingRight: 40 }}>
+            <option value="All">All sources</option><option>Online</option><option>Walk-In</option>
+          </FullSelect>
+        </FilterField>
+        <FilterField label="Tour">
+          <FullSelect value={slot} onChange={(e) => setSlot(e.target.value as typeof slot)} aria-label="Slot" style={{ ...sel, width: "100%", paddingRight: 40 }}>
+            <option value="All">All tours</option>
+            {(["Day", "Night", "WholeDay"] as BookingSlot[]).map((s) => <option key={s} value={s}>{SLOTS[s].label}</option>)}
+          </FullSelect>
+        </FilterField>
+        <FilterField label="Pool access">
+          <FullSelect value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} aria-label="What was booked" style={{ ...sel, width: "100%", paddingRight: 40 }}>
+            <option value="All">Shared &amp; Exclusive</option>
+            <option value="Shared">Shared pool</option>
+            <option value="Exclusive">Exclusive pool</option>
+            <option value="Venue">With the events venue</option>
+          </FullSelect>
+        </FilterField>
+        <FilterField label="Has">
+          <FullSelect value={has} onChange={(e) => setHas(e.target.value as typeof has)} aria-label="What the booking has" style={{ ...sel, width: "100%", paddingRight: 40 }}>
+            <option value="All">Any booking</option>
+            <option value="Penalty">Has damage penalties</option>
+            <option value="Photos">Has inspection photos</option>
+            <option value="Owed">Still owes money</option>
+          </FullSelect>
+        </FilterField>
+        <FilterField label="Stay dates" wide>
+          <DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} fromLabel="Date from" toLabel="Date to" />
+        </FilterField>
+      </FilterBar>
 
       {/* ── What is selected, and what can be done with it ──
           Sits between the filters and the table: it belongs to the rows
@@ -334,7 +345,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
       </div>
 
       <TableShell head={[selectAllBox, "ID", "Guest", "Date", "Package", "Source", "Total", "Paid", "Status", ""]} minWidth={1060}
-        empty={rows.length === 0 ? (filtersOn ? "No bookings match these filters." : "No bookings yet.") : undefined}>
+        empty={rows.length === 0 ? (filtersOn ? <span>No bookings match these filters. <ActionButton size="sm" onClick={clear}>Clear all filters</ActionButton></span> : "No bookings yet.") : undefined}>
         {paged.rows.map((b, i) => {
           const m = bookingMoney(b, ops.payments, ops.damages);
           const s = SLOTS[getBookingSlot(b)];
@@ -750,7 +761,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
               </li>
             ))}
           </ul>
-          <Label htmlFor="bulk-delete-confirm">Type DELETE to confirm</Label>
+          <Label htmlFor="bulk-delete-confirm" className="mb-2 block">Type DELETE to confirm</Label>
           <Input
             id="bulk-delete-confirm"
             value={typed}

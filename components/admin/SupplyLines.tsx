@@ -9,7 +9,7 @@
  */
 
 import { Input } from "@/components/ui/input";
-import { FullSelect, useAdminStyle } from "@/components/admin/ui";
+import { FullSelect, useAdminStyle, useConfirm } from "@/components/admin/ui";
 import { Icon } from "@/components/common/Icon";
 import type { InventoryItem } from "@/types/inventory";
 import type { SupplyLine } from "@/types/tasks";
@@ -21,12 +21,14 @@ export function SupplyLines({ value, onChange, inventory, emptyText = "No suppli
   emptyText?: string;
 }) {
   const { C, cBr, inp } = useAdminStyle();
+  const [confirmRemove, confirmDialog] = useConfirm();
   const supplies = inventory.filter((i) => !i.deletedAt && (i.kind ?? "Supply") === "Supply");
   const unused = supplies.filter((i) => !value.some((v) => v.itemId === i.id));
   const item = (id: number) => inventory.find((i) => i.id === id);
 
   return (
     <div style={{ display: "grid", gap: 8 }}>
+      {confirmDialog}
       {value.length === 0 && <p style={{ color: C.textS, fontSize: 13, margin: 0 }}>{emptyText}</p>}
       {value.map((line) => {
         const it = item(line.itemId);
@@ -46,7 +48,7 @@ export function SupplyLines({ value, onChange, inventory, emptyText = "No suppli
               onChange={(e) => onChange(value.map((v) => v.itemId === line.itemId ? { ...v, qty: Math.max(0, Number(e.target.value) || 0) } : v))}
               style={{ ...inp, width: 90, textAlign: "right" }} />
             <span style={{ color: C.textS, fontSize: 12.5, width: 44 }}>{it?.unit ?? ""}</span>
-            <button type="button" aria-label={`Remove ${it?.name ?? "item"}`} onClick={() => onChange(value.filter((v) => v.itemId !== line.itemId))}
+            <button type="button" aria-label={`Remove ${it?.name ?? "item"}`} onClick={() => confirmRemove({ title: `Remove ${it?.name ?? "this item"}?`, action: "Remove", onConfirm: () => onChange(value.filter((v) => v.itemId !== line.itemId)) })}
               className="sw-hit" style={{ background: "none", border: "none", color: C.textS, cursor: "pointer" }}>
               <Icon name="x" size={15} />
             </button>

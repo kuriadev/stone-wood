@@ -7,6 +7,17 @@ import type { BookingResource, BookingTier, PackageSlotMode } from "@/types/book
  *  not chosen by the guest. `active: false` hides it from customers without
  *  deleting it (and without breaking any booking that already references
  *  its code). */
+/** A promo on a package: money off its regular `price`, optionally until a
+ *  date. Charged, not just shown -- the booking quote and the walk-in window
+ *  price the package through packagePriceToday (lib/pricing.ts). */
+export interface PackageDiscount {
+  type: "percent" | "amount";
+  /** Percent off (1-90), or pesos off (less than the price). */
+  value: number;
+  /** Last day the promo applies, "YYYY-MM-DD", inclusive. None: until removed. */
+  until?: string;
+}
+
 export interface ResortPackage {
   id: number;
   code: string;
@@ -14,6 +25,8 @@ export interface ResortPackage {
   resource: BookingResource;
   status: BookingTier;
   price: number;
+  /** A promo off `price`, if the owner set one. */
+  discount?: PackageDiscount;
   /** Pre-discount price, shown struck through, when this package bundles a
    *  discount (e.g. Pool + Events Venue). Omit when there's no bundle. */
   listPrice?: number;

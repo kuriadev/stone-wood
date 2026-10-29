@@ -78,7 +78,7 @@ export function Reveal({
   // reports a hydration mismatch — which is exactly what an earlier version
   // did by branching on useReducedMotion() (false on the server, true on a
   // client that asked for it). The OS preference is honoured by
-  // <MotionConfig reducedMotion="user"> in Providers instead.
+  // <MotionConfig reducedMotion setting> in Providers instead.
   return (
     <m.div
       className={className}

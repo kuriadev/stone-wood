@@ -16,7 +16,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { useAdminStyle, ActionButton } from "@/components/admin/ui";
+import { useAdminStyle, ActionButton, FilterSelect } from "@/components/admin/ui";
 import { Icon } from "@/components/common/Icon";
 import { fmtDate } from "@/lib/utils";
 import type { CustomerMessage } from "@/types/admin";
@@ -71,25 +71,6 @@ export function GuestMessagesPanel({
 
   const countOf = (t: string) => base.filter((m) => m.type === t).length;
 
-  /* The label doubles as the React key: the chips are rendered from a map,
-     and a helper that returns an element has to set the key itself — the
-     call site cannot add one afterwards. */
-  const pill = (label: string, on: boolean, onClick: () => void, n?: number) => (
-    <button
-      key={label}
-      type="button" onClick={onClick} aria-pressed={on} className="sw-hit"
-      style={{
-        padding: "6px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer",
-        whiteSpace: "nowrap", lineHeight: "16px",
-        background: on ? "rgba(201,168,76,0.15)" : "transparent",
-        color: on ? C.goldInk : C.textS,
-        border: `1px solid ${on ? "rgba(201,168,76,0.45)" : cBr}`,
-      }}
-    >
-      {label}{n === undefined ? "" : ` ${n}`}
-    </button>
-  );
-
   return (
     <section
       aria-labelledby="dash-messages"
@@ -114,14 +95,31 @@ export function GuestMessagesPanel({
         )}
       </div>
 
-      {/* ── Inbox / Archive, then the type chips ── */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "12px 16px 0" }}>
-        {pill("Inbox", view === "inbox", () => setView("inbox"), inbox.length)}
-        {pill("Archive", view === "archive", () => setView("archive"), archived.length)}
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "8px 16px 12px" }}>
-        {pill("All", type === "All", () => setType("All"), base.length)}
-        {CHIPS.map((t) => pill(TYPE_LABEL[t], type === t, () => setType(t), countOf(t)))}
+      {/* ── Inbox / Archive, then the type: two selects instead of seven
+          pills over three lines. ── */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "12px 16px 12px" }}>
+        <FilterSelect<typeof view>
+          label="Box"
+          value={view}
+          onChange={setView}
+          menuWidth={200}
+          fullWidthOnPhone={false}
+          options={[
+            { value: "inbox", label: "Inbox", count: inbox.length },
+            { value: "archive", label: "Archive", count: archived.length },
+          ]}
+        />
+        <FilterSelect<typeof type>
+          label="Type"
+          value={type}
+          onChange={setType}
+          menuWidth={220}
+          fullWidthOnPhone={false}
+          options={[
+            { value: "All" as typeof type, label: "All messages", count: base.length },
+            ...CHIPS.map((t) => ({ value: t as typeof type, label: TYPE_LABEL[t], count: countOf(t) })),
+          ]}
+        />
       </div>
 
       {/* ── The feed ── */}

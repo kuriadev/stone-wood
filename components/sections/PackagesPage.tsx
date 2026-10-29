@@ -1,8 +1,7 @@
 "use client";
 
-import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
-import { T } from "@/lib/theme";
+import { THEME_COLORS } from "@/lib/theme";
 import type { ResortPackage } from "@/types/package";
 import type { BookingResource, BookingTier } from "@/types/booking";
 import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
@@ -18,8 +17,7 @@ export function PackagesPage({ setPage, packages, onBookPackage }: PackagesPageP
   // Scroll reveals. Called here, not in the layout: the effect must run
   // after THIS page has hydrated or it mutates un-hydrated DOM.
 
-  const { isDark } = useTheme();
-  const C = T(isDark);
+  const C = THEME_COLORS;
   const w = useWidth();
   const mob = w < 768;
 

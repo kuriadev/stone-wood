@@ -19,9 +19,9 @@ import { useEffect, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
 import { fmt } from "@/lib/utils";
 import { getPackageTier, checkRangeAvailability, isRoomOpen, roomsTakenInRange, daysInRange, fmtDate } from "@/lib/utils";
-import { MAX_STAY_DAYS } from "@/lib/validators";
+import { MAX_STAY_DAYS, currentBookingYear } from "@/lib/validators";
 import { UNPAID_HOLD_HOURS } from "@/lib/rebooking";
-import { priceBooking, bookingLabel } from "@/lib/pricing";
+import { priceBooking, bookingLabel, packagePriceToday } from "@/lib/pricing";
 import { SLOTS, multiDayProblem } from "@/lib/resort";
 import { manilaDate } from "@/lib/finance";
 import {
@@ -122,7 +122,8 @@ export function WalkInModal({
     : { ok: true as const };
   const selectedRooms = wf.rooms.map((id) => rooms.find((r) => r.id === id)).filter((r): r is Room => !!r);
   const price = priceBooking({
-    pkg: isPkg ? { price: pkg!.price, requiresRoom } : null,
+    // The promo price while one runs, as the server charges.
+    pkg: isPkg ? { price: packagePriceToday(pkg!, manilaDate()).pay, requiresRoom } : null,
     resource, tier, slot, guests, overtime,
     roomPrices: selectedRooms.map((r) => r.price),
     days: stayDays,
@@ -227,14 +228,14 @@ export function WalkInModal({
           </div>
           <div>
             <Label htmlFor="wi-date">First day</Label>
-            <Input id="wi-date" type="date" value={wf.date} onChange={(e) => set("date", e.target.value)} style={inp} />
+            <Input id="wi-date" type="date" min={currentBookingYear().first} max={currentBookingYear().last} value={wf.date} onChange={(e) => set("date", e.target.value)} style={inp} />
           </div>
           <div>
             {/* Blank is the normal case: one day. Filling it in books the
                 same slot on every day up to and including that date, and
                 charges for each of them. */}
             <Label htmlFor="wi-end-date">Last day (leave blank for one day)</Label>
-            <Input id="wi-end-date" type="date" min={wf.date} value={wf.endDate} onChange={(e) => set("endDate", e.target.value)} style={inp} />
+            <Input id="wi-end-date" type="date" min={wf.date || currentBookingYear().first} max={currentBookingYear().last} value={wf.endDate} onChange={(e) => set("endDate", e.target.value)} style={inp} />
             <p style={{ color: stayTooLong || tourTooLong ? "#d44" : C.textS, fontSize: 12, margin: "6px 0 0", lineHeight: 1.5 }}>
               {stayTooLong
                 ? `A booking can run for at most ${MAX_STAY_DAYS} days.`
@@ -288,9 +289,10 @@ export function WalkInModal({
               <Label>Package</Label>
               <FullSelect aria-label="Package" value={pkgId ?? ""} onChange={(e) => { setPkgId(e.target.value ? Number(e.target.value) : null); set("rooms", []); }} style={inp}>
                 <option value="">Choose a package…</option>
-                {packages.filter((p) => p.active).map((p) => (
-                  <option key={p.id} value={p.id}>{p.title} · {fmt(p.price)} · up to {p.capacity}</option>
-                ))}
+                {packages.filter((p) => p.active).map((p) => {
+                  const t = packagePriceToday(p, manilaDate());
+                  return <option key={p.id} value={p.id}>{p.title} · {fmt(t.pay)}{t.badge ? ` (${t.badge})` : ""} · up to {p.capacity}</option>;
+                })}
               </FullSelect>
             </div>
           ) : (

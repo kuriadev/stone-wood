@@ -10,7 +10,8 @@ import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server
 import { fmt } from "@/lib/utils";
 import { getSupabaseAdmin, rowToPackage } from "@/lib/supabase";
 import { requirePermission } from "@/lib/auth";
-import { pricingProblem } from "@/lib/pricing";
+import { packageSetupProblem, packageTier, cleanPackageDiscount } from "@/lib/pricing";
+import { ensureSettings } from "@/lib/settings.server";
 import { GALLERY_MAX, sanitizeLabel, sanitizeNotes } from "@/lib/validators";
 import type { PackageRow } from "@/types/database";
 import type { BookingResource, BookingTier } from "@/types/booking";
@@ -24,11 +25,30 @@ const lines = (v: unknown): string[] =>
   Array.isArray(v) ? v.map((s) => String(s).trim()).filter(Boolean).slice(0, 40)
                    : String(v ?? "").split("\n").map((s) => s.trim()).filter(Boolean).slice(0, 40);
 
+/** The promo column is missing: migration 20261028140000 has not run. */
+const noDiscountColumn = (err: { message?: string } | null | undefined) =>
+  !!err && /discount/.test(err.message ?? "") && /(column|schema cache)/i.test(err.message ?? "");
+
+async function discountReady(): Promise<boolean> {
+  const { error } = await getSupabaseAdmin().from("packages").select("discount").limit(1);
+  return !noDiscountColumn(error);
+}
+
+/** The row to write, without the promo when the database can't hold one
+ *  yet, so the rest of the package still saves. */
+async function rowFor(b: Record<string, unknown>) {
+  const row = build(b);
+  if (await discountReady()) return { row, discountSaved: true };
+  const { discount: _dropped, ...rest } = row;
+  void _dropped;
+  return { row: rest, discountSaved: row.discount === null };
+}
+
 export async function GET() {
   try {
     const { data, error } = await getSupabaseAdmin().from("packages").select("*").order("id");
     if (error) throw new Error(error.message);
-    return NextResponse.json({ success: true, packages: (data as PackageRow[]).map(rowToPackage) });
+    return NextResponse.json({ success: true, packages: (data as PackageRow[]).map(rowToPackage), discountReady: await discountReady() });
   } catch (err) {
     console.error("[/api/packages GET]", err);
     return NextResponse.json({ success: false, error: "Could not load packages." }, { status: 500 });
@@ -67,7 +87,7 @@ function build(b: Record<string, unknown>) {
     code: String(b.code ?? "").trim() || String(b.title ?? "").trim().toUpperCase().replace(/\s+/g, "-"),
     title: sanitizeLabel(String(b.title ?? "")),
     resource: b.resource as BookingResource,
-    status: b.status as BookingTier,
+    status: packageTier(b.resource as BookingResource, b.status as BookingTier),
     price,
     list_price: b.listPrice ? Number(b.listPrice) : null,
     capacity: Math.round(capacity),
@@ -79,6 +99,8 @@ function build(b: Record<string, unknown>) {
     includes: lines(b.includes),
     note: b.note ? sanitizeNotes(String(b.note)) : null,
     active: b.active !== false,
+    // Checked in problemWith; anything unusable here is no promo.
+    discount: (() => { const d = cleanPackageDiscount(b.discount, price); return d.ok ? d.discount : null; })(),
   };
 }
 
@@ -88,11 +110,14 @@ function problemWith(b: Record<string, unknown>): string | null {
   if (!TIERS.includes(b.status as BookingTier)) return "Unknown tier.";
   const price = Number(b.price);
   if (!Number.isFinite(price) || price < 0) return "Price must be zero or more.";
-  const cap = Number(b.capacity);
-  if (!Number.isFinite(cap) || cap < 1) return "Capacity must be at least 1.";
-  const problem = pricingProblem(b.resource as BookingResource, b.status as BookingTier, b.slotMode === "WholeDay" ? "WholeDay" : "Day", 1, true);
-  if (problem) return problem;
-  return null;
+  const promo = cleanPackageDiscount(b.discount, Number(b.price));
+  if (!promo.ok) return promo.error;
+  return packageSetupProblem({
+    resource: b.resource as BookingResource,
+    status: b.status as BookingTier,
+    slotMode: b.slotMode === "WholeDay" ? "WholeDay" : "Single",
+    capacity: Math.round(Number(b.capacity)),
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -100,17 +125,20 @@ export async function POST(req: NextRequest) {
   if (denied) return denied;
   try {
     const b = await req.json().catch(() => ({}));
+    // The capacity limit is the owner's (Rates & Settings), not the default.
+    await ensureSettings();
     const problem = problemWith(b);
     if (problem) return NextResponse.json({ success: false, error: problem }, { status: 400 });
 
-    const { data, error } = await getSupabaseAdmin().from("packages").insert(build(b)).select().single();
+    const { row, discountSaved } = await rowFor(b);
+    const { data, error } = await getSupabaseAdmin().from("packages").insert(row).select().single();
     if (error) {
       if (error.code === "23505") return NextResponse.json({ success: false, error: "A package with that code already exists." }, { status: 409 });
       throw new Error(error.message);
     }
     const added = data as PackageRow;
     await logActivity({ actor: "Admin", action: "package.added", entity: "package", entityId: added.id, summary: `Added the package "${added.title}" at ${fmt(Number(added.price))}.` });
-    return NextResponse.json({ success: true, package: rowToPackage(data as PackageRow) }, { status: 201 });
+    return NextResponse.json({ success: true, package: rowToPackage(data as PackageRow), discountSaved }, { status: 201 });
   } catch (err) {
     console.error("[/api/packages POST]", err);
     return NextResponse.json({ success: false, error: "Could not add that package." }, { status: 500 });
@@ -124,18 +152,21 @@ export async function PATCH(req: NextRequest) {
   if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "A numeric package id is required." }, { status: 400 });
   try {
     const b = await req.json().catch(() => ({}));
+    // The capacity limit is the owner's (Rates & Settings), not the default.
+    await ensureSettings();
     const problem = problemWith(b);
     if (problem) return NextResponse.json({ success: false, error: problem }, { status: 400 });
 
     const prev = await loadRow("packages", id);
-    const { data, error } = await getSupabaseAdmin().from("packages").update(build(b)).eq("id", id).select().maybeSingle();
+    const { row, discountSaved } = await rowFor(b);
+    const { data, error } = await getSupabaseAdmin().from("packages").update(row).eq("id", id).select().maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) return NextResponse.json({ success: false, error: "Package not found." }, { status: 404 });
     const diff = changes(prev, data as Record<string, unknown>);
     if (Object.keys(diff).length) {
       await logActivity({ actor: "Admin", action: "package.updated", entity: "package", entityId: id, summary: `Updated the package "${(data as PackageRow).title}": ${listFields(diff)}.`, details: { changes: diff } });
     }
-    return NextResponse.json({ success: true, package: rowToPackage(data as PackageRow) });
+    return NextResponse.json({ success: true, package: rowToPackage(data as PackageRow), discountSaved });
   } catch (err) {
     console.error("[/api/packages PATCH]", err);
     return NextResponse.json({ success: false, error: "Could not update that package." }, { status: 500 });

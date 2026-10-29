@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cmd /c \"npx next --version\" 2>&1; cmd /c \"npm run build\" 2>&1 | Select-Object -Last 40)",
+      "PowerShell(git stash *)",
+      "PowerShell(git *)",
+      "PowerShell(cmd /c \"npm install\" 2>&1 | Select-Object -Last 15; echo \"---VERSION---\"; cmd /c \"npx next --version\")",
+      "PowerShell(cmd /c \"npm run lint\" 2>&1 | Select-Object -Last 40)",
+      "PowerShell(cmd /c \"npm test\" 2>&1 | Select-Object -Last 60)",
+      "PowerShell(cmd /c \"npx --yes next@16.5.0-canary.28 internal report-agent-upgrade 8a2551e0-26ef-4a3b-a1f2-41fdcebb5883 success\" 2>&1 | Select-Object -Last 20)",
+      "PowerShell(cmd /c \"npm ls @eslint/eslintrc\" 2>&1)",
+      "PowerShell(cmd /c \"npm view eslint-config-next@16.4.3 version\" 2>&1; cmd /c \"npm view eslint-config-next dist-tags.latest\" 2>&1)",
+      "PowerShell(cmd /c \"npm install -D eslint-config-next@16.4.3\" 2>&1 | Select-Object -Last 20)"
+    ]
+  }
+}

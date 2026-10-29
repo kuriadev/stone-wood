@@ -1,7 +1,6 @@
 "use client";
 
-import { useTheme } from "@/contexts/ThemeContext";
-import { T } from "@/lib/theme";
+import { THEME_COLORS } from "@/lib/theme";
 
 /**
  * The loading placeholders.
@@ -76,8 +75,7 @@ export function CardGridSkeleton({
 }
 
 export function PageSkeleton() {
-  const { isDark } = useTheme();
-  const C = T(isDark);
+  const C = THEME_COLORS;
 
   return (
     <div

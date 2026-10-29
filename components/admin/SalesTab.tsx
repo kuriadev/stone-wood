@@ -42,10 +42,7 @@ import { gold } from "@/lib/styles";
 import { RecordPaymentModal } from "@/components/admin/RecordPaymentModal";
 import { RefundModal } from "@/components/admin/RefundModal";
 import { InvoiceModal } from "@/components/admin/InvoiceModal";
-import {
-  AdminPageHeader, StatCard, ChoiceButtons, TableShell, td, ActionButton, StatusBadge, Modal, Label, AmountRow, ErrorNote,
-  useAdminStyle, Row, Cell, STATUS_COLOR, FullSelect, ViewSwitcherTabs, ConfirmDialog, TotalRow, TOGGLE_CLEARANCE, usePaged, Pager,
-} from "@/components/admin/ui";
+import { AdminPageHeader, StatCard, ChoiceButtons, TableShell, td, ActionButton, StatusBadge, Modal, Label, AmountRow, ErrorNote, useAdminStyle, Row, Cell, STATUS_COLOR, FullSelect, ViewSwitcherTabs, ConfirmDialog, TotalRow, TOGGLE_CLEARANCE, usePaged, Pager, FilterSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
 
 type View = "Transactions" | "Payments" | "Receivables" | "Settlements" | "Clients" | "Expenses" | "Closing";
 
@@ -170,32 +167,40 @@ function Transactions({ payments }: { payments: Payment[] }) {
   const sel = { ...inp, padding: "8px 12px", width: "auto" } as const;
   return (
     <div>
-      {/* A grid that becomes the old single row only when there is width for
-          one. Wrapping a flex row left the controls ragged at middling
-          widths — a lone date input on its own line, the search box squeezed
-          to its 200px minimum beside a stranded checkbox. Columns keep them
-          aligned at every size, and the date pair stays together. */}
-      <div className="mb-3 grid grid-cols-1 items-center gap-3 sm:grid-cols-2 xl:flex xl:flex-wrap">
-        <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From" style={{ ...sel, minWidth: 0, flex: 1 }} />
-          <span style={{ color: C.textS, fontSize: 13, flexShrink: 0 }}>to</span>
-          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To" style={{ ...sel, minWidth: 0, flex: 1 }} />
-        </div>
-{/* FullSelect carries the w-full override on an ancestor of the
-            wrapper, which is the only place it works: NativeSelect hands its
-            className to the <select>, not to the w-fit wrapper around it. */}
-        <FullSelect value={type} onChange={(e) => setType(e.target.value)} aria-label="Type" style={{ ...sel, width: "100%" }}>
-          <option>All</option>{PAYMENT_TYPES.map((t) => <option key={t}>{t}</option>)}
-        </FullSelect>
-        <FullSelect value={method} onChange={(e) => setMethod(e.target.value)} aria-label="Method" style={{ ...sel, width: "100%" }}>
-          <option>All</option>{PAYMENT_METHODS.map((t) => <option key={t}>{t}</option>)}
-        </FullSelect>
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Booking ID, email or guest" className="sm:col-span-2 xl:flex-1" style={{ ...sel, width: "100%", minWidth: 0 }} />
-        <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 8, alignItems: "center", minHeight: 36 }}>
-          <Checkbox checked={showVoided} onCheckedChange={(v) => setShowVoided(v === true)} /> Show voided
-        </label>
-        <ActionButton size="sm" icon="download" onClick={exportCsv}>Download CSV</ActionButton>
-      </div>
+      {/* Search beside the Filters button; the date range, type, method and
+          voided switch behind it. It opens on this month, which counts as no
+          filter. */}
+      <FilterBar
+        active={[from !== month.from || to !== month.to, type !== "All", method !== "All", showVoided].filter(Boolean).length}
+        onClear={() => { setFrom(month.from); setTo(month.to); setType("All"); setMethod("All"); setShowVoided(false); }}
+        search={
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Booking ID, email or guest" aria-label="Search transactions" style={{ ...sel, width: "100%", minWidth: 0, flex: 1 }} />
+            <ActionButton size="sm" icon="download" onClick={exportCsv}>CSV</ActionButton>
+          </div>
+        }
+      >
+        <FilterField label="Dates" wide>
+          <DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} />
+        </FilterField>
+        <FilterField label="Type">
+          {/* FullSelect carries the w-full override on an ancestor of the
+              wrapper, which is the only place it works. */}
+          <FullSelect value={type} onChange={(e) => setType(e.target.value)} aria-label="Type" style={{ ...sel, width: "100%" }}>
+            <option>All</option>{PAYMENT_TYPES.map((t) => <option key={t}>{t}</option>)}
+          </FullSelect>
+        </FilterField>
+        <FilterField label="Method">
+          <FullSelect value={method} onChange={(e) => setMethod(e.target.value)} aria-label="Method" style={{ ...sel, width: "100%" }}>
+            <option>All</option>{PAYMENT_METHODS.map((t) => <option key={t}>{t}</option>)}
+          </FullSelect>
+        </FilterField>
+        <FilterField label="Undone payments">
+          <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 8, alignItems: "center", minHeight: 40 }}>
+            <Checkbox checked={showVoided} onCheckedChange={(v) => setShowVoided(v === true)} /> Show voided
+          </label>
+        </FilterField>
+      </FilterBar>
 
       <TableShell head={["Date", "Booking", "Guest", "Type", "Method", "Reference", "Amount", ""]} minWidth={860}
         empty={rows.length === 0 ? "No payments in this range." : undefined}>
@@ -297,13 +302,13 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
       </div>
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
-        <ChoiceButtons<"All" | BookingMoney["state"]>
+        <FilterSelect<"All" | BookingMoney["state"]>
+          label="Payment"
           value={state}
           onChange={setState}
-          size="sm"
           options={[
-            { value: "All", label: `All (${rows.length})` },
-            ...counts.map(([st, n]) => ({ value: st, label: `${st} (${n})` })),
+            { value: "All", label: "All", count: rows.length },
+            ...counts.map(([st, n]) => ({ value: st, label: st, count: n })),
           ]}
         />
         <Input
@@ -451,15 +456,20 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
         <StatCard label="Paid" value={fmt(paid)} color="#2e9e4e" />
         <StatCard label="Closed unpaid" value={fmt(unpaid)} color={unpaid > 0 ? "#d4a800" : undefined} />
       </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search reference, guest or phone" aria-label="Search settlements" style={{ ...sel, flex: "1 1 220px" }} />
-        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Settled from" style={sel} />
-        <span style={{ color: C.textS, fontSize: 13 }}>to</span>
-        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Settled to" style={sel} />
-        <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 8, alignItems: "center" }}>
-          <Checkbox checked={onlyUnpaid} onCheckedChange={(v) => setOnlyUnpaid(v === true)} /> Only closed unpaid
-        </label>
-      </div>
+      <FilterBar
+        active={[!!from || !!to, onlyUnpaid].filter(Boolean).length}
+        onClear={() => { setFrom(""); setTo(""); setOnlyUnpaid(false); }}
+        search={<Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search reference, guest or phone" aria-label="Search settlements" style={{ ...sel, width: "100%" }} />}
+      >
+        <FilterField label="Settled" wide>
+          <DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} fromLabel="Settled from" toLabel="Settled to" />
+        </FilterField>
+        <FilterField label="Unpaid">
+          <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 8, alignItems: "center", minHeight: 40 }}>
+            <Checkbox checked={onlyUnpaid} onCheckedChange={(v) => setOnlyUnpaid(v === true)} /> Only closed unpaid
+          </label>
+        </FilterField>
+      </FilterBar>
       <TableShell head={["Settled", "Booking", "Guest", "Stay", "Penalties", "Paid", "Unpaid", ""]} minWidth={940}
         empty={settled.length === 0 ? "No settled bookings match." : undefined}>
         {pagedSet.rows.map(({ b, m, on }, i) => (

@@ -2,20 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
-import { useTheme } from "@/contexts/ThemeContext";
-import { T } from "@/lib/theme";
+import { THEME_COLORS } from "@/lib/theme";
 import { PackagesPage } from "@/components/sections/PackagesPage";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { CardGridSkeleton } from "@/components/common/Skeleton";
 import { buildPackageBookingUrl } from "@/lib/utils";
-import { packageValue } from "@/lib/pricing";
+import { packageLinkPrices } from "@/lib/pricing";
+import { manilaNow } from "@/lib/validators";
 
 export default function PackagesRoute() {
   const router = useRouter();
-  const { isDark } = useTheme();
-  const C = T(isDark);
+  const C = THEME_COLORS;
   const { packages, skeleton } = useApp();
 
   const nav = (p: string) => {
@@ -66,8 +65,7 @@ export default function PackagesRoute() {
                 {
                   code: pkg.code,
                   title: pkg.title,
-                  price: pkg.price,
-                  listPrice: packageValue(pkg).compare,
+                  ...packageLinkPrices(pkg, manilaNow().date),
                   capacity: pkg.capacity,
                   requiresRoom: pkg.requiresRoom,
                   slotMode: pkg.slotMode,

@@ -16,8 +16,9 @@
  */
 
 import { useState } from "react";
-import { useTheme } from "@/contexts/ThemeContext";
-import { T } from "@/lib/theme";
+import { packagePriceToday } from "@/lib/pricing";
+import { manilaNow } from "@/lib/validators";
+import { THEME_COLORS } from "@/lib/theme";
 import { fmt } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
@@ -68,8 +69,7 @@ const whenLabel = (p: ResortPackage): string =>
   p.slotMode === "WholeDay" ? SLOTS.WholeDay.hours : "Day or Night";
 
 export function EventPackages({ kind, packages, mob, onBook }: EventPackagesProps) {
-  const { isDark } = useTheme();
-  const C = T(isDark);
+  const C = THEME_COLORS;
   const copy = COPY[kind];
   const [expanded, setExpanded] = useState(false);
   const [open, setOpen] = useState<ResortPackage | null>(null);
@@ -111,7 +111,7 @@ export function EventPackages({ kind, packages, mob, onBook }: EventPackagesProp
               type="button"
               className="sw-event-card"
               onClick={() => setOpen(p)}
-              aria-label={`View ${p.title} — ${fmt(p.price)}`}
+              aria-label={`View ${p.title} — ${fmt(packagePriceToday(p, manilaNow().date).pay)}`}
               style={{
                 position: "relative", display: "block", width: "100%", padding: 0,
                 textAlign: "left", cursor: "pointer", overflow: "hidden",
@@ -154,7 +154,16 @@ export function EventPackages({ kind, packages, mob, onBook }: EventPackagesProp
                   {whenLabel(p)} · up to {p.capacity} guests
                 </span>
                 <span style={{ display: "block", color: C.textXS, fontSize: 9.5, letterSpacing: 1.6 }}>STARTING AT</span>
-                <span style={{ display: "block", color: C.goldInk, fontSize: 18, fontWeight: 700 }}>{fmt(p.price)}</span>
+                {(() => {
+                  const t = packagePriceToday(p, manilaNow().date);
+                  return (
+                    <span style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ color: C.goldInk, fontSize: 18, fontWeight: 700 }}>{fmt(t.pay)}</span>
+                      {t.badge && <span style={{ color: C.textXS, fontSize: 13, textDecoration: "line-through" }}>{fmt(t.regular)}</span>}
+                      {t.badge && <span style={{ color: "#e2574c", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>{t.badge}</span>}
+                    </span>
+                  );
+                })()}
               </span>
             </button>
           </li>

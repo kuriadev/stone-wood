@@ -1,3 +1,4 @@
+import type { PackageDiscount } from "@/types/package";
 // ── Supabase row shapes
 //
 // Hand-written to match supabase/migrations/. If you later install the
@@ -137,6 +138,9 @@ export interface GalleryRow {
   id: number;
   url: string;
   sort_order: number;
+  /** Missing until migration 20261028120000_gallery_captions has run. */
+  title?: string;
+  description?: string;
   created_at: string;
 }
 
@@ -173,6 +177,8 @@ export interface PackageRow {
   status: BookingTier;
   price: number;
   list_price: number | null;
+  /** Missing until migration 20261028140000_package_discount has run. */
+  discount?: PackageDiscount | null;
   capacity: number;
   requires_room: boolean;
   /** Added by 20260924090000_slots_and_packages.sql. */

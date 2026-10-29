@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, ReactNode } from "react";
 import { useDbCollection } from "@/hooks/useDbCollection";
 import { usePublicAvailability } from "@/hooks/usePublicAvailability";
 import { useMaintenance } from "@/hooks/useMaintenance";
@@ -18,6 +18,7 @@ import type { CustomerMessage } from "@/types/admin";
 import type { Facility } from "@/types/facility";
 import type { InventoryItem } from "@/types/inventory";
 import type { ResortPackage } from "@/types/package";
+import { toGalleryPhoto, type GalleryPhoto } from "@/lib/gallery";
 
 interface AppState {
   /** Signed-in admin: every booking, editable.
@@ -30,8 +31,12 @@ interface AppState {
   refreshAvailability: () => Promise<void>;
   rooms: Room[];
   setRooms: React.Dispatch<React.SetStateAction<Room[]>>;
+  /** The gallery photos with their captions. Index 0 is the /gallery hero
+   *  and the /about photo; the rest are the photo wall, in order. */
+  galleryPhotos: GalleryPhoto[];
+  setGalleryPhotos: React.Dispatch<React.SetStateAction<GalleryPhoto[]>>;
+  /** Just the image urls of galleryPhotos, for places that show no text. */
   galleryImgs: string[];
-  setGalleryImgs: React.Dispatch<React.SetStateAction<string[]>>;
   closedDates: string[];
   setClosedDates: React.Dispatch<React.SetStateAction<string[]>>;
   customerMessages: CustomerMessage[];
@@ -99,6 +104,8 @@ const AppCtx = createContext<AppState | null>(null);
 const NO_BOOKINGS: Booking[] = [];
 const NO_FACILITIES: Facility[] = [];
 const NO_INVENTORY: InventoryItem[] = [];
+// Module-level so the initial value keeps one identity across renders.
+const INIT_GALLERY_PHOTOS: GalleryPhoto[] = INIT_GALLERY.map(toGalleryPhoto);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   // Not persisted on purpose — admin login should require signing in again
@@ -122,7 +129,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const { maintenance, refreshMaintenance, applyMaintenance } = useMaintenance();
   const bookings = adminAuth ? adminBookings : publicAvailability.bookings;
   const [rooms, setRooms, roomsMeta] = useDbCollection<Room>(COLLECTIONS.rooms, INIT_ROOMS);
-  const [galleryImgs, setGalleryImgs, galleryMeta] = useDbCollection<string>(COLLECTIONS.gallery, INIT_GALLERY);
+  const [galleryPhotos, setGalleryPhotos, galleryMeta] = useDbCollection<GalleryPhoto>(COLLECTIONS.gallery, INIT_GALLERY_PHOTOS);
+  const galleryImgs = useMemo(() => galleryPhotos.map((p) => p.url), [galleryPhotos]);
   const [closedDates, setClosedDates] = useDbCollection<string>(COLLECTIONS.closedDates, []);
   const [customerMessages, setCustomerMessages] = useDbCollection<CustomerMessage>(COLLECTIONS.customerMessages, [], adminAuth);
   const [adminFacilities, setFacilities, facilitiesMeta] = useDbCollection<Facility>(COLLECTIONS.facilities, NO_FACILITIES, adminAuth);
@@ -140,7 +148,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       bookings, setBookings,
       refreshAvailability: publicAvailability.refresh,
       rooms, setRooms,
-      galleryImgs, setGalleryImgs,
+      galleryPhotos, setGalleryPhotos, galleryImgs,
       closedDates, setClosedDates,
       customerMessages, setCustomerMessages,
       adminAuth, setAdminAuth,

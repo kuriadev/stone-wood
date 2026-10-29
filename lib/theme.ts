@@ -100,3 +100,19 @@ export function T(_isDark: boolean): ThemeColors {
     shadowCard: V("--sw-shadow-card"),
   };
 }
+
+/**
+ * The palette, for a component that only needs colours.
+ *
+ * T() ignores its argument: every colour it returns is a CSS variable, and
+ * the variables themselves switch when ThemeContext flips sw-dark / sw-light
+ * on <html>. So reading the palette needs no React state at all.
+ *
+ * Subscribing to the theme just to call T(isDark) made a component
+ * re-render on every theme switch for nothing — 17 of them did, every
+ * route page among them, and a page re-rendering drags its whole subtree
+ * along. That re-render is what held the screen still before the theme
+ * fade could start. Use this instead of `const { isDark } = useTheme();
+ * const C = T(isDark);` wherever isDark is not used for anything else.
+ */
+export const THEME_COLORS: ThemeColors = T(true);

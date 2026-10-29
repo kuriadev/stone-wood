@@ -42,7 +42,7 @@ import { OVERTIME_RATE } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
 import type { Facility } from "@/types/facility";
 import { Icon } from "@/components/common/Icon";
-import { Modal, Label, ChoiceButtons, ActionButton, AmountRow, ErrorNote, StatusBadge, useAdminStyle, FullSelect, STATUS_COLOR } from "@/components/admin/ui";
+import { Modal, Label, ChoiceButtons, ActionButton, AmountRow, ErrorNote, StatusBadge, useAdminStyle, FullSelect, STATUS_COLOR, useConfirm } from "@/components/admin/ui";
 import { gold } from "@/lib/styles";
 import { BookingHistory } from "@/components/admin/BookingHistory";
 
@@ -184,6 +184,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
   /** facilityId -> photos taken of it (compressed data URLs). */
   const [photos, setPhotos] = useState<Record<number, string[]>>({});
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [confirmRemove, confirmDialog] = useConfirm();
   const used = facilitiesForBooking(booking, facilities);
   const rates = ops.damageRates.filter((r) => r.active);
   const money = bookingMoney(booking, ops.payments, ops.damages);
@@ -326,6 +327,8 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
       : paying > 0 ? `Check out · record ${fmt(paying)}` : "Check out, collect later";
 
   return (
+    <>
+    {confirmDialog}
     <Modal title={!handlesMoney ? `Inspect after ${booking.name}` : wasCheckedIn ? `Check out ${booking.name}` : `Complete ${booking.name}'s stay`} subtitle={<BookingSummary b={booking} />} onClose={onClose} width={1160}
       footer={
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -375,7 +378,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
                     <span key={pi} style={{ position: "relative" }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={src} alt={`${x.facilityName}, photo ${pi + 1}`} width={64} height={64} style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: `1px solid ${cBr}` }} />
-                      <button type="button" aria-label="Remove photo" onClick={() => setPhotos((p) => ({ ...p, [f.id]: (p[f.id] ?? []).filter((_, k) => k !== pi) }))}
+                      <button type="button" aria-label="Remove photo" onClick={() => confirmRemove({ title: "Remove this photo?", body: "It won't be saved with the inspection.", action: "Remove photo", onConfirm: () => setPhotos((p) => ({ ...p, [f.id]: (p[f.id] ?? []).filter((_, k) => k !== pi) })) })}
                         style={{ position: "absolute", top: -8, right: -8, width: 28, height: 28, borderRadius: "50%", border: "none", background: "#333", color: "#fff", cursor: "pointer", lineHeight: 0 }}>
                         <Icon name="x" size={12} />
                       </button>
@@ -414,7 +417,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
                           <div style={{ color: C.textH, fontWeight: 600, fontSize: 14, paddingBottom: 8, textAlign: "right" }}>
                             {d.quantity} × {fmt(d.unitRate)} = {fmt(lineAmount(d))}
                           </div>
-                          <button type="button" onClick={() => removeDamage(f.id, d.key)} aria-label="Remove item" style={{ background: "transparent", border: "none", color: C.textS, cursor: "pointer", minWidth: 40, minHeight: 40, justifySelf: mob ? "end" : undefined }}><Icon name="trash" size={15} /></button>
+                          <button type="button" onClick={() => confirmRemove({ title: "Remove this damage line?", body: "It won't be charged or recorded.", action: "Remove line", onConfirm: () => removeDamage(f.id, d.key) })} aria-label="Remove item" style={{ background: "transparent", border: "none", color: C.textS, cursor: "pointer", minWidth: 40, minHeight: 40, justifySelf: mob ? "end" : undefined }}><Icon name="trash" size={15} /></button>
                         </div>
                         {d.custom && (
                           <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "2fr 1fr", gap: 8, marginTop: 8 }}>
@@ -533,6 +536,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
         </div>
       </div>
     </Modal>
+    </>
   );
 }
 

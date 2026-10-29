@@ -11,10 +11,7 @@ import { useTheme } from "@/contexts/ThemeContext";
  *   • The native cursor is left visible. Replacing it would hurt usability
  *     (text carets, resize handles, disabled states all stop reading right).
  *   • Skipped on coarse pointers (touch), where there is nothing to follow.
- *   • Under prefers-reduced-motion the dot still shows, but snaps straight
- *     to the pointer instead of easing. It is a pointer indicator, not an
- *     animation, so hiding it outright would remove a feature rather than
- *     calm one down — the trailing lag is the only part that is motion.
+ *   • Eases and springs on every device, reduce-motion setting or not.
  *   • Position is written straight to the node inside requestAnimationFrame.
  *     Putting it in React state would re-render the whole tree ~60×/second.
  */
@@ -51,7 +48,6 @@ export function CursorDot() {
     if (!dot) return;
 
     const finePointer = window.matchMedia("(pointer: fine)");
-    const reducedQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     // target = where the pointer actually is; current = where the dot is.
     // Easing current toward target each frame is what produces the chase.
@@ -67,13 +63,7 @@ export function CursorDot() {
     let visible = false;
     let raf = 0;
 
-    // Ease of 1 means "no trail" — the dot lands exactly on the pointer.
-    let ease = reducedQuery.matches ? 1 : POSITION_EASE;
-    let springy = !reducedQuery.matches;
-    const onReducedChange = (e: MediaQueryListEvent) => {
-      ease = e.matches ? 1 : POSITION_EASE;
-      springy = !e.matches;
-    };
+    const ease = POSITION_EASE;
 
     const onMove = (e: PointerEvent) => {
       targetX = e.clientX;
@@ -106,16 +96,11 @@ export function CursorDot() {
       currentX += (targetX - currentX) * ease;
       currentY += (targetY - currentY) * ease;
 
-      if (springy) {
-        // Critically-ish damped spring: accelerate toward the target, bleed
-        // off velocity each frame. Gives a soft overshoot on the way up.
-        scaleVel += (targetScale - scale) * SPRING_STIFFNESS;
-        scaleVel *= SPRING_DAMPING;
-        scale += scaleVel;
-      } else {
-        scale = targetScale;
-        scaleVel = 0;
-      }
+      // Critically-ish damped spring: accelerate toward the target, bleed
+      // off velocity each frame. Gives a soft overshoot on the way up.
+      scaleVel += (targetScale - scale) * SPRING_STIFFNESS;
+      scaleVel *= SPRING_DAMPING;
+      scale += scaleVel;
 
       // translate3d keeps this on the compositor; -50% centres the circle
       // on the pointer regardless of its size.
@@ -164,12 +149,10 @@ export function CursorDot() {
     syncPointer();
 
     finePointer.addEventListener("change", syncPointer);
-    reducedQuery.addEventListener("change", onReducedChange);
 
     return () => {
       stop();
       finePointer.removeEventListener("change", syncPointer);
-      reducedQuery.removeEventListener("change", onReducedChange);
     };
   }, []);
 

@@ -2,8 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
-import { useTheme } from "@/contexts/ThemeContext";
-import { T } from "@/lib/theme";
+import { THEME_COLORS } from "@/lib/theme";
 import { Home } from "@/components/sections/Home";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -13,8 +12,7 @@ import { buildPackageBookingUrl } from "@/lib/utils";
 
 export default function HomePage() {
   const router = useRouter();
-  const { isDark } = useTheme();
-  const C = T(isDark);
+  const C = THEME_COLORS;
   const { bookings, closedDates, packages, rooms, skeleton } = useApp();
   const [selectedDate, setSelectedDate] = useState("");
   const [page, setPage] = useState("Home");
@@ -60,9 +58,7 @@ const nav = (p: string) => {
   return (
     <div
       style={{
-        background: isDark
-          ? `radial-gradient(circle at center, rgba(201,168,76,0.15), ${C.bg})`
-          : `radial-gradient(circle at center, rgba(201,168,76,0.18), ${C.bg})`,
+        background: `radial-gradient(circle at center, var(--sw-page-glow), ${C.bg})`,
       }}
     >
       <Navbar page="Home" setPage={nav} />

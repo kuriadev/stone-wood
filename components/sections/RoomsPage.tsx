@@ -1,8 +1,7 @@
 "use client";
 
-import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
-import { T } from "@/lib/theme";
+import { THEME_COLORS } from "@/lib/theme";
 import { gold, outBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
 import type { Room } from "@/types/room";
@@ -30,8 +29,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
   // Scroll reveals. Called here, not in the layout: the effect must run
   // after THIS page has hydrated or it mutates un-hydrated DOM.
 
-  const { isDark } = useTheme();
-  const C = T(isDark);
+  const C = THEME_COLORS;
   const w = useWidth();
   const mob = w < 768;
   const tab = w < 1024;

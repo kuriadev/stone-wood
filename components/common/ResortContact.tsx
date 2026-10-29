@@ -6,8 +6,7 @@
  * a form — a refund after the resort cancelled is arranged that way. The
  * details themselves live in RESORT_CONTACT (lib/resort.ts). */
 
-import { useTheme } from "@/contexts/ThemeContext";
-import { T } from "@/lib/theme";
+import { THEME_COLORS } from "@/lib/theme";
 import { contactChannels, type ContactChannel } from "@/lib/resort";
 import { Icon, type IconName } from "@/components/common/Icon";
 
@@ -19,8 +18,7 @@ const ICONS: Record<ContactChannel["kind"], IconName> = {
 };
 
 export function ResortContact({ mailSubject }: { mailSubject?: string }) {
-  const { isDark } = useTheme();
-  const C = T(isDark);
+  const C = THEME_COLORS;
 
   return (
     <ul style={{ listStyle: "none", margin: 0, padding: 0, border: `1px solid ${C.border}`, borderRadius: 10 }}>

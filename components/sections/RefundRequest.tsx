@@ -14,9 +14,8 @@
  */
 
 import { useSearchParams } from "next/navigation";
-import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
-import { T } from "@/lib/theme";
+import { THEME_COLORS } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { SPACE } from "@/lib/spacing";
 import { Icon } from "@/components/common/Icon";
@@ -26,8 +25,7 @@ import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
 const serif = "'Satoshi',system-ui,sans-serif";
 
 export function RefundRequest({ setPage }: { setPage: (p: string) => void }) {
-  const { isDark } = useTheme();
-  const C = T(isDark);
+  const C = THEME_COLORS;
   const w = useWidth();
   const mob = w < 768;
   const params = useSearchParams();

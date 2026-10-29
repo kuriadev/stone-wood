@@ -180,6 +180,32 @@ export function getBookingWindow(): { min: Date; max: Date } {
   };
 }
 
+/** The calendar year bookings are taken for: 1 January to 31 December
+ *  of the current year in Manila. Every date anyone can book, close or
+ *  record -- guest or staff -- has to fall inside it. */
+export function currentBookingYear(): { year: number; first: string; last: string } {
+  const year = Number(manilaNow().date.slice(0, 4));
+  return { year, first: `${year}-01-01`, last: `${year}-12-31` };
+}
+
+/** True when dateStr is a real date in the current year. */
+export function isInBookingYear(dateStr: string): boolean {
+  if (!parseDateStr(dateStr)) return false;
+  const { first, last } = currentBookingYear();
+  return dateStr >= first && dateStr <= last;
+}
+
+/** Why the last bookable date is the last one, for tooltips and errors:
+ *  the year's end when that is what stops it, else the months-ahead limit. */
+export function bookingWindowNote(): string {
+  const { max } = getBookingWindow();
+  const last = toDateStr(max);
+  const { year, last: yearEnd } = currentBookingYear();
+  return last === yearEnd
+    ? `Bookings are open for ${year} only, up to 31 December.`
+    : `Reservations open up to ${BOOKING_WINDOW_MONTHS} months ahead — the latest bookable date is ${last}.`;
+}
+
 /** True when dateStr is a real date inside the bookable window. */
 export function isWithinBookingWindow(dateStr: string): boolean {
   const d = parseDateStr(dateStr);
@@ -200,9 +226,7 @@ export function describeDateProblem(dateStr: string): string | null {
   if (!d) return "Please choose a date.";
   const { min, max } = getBookingWindow();
   if (d < min) return "That date has already passed.";
-  if (d > max) {
-    return `Reservations open up to ${BOOKING_WINDOW_MONTHS} months ahead — the latest bookable date is ${toDateStr(max)}.`;
-  }
+  if (d > max) return bookingWindowNote();
   return null;
 }
 

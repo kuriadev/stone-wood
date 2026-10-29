@@ -4,9 +4,9 @@ import { useTheme, nextTheme, THEME_LABEL, type ThemeMode } from "@/contexts/The
 import { Icon, type IconName } from "@/components/common/Icon";
 
 /** The glyph of the theme a tap switches TO. */
-const NEXT_ICON: Record<ThemeMode, IconName> = { light: "sun", dim: "sun-moon", dark: "moon" };
+const NEXT_ICON: Record<ThemeMode, IconName> = { light: "sun", dark: "moon" };
 
-/** Light → Dim → Dark → Light. Dim is the medium theme. */
+/** Flips between Light and Dark. */
 export function ThemeToggle() {
   const { isDark, mode, toggle } = useTheme();
   const next = nextTheme(mode);
@@ -41,7 +41,10 @@ export function ThemeToggle() {
         boxShadow: isDark
           ? "0 4px 24px rgba(0,0,0,0.7),0 0 0 1px rgba(201,168,76,0.08)"
           : "0 4px 24px rgba(100,70,10,0.18),0 1px 4px rgba(0,0,0,0.06)",
-        transition: "all .3s cubic-bezier(.22,1,.36,1)",
+        // Named properties, not `all`: during a theme switch `all` also
+        // tried to animate the gradient and the shadow, which cannot be
+        // interpolated and only cost work in the frames that mattered.
+        transition: "border-color .3s ease, color .3s ease",
       }}
     >
       {/* 20px in a 52px disc: the old 17px emoji had a solid colour fill to

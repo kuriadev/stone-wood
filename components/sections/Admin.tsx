@@ -12,7 +12,8 @@ import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { Panel, StatCard, BarChart, ProgressRow } from "@/components/admin/charts";
 import { fmt, fmtDate, holdsDate } from "@/lib/utils";
-import { GALLERY_SPANS, galleryHourLabel } from "@/lib/gallery";
+import { Masonry } from "@/components/common/Masonry";
+import { galleryTiles, galleryColumns, toGalleryPhoto, cleanCaption, GALLERY_TITLE_MAX, GALLERY_TEXT_MAX, type GalleryPhoto } from "@/lib/gallery";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { BookingsTab } from "@/components/admin/BookingsTab";
 import { InventoryTab } from "@/components/admin/InventoryTab";
@@ -66,7 +67,7 @@ import { compressImage } from "@/lib/image";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { priceBooking, bookingLabel } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
-import { sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail, RESORT_MAX_CAPACITY, OVERTIME_MAX, OVERTIME_RATE, GALLERY_MAX } from "@/lib/validators";
+import { sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail, RESORT_MAX_CAPACITY, OVERTIME_MAX, OVERTIME_RATE, GALLERY_MAX, currentBookingYear } from "@/lib/validators";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 import type { Room } from "@/types/room";
 import type { AdminTab, CustomerMessage } from "@/types/admin";
@@ -84,8 +85,8 @@ interface AdminProps {
   setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
   rooms: Room[];
   setRooms: React.Dispatch<React.SetStateAction<Room[]>>;
-  galleryImgs: string[];
-  setGalleryImgs: React.Dispatch<React.SetStateAction<string[]>>;
+  galleryPhotos: GalleryPhoto[];
+  setGalleryPhotos: React.Dispatch<React.SetStateAction<GalleryPhoto[]>>;
   closedDates: string[];
   setClosedDates: React.Dispatch<React.SetStateAction<string[]>>;
   onLogout: () => void;
@@ -106,7 +107,7 @@ interface AdminProps {
 // ── Admin Component ───────────────────────────────────────────────────────────
 export function Admin({
   bookings, setBookings, rooms, setRooms,
-  galleryImgs, setGalleryImgs, closedDates, setClosedDates,
+  galleryPhotos, setGalleryPhotos, closedDates, setClosedDates,
   onLogout, customerMessages, setCustomerMessages,
   facilities, setFacilities,
   inventory, setInventory, packages, setPackages,
@@ -152,6 +153,13 @@ export function Admin({
      list and booking summary that reads it keeps working. */
   const [rPhotos, setRPhotos] = useState<string[]>([]);
   const [confirmRemoveRoom, setConfirmRemoveRoom] = useState<Room | null>(null);
+  /** The photo whose title and text are being written, by gallery index. */
+  const [captionEdit, setCaptionEdit] = useState<{ idx: number; title: string; description: string } | null>(null);
+  /** The gallery photo waiting on "Remove this photo?", by index. */
+  const [confirmRemovePhoto, setConfirmRemovePhoto] = useState<number | null>(null);
+  /** Whether the database can hold captions yet (migration
+   *  20261028120000_gallery_captions). null until asked. */
+  const [captionsReady, setCaptionsReady] = useState<boolean | null>(null);
   const galleryFileRef = useRef<HTMLInputElement>(null);
   const [calMonth, setCalMonth] = useState(new Date());
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -424,6 +432,15 @@ export function Admin({
   const [closeAsk, setCloseAsk] = useState<string | null>(null);
   // Caretakers only look: closing a date is the owner's, or front desk's to ask for.
   const canCloseDates = staff.can("calendar.manage") || staff.canRequest("calendar.manage");
+  useEffect(() => {
+    if (tab !== "Gallery" || captionsReady !== null) return;
+    let live = true;
+    void fetch("/api/gallery")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (live && j && typeof j.captionsReady === "boolean") setCaptionsReady(j.captionsReady); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [tab, captionsReady]);
   const toggleClosed = (ds: string) => { if (canCloseDates) setCloseAsk(ds); };
   const applyClosed = (ds: string) => {
     // Closing or reopening a date changes what guests can book: the
@@ -457,7 +474,16 @@ export function Admin({
     setShowModal(false);
   };
   const deleteRoom = (id: number) => { setRooms((rs) => rs.filter((r) => r.id !== id)); toast("Room removed.", "warning"); };
-  const deleteGalleryImg = (idx: number) => { setGalleryImgs((g) => g.filter((_, i) => i !== idx)); toast("Photo removed.", "warning"); };
+  const galleryImgs = galleryPhotos.map((p) => p.url);
+  const deleteGalleryImg = (idx: number) => { setGalleryPhotos((g) => g.filter((_, i) => i !== idx)); toast("Photo removed.", "warning"); };
+  const saveCaption = () => {
+    if (!captionEdit) return;
+    const title = cleanCaption(captionEdit.title, GALLERY_TITLE_MAX);
+    const description = cleanCaption(captionEdit.description, GALLERY_TEXT_MAX);
+    setGalleryPhotos((g) => g.map((p, i) => (i === captionEdit.idx ? { ...p, title, description } : p)));
+    setCaptionEdit(null);
+    toast(title || description ? "Photo text saved." : "Photo text removed.", "success");
+  };
 
   /* Replace the photo in ONE slot, leaving every other slot untouched.
    *
@@ -478,7 +504,9 @@ export function Admin({
        MAX_IMAGE_CHARS, and it used to silently truncate instead. */
     void compressImage(file)
       .then((src) => {
-        setGalleryImgs((g) => g.map((old, i) => (i === idx ? src : old)));
+        // Keeps the title and text written for this spot: a replacement is
+        // usually a better shot of the same place. Edit the text if not.
+        setGalleryPhotos((g) => g.map((old, i) => (i === idx ? { ...old, url: src } : old)));
         toast("Photo replaced.", "success");
       })
       .catch((err: Error) => toast(err.message, "error"));
@@ -486,7 +514,7 @@ export function Admin({
   const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     Array.from(e.target.files || []).forEach((f) => {
       void compressImage(f)
-        .then((src) => { setGalleryImgs((g) => [...g, src]); toast("Photo added.", "success"); })
+        .then((src) => { setGalleryPhotos((g) => [...g, toGalleryPhoto(src)]); toast("Photo added.", "success"); })
         .catch((err: Error) => toast(err.message, "error"));
     });
   };
@@ -1053,9 +1081,22 @@ export function Admin({
                 );
               })()}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <button onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))} style={{ background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", borderRadius: 4, padding: "8px 16px", fontSize: 14.5 }}>‹</button>
-                <span style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18 }}>{calMonth.toLocaleString("default", { month: "long", year: "numeric" })}</span>
-                <button onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))} style={{ background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: "pointer", borderRadius: 4, padding: "8px 16px", fontSize: 14.5 }}>›</button>
+                {/* The calendar covers the current year only, January to
+                    December: that is the only year anything can be booked
+                    or closed in. */}
+                {(() => {
+                  const yr = currentBookingYear().year;
+                  const canPrev = calMonth.getFullYear() > yr || calMonth.getMonth() > 0;
+                  const canNext = calMonth.getFullYear() < yr || calMonth.getMonth() < 11;
+                  const navBtn = (on: boolean) => ({ background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: on ? "pointer" : "not-allowed", opacity: on ? 1 : 0.35, borderRadius: 4, padding: "8px 16px", fontSize: 14.5 });
+                  return (
+                    <>
+                      <button type="button" aria-label="Previous month" disabled={!canPrev} onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))} style={navBtn(canPrev)}>‹</button>
+                      <span style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18 }}>{calMonth.toLocaleString("default", { month: "long", year: "numeric" })}</span>
+                      <button type="button" aria-label="Next month" disabled={!canNext} onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))} style={navBtn(canNext)}>›</button>
+                    </>
+                  );
+                })()}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: 8 }}>
                 {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d} style={{ textAlign: "center", color: C.textXS, fontSize: 11.5, padding: "8px 0", letterSpacing: 1 }}>{d}</div>)}
@@ -1245,9 +1286,9 @@ export function Admin({
                       they were not looking at; this is the page, and you click
                       the photo you recognise.
 
-                      The grid draws from GALLERY_SPANS and galleryHourLabel in
-                      lib/gallery.ts -- the same source the real page uses, so
-                      this preview cannot drift out of step with it. */}
+                      The wall comes from galleryTiles and galleryColumns in
+                      lib/gallery.ts -- the same source the real page
+                      uses, so this preview cannot drift out of step with it. */}
                   <p style={{ color: C.textXS, fontSize: 11, letterSpacing: 2, margin: "0 0 12px" }}>
                     HERO &mdash; /GALLERY BANNER AND THE /ABOUT PHOTO
                   </p>
@@ -1267,61 +1308,86 @@ export function Admin({
                   </div>
 
                   <p style={{ color: C.textXS, fontSize: 11, letterSpacing: 2, margin: "0 0 12px" }}>
-                    MOSAIC &mdash; CLICK A PHOTO TO CHANGE IT
+                    PHOTO WALL &mdash; ADD TEXT, CHANGE OR REMOVE ANY PHOTO
                   </p>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: mob ? "1fr 1fr" : "repeat(12, 1fr)",
-                      gap: 12,
-                      alignItems: "start",
-                    }}
-                  >
-                    {galleryImgs.slice(1).map((src, i) => (
-                      <div
-                        key={`${src}-${i}`}
-                        style={{
-                          gridColumn: mob ? "auto" : `span ${GALLERY_SPANS[i % GALLERY_SPANS.length]}`,
-                          position: "relative",
-                          borderRadius: 10,
-                          overflow: "hidden",
-                          border: `1px solid ${cBr}`,
-                          background: cBg,
-                        }}
-                      >
+                  {captionsReady === false && (
+                    <p role="status" style={{ color: "#e0a050", background: "rgba(224,160,80,0.08)", border: "1px solid rgba(224,160,80,0.35)", borderRadius: 8, fontSize: 12.5, lineHeight: 1.6, padding: "10px 14px", margin: "0 0 14px" }}>
+                      Photo text can&rsquo;t be saved yet: the database needs the migration
+                      <code style={{ margin: "0 4px" }}>20261028120000_gallery_captions.sql</code>
+                      run once in Supabase. Photos still save; their text will not until then.
+                    </p>
+                  )}
+                  <Masonry
+                    items={galleryTiles(galleryPhotos, galleryColumns(w))}
+                    columns={galleryColumns(w)}
+                    gap={12}
+                    radius={10}
+                    lightbox={false}
+                    draggable={false}
+                    hoverEffect="none"
+                    // Always on here, so staff see every photo's words at a
+                    // glance; guests see them on hover.
+                    captions="always"
+                    overlay={(item, i) => (
+                      <>
+                        {/* Icon and word on a wide tile; icon only on a narrow
+                            one (Masonry.css), with the full name kept for
+                            screen readers and as the hover tooltip. */}
+                        <button className="sw-btn masonry__btn"
+                          onClick={() => {
+                            const p = galleryPhotos[i + 1];
+                            setCaptionEdit({ idx: i + 1, title: p?.title ?? "", description: p?.description ?? "" });
+                          }}
+                          aria-label={`${item.title || item.description ? "Edit the text on" : "Add text to"} photo ${i + 1}`}
+                          title={item.title || item.description ? "Edit this photo's text" : "Add a title guests see on hover"}
+                          style={{ ...outBtn, background: "rgba(10,8,6,0.72)", color: "#f2ede4", borderColor: "rgba(242,237,228,0.35)", height: 34, minHeight: 34, padding: "0 12px", fontSize: 11, letterSpacing: 1, borderRadius: 8, display: "flex", alignItems: "center", gap: 6 }}
+                        >
+                          <Icon name="pencil" size={13} />
+                          <span className="masonry__btn-text">{item.title || item.description ? "TEXT" : "ADD TEXT"}</span>
+                        </button>
+                        <button className="sw-btn masonry__btn"
+                          onClick={() => { replaceGalleryAt.current = i + 1; galleryReplaceRef.current?.click(); }}
+                          aria-label={`Change photo ${i + 1}`}
+                          title="Change this photo"
+                          style={{ ...goldBtn, height: 34, minHeight: 34, padding: "0 12px", fontSize: 11, letterSpacing: 1, borderRadius: 8, boxShadow: "0 2px 10px rgba(0,0,0,0.45)", display: "flex", alignItems: "center", gap: 6 }}
+                        >
+                          <Icon name="image" size={13} />
+                          <span className="masonry__btn-text">CHANGE</span>
+                        </button>
+                        <button
+                          className="masonry__btn"
+                          onClick={() => setConfirmRemovePhoto(i + 1)}
+                          aria-label={`Remove photo ${i + 1}`}
+                          title="Remove this photo"
+                          style={{ background: "rgba(20,10,10,0.75)", border: "1px solid rgba(229,85,85,0.45)", color: "#e8a0a0", width: 34, height: 34, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                        >
+                          <Icon name="trash" size={13} />
+                        </button>
+                      </>
+                    )}
+                  />
+
+                  {confirmRemovePhoto !== null && galleryPhotos[confirmRemovePhoto] && (
+                    <ConfirmDialog
+                      title="Remove this photo?"
+                      onCancel={() => setConfirmRemovePhoto(null)}
+                      cancelLabel="Keep it"
+                      confirm={<ActionButton kind="red" onClick={() => { const at = confirmRemovePhoto; setConfirmRemovePhoto(null); deleteGalleryImg(at); }}>Remove photo</ActionButton>}
+                    >
+                      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={src} alt="" style={{ display: "block", width: "100%", height: "auto" }} />
-
-                        {/* The same stamp the guest sees on that tile. */}
-                        <span style={{ position: "absolute", left: 10, bottom: 10, background: "rgba(0,0,0,0.6)", color: "#f2ede4", fontSize: 11, padding: "4px 8px", borderRadius: 999 }}>
-                          {galleryHourLabel(i, galleryImgs.length - 1)}
-                        </span>
-
-                        <div style={{ position: "absolute", right: 8, top: 8, display: "flex", gap: 8 }}>
-                          <button className="sw-btn"
-                            onClick={() => { replaceGalleryAt.current = i + 1; galleryReplaceRef.current?.click(); }}
-                            aria-label={`Change the ${galleryHourLabel(i, galleryImgs.length - 1)} photo`}
-                            title="Change this photo"
-                            style={{ ...goldBtn, minHeight: 34, padding: "0 12px", fontSize: 11, letterSpacing: 1, borderRadius: 8, boxShadow: "0 2px 10px rgba(0,0,0,0.45)" }}
-                          >
-                            CHANGE
-                          </button>
-                          <button
-                            onClick={() => deleteGalleryImg(i + 1)}
-                            aria-label={`Remove the ${galleryHourLabel(i, galleryImgs.length - 1)} photo`}
-                            title="Remove this photo"
-                            style={{ background: "rgba(20,10,10,0.75)", border: "1px solid rgba(229,85,85,0.45)", color: "#e8a0a0", width: 34, height: 34, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-                          >
-                            <Icon name="trash" size={13} />
-                          </button>
-                        </div>
+                        <img src={galleryPhotos[confirmRemovePhoto].url} alt="" style={{ width: 88, height: 64, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
+                        <p style={{ color: C.textS, fontSize: 14, margin: 0, lineHeight: 1.6 }}>
+                          {galleryPhotos[confirmRemovePhoto].title ? <><strong style={{ color: C.textH }}>{galleryPhotos[confirmRemovePhoto].title}</strong> comes </> : "It comes "}
+                          off the Gallery page for every guest. To get it back you would upload it again.
+                        </p>
                       </div>
-                    ))}
-                  </div>
+                    </ConfirmDialog>
+                  )}
 
                   <p style={{ color: C.textS, fontSize: 12.5, margin: "20px 0 0" }}>
-                    Times are the photo&rsquo;s place in the day, not when it was taken &mdash; they
-                    spread across 07:00 to 23:00 and re-count when a photo is added or removed.
+                    The title and text on a photo show when a guest points at it on the Gallery
+                    page (always shown on phones) and under it when they open it full size.
                   </p>
                 </>
               )}
@@ -1666,6 +1732,74 @@ export function Admin({
           )}
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Photo text: a title and one line, as guests will see them. */}
+      <Dialog open={captionEdit !== null} onOpenChange={(open) => { if (!open) setCaptionEdit(null); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[min(34rem,calc(100%-2rem))]">
+          <DialogHeader>
+            <DialogTitle style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 22, fontWeight: 400 }}>
+              Photo text
+            </DialogTitle>
+            <DialogDescription>
+              Tell guests what this photo shows. It appears when they point at the photo on the Gallery page.
+            </DialogDescription>
+          </DialogHeader>
+          {captionEdit && (
+            <div className="grid gap-4">
+              {/* The photo with its words, exactly as the hover shows them. */}
+              <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: `1px solid ${cBr}` }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={galleryPhotos[captionEdit.idx]?.url} alt="" style={{ display: "block", width: "100%", height: 200, objectFit: "cover" }} />
+                {(captionEdit.title.trim() || captionEdit.description.trim()) && (
+                  <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "40px 14px 12px", color: "#fff", background: "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.54) 100%)", display: "flex", flexDirection: "column", gap: 2 }}>
+                    {captionEdit.title.trim() && <span style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 15, fontWeight: 600 }}>{captionEdit.title}</span>}
+                    {captionEdit.description.trim() && <span style={{ fontSize: 12.5, opacity: 0.85 }}>{captionEdit.description}</span>}
+                  </div>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="cap-title" style={{ display: "block", color: C.textXS, fontSize: 10.5, letterSpacing: 3, marginBottom: 8 }}>TITLE</Label>
+                <Input
+                  id="cap-title"
+                  value={captionEdit.title}
+                  maxLength={GALLERY_TITLE_MAX}
+                  placeholder="e.g. Deluxe Room"
+                  onChange={(e) => setCaptionEdit((c) => (c ? { ...c, title: e.target.value } : c))}
+                  style={{ ...inpS, height: "auto" }}
+                />
+              </div>
+              <div>
+                <Label htmlFor="cap-text" style={{ display: "block", color: C.textXS, fontSize: 10.5, letterSpacing: 3, marginBottom: 8 }}>SHORT DESCRIPTION (OPTIONAL)</Label>
+                <Textarea
+                  id="cap-text"
+                  value={captionEdit.description}
+                  maxLength={GALLERY_TEXT_MAX}
+                  rows={2}
+                  placeholder="e.g. Queen bed and its own bathroom, a few steps from the pool."
+                  onChange={(e) => setCaptionEdit((c) => (c ? { ...c, description: e.target.value } : c))}
+                  style={{ ...inpS, height: "auto", resize: "vertical" }}
+                />
+                <p style={{ color: C.textXS, fontSize: 11.5, margin: "6px 0 0", textAlign: "right" }}>
+                  {captionEdit.description.length} / {GALLERY_TEXT_MAX}
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            {captionEdit && (captionEdit.title || captionEdit.description) && (
+              <Button
+                variant="ghost"
+                onClick={() => setCaptionEdit((c) => (c ? { ...c, title: "", description: "" } : c))}
+                style={{ color: C.textS, marginRight: "auto" }}
+              >
+                Clear text
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setCaptionEdit(null)}>Cancel</Button>
+            <Button className="sw-btn" onClick={saveCaption} style={{ ...goldBtn, padding: "10px 22px" }}>Save text</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add/Edit Room — landscape: the image preview and its picker sit in
           their own column beside the fields, instead of pushing four inputs

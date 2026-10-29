@@ -3,8 +3,7 @@
 import { m } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { useTheme } from "@/contexts/ThemeContext";
-import { T } from "@/lib/theme";
+import { THEME_COLORS } from "@/lib/theme";
 import { gold } from "@/lib/styles";
 import { SPACE, TAP_MIN } from "@/lib/spacing";
 import { Icon } from "@/components/common/Icon";
@@ -31,7 +30,7 @@ import { Icon } from "@/components/common/Icon";
  * `drag` lives in `domMax`, which is a noticeably larger download for one
  * gesture that twenty lines of pointer handling already covers.
  *
- * Reduced motion is NOT branched on here. `<MotionConfig reducedMotion="user">`
+ * Reduced motion is NOT branched on here. `<MotionConfig reducedMotion setting>`
  * in Providers handles it at animation time, which is the only way to do it
  * without a hydration mismatch — see the note in Reveal.tsx.
  */
@@ -69,8 +68,7 @@ export function Coverflow<T>({
   cardHeight,
   onSelect,
 }: CoverflowProps<T>) {
-  const { isDark } = useTheme();
-  const C = T(isDark);
+  const C = THEME_COLORS;
 
   const [active, setActive] = useState(0);
   const count = items.length;

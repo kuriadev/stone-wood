@@ -19,12 +19,12 @@ import {
   isRoomOpen,
   roomsTakenInRange,
 } from "@/lib/utils";
-import { priceBooking, bookingLabel, pricingProblem, type PriceBreakdown } from "@/lib/pricing";
+import { priceBooking, bookingLabel, pricingProblem, packagePriceToday, type PriceBreakdown } from "@/lib/pricing";
 import {
   GUESTS_MIN, GUESTS_MAX,
   isValidEmail, isValidName, isValidPHNumber,
   sanitizeName, sanitizeContact, sanitizeNotes,
-  isWithinBookingWindow, describeDateProblem, MAX_STAY_DAYS,
+  isWithinBookingWindow, describeDateProblem, MAX_STAY_DAYS, manilaNow,
 } from "@/lib/validators";
 import { bookingsOverlapping } from "@/lib/rebooking.server";
 import { multiDayProblem, slotStartedProblem } from "@/lib/resort";
@@ -159,7 +159,9 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
     const p = rowToPackage(data as PackageRow);
     if (!p.active) return bad("That package is no longer offered.", 409);
 
-    pkg = { title: p.title, price: p.price, requiresRoom: !!p.requiresRoom, code: p.code };
+    // The promo price while a promo runs (lib/pricing.ts), judged on today's
+    // date in Manila: what the guest was shown is what they are charged.
+    pkg = { title: p.title, price: packagePriceToday(p, manilaNow().date).pay, requiresRoom: !!p.requiresRoom, code: p.code };
     resource = p.resource;
     tier = p.status;
     guests = p.capacity;

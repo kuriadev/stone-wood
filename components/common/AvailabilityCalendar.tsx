@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type CSSProperties } from "react";
 import { gold } from "@/lib/styles";
-import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS, MAX_STAY_DAYS, manilaNow } from "@/lib/validators";
+import { getBookingWindow, bookingWindowNote, toDateStr, MAX_STAY_DAYS, manilaNow } from "@/lib/validators";
 import { slotStartedProblem } from "@/lib/resort";
 import type { Booking, BookingSlot, BookingTier } from "@/types/booking";
 import { checkBookingAvailability, holdsDate, bookingDates } from "@/lib/utils";
@@ -10,6 +10,10 @@ import { RangeConnector } from "@/components/common/RangeConnector";
 import { CAL, CAL_LINE, GUEST_LEGEND } from "@/components/common/calendarColors";
 
 /** `ds` shifted by `n` days, in UTC so it cannot drift across a timezone. */
+/* Tallest a day tile gets. Tiles are square up to this, then widen
+   rather than grow taller, so a wide column does not make a tall month. */
+const TILE_MAX = 64;
+
 const addDays = (ds: string, n: number) =>
   new Date(Date.parse(`${ds}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
@@ -193,6 +197,10 @@ export function AvailabilityCalendar({
     opacity: enabled ? 1 : 0.4,
   });
 
+  // The one shape every cell shares, filler cells included, so a row
+  // is the same height whatever is in it.
+  const tileBox: CSSProperties = { aspectRatio: "1 / 1", maxHeight: TILE_MAX, minHeight: 40, width: "100%" };
+
   return (
     <div
       style={{
@@ -213,12 +221,11 @@ export function AvailabilityCalendar({
         // BookingDatePicker, the calendar for this same task on /book, has
         // never carried a clamp; this now matches it.
         width: "100%",
-        // flex:1, not height:100%. The calendar is not the first child of its
-        // column -- a header sits above it -- so a percentage height resolves
-        // against the whole column and pushes the legend past the card's
-        // clipped bottom edge. Taking the remaining height avoids that.
-        flex: 1,
-        minHeight: 0,
+        // Natural height only. The calendar used to take whatever height its
+        // column had (flex:1) and hand it to the week rows, so the day tiles
+        // grew and shrank whenever anything beside it changed height --
+        // picking Staycation stretched every date. Its height now depends on
+        // its width alone, and the column decides where to put the spare.
         display: "flex",
         flexDirection: "column",
       }}
@@ -281,21 +288,17 @@ export function AvailabilityCalendar({
         ))}
       </div>
 
-      {/* flex:1 hands the column's spare height to the week rows, so the
-          month fills the card instead of leaving a void above the legend.
-          gridAutoRows keeps 44px as the floor when there is no spare. */}
-      <div className="gap-[3px] sm:gap-2" style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: "minmax(44px,1fr)", flex: 1, minHeight: 0 }}>
+      {/* Every tile is the same shape, set by the column's width (square,
+          capped at TILE_MAX tall), and the month always takes six weeks, so
+          the grid never changes height: not between visit types, not
+          before mount, not between a 5-week and a 6-week month. */}
+      <div className="gap-[3px] sm:gap-2" style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
         {!mounted
-          ? /* Placeholder keeps the panel the same height before mount. */
-            Array.from({ length: 35 }).map((_, i) => (
-              <div key={`ph${i}`} style={{ padding: "8px 4px", fontSize: 13.5, visibility: "hidden" }}>
-                0
-              </div>
-            ))
+          ? Array.from({ length: 42 }).map((_, i) => <div key={`ph${i}`} aria-hidden style={tileBox} />)
           : (
             <>
               {Array.from({ length: firstDay }).map((_, i) => (
-                <div key={`e${i}`} />
+                <div key={`e${i}`} aria-hidden style={tileBox} />
               ))}
               {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
           const ds = toStr(d);
@@ -369,7 +372,7 @@ export function AvailabilityCalendar({
                 isPast
                   ? "Past date"
                   : isBeyond
-                  ? `Bookings open up to ${BOOKING_WINDOW_MONTHS} months ahead (to ${toDateStr(maxDate)})`
+                  ? bookingWindowNote()
                   : isBooked
                   ? "Booked"
                   : isClosed
@@ -383,10 +386,13 @@ export function AvailabilityCalendar({
                   : "Available"
               }
               style={{
+                ...tileBox,
                 position: "relative",
-                textAlign: "center",
-                padding: "8px 4px",
-                borderRadius: 10,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 0,
+                borderRadius: 12,
                 // Dimming the whole cell, rather than just muting its ink, is
                 // what makes a past date read as "not a thing you can press".
                 opacity: dim ? 0.62 : 1,
@@ -424,6 +430,9 @@ export function AvailabilityCalendar({
             </button>
           );
         })}
+              {Array.from({ length: Math.max(0, 42 - firstDay - daysInMonth) }).map((_, i) => (
+                <div key={`t${i}`} aria-hidden style={tileBox} />
+              ))}
             </>
           )}
       </div>

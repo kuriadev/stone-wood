@@ -1,7 +1,7 @@
 "use client";
 
 import { adminTabLabel } from "@/lib/labels";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { T } from "@/lib/theme";
@@ -9,9 +9,9 @@ import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
 import type { ResortPackage } from "@/types/package";
 import type { BookingResource, BookingTier, PackageSlotMode } from "@/types/booking";
-import { pricingProblem, packageValue } from "@/lib/pricing";
+import { packageValue, packageSetupProblem, packageSetupLabel, sharedNotAllowed, packageCapacityLimit, PACKAGE_RESOURCE_LABEL, cleanPackageDiscount, packagePriceToday, promoUntilLabel, PACKAGE_DISCOUNT_MAX_PCT } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
-import { GALLERY_MAX } from "@/lib/validators";
+import { GALLERY_MAX, RESORT_MAX_CAPACITY, manilaNow } from "@/lib/validators";
 import { Icon } from "@/components/common/Icon";
 import { PhotoSet } from "@/components/admin/PhotoSet";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { FullSelect } from "@/components/admin/ui";
+import { HomeCardsEditor } from "@/components/admin/HomeCardsEditor";
 
 interface PackagesTabProps {
   packages: ResortPackage[];
@@ -57,6 +58,7 @@ const BLANK_FORM = {
   code: "", title: "", resource: "Pool" as BookingResource, status: "Shared" as BookingTier,
   price: "", listPrice: "", capacity: "", requiresRoom: false, slotMode: "Single" as PackageSlotMode,
   cover: "", photos: [] as string[], captions: [] as string[], blurb: "", includes: "", note: "", active: true,
+  discountType: "percent" as "percent" | "amount", discountValue: "", discountUntil: "",
 };
 
 export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
@@ -83,6 +85,37 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
      sits on top of the selected value. */
   const selS: React.CSSProperties = { ...inpS, paddingRight: 40 };
   const setF = (k: string, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
+  /* What guests book and when: changing either can make Shared impossible
+     (the venue is never shared; pool + venue and a Staycation are
+     Exclusive only), so pool access moves to Exclusive with it rather than
+     leaving the form holding a setup that can't be saved. */
+  const setSetup = (patch: { resource?: BookingResource; slotMode?: PackageSlotMode }) =>
+    setForm((f) => {
+      const next = { ...f, ...patch };
+      if (sharedNotAllowed(next.resource, next.slotMode)) next.status = "Exclusive";
+      return next;
+    });
+  const setupProblem = packageSetupProblem({ resource: form.resource, status: form.status, slotMode: form.slotMode, capacity: Number(form.capacity) || 0 });
+  const sharedBlocked = sharedNotAllowed(form.resource, form.slotMode);
+  const today = manilaNow().date;
+  /* The promo as it will be saved, checked against the regular price. */
+  const promoCheck = cleanPackageDiscount(
+    form.discountValue.trim() ? { type: form.discountType, value: form.discountValue, until: form.discountUntil } : null,
+    Number(form.price) || 0,
+  );
+  const promoPreview = promoCheck.ok && promoCheck.discount ? packagePriceToday({ price: Number(form.price) || 0, discount: promoCheck.discount }, today) : null;
+
+  /* Whether the database can hold a promo yet (migration
+     20261028140000_package_discount). null until asked. */
+  const [discountReady, setDiscountReady] = useState<boolean | null>(null);
+  useEffect(() => {
+    let live = true;
+    void fetch("/api/packages")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (live && j && typeof j.discountReady === "boolean") setDiscountReady(j.discountReady); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
 
   const openAdd = () => {
     setEditPkg(null);
@@ -92,7 +125,10 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
   const openEdit = (p: ResortPackage) => {
     setEditPkg(p);
     setForm({
-      code: p.code, title: p.title, resource: p.resource, status: p.status,
+      code: p.code, title: p.title, resource: p.resource,
+      // A setup that can't be Shared opens as Exclusive, which is what a
+      // guest actually gets (lib/pricing.ts packageTier / sharedNotAllowed).
+      status: sharedNotAllowed(p.resource, p.slotMode ?? "Single") ? "Exclusive" : p.status,
       price: String(p.price), listPrice: p.listPrice ? String(p.listPrice) : "",
       capacity: String(p.capacity), requiresRoom: !!p.requiresRoom, slotMode: p.slotMode ?? "Single",
       cover: p.cover,
@@ -103,6 +139,9 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
       captions: p.gallery?.length ? p.gallery.map((g) => g.label ?? "").slice(0, GALLERY_MAX) : [],
       blurb: p.blurb, includes: p.includes.join("\n"),
       note: p.note ?? "", active: p.active,
+      discountType: p.discount?.type ?? "percent",
+      discountValue: p.discount ? String(p.discount.value) : "",
+      discountUntil: p.discount?.until ?? "",
     });
     setShowModal(true);
   };
@@ -143,6 +182,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
       includes: form.includes.split("\n").map((s) => s.trim()).filter(Boolean),
       note: form.note || undefined,
       active: form.active,
+      discount: promoCheck.ok && promoCheck.discount ? promoCheck.discount : undefined,
     };
     if (editPkg) {
       setPackages((p) => p.map((x) => x.id === editPkg.id ? { ...x, ...data, gallery } : x));
@@ -181,18 +221,32 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
             <div style={{ position: "relative" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img loading="lazy" decoding="async" src={p.cover} alt={p.title} style={{ width: "100%", height: 130, objectFit: "cover", display: "block" }} />
-              <Badge variant="outline" style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.55)", color: gold, fontSize: 10.5, padding: "4px 8px", borderRadius: 20, letterSpacing: 1 }}>{p.status} · {p.resource}</Badge>
+              <Badge variant="outline" style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.55)", color: gold, fontSize: 10.5, padding: "4px 8px", borderRadius: 20, letterSpacing: 1 }}>{packageSetupLabel({ resource: p.resource, status: p.status })}</Badge>
               {!p.active && <Badge variant="outline" style={{ position: "absolute", top: 8, right: 8, background: "rgba(200,60,60,0.85)", color: "#fff", fontSize: 10.5, padding: "4px 8px", borderRadius: 20, letterSpacing: 1 }}>HIDDEN</Badge>}
             </div>
             <div style={{ padding: "16px 16px", flex: 1, display: "flex", flexDirection: "column" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                 <h4 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 16, fontWeight: 400, margin: 0 }}>{p.title}</h4>
-                <span style={{ color: C.goldInk, fontWeight: 700, fontSize: 14.5, whiteSpace: "nowrap" }}>{fmt(p.price)}</span>
+                {(() => {
+                  const t = packagePriceToday(p, today);
+                  return (
+                    <span style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      <span style={{ color: C.goldInk, fontWeight: 700, fontSize: 14.5 }}>{fmt(t.pay)}</span>
+                      {t.badge && <span style={{ display: "block", color: C.textXS, fontSize: 12, textDecoration: "line-through" }}>{fmt(t.regular)}</span>}
+                    </span>
+                  );
+                })()}
               </div>
               <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5, marginBottom: 8 }}>{p.blurb}</p>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
                 <Badge variant="outline" style={{ fontSize: 10.5, color: C.goldInk, border: `1px solid ${gold}55`, borderRadius: 20, padding: "4px 8px" }}>{p.slotMode === "WholeDay" ? "STAYCATION" : "DAY OR NIGHT"}</Badge>
-                {p.requiresRoom && <Badge variant="outline" style={{ fontSize: 10.5, color: C.goldInk, border: `1px solid ${gold}55`, borderRadius: 20, padding: "4px 8px" }}>ROOM REQUIRED</Badge>}
+                {p.requiresRoom && <Badge variant="outline" style={{ fontSize: 10.5, color: C.goldInk, border: `1px solid ${gold}55`, borderRadius: 20, padding: "4px 8px" }}>ROOM INCLUDED</Badge>}
+                {(() => {
+                  const t = packagePriceToday(p, today);
+                  if (t.badge) return <Badge variant="outline" style={{ fontSize: 10.5, color: "#e2574c", border: "1px solid rgba(226,87,76,0.45)", borderRadius: 20, padding: "4px 8px" }}>{t.badge}{t.until ? ` · ${promoUntilLabel(t.until).replace("until ", "TO ").toUpperCase()}` : ""}</Badge>;
+                  if (p.discount) return <Badge variant="outline" style={{ fontSize: 10.5, color: C.textS, border: `1px solid ${cBr}`, borderRadius: 20, padding: "4px 8px" }}>PROMO ENDED</Badge>;
+                  return null;
+                })()}
                 <Badge variant="outline" style={{ fontSize: 10.5, color: C.textS, border: `1px solid ${cBr}`, borderRadius: 20, padding: "4px 8px" }}>Cap {p.capacity}</Badge>
               </div>
               {/* marginTop:auto — blurb length and the badge row (ROOM REQUIRED,
@@ -278,28 +332,59 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                       : `Saved as ${effectiveCode || "\u2014"}. Leave it blank to build it from the title.`}
                 </p>
               </div>
-              <div className="sm:col-span-3">
-                <div>
-                  <Label htmlFor="pkg-resource" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">RESOURCE</Label>
-                  <FullSelect id="pkg-resource" value={form.resource} onChange={(e) => setF("resource", e.target.value as BookingResource)} className="sw-input" style={selS}>
-                    {RESOURCES.map((r) => <option key={r} value={r}>{r}</option>)}
-                  </FullSelect>
-                </div>
-              </div>
-              <div className="sm:col-span-3">
-                <div>
-                  <Label htmlFor="pkg-tier" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">TIER</Label>
-                  <FullSelect id="pkg-tier" value={form.status} onChange={(e) => setF("status", e.target.value as BookingTier)} className="sw-input" style={selS}>
-                    {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </FullSelect>
-                </div>
+              {/* What the package books. Each of these is enforced when a
+                  guest books it (lib/bookingQuote.ts): the package's own
+                  pool access, what it covers, when, its capacity and its
+                  room rule replace anything the browser sends. */}
+              <div className="sm:col-span-6">
+                <Label htmlFor="pkg-resource" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">WHAT GUESTS BOOK</Label>
+                <FullSelect id="pkg-resource" value={form.resource} onChange={(e) => setSetup({ resource: e.target.value as BookingResource })} className="sw-input" style={selS}>
+                  {RESOURCES.map((r) => <option key={r} value={r}>{PACKAGE_RESOURCE_LABEL[r]}</option>)}
+                </FullSelect>
               </div>
               <div className="sm:col-span-6">
                 <Label htmlFor="pkg-when" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">WHEN</Label>
-                <FullSelect id="pkg-when" value={form.slotMode} onChange={(e) => setF("slotMode", e.target.value as PackageSlotMode)} className="sw-input" style={selS}>
+                <FullSelect id="pkg-when" value={form.slotMode} onChange={(e) => setSetup({ slotMode: e.target.value as PackageSlotMode })} className="sw-input" style={selS}>
                   <option value="Single">Day or Night — guest picks ({SLOTS.Day.hours} / {SLOTS.Night.hours})</option>
                   <option value="WholeDay">Staycation ({SLOTS.WholeDay.hours})</option>
                 </FullSelect>
+              </div>
+              <div className="sm:col-span-12">
+                <p id="pkg-tier-label" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink" style={{ margin: "0 0 8px" }}>POOL ACCESS</p>
+                <div role="radiogroup" aria-labelledby="pkg-tier-label" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {STATUSES.map((st) => {
+                    const on = form.status === st;
+                    const blocked = st === "Shared" && !!sharedBlocked;
+                    return (
+                      <button
+                        key={st}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        disabled={blocked}
+                        onClick={() => setF("status", st)}
+                        title={blocked ? sharedBlocked ?? undefined : undefined}
+                        style={{
+                          textAlign: "left", padding: "12px 14px", borderRadius: 8, cursor: blocked ? "not-allowed" : "pointer",
+                          border: `1px solid ${on ? gold : cBr}`, background: on ? `${gold}14` : "transparent", opacity: blocked ? 0.45 : 1,
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        <span style={{ display: "block", color: on ? C.goldInk : C.textH, fontSize: 14, fontWeight: 600 }}>
+                          {st === "Shared" ? "Shared" : "Exclusive"}
+                        </span>
+                        <span style={{ display: "block", color: C.textS, fontSize: 12.5, lineHeight: 1.5, marginTop: 2 }}>
+                          {st === "Shared"
+                            ? "Other groups can book the pool on the same tour; this package takes its capacity in places."
+                            : "The group has the pool (and venue, if included) to themselves."}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {sharedBlocked && (
+                  <p style={{ color: C.textS, fontSize: 12, margin: "6px 0 0" }}>{sharedBlocked}</p>
+                )}
               </div>
               <div className="sm:col-span-6">
                 <div>
@@ -313,16 +398,20 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   real. */}
               <div className="sm:col-span-6">
                 <div>
-                  <Label htmlFor="pkg-capacity" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">CAPACITY</Label>
-                  <Input type="number" min={1} id="pkg-capacity" value={form.capacity} onChange={(e) => setF("capacity", e.target.value)} className="sw-input" style={inpS} />
+                  <Label htmlFor="pkg-capacity" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">GUEST CAPACITY</Label>
+                  <Input type="number" min={1} max={packageCapacityLimit(form.resource)} id="pkg-capacity" value={form.capacity} onChange={(e) => setF("capacity", e.target.value)} className="sw-input" style={inpS} />
+                  <p style={{ color: C.textS, fontSize: 12, margin: "4px 0 0", lineHeight: 1.5 }}>
+                    {form.status === "Shared" && form.resource !== "Venue"
+                      ? `Guests the package covers. They take that many of the ${RESORT_MAX_CAPACITY} shared places on the tour.`
+                      : `Most guests the group can bring, up to ${packageCapacityLimit(form.resource)}${form.resource === "Venue" ? ", what the events venue holds" : ""}.`}
+                  </p>
                 </div>
               </div>
               {/* What a guest pays for the same setup in Book Now, where the
                   pool, the venue or both can be booked freely. A package
                   should beat that, or offer something Book Now can't. */}
               {(() => {
-                const problem = pricingProblem(form.resource, form.status, form.slotMode === "WholeDay" ? "WholeDay" : "Day", 1, true);
-                if (problem) return <p className="sm:col-span-12" style={{ color: C.dangerInk, fontSize: 12.5, margin: 0 }}>{problem}</p>;
+                if (setupProblem) return <p role="alert" className="sm:col-span-12" style={{ color: C.dangerInk, fontSize: 12.5, margin: 0 }}>{setupProblem}</p>;
                 const price = Number(form.price);
                 const v = packageValue({ resource: form.resource, status: form.status, slotMode: form.slotMode, capacity: Number(form.capacity) || 1, price });
                 const priced = form.price !== "";
@@ -350,6 +439,59 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   </div>
                 );
               })()}
+              {/* A promo: money off the regular price, optionally until a
+                  date. Charged at booking (online and walk-in), shown on the
+                  package as the regular price struck through. */}
+              <div className="sm:col-span-12" style={{ border: `1px solid ${cBr}`, borderRadius: 10, padding: 16 }}>
+                <p className="mb-1 block text-[11.5px] tracking-[2px] text-accent-ink" style={{ margin: 0 }}>PROMO DISCOUNT (OPTIONAL)</p>
+                <p style={{ color: C.textS, fontSize: 12.5, margin: "4px 0 12px", lineHeight: 1.5 }}>
+                  Guests see the price above struck through and pay the promo price instead, online and at the front desk. Leave the amount empty for no promo.
+                </p>
+                {discountReady === false && (
+                  <p role="status" style={{ color: "#e0a050", background: "rgba(224,160,80,0.08)", border: "1px solid rgba(224,160,80,0.35)", borderRadius: 8, fontSize: 12.5, lineHeight: 1.6, padding: "10px 14px", margin: "0 0 12px" }}>
+                    Promos can&rsquo;t be saved yet: the database needs the migration
+                    <code style={{ margin: "0 4px" }}>20261028140000_package_discount.sql</code>
+                    run once in Supabase. The rest of the package still saves.
+                  </p>
+                )}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
+                  <div className="sm:col-span-4">
+                    <p id="pkg-disc-type" style={{ color: C.textXS, fontSize: 10.5, letterSpacing: 2, margin: "0 0 6px" }}>TAKE OFF</p>
+                    <div role="radiogroup" aria-labelledby="pkg-disc-type" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                      {(["percent", "amount"] as const).map((k) => {
+                        const on = form.discountType === k;
+                        return (
+                          <button key={k} type="button" role="radio" aria-checked={on} onClick={() => setF("discountType", k)}
+                            style={{ height: 40, borderRadius: 6, cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, border: `1px solid ${on ? gold : cBr}`, background: on ? `${gold}14` : "transparent", color: on ? C.goldInk : C.textS }}>
+                            {k === "percent" ? "% off" : "₱ off"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="sm:col-span-4">
+                    <Label htmlFor="pkg-disc-value" style={{ display: "block", color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 6 }}>
+                      {form.discountType === "percent" ? `PERCENT (1-${PACKAGE_DISCOUNT_MAX_PCT})` : "PESOS OFF"}
+                    </Label>
+                    <Input id="pkg-disc-value" type="number" min={1} max={form.discountType === "percent" ? PACKAGE_DISCOUNT_MAX_PCT : undefined}
+                      value={form.discountValue} onChange={(e) => setF("discountValue", e.target.value)}
+                      placeholder={form.discountType === "percent" ? "e.g. 20" : "e.g. 500"} className="sw-input" style={inpS} />
+                  </div>
+                  <div className="sm:col-span-4">
+                    <Label htmlFor="pkg-disc-until" style={{ display: "block", color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 6 }}>LAST DAY (OPTIONAL)</Label>
+                    <Input id="pkg-disc-until" type="date" min={today} value={form.discountUntil} onChange={(e) => setF("discountUntil", e.target.value)} className="sw-input" style={inpS} />
+                  </div>
+                </div>
+                <p role={promoCheck.ok ? undefined : "alert"} style={{ fontSize: 12.5, margin: "10px 0 0", lineHeight: 1.6, color: promoCheck.ok ? C.textS : C.dangerInk }}>
+                  {!promoCheck.ok
+                    ? promoCheck.error
+                    : promoPreview && promoPreview.off > 0
+                      ? <>Guests pay <strong style={{ color: C.goldInk }}>{fmt(promoPreview.pay)}</strong> instead of {fmt(promoPreview.regular)} ({promoPreview.badge}){promoPreview.until ? `, ${promoUntilLabel(promoPreview.until)}` : ", until you remove it"}. After that, the regular price.</>
+                      : promoCheck.ok && promoCheck.discount && promoCheck.discount.until && promoCheck.discount.until < today
+                        ? "That last day has passed, so guests pay the regular price."
+                        : "No promo: guests pay the price above."}
+                </p>
+              </div>
               <div className="sm:col-span-12">
                 <Label htmlFor="pkg-add-photo" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">PHOTOS</Label>
                 <PhotoSet
@@ -387,7 +529,9 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   onCheckedChange={(v) => setF("requiresRoom", v === true)}
                   className="size-[18px] rounded-[4px] border-2 data-[state=checked]:border-[#4caf50] data-[state=checked]:bg-[#4caf50] data-[state=checked]:text-white"
                 />
-                <span style={{ color: C.textS, fontSize: 13.5 }}>Guest must pick ONE room at checkout (price can't be fixed without it)</span>
+                <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5 }}>
+                  <strong style={{ color: C.textH, fontWeight: 600 }}>Includes a room.</strong> The guest picks one room when booking; its rate is added to the package price, and the room is held for them.
+                </span>
               </Label>
               {/* Was a div with onClick and a hand-drawn tick: not focusable,
                   not toggleable by keyboard, and invisible to a screen reader.
@@ -406,7 +550,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
-            <Button disabled={!form.title.trim() || !form.price || codeTaken} onClick={savePkg}>
+            <Button disabled={!form.title.trim() || !form.price || codeTaken || !!setupProblem || !promoCheck.ok} onClick={savePkg}>
               {editPkg ? "Save changes" : "Add package"}
             </Button>
           </DialogFooter>
@@ -440,6 +584,9 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* The price cards on Home ("Tours & Room Add-ons"). */}
+      <HomeCardsEditor mob={mob} />
     </div>
   );
 }

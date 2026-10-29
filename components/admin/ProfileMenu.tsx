@@ -238,7 +238,7 @@ export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar" }: P
         <DropdownMenuSeparator style={{ background: C.borderLight }} />
 
         {item("lock", "Username & password", onAccountSettings)}
-        {item(nextMode === "light" ? "sun" : nextMode === "dim" ? "sun-moon" : "moon", `${THEME_LABEL[nextMode]} theme`, toggle)}
+        {item(nextMode === "light" ? "sun" : "moon", `${THEME_LABEL[nextMode]} theme`, toggle)}
         {item("home", "View public site", () => window.open("/", "_blank", "noopener"))}
 
         <DropdownMenuSeparator style={{ background: C.borderLight }} />

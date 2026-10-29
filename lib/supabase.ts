@@ -21,6 +21,7 @@ import type { InventoryItem } from "@/types/inventory";
 import type { CustomerMessage } from "@/types/admin";
 import type { Facility } from "@/types/facility";
 import type { ResortPackage } from "@/types/package";
+import type { GalleryPhoto } from "@/lib/gallery";
 import type {
   RoomRow,
   BookingRow,
@@ -286,6 +287,7 @@ export const rowToPackage = (p: PackageRow): ResortPackage => ({
   status: p.status,
   price: Number(p.price),
   listPrice: p.list_price === null ? undefined : Number(p.list_price),
+  discount: p.discount ?? undefined,
   capacity: p.capacity,
   requiresRoom: p.requires_room || undefined,
   slotMode: p.slot_mode ?? "Single",
@@ -304,6 +306,7 @@ export const packageToRow = (p: ResortPackage): Omit<PackageRow, "id" | "created
   status: p.status,
   price: p.price,
   list_price: p.listPrice ?? null,
+  discount: p.discount ?? null,
   capacity: p.capacity,
   requires_room: !!p.requiresRoom,
   slot_mode: p.slotMode ?? "Single",
@@ -317,8 +320,8 @@ export const packageToRow = (p: ResortPackage): Omit<PackageRow, "id" | "created
 
 /** Gallery is a plain list of URLs in the UI but a table with sort order
  *  in the DB, so ordering has to be preserved explicitly on the way out. */
-export const rowsToGalleryUrls = (rows: GalleryRow[]): string[] =>
-  [...rows].sort((a, b) => a.sort_order - b.sort_order).map((r) => r.url);
+export const rowsToGalleryPhotos = (rows: GalleryRow[]): GalleryPhoto[] =>
+  [...rows].sort((a, b) => a.sort_order - b.sort_order).map((r) => ({ url: r.url, title: r.title ?? "", description: r.description ?? "" }));
 
 // ── Sales ledger and facility operations ─────────────────────────────
 

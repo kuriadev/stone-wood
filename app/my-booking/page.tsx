@@ -1,8 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTheme } from "@/contexts/ThemeContext";
-import { T } from "@/lib/theme";
+import { THEME_COLORS } from "@/lib/theme";
 import { ManageBooking } from "@/components/sections/CancelBooking";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -10,8 +9,7 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 export default function ManageBookingPage() {
     const router = useRouter();
-    const { isDark } = useTheme();
-    const C = T(isDark);
+    const C = THEME_COLORS;
 
     const nav = (p: string) => {
         const routes: Record<string, string> = {

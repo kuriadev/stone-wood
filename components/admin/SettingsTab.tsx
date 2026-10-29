@@ -135,7 +135,7 @@ export function SettingsTab({ mob }: { mob: boolean }) {
         {num("limits", "exclusiveDefaultGuests", "Exclusive booking starts at", "The guest count a buyout starts at; guests can raise it.", "")}
         {num("limits", "overtimeMaxHours", "Most overtime, hours", "0 turns overtime off.", "")}
         {num("limits", "maxStayDays", "Longest stay, days", "For Staycations over several dates.", "")}
-        {num("limits", "bookingWindowMonths", "Guests can book up to, months ahead", "Dates further out are greyed out on the calendar.", "")}
+        {num("limits", "bookingWindowMonths", "Guests can book up to, months ahead", "Dates further out are greyed out on the calendar. Never past 31 December: bookings are for the current year only.", "")}
       </>)}
 
       {section("Hours", "The two tours. A Staycation runs from the Day Tour's start to the Night Tour's end.", <>

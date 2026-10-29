@@ -15,6 +15,7 @@ import type { ResortPackage } from "@/types/package";
 import type { InventoryItem } from "@/types/inventory";
 import type { Facility } from "@/types/facility";
 import type { CustomerMessage } from "@/types/admin";
+import { toGalleryPhoto, type GalleryPhoto } from "@/lib/gallery";
 
 /** A request that failed is never treated as "the server says empty" — that
  *  distinction is what stops a dropped connection from looking like a delete
@@ -216,15 +217,19 @@ export const COLLECTIONS = {
   } satisfies Collection<CustomerMessage>,
 
   gallery: {
-    key: "sw_gallery",
-    load: () => getJson<string[]>("/api/gallery", (j) => j.gallery as string[] | undefined),
-    // A plain list of urls with no ids: replacing it wholesale is simpler and
+    // Not "sw_gallery": that cache holds the old bare-url list, and reading
+    // it as photos would paint every tile without an image.
+    key: "sw_gallery_photos",
+    load: () =>
+      getJson<GalleryPhoto[]>("/api/gallery", (j) =>
+        (j.photos as GalleryPhoto[] | undefined) ?? (j.gallery as string[] | undefined)?.map(toGalleryPhoto)),
+    // A positional list with no ids: replacing it wholesale is simpler and
     // safer than trying to patch positions one row at a time.
-    sync: async (_prev: string[], next: string[]) => {
-      if (next.length > 0) await send("/api/gallery", "PUT", { gallery: next });
+    sync: async (_prev: GalleryPhoto[], next: GalleryPhoto[]) => {
+      if (next.length > 0) await send("/api/gallery", "PUT", { photos: next });
       return next;
     },
-  } satisfies Collection<string>,
+  } satisfies Collection<GalleryPhoto>,
 
   closedDates: {
     key: "sw_closed_dates",

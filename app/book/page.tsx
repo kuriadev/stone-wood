@@ -2,8 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
-import { useTheme } from "@/contexts/ThemeContext";
-import { T } from "@/lib/theme";
+import { THEME_COLORS } from "@/lib/theme";
 import { BookNow } from "@/components/sections/BookNow";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -12,14 +11,14 @@ import type { PackageDeepLink } from "@/types/booking";
 import type { ResortPackage } from "@/types/package";
 import { isEventPackage } from "@/lib/packages";
 import { buildPackageBookingUrl } from "@/lib/utils";
-import { packageValue } from "@/lib/pricing";
+import { packageLinkPrices } from "@/lib/pricing";
+import { manilaNow } from "@/lib/validators";
 import { GUESTS_MIN, GUESTS_MAX } from "@/lib/validators";
 
 export default function BookPage() {
   const router = useRouter();
   const params = useSearchParams();
-  const { isDark } = useTheme();
-  const C = T(isDark);
+  const C = THEME_COLORS;
   const { bookings, refreshAvailability, rooms, closedDates, facilities, packages } = useApp();
 
   // Support ?room=1 and ?date=2026-05-10 from Rooms page / Home calendar
@@ -90,8 +89,7 @@ export default function BookPage() {
         {
           code: pkg.code,
           title: pkg.title,
-          price: pkg.price,
-          listPrice: packageValue(pkg).compare,
+          ...packageLinkPrices(pkg, manilaNow().date),
           capacity: pkg.capacity,
           requiresRoom: pkg.requiresRoom,
           slotMode: pkg.slotMode,

@@ -188,51 +188,52 @@
   --sw-shadow-card: 0 2px 16px rgba(0, 0, 0, 0.4);
 }
 
-/* Dim: the medium theme between light and dark. A softer charcoal than
-   the near-black dark theme, for a room that is neither bright nor dark.
-   It IS a dark theme to the code (isDark is true, and .sw-dark stays on
-   <html>); only the palette changes. Text measured above 5:1 on its cards. */
-.sw-dark.sw-dim {
-  --sw-bg: #23262b;
-  --sw-bg-card: #2c3036;
-  --sw-bg-card-2: #292d32;
-  --sw-border: #3a3f46;
-  --sw-border-light: #343940;
-  --sw-text-h: #f3efe8;
-  --sw-text-b: #d6cdb6;
-  --sw-text-s: #b1a58f;
-  --sw-text-xs: #a99e8b;
-  --sw-gold-ink: #d6b65e;
-  --sw-danger-ink: #ff8f8f;
-  --sw-input-bg: #2a2e34;
-  --sw-input-border: #7a8088;
-  --sw-nav-bg: rgba(35, 38, 43, 0.97);
-  --sw-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
-  --sw-shadow-card: 0 2px 16px rgba(0, 0, 0, 0.25);
-}
-
 /* ── Switching themes ──
-   A slow cross-fade instead of a cut: the old page fades out while the new
-   one fades in, so going to light is never a flash. Browsers with view
+   A fade instead of a cut, so going to light is never a flash. Browsers with view
    transitions get the whole page faded as one picture; the others get the
    colours themselves eased (.sw-theme-fade, set for the length of the
-   switch). Anyone who asks for less motion gets the plain switch. */
+   switch).
+
+   Under reduced motion it still fades, just faster. A cross-fade moves
+   nothing — it is two still pictures changing opacity — so it is not the
+   kind of motion that setting exists to stop, and cutting instead turned
+   the switch into a white flash for exactly the people most likely to
+   mind one. */
+/* The new theme fades in OVER the old one, which stays solid underneath.
+
+   It used to be a symmetric cross-fade: both pictures half-transparent at
+   the midpoint, so going between near-black and white the page sat in a
+   muddy grey for most of the 900ms, which read as lag rather than as a
+   transition. Holding the old picture opaque removes that middle entirely.
+
+   mix-blend-mode must be `normal`. The browser's default for this pair is
+   plus-lighter, which ADDS the two pictures — fine for a symmetric fade,
+   but with the old one held at full opacity it would flash over-bright on
+   the way to light mode.
+
+   380ms: long enough to read as a change of light, short enough not to
+   feel like waiting for it. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 0.9s;
-  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation: none;
+  mix-blend-mode: normal;
 }
+::view-transition-new(root) {
+  animation: sw-theme-in 0.38s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes sw-theme-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Browsers without view transitions ease the colours instead. Kept to the
+   three properties that actually change, because this rule touches every
+   element on the page at once. */
 .sw-theme-fade,
 .sw-theme-fade *,
 .sw-theme-fade *::before,
 .sw-theme-fade *::after {
-  transition: background-color 0.9s ease, color 0.9s ease, border-color 0.9s ease, fill 0.9s ease, stroke 0.9s ease !important;
-}
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
-    animation: none;
-  }
+  transition: background-color 0.38s ease, color 0.38s ease, border-color 0.38s ease !important;
 }
 
 :root {
@@ -535,12 +536,6 @@
   100% { background-position: 200% center; }
 }
 
-/* Gentle float on the booking card */
-@keyframes sw-float {
-  0%,100% { transform: translateY(0px); }
-  50%     { transform: translateY(-7px); }
-}
-
 /* Pulsing gold glow on CTA button */
 @keyframes sw-btn-glow {
   0%,100% { box-shadow: 0 2px 12px rgba(201,168,76,0.3); }
@@ -593,9 +588,6 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
   animation: sw-gold-shimmer 4s linear 1.6s infinite;
-}
-.sw-hero-card-float {
-  animation: sw-float 5s ease-in-out 1.2s infinite;
 }
 .sw-hero-cta-glow {
   animation: sw-btn-glow 2.8s ease-in-out 1.5s infinite;
@@ -772,18 +764,10 @@ img {
 }
 .sw-btn-tint:not(:disabled):active { transform: translateY(0) scale(0.985); }
 .sw-btn-tint:disabled { transform: none !important; }
-@media (prefers-reduced-motion: reduce) {
-  .sw-btn-tint { transition: none; }
-  .sw-btn-tint:not(:disabled):hover { transform: none; }
-}
 
 /* A button that cannot be pressed should not pretend otherwise. */
 .sw-btn:disabled, .sw-btn-out:disabled { transform: none !important; box-shadow: none !important; }
 
-@media (prefers-reduced-motion: reduce) {
-  .sw-btn, .sw-btn-out { transition: none; }
-  .sw-btn:hover, .sw-btn-out:not(:disabled):hover { transform: none; }
-}
 
 /* ── NAV / LINK TRANSITIONS ── */
 .sw-link     { transition: color .15s ease; }
@@ -900,10 +884,6 @@ img {
 }
 .sw-gold-hover:not(:disabled):active { transform: translateY(1px); }
 
-@media (prefers-reduced-motion: reduce) {
-  .sw-click-row, .sw-gold-hover { transition: none; }
-  .sw-gold-hover:not(:disabled):active { transform: none; }
-}
 
 /* ── EVENT PACKAGE CARDS (Book Now, step 1) ── */
 /* The veil over the photo. Scoped to .sw-event-card, and triggered by
@@ -925,10 +905,6 @@ img {
 .sw-event-card:focus-visible .sw-event-veil { opacity: 1; }
 .sw-event-card { transition: border-color 0.25s ease, transform 0.25s ease; }
 .sw-event-card:hover { transform: translateY(-3px); }
-@media (prefers-reduced-motion: reduce) {
-  .sw-event-card, .sw-event-veil { transition: none; }
-  .sw-event-card:hover { transform: none; }
-}
 
 /* ── "WHY CHOOSE" CARDS (About) ── */
 /* These rules used to be a <style> block rendered inside every card, with
@@ -1273,34 +1249,6 @@ img {
    it hides content rather than just stilling it. It is a slow, constant-speed
    horizontal drift at ~53px/s with no flashing or parallax, which is the mild
    end of what the media query targets. */
-@media (prefers-reduced-motion: reduce) {
-  .sw-hero-card-float,      /* 5s vertical bob */
-  .sw-hero-scroll-indicator,/* bouncing chevron */
-  .sw-hero-cta-glow,        /* pulsing button glow */
-  .sw-hero-gold-text,       /* looping gold sweep */
-  .gold-text,
-  .hero-parallax,
-  .sw-page {                /* per-route fade-in */
-    animation: none !important;
-    transition: none !important;
-  }
-
-  /* The IntersectionObserver sets data-sw-in to fade these in.
-     Nothing above suppresses that transition, but pin them visible
-     anyway so a missed observer can never leave content invisible. */
-  /* :not(:hover) matters. This rule exists to pin revealed content visible
-     instead of animating it in, but `transform: none !important` also beat
-     the hover lift on every card that is a reveal target — so a card would
-     change shadow on hover and refuse to move, while a plain button next to
-     it moved fine. Excluding the hovered element keeps the intent (no
-     entrance animation) without disabling the hover affordance. */
-
-
-  /* Anchor jumps land instantly instead of gliding. */
-  html {
-    scroll-behavior: auto !important;
-  }
-}
 
 /* ── SMOOTH ANCHOR SCROLL ──────────────────────────────────────────
    Overridden above when reduced motion is requested. */
@@ -1410,9 +1358,6 @@ html {
 
 /* Reduced motion keeps the dot, drops the pulse — the indicator still
    reads as present without anything moving. */
-@media (prefers-reduced-motion: reduce) {
-  .sw-live-dot::after { animation: none; opacity: 0.3; }
-}
 
 /* ── HERO PHOTO ────────────────────────────────────────────────────
    The hero is a CSS background, so it cannot use srcset. The component
@@ -1435,15 +1380,6 @@ html {
    kept moving. Suppress the sweep on all four and substitute a slow opacity
    breath: no translation, but the placeholder still reads as "working" and
    not as a page that has failed to paint. */
-@media (prefers-reduced-motion: reduce) {
-  .lux-skeleton::before,
-  .lux-line::before,
-  .lux-img::before,
-  .lux-btn::before {
-    background: rgba(255, 215, 120, 0.12);
-    animation: skeletonBreathe 2.4s ease-in-out infinite !important;
-  }
-}
 
 @keyframes skeletonBreathe {
   0%, 100% { opacity: 0.3; }
@@ -1491,10 +1427,6 @@ html {
 /* The ring travels outward, which is exactly the kind of motion the
    reduced-motion query is about. Keep a gentle opacity breath on the dot
    so it still reads as live, and drop the ring entirely. */
-@media (prefers-reduced-motion: reduce) {
-  .sw-pulse-dot::after { animation: none !important; opacity: 0.35; }
-  .sw-pulse-dot { animation: swPulseCore 3s ease-in-out infinite !important; }
-}
 
 /* ── BOOKING PROGRESS ──────────────────────────────────
    The wave is two oversized, blob-shaped layers (border-radius ~43%) living
@@ -1572,17 +1504,6 @@ html {
 
 /* Reduced motion keeps the fill, its colour and the width transition --
    position is still reported, nothing flows. */
-@media (prefers-reduced-motion: reduce) {
-  .sw-progress-fill {
-    animation: none;
-    box-shadow: 0 0 6px rgba(201, 168, 76, 0.3);
-  }
-  .sw-progress-fill::before,
-  .sw-progress-fill::after {
-    animation: none;
-    opacity: 0;
-  }
-}
 
 /* ── Printed invoice (components/admin/InvoiceModal.tsx) ──
    A plain copy of the invoice sits directly under <body>. On screen it is
@@ -1672,9 +1593,6 @@ html {
 }
 .sw-clock-tick { animation: sw-clock-breathe 3s ease-in-out infinite; }
 
-@media (prefers-reduced-motion: reduce) {
-  .sw-clock-tick { animation: none; opacity: 0.9; }
-}
 
 /* ── The tick that draws itself ──
    Used once, on the screen that tells a guest their booking is real. The
@@ -1704,9 +1622,81 @@ html {
   animation: sw-success-draw .42s cubic-bezier(.65, 0, .35, 1) .2s both;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  /* The mark carries the meaning; the movement never did. */
-  .sw-success-ring,
-  .sw-success-tick { animation: none; stroke-dashoffset: 0; }
-  .sw-success-halo { animation: none; opacity: 0; }
+
+/* ── Reduced motion: still respond, just do not move ──
+   Each interactive class above has its own reduced-motion block that turns
+   off the hover lift and the press-scale. Those are movement, and the
+   setting exists to stop movement. But the same blocks also said
+   `transition: none`, which stopped the COLOUR change as well, so under
+   reduced motion a button snapped from one colour to the next and felt
+   broken rather than calm.
+
+   This restores the colour, background, border and glow easing for those
+   classes and nothing else. `transform` is deliberately not in the list,
+   and their own rules already pin it to none on hover, so nothing lifts,
+   slides or scales. Later in the file, so it wins at equal specificity. */
+
+
+/* ── Sections below the fold render when they are about to be seen ──
+   content-visibility: auto lets the browser skip layout and paint for a
+   section until it nears the viewport. Two things follow from that:
+
+     - scrolling does less work, because the sections the reader is not
+       looking at are not being laid out and painted every frame;
+     - a section's CSS background image is not requested until the section
+       renders. Backgrounds cannot use loading="lazy", so this is the only
+       way to defer them — measured, the home page fetched 439 KB of
+       background photos for sections nobody had scrolled to.
+
+   contain-intrinsic-size holds a placeholder height so the scrollbar does
+   not jump as sections arrive; `auto` makes the browser remember each
+   section's real height once it has rendered it.
+
+   Never on the hero (on screen at load) or on anything that measures its
+   own children on mount, such as the testimonial marquee: a skipped
+   subtree measures as zero. */
+.sw-defer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
 }
+
+
+/* ── Home page colours that differ between the themes ──
+   These were `isDark ? "…" : "…"` inside Home.tsx and the home route,
+   which meant both had to subscribe to the theme — and the route renders
+   <Home> inline, so EVERY theme switch re-rendered the whole home page
+   before the fade could begin. That re-render was the freeze you saw when
+   switching. As variables they change with the sw-dark / sw-light class
+   like every other colour, and neither component re-renders at all.
+   Values are exactly the ones the ternaries held. */
+.sw-dark {
+  --sw-page-glow: rgba(201,168,76,0.15);
+  --sw-hero-veil: linear-gradient(180deg,rgba(6,5,3,0.72) 0%,rgba(6,5,3,0.45) 35%,rgba(6,5,3,0.6) 70%,rgba(4,3,2,0.92) 100%);
+  --sw-band-cream: var(--sw-bg);
+  --sw-chip-tint: rgba(255,255,255,0.05);
+  --sw-band-ivory: var(--sw-bg);
+  --sw-band-services: #0b0907;
+  --sw-accent-copper: #e8a070;
+  --sw-band-sand: var(--sw-bg);
+  --sw-review-card: var(--sw-bg-card-2);
+  --sw-review-border: rgba(201,168,76,0.1);
+  --sw-review-shadow: 0 4px 20px rgba(0,0,0,0.35);
+}
+.sw-light {
+  --sw-page-glow: rgba(201,168,76,0.18);
+  --sw-hero-veil: linear-gradient(180deg,rgba(10,7,3,0.62) 0%,rgba(10,7,3,0.38) 35%,rgba(10,7,3,0.55) 70%,rgba(8,6,3,0.88) 100%);
+  --sw-band-cream: #f7f2ea;
+  --sw-chip-tint: rgba(0,0,0,0.05);
+  --sw-band-ivory: #fdf9f4;
+  --sw-band-services: #ffffff;
+  --sw-accent-copper: #a8481a;
+  --sw-band-sand: #f5f0e8;
+  --sw-review-card: #fff;
+  --sw-review-border: rgba(201,168,76,0.15);
+  --sw-review-shadow: 0 4px 16px rgba(100,70,20,0.08);
+}
+
+/* Animations play on every device. The site used to tone them down for
+   anyone with the OS "reduce motion" / "animation effects off" setting;
+   the owner asked for them to always show (Providers.tsx sets Motion to
+   reducedMotion="never" to match). */

@@ -2,8 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
-import { useTheme } from "@/contexts/ThemeContext";
-import { T } from "@/lib/theme";
+import { THEME_COLORS } from "@/lib/theme";
 import { Gallery } from "@/components/sections/Gallery";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -12,9 +11,8 @@ import { CardGridSkeleton } from "@/components/common/Skeleton";
 
 export default function GalleryRoute() {
   const router = useRouter();
-  const { isDark } = useTheme();
-  const C = T(isDark);
-  const { galleryImgs, skeleton } = useApp();
+  const C = THEME_COLORS;
+  const { galleryPhotos, skeleton } = useApp();
 
   const nav = (p: string) => {
     const routes: Record<string, string> = {
@@ -55,7 +53,7 @@ export default function GalleryRoute() {
           <CardGridSkeleton count={6} label="Loading gallery" />
         </div>
       ) : (
-        <Gallery galleryImgs={galleryImgs} />
+        <Gallery photos={galleryPhotos} />
       )}
       <Footer setPage={nav} />
       <ThemeToggle />

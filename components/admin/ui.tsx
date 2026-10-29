@@ -23,15 +23,17 @@
 // Names say what the piece IS for staff-facing screens. They were Btn,
 // Pill, ViewTabs, Segmented, PageHead, Figure, Line and TotalLine.
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { SPACE, TAP_MIN } from "@/lib/spacing";
 import { T } from "@/lib/theme";
 import { gold } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
+import { GlideSelect } from "@/components/common/GlideSelect";
 import { BOOKING_STATUS_LABEL } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label as UiLabel } from "@/components/ui/label";
 import {
@@ -42,7 +44,6 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NativeSelect } from "@/components/ui/native-select";
 
 export { TableRow as Row, TableCell as Cell };
@@ -161,6 +162,129 @@ export function ConfirmDialog({
   );
 }
 
+/** A "Remove this?" step in front of any destructive tap, so a slipped
+ *  finger never deletes anything. `ask({...})` opens the dialog; render
+ *  the returned element once anywhere in the component.
+ *
+ *    const [confirm, confirmDialog] = useConfirm();
+ *    <button onClick={() => confirm({ title: "Remove this photo?", action: "Remove", onConfirm: () => removeAt(i) })}>
+ *    {confirmDialog}
+ */
+export function useConfirm(): [
+  (opts: { title: ReactNode; body?: ReactNode; action: string; onConfirm: () => void }) => void,
+  ReactNode,
+] {
+  const [pending, setPending] = useState<{ title: ReactNode; body?: ReactNode; action: string; onConfirm: () => void } | null>(null);
+  const { C } = useAdminStyle();
+  const dialog = pending ? (
+    <ConfirmDialog
+      title={pending.title}
+      onCancel={() => setPending(null)}
+      cancelLabel="Keep it"
+      confirm={<ActionButton kind="red" onClick={() => { const p = pending; setPending(null); p.onConfirm(); }}>{pending.action}</ActionButton>}
+    >
+      {pending.body && <p style={{ color: C.textS, fontSize: 14, margin: 0, lineHeight: 1.6 }}>{pending.body}</p>}
+    </ConfirmDialog>
+  ) : null;
+  return [setPending, dialog];
+}
+
+/** Search on its own line, and every other filter behind one Filters
+ *  button. A list with five or six selects and a date range used to lay
+ *  them all out at once, over three or four wrapped lines, before the first
+ *  row of data. The button says how many filters are on, so a filtered
+ *  list never looks like the whole list. */
+export function FilterBar({
+  search, active, onClear, children, defaultOpen = false,
+}: {
+  /** The search field, always visible beside the button. */
+  search?: ReactNode;
+  /** How many filters (not counting search) are switched on. */
+  active: number;
+  /** Switch every filter in the panel back off. */
+  onClear: () => void;
+  /** The filters: FilterField-wrapped controls. */
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const { C, cBr, cBg } = useAdminStyle();
+  const [open, setOpen] = useState(defaultOpen);
+  const panelId = useId();
+  return (
+    <div style={{ marginBottom: SPACE.md }}>
+      <div style={{ display: "flex", gap: SPACE.xs, alignItems: "center" }}>
+        {search && <div style={{ flex: 1, minWidth: 0 }}>{search}</div>}
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => setOpen((o) => !o)}
+          className="sw-hit"
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0,
+            height: TAP_MIN, padding: "0 14px", borderRadius: 10, cursor: "pointer",
+            fontSize: 13, fontWeight: 600, fontFamily: "inherit",
+            background: open || active ? `${gold}1c` : "transparent",
+            color: open || active ? C.goldInk : C.textS,
+            border: `1px solid ${open || active ? gold + "66" : cBr}`,
+          }}
+        >
+          <Icon name="filter" size={16} />
+          <span>Filters</span>
+          {active > 0 && (
+            <span aria-label={`${active} on`} style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 10, background: gold, color: "#1a1408", fontSize: 11.5, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              {active}
+            </span>
+          )}
+          <Icon name="chevron-down" size={14} style={{ transition: "transform .2s ease", transform: open ? "rotate(180deg)" : "none" }} />
+        </button>
+      </div>
+      {/* Height animates through grid rows (0fr to 1fr), so the panel opens
+          to whatever its filters need without a measured height. inert while
+          closed: the hidden controls are out of the tab order. */}
+      <div style={{ display: "grid", gridTemplateRows: open ? "1fr" : "0fr", transition: "grid-template-rows .25s ease" }}>
+        <div style={{ overflow: "hidden", minHeight: 0 }} inert={!open}>
+          <div id={panelId} role="group" aria-label="Filters"
+            style={{ marginTop: SPACE.xs, padding: SPACE.sm, border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: SPACE.sm, alignItems: "end" }}>
+            {children}
+            <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <span style={{ color: C.textS, fontSize: 12.5 }}>{active ? `${active} filter${active === 1 ? "" : "s"} on` : "No filters on"}</span>
+              <span style={{ display: "flex", gap: 8 }}>
+                {active > 0 && <ActionButton size="sm" onClick={onClear}>Clear filters</ActionButton>}
+                <ActionButton size="sm" kind="primary" onClick={() => setOpen(false)}>Done</ActionButton>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** One labelled control in a FilterBar. `wide` takes the panel's whole
+ *  row (a date range), which also keeps it inside a one-column phone panel. */
+export function FilterField({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
+  const { C } = useAdminStyle();
+  return (
+    <div style={{ display: "grid", gap: 6, minWidth: 0, gridColumn: wide ? "1 / -1" : undefined }}>
+      <span style={{ color: C.textXS, fontSize: 11, letterSpacing: 1.4, fontWeight: 600, textTransform: "uppercase" }}>{label}</span>
+      {children}
+    </div>
+  );
+}
+
+/** A from/to date pair that fits one FilterField. */
+export function DateRange({ from, to, onFrom, onTo, fromLabel = "From", toLabel = "To" }: { from: string; to: string; onFrom: (v: string) => void; onTo: (v: string) => void; fromLabel?: string; toLabel?: string }) {
+  const { C, inp } = useAdminStyle();
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
+      <Input type="date" value={from} onChange={(e) => onFrom(e.target.value)} aria-label={fromLabel} style={{ ...inp, minWidth: 0, flex: 1 }} />
+      <span style={{ color: C.textS, fontSize: 13, flexShrink: 0 }}>to</span>
+      <Input type="date" value={to} min={from || undefined} onChange={(e) => onTo(e.target.value)} aria-label={toLabel} style={{ ...inp, minWidth: 0, flex: 1 }} />
+    </div>
+  );
+}
+
 // ── Form bits ─────────────────────────────────────────────────────────
 export function Label({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) {
   const { C } = useAdminStyle();
@@ -204,31 +328,83 @@ export function ChoiceButtons<V extends string>({
   );
 }
 
-/** A view switcher: shadcn Tabs, one TabsContent per view. */
+/** One choice from a list, as a GlideSelect chip with a small label in
+ *  front: "Status  All bookings 9 v". Replaces the rows of pill buttons that
+ *  wrapped onto two or three lines on the admin pages. A count, when given,
+ *  sits at the right of each row and on the chip. */
+export function FilterSelect<V extends string>({
+  label, value, onChange, options, menuWidth = 240, fullWidthOnPhone = true,
+}: {
+  /** Shown before the chip and used as its accessible name. */
+  label: string;
+  value: V;
+  onChange: (v: V) => void;
+  options: { value: V; label: string; count?: number }[];
+  menuWidth?: number;
+  fullWidthOnPhone?: boolean;
+}) {
+  const { C, cBr } = useAdminStyle();
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const q = window.matchMedia("(max-width: 640px)");
+    const sync = () => setNarrow(q.matches);
+    sync();
+    q.addEventListener("change", sync);
+    return () => q.removeEventListener("change", sync);
+  }, []);
+  const full = fullWidthOnPhone && narrow;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: full ? "1 1 100%" : "0 0 auto" }}>
+      <span style={{ color: C.textXS, fontSize: 11, letterSpacing: 1.6, fontWeight: 600, whiteSpace: "nowrap", textTransform: "uppercase" }}>{label}</span>
+      <div style={{ flex: full ? 1 : "0 0 auto", minWidth: 0 }}>
+        <GlideSelect<V>
+          ariaLabel={label}
+          value={value}
+          onChange={(v) => onChange(v)}
+          options={options.map((o) => ({ value: o.value, label: o.label, tag: o.count === undefined ? undefined : String(o.count) }))}
+          size="lg"
+          radius={12}
+          menuWidth={menuWidth}
+          fullWidth={full}
+          surfaceColor={C.bgCard2}
+          highlightColor="rgba(201,168,76,0.16)"
+          textColor={C.textH}
+          accentColor={C.goldInk}
+          borderColor={cBr}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** A view switcher: a FilterSelect chip that picks which view shows below
+ *  it. It was a row of shadcn tab pills, which wrapped onto two or three
+ *  lines on Payments and Facilities. */
 export function ViewSwitcherTabs<V extends string>({
-  value, onChange, views, maxWidth,
+  value, onChange, views, label = "Showing",
 }: {
   value: V;
   onChange: (v: V) => void;
-  views: { value: V; label: ReactNode; content: ReactNode }[];
+  views: { value: V; label: ReactNode; content: ReactNode; count?: number }[];
+  /** The word before the chip. */
+  label?: string;
+  /** Kept for callers that still pass it; the chip sizes itself. */
   maxWidth?: number;
 }) {
-  const { C, cBr } = useAdminStyle();
+  const current = views.find((v) => v.value === value) ?? views[0];
+  const text = (n: ReactNode) => (typeof n === "string" || typeof n === "number" ? String(n) : "");
   return (
-    <Tabs value={value} onValueChange={(v) => onChange(v as V)}>
-      <TabsList className="mb-4 w-full flex-wrap justify-start gap-2 bg-transparent p-0" style={{ maxWidth, height: "auto" }}>
-        {views.map((v) => {
-          const on = v.value === value;
-          return (
-            <TabsTrigger key={v.value} value={v.value} className="sw-hit"
-              style={{ padding: "8px 16px", fontSize: 12.5, fontWeight: 600, borderRadius: 20, background: on ? `${gold}1c` : "transparent", color: on ? C.goldInk : C.textS, border: `1px solid ${on ? gold + "66" : cBr}`, boxShadow: "none", height: "auto", flex: "0 0 auto" }}>
-              {v.label}
-            </TabsTrigger>
-          );
-        })}
-      </TabsList>
-      {views.map((v) => <TabsContent key={v.value} value={v.value}>{v.content}</TabsContent>)}
-    </Tabs>
+    <div>
+      <div style={{ marginBottom: SPACE.md, display: "flex" }}>
+        <FilterSelect<V>
+          label={label}
+          value={current?.value as V}
+          onChange={onChange}
+          options={views.map((v) => ({ value: v.value, label: text(v.label) || v.value, count: v.count }))}
+        />
+      </div>
+      <div role="region" aria-label={current ? text(current.label) || current.value : undefined}>{current?.content}</div>
+    </div>
   );
 }
 

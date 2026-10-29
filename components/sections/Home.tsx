@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
-import { T } from "@/lib/theme";
+import { THEME_COLORS } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
-import { rateCards, HERO_BG } from "@/lib/constants";
+import { HERO_BG } from "@/lib/constants";
+import { automaticHomeCards } from "@/lib/homeCards";
+import { useHomeCards } from "@/hooks/useHomeCards";
+import { TiltedCard } from "@/components/common/TiltedCard";
 import { CardGridSkeleton } from "@/components/common/Skeleton";
 import { SLOTS, QUIET_HOURS_POLICY } from "@/lib/resort";
 import { fmt } from "@/lib/utils";
@@ -24,15 +26,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
 import type { ResortPackage } from "@/types/package";
-import { packageValue } from "@/lib/pricing";
+import { packageValue, packagePriceToday, packageLinkPrices, promoUntilLabel } from "@/lib/pricing";
+import { manilaNow } from "@/lib/validators";
 import { srcSetFor, SIZES, imageAt } from "@/lib/img";
-import { Icon, type IconName } from "@/components/common/Icon";
+import { Icon } from "@/components/common/Icon";
 import { facilityIcon } from "@/lib/facilityUsage";
 import type { PublicAmenity } from "@/types/facility";
-import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
+import { Reveal } from "@/components/common/Reveal";
 import { RoomCoverflow } from "@/components/sections/RoomCoverflow";
 import type { Room } from "@/types/room";
 import { Badge } from "@/components/ui/badge";
+import { LazyBackground } from "@/components/common/LazyBackground";
 
 interface HomeProps {
   setPage: (p: string) => void;
@@ -172,11 +176,24 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
   // Scroll reveals. Called here, not in the layout: the effect must run
   // after THIS page has hydrated or it mutates un-hydrated DOM.
 
-  const { isDark } = useTheme();
-  const C = T(isDark);
+  const C = THEME_COLORS;
+  // The "Tours & Room Add-ons" cards: the ones staff saved, else the
+  // automatic ones built from Rates & Settings and the real rooms.
+  const savedRateCards = useHomeCards().cards;
+  const rateCardsShown = savedRateCards ?? automaticHomeCards(rooms);
   const w = useWidth();
   const mob = w < 768;
   const tab = w < 1024;
+  /* One vertical rhythm for every band below the hero. Each band used to
+     carry its own padding (88, 104 or 112px, plus 44-64px under its
+     heading), so the empty space between one section's last line and the
+     next heading ran from 187 to 297px on desktop -- a screen of nothing
+     between sections. Now every gap is the same, about 144px on desktop and
+     96px on a phone: room to tell sections apart without scrolling past
+     blank space. */
+  const bandY = mob ? 48 : 72;
+  const bandPad = (x: number | string) => `${bandY}px ${typeof x === "number" ? `${x}px` : x}`;
+  const headGap = mob ? 32 : 44;
 
   // Hidden (inactive) packages never reach the customer — the same array
   // index is reused by openPkg()/pkgCardRefs, so it's built once here off
@@ -342,7 +359,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           }}
         />
         {/* Legibility overlay — same gold-tinted dark tone as the rest of the design system */}
-        <div style={{ position: "absolute", inset: 0, background: isDark ? "linear-gradient(180deg,rgba(6,5,3,0.72) 0%,rgba(6,5,3,0.45) 35%,rgba(6,5,3,0.6) 70%,rgba(4,3,2,0.92) 100%)" : "linear-gradient(180deg,rgba(10,7,3,0.62) 0%,rgba(10,7,3,0.38) 35%,rgba(10,7,3,0.55) 70%,rgba(8,6,3,0.88) 100%)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "var(--sw-hero-veil)" }} />
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 30%,transparent 40%,rgba(0,0,0,0.35) 100%)" }} />
 
         {/* Gold accent lines — unchanged from the existing system */}
@@ -379,10 +396,13 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
       </div>
 
       {/* ── PACKAGES — click a card to expand it at centre screen ── */}
-      <div style={{ background: isDark ? "var(--sw-bg)" : "#f7f2ea", padding: mob ? "52px 20px" : "88px 24px", borderBottom: `1px solid ${C.border}` }}>
+      {/* sw-defer: rendered (and its images fetched) only as it nears the
+          screen. See app/globals.css. Hero and testimonials are left out on
+          purpose — one is on screen at load, the other measures itself. */}
+      <div className="sw-defer" style={{ background: "var(--sw-band-cream)", padding: bandPad(mob ? 20 : 24), borderBottom: `1px solid ${C.border}` }}>
         <div style={{ maxWidth: 1280, margin: "0 auto" }}>
 
-          <Reveal style={{ textAlign: "center", marginBottom: mob ? 32 : 44 }}>
+          <Reveal style={{ textAlign: "center", marginBottom: headGap }}>
             <p style={eyebrow}>Packages</p>
             <h2 className="sw-section-title" style={{ ...h2, marginBottom: 16 }}>
               Choose Your Stay
@@ -456,6 +476,9 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           {activePkg !== null && (() => {
             const p = visiblePackages[activePkg];
             const exclusive = p.status === "Exclusive";
+            // A promo the owner set (Packages & Prices): what is charged today.
+            const promo = packagePriceToday(p, manilaNow().date);
+            const struck = promo.off > 0 ? promo.regular : packageValue(p).compare;
             const gallery = p.gallery;
             // The dialog scrolls, not the individual columns: a grid item with
             // its own overflow contributes ~0 to row sizing, which left the two
@@ -463,7 +486,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
             // A JSX comment cannot sit directly after `return (` -- it would be
             // a second sibling and break the element.
             return (
-              <div className="grid md:grid-cols-2">
+              <div className="grid grid-cols-[minmax(0,1fr)] md:grid-cols-2">
                 <MediaGallery
                   shots={gallery}
                   eyebrow="PACKAGE"
@@ -485,7 +508,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                     and the action is pinned to the foot behind a divider so
                     it lands in the same place in every dialog. */}
                 <div className="flex flex-col">
-                  <div className="flex flex-col gap-5 p-6 sm:p-7">
+                  <div className="flex min-w-0 flex-col gap-5 p-5 min-[380px]:p-6 sm:p-7">
 
                     {/* Status */}
                     <div>
@@ -493,7 +516,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                         variant="outline"
                         className="rounded-full px-3 py-1 text-[10.5px] tracking-[2px]"
                         style={{
-                          background: exclusive ? `${gold}18` : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"),
+                          background: exclusive ? `${gold}18` : ("var(--sw-chip-tint)"),
                           color: exclusive ? C.goldInk : C.textS,
                           borderColor: exclusive ? `${gold}44` : C.border,
                         }}
@@ -506,15 +529,20 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                         whole tour/venue cost regardless of how many of the
                         included guests turn up. */}
                     <div>
-                      <div className="flex items-baseline gap-3">
-                        <span className="font-serif text-[40px] leading-none font-normal text-foreground">{fmt(p.price)}</span>
-                        {packageValue(p).compare && (
-                          <span className="text-[17px] text-faint line-through">{fmt(packageValue(p).compare!)}</span>
+                      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <span className="font-serif text-[34px] leading-none font-normal text-foreground min-[380px]:text-[40px]">{fmt(promo.pay)}</span>
+                        {struck && (
+                          <span className="text-[17px] text-faint line-through">{fmt(struck)}</span>
                         )}
                       </div>
-                      {/* Against booking the same thing yourself in Book Now,
-                          not a pre-discount total nobody pays. */}
-                      {packageValue(p).save > 0 ? (
+                      {/* A promo first; otherwise against booking the same
+                          thing yourself in Book Now, not a pre-discount total
+                          nobody pays. */}
+                      {promo.badge ? (
+                        <p className="mt-2 text-[12.5px] tracking-wide" style={{ color: "#e2574c" }}>
+                          {promo.badge}: you save {fmt(promo.off)}{promo.until ? `, ${promoUntilLabel(promo.until)}` : ""}
+                        </p>
+                      ) : packageValue(p).save > 0 ? (
                         <p className="mt-2 text-[12.5px] tracking-wide text-[#4caf50]">
                           You save {fmt(packageValue(p).save)} compared with booking it yourself
                         </p>
@@ -532,7 +560,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                     {/* Inclusions */}
                     <div>
                       <p className="mb-3 text-[10.5px] tracking-[2.5px] text-faint">WHAT&apos;S INCLUDED</p>
-                      <ul className="flex flex-col">
+                      <ul className="m-0 flex list-none flex-col p-0">
                         {p.includes.map((inc) => (
                           <li key={inc} className="flex items-start gap-2 border-b border-border-soft py-3 last:border-0 last:pb-0">
                             <Icon name="check" size={12} className="mt-1 shrink-0 text-accent-ink" />
@@ -548,13 +576,13 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                       <p className="mb-3 text-[10.5px] tracking-[2.5px] text-faint">
                         {p.slotMode === "WholeDay" ? "DURATION" : "CHOOSE WHEN YOU BOOK"}
                       </p>
-                      <ul className="flex flex-col">
+                      <ul className="m-0 flex list-none flex-col p-0">
                         {(p.slotMode === "WholeDay" ? [SLOTS.WholeDay] : [SLOTS.Day, SLOTS.Night])
                           .map((sl) => ({ label: sl.label, window: sl.hours }))
                           .map((d) => (
-                            <li key={d.label} className="flex items-center justify-between gap-3 border-b border-border-soft py-3 last:border-0 last:pb-0">
+                            <li key={d.label} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-border-soft py-3 last:border-0 last:pb-0">
                               <span className="text-[14.5px] text-body">{d.label}</span>
-                              <span className="text-[13.5px] font-medium text-accent-ink">{d.window}</span>
+                              <span className="ml-auto text-right text-[13.5px] font-medium text-accent-ink">{d.window}</span>
                             </li>
                           ))}
                       </ul>
@@ -564,12 +592,12 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                   {/* Action, pinned to the foot of the column. */}
                   <div className="mt-auto border-t border-border-soft p-6 pt-5 sm:px-7">
                     <Button
-                      className="sw-btn h-auto w-full rounded-lg py-4 text-[13.5px] tracking-[1.5px]"
+                      className="sw-btn h-auto w-full rounded-lg py-4 text-[13.5px] tracking-[1.5px] whitespace-normal"
                       onClick={() => {
                         closePkg();
                         if (onBookPackage) {
                           onBookPackage(
-                            { code: p.code, title: p.title, price: p.price, listPrice: packageValue(p).compare, capacity: p.capacity, requiresRoom: p.requiresRoom, slotMode: p.slotMode },
+                            { code: p.code, title: p.title, ...packageLinkPrices(p, manilaNow().date), capacity: p.capacity, requiresRoom: p.requiresRoom, slotMode: p.slotMode },
                             p.resource,
                             p.status
                           );
@@ -577,7 +605,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                           setPage("Book Now");
                         }
                       }}
-                      style={goldBtn}
+                      style={{ ...goldBtn, ...(mob ? { padding: "14px 18px" } : null), lineHeight: 1.4, textAlign: "center" }}
                     >
                       BOOK {p.title.toUpperCase()} →
                     </Button>
@@ -590,41 +618,60 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
       </Dialog>
 
       {/* ── RATES & FACILITIES (unchanged) ── */}
-      <div style={{ background: isDark ? "var(--sw-bg)" : "#fdf9f4", padding: mob ? "52px 20px" : "88px 24px", borderBottom: `1px solid ${C.border}` }}>
+      <div className="sw-defer" style={{ background: "var(--sw-band-ivory)", padding: bandPad(mob ? 20 : 24), borderBottom: `1px solid ${C.border}` }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
           <Reveal>
             <p style={eyebrow}>What&rsquo;s Included</p>
             <h2 className="sw-section-title" style={{ ...h2, marginBottom: 16 }}>Tours &amp; Room Add-ons</h2>
-            <p style={{ ...lede, marginBottom: 52, maxWidth: 520, margin: "0 auto 52px" }}>Base pricing before package configuration. Every reservation starts here.</p>
+            <p style={{ ...lede, maxWidth: 520, margin: `0 auto ${headGap}px` }}>Base pricing before package configuration. Every reservation starts here.</p>
           </Reveal>
 
           <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 20, marginBottom: 48, maxWidth: 1100, margin: "0 auto 48px" }}>
-            {rateCards(rooms).map((p, i) => (
-              /* The hover lift has to sit on a plain element: Reveal is a
-                 Motion component and writes `transform` inline, which beats
-                 the .sw-card:hover rule and left the lift dead. Entrance
-                 outside, card surface and hover inside. */
-              <Reveal key={p.id} delay={i * REVEAL_STEP} style={{ display: "flex" }}>
-              <div className="sw-card"
-                style={{ background: C.bgCard2, border: `1px solid ${C.border}`, borderRadius: 10, padding: mob ? "24px 20px" : "28px 24px", textAlign: "left", boxShadow: C.shadowCard, display: "flex", flexDirection: "column", flex: 1 }}>
-                <div style={{ marginBottom: 12, color: C.goldInk }}><Icon name={p.icon as IconName} size={28} strokeWidth={1.5} /></div>
-                <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18, marginBottom: 8 }}>{p.label}</h3>
-                <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 16, lineHeight: 1.6 }}>{p.desc}</p>
-                <div style={{ color: C.goldInk, fontSize: 24, fontWeight: 700, marginBottom: 16 }}>{p.id === "wholeday" ? "" : "from "}{fmt(p.base)}<span style={{ color: C.textXS, fontSize: 13.5 }}> {p.unit}</span></div>
-                {p.details.map((d) => (
-                  <div key={d} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
-                    <Icon name="check" size={12} style={{ color: C.goldInk, marginTop: 4, flexShrink: 0 }} />
-                    <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5 }}>{d}</span>
-                  </div>
-                ))}
-                {p.id === "room" && (
-                  <button className="sw-btn" onClick={() => setPage("Rooms")} style={{ ...goldBtn, marginTop: "auto", width: "100%" }}>
-                    <Icon name="bed" size={15} /> VIEW ROOMS
-                    <Icon name="arrow-right" size={13} />
-                  </button>
-                )}
-              </div>
-              </Reveal>
+            {rateCardsShown.map((p, i) => (
+              /* React Bits' TiltedCard: each card tilts toward the cursor,
+                 catches a glare across its face and edge, and lifts on a
+                 soft shadow; on a phone it follows the finger while pressed.
+                 It rises into place when it scrolls into view, a beat after
+                 the card before it, which is what Reveal used to do here.
+                 imageHeight="auto" sizes it to its text and fills the grid
+                 cell, so a row keeps one height. */
+              <TiltedCard
+                key={p.id}
+                imageHeight="auto"
+                containerWidth="100%"
+                rotateAmplitude={9}
+                scaleOnHover={1.03}
+                glare={0.35}
+                glareColor="#f0d97a"
+                shadow={0.45}
+                radius={12}
+                showTooltip={false}
+                introDelay={i * 90}
+                faceStyle={{ background: C.bgCard2, border: `1px solid ${C.border}`, boxShadow: C.shadowCard }}
+              >
+                <div style={{ padding: mob ? "24px 20px" : "28px 24px", textAlign: "left", display: "flex", flexDirection: "column", height: "100%", boxSizing: "border-box" }}>
+                  <div style={{ marginBottom: 12, color: C.goldInk }}><Icon name={p.icon} size={28} strokeWidth={1.5} /></div>
+                  <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18, marginBottom: 8 }}>{p.title}</h3>
+                  {p.description && <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 16, lineHeight: 1.6 }}>{p.description}</p>}
+                  {p.price && (
+                    <div style={{ color: C.goldInk, fontSize: 24, fontWeight: 700, marginBottom: 16 }}>
+                      {p.price}{p.unit && <span style={{ color: C.textXS, fontSize: 13.5 }}> {p.unit}</span>}
+                    </div>
+                  )}
+                  {p.details.map((d) => (
+                    <div key={d} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+                      <Icon name="check" size={12} style={{ color: C.goldInk, marginTop: 4, flexShrink: 0 }} />
+                      <span style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.5 }}>{d}</span>
+                    </div>
+                  ))}
+                  {p.button && (
+                    <button className="sw-btn" onClick={() => setPage(p.button!.link)} style={{ ...goldBtn, marginTop: "auto", width: "100%" }}>
+                      {p.button.link === "Rooms" && <Icon name="bed" size={15} />} {p.button.label}
+                      <Icon name="arrow-right" size={13} />
+                    </button>
+                  )}
+                </div>
+              </TiltedCard>
             ))}
 
           </div>
@@ -635,9 +682,9 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
 
       {/* ── WHERE YOU'LL STAY — the rooms as a coverflow deck ── */}
       {rooms.length > 0 && (
-        <div style={{ background: C.bg, padding: mob ? "60px 20px" : "104px 24px", overflow: "hidden" }}>
+        <div className="sw-defer" style={{ background: C.bg, padding: bandPad(mob ? 20 : 24), overflow: "hidden" }}>
           <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-            <Reveal style={{ textAlign: "center", marginBottom: mob ? 44 : 64 }}>
+            <Reveal style={{ textAlign: "center", marginBottom: headGap }}>
               <p style={eyebrow}>Accommodations</p>
               <h2 style={h2}>Where You&rsquo;ll Stay</h2>
             </Reveal>
@@ -654,10 +701,10 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
       )}
 
       {/* ── OUR SERVICES — clean line-icon row ── */}
-      <div style={{ background: isDark ? "#0b0907" : "#ffffff", padding: mob ? "60px 20px" : "104px 24px" }}>
+      <div className="sw-defer" style={{ background: "var(--sw-band-services)", padding: bandPad(mob ? 20 : 24) }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
-          <Reveal style={{ textAlign: "center", marginBottom: mob ? 44 : 64 }}>
+          <Reveal style={{ textAlign: "center", marginBottom: headGap }}>
             <p style={eyebrow}>Our Services</p>
             <h2 style={h2}>Resort Facilities</h2>
           </Reveal>
@@ -697,7 +744,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                 </div>
                 {s.desc && <div style={{ color: C.textS, fontSize: 13, lineHeight: 1.5, marginTop: 8 }}>{s.desc}</div>}
                 {s.closed && (
-                  <div style={{ display: "inline-block", marginTop: 12, padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(224,122,58,0.5)", color: isDark ? "#e8a070" : "#a8481a", fontSize: 11.5, whiteSpace: "nowrap" }}>
+                  <div style={{ display: "inline-block", marginTop: 12, padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(224,122,58,0.5)", color: "var(--sw-accent-copper)", fontSize: 11.5, whiteSpace: "nowrap" }}>
                     Under maintenance
                   </div>
                 )}
@@ -708,17 +755,17 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
       </div>
 
       {/* ── TESTIMONIALS — infinite marquee (unchanged) ── */}
-      <div style={{ background: isDark ? "var(--sw-bg)" : "#f5f0e8", padding: mob ? "52px 0" : "88px 0", overflow: "hidden" }}>
-        <Reveal style={{ textAlign: "center", marginBottom: mob ? 44 : 60, padding: "0 20px" }}>
+      <div style={{ background: "var(--sw-band-sand)", padding: bandPad(0), overflow: "hidden" }}>
+        <Reveal style={{ textAlign: "center", marginBottom: headGap, padding: "0 20px" }}>
           <p style={eyebrow}>Testimonials</p>
           <h2 style={h2}>What Our Guests Say</h2>
         </Reveal>
         <div style={{ position: "relative" }}>
-          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to right,${isDark ? "var(--sw-bg)" : "#f5f0e8"},transparent)`, zIndex: 2, pointerEvents: "none" }} />
-          <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to left,${isDark ? "var(--sw-bg)" : "#f5f0e8"},transparent)`, zIndex: 2, pointerEvents: "none" }} />
+          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to right,var(--sw-band-sand),transparent)`, zIndex: 2, pointerEvents: "none" }} />
+          <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 80, background: `linear-gradient(to left,var(--sw-band-sand),transparent)`, zIndex: 2, pointerEvents: "none" }} />
           <div className="sw-marquee-track" style={{ animationDuration: `${marquee.seconds}s` }}>
             {[...marquee.cards, ...marquee.cards].map((r, i) => (
-              <div key={i} style={{ flexShrink: 0, width: mob ? 280 : 330, marginRight: 16, background: isDark ? "var(--sw-bg-card-2)" : "#fff", border: `1px solid ${isDark ? "rgba(201,168,76,0.1)" : "rgba(201,168,76,0.15)"}`, borderRadius: 12, padding: "28px 24px", boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.35)" : "0 4px 16px rgba(100,70,20,0.08)" }}>
+              <div key={i} style={{ flexShrink: 0, width: mob ? 280 : 330, marginRight: 16, background: "var(--sw-review-card)", border: `1px solid var(--sw-review-border)`, borderRadius: 12, padding: "28px 24px", boxShadow: "var(--sw-review-shadow)" }}>
                 <div aria-label={`${r.rating} out of 5 stars`} style={{ display: "flex", gap: 4, marginBottom: 12 }}>
                   {[1, 2, 3, 4, 5].map((n) => (
                     <Icon key={n} name="star" size={14} filled={n <= r.rating} style={{ color: n <= r.rating ? C.goldInk : C.border }} />
@@ -734,15 +781,17 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
       </div>
 
       {/* ── CLOSING CTA — gives the most engaged visitor somewhere to go ── */}
-      <div
+      <div className="sw-defer"
         style={{
           position: "relative",
           overflow: "hidden",
-          padding: mob ? "72px 20px" : "112px 24px",
+          padding: bandPad(mob ? 20 : 24),
           textAlign: "center",
         }}
       >
-        <div style={{ position: "absolute", inset: 0, backgroundImage: `url(${RESORT_WIDE})`, backgroundSize: "cover", backgroundPosition: "center" }} />
+        {/* The last section on the page: fetched as it is scrolled toward,
+            not at load. */}
+        <LazyBackground src={RESORT_WIDE} style={{ position: "absolute", inset: 0, backgroundSize: "cover", backgroundPosition: "center" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(6,5,3,0.82),rgba(6,5,3,0.9))" }} />
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(to right,transparent,${gold}66,transparent)` }} />
 

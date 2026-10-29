@@ -1,29 +1,61 @@
 import { GALLERY_MAX } from "@/lib/validators";
+import { srcSetFor, imageAt } from "@/lib/img";
+import type { MasonryItem } from "@/components/common/Masonry";
 
 /**
- * The shape of the public gallery mosaic.
- *
- * These two live here rather than inside `components/sections/Gallery.tsx`
- * because the admin Gallery tab draws the SAME grid as a preview. If the two
- * kept their own copies, the preview would quietly stop matching the page it
- * claims to show, which is the one thing that preview must never do.
+ * Gallery helpers shared by the public /gallery page and the admin Gallery
+ * tab's preview of it, so the preview cannot drift from the page.
  */
 
-/** Column spans for the mosaic, on a repeating cycle over a 12-column grid.
- *  A row that cannot fit the next span ends early -- the gaps down the
- *  right-hand side are the layout, not a bug. */
-export const GALLERY_SPANS = [7, 5, 4, 5, 7, 7, 4, 3, 4, 7];
+/** One gallery photo and the words a guest sees on it. */
+export interface GalleryPhoto {
+  url: string;
+  /** Short name of what the photo shows, e.g. "Deluxe Room". May be blank. */
+  title: string;
+  /** One optional line under the title. */
+  description: string;
+}
 
-/** Photos are stamped with a time of day, spread evenly across the resort's
- *  seventeen open hours (07:00 to 23:00) however many photos the admin has
- *  uploaded -- hence "Seventeen hours, told in order".
- *
- *  `i` is the index within the mosaic, i.e. AFTER the hero has been sliced
- *  off the front of the gallery array. */
-export function galleryHourLabel(i: number, total: number): string {
-  const span = 16; // 07:00 -> 23:00
-  const hour = total <= 1 ? 7 : 7 + Math.round((i * span) / (total - 1));
-  return `${String(hour).padStart(2, "0")}:00`;
+export const GALLERY_TITLE_MAX = 60;
+export const GALLERY_TEXT_MAX = 160;
+
+/** A bare url as a photo with no words on it. */
+export const toGalleryPhoto = (url: string): GalleryPhoto => ({ url, title: "", description: "" });
+
+/** Trimmed, single-spaced, without control characters, and cut to length:
+ *  what the server stores and the admin form previews. */
+export function cleanCaption(text: unknown, max: number): string {
+  return String(text ?? "")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
+/** How many masonry columns at each width. Shared with the admin preview,
+ *  so it lays the photos out exactly as guests will see them. */
+export function galleryColumns(w: number): number {
+  return w < 768 ? 2 : w < 1024 ? 3 : 4;
+}
+
+/** The photos after the hero, as masonry tiles carrying the title and
+ *  text staff wrote for them. */
+export function galleryTiles(photos: GalleryPhoto[], columns: number): MasonryItem[] {
+  const rest = photos.slice(1);
+  const vw = Math.round(100 / columns);
+  return rest.map((p, i) => {
+    return {
+      // Index first: the admin can upload the same photo twice.
+      id: `${i}-${p.url}`,
+      img: imageAt(p.url, 800),
+      srcSet: srcSetFor(p.url),
+      sizes: `${vw}vw`,
+      full: imageAt(p.url, 1600),
+      title: p.title || undefined,
+      description: p.description || undefined,
+      alt: p.title ? `${p.title}${p.description ? `. ${p.description}` : ""}` : `StoneWood Resort, photo ${i + 1} of ${rest.length}`,
+    };
+  });
 }
 
 /** A room's photos as gallery frames, cover first.

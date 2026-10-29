@@ -26,6 +26,7 @@ import { outBtn } from "@/lib/styles";
 import { GALLERY_MAX } from "@/lib/validators";
 import { Icon } from "@/components/common/Icon";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/admin/ui";
 
 interface PhotoSetProps {
   photos: string[];
@@ -62,6 +63,7 @@ export function PhotoSet({
   const { isDark } = useTheme();
   const C = T(isDark);
   const { toast } = useToast();
+  const [confirmRemove, confirmDialog] = useConfirm();
   const addRef = useRef<HTMLInputElement>(null);
   const replaceRef = useRef<HTMLInputElement>(null);
   const replacing = useRef<number>(-1);
@@ -131,6 +133,7 @@ export function PhotoSet({
 
   return (
     <div>
+      {confirmDialog}
       <input ref={addRef} type="file" accept="image/*" multiple onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }} style={{ display: "none" }} />
       <input ref={replaceRef} type="file" accept="image/*" onChange={(e) => { void replaceAt(e.target.files); e.target.value = ""; }} style={{ display: "none" }} />
 
@@ -155,7 +158,7 @@ export function PhotoSet({
                     COVER
                   </button>
                 )}
-                <button type="button" onClick={() => removeAt(i)} style={{ ...chipS, color: "#e06a5c" }} aria-label={`Remove ${noun} photo ${i + 1}`}>
+                <button type="button" onClick={() => confirmRemove({ title: `Remove ${noun} photo ${i + 1}?`, body: i === 0 ? "It is the cover, so the next photo becomes the cover." : "It comes off this " + noun + " when you save.", action: "Remove photo", onConfirm: () => removeAt(i) })} style={{ ...chipS, color: "#e06a5c" }} aria-label={`Remove ${noun} photo ${i + 1}`}>
                   REMOVE
                 </button>
               </div>

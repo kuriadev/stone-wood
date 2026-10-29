@@ -37,6 +37,28 @@ import type { Booking, BookingSlot, BookingTier } from "@/types/booking";
 
 const SLOT_ORDER: BookingSlot[] = ["Day", "Night", "WholeDay"];
 
+/** The pool-access description, for one tier and one reservation type. */
+const poolNote = (exclusive: boolean, slotLabel: string): string =>
+  exclusive
+    ? `The pool and resort are your group's alone for your ${slotLabel} — no other group, up to ${GUESTS_MAX} guests. The events venue isn't included and another group may rent it; you can add it.`
+    : `Pool shared with other groups in your ${slotLabel} — billed per guest, up to ${GUESTS_MAX} guests in total.`;
+
+const poolNoteStyle: CSSProperties = { fontSize: 12, color: "rgba(238,232,220,0.5)", margin: 0, lineHeight: 1.5 };
+
+/** Every description the pool-access block can show, to hold its height. */
+const POOL_SIZERS: string[] = SLOT_ORDER.flatMap((k) => [poolNote(true, SLOTS[k].label), poolNote(false, SLOTS[k].label)]);
+
+/** Every line the reservation-type note can show. Rendered invisibly
+ *  behind the real one to hold the space open, so switching type never
+ *  changes the card's height. Keep in step with the note below. */
+const SLOT_SIZERS: string[] = [
+  stayPatternNote(MULTI_DAY_SLOT, MAX_STAY_DAYS) ?? "",
+  `Choose your first day on the calendar, then your last day. You can stay up to ${MAX_STAY_DAYS} days in a row.`,
+  ...SLOT_ORDER.filter((k) => !allowsMultiDay(k)).map(
+    (k) => `A single date, ${SLOTS[k].hours}. Choose it on the calendar.`,
+  ),
+];
+
 /** The stay note's type. Shared by the visible note and the invisible
  *  sizers behind it: if these drift apart the reserved height is wrong. */
 const stayNoteStyle: CSSProperties = {
@@ -128,7 +150,8 @@ export function HeroReservation({
 
   return (
     <div
-      className="hero-card sw-hero-card-float"
+      // Holds still: the owner asked for no floating on the booking card.
+      className="hero-card"
       style={{
         position: "relative",
         zIndex: 3,
@@ -187,6 +210,10 @@ export function HeroReservation({
             flexDirection: "column",
           }}
         >
+          {/* The calendar keeps one size; any height the reservation side
+              adds beyond it is shared above and below, so nothing inside the
+              month moves when the visit type changes. */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
             <p style={{ fontSize: 14, color: "rgba(238,232,220,0.88)", margin: 0, fontWeight: 500 }}>
               Choose an available date
@@ -211,18 +238,24 @@ export function HeroReservation({
               setEndDate(to === from ? "" : to);
             } : undefined}
           />
-          {!allowsMultiDay(slot) && (
-            <p style={{ fontSize: 12.5, color: "rgba(238,232,220,0.6)", margin: "12px 0 0", textAlign: "center" }}>
-              Staying more than one day?{" "}
-              <button
-                type="button"
-                onClick={() => setSlot(MULTI_DAY_SLOT)}
-                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: gold, fontSize: 12.5, textDecoration: "underline", textUnderlineOffset: 3 }}
-              >
-                Choose {SLOTS[MULTI_DAY_SLOT].label}
-              </button>
-            </p>
-          )}
+          {/* Hidden, not removed, under Staycation: the line keeps its room so
+              the calendar above it does not shift when the visit type changes.
+              (The reservation side already explains how to pick a stay.) */}
+          <p
+            aria-hidden={allowsMultiDay(slot) || undefined}
+            style={{ fontSize: 12.5, color: "rgba(238,232,220,0.6)", margin: "12px 0 0", textAlign: "center", visibility: allowsMultiDay(slot) ? "hidden" : "visible" }}
+          >
+            Staying more than one day?{" "}
+            <button
+              type="button"
+              tabIndex={allowsMultiDay(slot) ? -1 : undefined}
+              onClick={() => setSlot(MULTI_DAY_SLOT)}
+              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: gold, fontSize: 12.5, textDecoration: "underline", textUnderlineOffset: 3 }}
+            >
+              Choose {SLOTS[MULTI_DAY_SLOT].label}
+            </button>
+          </p>
+          </div>
         </div>
 
         {/* Your visit */}
@@ -310,34 +343,36 @@ export function HeroReservation({
                 );
               })}
             </div>
-            {/* What a Staycation over several days means.
+            {/* What the chosen reservation type means, in one line.
 
-                Only a Staycation can span dates, so only it gets this note,
-                and its space is RESERVED from the moment it is chosen. The
-                note used to appear on the second date click, growing the
-                card mid-pick so every date tile visibly stretched under the
-                guest's cursor. The hidden copy (the longest note, at the
-                longest stay) sizes the cell; the real note is laid over it.
-                Day and Night Tours are single-date, so they reserve nothing
-                and leave no gap. */}
-            {allowsMultiDay(slot) && (
-              <div style={{ display: "grid", margin: "10px 0 0" }}>
-                <p aria-hidden style={{ ...stayNoteStyle, gridArea: "1 / 1", visibility: "hidden" }}>
-                  {stayPatternNote(slot, MAX_STAY_DAYS)}
+                This block is ALWAYS here, for every type. It used to render
+                only for a Staycation, so choosing one grew the card by 64px
+                (826 -> 893) and the whole hero — photograph included —
+                stretched under the guest's cursor. Reserving the space only
+                within Staycation fixed the second date click but not the
+                switch INTO it.
+
+                Every type gets a line rather than the tours getting an
+                empty 64px gap: the space has to be held open regardless, so
+                it may as well say something. The hidden copies size the
+                cell to the tallest line any type can produce, at any width;
+                the real one is laid over them. */}
+            <div style={{ display: "grid", margin: "10px 0 0" }}>
+              {SLOT_SIZERS.map((text, i) => (
+                <p key={i} aria-hidden style={{ ...stayNoteStyle, gridArea: "1 / 1", visibility: "hidden" }}>
+                  {text}
                 </p>
-                {/* Until a range is down, the same space says HOW to pick
-                    one. The calendar's own hints are hover titles, which a
-                    phone never shows, so nothing on this card used to say
-                    a Staycation takes two taps. */}
-                <p style={{ ...stayNoteStyle, gridArea: "1 / 1" }}>
-                  {stayDays > 1
+              ))}
+              <p style={{ ...stayNoteStyle, gridArea: "1 / 1" }}>
+                {!allowsMultiDay(slot)
+                  ? `A single date, ${SLOTS[slot].hours}. Choose it on the calendar.`
+                  : stayDays > 1
                     ? stayPatternNote(slot, stayDays)
                     : date
                       ? `Now choose your last day, up to ${MAX_STAY_DAYS} days in a row. Or keep just ${fmtDate(date)} for a one-day ${SLOTS[slot].label}.`
                       : `Choose your first day on the calendar, then your last day. You can stay up to ${MAX_STAY_DAYS} days in a row.`}
-                </p>
-              </div>
-            )}
+              </p>
+            </div>
           </div>
 
           <div style={rule} />
@@ -384,9 +419,14 @@ export function HeroReservation({
           <div>
             <p style={{ ...label, margin: "0 0 10px" }}>POOL ACCESS</p>
             {slot === "WholeDay" ? (
-              <p style={{ display: "inline-flex", alignItems: "center", gap: 6, margin: 0, padding: "6px 12px", borderRadius: 20, background: `${gold}22`, border: `1px solid ${gold}66`, color: gold, fontSize: 11.5, fontWeight: 700, letterSpacing: 1 }}>
-                <Icon name="lock" size={12} /> EXCLUSIVE — {SLOTS.WholeDay.label.toUpperCase()}
-              </p>
+              /* The same 44px row the two tour buttons occupy. The pill on
+                 its own is ~29px, so switching to a Staycation used to pull
+                 everything below it up by the difference. */
+              <div style={{ minHeight: 44, display: "flex", alignItems: "center" }}>
+                <p style={{ display: "inline-flex", alignItems: "center", gap: 6, margin: 0, padding: "6px 12px", borderRadius: 20, background: `${gold}22`, border: `1px solid ${gold}66`, color: gold, fontSize: 11.5, fontWeight: 700, letterSpacing: 1 }}>
+                  <Icon name="lock" size={12} /> EXCLUSIVE — {SLOTS.WholeDay.label.toUpperCase()}
+                </p>
+              </div>
             ) : (
               <div role="radiogroup" aria-label="Pool access" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 {(["Shared", "Exclusive"] as const).map((opt) => {
@@ -421,11 +461,17 @@ export function HeroReservation({
                 })}
               </div>
             )}
-            <p style={{ fontSize: 12, color: "rgba(238,232,220,0.5)", margin: "8px 0 0", lineHeight: 1.5 }}>
-              {goesExclusive
-                ? `The pool and resort are your group's alone for your ${SLOTS[slot].label} — no other group, up to ${GUESTS_MAX} guests. The events venue isn't included and another group may rent it; you can add it.`
-                : `Pool shared with other groups in your ${SLOTS[slot].label} — billed per guest, up to ${GUESTS_MAX} guests in total.`}
-            </p>
+            {/* Held at the height of the longest description any type and
+                tier can produce. The Exclusive text runs to three lines and
+                the Shared one to two, which was the last 4px of movement
+                when switching type — measured, after the 64px note above
+                was already fixed. */}
+            <div style={{ display: "grid", margin: "8px 0 0" }}>
+              {POOL_SIZERS.map((text, i) => (
+                <p key={i} aria-hidden style={{ ...poolNoteStyle, gridArea: "1 / 1", visibility: "hidden" }}>{text}</p>
+              ))}
+              <p style={{ ...poolNoteStyle, gridArea: "1 / 1" }}>{poolNote(goesExclusive, SLOTS[slot].label)}</p>
+            </div>
           </div>
 
           <div style={rule} />

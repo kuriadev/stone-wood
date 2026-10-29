@@ -14,8 +14,8 @@ export default function AdminPage() {
     setBookings,
     rooms,
     setRooms,
-    galleryImgs,
-    setGalleryImgs,
+    galleryPhotos,
+    setGalleryPhotos,
     closedDates,
     setClosedDates,
     customerMessages,
@@ -48,8 +48,8 @@ export default function AdminPage() {
       setBookings={setBookings}
       rooms={rooms}
       setRooms={setRooms}
-      galleryImgs={galleryImgs}
-      setGalleryImgs={setGalleryImgs}
+      galleryPhotos={galleryPhotos}
+      setGalleryPhotos={setGalleryPhotos}
       closedDates={closedDates}
       setClosedDates={setClosedDates}
 

@@ -21,11 +21,13 @@
 // bundle, 8% room in a package, 15% each extra day.
 
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
+import type { PackageDiscount } from "@/types/package";
 import {
   EXCLUSIVE_FLAT_RATE,
   SHARED_PER_HEAD_RATE,
   EVENT_VENUE_RATE,
   OVERTIME_RATE,
+  RESORT_MAX_CAPACITY,
 } from "@/lib/validators";
 import { SLOTS, multiDayProblem } from "@/lib/resort";
 import { getBookingResource, getBookingSlot, getBookingTier } from "@/lib/utils";
@@ -107,6 +109,138 @@ export function pricingProblem(
     return `A ${SLOTS.WholeDay.label} includes the resort. Choose Resort & pool, or Resort & pool + Events Venue.`;
   }
   return multiDayProblem(slot, days);
+}
+
+/** The events hall's own capacity, separate from the pool's
+ *  (RESORT_MAX_CAPACITY): a venue-only package can hold up to this many. */
+export const VENUE_CAPACITY = 50;
+
+/** The most guests a package of this kind can take. */
+export const packageCapacityLimit = (resource: BookingResource) =>
+  resource === "Venue" ? VENUE_CAPACITY : RESORT_MAX_CAPACITY;
+
+// ── Package promos ─────────────────────────────────────────────────
+// A package keeps its regular price; a promo takes money off it, as a
+// percentage or a peso amount, optionally until a date. The discounted
+// price is what is CHARGED (the booking quote and the walk-in window both
+// price a package through packagePriceToday), so what a guest is shown is
+// what they pay.
+
+export const PACKAGE_DISCOUNT_MAX_PCT = 90;
+
+export type DiscountResult = { ok: true; discount: PackageDiscount | null } | { ok: false; error: string };
+
+/** A clean promo from anything (the form, the API), checked against the
+ *  package's regular price. Blank or zero means no promo. */
+export function cleanPackageDiscount(raw: unknown, price: number): DiscountResult {
+  if (raw === null || raw === undefined || raw === "") return { ok: true, discount: null };
+  const r = (typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const type = r.type === "amount" ? "amount" : r.type === "percent" ? "percent" : null;
+  const value = Number(r.value);
+  if (!type || r.value === "" || r.value === null || r.value === undefined || value === 0) return { ok: true, discount: null };
+  if (!Number.isFinite(value) || value < 0) return { ok: false, error: "The discount must be a positive number." };
+  if (type === "percent" && (value < 1 || value > PACKAGE_DISCOUNT_MAX_PCT || !Number.isInteger(value))) {
+    return { ok: false, error: `A percentage discount is a whole number from 1 to ${PACKAGE_DISCOUNT_MAX_PCT}.` };
+  }
+  if (type === "amount" && (!Number.isInteger(value) || value >= price)) {
+    return { ok: false, error: `A peso discount has to be a whole amount less than the price (${price.toLocaleString()}).` };
+  }
+  let until: string | undefined;
+  if (r.until !== undefined && r.until !== null && r.until !== "") {
+    until = String(r.until);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(until) || Number.isNaN(Date.parse(until))) return { ok: false, error: "The promo end date isn't a real date." };
+  }
+  return { ok: true, discount: { type, value, ...(until ? { until } : {}) } };
+}
+
+/** What a package costs on `today` ("YYYY-MM-DD", Manila): the regular
+ *  price, and the promo price when a promo is running. */
+export function packagePriceToday(
+  p: { price: number; discount?: PackageDiscount | null },
+  today: string,
+): { pay: number; regular: number; off: number; badge: string | null; until?: string } {
+  const regular = p.price;
+  const d = p.discount;
+  const running = !!d && d.value > 0 && (!d.until || d.until >= today);
+  if (!running || !d) return { pay: regular, regular, off: 0, badge: null };
+  const off = d.type === "percent"
+    ? Math.round((regular * Math.min(d.value, PACKAGE_DISCOUNT_MAX_PCT)) / 100)
+    : Math.min(d.value, Math.max(0, regular - 1));
+  if (off <= 0) return { pay: regular, regular, off: 0, badge: null };
+  return {
+    pay: regular - off,
+    regular,
+    off,
+    badge: d.type === "percent" ? `${d.value}% OFF` : `₱${off.toLocaleString()} OFF`,
+    until: d.until,
+  };
+}
+
+/** The price and struck-through price a booking link carries for a
+ *  package: the promo against the regular price while one runs, else the
+ *  Book Now comparison (packageValue). The server re-prices regardless. */
+export function packageLinkPrices(
+  p: { resource: BookingResource; status: BookingTier; slotMode: "Single" | "WholeDay"; capacity: number; price: number; discount?: PackageDiscount | null },
+  today: string,
+): { price: number; listPrice?: number } {
+  const t = packagePriceToday(p, today);
+  if (t.off > 0) return { price: t.pay, listPrice: t.regular };
+  return { price: p.price, listPrice: packageValue(p).compare };
+}
+
+/** "until 30 Nov" for a promo's end date. */
+export function promoUntilLabel(until?: string): string {
+  if (!until) return "";
+  const [y, m, d] = until.split("-").map(Number);
+  const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m - 1];
+  return `until ${d} ${month}${y !== new Date().getFullYear() ? ` ${y}` : ""}`;
+}
+
+/** What guests book with a package, in the owner's words. */
+export const PACKAGE_RESOURCE_LABEL: Record<BookingResource, string> = {
+  Pool: "Resort & pool",
+  Venue: "Events venue only",
+  "Pool+Venue": "Resort & pool + events venue",
+};
+
+/** The pool access a package really gives. The events venue is never
+ *  shared, so a venue-only package is Exclusive whatever was chosen; the
+ *  form and the API both store it that way, so the badge cannot say
+ *  "Shared" about something a guest gets to themselves. */
+export function packageTier(resource: BookingResource, status: BookingTier): BookingTier {
+  return resource === "Venue" ? "Exclusive" : status;
+}
+
+/** Can Shared be chosen for this setup? null when it can, else why not. */
+export function sharedNotAllowed(resource: BookingResource, slotMode: "Single" | "WholeDay"): string | null {
+  if (resource === "Venue") return "The events venue is always private: one group at a time.";
+  if (resource === "Pool+Venue") return "Pool + events venue is Exclusive only: the whole resort is the group's for the event.";
+  if (slotMode === "WholeDay") return `A ${SLOTS.WholeDay.label} is Exclusive only.`;
+  return null;
+}
+
+/** Why a package can't be offered as set up, or null. The admin form shows
+ *  it and keeps Save off; the packages API refuses it. */
+export function packageSetupProblem(p: { resource: BookingResource; status: BookingTier; slotMode: "Single" | "WholeDay"; capacity: number }): string | null {
+  const tier = packageTier(p.resource, p.status);
+  const problem = pricingProblem(p.resource, tier, p.slotMode === "WholeDay" ? "WholeDay" : "Day", 1, true);
+  if (problem) return problem;
+  if (!Number.isFinite(p.capacity) || p.capacity < 1) return "Capacity must be at least 1.";
+  const limit = packageCapacityLimit(p.resource);
+  if (p.capacity > limit) {
+    return p.resource === "Venue"
+      ? `Capacity can be at most ${limit}, what the events venue holds.`
+      : `Capacity can be at most ${limit}, the resort's limit (Rates & Settings). A bigger package could never be booked.`;
+  }
+  return null;
+}
+
+/** "Shared pool", "Exclusive · Pool + venue", "Events venue" -- the short
+ *  badge on a package card that says what it really is. */
+export function packageSetupLabel(p: { resource: BookingResource; status: BookingTier; requiresRoom?: boolean }): string {
+  const tier = packageTier(p.resource, p.status);
+  const what = p.resource === "Venue" ? "Events venue" : p.resource === "Pool+Venue" ? `${tier} · Pool + venue` : `${tier} pool`;
+  return p.requiresRoom ? `${what} · Room` : what;
 }
 
 export function priceBooking(input: PriceInput): PriceBreakdown {

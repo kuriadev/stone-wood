@@ -3,14 +3,14 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { flushSync } from "react-dom";
 
-/** Light, Dim (the medium theme) and Dark. Dim is a dark theme with a
- *  softer palette (globals.css, .sw-dark.sw-dim), so `isDark` is true for
- *  both it and Dark. */
-export type ThemeMode = "light" | "dim" | "dark";
+/** Light and Dark. There was briefly a third, Dim, between them; the
+ *  owner asked for two, so it is gone. Anyone who had picked Dim is moved
+ *  to Dark on their next visit (see the stored-theme read below). */
+export type ThemeMode = "light" | "dark";
 
-/** The toggle steps through them in this order, brightest first. */
-export const THEME_ORDER: ThemeMode[] = ["light", "dim", "dark"];
-export const THEME_LABEL: Record<ThemeMode, string> = { light: "Light", dim: "Dim", dark: "Dark" };
+/** The toggle flips between these. */
+export const THEME_ORDER: ThemeMode[] = ["light", "dark"];
+export const THEME_LABEL: Record<ThemeMode, string> = { light: "Light", dark: "Dark" };
 export const nextTheme = (m: ThemeMode): ThemeMode => THEME_ORDER[(THEME_ORDER.indexOf(m) + 1) % THEME_ORDER.length];
 
 interface ThemeContextValue {
@@ -29,9 +29,9 @@ export const ThemeCtx = createContext<ThemeContextValue>({
 });
 
 const STORE_KEY = "sw-theme";
-const isMode = (v: unknown): v is ThemeMode => v === "light" || v === "dim" || v === "dark";
+const isMode = (v: unknown): v is ThemeMode => v === "light" || v === "dark";
 
-/** Mirror the theme onto <html> as sw-dark / sw-light (+ sw-dim).
+/** Mirror the theme onto <html> as sw-dark / sw-light.
  *
  *  A whole family of hover styles in globals.css is written as
  *  `.sw-dark .sw-card:hover { … }`, and Home and BookNow portal their
@@ -41,9 +41,11 @@ const isMode = (v: unknown): v is ThemeMode => v === "light" || v === "dim" || v
  *  mismatch on the very first paint. */
 function paint(mode: ThemeMode) {
   const root = document.documentElement;
-  root.classList.toggle("sw-dark", mode !== "light");
+  root.classList.toggle("sw-dark", mode === "dark");
   root.classList.toggle("sw-light", mode === "light");
-  root.classList.toggle("sw-dim", mode === "dim");
+  // Left over from the retired Dim theme on a page that was open across
+  // the change; harmless to clear every time.
+  root.classList.remove("sw-dim");
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -56,8 +58,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // storage turned off, just starts dark.
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(STORE_KEY);
-      if (isMode(saved)) { latest.current = saved; setModeState(saved); }
+      const raw = window.localStorage.getItem(STORE_KEY);
+      // Dim was a dark theme, so whoever chose it is closest to Dark.
+      const saved = raw === "dim" ? "dark" : raw;
+      if (isMode(saved)) {
+        latest.current = saved;
+        setModeState(saved);
+        if (raw !== saved) window.localStorage.setItem(STORE_KEY, saved);
+      }
     } catch { /* no storage: keep the default */ }
   }, []);
 
@@ -82,11 +90,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       paint(m);
       flushSync(() => setModeState(m));
     };
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    /* The fade runs under reduced motion too. Reduced motion is about
+       MOVEMENT — sliding, scaling, parallax, the things that can trigger
+       vestibular symptoms — and this is a cross-fade between two still
+       pictures: nothing moves. Skipping it gave anyone with the OS setting
+       on a hard cut from near-black to white, which is the one thing the
+       fade was built to prevent. globals.css shortens it for them instead. */
     type Fade = { ready: Promise<void>; finished: Promise<void>; updateCallbackDone: Promise<void> };
     const doc = document as Document & { startViewTransition?: (cb: () => void) => Fade };
     // A hidden tab draws no frames to fade between, so it just switches.
-    if (!reduce && document.visibilityState === "visible" && typeof doc.startViewTransition === "function") {
+    if (document.visibilityState === "visible" && typeof doc.startViewTransition === "function") {
       const fade = doc.startViewTransition(apply);
       // A tap during a fade cuts the earlier fade short. That is expected,
       // so its "skipped" rejections are not errors.
@@ -96,16 +109,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       fade.updateCallbackDone.catch(ignore);
       return;
     }
-    if (!reduce) {
-      const root = document.documentElement;
-      root.classList.add("sw-theme-fade");
-      window.setTimeout(() => root.classList.remove("sw-theme-fade"), 950);
-    }
+    // Browsers without view transitions ease the colours themselves.
+    const root = document.documentElement;
+    root.classList.add("sw-theme-fade");
+    window.setTimeout(() => root.classList.remove("sw-theme-fade"), 420);
     apply();
   };
 
   return (
-    <ThemeCtx.Provider value={{ isDark: mode !== "light", mode, toggle: () => setMode(nextTheme(latest.current)), setMode }}>
+    <ThemeCtx.Provider value={{ isDark: mode === "dark", mode, toggle: () => setMode(nextTheme(latest.current)), setMode }}>
       {children}
     </ThemeCtx.Provider>
   );

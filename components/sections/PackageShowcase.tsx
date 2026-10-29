@@ -6,7 +6,8 @@ import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
-import { packageValue } from "@/lib/pricing";
+import { packageValue, packagePriceToday, packageLinkPrices, promoUntilLabel } from "@/lib/pricing";
+import { manilaNow } from "@/lib/validators";
 import { SLOTS } from "@/lib/resort";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ResortPackage } from "@/types/package";
 import { isEventPackage } from "@/lib/packages";
 import type { BookingResource, BookingTier } from "@/types/booking";
+import { LazyBackground } from "@/components/common/LazyBackground";
 
 /**
  * "Choose Your Stay" — one package at a time, switched by tier.
@@ -53,6 +55,28 @@ const TIERS: { key: TierKey; label: string; icon: IconName; tagline: string; blu
 
 /** Which tab a package belongs to: the venue packages are their own group,
  *  the pool ones split on whether the pool is shared or bought out. */
+/** What a package's short tag means for the guest, in one sentence.
+ *
+ *  Worked out from the package's own resource, tier and slot rather than
+ *  from the tag's wording: the tag is free text the owner edits in the
+ *  Packages tab, so matching on "No pool" would go stale the first time
+ *  someone types "Venue only" instead. The package's fields cannot. */
+function packageMeaning(p: ResortPackage): string {
+  const whole = p.slotMode === "WholeDay";
+  if (p.resource === "Venue") {
+    return "The events venue on its own — the pool isn't part of this package.";
+  }
+  if (p.resource === "Pool+Venue") {
+    return `The pool and the events venue together, for your group alone${whole ? " from morning through the night" : ""}.`;
+  }
+  if (p.status === "Exclusive") {
+    return whole
+      ? "The whole resort is your group's from morning through the night, with no other bookings that day."
+      : "The whole pool is your group's — no other group books your tour.";
+  }
+  return "You share the pool with other groups booked on the same tour, and pay per guest.";
+}
+
 const tierOf = (p: ResortPackage): TierKey =>
   isEventPackage(p) ? "EVENTS" : p.status === "Exclusive" ? "EXCLUSIVE" : "SHARED";
 
@@ -175,7 +199,7 @@ export function PackageShowcase({ packages, onBookPackage, onFallbackBook, tierS
               onBook={(p) => {
                 if (onBookPackage) {
                   onBookPackage(
-                    { code: p.code, title: p.title, price: p.price, listPrice: packageValue(p).compare, capacity: p.capacity, requiresRoom: p.requiresRoom, slotMode: p.slotMode },
+                    { code: p.code, title: p.title, ...packageLinkPrices(p, manilaNow().date), capacity: p.capacity, requiresRoom: p.requiresRoom, slotMode: p.slotMode },
                     p.resource,
                     p.status,
                   );
@@ -231,7 +255,13 @@ function TierCarousel({
           their nearest positioned ancestor, and the carousel root includes
           the dots row below the track. Centring on that put them below the
           card's middle. This wrapper is exactly the track. */}
-      <div className={`relative ${many && !mob ? "px-14" : ""}`}>
+      {/* The 56px gutters are kept whether or not this tier HAS arrows.
+          They used to apply only when a tier held more than one package,
+          so Exclusive (several) showed an inset card while Shared (one)
+          ran 112px wider — the same card at two widths depending on which
+          tab you opened. The arrows still only render when there is
+          somewhere to go; the space they need is simply always held. */}
+      <div className={`relative ${!mob ? "px-14" : ""}`}>
         <CarouselContent className="-ml-4">
           {items.map((p) => (
             <CarouselItem key={p.code} className="h-auto basis-full pl-4">
@@ -309,6 +339,8 @@ function PackageCard({
   const shots = p.gallery?.length ? p.gallery : [{ src: p.cover, label: p.title, kind: "" }];
   const exclusive = p.status === "Exclusive";
   const slots = p.slotMode === "WholeDay" ? [SLOTS.WholeDay] : [SLOTS.Day, SLOTS.Night];
+  // A promo the owner set (Packages & Prices): what is charged today.
+  const promo = packagePriceToday(p, manilaNow().date);
 
   return (
     <article
@@ -330,33 +362,42 @@ function PackageCard({
              1280px  Shared 722, Events 687, Exclusive 686  -> 722
              1600px  Shared 722, both others 662            -> 722
          Measured, not guessed. Below md the layout stacks and heights follow
-         content, which is correct there. */
-      className="grid h-full overflow-hidden rounded-2xl border md:min-h-[742px] md:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] xl:min-h-[722px]"
+         content, which is correct there.
+
+         grid-cols-[minmax(0,1fr)] on phones: a grid with no columns declared
+         gets one `auto` column, which grows to its widest line that cannot
+         wrap -- the BOOK button, "7:00 PM — 5:00 AM, next day" -- and
+         overflow-hidden then cut the card's right side off on a narrow phone.
+         minmax(0,…) holds the column to the card, so text wraps instead. */
+      className="grid h-full grid-cols-[minmax(0,1fr)] overflow-hidden rounded-2xl border md:min-h-[742px] md:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] xl:min-h-[722px]"
       style={{ background: C.bgCard2, borderColor: C.border, boxShadow: C.shadowCard }}
     >
       {/* Artwork. Always dark, so the bright gold and white type belong here. */}
       <div className="relative min-h-[240px] overflow-hidden bg-[#121212] md:min-h-[380px]">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${shots[0].src})` }}
-        />
+        {/* Fetched as the card nears the screen, not at page load — see
+            LazyBackground. */}
+        <LazyBackground src={shots[0].src} className="absolute inset-0 bg-cover bg-center" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/40" />
 
-        <div className="absolute top-4 left-4 z-[2] rounded-full bg-black/55 px-3 py-2 text-[11px] tracking-wide text-white/90 backdrop-blur-sm">
-          {String(shots.length).padStart(2, "0")} photo{shots.length === 1 ? "" : "s"}
+        {/* One row, so the count and the button share the width instead of
+            being pinned to opposite corners and meeting in the middle on a
+            narrow phone. */}
+        <div className="absolute top-3 right-3 left-3 z-[2] flex items-center justify-between gap-2">
+          <div className="shrink-0 rounded-full bg-black/55 px-3 py-2 text-[11px] tracking-wide text-white/90 backdrop-blur-sm">
+            {String(shots.length).padStart(2, "0")} photo{shots.length === 1 ? "" : "s"}
+          </div>
+          <Button
+            type="button"
+            onClick={onOpenGallery}
+            className="h-11 shrink-0 rounded-full bg-black/55 px-4 text-[11.5px] text-white backdrop-blur-sm hover:bg-black/75"
+          >
+            View gallery <span aria-hidden="true">→</span>
+          </Button>
         </div>
-
-        <Button
-          type="button"
-          onClick={onOpenGallery}
-          className="absolute top-3 right-3 z-[2] h-11 rounded-full bg-black/55 px-4 text-[11.5px] text-white backdrop-blur-sm hover:bg-black/75"
-        >
-          View gallery <span aria-hidden="true">→</span>
-        </Button>
 
         <div className="absolute right-5 bottom-5 left-5 z-[2]">
           <p className="mb-2 text-[11px] tracking-[3px]" style={{ color: gold }}>PACKAGE</p>
-          <h3 className="font-serif text-[30px] leading-tight font-normal text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.6)] sm:text-4xl">
+          <h3 className="font-serif text-[26px] leading-tight font-normal break-words text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.6)] min-[380px]:text-[30px] sm:text-4xl">
             {p.title}
           </h3>
         </div>
@@ -364,7 +405,7 @@ function PackageCard({
 
       {/* Detail column. One rhythm, left aligned, action pinned at the foot. */}
       <div className="flex flex-col">
-        <div className="flex flex-col gap-4 p-6 sm:p-7">
+        <div className="flex min-w-0 flex-col gap-4 p-5 min-[380px]:p-6 sm:p-7">
           <div className="flex flex-wrap gap-2">
             <Badge
               variant="outline"
@@ -377,7 +418,18 @@ function PackageCard({
             >
               {p.status.toUpperCase()}
             </Badge>
-            {packageValue(p).save > 0 && (
+            {promo.badge && (
+              <Badge
+                variant="outline"
+                className="rounded-full px-3 py-1 text-[11px] font-semibold tracking-[1.5px]"
+                style={{ background: "rgba(226,87,76,0.12)", color: "#e2574c", borderColor: "rgba(226,87,76,0.45)" }}
+              >
+                {promo.badge}
+              </Badge>
+            )}
+            {/* Against Book Now. Not beside a promo: two different savings
+                on one card read as a sum. */}
+            {!promo.badge && packageValue(p).save > 0 && (
               <Badge
                 variant="outline"
                 className="rounded-full px-3 py-1 text-[11px] tracking-[1.5px]"
@@ -401,10 +453,24 @@ function PackageCard({
               saving it used to show is still on the SAVE badge above, so
               nothing is lost by dropping the second number. */}
           <div className="pt-1">
-            <p className="mb-2 text-[11px] tracking-[2.5px]" style={{ color: C.textS }}>STARTING AT</p>
-            <span className="font-serif text-[40px] leading-none font-normal" style={{ color: C.textH }}>
-              {fmt(p.price)}
-            </span>
+            <p className="mb-2 text-[11px] tracking-[2.5px]" style={{ color: promo.badge ? "#e2574c" : C.textS }}>
+              {promo.badge ? "PROMO PRICE" : "STARTING AT"}
+            </p>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-serif text-[34px] leading-none font-normal min-[380px]:text-[40px]" style={{ color: C.textH }}>
+                {fmt(promo.pay)}
+              </span>
+              {promo.badge && (
+                <span className="text-[18px] line-through" style={{ color: C.textXS }} aria-label={`was ${fmt(promo.regular)}`}>
+                  {fmt(promo.regular)}
+                </span>
+              )}
+            </div>
+            {promo.badge && (
+              <p className="mt-2 text-[12.5px]" style={{ color: C.textS }}>
+                You save {fmt(promo.off)}{promo.until ? `, ${promoUntilLabel(promo.until)}` : ""}.
+              </p>
+            )}
           </div>
 
           <p className="text-[15px] leading-relaxed" style={{ color: C.textS }}>{p.blurb}</p>
@@ -412,7 +478,7 @@ function PackageCard({
           {p.includes.length > 0 && (
             <div>
               <p className="mb-3 text-[11px] tracking-[2.5px]" style={{ color: C.textXS }}>WHAT&apos;S INCLUDED</p>
-              <ul className="flex flex-col">
+              <ul className="m-0 flex list-none flex-col p-0">
                 {p.includes.map((inc) => (
                   <li
                     key={inc}
@@ -431,33 +497,41 @@ function PackageCard({
             <p className="mb-3 text-[11px] tracking-[2.5px]" style={{ color: C.textXS }}>
               {p.slotMode === "WholeDay" ? "DURATION" : "CHOOSE WHEN YOU BOOK"}
             </p>
-            <ul className="flex flex-col">
+            <ul className="m-0 flex list-none flex-col p-0">
               {slots.map((sl) => (
                 <li
                   key={sl.label}
-                  className="flex items-center justify-between gap-3 border-b py-2 last:border-0"
+                  className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b py-2 last:border-0"
                   style={{ borderColor: C.borderLight }}
                 >
                   <span className="text-[14.5px]" style={{ color: C.textB }}>{sl.label}</span>
-                  <span className="text-[13.5px] font-medium" style={{ color: C.goldInk }}>{sl.hours}</span>
+                  <span className="ml-auto text-right text-[13.5px] font-medium" style={{ color: C.goldInk }}>{sl.hours}</span>
                 </li>
               ))}
             </ul>
           </div>
 
+          {/* The tag ("Shared pool", "No pool") used to stand alone behind
+              a warning triangle, so a guest saw "Exclusive" with an alert
+              icon and no idea what it implied for them. It now says it in a
+              sentence. `info`, not `alert`: this is what the package is,
+              not something going wrong. */}
           {p.note && (
-            <p className="flex items-start gap-2 text-[12.5px]" style={{ color: C.textXS }}>
-              <Icon name="alert" size={12} style={{ marginTop: 4, flexShrink: 0 }} />
-              <span>{p.note}</span>
+            <p className="flex items-start gap-2 text-[12.5px]" style={{ color: C.textXS, lineHeight: 1.55 }}>
+              <Icon name="info" size={12} style={{ marginTop: 4, flexShrink: 0 }} />
+              <span>
+                <span style={{ color: C.textB, fontWeight: 600 }}>{p.note}.</span>{" "}
+                {packageMeaning(p)}
+              </span>
             </p>
           )}
         </div>
 
-        <div className="mt-auto p-6 pt-0 sm:p-7 sm:pt-0">
+        <div className="mt-auto p-5 pt-0 min-[380px]:p-6 min-[380px]:pt-0 sm:p-7 sm:pt-0">
           <Button
             onClick={onBook}
-            className="sw-btn h-auto w-full"
-            style={goldBtn}
+            className="sw-btn h-auto w-full whitespace-normal"
+            style={{ ...goldBtn, ...(mob ? { padding: "14px 18px" } : null), lineHeight: 1.4, textAlign: "center" }}
           >
             BOOK {p.title.toUpperCase()} <span aria-hidden="true">→</span>
           </Button>

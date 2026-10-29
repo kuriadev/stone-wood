@@ -1,8 +1,7 @@
 "use client";
 
-import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
-import { T } from "@/lib/theme";
+import { THEME_COLORS } from "@/lib/theme";
 import { fmt } from "@/lib/utils";
 import { srcSetFor, SIZES } from "@/lib/img";
 import { SPACE } from "@/lib/spacing";
@@ -33,8 +32,7 @@ interface RoomCoverflowProps {
 }
 
 export function RoomCoverflow({ rooms, onSelect, ctaLabel }: RoomCoverflowProps) {
-  const { isDark } = useTheme();
-  const C = T(isDark);
+  const C = THEME_COLORS;
   const w = useWidth();
   const mob = w < 768;
 

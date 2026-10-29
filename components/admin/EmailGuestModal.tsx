@@ -15,9 +15,8 @@
 
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Modal, ActionButton, useAdminStyle } from "@/components/admin/ui";
+import { Modal, ActionButton, Label, useAdminStyle } from "@/components/admin/ui";
 import { useToast } from "@/contexts/ToastContext";
 import { defaultGuestSubject, GUEST_MESSAGE_MAX, GUEST_SUBJECT_MAX } from "@/lib/emailTemplate";
 import { stayLabel } from "@/lib/utils";

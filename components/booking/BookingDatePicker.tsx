@@ -21,7 +21,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { T } from "@/lib/theme";
-import { getBookingWindow, toDateStr, BOOKING_WINDOW_MONTHS, MAX_STAY_DAYS, manilaNow } from "@/lib/validators";
+import { getBookingWindow, bookingWindowNote, toDateStr, MAX_STAY_DAYS, manilaNow } from "@/lib/validators";
 import { slotStartedProblem } from "@/lib/resort";
 import { RangeConnector } from "@/components/common/RangeConnector";
 import { CAL, CAL_LINE, GUEST_LEGEND } from "@/components/common/calendarColors";
@@ -360,7 +360,7 @@ export function BookingDatePicker({
                 isPast
                   ? "Past date"
                   : isBeyond
-                  ? `Bookings open up to ${BOOKING_WINDOW_MONTHS} months ahead (to ${toDateStr(maxDate)})`
+                  ? bookingWindowNote()
                   : isBooked
                   ? "Booked"
                   : isClosed

@@ -10,7 +10,7 @@ import {
   OVERTIME_RATE,
   RESORT_MAX_CAPACITY,
 } from "@/lib/validators";
-import { standardPackagePrice } from "@/lib/pricing";
+import { standardPackagePrice, VENUE_CAPACITY } from "@/lib/pricing";
 import { SLOTS, QUIET_HOURS_START } from "@/lib/resort";
 
 // ADMIN_CREDS used to live here. This file is imported by client components,
@@ -208,7 +208,6 @@ export const INIT_INVENTORY: InventoryItem[] = [
 // table, and migration 20260924090000 puts them into an existing one.
 const POOL_CAPACITY = RESORT_MAX_CAPACITY; // 30
 const BARKADA_CAPACITY = 15;
-const VENUE_CAPACITY = 50; // the hall's own capacity, separate from the pool's
 
 const ROOM_PHOTO = "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?q=80&w=1200&auto=format&fit=crop";
 const POOL_PHOTO_1 = "https://images.unsplash.com/photo-1536745511564-a5fa6e596e7b?q=80&w=1200&auto=format&fit=crop";
@@ -316,6 +315,13 @@ export const INIT_PACKAGES: ResortPackage[] = PACKAGE_SEEDS.map(priced);
 
 /** Home hero photograph. Lives here rather than inside Home.tsx so the root
  *  layout can preload it — it is the LCP element, and a CSS background can
- *  neither be lazy-loaded nor use srcset. */
+ *  neither be lazy-loaded nor use srcset.
+ *
+ *  1600 wide at quality 55. It was 2400 at 80, which Unsplash served as a
+ *  2,310 KB AVIF — eighty percent of everything the home page downloaded,
+ *  for a photograph that sits under a dark gradient. Measured: 1920/q75 is
+ *  1,332 KB, 1600/q55 is 659 KB, 1440/q50 is 355 KB. 1600 keeps the width
+ *  a wide monitor actually shows; the overlay hides what the lower quality
+ *  costs. The phone variant is derived from this (imageAt keeps q). */
 export const HERO_BG =
-  "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?q=80&w=2400&auto=format&fit=crop";
+  "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?q=55&w=1600&auto=format&fit=crop";

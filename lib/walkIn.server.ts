@@ -9,10 +9,11 @@
 // writing; saveWalkIn writes the booking and the money taken.
 
 import { getSupabaseAdmin, rowToBooking, bookingToRow, missingNewColumn, withoutNewColumns } from "@/lib/supabase";
-import { isValidEmail, isValidPHNumber, sanitizeName, sanitizeNotes, NAME_MIN, NAME_MAX, OVERTIME_MAX, MAX_STAY_DAYS } from "@/lib/validators";
+import { isValidEmail, isValidPHNumber, sanitizeName, sanitizeNotes, NAME_MIN, NAME_MAX, OVERTIME_MAX, MAX_STAY_DAYS, isInBookingYear, currentBookingYear } from "@/lib/validators";
 import { logActivity } from "@/lib/activity.server";
 import { daysInRange, fmt, fmtDate, getPackageTier } from "@/lib/utils";
-import { priceBooking, pricingProblem, packageAvailed, bookingLabel } from "@/lib/pricing";
+import { priceBooking, pricingProblem, packageAvailed, bookingLabel, packagePriceToday } from "@/lib/pricing";
+import type { PackageDiscount } from "@/types/package";
 import { checkFits } from "@/lib/rebooking.server";
 import { manilaDate } from "@/lib/finance";
 import type { BookingRow } from "@/types/database";
@@ -64,6 +65,10 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
   if (opts.fromToday && startDate < manilaDate()) return bad("That date has already passed. Only bookings from today on can be imported.");
   const endDate = typeof b.endDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(b.endDate) ? b.endDate : startDate;
   if (endDate < startDate) return bad("The last day of the stay must be on or after the first.");
+  // Bookings are taken for the current year only, staff-entered ones too.
+  if (!isInBookingYear(startDate) || !isInBookingYear(endDate)) {
+    return bad(`Bookings can only be made for dates in ${currentBookingYear().year}.`);
+  }
   const stayDays = daysInRange(startDate, endDate);
   if (stayDays < 1 || stayDays > MAX_STAY_DAYS) return bad(`A booking can run for at most ${MAX_STAY_DAYS} days.`);
   const db = getSupabaseAdmin();
@@ -93,11 +98,14 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
   if (notOffered) return bad(notOffered);
   let pkg: { price: number; requiresRoom: boolean } | null = null;
   if (isWalkInPackage) {
-    const p = await db.from("packages").select("price, requires_room, active").eq("code", b.walkInPackageCode).maybeSingle();
+    // select("*") so a promo is read when the column exists and simply
+    // absent before its migration.
+    const p = await db.from("packages").select("*").eq("code", b.walkInPackageCode).maybeSingle();
     if (p.error) throw new Error(p.error.message);
     if (!p.data || !(p.data as { active: boolean }).active) return bad("That package is no longer offered.", 409);
-    const row = p.data as { price: number; requires_room: boolean };
-    pkg = { price: Number(row.price), requiresRoom: !!row.requires_room };
+    const row = p.data as { price: number; requires_room: boolean; discount?: PackageDiscount | null };
+    // The promo price while a promo runs, the same as online.
+    pkg = { price: packagePriceToday({ price: Number(row.price), discount: row.discount }, manilaDate()).pay, requiresRoom: !!row.requires_room };
   }
   const roomRows = roomIds.length ? await db.from("rooms").select("id, price").in("id", roomIds) : { data: [], error: null };
   if (roomRows.error) throw new Error(roomRows.error.message);

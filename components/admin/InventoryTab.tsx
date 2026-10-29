@@ -34,7 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { FullSelect } from "@/components/admin/ui";
+import { FullSelect, FilterSelect } from "@/components/admin/ui";
 import {
   Table,
   TableBody,
@@ -259,25 +259,19 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
           />
         </div>
 
-        {/* Category filter buttons */}
-        <div style={{ display: showArchive ? "none" : "flex", gap: 8, flexWrap: "wrap" }} role="group" aria-label="Filter by category">
-          {cats.map((c) => (
-            <button
-              key={c}
-              style={{ padding: "8px 12px", fontSize: 11.5, fontWeight: "700", borderRadius: 20, cursor: "pointer", letterSpacing: 1, background: filterCat === c
-                  ? (c === "All" ? (isDark ? "var(--sw-bg-card)" : "#e8e8e8") : `${catC[c]}18`)
-                  : "transparent", color: filterCat === c
-                  ? (c === "All" ? gold : catC[c])
-                  : C.textS, border: `1px solid ${filterCat === c
-                  ? (c === "All" ? gold : catC[c] + "55")
-                  : cBr}` }}
-              onClick={() => setFilterCat(c)}
-              aria-pressed={filterCat === c}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+        {/* Category: one select instead of a row of pills. */}
+        {!showArchive && (
+          <FilterSelect<string>
+            label="Category"
+            value={filterCat}
+            onChange={setFilterCat}
+            options={cats.map((c) => ({
+              value: c,
+              label: c === "All" ? "All categories" : c,
+              count: items.filter((i) => !i.deletedAt && (c === "All" || i.category === c)).length,
+            }))}
+          />
+        )}
 
         {/* Add button — what the resort stocks is the owner's to set up */}
         {isOwner && (
@@ -298,45 +292,16 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
           looking for. It is a view of its own now: the two tabs sit above the
           table and swap what it shows, so "where is the archive" is answered
           before you scroll rather than after. */}
-      <div
-        role="tablist"
-        aria-label="Which items to show"
-        style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}
-      >
-        {([
-          { key: false, label: "ACTIVE", count: filtered.length },
-          { key: true, label: "ARCHIVED", count: deleted.length },
-        ] as const).map((v) => {
-          const on = showArchive === v.key;
-          return (
-            <button
-              key={String(v.key)}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => setShowArchive(v.key)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                minHeight: 40,
-                padding: "0 16px",
-                borderRadius: 8,
-                cursor: "pointer",
-                fontSize: 11.5,
-                letterSpacing: 1.6,
-                fontWeight: on ? 700 : 500,
-                color: on ? C.textH : C.textS,
-                background: on ? (isDark ? "rgba(201,168,76,0.14)" : "rgba(201,168,76,0.12)") : "transparent",
-                border: `1px solid ${on ? gold : cBr}`,
-              }}
-            >
-              {v.key && <Icon name="trash" size={12} />}
-              {v.label}
-              <span style={{ color: on ? C.goldInk : C.textXS, fontWeight: 600 }}>{v.count}</span>
-            </button>
-          );
-        })}
+      <div style={{ display: "flex", marginBottom: 16 }}>
+        <FilterSelect<"active" | "archived">
+          label="Showing"
+          value={showArchive ? "archived" : "active"}
+          onChange={(v) => setShowArchive(v === "archived")}
+          options={[
+            { value: "active", label: "Active items", count: filtered.length },
+            { value: "archived", label: "Archived items", count: deleted.length },
+          ]}
+        />
       </div>
 
       {/* ── Low-stock alert ── active view only: an archived item cannot be

@@ -25,7 +25,7 @@ import { downloadCsv, manilaDate } from "@/lib/finance";
 import { gold } from "@/lib/styles";
 import type { Activity } from "@/types/finance";
 import { ACTOR_COLOR, fmtWhen } from "@/components/admin/BookingHistory";
-import { AdminPageHeader, TableShell, Row, Cell, td, ActionButton, StatusBadge, useAdminStyle, usePaged, Pager, FullSelect} from "@/components/admin/ui";
+import { AdminPageHeader, TableShell, Row, Cell, td, ActionButton, StatusBadge, useAdminStyle, usePaged, Pager, FullSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
 
 /** The part of an action before the dot, as the owner reads it. */
 const CATEGORIES: { value: string; label: string }[] = [
@@ -136,26 +136,36 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
           : "What you've done, and the full history of any booking you look up. Entries can't be edited or deleted."}
         action={<ActionButton icon="download" onClick={exportCsv} disabled={rows.length === 0}>Download CSV</ActionButton>} />
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, alignItems: "center" }}>
-        <Input value={words} onChange={(e) => setWords(e.target.value)} placeholder="Search the descriptions" aria-label="Search the audit log" style={{ ...sel, flex: "1 1 220px" }} />
-        <Input value={booking} onChange={(e) => setBooking(e.target.value)} placeholder="Booking ref, e.g. SW-10023" aria-label="Booking reference" style={{ ...sel, width: 190 }} />
-        <FullSelect value={actor} onChange={(e) => setActor(e.target.value)} aria-label="Who did it" style={{ ...sel, paddingRight: 40 }}>
-          {ACTORS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
-        </FullSelect>
-        {isOwner && people.length > 0 && (
-          <FullSelect value={person} onChange={(e) => setPerson(e.target.value)} aria-label="Person" style={{ ...sel, paddingRight: 40 }}>
-            <option value="">Every person</option>
-            {people.map((p) => <option key={p.id} value={p.id}>{p.name} ({ROLE_LABEL[p.role]}){p.active ? "" : " — deactivated"}</option>)}
+      <FilterBar
+        active={[!!booking, !!actor, !!person, !!category, !!from || !!to].filter(Boolean).length}
+        onClear={() => { setFrom(""); setTo(""); setCategory(""); setActor(""); setPerson(""); setBooking(""); }}
+        search={<Input value={words} onChange={(e) => setWords(e.target.value)} placeholder="Search the descriptions" aria-label="Search the audit log" style={{ ...sel, width: "100%" }} />}
+      >
+        <FilterField label="Booking">
+          <Input value={booking} onChange={(e) => setBooking(e.target.value)} placeholder="e.g. SW-10023" aria-label="Booking reference" style={{ ...sel, width: "100%" }} />
+        </FilterField>
+        <FilterField label="Who">
+          <FullSelect value={actor} onChange={(e) => setActor(e.target.value)} aria-label="Who did it" style={{ ...sel, width: "100%", paddingRight: 40 }}>
+            {ACTORS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
           </FullSelect>
+        </FilterField>
+        {isOwner && people.length > 0 && (
+          <FilterField label="Person">
+            <FullSelect value={person} onChange={(e) => setPerson(e.target.value)} aria-label="Person" style={{ ...sel, width: "100%", paddingRight: 40 }}>
+              <option value="">Every person</option>
+              {people.map((p) => <option key={p.id} value={p.id}>{p.name} ({ROLE_LABEL[p.role]}){p.active ? "" : " — deactivated"}</option>)}
+            </FullSelect>
+          </FilterField>
         )}
-        <FullSelect value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Kind of activity" style={{ ...sel, paddingRight: 40 }}>
-          {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-        </FullSelect>
-        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From" style={sel} />
-        <span style={{ color: C.textS, fontSize: 13 }}>to</span>
-        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To" style={sel} />
-        {filtersOn && <ActionButton size="sm" onClick={() => { setFrom(""); setTo(""); setCategory(""); setActor(""); setPerson(""); setBooking(""); setWords(""); }}>Clear filters</ActionButton>}
-      </div>
+        <FilterField label="Kind of activity">
+          <FullSelect value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Kind of activity" style={{ ...sel, width: "100%", paddingRight: 40 }}>
+            {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </FullSelect>
+        </FilterField>
+        <FilterField label="Dates" wide>
+          <DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} />
+        </FilterField>
+      </FilterBar>
 
       {error && <p style={{ color: C.dangerInk, fontSize: 13.5 }}>{error}</p>}
 
