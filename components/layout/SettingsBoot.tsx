@@ -10,10 +10,15 @@
  * safe (lib/settings.ts).
  */
 
-import type { ReactNode } from "react";
-import { applySettings, type BusinessSettings } from "@/lib/settings";
+import { useEffect, type ReactNode } from "react";
+import { type BusinessSettings } from "@/lib/settings";
+import { bootSettings, startSettingsSync } from "@/lib/settingsLive";
 
 export function SettingsBoot({ settings, children }: { settings: BusinessSettings; children: ReactNode }) {
-  applySettings(settings);
+  // The server's settings, applied before anything renders. bootSettings
+  // never puts an older copy back over a live update (lib/settingsLive.ts).
+  bootSettings(settings);
+  // From here on, changes the admin saves reach this page without a reload.
+  useEffect(() => startSettingsSync(), []);
   return <>{children}</>;
 }

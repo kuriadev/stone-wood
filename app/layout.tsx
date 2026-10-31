@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import "./intro.css";
 import { Providers } from "@/components/layout/Providers";
 import { ClientShell } from "@/components/layout/ClientShell";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -8,6 +9,7 @@ import { HERO_BG } from "@/lib/constants";
 import { imageAt } from "@/lib/img";
 import { SITE, resortJsonLd } from "@/lib/seo";
 import { SettingsBoot } from "@/components/layout/SettingsBoot";
+import { IntroSplash } from "@/components/layout/IntroSplash";
 import { ensureSettings } from "@/lib/settings.server";
 
 /* Satoshi, self-hosted. It used to come from a Fontshare stylesheet: a
@@ -92,6 +94,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="preload" as="image" media="(min-width: 901px)" href={HERO_BG} fetchPriority="high" />
       </head>
       <body>
+        {/* The first-load intro: in the HTML, so it is the first paint. */}
+        <IntroSplash />
         <JsonLd data={resortJsonLd()} />
         <SettingsBoot settings={settings}>
           <Providers>

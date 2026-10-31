@@ -36,8 +36,8 @@ import type { Booking } from "@/types/booking";
 
 type Group = "money" | "counter" | "guests";
 const GROUP: Record<Group, { title: string; hint: string; color: string; stat: string }> = {
-  money: { title: "Money", hint: "Balances to collect and days to close. The super admin sees every peso you record.", color: "#d4a800", stat: "Money" },
-  counter: { title: "At the counter", hint: "Arrivals to check in and walk-ins still to pay.", color: "#3a8fc4", stat: "Counter" },
+  money: { title: "Money", hint: "Balances to collect and days to close. The super admin sees every peso you record.", color: "#f5a524", stat: "Money" },
+  counter: { title: "At the counter", hint: "Arrivals to check in and walk-ins still to pay.", color: "#3e8ed0", stat: "Counter" },
   guests: { title: "Guests", hint: "Messages waiting for an answer.", color: "#2e9e4e", stat: "Messages" },
 };
 
@@ -84,7 +84,7 @@ export function FrontDeskTasks({ mob, onGoTab }: { mob: boolean; onGoTab?: (t: A
       detail: m.penaltyTotal > 0
         ? `Inspected out. ${fmt(m.balance)} balance + ${fmt(m.penaltyDue)} damage still to take.`
         : m.due > 0 ? `Inspected out. ${fmt(m.due)} still to take.` : "Inspected out and fully paid — close the booking.",
-      badge: m.penaltyTotal > 0 ? { text: `${fmt(m.penaltyTotal)} damage`, color: "#d44" } : m.due > 0 ? { text: fmt(m.due), color: "#d4a800" } : undefined,
+      badge: m.penaltyTotal > 0 ? { text: `${fmt(m.penaltyTotal)} damage`, color: "#e5484d" } : m.due > 0 ? { text: fmt(m.due), color: "#f5a524" } : undefined,
       action: <ActionButton size="sm" kind="primary" icon="receipt" onClick={() => setSettling(b)}>{m.due > 0 ? `Collect ${fmt(m.due)}` : "Close booking"}</ActionButton>,
     });
   }
@@ -96,7 +96,7 @@ export function FrontDeskTasks({ mob, onGoTab }: { mob: boolean; onGoTab?: (t: A
       key: `close-${d}`, group: "money", icon: "wallet",
       title: `Close ${fmtDate(d)}`,
       detail: "Cash moved that day and the drawer was never counted. Count it and close the day.",
-      badge: { text: "Late", color: "#d44" },
+      badge: { text: "Late", color: "#e5484d" },
       action: <ActionButton size="sm" kind="primary" icon="wallet" onClick={() => setClosingDay(d)}>Count & close</ActionButton>,
     });
   }
@@ -107,7 +107,7 @@ export function FrontDeskTasks({ mob, onGoTab }: { mob: boolean; onGoTab?: (t: A
       key: "close-today", group: "money", icon: "wallet",
       title: "Close today",
       detail: "When the last group has left and paid, count the cash box and close the day.",
-      badge: { text: "Today", color: "#d4a800" },
+      badge: { text: "Today", color: "#f5a524" },
       action: <ActionButton size="sm" icon="wallet" onClick={() => setClosingDay(today)}>Count & close</ActionButton>,
     });
   }
@@ -121,7 +121,7 @@ export function FrontDeskTasks({ mob, onGoTab }: { mob: boolean; onGoTab?: (t: A
       title: `Check in ${b.name}`,
       meta: `${b.id} · ${s.label} (${s.hours}) · ${b.guests} guest${b.guests === 1 ? "" : "s"}${b.arrivalTime ? ` · arrives ${b.arrivalTime}` : ""}`,
       detail: ready ? "The caretaker has prepared their facilities." : "Waiting for the caretaker to prepare their facilities.",
-      badge: ready ? { text: "Ready", color: "#2e9e4e" } : { text: "Not prepared", color: "#d4a800" },
+      badge: ready ? { text: "Ready", color: "#2e9e4e" } : { text: "Not prepared", color: "#f5a524" },
       action: <ActionButton size="sm" kind={ready ? "primary" : "ghost"} icon="log-in" disabled={!ready || busy === b.id}
         onClick={() => void checkIn(b)}>{busy === b.id ? "Checking in…" : "Check in"}</ActionButton>,
     });

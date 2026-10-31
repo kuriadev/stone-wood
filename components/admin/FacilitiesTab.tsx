@@ -18,7 +18,9 @@ import { adminTabLabel } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { PhotoSet } from "@/components/admin/PhotoSet";
+import { defaultFacilityPhoto, facilityPhotoUrl } from "@/lib/facilityPhotos";
 import { useApp } from "@/contexts/AppContext";
 import { useStaff } from "@/contexts/StaffContext";
 import { StockHistoryPanel, UpkeepSchedulePanel, CleaningSuppliesPanel } from "@/components/admin/StockSetup";
@@ -48,9 +50,9 @@ interface FacilitiesTabProps {
 
 const F_COLOR: Record<FacilityStatus, string> = {
   Available: "#2e9e4e",
-  "In Use": "#3a8fc4",
-  "Needs Cleaning": "#d4a800",
-  "Under Maintenance": "#d44",
+  "In Use": "#3e8ed0",
+  "Needs Cleaning": "#f5a524",
+  "Under Maintenance": "#e5484d",
 };
 const STATUSES: FacilityStatus[] = ["Available", "In Use", "Needs Cleaning", "Under Maintenance"];
 
@@ -58,13 +60,13 @@ type View = "Facilities" | "Inspections" | "Damages" | "Rates" | "Upkeep" | "Cle
 
 /** `requested`: only the owner can do this, so it was sent to them to
  *  approve; nothing has changed yet. */
-async function send(url: string, method: string, body: unknown): Promise<{ ok: true } | { ok: false; error: string; requested?: boolean }> {
+async function send(url: string, method: string, body?: unknown): Promise<{ ok: true; id?: number } | { ok: false; error: string; requested?: boolean }> {
   try {
-    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string; requested?: boolean };
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string; requested?: boolean; facility?: { id?: number } };
     if (json.requested) return { ok: false, requested: true, error: json.error ?? "Sent to the super admin for approval." };
     if (!res.ok || json.success === false) return { ok: false, error: json.error ?? "Something went wrong. Try again." };
-    return { ok: true };
+    return { ok: true, id: json.facility?.id };
   } catch {
     return { ok: false, error: "No connection to the server. Check the internet and try again." };
   }
@@ -394,6 +396,26 @@ function FacilityModal({ facility, mob, onClose }: { facility: Facility | null; 
   const [error, setError] = useState("");
   const lines = (s: string) => s.split("\n").map((x) => x.trim()).filter(Boolean);
 
+  /* The photo guests see when they open this amenity on Home
+     (lib/facilityPhotos.ts). Loaded from its own route; only sent back
+     when changed. null = none of its own, so Home shows a stock photo. */
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [photoDirty, setPhotoDirty] = useState(false);
+  const [photoReady, setPhotoReady] = useState(true);
+  useEffect(() => {
+    if (!facility || isRoom) return;
+    let live = true;
+    fetch(`/api/site-content/facility-photo?id=${facility.id}&meta=1`)
+      .then((r) => r.json())
+      .then((j: { exists?: boolean; updatedAt?: string | null; ready?: boolean }) => {
+        if (!live) return;
+        setPhotoReady(j.ready !== false);
+        if (j.exists && j.updatedAt) setPhoto(facilityPhotoUrl(facility.id, j.updatedAt));
+      })
+      .catch(() => { /* offline: shows as no photo; saving still works */ });
+    return () => { live = false; };
+  }, [facility, isRoom]);
+
   const save = async () => {
     setError("");
     if (!isRoom && name.trim().length < 2) return setError("Give the amenity a name.");
@@ -408,6 +430,18 @@ function FacilityModal({ facility, mob, onClose }: { facility: Facility | null; 
           lastCheckedAt: status === "Available" && facility.status !== "Available" ? new Date().toISOString() : facility.lastCheckedAt ?? null,
         });
     if (!r.ok) { setBusy(false); return setError(r.error); }
+    // The amenity is saved; now its photo, if it changed.
+    const savedId = isNew ? r.id : facility.id;
+    if (!isRoom && photoDirty && savedId) {
+      const p = photo
+        ? await send("/api/site-content/facility-photo", "PUT", { id: savedId, photo })
+        : await send(`/api/site-content/facility-photo?id=${savedId}`, "DELETE");
+      if (!p.ok) {
+        await reloadFacilities();
+        setBusy(false);
+        return setError(`${isNew ? "Added" : "Saved"}, but the photo wasn't: ${p.error}`);
+      }
+    }
     await reloadFacilities();
     setBusy(false);
     toast(isNew
@@ -456,6 +490,34 @@ function FacilityModal({ facility, mob, onClose }: { facility: Facility | null; 
                 </button>
               ))}
             </div>
+          </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <Label>Photo on the website</Label>
+            <p style={{ color: C.textS, fontSize: 12, margin: "0 0 8px", lineHeight: 1.5 }}>
+              Guests see it when they click this amenity under Resort Facilities on the home page, with the name and description above over it.
+            </p>
+            {!photoReady ? (
+              <p style={{ color: C.textS, fontSize: 12.5, margin: 0 }}>Facility photos switch on once the database update (20261028130000_site_content.sql) is applied. Until then the website shows a stock photo.</p>
+            ) : (
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+                <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+                  <PhotoSet
+                    photos={photo ? [photo] : []}
+                    onChange={(p) => { setPhoto(p[0] ?? null); setPhotoDirty(true); }}
+                    noun="photo"
+                    idPrefix="fac-photo"
+                    max={1}
+                  />
+                </div>
+                {!photo && (
+                  <div style={{ flex: "0 0 auto", textAlign: "center" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- a small preview of a remote stock photo */}
+                    <img src={defaultFacilityPhoto(name || "")} alt="" style={{ width: 140, height: 92, objectFit: "cover", borderRadius: 8, opacity: 0.75, display: "block" }} />
+                    <span style={{ color: C.textS, fontSize: 11.5 }}>Shown until you add one</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <label style={{ gridColumn: "1 / -1", color: C.textB, fontSize: 13, display: "flex", gap: 8, alignItems: "center" }}>
             <Checkbox checked={showOnSite} onCheckedChange={(v) => setShowOnSite(v === true)} /> Show on the website&apos;s amenities list
@@ -537,8 +599,8 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
                 {check ? (check.inspectedByName ?? "—") : <span style={{ color: C.textS }}>Not yet</span>}
                 {photos > 0 && <div style={{ color: C.textS, fontSize: 11.5 }}><Icon name="image" size={11} style={{ verticalAlign: -1, marginRight: 4 }} />{photos} photo{photos === 1 ? "" : "s"}</div>}
               </Cell>
-              <Cell style={td}>{m.penaltyTotal > 0 ? <StatusBadge color="#d44">{fmt(m.penaltyTotal)} penalty</StatusBadge> : <span style={{ color: C.textS, fontSize: 12.5 }}>None</span>}</Cell>
-              <Cell style={{ ...td, color: m.due > 0 ? "#d4a800" : C.textS, whiteSpace: "nowrap" }}>
+              <Cell style={td}>{m.penaltyTotal > 0 ? <StatusBadge color="#e5484d">{fmt(m.penaltyTotal)} penalty</StatusBadge> : <span style={{ color: C.textS, fontSize: 12.5 }}>None</span>}</Cell>
+              <Cell style={{ ...td, color: m.due > 0 ? "#f5a524" : C.textS, whiteSpace: "nowrap" }}>
                 {b.status === "Completed" ? (m.due > 0 ? `${fmt(m.due)} unpaid` : "Closed") : "Balance to collect"}
               </Cell>
               <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm">View inspection</ActionButton></Cell>
@@ -602,7 +664,7 @@ function Damages({ bookings }: { bookings: Booking[] }) {
               )}
             </Cell>
             <Cell style={{ ...td, color: C.textS, whiteSpace: "nowrap" }}>{d.quantity} × {fmt(d.unitRate)}</Cell>
-            <Cell style={{ ...td, color: "#d44", fontWeight: 600, whiteSpace: "nowrap" }}>{fmt(d.amount)}</Cell>
+            <Cell style={{ ...td, color: "#e5484d", fontWeight: 600, whiteSpace: "nowrap" }}>{fmt(d.amount)}</Cell>
           </Row>
         ))}
       </TableShell>

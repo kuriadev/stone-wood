@@ -19,6 +19,7 @@
  * front desk sees it once they have sent something.
  */
 
+import { SIGNAL } from "@/components/admin/signals";
 import { useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
 import { useStaff } from "@/contexts/StaffContext";
@@ -26,16 +27,17 @@ import { useToast } from "@/contexts/ToastContext";
 import { ActionButton, ConfirmDialog, Label, StatusBadge, useAdminStyle } from "@/components/admin/ui";
 import { Textarea } from "@/components/ui/textarea";
 import { Icon } from "@/components/common/Icon";
-import { FoldHeader, useFold } from "@/components/admin/FoldHeader";
 import { manilaTime } from "@/lib/finance";
 import type { OwnerRequest } from "@/types/admin";
 
 const STATUS_COLOR: Record<OwnerRequest["status"], string> = {
-  Pending: "#e0a020", Approved: "#2e9e4e", Declined: "#e55", Withdrawn: "#888",
+  Pending: SIGNAL.attention, Approved: SIGNAL.done, Declined: SIGNAL.closed, Withdrawn: SIGNAL.closed,
 };
 
-export function OwnerRequestsPanel({ mob, reschedules = 0, onReviewReschedules }: {
+export function OwnerRequestsPanel({ mob, reschedules = 0, onReviewReschedules, inRow = false }: {
   mob: boolean;
+  /** Beside another panel in a row: no margin of its own, as tall as the row. */
+  inRow?: boolean;
   /** Guest date changes waiting for the super admin (Dashboard → Reschedules). */
   reschedules?: number;
   onReviewReschedules?: () => void;
@@ -46,7 +48,8 @@ export function OwnerRequestsPanel({ mob, reschedules = 0, onReviewReschedules }
   const { toast } = useToast();
   const isOwner = can("requests.decide");
   const [busy, setBusy] = useState<number | null>(null);
-  const [open, toggle] = useFold("requests");
+  // Always open: it sits beside Reminders, which doesn't fold either.
+  const open = true;
   const [declining, setDeclining] = useState<OwnerRequest | null>(null);
   /* Approving carries out a refund, a void or a cancellation, so it asks. */
   const [approving, setApproving] = useState<OwnerRequest | null>(null);
@@ -111,12 +114,13 @@ export function OwnerRequestsPanel({ mob, reschedules = 0, onReviewReschedules }
   );
 
   return (
-    <section aria-labelledby="owner-requests" style={{ border: `1px solid ${waiting && isOwner ? "#e0a02088" : cBr}`, borderRadius: 12, background: cBg, padding: open && (waiting || answered.length) ? "16px 20px 4px" : "16px 20px", marginBottom: 24 }}>
-      <FoldHeader id="owner-requests" icon="handshake" iconColor="#e0a020" open={open} onToggle={toggle}
-        title={isOwner ? `Waiting for your approval${waiting ? ` (${waiting})` : ""}` : "Your requests to the super admin"}
-        folded={isOwner
-          ? (waiting ? null : "nothing waiting")
-          : [pending.length ? `${pending.length} waiting` : "", answered.length ? `${answered.length} answered` : ""].filter(Boolean).join(", ")} />
+    <section aria-labelledby="owner-requests" style={{ border: `1px solid ${waiting && isOwner ? "#e0a02088" : cBr}`, borderRadius: 12, background: cBg, padding: open && (waiting || answered.length) ? "16px 20px 4px" : "16px 20px", marginBottom: inRow ? 0 : 20, height: inRow ? "100%" : undefined, boxSizing: "border-box" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <Icon name="handshake" size={17} style={{ color: "#f5a524", flexShrink: 0 }} />
+        <h2 id="owner-requests" style={{ margin: 0, fontSize: 15, fontWeight: 600, color: C.textH, flex: 1, minWidth: 0 }}>
+          {isOwner ? `Waiting for your approval${waiting ? ` (${waiting})` : ""}` : "Your requests to the super admin"}
+        </h2>
+      </div>
       {!open ? null : isOwner && waiting === 0 ? (
         <p style={{ color: C.textS, fontSize: 13, margin: "6px 0 0" }}>Nothing waiting for your approval.</p>
       ) : (
@@ -126,11 +130,16 @@ export function OwnerRequestsPanel({ mob, reschedules = 0, onReviewReschedules }
               ? "Front desk can't refund, void, cancel or remove records on their own. Approving does it now, exactly as if you had pressed the button."
               : "These happen only once the super admin approves them. Answers stay here for three days; all of them are in Activity History."}
           </p>
-          <ul style={{ margin: 0, padding: 0 }}>
+          {/* Scrolls past about three requests, so a long queue doesn't push
+              the rest of the dashboard down (same box as Do these first). */}
+          <ul className={(pending.length + answered.length + (isOwner && reschedules > 0 ? 1 : 0)) > 3 ? "sw-list-scroll" : undefined}
+            tabIndex={(pending.length + answered.length) > 3 ? 0 : undefined}
+            aria-label="Requests waiting for approval"
+            style={{ margin: 0, padding: 0 }}>
             {isOwner && reschedules > 0 && (
               <li style={{ listStyle: "none", borderTop: `1px solid ${cBr}`, padding: "14px 0", display: "flex", gap: 16, alignItems: "center", flexWrap: mob ? "wrap" : "nowrap" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <StatusBadge color="#e0a020">Reschedule</StatusBadge>
+                  <StatusBadge color="#f5a524">Reschedule</StatusBadge>
                   <p style={{ color: C.textH, fontSize: 14, margin: "4px 0 0", lineHeight: 1.55 }}>
                     {reschedules} guest{reschedules === 1 ? " wants" : "s want"} a new date. The date is held for them while you decide.
                   </p>

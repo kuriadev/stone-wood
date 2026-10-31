@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import type { Activity } from "@/types/finance";
 import { useAdminStyle, StatusBadge } from "@/components/admin/ui";
 
-export const ACTOR_COLOR: Record<Activity["actor"], string> = { Admin: "#c9a84c", Guest: "#3a8fc4", System: "#8a7a66" };
+export const ACTOR_COLOR: Record<Activity["actor"], string> = { Admin: "#c9a84c", Guest: "#3e8ed0", System: "#8a7a66" };
 
 export function fmtWhen(iso: string): string {
   return new Intl.DateTimeFormat("en-PH", {

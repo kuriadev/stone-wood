@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { gold, goldBtn } from "@/lib/styles";
+import { GoldParticles } from "@/components/common/GoldParticles";
+import "./AdminLogin.css";
 
 interface AdminLoginProps {
   onLogin: () => void;
@@ -61,8 +63,9 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
   // rendering a ThemeToggle, so the toggle did nothing here. Reading the
   // theme makes the control honest.
   const pageBg = isDark ? "var(--sw-bg)" : "#f7f3ec";
-  const cardBg = isDark ? "#0d0b08" : "#ffffff";
-  const cardBorder = isDark ? "#1c1811" : "#e6dfd2";
+  // Frosted glass over the photo (AdminLogin.css blurs what is behind).
+  const cardBg = isDark ? "rgba(13,11,8,0.72)" : "rgba(255,253,248,0.80)";
+  const cardBorder = isDark ? "rgba(201,168,76,0.22)" : "rgba(176,141,87,0.30)";
   /* #6a5e4a measured 3.1:1 against this screen's surface -- under the 4.5
      bar for an 11.5px label -- and was the only label colour on the site
      that was not goldInk. One change fixes both. */
@@ -106,24 +109,18 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
         overflow: "hidden",
       }}
     >
-      {/* A single soft glow instead of the old stock photo. The photo sat at
-          0.06 opacity — effectively invisible, but still a full-size image
-          download on the one page that should be fastest and quietest. */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: isDark
-            ? `radial-gradient(ellipse 80% 55% at 50% -10%, ${gold}14 0%, transparent 70%)`
-            : `radial-gradient(ellipse 80% 55% at 50% -10%, ${gold}1f 0%, transparent 70%)`,
-          pointerEvents: "none",
-        }}
-      />
+      {/* Gold motes behind the sign-in: they drift, thread together, shy
+          away from the cursor and scatter on a click. No photo, no WebGL --
+          a plain canvas, so it works everywhere. GoldParticles.tsx. */}
+      <div className="sw-login__fluid" aria-hidden="true">
+        <GoldParticles dark={isDark} />
+      </div>
+      <div className={`sw-login__veil${isDark ? "" : " is-light"}`} aria-hidden="true" />
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(to right,transparent,${gold}55,transparent)` }} />
 
       <div style={{ position: "relative", width: "100%", maxWidth: 380, zIndex: 1 }}>
         {/* Logo */}
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
+        <div className="sw-login__logo" style={{ textAlign: "center", marginBottom: 32 }}>
           <Button
             variant="ghost"
             onClick={onGoHome}
@@ -140,10 +137,11 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
 
         {/* Card */}
         <div
+          className="sw-login__card"
           style={{
             background: cardBg,
             border: `1px solid ${cardBorder}`,
-            borderRadius: 14,
+            borderRadius: 16,
             padding: "36px 32px",
             // The old value ended "0 0 0 px", which is malformed — and one bad
             // layer invalidates the whole declaration, so the card was

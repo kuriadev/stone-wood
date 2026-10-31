@@ -34,7 +34,7 @@ import { fmt, fmtDate } from "@/lib/utils";
 import type { DailyClosing } from "@/types/finance";
 
 const offBy = (d: number) => d === 0 ? "Balanced" : `${d > 0 ? "Over" : "Short"} by ${fmt(Math.abs(d))}`;
-const offColor = (d: number) => d === 0 ? "#2e9e4e" : d > 0 ? "#d4a800" : "#d44";
+const offColor = (d: number) => d === 0 ? "#2e9e4e" : d > 0 ? "#f5a524" : "#e5484d";
 
 export function CashCountReview({ closing: given, closedBy, onClose, onReviewed, onOpenBooking }: {
   closing: DailyClosing;
@@ -153,11 +153,11 @@ export function CashCountReview({ closing: given, closedBy, onClose, onReviewed,
                 <span style={{ flex: 1, minWidth: 0, color: C.textB }}>
                   <strong style={{ color: C.textH, fontWeight: 600 }}>{e.what}</strong> · {e.who}
                   {e.bookingId && (onOpenBooking
-                    ? <> · <button type="button" onClick={() => onOpenBooking(e.bookingId!)} style={{ background: "none", border: "none", padding: 0, color: "#c9a84c", cursor: "pointer", font: "inherit", textDecoration: "underline" }}>{e.bookingId}</button></>
+                    ? <> · <button className="sw-ulink" type="button" onClick={() => onOpenBooking(e.bookingId!)} style={{ background: "none", border: "none", padding: 0, color: "#c9a84c", cursor: "pointer", font: "inherit", textDecoration: "underline" }}>{e.bookingId}</button></>
                     : ` · ${e.bookingId}`)}
                   {e.note && <span style={{ color: C.textS }}> — {e.note}</span>}
                 </span>
-                <span style={{ color: e.amount < 0 ? "#d44" : C.textH, fontWeight: 600, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                <span style={{ color: e.amount < 0 ? "#e5484d" : C.textH, fontWeight: 600, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                   {e.amount < 0 ? "− " : "+ "}{fmt(Math.abs(e.amount))}
                 </span>
               </li>
@@ -178,7 +178,7 @@ export function CashCountReview({ closing: given, closedBy, onClose, onReviewed,
                   <span style={{ flex: 1 }}>
                     {k.text}
                     {k.bookingId && onOpenBooking && (
-                      <> <button type="button" onClick={() => onOpenBooking(k.bookingId!)} style={{ background: "none", border: "none", padding: 0, color: "#c9a84c", cursor: "pointer", font: "inherit", textDecoration: "underline" }}>Open {k.bookingId}</button></>
+                      <> <button className="sw-ulink" type="button" onClick={() => onOpenBooking(k.bookingId!)} style={{ background: "none", border: "none", padding: 0, color: "#c9a84c", cursor: "pointer", font: "inherit", textDecoration: "underline" }}>Open {k.bookingId}</button></>
                     )}
                   </span>
                 </li>

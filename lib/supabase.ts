@@ -21,6 +21,7 @@ import type { InventoryItem } from "@/types/inventory";
 import type { CustomerMessage } from "@/types/admin";
 import type { Facility } from "@/types/facility";
 import type { ResortPackage } from "@/types/package";
+import { withCurrentHours } from "@/lib/packages";
 import type { GalleryPhoto } from "@/lib/gallery";
 import type {
   RoomRow,
@@ -279,7 +280,9 @@ export const facilityToRow = (f: Facility): Omit<FacilityRow, "id" | "created_at
   active: f.active ?? true,
 });
 
-export const rowToPackage = (p: PackageRow): ResortPackage => ({
+// withCurrentHours: rows saved before the Night Tour moved to 5 AM still say
+// 12:00 AM in their text; the hours are refreshed from SLOTS on the way in.
+export const rowToPackage = (p: PackageRow): ResortPackage => withCurrentHours({
   id: p.id,
   code: p.code,
   title: p.title,
@@ -347,6 +350,7 @@ export const rowToExpense = (e: ExpenseRow): Expense => ({
   amount: Number(e.amount),
   method: e.method,
   spentOn: e.spent_on,
+  recordedAt: e.created_at ?? undefined,
   voided: e.voided,
   voidReason: e.void_reason ?? undefined,
 });

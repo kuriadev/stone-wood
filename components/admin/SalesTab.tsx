@@ -43,6 +43,7 @@ import { RecordPaymentModal } from "@/components/admin/RecordPaymentModal";
 import { RefundModal } from "@/components/admin/RefundModal";
 import { InvoiceModal } from "@/components/admin/InvoiceModal";
 import { AdminPageHeader, StatCard, ChoiceButtons, TableShell, td, ActionButton, StatusBadge, Modal, Label, AmountRow, ErrorNote, useAdminStyle, Row, Cell, STATUS_COLOR, FullSelect, ViewSwitcherTabs, ConfirmDialog, TotalRow, TOGGLE_CLEARANCE, usePaged, Pager, FilterSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
+import { DateField } from "@/components/common/DateField";
 
 type View = "Transactions" | "Payments" | "Receivables" | "Settlements" | "Clients" | "Expenses" | "Closing";
 
@@ -51,17 +52,17 @@ type View = "Transactions" | "Payments" | "Receivables" | "Settlements" | "Clien
  *  which includes the ones that are settled. */
 const PAY_STATE_COLOR: Record<BookingMoney["state"], string> = {
   "Paid in full": "#2e9e4e",
-  "Partially paid": "#d4a800",
-  Unpaid: "#d44",
+  "Partially paid": "#f5a524",
+  Unpaid: "#e5484d",
   Forfeited: "#8a7a66",
-  Refunded: "#4a9fd4",
+  Refunded: "#3e8ed0",
   "Held for guest": "#9a7bd0",
   "Refund owed": "#e07a3a",
 };
 const PAY_STATES: BookingMoney["state"][] = ["Paid in full", "Partially paid", "Unpaid", "Forfeited", "Refund owed", "Refunded", "Held for guest"];
 
 const TYPE_COLOR: Record<string, string> = {
-  Downpayment: "#d4a800", Balance: "#2e9e4e", Full: "#2e9e4e", Penalty: "#d44", Refund: "#8a7a66",
+  Downpayment: "#f5a524", Balance: "#2e9e4e", Full: "#2e9e4e", Penalty: "#e5484d", Refund: "#8a7a66",
 };
 
 export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean }) {
@@ -105,8 +106,8 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
         <StatCard label="Collected today" value={fmt(collectedToday)} note={`${todayCount} payment${todayCount === 1 ? "" : "s"}`} color="#2e9e4e" />
         <StatCard label="Collected this month" value={fmt(collectedMonth)} note={new Date(today).toLocaleString("en-PH", { month: "long", year: "numeric" })} />
-        <StatCard label="Net income this month" value={fmt(round2(collectedMonth - spentMonth))} note={`after ${fmt(spentMonth)} in expenses`} color={collectedMonth - spentMonth < 0 ? "#d44" : gold} />
-        <StatCard label="Still to collect" value={fmt(owed)} note={`${receivables.length} booking${receivables.length === 1 ? "" : "s"} with a balance or penalty`} color={owed > 0 ? "#d4a800" : undefined} />
+        <StatCard label="Net income this month" value={fmt(round2(collectedMonth - spentMonth))} note={`after ${fmt(spentMonth)} in expenses`} color={collectedMonth - spentMonth < 0 ? "#e5484d" : gold} />
+        <StatCard label="Still to collect" value={fmt(owed)} note={`${receivables.length} booking${receivables.length === 1 ? "" : "s"} with a balance or penalty`} color={owed > 0 ? "#f5a524" : undefined} />
       </div>
 
       {!ops.loaded && ops.loading && <p style={{ color: "#8a7a66", fontSize: 13 }}>Loading payment records…</p>}
@@ -157,7 +158,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
   const net = round2(rows.filter((p) => !p.voided).reduce((s, p) => s + signedAmount(p), 0));
 
   const exportCsv = () => downloadCsv(`StoneWood_Transactions_${from}_to_${to}.csv`, [
-    ["Date", "Time", "Booking", "Guest", "Type", "Method", "Reference", "Amount (PHP)", "Undone", "Undo reason", "Notes"],
+    ["Date", "Time", "Booking", "Guest", "Type", "Payment method", "Reference", "Amount (PHP)", "Undone", "Undo reason", "Notes"],
     ...rows.map((p) => [manilaDate(p.receivedAt), manilaTime(p.receivedAt), p.bookingId ?? "", p.guestName, p.type, p.method, p.reference,
       signedAmount(p), p.voided ? "Yes" : "No", p.voidReason ?? "", p.notes]),
     [],
@@ -190,8 +191,8 @@ function Transactions({ payments }: { payments: Payment[] }) {
             <option>All</option>{PAYMENT_TYPES.map((t) => <option key={t}>{t}</option>)}
           </FullSelect>
         </FilterField>
-        <FilterField label="Method">
-          <FullSelect value={method} onChange={(e) => setMethod(e.target.value)} aria-label="Method" style={{ ...sel, width: "100%" }}>
+        <FilterField label="Payment method">
+          <FullSelect value={method} onChange={(e) => setMethod(e.target.value)} aria-label="Payment method" style={{ ...sel, width: "100%" }}>
             <option>All</option>{PAYMENT_METHODS.map((t) => <option key={t}>{t}</option>)}
           </FullSelect>
         </FilterField>
@@ -202,7 +203,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
         </FilterField>
       </FilterBar>
 
-      <TableShell head={["Date", "Booking", "Guest", "Type", "Method", "Reference", "Amount", ""]} minWidth={860}
+      <TableShell head={["Date", "Booking", "Guest", "Type", "Payment method", "Reference", "Amount", ""]} minWidth={860}
         empty={rows.length === 0 ? "No payments in this range." : undefined}>
         {paged.rows.map((p, i) => (
           <Row key={p.id} style={{ background: rowBg(i), opacity: p.voided ? 0.5 : 1 }}>
@@ -212,7 +213,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
             <Cell style={td}><StatusBadge color={TYPE_COLOR[p.type]}>{payTypeLabel(p.type)}</StatusBadge></Cell>
             <Cell style={{ ...td, color: C.textB }}>{payMethodLabel(p.method)}</Cell>
             <Cell style={{ ...td, color: C.textS, fontSize: 12 }}>{p.reference || "—"}</Cell>
-            <Cell style={{ ...td, color: p.type === "Refund" ? "#d44" : C.textH, fontWeight: 600, whiteSpace: "nowrap", textDecoration: p.voided ? "line-through" : "none" }}>
+            <Cell style={{ ...td, color: p.type === "Refund" ? "#e5484d" : C.textH, fontWeight: 600, whiteSpace: "nowrap", textDecoration: p.voided ? "line-through" : "none" }}>
               {p.type === "Refund" ? "−" : ""}{fmt(p.amount)}
             </Cell>
             <Cell style={{ ...td, textAlign: "right" }}>
@@ -298,7 +299,7 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginBottom: 16 }}>
         <StatCard label="Booked value" value={fmt(expected)} note={`${shown.length} booking${shown.length === 1 ? "" : "s"}`} />
         <StatCard label="Collected" value={fmt(collected)} color="#2e9e4e" />
-        <StatCard label="Outstanding" value={fmt(outstanding)} color={outstanding > 0 ? "#d4a800" : undefined} />
+        <StatCard label="Outstanding" value={fmt(outstanding)} color={outstanding > 0 ? "#f5a524" : undefined} />
       </div>
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
@@ -339,8 +340,8 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
             <Cell style={td}><StatusBadge color={PAY_STATE_COLOR[m.state]}>{moneyLabel(m.state)}</StatusBadge></Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(b.total)}</Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(m.paid)}</Cell>
-            <Cell style={{ ...td, color: m.balance > 0 ? "#d4a800" : C.textS }}>{fmt(m.balance)}</Cell>
-            <Cell style={{ ...td, color: m.penaltyDue > 0 ? "#d44" : C.textS }}>{fmt(m.penaltyDue)}</Cell>
+            <Cell style={{ ...td, color: m.balance > 0 ? "#f5a524" : C.textS }}>{fmt(m.balance)}</Cell>
+            <Cell style={{ ...td, color: m.penaltyDue > 0 ? "#e5484d" : C.textS }}>{fmt(m.penaltyDue)}</Cell>
             <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
               <div style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
                 {!b.id.startsWith("TMP-") && <ActionButton size="sm" icon="receipt" onClick={() => onInvoice(b.id)}>View invoice</ActionButton>}
@@ -403,8 +404,8 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
             <Cell style={td}><StatusBadge color={STATUS_COLOR[b.status]}>{bookingStatusLabel(b)}</StatusBadge></Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(b.total)}</Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(m.paid)}</Cell>
-            <Cell style={{ ...td, color: m.balance > 0 ? "#d4a800" : C.textS }}>{fmt(m.balance)}</Cell>
-            <Cell style={{ ...td, color: m.penaltyDue > 0 ? "#d44" : C.textS }}>{fmt(m.penaltyDue)}</Cell>
+            <Cell style={{ ...td, color: m.balance > 0 ? "#f5a524" : C.textS }}>{fmt(m.balance)}</Cell>
+            <Cell style={{ ...td, color: m.penaltyDue > 0 ? "#e5484d" : C.textS }}>{fmt(m.penaltyDue)}</Cell>
             <Cell style={{ ...td, color: C.textH, fontWeight: 700 }}>{fmt(m.due)}</Cell>
             <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
               <div style={{ display: "inline-flex", gap: 8 }}>
@@ -454,7 +455,7 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
         <StatCard label="Settled bookings" value={settled.length} />
         <StatCard label="Charges" value={fmt(charges)} />
         <StatCard label="Paid" value={fmt(paid)} color="#2e9e4e" />
-        <StatCard label="Closed unpaid" value={fmt(unpaid)} color={unpaid > 0 ? "#d4a800" : undefined} />
+        <StatCard label="Closed unpaid" value={fmt(unpaid)} color={unpaid > 0 ? "#f5a524" : undefined} />
       </div>
       <FilterBar
         active={[!!from || !!to, onlyUnpaid].filter(Boolean).length}
@@ -478,9 +479,9 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
             <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace" }}>{b.id}</Cell>
             <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>Booked for {fmtDate(b.date)}</div></Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(b.total)}</Cell>
-            <Cell style={{ ...td, color: m.penaltyTotal > 0 ? "#d44" : C.textS }}>{fmt(m.penaltyTotal)}</Cell>
+            <Cell style={{ ...td, color: m.penaltyTotal > 0 ? "#e5484d" : C.textS }}>{fmt(m.penaltyTotal)}</Cell>
             <Cell style={{ ...td, color: C.textB }}>{fmt(round2(m.paid + m.penaltyPaid))}</Cell>
-            <Cell style={{ ...td, color: m.due > 0 ? "#d4a800" : C.textS }}>
+            <Cell style={{ ...td, color: m.due > 0 ? "#f5a524" : C.textS }}>
               {m.due > 0 ? fmt(m.due) : "—"}
               {b.settlementNote && <div style={{ color: C.textS, fontSize: 11.5 }}>{b.settlementNote}</div>}
             </Cell>
@@ -535,7 +536,7 @@ function Clients({ bookings }: { bookings: Booking[] }) {
             <Cell style={{ ...td, color: C.textB }}>{c.bookings.length}</Cell>
             <Cell style={{ ...td, color: C.textB }}>{c.last ? fmtDate(c.last) : "—"}</Cell>
             <Cell style={{ ...td, color: C.textH, fontWeight: 600 }}>{fmt(c.paid)}</Cell>
-            <Cell style={{ ...td, color: c.owed > 0 ? "#d4a800" : C.textS }}>{fmt(c.owed)}</Cell>
+            <Cell style={{ ...td, color: c.owed > 0 ? "#f5a524" : C.textS }}>{fmt(c.owed)}</Cell>
             <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm">View client</ActionButton></Cell>
           </Row>
         ))}
@@ -547,7 +548,7 @@ function Clients({ bookings }: { bookings: Booking[] }) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 20 }}>
             <StatCard label="Bookings" value={current.bookings.length} />
             <StatCard label="Total paid" value={fmt(current.paid)} color="#2e9e4e" />
-            <StatCard label="Owed" value={fmt(current.owed)} color={current.owed > 0 ? "#d4a800" : undefined} />
+            <StatCard label="Owed" value={fmt(current.owed)} color={current.owed > 0 ? "#f5a524" : undefined} />
           </div>
           <h4 style={{ color: C.textH, fontSize: 14, margin: "0 0 8px" }}>Bookings</h4>
           <TableShell head={["Booking", "Date", "Package", "Status", "Total", "Paid", "Owed"]} minWidth={640}>
@@ -561,7 +562,7 @@ function Clients({ bookings }: { bookings: Booking[] }) {
                   <Cell style={td}><StatusBadge color={STATUS_COLOR[b.status]}>{bookingStatusLabel(b)}</StatusBadge></Cell>
                   <Cell style={{ ...td, color: C.textB }}>{fmt(b.total)}</Cell>
                   <Cell style={{ ...td, color: C.textB }}>{fmt(m.paid + m.penaltyPaid)}</Cell>
-                  <Cell style={{ ...td, color: m.due > 0 ? "#d4a800" : C.textS }}>{fmt(m.due)}</Cell>
+                  <Cell style={{ ...td, color: m.due > 0 ? "#f5a524" : C.textS }}>{fmt(m.due)}</Cell>
                 </Row>
               );
             })}
@@ -570,7 +571,7 @@ function Clients({ bookings }: { bookings: Booking[] }) {
           <div style={{ background: soft, borderRadius: 8, padding: "8px 16px" }}>
             {livePayments(ops.payments).filter((p) => current.bookings.some((b) => b.id === p.bookingId)).map((p) => (
               <AmountRow key={p.id} label={`${fmtDate(manilaDate(p.receivedAt))} · ${paymentLine(p)} · ${p.bookingId}`}
-                value={`${p.type === "Refund" ? "−" : ""}${fmt(p.amount)}`} color={p.type === "Refund" ? "#d44" : undefined} />
+                value={`${p.type === "Refund" ? "−" : ""}${fmt(p.amount)}`} color={p.type === "Refund" ? "#e5484d" : undefined} />
             ))}
             {!livePayments(ops.payments).some((p) => current.bookings.some((b) => b.id === p.bookingId)) && (
               <p style={{ color: C.textS, fontSize: 13 }}>No payments recorded yet.</p>
@@ -605,7 +606,7 @@ function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void 
   return (
     <div>
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-        <Input type="month" value={monthStr} onChange={(e) => setMonthStr(e.target.value)} aria-label="Month" style={{ ...inp, width: "auto", padding: "8px 12px" }} />
+        <DateField mode="month" value={monthStr} onChange={(v) => v && setMonthStr(v)} aria-label="Month" style={{ ...inp, width: "auto", padding: "8px 12px" }} />
         <ActionButton size="sm" icon="plus" onClick={onAdd}>Add expense</ActionButton>
         {voidedCount > 0 && (
           <label style={{ display: "inline-flex", alignItems: "center", gap: 8, color: C.textS, fontSize: 12.5, cursor: "pointer", marginLeft: "auto" }}>
@@ -616,11 +617,11 @@ function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void 
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
         <div style={{ flex: "3 1 520px", minWidth: 0 }}>
-        <TableShell head={["Date", "Category", "Description", "Method", "Amount", ""]} minWidth={640}
+        <TableShell head={["Date", "Category", "Description", "Payment method", "Amount", ""]} minWidth={640}
           empty={rows.length === 0 ? "No expenses recorded for this month." : undefined}>
           {pagedExp.rows.map((e, i) => (
             <Row key={e.id} style={{ background: rowBg(i), opacity: e.voided ? 0.5 : 1 }}>
-              <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(e.spentOn)}</Cell>
+              <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(e.spentOn)}{e.recordedAt && <div style={{ color: C.textS, fontSize: 11.5 }}>Entered {manilaDate(e.recordedAt) === e.spentOn ? "" : `${fmtDate(manilaDate(e.recordedAt))}, `}{manilaTime(e.recordedAt)}</div>}</Cell>
               <Cell style={{ ...td, color: C.textB }}>{e.category}</Cell>
               <Cell style={{ ...td, color: C.textH }}>{e.description}</Cell>
               <Cell style={{ ...td, color: C.textS }}>{e.method}</Cell>
@@ -685,7 +686,7 @@ export function ExpenseModal({ onClose, initialDate }: { onClose: () => void; in
         </div>
         <div>
           <Label htmlFor="ex-date">Date</Label>
-          <Input id="ex-date" type="date" value={f.spentOn} onChange={(e) => setF({ ...f, spentOn: e.target.value })} style={inp} />
+          <DateField id="ex-date" value={f.spentOn} onChange={(v) => setF({ ...f, spentOn: v })} style={inp} />
         </div>
         <div>
           <Label>Paid with</Label>
@@ -829,28 +830,28 @@ export function Closing({ onAct, initialDate }: {
     const hadCash = d.cashIn !== 0 || d.cashOut !== 0;
     if (!c) {
       if (!hadCash) return { text: "No cash to count", color: C.textS };
-      return d.date === today ? { text: "Count at day's end", color: C.textS } : { text: "Not counted yet", color: "#d4a800" };
+      return d.date === today ? { text: "Count at day's end", color: C.textS } : { text: "Not counted yet", color: "#f5a524" };
     }
     // Recorded cash changed after the count (e.g. a payment voided since).
-    if (round2(c.openingFloat + d.cashIn - d.cashOut) !== c.expectedCash) return { text: "Changed since counted, count again", color: "#d4a800" };
+    if (round2(c.openingFloat + d.cashIn - d.cashOut) !== c.expectedCash) return { text: "Changed since counted, count again", color: "#f5a524" };
     if (!hadCash && c.countedCash === 0) return { text: "No cash to count", color: C.textS };
     return c.difference === 0
       ? { text: `Balanced · ${fmt(c.countedCash)}`, color: "#2e9e4e" }
       : c.difference > 0
-        ? { text: `Over by ${fmt(c.difference)}`, color: "#3a8fc4" }
-        : { text: `Short by ${fmt(-c.difference)}`, color: "#d44" };
+        ? { text: `Over by ${fmt(c.difference)}`, color: "#3e8ed0" }
+        : { text: `Short by ${fmt(-c.difference)}`, color: "#e5484d" };
   };
   return (
     <div>
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16 }}>
         <Label htmlFor="close-date">Day</Label>
-        <Input id="close-date" type="date" max={manilaDate()} value={date} onChange={(e) => pick(e.target.value)} style={{ ...inp, width: "auto", padding: "8px 12px" }} />
+        <DateField id="close-date" max={manilaDate()} value={date} onChange={(v) => v && pick(v)} style={{ ...inp, width: "auto", padding: "8px 12px" }} />
         {existing && <StatusBadge color="#2e9e4e">Closed at {manilaTime(existing.closedAt)}</StatusBadge>}
       </div>
 
       {stillOpen.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "-4px 0 16px", fontSize: 13, color: C.textS }}>
-          <Icon name="alert" size={14} style={{ color: "#d4a800" }} />
+          <Icon name="alert" size={14} style={{ color: "#f5a524" }} />
           Also not closed yet:
           {stillOpen.map((d) => <ActionButton key={d} size="sm" onClick={() => pick(d)}>{fmtDate(d)}</ActionButton>)}
         </div>
@@ -859,7 +860,7 @@ export function Closing({ onAct, initialDate }: {
       {blockers.length > 0 && (
         <section aria-labelledby="close-blockers" style={{ border: "1px solid #d4a80066", background: "rgba(212,168,0,0.06)", borderRadius: 10, padding: "12px 16px", marginBottom: 16 }}>
           <h4 id="close-blockers" style={{ color: C.textH, fontSize: 14.5, fontWeight: 600, margin: 0, display: "flex", gap: 8, alignItems: "center" }}>
-            <Icon name="alert" size={15} style={{ color: "#d4a800" }} />
+            <Icon name="alert" size={15} style={{ color: "#f5a524" }} />
             Finish {blockers.length === 1 ? "this booking" : `these ${blockers.length} bookings`} before closing {date === today ? "today" : fmtDate(date)}
           </h4>
           <p style={{ color: C.textS, fontSize: 13, margin: "4px 0 8px" }}>
@@ -869,7 +870,7 @@ export function Closing({ onAct, initialDate }: {
             {blockers.map(({ b, need }) => (
               <li key={b.id} style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "8px 0", borderTop: `1px solid ${cBr}` }}>
                 <span style={{ flex: "1 1 240px", fontSize: 13.5, color: C.textB }}>
-                  <strong style={{ color: C.textH }}>{b.name}</strong> · {b.date === today ? "today" : fmtDate(b.date)} · <span style={{ color: "#d4a800" }}>{CLOSE_NEED[need].label}</span>
+                  <strong style={{ color: C.textH }}>{b.name}</strong> · {b.date === today ? "today" : fmtDate(b.date)} · <span style={{ color: "#f5a524" }}>{CLOSE_NEED[need].label}</span>
                   <span style={{ color: C.textS }}>: {CLOSE_NEED[need].todo}</span>
                 </span>
                 {onAct && (
@@ -905,9 +906,9 @@ export function Closing({ onAct, initialDate }: {
           <AmountRow label="Received by Cash" value={fmt(cashIn)} />
           {otherIn !== 0 && <AmountRow label="Received by other (older records)" value={fmt(otherIn)} />}
           <AmountRow label="Total received" value={fmt(income)} strong />
-          <AmountRow label="Expenses" value={`− ${fmt(spent)}`} color="#d44" />
+          <AmountRow label="Expenses" value={`− ${fmt(spent)}`} color="#e5484d" />
           <div style={{ borderTop: "1px solid rgba(150,130,100,0.25)", marginTop: 8, paddingTop: 4 }}>
-            <AmountRow label="Net for the day" value={fmt(round2(income - spent))} strong color={income - spent < 0 ? "#d44" : "#2e9e4e"} />
+            <AmountRow label="Net for the day" value={fmt(round2(income - spent))} strong color={income - spent < 0 ? "#e5484d" : "#2e9e4e"} />
           </div>
         </div>
 
@@ -953,7 +954,7 @@ export function Closing({ onAct, initialDate }: {
               <AmountRow label="Should be in the box" value={fmt(expected)} strong />
               {diff !== null && (
                 <AmountRow label={diff === 0 ? "Balanced" : diff > 0 ? "Over by" : "Short by"} value={fmt(Math.abs(diff))} strong
-                  color={diff === 0 ? "#2e9e4e" : diff > 0 ? "#3a8fc4" : "#d44"} />
+                  color={diff === 0 ? "#2e9e4e" : diff > 0 ? "#3e8ed0" : "#e5484d"} />
               )}
 
               {/* Every entry behind "Cash received" and "Cash spent". */}
@@ -969,7 +970,7 @@ export function Closing({ onAct, initialDate }: {
                         {x.when && <span style={{ color: C.textS }}> · {x.when}</span>}
                         <span style={{ display: "block", color: C.textS }}>{x.who}{x.note ? ` · ${x.note}` : ""}</span>
                       </span>
-                      <span style={{ color: x.amount < 0 ? "#d44" : "#2e9e4e", fontWeight: 600, whiteSpace: "nowrap" }}>
+                      <span style={{ color: x.amount < 0 ? "#e5484d" : "#2e9e4e", fontWeight: 600, whiteSpace: "nowrap" }}>
                         {x.amount < 0 ? "−" : "+"}{fmt(Math.abs(x.amount))}
                       </span>
                     </li>

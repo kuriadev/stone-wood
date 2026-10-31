@@ -184,6 +184,25 @@ export async function DELETE(req: NextRequest) {
   if (!Number.isFinite(id)) {
     return NextResponse.json({ success: false, error: "A numeric item id is required." }, { status: 400 });
   }
+  // ?permanent=1: delete an ARCHIVED item for good (the archive's Delete
+  // button). Its stock history goes with it; expenses keep their amounts.
+  if (req.nextUrl.searchParams.get("permanent") === "1") {
+    try {
+      const db = getSupabaseAdmin();
+      const cur = await db.from("inventory").select("*").eq("id", id).maybeSingle();
+      if (cur.error) throw new Error(cur.error.message);
+      const row = cur.data as InventoryRow | null;
+      if (!row) return NextResponse.json({ success: false, error: "Item not found." }, { status: 404 });
+      if (!row.deleted_at) return NextResponse.json({ success: false, error: "Archive the item first; only archived items can be deleted for good." }, { status: 409 });
+      const { error } = await db.from("inventory").delete().eq("id", id);
+      if (error) throw new Error(error.message);
+      await logActivity({ actor: "Admin", action: "inventory.deleted", entity: "inventory", entityId: id, summary: `Deleted "${row.name}" from the archive for good, with its stock history.` });
+      return NextResponse.json({ success: true });
+    } catch (err) {
+      console.error("[/api/inventory DELETE permanent]", err);
+      return NextResponse.json({ success: false, error: "Could not delete that item." }, { status: 500 });
+    }
+  }
   try {
     // Soft delete: the table carries deleted_at, so a retired item keeps its
     // history instead of vanishing.

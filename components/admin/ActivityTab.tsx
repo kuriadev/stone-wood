@@ -77,6 +77,21 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
       if (j?.success) setPeople(j.staff ?? []);
     }).catch(() => {});
   }, [isOwner, staff.staffEnabled]);
+  /* Which kind of account did it: Super admin, Front desk or Caretaker.
+     Recorded with each line since staff accounts came in (details.byRole);
+     for older lines the owner's staff list fills it in, and a staff member
+     looking at their own lines is that role. */
+  const accountType = (a: Activity): string => {
+    if (a.actor === "Guest") return "Guest";
+    if (a.actor === "System") return "Automatic";
+    const recorded = a.details?.byRole;
+    if (typeof recorded === "string" && recorded in ROLE_LABEL) return ROLE_LABEL[recorded as StaffRole];
+    const p = a.staffId ? people.find((x) => x.id === a.staffId) : people.find((x) => x.name === a.staffName);
+    if (p) return ROLE_LABEL[p.role];
+    if (!isOwner && staff.me) return ROLE_LABEL[staff.me.role];
+    return a.staffId || a.staffName ? "Staff" : ROLE_LABEL.Owner;
+  };
+  const ROLE_TONE: Record<string, string> = { [ROLE_LABEL.Owner]: gold, [ROLE_LABEL.FrontDesk]: "#5b9bd5", [ROLE_LABEL.Caretaker]: "#5fae6e" };
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [category, setCategory] = useState("");
@@ -121,8 +136,8 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
   }, [load]);
 
   const exportCsv = () => downloadCsv(`StoneWood_Audit_Log_${manilaDate()}.csv`, [
-    ["When", "Who", "Action", "Booking", "What happened"],
-    ...rows.map((a) => [fmtWhen(a.at), a.staffName ?? a.actor, a.action, a.bookingId ?? "", a.summary]),
+    ["When", "Who", "Account type", "Action", "Booking", "What happened"],
+    ...rows.map((a) => [fmtWhen(a.at), a.staffName ?? a.actor, accountType(a), a.action, a.bookingId ?? "", a.summary]),
   ]);
 
   const sel = { ...inp, padding: "8px 12px", width: "auto" } as const;
@@ -169,16 +184,25 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
 
       {error && <p style={{ color: C.dangerInk, fontSize: 13.5 }}>{error}</p>}
 
-      <TableShell head={["When", "Who", "What happened", "Booking"]} minWidth={760}
+      <TableShell head={["When", "Who", "Account type", "What happened", "Booking"]} minWidth={880}
         empty={!loading && rows.length === 0 && !error ? (filtersOn ? "Nothing matches these filters." : "Nothing recorded yet.") : undefined}>
         {paged.rows.map((a, i) => (
           <Row key={a.id} style={{ background: rowBg(i) }}>
             <Cell style={{ ...td, color: C.textS, whiteSpace: "nowrap", fontSize: 12.5 }}>{fmtWhen(a.at)}</Cell>
             <Cell style={td}><StatusBadge color={ACTOR_COLOR[a.actor]}>{a.staffName ?? a.actor}</StatusBadge></Cell>
+            <Cell style={{ ...td, whiteSpace: "nowrap" }}>
+              {(() => {
+                const t = accountType(a);
+                const tone = ROLE_TONE[t];
+                return tone
+                  ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: C.textB }}><span style={{ width: 7, height: 7, borderRadius: "50%", background: tone }} />{t}</span>
+                  : <span style={{ fontSize: 12.5, color: C.textS }}>{t}</span>;
+              })()}
+            </Cell>
             <Cell style={{ ...td, color: C.textB }}>{a.summary}</Cell>
             <Cell style={{ ...td, whiteSpace: "nowrap" }}>
               {a.bookingId
-                ? <button type="button" onClick={() => (onOpenBooking ? onOpenBooking(a.bookingId!) : setBooking(a.bookingId!))}
+                ? <button className="sw-ulink" type="button" onClick={() => (onOpenBooking ? onOpenBooking(a.bookingId!) : setBooking(a.bookingId!))}
                     style={{ background: "none", border: "none", padding: 0, color: C.goldInk, fontFamily: "monospace", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>{a.bookingId}</button>
                 : <span style={{ color: C.textS }}>—</span>}
             </Cell>

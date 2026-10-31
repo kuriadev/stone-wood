@@ -28,8 +28,14 @@
 // so every module keeps its full record while the daily routine happens
 // here. Which step a booking is on is worked out in lib/operations.ts.
 
+import { EditBookingHub } from "@/components/admin/EditBookingHub";
+import { EditGuestModal } from "@/components/admin/EditGuestModal";
+import type { ChargeKind } from "@/lib/charges";
+import { useFold } from "@/components/admin/FoldHeader";
+import { spotlight } from "@/lib/spotlight";
+import { SIGNAL } from "@/components/admin/signals";
 import { paymentLine, adminTabLabel } from "@/lib/labels";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -98,14 +104,19 @@ interface OperationsTabProps {
   onRestoreMessage?: (m: CustomerMessage) => void;
   onReplyMessage?: (m: CustomerMessage) => void;
   bookingForMessage?: (m: CustomerMessage) => Booking | null;
+  /** Arrive showing one booking: that view, searched to its reference (set
+   *  when a notification about it is tapped). Cleared once applied. */
+  focus?: { bookingId: string; view: OpsView; key: number } | null;
 }
 
 type Open =
-  | { kind: "prep" | "checkout" | "settle" | "record" | "pay" | "charge"; id: string }
+  | { kind: "prep" | "checkout" | "settle" | "record" | "pay"; id: string }
   | { kind: "accept" | "reject" | "noshow" | "refund" | "textagain" | "refundchoice"; id: string }
   | { kind: "move"; id: string }
   | { kind: "datechange"; reqId: number }
   | { kind: "walkin" }
+  | { kind: "edit" | "details"; id: string }
+  | { kind: "charge"; id: string; charge?: ChargeKind }
   | { kind: "paynew" };
 
 /** Something late or about to be, for the "Needs attention" list. */
@@ -129,10 +140,10 @@ interface Attention {
   actions: ReactNode;
 }
 
-const TONE: Record<Attention["tone"], string> = { red: "#d44", amber: "#d4a800", blue: "#3a8fc4" };
+const TONE: Record<Attention["tone"], string> = { red: SIGNAL.urgent, amber: SIGNAL.attention, blue: SIGNAL.progress };
 const ATTENTION_SHOWN = 4;
 /** The card clock's colours (see cardTimer). */
-const TIMER_COLOR: Record<TimerTone, string> = { blue: "#3a8fc4", green: "#2e9e4e", orange: "#f08a24", red: "#d44" };
+const TIMER_COLOR: Record<TimerTone, string> = { blue: "#3e8ed0", green: "#2e9e4e", orange: "#f08a24", red: "#e5484d" };
 
 const localTime = (d: Date) => d.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
 
@@ -154,7 +165,7 @@ function dayHeading(date: string, today: string): string {
 
 export function OperationsTab({
   bookings, setBookings, rooms, packages, facilities, updateStatus, mob, onGoTab,
-  customerMessages = [], onArchiveMessage, onRestoreMessage, onReplyMessage, bookingForMessage,
+  customerMessages = [], onArchiveMessage, onRestoreMessage, onReplyMessage, bookingForMessage, focus,
 }: OperationsTabProps) {
   const { C, cBg, cBr, soft, inp } = useAdminStyle();
   const ops = useOps();
@@ -168,8 +179,26 @@ export function OperationsTab({
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 60_000); return () => clearInterval(t); }, []);
   const today = manilaDate(now);
 
-  const [view, setView] = useState<OpsView>("today");
+  const [view, setView] = useState<OpsView>(focus?.view ?? "today");
   const [q, setQ] = useState("");
+  /* A tapped notification: open the right view, then scroll to that
+     booking's card and light it up (lib/spotlight.ts) -- the card in its
+     place among the others, so staff see where it sits. Only if it can't
+     be found there (another day, say) does the search narrow to it. */
+  useEffect(() => {
+    if (!focus) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- following a tapped notification to its booking
+    setView(focus.view);
+    setQ("");
+    document.getElementById("dash-bookings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    let live = true;
+    void spotlight(focus.bookingId, { timeoutMs: 1500 }).then((found) => {
+      if (found || !live) return;
+      setQ(focus.bookingId);
+      void spotlight(focus.bookingId);
+    });
+    return () => { live = false; };
+  }, [focus]);
   const [open, setOpen] = useState<Open | null>(null);
   /* Which booking the "Email guest" card is open for. Held as the booking
      rather than an id so the modal keeps showing the right recipient even
@@ -177,8 +206,6 @@ export function OperationsTab({
   const [emailing, setEmailing] = useState<Booking | null>(null);
   const [reason, setReason] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [allUrgent, setAllUrgent] = useState(false);
-  const [allReminders, setAllReminders] = useState(false);
   /* Reminders the admin has waved away. Session-only and never persisted:
      a reminder describes a live condition, so hiding it must not outlive
      the screen or it would quietly bury something still true. */
@@ -437,8 +464,28 @@ export function OperationsTab({
   const allReminderRows = attention.filter((a) => a.kind === "reminder");
   const reminders = allReminderRows.filter((a) => !dismissed.has(a.key));
   const hiddenReminders = allReminderRows.length - reminders.length;
-  const urgentShown = allUrgent ? urgent : urgent.slice(0, ATTENTION_SHOWN);
-  const remindersShown = allReminders ? reminders : reminders.slice(0, ATTENTION_SHOWN);
+  const [urgentOpen, toggleUrgent] = useFold("urgent");
+
+  /* The pinned bar (top of the dashboard) shows once the "Do these first"
+     panel has scrolled up past the top of the screen. */
+  const urgentRef = useRef<HTMLElement>(null);
+  const [urgentOff, setUrgentOff] = useState(false);
+  const hasUrgent = urgent.length > 0 && ops.loaded;
+  useEffect(() => {
+    const el = urgentRef.current;
+    if (!hasUrgent || !el) { setUrgentOff(false); return; }
+    const io = new IntersectionObserver(([e]) => setUrgentOff(!e.isIntersecting && e.boundingClientRect.top < 0), { threshold: 0 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasUrgent]);
+
+
+  /** Under a scrolling list: how many more are below. */
+  const scrollHint = (more: number) => (
+    <div style={{ color: C.textS, fontSize: 12, display: "flex", alignItems: "center", gap: 6, justifyContent: "center", padding: "8px 16px", borderTop: `1px solid ${cBr}` }}>
+      <Icon name="chevron-down" size={13} /> Scroll for {more} more
+    </div>
+  );
 
   // ── One reservation ────────────────────────────────────────────────
   const card = (c: OpsCard) => {
@@ -519,7 +566,7 @@ export function OperationsTab({
     const edge = c.timeUp || c.overdue ? "#d4444066" : cBr;
 
     return (
-      <article key={b.id} aria-label={`${b.name}, ${next}`}
+      <article key={b.id} data-spot={b.id} aria-label={`${b.name}, ${next}`}
         /* Three sides written out rather than a `border` shorthand with
            `borderLeft` after it: React warns that updating one during a
            re-render while the other is set can leave the two out of step,
@@ -530,7 +577,7 @@ export function OperationsTab({
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               {/* The guest's name opens the reservation. A 21px line of
                   text is not a tap target, so it gets the same 44px box. */}
-              <button type="button" onClick={() => go("record", b)} title="Open the full reservation" className="sw-hit"
+              <button type="button" onClick={() => go("record", b)} title="Open the full reservation" className="sw-hit sw-ulink"
                 style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: C.textH, fontWeight: 600, fontSize: 15, textAlign: "left" }}>
                 {b.name}
               </button>
@@ -567,6 +614,15 @@ export function OperationsTab({
           >
             <Icon name="mail" size={15} />
           </button>
+          {/* Edit: change what the guest asks for on the day (more guests,
+              overtime, a room, their details) from one window. */}
+          {(stage === "arriving" || stage === "onsite" || stage === "prepare" || stage === "confirm") && (
+            <button type="button" onClick={() => setOpen({ kind: "edit", id: b.id })} aria-label={`Edit ${b.name}'s booking`} title="Edit booking"
+              className="sw-hit sw-gold-hover"
+              style={{ background: "transparent", border: `1px solid ${cBr}`, borderRadius: 8, height: 30, padding: "0 10px", display: "inline-flex", alignItems: "center", gap: 6, color: C.textB, cursor: "pointer", flexShrink: 0, fontSize: 12.5, fontWeight: 600 }}>
+              <Icon name="edit" size={14} />{!mob && "Edit"}
+            </button>
+          )}
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               {/* 30px to look at, 44px to tap: sw-hit centres an invisible
@@ -650,23 +706,23 @@ export function OperationsTab({
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {stage === "confirm" && (m.paid > 0
             ? <StatusBadge color="#2e9e4e">{fmt(m.paid)} paid</StatusBadge>
-            : <StatusBadge color="#d4a800">No payment yet</StatusBadge>)}
+            : <StatusBadge color="#f5a524">No payment yet</StatusBadge>)}
           {stage === "prepare" && (c.prepared
             ? <StatusBadge color="#2e9e4e"><Icon name="check" size={11} />Ready</StatusBadge>
-            : <StatusBadge color="#d4a800">Not prepared</StatusBadge>)}
-          {stage === "arriving" && !c.prepared && <StatusBadge color="#d4a800">Not prepared</StatusBadge>}
-          {c.overdue && <StatusBadge color="#d44">Was due {fmtDate(b.date)}</StatusBadge>}
+            : <StatusBadge color="#f5a524">Not prepared</StatusBadge>)}
+          {stage === "arriving" && !c.prepared && <StatusBadge color="#f5a524">Not prepared</StatusBadge>}
+          {c.overdue && <StatusBadge color="#e5484d">Was due {fmtDate(b.date)}</StatusBadge>}
           {stage === "onsite" && b.checkedInAt && <StatusBadge color="#2e9e4e">In since {manilaTime(b.checkedInAt)}</StatusBadge>}
           {stage === "onsite" && c.endsAt && (c.timeUp
-            ? <StatusBadge color="#d44">Time&apos;s up · {duration(now.getTime() - c.endsAt.getTime())} over</StatusBadge>
+            ? <StatusBadge color="#e5484d">Time&apos;s up · {duration(now.getTime() - c.endsAt.getTime())} over</StatusBadge>
             : <StatusBadge color={C.textS}>Until {localTime(c.endsAt)}</StatusBadge>)}
           {/* Damage the caretaker found at the check-out inspection: it is
               part of what is collected here, so say so on the card. */}
-          {stage === "settle" && m.penaltyTotal > 0 && <StatusBadge color="#d44">{fmt(m.penaltyTotal)} damage</StatusBadge>}
+          {stage === "settle" && m.penaltyTotal > 0 && <StatusBadge color="#e5484d">{fmt(m.penaltyTotal)} damage</StatusBadge>}
           {(stage === "arriving" || stage === "onsite" || stage === "settle") && (m.due > 0
-            ? <StatusBadge color="#d4a800">{fmt(m.due)} to collect</StatusBadge>
+            ? <StatusBadge color="#f5a524">{fmt(m.due)} to collect</StatusBadge>
             : <StatusBadge color="#2e9e4e">Fully paid</StatusBadge>)}
-          {stage === "done" && (m.due > 0 ? <StatusBadge color="#d4a800">{fmt(m.due)} unpaid</StatusBadge> : <StatusBadge color="#4a9fd4">Closed</StatusBadge>)}
+          {stage === "done" && (m.due > 0 ? <StatusBadge color="#f5a524">{fmt(m.due)} unpaid</StatusBadge> : <StatusBadge color="#3e8ed0">Closed</StatusBadge>)}
         </div>
 
         {/* The next step is the one button to look for, so it takes the
@@ -696,7 +752,7 @@ export function OperationsTab({
 
   // ── End of day: daily liquidation ──────────────────────────────────
   const endOfDay = (
-    <section style={{ marginTop: 28, background: soft, borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+    <section data-spot="dash-endofday" style={{ marginTop: 28, background: soft, borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
       <div>
         <div style={{ color: C.textH, fontWeight: 600, fontSize: 15 }}>End of day</div>
         <div style={{ color: C.textS, fontSize: 13, marginTop: 4 }}>
@@ -723,7 +779,7 @@ export function OperationsTab({
         {TODAY_COLUMNS.map((col) => {
           const list = todayCards.filter((c) => c.column === col.id);
           return (
-            <section key={col.id} aria-labelledby={`ops-col-${col.id}`} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
+            <section key={col.id} data-spot={`ops-col-${col.id}`} aria-labelledby={`ops-col-${col.id}`} style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0, borderRadius: 12 }}>
               <div style={{ borderBottom: `2px solid ${col.color}55`, paddingBottom: 8 }}>
                 <h3 id={`ops-col-${col.id}`} style={{ color: C.textH, fontSize: 15.5, fontWeight: 600, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ width: 9, height: 9, borderRadius: "50%", background: col.color }} />{col.label}
@@ -731,7 +787,21 @@ export function OperationsTab({
                 </h3>
                 <div style={{ color: C.textS, fontSize: 12.5, marginTop: 4 }}>{col.hint}</div>
               </div>
-              {list.length === 0 ? emptyNote(col.empty) : list.map(card)}
+              {/* About two cards tall; the rest scroll inside the column, so
+                  a busy day doesn't turn the page into one long scroll. */}
+              {list.length === 0 ? emptyNote(col.empty) : (
+                <>
+                  <div className={list.length > 2 ? "sw-col-scroll sw-col-scroll--more" : "sw-col-scroll"}
+                    tabIndex={list.length > 2 ? 0 : undefined} aria-label={list.length > 2 ? `${col.label}: ${list.length} groups, scroll for more` : undefined}>
+                    {list.map(card)}
+                  </div>
+                  {list.length > 2 && (
+                    <div style={{ color: C.textS, fontSize: 12, display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+                      <Icon name="chevron-down" size={13} /> Scroll for {list.length - 2} more
+                    </div>
+                  )}
+                </>
+              )}
             </section>
           );
         })}
@@ -739,7 +809,7 @@ export function OperationsTab({
       {todayCards.length === 0 && (
         <p style={{ color: C.textS, fontSize: 13.5, margin: "16px 0 0" }}>
           No groups today.{upcoming.length > 0 && <> {" "}
-            <button type="button" onClick={() => setView("upcoming")} style={{ background: "none", border: "none", padding: 0, color: C.goldInk, cursor: "pointer", fontSize: 13.5 }}>
+            <button className="sw-ulink" type="button" onClick={() => setView("upcoming")} style={{ background: "none", border: "none", padding: 0, color: C.goldInk, cursor: "pointer", fontSize: 13.5 }}>
               See what&apos;s coming up <Icon name="arrow-right" size={13} style={{ verticalAlign: -2 }} />
             </button></>}
         </p>
@@ -810,7 +880,7 @@ export function OperationsTab({
     .slice(0, 12);
 
   const decidedTone = (status: string) =>
-    status === "Approved" ? "#6ec071" : status === "Declined" ? "#e55" : "#9a8e79";
+    status === "Approved" ? "#6ec071" : status === "Declined" ? "#e5484d" : "#9a8e79";
 
   const pendingGrid = pendingMoves.length === 0
     ? null
@@ -827,13 +897,13 @@ export function OperationsTab({
           const datePassed = !rebook && r.fromDate <= today;
           const stale = !active || datePassed;
           return (
-            <div key={r.id} style={{ background: cBg, border: `1px solid ${stale ? "#d4a80055" : cBr}`, borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+            <div key={r.id} data-spot={r.bookingId} style={{ background: cBg, border: `1px solid ${stale ? "#f5a52455" : cBr}`, borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ color: C.textH, fontSize: 14.5, fontWeight: 600 }}>{b.name}</div>
                   <div style={{ color: C.textS, fontSize: 12.5, fontFamily: "monospace", fontWeight: 700 }}>{b.id}</div>
                 </div>
-                <StatusBadge color={stale ? "#e55" : "#d4a800"}>{datePassed ? "Date passed" : active ? "Awaiting you" : "Hold expired"}</StatusBadge>
+                <StatusBadge color={stale ? "#e5484d" : "#f5a524"}>{datePassed ? "Date passed" : active ? "Awaiting you" : "Hold expired"}</StatusBadge>
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 13 }}>
@@ -934,13 +1004,23 @@ export function OperationsTab({
    *  "Payments still needed" next to "Due today" left neither of them
    *  readable — so on mobile the badge drops to the bottom line beside the
    *  note, where there is room for it. */
-  const dashStat = (o: { icon: IconName; label: string; value: ReactNode; note: ReactNode; badge?: string; badgeColor?: string; color?: string }) => {
+  /* A score card that leads somewhere: the view behind it opens, the page
+     glides to where the number comes from, and that part lights up
+     (lib/spotlight.ts) -- the first one scrolled to, the rest lit too. */
+  const goStat = (view: OpsView, spots: string[]) => {
+    setQ("");
+    setView(view);
+    if (spots.length === 0) return;
+    void spotlight(spots[0]).then(() => spots.slice(1).forEach((id) => void spotlight(id, { scroll: false })));
+  };
+  const dashStat = (o: { icon: IconName; label: string; value: ReactNode; note: ReactNode; badge?: string; badgeColor?: string; color?: string; onOpen?: () => void; openLabel?: string }) => {
     const chip = o.badge ? (
       <span style={{ fontSize: 10.5, fontWeight: 700, borderRadius: 20, padding: "3px 8px", whiteSpace: "nowrap", flexShrink: 0, background: `${o.badgeColor ?? C.textS}22`, color: o.badgeColor ?? C.textS }}>{o.badge}</span>
     ) : null;
     return (
-      <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 12, padding: mob ? "12px 14px" : "14px 16px", minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+      <button type="button" className="sw-stat" onClick={o.onOpen} aria-label={o.openLabel ? `${o.label}: ${typeof o.value === "string" || typeof o.value === "number" ? o.value : ""}. ${o.openLabel}` : undefined}
+        style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 12, padding: mob ? "12px 14px" : "14px 16px", minWidth: 0, display: "flex", flexDirection: "column", gap: 8, textAlign: "left", font: "inherit", color: "inherit", cursor: o.onOpen ? "pointer" : "default", width: "100%" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, width: "100%" }}>
           <span aria-hidden style={{ width: mob ? 28 : 32, height: mob ? 28 : 32, borderRadius: 9, background: soft, border: `1px solid ${cBr}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: o.color ?? C.goldInk, flexShrink: 0 }}>
             <Icon name={o.icon} size={mob ? 14 : 16} />
           </span>
@@ -951,37 +1031,43 @@ export function OperationsTab({
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
           <span style={{ flex: 1, minWidth: 0, color: C.textXS, fontSize: 12 }}>{o.note}</span>
           {mob && chip}
+          {o.onOpen && <span className="sw-stat__go" aria-hidden="true"><Icon name="arrow-right" size={13} /></span>}
         </div>
-      </div>
+      </button>
     );
   };
 
   const statsRow = (
-    <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
+    <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))", gap: mob ? 12 : 16, marginBottom: 20 }}>
       {dashStat({
-        icon: "calendar", label: "Still arriving",
+        icon: "calendar", label: "Guests still to arrive",
         value: dueToday.length - arrivedToday,
-        badge: arrivingNow.length ? `${readyToArrive} ready` : undefined,
-        badgeColor: readyToArrive === arrivingNow.length ? "#2e9e4e" : "#d4a800",
-        note: dueToday.length ? `${expectedGuests} expected guest${expectedGuests === 1 ? "" : "s"}` : "No bookings today",
+        badge: arrivingNow.length ? `${readyToArrive} prepared` : undefined,
+        badgeColor: readyToArrive === arrivingNow.length ? "#2e9e4e" : "#f5a524",
+        note: dueToday.length ? `${expectedGuests} guest${expectedGuests === 1 ? "" : "s"} expected today` : "No bookings today",
+        onOpen: () => goStat("today", ["ops-col-arriving"]), openLabel: "Show the arriving groups",
       })}
       {dashStat({
         icon: "users", label: "Guests at the resort", value: headcount,
         color: onSite.length ? "#2e9e4e" : undefined,
         badge: onSite.length ? "Checked in" : undefined, badgeColor: "#2e9e4e",
-        note: `${onSite.length} current booking${onSite.length === 1 ? "" : "s"}`,
+        note: onSite.length ? `From ${onSite.length} checked-in booking${onSite.length === 1 ? "" : "s"}` : "Nobody checked in yet",
+        onOpen: () => goStat("today", ["ops-col-onsite"]), openLabel: "Show who is on site",
       })}
       {dashStat({
-        icon: "wallet", label: "Payments still needed", value: fmt(owedToday),
-        color: owedToday > 0 ? "#d4a800" : undefined,
-        badge: owedToday > 0 ? "Due today" : undefined, badgeColor: "#d4a800",
-        note: owedToday > 0 ? `From ${owedTodayCount} booking${owedTodayCount === 1 ? "" : "s"}` : "Nothing owed today",
+        icon: "wallet", label: "Still to collect today", value: fmt(owedToday),
+        color: owedToday > 0 ? "#f5a524" : undefined,
+        badge: owedToday > 0 ? "Due today" : undefined, badgeColor: "#f5a524",
+        note: owedToday > 0 ? `Balance owed on ${owedTodayCount} booking${owedTodayCount === 1 ? "" : "s"}` : "Everyone today has paid",
+        onOpen: () => goStat("today", owedTodayCount > 0 ? todayCards.filter((c) => money(c.b).due > 0).map((c) => c.b.id) : ["ops-col-settle"]),
+        openLabel: "Show the bookings that still owe",
       })}
       {dashStat({
-        icon: "cash", label: "Money left today", value: fmt(netToday),
-        color: netToday < 0 ? "#d44" : "#2e9e4e",
-        badge: netToday < 0 ? "Negative" : "Positive", badgeColor: netToday < 0 ? "#d44" : "#2e9e4e",
-        note: `${fmt(collectedToday)} received · ${fmt(spentToday)} spent`,
+        icon: "cash", label: "Net money today", value: fmt(netToday),
+        color: netToday < 0 ? "#e5484d" : "#2e9e4e",
+        badge: netToday < 0 ? "More spent" : "More received", badgeColor: netToday < 0 ? "#e5484d" : "#2e9e4e",
+        note: `${fmt(collectedToday)} received − ${fmt(spentToday)} spent`,
+        onOpen: () => goStat("today", ["dash-endofday"]), openLabel: "Show today's money",
       })}
     </div>
   );
@@ -1002,8 +1088,8 @@ export function OperationsTab({
       </span>
     </section>
   ) : (
-    <section aria-labelledby="dash-urgent" style={{ border: "1px solid #d4444055", borderRadius: 12, background: cBg, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: `1px solid ${cBr}` }}>
+    <section ref={urgentRef} aria-labelledby="dash-urgent" style={{ border: "1px solid #e5484d55", borderRadius: 12, background: cBg, overflow: "hidden", scrollMarginTop: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: urgentOpen ? `1px solid ${cBr}` : "none" }}>
         <Icon name="alert" size={16} style={{ color: TONE.red, flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3 id="dash-urgent" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Do these first</h3>
@@ -1012,9 +1098,20 @@ export function OperationsTab({
         <span style={{ padding: "4px 8px", borderRadius: 10, fontSize: 11.5, whiteSpace: "nowrap", background: `${TONE.red}22`, color: TONE.red }}>
           {urgent.length} to do
         </span>
+        {/* Folds away (remembered per person); the count stays in view. */}
+        <button type="button" className="sw-hit" onClick={toggleUrgent} aria-expanded={urgentOpen} aria-controls="dash-urgent-list"
+          aria-label={urgentOpen ? "Fold away Do these first" : "Show Do these first"}
+          style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${cBr}`, background: "transparent", color: C.textB, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+          <Icon name={urgentOpen ? "chevron-up" : "chevron-down"} size={16} />
+        </button>
       </div>
-      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-        {urgentShown.map((a, i) => (
+      {urgentOpen && (<>
+      {/* Every task, in a box that scrolls past about four rows (it used
+          to stop at four behind "Show more"), so the panel keeps its size. */}
+      <ul id="dash-urgent-list" className={urgent.length > ATTENTION_SHOWN ? "sw-list-scroll" : undefined} tabIndex={urgent.length > ATTENTION_SHOWN ? 0 : undefined}
+        aria-label={urgent.length > ATTENTION_SHOWN ? `${urgent.length} tasks, scroll for more` : undefined}
+        style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        {urgent.map((a, i) => (
           <li key={a.key} style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 16px", borderTop: i ? `1px solid ${cBr}` : "none", borderLeft: `3px solid ${TONE[a.tone]}` }}>
             <Icon name={a.icon} size={15} style={{ color: TONE[a.tone], flexShrink: 0 }} />
             <span style={{ flex: "1 1 220px", color: C.textB, fontSize: 13.5 }}>{a.text}</span>
@@ -1022,7 +1119,8 @@ export function OperationsTab({
           </li>
         ))}
       </ul>
-      {urgent.length > ATTENTION_SHOWN && showMore(allUrgent ? "Show fewer" : `Show ${urgent.length - ATTENTION_SHOWN} more`, () => setAllUrgent((v) => !v))}
+      {urgent.length > ATTENTION_SHOWN && scrollHint(urgent.length - ATTENTION_SHOWN)}
+      </>)}
     </section>
   );
 
@@ -1044,8 +1142,10 @@ export function OperationsTab({
           {hiddenReminders > 0 ? "All of today's notes have been set aside." : "No notes for today."}
         </p>
       ) : (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-          {remindersShown.map((a, i) => (
+        <ul className={reminders.length > ATTENTION_SHOWN ? "sw-list-scroll" : undefined} tabIndex={reminders.length > ATTENTION_SHOWN ? 0 : undefined}
+          aria-label={reminders.length > ATTENTION_SHOWN ? `${reminders.length} reminders, scroll for more` : undefined}
+          style={{ listStyle: "none", margin: 0, padding: 0 }}>
+          {reminders.map((a, i) => (
             <li key={a.key} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 16px", borderTop: i ? `1px solid ${cBr}` : "none" }}>
               <Icon name={a.icon} size={15} style={{ color: TONE[a.tone], flexShrink: 0, marginTop: 2 }} />
               <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1063,7 +1163,7 @@ export function OperationsTab({
           ))}
         </ul>
       )}
-      {reminders.length > ATTENTION_SHOWN && showMore(allReminders ? "Show fewer" : `Show ${reminders.length - ATTENTION_SHOWN} more`, () => setAllReminders((v) => !v))}
+      {reminders.length > ATTENTION_SHOWN && scrollHint(reminders.length - ATTENTION_SHOWN)}
       {hiddenReminders > 0 && showMore(`Bring back ${hiddenReminders} set aside`, () => setDismissed(new Set()))}
     </section>
   );
@@ -1141,7 +1241,7 @@ export function OperationsTab({
           <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>{monthName} · includes today&apos;s money</div>
         </div>
         {onGoTab && (
-          <button type="button" onClick={() => onGoTab("Reports")}
+          <button className="sw-ulink" type="button" onClick={() => onGoTab("Reports")}
             style={{ background: "none", border: "none", padding: 4, color: C.goldInk, fontSize: 12.5, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, minHeight: TAP_MIN, flex: mob ? "1 0 100%" : "0 0 auto", justifyContent: mob ? "flex-start" : undefined }}>
             View full report <Icon name="arrow-right" size={13} />
           </button>
@@ -1152,7 +1252,7 @@ export function OperationsTab({
         {moneyFigure("Money spent this month", fmt(spentMonth), receivedMonth > 0 ? `${Math.round((spentMonth / receivedMonth) * 100)}% of the money received` : "No income yet this month")}
         {moneyFigure("Money left this month", fmt(leftMonth),
           leftMonth < 0 ? "More was spent than received" : "Money received is higher than money spent",
-          leftMonth < 0 ? "#d44" : "#2e9e4e")}
+          leftMonth < 0 ? "#e5484d" : "#2e9e4e")}
       </div>
       <div style={{ padding: "0 16px 16px" }}>
         <BarChart data={monthChart} color={gold} formatValue={fmt} height={mob ? 130 : 170} mob={mob} />
@@ -1168,6 +1268,25 @@ export function OperationsTab({
 
   return (
     <div>
+      {/* ── "Do these first", pinned ──
+          Once the panel has scrolled up out of sight, its first task stays
+          on a slim bar at the top, with an arrow back up to the full list.
+          Zero height in the page, so it never pushes anything down. */}
+      {urgent.length > 0 && (
+        <div style={{ position: "sticky", top: 8, height: 0, zIndex: 60 }}>
+          <div className={`sw-pin${urgentOff ? " is-on" : ""}`} aria-hidden={!urgentOff} inert={!urgentOff}
+            style={{ background: cBg, border: "1px solid #e5484d66", borderLeft: `3px solid ${TONE.red}`, borderRadius: 12 }}>
+            <Icon name={urgent[0].icon} size={15} style={{ color: TONE.red, flexShrink: 0 }} />
+            <span style={{ color: TONE.red, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>Do these first · {urgent.length}</span>
+            <span className="sw-pin__text" style={{ color: C.textB, fontSize: 13 }}>{urgent[0].text}</span>
+            {!mob && <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>{urgent[0].actions}</span>}
+            <button type="button" className="sw-pin__up" aria-label="Back to Do these first"
+              onClick={() => urgentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+              <Icon name="chevron-up" size={18} />
+            </button>
+          </div>
+        </div>
+      )}
       {/* ── Today, and what the admin can start from here ── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
         <div style={{ minWidth: 0 }}>
@@ -1186,23 +1305,35 @@ export function OperationsTab({
               buttons beside it do not shift as the hour rolls over. */}
           <ManilaClock />
           <LiveStatus />
-          <ActionButton icon="plus" onClick={() => setOpen({ kind: "walkin" })}>New booking</ActionButton>
+          <ActionButton icon="plus" onClick={() => setOpen({ kind: "walkin" })}>New walk-in</ActionButton>
           <ActionButton kind={closedToday ? "ghost" : "primary"} icon="wallet" onClick={() => openClosing()}>{closedToday ? "Day closed" : "Close the day"}</ActionButton>
         </div>
       </div>
 
-      {/* Front desk's refunds, voids and cancellations waiting on the
-          owner — first, because a guest is often waiting on them. */}
-      <OwnerRequestsPanel mob={mob} reschedules={canDecideMoves ? pendingMoves.length : 0} onReviewReschedules={() => {
-        setView("reschedule");
-        document.getElementById("dash-bookings")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }} />
 
-      {/* Tomorrow's guests: the day-before email goes by itself, the text
-          from here with one tap. */}
-      <TomorrowPanel bookings={bookings} />
+      {/* ── What to do now, and what merely to know ──
+          At the top, under the numbers: the urgent list is the reason to
+          open the dashboard. Two lists rather than one, because a stack
+          that mixed "a guest is owed a refund" with "a group arriving at
+          six is not ticked off yet" made every row look equally late. */}
+      {/* "Do these first" alone across the top: the reason to open the
+          dashboard. */}
+      {ops.loaded && <div style={{ marginBottom: 20 }}>{urgentPanel}</div>}
 
+      {/* The day at a glance. */}
       {statsRow}
+
+      {/* Front desk's requests waiting on the owner, with the day's
+          reminders beside them; both stretched to one height so their
+          bottoms line up. */}
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1fr) minmax(0,1fr)", gap: mob ? 20 : 16, alignItems: "stretch", marginBottom: 20 }}>
+        <OwnerRequestsPanel mob={mob} inRow reschedules={canDecideMoves ? pendingMoves.length : 0} onReviewReschedules={() => {
+          setView("reschedule");
+          document.getElementById("dash-bookings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }} />
+        {ops.loaded && reminderPanel}
+      </div>
+
 
       {quickPanel}
 
@@ -1218,17 +1349,6 @@ export function OperationsTab({
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1fr) minmax(320px,380px)", gap: 16, alignItems: "start" }}>
         <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
 
-          {/* ── What to do now, and what merely to know ──
-              Two lists rather than one, because a stack that mixed "a guest
-              is owed a refund" with "a group arriving at six is not ticked
-              off yet" made every row look equally late. */}
-          {ops.loaded && (
-            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
-              {urgentPanel}
-              {reminderPanel}
-            </div>
-          )}
-
           {/* ── Today's guests: the same three stages, in one place ── */}
           <section aria-labelledby="dash-bookings" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 16px", borderBottom: `1px solid ${cBr}` }}>
@@ -1238,7 +1358,7 @@ export function OperationsTab({
             <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>Check them in, check them out, and collect what is owed</div>
           </div>
           {onGoTab && (
-            <button type="button" onClick={() => onGoTab("Occupancy")}
+            <button className="sw-ulink" type="button" onClick={() => onGoTab("Occupancy")}
               style={{ background: "none", border: "none", padding: 4, color: C.goldInk, fontSize: 12.5, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, minHeight: TAP_MIN, flex: mob ? "1 0 100%" : "0 0 auto", justifyContent: mob ? "flex-start" : undefined }}>
               Open booking calendar <Icon name="arrow-right" size={13} />
             </button>
@@ -1284,7 +1404,9 @@ export function OperationsTab({
 
         {/* Pinned, and bounded by the viewport so a long inbox scrolls
             inside the rail instead of running off the bottom of it. */}
-        <aside style={{ minWidth: 0, position: mob ? "static" : "sticky", top: 0, alignSelf: "start", maxHeight: mob ? undefined : "calc(100dvh - 140px)", display: "flex", flexDirection: "column" }}>
+        {/* While the pinned "Do these first" bar is showing, the inbox sits
+            below it (the bar is 52px + 8px off the top) instead of under it. */}
+        <aside style={{ minWidth: 0, position: mob ? "static" : "sticky", top: urgentOff && !mob ? 72 : 0, alignSelf: "start", maxHeight: mob ? undefined : urgentOff ? "calc(100dvh - 212px)" : "calc(100dvh - 140px)", display: "flex", flexDirection: "column", gap: 20, transition: "top .35s cubic-bezier(.22, 1, .36, 1), max-height .35s cubic-bezier(.22, 1, .36, 1)" }}>
           <GuestMessagesPanel
             messages={customerMessages}
             mob={mob}
@@ -1294,6 +1416,9 @@ export function OperationsTab({
             onReply={(m) => onReplyMessage?.(m)}
             onOpenAll={() => onGoTab?.("Customer Service")}
           />
+          {/* Tomorrow's guests, under the inbox: the day-before email goes
+              by itself, the text from here with one tap. */}
+          <div style={{ flexShrink: 0, marginBottom: -20 }}><TomorrowPanel bookings={bookings} /></div>
         </aside>
       </div>
 
@@ -1336,7 +1461,7 @@ export function OperationsTab({
                 {pays.map((p) => (
                   <AmountRow key={p.id} label={`${paymentLine(p)}${p.reference ? ` · ref ${p.reference}` : ""}`} value={fmt(p.amount)} color="#2e9e4e" />
                 ))}
-                {pays.length === 0 && <p style={{ color: "#d4a800", fontSize: 13.5, margin: "4px 0" }}>No payment has been recorded for it yet.</p>}
+                {pays.length === 0 && <p style={{ color: "#f5a524", fontSize: 13.5, margin: "4px 0" }}>No payment has been recorded for it yet.</p>}
                 <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}>
                   <AmountRow label="Booking total" value={fmt(current.total)} />
                   <AmountRow label="Balance due on arrival" value={fmt(m.balance)} strong />
@@ -1377,7 +1502,22 @@ export function OperationsTab({
       })()}
       {open?.kind === "reject" && current && <ResortCancelDialog booking={current} onClose={() => setOpen(null)} />}
       {open?.kind === "refund" && current && <RefundModal booking={current} onClose={() => setOpen(null)} />}
-      {open?.kind === "charge" && current && <AddChargeModal booking={current} onClose={() => setOpen(null)} />}
+      {open?.kind === "charge" && current && <AddChargeModal booking={current} initialKind={open.charge} onClose={() => setOpen(null)} />}
+      {open?.kind === "edit" && current && (
+        <EditBookingHub booking={current}
+          canMove={!current.checkedInAt && current.date > today}
+          canPay={money(current).due > 0}
+          onClose={() => setOpen(null)}
+          onPick={(what, charge) => setOpen(
+            what === "details" ? { kind: "details", id: current.id }
+              : what === "charge" ? { kind: "charge", id: current.id, charge }
+                : what === "pay" ? { kind: "pay", id: current.id }
+                  : { kind: "move", id: current.id })} />
+      )}
+      {open?.kind === "details" && current && (
+        <EditGuestModal booking={current} onClose={() => setOpen(null)}
+          onSaved={(patch) => setBookings((prev) => prev.map((x) => (x.id === current.id ? { ...x, ...patch } : x)))} />
+      )}
       {open?.kind === "refundchoice" && current && (
         <ChooseRefundDialog booking={current} onClose={() => setOpen(null)} onDone={(nb) => setOpen({ kind: "refund", id: nb.id })} />
       )}

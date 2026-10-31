@@ -13,20 +13,22 @@
 // the desk is recorded in the payments ledger (see /api/bookings POST),
 // instead of a "payment collected" checkbox that recorded nothing.
 
+import { QrPayModal } from "@/components/admin/QrPayModal";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffect, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
 import { fmt } from "@/lib/utils";
 import { getPackageTier, checkRangeAvailability, isRoomOpen, roomsTakenInRange, daysInRange, fmtDate } from "@/lib/utils";
-import { MAX_STAY_DAYS, currentBookingYear } from "@/lib/validators";
+import { MAX_STAY_DAYS, staffDateWindow, OVERRIDE_GUESTS_MAX } from "@/lib/validators";
+import { OverCapacityNote } from "@/components/admin/OverCapacityNote";
 import { UNPAID_HOLD_HOURS } from "@/lib/rebooking";
 import { priceBooking, bookingLabel, packagePriceToday } from "@/lib/pricing";
 import { SLOTS, multiDayProblem } from "@/lib/resort";
 import { manilaDate } from "@/lib/finance";
 import {
   sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail,
-  RESORT_MAX_CAPACITY, SHARED_PER_HEAD_RATE, EXCLUSIVE_DEFAULT_GUESTS,
+  RESORT_MAX_CAPACITY, sharedRateFor, EXCLUSIVE_DEFAULT_GUESTS,
 } from "@/lib/validators";
 import { DESK_METHODS } from "@/types/finance";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
@@ -36,6 +38,7 @@ import type { ResortPackage } from "@/types/package";
 import { gold } from "@/lib/styles";
 import { Icon } from "@/components/common/Icon";
 import { Modal, Label, ChoiceButtons, ActionButton, AmountRow, ErrorNote, useAdminStyle, FullSelect } from "@/components/admin/ui";
+import { DateField } from "@/components/common/DateField";
 
 type PayChoice = "Full" | "Downpayment" | "None";
 
@@ -117,8 +120,14 @@ export function WalkInModal({
   // Only a Staycation spans dates. The window let the desk pick a Day Tour
   // over three days, and the server then refused it on Save.
   const tourTooLong = multiDayProblem(slot, stayDays);
+  /* More than the resort's capacity: staff may, on purpose, with a
+     warning (the website never can). The date is still checked -- only
+     the headcount stops counting against the limit. */
+  const [overCap, setOverCap] = useState(false);
+  const overLimit = !isPkg && guests > RESORT_MAX_CAPACITY;
+  const overriding = overLimit && overCap;
   const capacity = wf.date
-    ? checkRangeAvailability(wf.date, lastDay, slot, guests, tier, resource, bookings, facilities, overtime)
+    ? checkRangeAvailability(wf.date, lastDay, slot, overriding ? 1 : guests, tier, resource, bookings, facilities, overtime)
     : { ok: true as const };
   const selectedRooms = wf.rooms.map((id) => rooms.find((r) => r.id === id)).filter((r): r is Room => !!r);
   const price = priceBooking({
@@ -135,12 +144,17 @@ export function WalkInModal({
   const [payChoice, setPayChoice] = useState<PayChoice>("Full");
   const [method, setMethod] = useState<(typeof DESK_METHODS)[number]>("Cash");
   const [reference, setReference] = useState("");
+  /* GCash: a reference number typed in, or a QR Ph code the guest scans
+     (QrPayModal) -- then the walk-in saves itself once it's paid. */
+  const [gcashMode, setGcashMode] = useState<"ref" | "qr">("ref");
+  const [qrOpen, setQrOpen] = useState(false);
   const payNow = payChoice === "Full" ? total : payChoice === "Downpayment" ? down : 0;
 
   const roomOk = !requiresRoom || wf.rooms.length > 0;
   const roomsFree = wf.rooms.every((r) => !takenRooms.has(r));
   const emailOk = !wf.email.trim() || isValidEmail(wf.email);
-  const refOk = payChoice === "None" || method === "Cash" || reference.trim().length > 0;
+  const byQr = payChoice !== "None" && method === "GCash" && gcashMode === "qr";
+  const refOk = payChoice === "None" || method === "Cash" || byQr || reference.trim().length > 0;
 
   const problems: string[] = [];
   if (!isValidName(wf.name)) problems.push("Enter the guest's name.");
@@ -150,6 +164,8 @@ export function WalkInModal({
   if (!roomOk) problems.push("Choose the room included in this package.");
   if (!roomsFree) problems.push("A chosen room is already booked for this slot.");
   if (guests <= 0) problems.push("Enter the number of guests.");
+  if (overLimit && !overCap) problems.push(`That's more than the resort's capacity of ${RESORT_MAX_CAPACITY}. Tick "Allow more than ${RESORT_MAX_CAPACITY} guests" to book it anyway.`);
+  if (guests > OVERRIDE_GUESTS_MAX) problems.push(`The most for one booking is ${OVERRIDE_GUESTS_MAX} guests.`);
   if (!capacity.ok) problems.push(capacity.reason ?? "That date and slot is not available.");
   if (!refOk) problems.push(`Enter the ${method} reference number.`);
   const [tried, setTried] = useState(false);
@@ -157,6 +173,15 @@ export function WalkInModal({
   const save = () => {
     setTried(true);
     if (problems.length) return;
+    if (byQr) {
+      if (payNow < 20) return toast("A QR payment has to be at least ₱20. Use Cash or a reference number.", "warning");
+      setQrOpen(true);
+      return;
+    }
+    commit(reference.trim());
+  };
+  /** Save the walk-in, with the payment's reference (a QR payment's id). */
+  const commit = (ref: string) => {
     setBookings((b) => [...b, {
       id: `TMP-${Date.now()}`,
       name: sanitizeName(wf.name),
@@ -178,14 +203,34 @@ export function WalkInModal({
       createdAt: Date.now(),
       resource,
       tier,
-      initialPayment: payChoice === "None" ? undefined : { type: payChoice, method, amount: payNow, reference: reference.trim() },
+      initialPayment: payChoice === "None" ? undefined : { type: payChoice, method, amount: payNow, reference: ref },
       // The server prices the walk-in itself; it needs to know the package.
       walkInPackageCode: pkg?.code,
+      overCapacity: overriding || undefined,
     }]);
     toast(payChoice === "None"
       ? `Walk-in saved for ${wf.name}. It stays Pending until they pay, and the date is released if nothing is paid within ${UNPAID_HOLD_HOURS} hours.`
-      : `Walk-in saved for ${wf.name}. ${fmt(payNow)} recorded in Sales.`, "success");
+      : `Walk-in saved for ${wf.name}. ${fmt(payNow)} ${ref.startsWith("pi_") ? "paid by QR and " : ""}recorded in Sales.`, "success");
     onClose();
+  };
+
+  const qrSummary = {
+    title: `${SLOTS[slot].label} · ${resource === "Pool" ? "Pool" : resource === "Venue" ? "Events venue" : "Pool + venue"}`,
+    lines: [
+      `${SLOTS[slot].hours} · ${guests} guest${guests === 1 ? "" : "s"}`,
+      wf.date ? (lastDay !== wf.date ? `${fmtDate(wf.date)} – ${fmtDate(lastDay)}` : fmtDate(wf.date)) : "No date yet",
+    ],
+    guest: [sanitizeName(wf.name) || "Walk-in guest", wf.contact].filter(Boolean).join(" · "),
+    items: [
+      ...(price.tourBase && isPkg ? [{ label: pkg?.title ?? "Package", sub: SLOTS[slot].label, amount: price.tourBase }] : []),
+      ...(!isPkg && price.poolFee > 0 ? [{ label: tier === "Exclusive" ? "Private pool" : `Shared pool (${guests} × ${fmt(sharedRateFor(slot))})`, sub: SLOTS[slot].label, amount: price.poolFee }] : []),
+      ...(!isPkg && price.venueFee > 0 ? [{ label: "Events venue", amount: price.venueFee }] : []),
+      ...(price.roomsFee > 0 ? [{ label: "Rooms", sub: selectedRooms.map((r) => r.name).join(", "), amount: price.roomsFee }] : []),
+      ...(price.overtimeFee > 0 ? [{ label: "Overtime", sub: `${overtime} hr`, amount: price.overtimeFee }] : []),
+    ],
+    total,
+    dueLabel: payChoice === "Full" ? "Due now (full)" : "Due now (half)",
+    note: payChoice === "Downpayment" ? `The remaining ${fmt(total - down)} is collected at check-out.` : "Paid in full once scanned.",
   };
 
   const col: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 16, minWidth: 0 };
@@ -207,7 +252,7 @@ export function WalkInModal({
             {" · "}
             {payChoice === "None" ? "nothing collected yet" : <>collecting <strong style={{ color: "#2e9e4e" }}>{fmt(payNow)}</strong> now by {method}</>}
           </div>
-          <ActionButton kind="primary" icon="check" onClick={save} disabled={stayTooLong || stayVenueOnly || !!tourTooLong}>Save reservation</ActionButton>
+          <ActionButton kind="primary" icon="check" onClick={save} disabled={stayTooLong || stayVenueOnly || !!tourTooLong}>{byQr ? "Generate QR & save" : "Save reservation"}</ActionButton>
         </div>
       }
     >
@@ -228,15 +273,15 @@ export function WalkInModal({
           </div>
           <div>
             <Label htmlFor="wi-date">First day</Label>
-            <Input id="wi-date" type="date" min={currentBookingYear().first} max={currentBookingYear().last} value={wf.date} onChange={(e) => set("date", e.target.value)} style={inp} />
+            <DateField id="wi-date" min={staffDateWindow().first} max={staffDateWindow().last} value={wf.date} onChange={(v) => set("date", v)} style={inp} />
           </div>
           <div>
             {/* Blank is the normal case: one day. Filling it in books the
                 same slot on every day up to and including that date, and
                 charges for each of them. */}
             <Label htmlFor="wi-end-date">Last day (leave blank for one day)</Label>
-            <Input id="wi-end-date" type="date" min={wf.date || currentBookingYear().first} max={currentBookingYear().last} value={wf.endDate} onChange={(e) => set("endDate", e.target.value)} style={inp} />
-            <p style={{ color: stayTooLong || tourTooLong ? "#d44" : C.textS, fontSize: 12, margin: "6px 0 0", lineHeight: 1.5 }}>
+            <DateField id="wi-end-date" min={wf.date || staffDateWindow().first} max={staffDateWindow().last} value={wf.endDate} onChange={(v) => set("endDate", v)} placeholder="Same day" style={inp} />
+            <p style={{ color: stayTooLong || tourTooLong ? "#e5484d" : C.textS, fontSize: 12, margin: "6px 0 0", lineHeight: 1.5 }}>
               {stayTooLong
                 ? `A booking can run for at most ${MAX_STAY_DAYS} days.`
                 : tourTooLong
@@ -303,8 +348,9 @@ export function WalkInModal({
                     is fixed. A venue booking is exclusive too, but only of the
                     venue -- the headcount is still whatever group walked in,
                     which is what the server stores (lib/bookingQuote.ts). */}
-                <Input id="wi-guests" type="number" min={1} max={RESORT_MAX_CAPACITY} value={wf.guests}
+                <Input id="wi-guests" type="number" min={1} max={overCap ? OVERRIDE_GUESTS_MAX : RESORT_MAX_CAPACITY} value={wf.guests}
                   onChange={(e) => set("guests", e.target.value)} style={{ ...inp, opacity: usesPool && tier === "Exclusive" ? 0.6 : 1 }} />
+                {overLimit && <OverCapacityNote capacity={RESORT_MAX_CAPACITY} guests={guests} checked={overCap} onChange={setOverCap} />}
               </div>
               <div>
                 <Label>Pool use</Label>
@@ -338,7 +384,7 @@ export function WalkInModal({
                 options={((isPkg ? ["Day", "Night"] : ["Day", "Night", "WholeDay"]) as BookingSlot[]).map((t) => ({ value: t, label: SLOTS[t].label, hint: SLOTS[t].hours }))} />
             )}
             {stayVenueOnly && (
-              <p style={{ color: "#d44", fontSize: 12, margin: "6px 0 0", lineHeight: 1.5 }}>
+              <p style={{ color: "#e5484d", fontSize: 12, margin: "6px 0 0", lineHeight: 1.5 }}>
                 A {SLOTS.WholeDay.label} includes the resort. Choose the pool, or the pool + events venue.
               </p>
             )}
@@ -375,7 +421,7 @@ export function WalkInModal({
               <>
                 {price.poolFee > 0 && (
                   <AmountRow
-                    label={tier === "Exclusive" ? `Exclusive pool${price.slots === 2 ? " × 2 tours" : ""}` : `Shared pool (${guests} × ${fmt(SHARED_PER_HEAD_RATE)})`}
+                    label={tier === "Exclusive" ? `Exclusive pool${price.slots === 2 ? " (Day and Night)" : ""}` : `Shared pool (${guests} × ${fmt(sharedRateFor(slot))})`}
                     value={fmt(price.poolFee)}
                   />
                 )}
@@ -404,10 +450,26 @@ export function WalkInModal({
                 <Label>Paid with</Label>
                 <ChoiceButtons value={method} onChange={setMethod} size="sm" options={DESK_METHODS.map((m) => ({ value: m, label: m }))} />
               </div>
-              {method !== "Cash" && (
+              {method === "GCash" && (
+                <div>
+                  <Label>How they pay</Label>
+                  <ChoiceButtons value={gcashMode} onChange={setGcashMode} size="sm" options={[
+                    { value: "ref", label: "Reference number" },
+                    { value: "qr", label: "QR Ph code" },
+                  ]} />
+                </div>
+              )}
+              {method !== "Cash" && !byQr && (
                 <div>
                   <Label htmlFor="wi-ref">{method} reference number</Label>
                   <Input id="wi-ref" value={reference} onChange={(e) => setReference(e.target.value)} style={inp} />
+                </div>
+              )}
+              {byQr && (
+                <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(62,142,208,0.35)", background: "rgba(62,142,208,0.08)" }}>
+                  <Icon name="cash" size={16} style={{ color: "#3e8ed0", flexShrink: 0 }} />
+                  <span style={{ flex: 1, color: C.textB, fontSize: 12.5, lineHeight: 1.45 }}>The guest scans a QR code for {fmt(payNow)}. It saves by itself once they pay.</span>
+                  <ActionButton size="sm" kind="primary" onClick={save}>Generate QR code</ActionButton>
                 </div>
               )}
             </>
@@ -423,6 +485,11 @@ export function WalkInModal({
           {!tried && !capacity.ok && <ErrorNote>{capacity.reason}</ErrorNote>}
         </div>
       </div>
+      {qrOpen && (
+        <QrPayModal amount={payNow} description={`${sanitizeName(wf.name)} · ${label} · ${wf.date}`} summary={qrSummary}
+          onCancel={() => setQrOpen(false)}
+          onPaid={(id) => { setQrOpen(false); setReference(id); commit(id); }} />
+      )}
     </Modal>
   );
 }

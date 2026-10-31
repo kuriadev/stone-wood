@@ -46,8 +46,7 @@ const nav = (p: string) => {
       // link — and it called finish() *before* navigating, so the bar
       // completed while the next page had not begun. ClientShell now
       // finishes it when the new route has actually rendered.
-      loader.start();
-      router.push(target);
+      loader.start(target, () => router.push(target));
   };
 
   // The gold wash behind the whole home page. Its second colour stop was

@@ -13,6 +13,7 @@
  * contact details instead of a broken page.
  */
 
+import { findRef } from "@/lib/bookingRef";
 import { useSearchParams } from "next/navigation";
 import { useWidth } from "@/hooks/useWidth";
 import { THEME_COLORS } from "@/lib/theme";
@@ -31,7 +32,7 @@ export function RefundRequest({ setPage }: { setPage: (p: string) => void }) {
   const params = useSearchParams();
 
   // Present when the guest arrives from their cancelled booking.
-  const reference = (params.get("booking") ?? "").toUpperCase().match(/\bSW-\d{4,}\b/)?.[0] ?? "";
+  const reference = findRef(params.get("booking") ?? "") ?? "";
 
   const card: React.CSSProperties = {
     background: C.bgCard,
@@ -68,7 +69,7 @@ export function RefundRequest({ setPage }: { setPage: (p: string) => void }) {
           <p style={{ color: C.textB, fontSize: 14, lineHeight: 1.7, margin: 0 }}>
             {reference
               ? <>Please have your booking reference <strong style={{ color: C.textH, fontFamily: "monospace" }}>{reference}</strong> ready.</>
-              : <>Please have your booking reference (it starts with SW-) ready.</>}
+              : <>Please have your booking reference ready (it starts with DT-, NT-, SC- or SW-).</>}
             {" "}We send refunds by GCash, so we&rsquo;ll also ask for the number to send it to.
           </p>
 

@@ -38,9 +38,9 @@ const CHIPS = ["Refund", "Inquiry", "Feedback", "Complaint"] as const;
 
 const TYPE_COLOR: Record<string, string> = {
   Refund: "#e07a3a",
-  Inquiry: "#4a9fd4",
+  Inquiry: "#3e8ed0",
   Feedback: "#2e9e4e",
-  Complaint: "#e55",
+  Complaint: "#e5484d",
   Suggestion: "#9a7bd0",
   Other: "#8a7a66",
 };
@@ -74,10 +74,12 @@ export function GuestMessagesPanel({
   return (
     <section
       aria-labelledby="dash-messages"
-      style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, overflow: "hidden", display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, flex: 1 }}
+      // Not overflow:hidden: that cut the filter menus off at the panel's
+      // edge. The header and footer round their own corners instead.
+      style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, flex: 1 }}
     >
       {/* ── Header ── */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 16px", borderBottom: `1px solid ${cBr}` }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 16px", borderBottom: `1px solid ${cBr}`, borderRadius: "12px 12px 0 0" }}>
         <span aria-hidden style={{ width: 30, height: 30, borderRadius: 9, background: soft, border: `1px solid ${cBr}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: C.goldInk, flexShrink: 0 }}>
           <Icon name="message" size={15} />
         </span>
@@ -89,7 +91,7 @@ export function GuestMessagesPanel({
           </div>
         </div>
         {inbox.length > 0 && (
-          <span style={{ padding: "4px 8px", borderRadius: 10, fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap", background: "rgba(74,159,212,0.18)", color: "#4a9fd4" }}>
+          <span style={{ padding: "4px 8px", borderRadius: 10, fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap", background: "rgba(74,159,212,0.18)", color: "#3e8ed0" }}>
             {inbox.length} new
           </span>
         )}
@@ -97,13 +99,16 @@ export function GuestMessagesPanel({
 
       {/* ── Inbox / Archive, then the type: two selects instead of seven
           pills over three lines. ── */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "12px 16px 12px" }}>
+      {/* Two equal chips side by side, stacked when the panel is too narrow
+          for both; above the feed so an open menu is always in front. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, padding: "12px 16px", position: "relative", zIndex: 30 }}>
         <FilterSelect<typeof view>
           label="Box"
+          hideLabel
           value={view}
           onChange={setView}
-          menuWidth={200}
-          fullWidthOnPhone={false}
+          menuWidth={150}
+          fullWidth
           options={[
             { value: "inbox", label: "Inbox", count: inbox.length },
             { value: "archive", label: "Archive", count: archived.length },
@@ -111,10 +116,11 @@ export function GuestMessagesPanel({
         />
         <FilterSelect<typeof type>
           label="Type"
+          hideLabel
           value={type}
           onChange={setType}
-          menuWidth={220}
-          fullWidthOnPhone={false}
+          menuWidth={150}
+          fullWidth
           options={[
             { value: "All" as typeof type, label: "All messages", count: base.length },
             ...CHIPS.map((t) => ({ value: t as typeof type, label: TYPE_LABEL[t], count: countOf(t) })),
@@ -185,9 +191,9 @@ export function GuestMessagesPanel({
 
       <button
         type="button" onClick={onOpenAll}
-        style={{ width: "100%", padding: 10, borderTop: `1px solid ${cBr}`, borderRight: "none", borderBottom: "none", borderLeft: "none", background: soft, color: C.goldInk, fontSize: 12.5, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+        style={{ width: "100%", padding: 10, borderTop: `1px solid ${cBr}`, borderRight: "none", borderBottom: "none", borderLeft: "none", borderRadius: "0 0 11px 11px", background: soft, color: C.goldInk, fontSize: 12.5, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}
       >
-        Open all messages <Icon name="arrow-right" size={13} />
+        <span className="sw-ulink">Open all messages</span> <Icon name="arrow-right" size={13} />
       </button>
     </section>
   );

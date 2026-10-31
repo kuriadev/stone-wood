@@ -11,9 +11,23 @@ import {
   SunMoon, Handshake, Siren, Info, Circle, Bookmark,
   Plus, Minus, SquarePen, Pencil, LogOut, Eye, EyeOff,
   Wallet, Receipt, ClipboardCheck, LogIn, ShieldAlert, Printer, History, UserRound, CalendarClock,
-  RefreshCw, Ellipsis, CloudOff, ArrowRight, Upload, SlidersHorizontal,
+  RefreshCw, Ellipsis, CloudOff, ArrowRight, Upload, SlidersHorizontal, Bell, BellOff,
+  createLucideIcon,
   type LucideIcon,
 } from "lucide-react";
+
+/** Staycation: a folding beach chair under an umbrella. Drawn on Lucide's
+ *  24px grid at its stroke weight, so it sits with the sun and moon as one
+ *  set (Lucide has no beach chair). */
+const Staycation = createLucideIcon("staycation", [
+  ["path", { d: "M2.5 9.5a6.5 6.5 0 0 1 12.5 0Z", key: "canopy" }],
+  ["path", { d: "M8.75 9.5 11 21", key: "pole" }],
+  ["path", { d: "M15 11.5 18 18", key: "back" }],
+  ["path", { d: "M12.5 18H21", key: "seat" }],
+  ["path", { d: "M14 18 12.5 21", key: "leg-front" }],
+  ["path", { d: "M19.5 18 21 21", key: "leg-back" }],
+  ["path", { d: "M2 21h20", key: "sand" }],
+]);
 
 /**
  * Shared icon wrapper, used by the admin panel and the public site.
@@ -98,7 +112,8 @@ const REGISTRY = {
   "chevron-right": ChevronRight,
 
   // Booking-flow controls.
-  "sun-moon": SunMoon,   // Whole Day — both slots
+  "sun-moon": SunMoon,
+  staycation: Staycation, // a folding beach chair under an umbrella   // Whole Day — both slots
   handshake: Handshake,  // Shared tier
   siren: Siren,          // emergency cancellation reason
   info: Info,
@@ -119,6 +134,8 @@ const REGISTRY = {
   "arrow-right": ArrowRight,
   upload: Upload,        // import a file
   filter: SlidersHorizontal, // the Filters button on admin lists
+  bell: Bell,            // the admin notification bell
+  "bell-off": BellOff,   // its sound switched off
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof REGISTRY;

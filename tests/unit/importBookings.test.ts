@@ -92,11 +92,20 @@ describe("readImportSheet", () => {
 });
 
 describe("the template the app hands out", () => {
+  // exceljs is a large library, loaded on first use. Loading it here, with
+  // its own allowance, keeps a slow first load (all of Jest's workers busy
+  // at once once took it past 100s) from being counted against the test
+  // below -- that was the one test that failed now and then on a green run.
+  beforeAll(async () => { await import("exceljs"); }, 180_000);
+
   it("reads back with every column found and no bookings in it", async () => {
     const grid = await readWorkbookGrid(await buildImportTemplate(rooms));
     const { lines, missing } = readImportSheet(grid, rooms);
     expect(missing).toEqual([]);
     expect(lines).toEqual([]);
     expect(grid[0]).toEqual(IMPORT_COLUMNS.map((c) => c.header));
-  });
+    // Builds and re-reads a real .xlsx: under a second normally, but over
+    // Jest's 5s default when the machine is busy (a build running beside
+    // the suite), which made this the one test that failed now and then.
+  }, 20_000);
 });

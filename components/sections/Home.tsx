@@ -1,5 +1,6 @@
 "use client";
 
+import { useHeroMedia } from "@/hooks/useHeroMedia";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useWidth } from "@/hooks/useWidth";
 import { THEME_COLORS } from "@/lib/theme";
@@ -34,6 +35,8 @@ import { facilityIcon } from "@/lib/facilityUsage";
 import type { PublicAmenity } from "@/types/facility";
 import { Reveal } from "@/components/common/Reveal";
 import { RoomCoverflow } from "@/components/sections/RoomCoverflow";
+import { FacilityLightbox, type FacilityShot } from "@/components/sections/FacilityLightbox";
+import { defaultFacilityPhoto } from "@/lib/facilityPhotos";
 import type { Room } from "@/types/room";
 import { Badge } from "@/components/ui/badge";
 import { LazyBackground } from "@/components/common/LazyBackground";
@@ -304,9 +307,46 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
   const facilityRow = useMemo(() => {
     const drawn = new Map(SERVICES.map((sv) => [sv.name, sv.icon]));
     return amenities && amenities.length > 0
-      ? amenities.map((a) => ({ name: a.name, desc: a.description, drawn: drawn.get(a.name), icon: facilityIcon({ icon: a.icon, category: "Amenity" }), closed: !!a.underMaintenance }))
-      : SERVICES.map((sv) => ({ name: sv.name, desc: "", drawn: sv.icon, icon: "toolbox" as const, closed: false }));
+      ? amenities.map((a) => ({ name: a.name, desc: a.description, drawn: drawn.get(a.name), icon: facilityIcon({ icon: a.icon, category: "Amenity" }), closed: !!a.underMaintenance, photo: a.photo || defaultFacilityPhoto(a.name) }))
+      : SERVICES.map((sv) => ({ name: sv.name, desc: "", drawn: sv.icon, icon: "toolbox" as const, closed: false, photo: defaultFacilityPhoto(sv.name) }));
   }, [amenities]);
+  // The facility opened from its tile (FacilityLightbox). Kept after
+  // closing so the card can animate back to the tile it came from.
+  const [facShot, setFacShot] = useState<FacilityShot | null>(null);
+  const [facOpen, setFacOpen] = useState(false);
+  // The hero background staff chose (Website Photos), or the built-in one.
+  const { media: heroMedia } = useHeroMedia();
+
+  /* Every 6 seconds one facility, picked at random (never the same twice
+     running), lights up for a moment -- a hint that the tiles open. Done
+     on the DOM, not in state, so Home doesn't re-render for it. Only
+     while the row is on screen and the tab is visible, and never while
+     someone is hovering the row or has a photo open. */
+  const facRowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const row = facRowRef.current;
+    if (!row) return;
+    let visible = false;
+    let last = -1;
+    let clear = 0;
+    const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; }, { threshold: 0.4 });
+    io.observe(row);
+    const tick = window.setInterval(() => {
+      if (!visible || document.hidden || row.matches(":hover") || document.querySelector(".sw-facbox")) return;
+      const tiles = row.querySelectorAll<HTMLElement>(".sw-fac");
+      if (tiles.length === 0) return;
+      let i = Math.floor(Math.random() * tiles.length);
+      if (tiles.length > 1 && i === last) i = (i + 1 + Math.floor(Math.random() * (tiles.length - 1))) % tiles.length;
+      last = i;
+      const tile = tiles[i];
+      tile.classList.remove("is-beckon");
+      void tile.offsetWidth; // restart the animation
+      tile.classList.add("is-beckon");
+      clearTimeout(clear);
+      clear = window.setTimeout(() => tile.classList.remove("is-beckon"), 2600);
+    }, 6000);
+    return () => { io.disconnect(); clearInterval(tick); clearTimeout(clear); };
+  }, []);
 
   const ratesHeaderRef = useRef<HTMLDivElement>(null);
   const amenitiesDivRef = useRef<HTMLDivElement>(null);
@@ -317,6 +357,20 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
   const pkgDurationRef = useRef<HTMLDivElement>(null);
   const pkgCardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const closingRef = useRef<HTMLDivElement>(null);
+
+  // The reservation card stays folded away until asked for, so the hero
+  // photo shows. `resSettled` lets the card's shadow out once it has opened
+  // (the fold clips it while it moves).
+  const [resOpen, setResOpen] = useState(false);
+  const [resSettled, setResSettled] = useState(false);
+  const resRef = useRef<HTMLDivElement>(null);
+  const toggleRes = () => {
+    setResSettled(false);
+    setResOpen((o) => {
+      if (!o) setTimeout(() => resRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+      return !o;
+    });
+  };
 
   // Scroll reveals are per-element now: each block that fades in is a
   // <Reveal> (components/common/Reveal.tsx), which owns its own viewport
@@ -336,6 +390,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
+          justifyContent: "center",
           padding: mob ? "40px 20px 40px" : "48px 40px 56px",
         }}
       >
@@ -352,12 +407,28 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           style={{
             position: "absolute",
             inset: 0,
-            ["--hero-sm" as string]: `url(${imageAt(HERO_BG, 1000)})`,
-            ["--hero-lg" as string]: `url(${HERO_BG})`,
+            ["--hero-sm" as string]: `url(${heroMedia?.kind === "image" ? heroMedia.src : imageAt(HERO_BG, 1000)})`,
+            ["--hero-lg" as string]: `url(${heroMedia?.kind === "image" ? heroMedia.src : HERO_BG})`,
             backgroundSize: "cover",
             backgroundPosition: "center 60%",
           }}
         />
+        {/* A video staff chose in Website Photos plays over the photo,
+            silently and on a loop; the photo shows until it can play. */}
+        {heroMedia?.kind === "video" && (
+          <video
+            key={heroMedia.src}
+            src={heroMedia.src}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            aria-hidden="true"
+            className="sw-hero-video"
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        )}
         {/* Legibility overlay — same gold-tinted dark tone as the rest of the design system */}
         <div style={{ position: "absolute", inset: 0, background: "var(--sw-hero-veil)" }} />
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 30%,transparent 40%,rgba(0,0,0,0.35) 100%)" }} />
@@ -384,13 +455,44 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
              The calendar alone used to be the whole interaction; the card now
              also carries visit type and guest count, so /book opens with all
              three set instead of just the date. ── */}
-        <HeroReservation
-          bookings={bookings}
-          closedDates={closedDates}
-          onBookWithDate={onBookWithDate}
-          onBrowseRooms={() => setPage("Rooms")}
-          onManageBooking={() => setPage("Manage Booking")}
-        />
+        {/* Folded until the button opens it; pressing again folds it. */}
+        <button
+          type="button"
+          className={resOpen ? "sw-btn-out sw-res-toggle" : "sw-btn sw-res-toggle"}
+          onClick={toggleRes}
+          aria-expanded={resOpen}
+          aria-controls="sw-reservation"
+          style={{
+            ...(resOpen
+              ? { background: "rgba(10,8,5,0.45)", color: "#f2ede4", border: "1px solid rgba(201,168,76,0.55)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }
+              : goldBtn),
+            position: "relative", zIndex: 3,
+            marginTop: mob ? 28 : 36,
+            minHeight: 48, padding: mob ? "0 24px" : "0 30px", borderRadius: 999,
+            display: "inline-flex", alignItems: "center", gap: 10,
+            fontSize: 13, fontWeight: 700, letterSpacing: "1.6px", cursor: "pointer",
+          }}
+        >
+          <Icon name={resOpen ? "x" : "calendar"} size={16} />
+          {resOpen ? "HIDE RESERVATION" : "CHECK AVAILABILITY"}
+        </button>
+        <div
+          id="sw-reservation"
+          ref={resRef}
+          className={`sw-res-fold${resOpen ? " is-open" : ""}`}
+          onTransitionEnd={(e) => { if (e.target === e.currentTarget && resOpen) setResSettled(true); }}
+          style={{ scrollMarginTop: 88 }}
+        >
+          <div className="sw-res-fold__inner" style={{ overflow: resSettled && resOpen ? "visible" : "hidden" }} inert={!resOpen}>
+            <HeroReservation
+              bookings={bookings}
+              closedDates={closedDates}
+              onBookWithDate={onBookWithDate}
+              onBrowseRooms={() => setPage("Rooms")}
+              onManageBooking={() => setPage("Manage Booking")}
+            />
+          </div>
+        </div>
 
         {/* Amenity pills */}
       </div>
@@ -702,7 +804,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
 
       {/* ── OUR SERVICES — clean line-icon row ── */}
       <div className="sw-defer" style={{ background: "var(--sw-band-services)", padding: bandPad(mob ? 20 : 24) }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div ref={facRowRef} style={{ maxWidth: 1100, margin: "0 auto" }}>
 
           <Reveal style={{ textAlign: "center", marginBottom: headGap }}>
             <p style={eyebrow}>Our Services</p>
@@ -720,26 +822,38 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
               /* Under Maintenance in Facility Management: dimmed and labelled,
                  so a guest knows before booking (the pool and the venue
                  can't be booked while it lasts). */
-              <div key={s.name} style={{ textAlign: "center" }}>
-                {s.drawn ? (
-                  <svg
-                    width="38"
-                    height="38"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke={C.textH}
-                    strokeWidth="1.1"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    style={{ margin: "0 auto 20px", display: "block", opacity: s.closed ? 0.35 : 0.85 }}
-                    aria-hidden="true"
-                  >
-                    {s.drawn}
-                  </svg>
-                ) : (
-                  <Icon name={s.icon} size={38} strokeWidth={1.1} style={{ margin: "0 auto 20px", display: "block", opacity: s.closed ? 0.35 : 0.85, color: C.textH }} />
-                )}
-                <div style={{ fontFamily: serif, fontSize: mob ? 16 : 18, color: C.textH, fontWeight: 400, lineHeight: 1.35 }}>
+              <button
+                key={s.name}
+                type="button"
+                className="sw-fac"
+                aria-haspopup="dialog"
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setFacShot({ name: s.name, desc: s.desc, photo: s.photo, closed: s.closed, origin: { x: r.left + r.width / 2, y: r.top + r.height / 2 } });
+                  setFacOpen(true);
+                }}
+              >
+                <span className="sw-fac__icon" style={{ color: C.textH, opacity: s.closed ? 0.35 : 0.85 }}>
+                  {s.drawn ? (
+                    <svg
+                      width="38"
+                      height="38"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.1"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ display: "block" }}
+                      aria-hidden="true"
+                    >
+                      {s.drawn}
+                    </svg>
+                  ) : (
+                    <Icon name={s.icon} size={38} strokeWidth={1.1} style={{ display: "block" }} />
+                  )}
+                </span>
+                <div className="sw-fac__name" style={{ fontFamily: serif, fontSize: mob ? 16 : 18, color: C.textH, fontWeight: 400, lineHeight: 1.35 }}>
                   {s.name}
                 </div>
                 {s.desc && <div style={{ color: C.textS, fontSize: 13, lineHeight: 1.5, marginTop: 8 }}>{s.desc}</div>}
@@ -748,9 +862,11 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
                     Under maintenance
                   </div>
                 )}
-              </div>
+                <div><span className="sw-fac__hint">View <Icon name="arrow-right" size={12} /></span></div>
+              </button>
             ))}
           </Reveal>
+          <FacilityLightbox shot={facShot} open={facOpen} onOpenChange={setFacOpen} />
         </div>
       </div>
 

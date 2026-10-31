@@ -86,6 +86,26 @@ export let EXCLUSIVE_DEFAULT_GUESTS = 5;
 /** Per-guest rate for a Shared booking. */
 export let SHARED_PER_HEAD_RATE = 200;
 
+/* Each kind of booking has its own rates (Rates & Settings): the Day Tour
+   is SHARED_PER_HEAD_RATE / EXCLUSIVE_FLAT_RATE above; the Night Tour and
+   the Staycation have these. A Staycation's rate is for the whole stay
+   (both tours), not per tour. Until the owner sets them, the Night Tour
+   costs what the Day Tour does and a Staycation twice that -- what every
+   booking cost before they existed. */
+export let SHARED_NIGHT_RATE = 200;
+export let EXCLUSIVE_NIGHT_RATE = 6000;
+export let SHARED_STAY_RATE = 400;
+export let EXCLUSIVE_STAY_RATE = 12000;
+
+/** A Shared guest's price for one booking of this kind (one day of it). */
+export function sharedRateFor(slot: "Day" | "Night" | "WholeDay"): number {
+  return slot === "Night" ? SHARED_NIGHT_RATE : slot === "WholeDay" ? SHARED_STAY_RATE : SHARED_PER_HEAD_RATE;
+}
+/** The whole pool to one group, for one booking of this kind (one day of it). */
+export function exclusiveRateFor(slot: "Day" | "Night" | "WholeDay"): number {
+  return slot === "Night" ? EXCLUSIVE_NIGHT_RATE : slot === "WholeDay" ? EXCLUSIVE_STAY_RATE : EXCLUSIVE_FLAT_RATE;
+}
+
 // There are no automatic discounts. A booking built by hand pays the plain
 // rates above; a package's own price, set by the owner in Packages & Prices,
 // is where any deal lives. (Until 2026-10-27 the owner could also set 5%
@@ -102,8 +122,20 @@ export let OVERTIME_MAX = 2;
 /** Per hour of Day Tour overtime. */
 export let OVERTIME_RATE = 500;
 
+/** The most guests staff may put on one booking when they override the
+ *  resort's capacity (a group bigger than the website takes). Only staff
+ *  can; the website stays at GUESTS_MAX. */
+export const OVERRIDE_GUESTS_MAX = 200;
+
 /** How far ahead a guest may reserve. */
 export let BOOKING_WINDOW_MONTHS = 3;
+/** How many months back the calendars page, so a guest (and staff) can
+ *  look at the dates just gone. Past dates show; they can't be booked. */
+export let BOOKING_HISTORY_MONTHS = 3;
+/** A guest may ask to move their booking only while the visit is at least
+ *  this many days away: a booking for tomorrow can't be moved today, so
+ *  the resort is never left with a date it has no time to fill. */
+export let RESCHEDULE_NOTICE_DAYS = 2;
 
 /** The most days one booking may run for. A stay is a run of day-use days
  *  (lib/occupancy.ts). Three is the resort's limit: a longer booking ties up
@@ -160,50 +192,59 @@ export function toDateStr(d: Date): string {
 }
 
 /**
- * The bookable range: from today until whichever comes FIRST —
- *   • BOOKING_WINDOW_MONTHS ahead of today, or
- *   • 31 December of the current year.
- * The year clamp is what keeps the calendar inside the current year even
- * when the three-month window would otherwise spill into January.
+ * The bookable range: today to BOOKING_WINDOW_MONTHS ahead (Rates &
+ * Settings). It rolls with the date -- in November it reaches into
+ * February -- rather than stopping at the year's end, and keeping it short
+ * keeps the calendars quick.
  */
 export function getBookingWindow(): { min: Date; max: Date } {
   const min = dayjs(startOfToday());
   // dayjs clamps the month-length rollover itself: 31 Aug + 3 months is
-  // 30 Nov, not 1 Dec. The hand-written guard this replaced did the same
-  // thing with setDate(0).
-  const ahead = min.add(BOOKING_WINDOW_MONTHS, "month");
-  const endOfYear = min.endOf("year").startOf("day");
-
-  return {
-    min: min.toDate(),
-    max: (ahead.isBefore(endOfYear) ? ahead : endOfYear).toDate(),
-  };
+  // 30 Nov, not 1 Dec.
+  return { min: min.toDate(), max: min.add(BOOKING_WINDOW_MONTHS, "month").toDate() };
 }
 
-/** The calendar year bookings are taken for: 1 January to 31 December
- *  of the current year in Manila. Every date anyone can book, close or
- *  record -- guest or staff -- has to fall inside it. */
-export function currentBookingYear(): { year: number; first: string; last: string } {
-  const year = Number(manilaNow().date.slice(0, 4));
-  return { year, first: `${year}-01-01`, last: `${year}-12-31` };
+/** The first month the calendars page back to: BOOKING_HISTORY_MONTHS
+ *  before this one. Its dates show as past; nothing there can be booked. */
+export function firstViewableMonth(): Date {
+  return dayjs(startOfToday()).subtract(BOOKING_HISTORY_MONTHS, "month").startOf("month").toDate();
 }
 
-/** True when dateStr is a real date in the current year. */
-export function isInBookingYear(dateStr: string): boolean {
+/** The dates staff may book, close or record: from the start of the
+ *  months-back view (a walk-in entered late) to the end of the window. */
+export function staffDateWindow(): { first: string; last: string } {
+  return { first: toDateStr(firstViewableMonth()), last: toDateStr(getBookingWindow().max) };
+}
+
+/** True when dateStr is a real date inside staffDateWindow(). */
+export function isInStaffWindow(dateStr: string): boolean {
   if (!parseDateStr(dateStr)) return false;
-  const { first, last } = currentBookingYear();
+  const { first, last } = staffDateWindow();
   return dateStr >= first && dateStr <= last;
 }
 
-/** Why the last bookable date is the last one, for tooltips and errors:
- *  the year's end when that is what stops it, else the months-ahead limit. */
+/** Why the last bookable date is the last one, for tooltips and errors. */
 export function bookingWindowNote(): string {
-  const { max } = getBookingWindow();
-  const last = toDateStr(max);
-  const { year, last: yearEnd } = currentBookingYear();
-  return last === yearEnd
-    ? `Bookings are open for ${year} only, up to 31 December.`
-    : `Reservations open up to ${BOOKING_WINDOW_MONTHS} months ahead — the latest bookable date is ${last}.`;
+  const last = dayjs(getBookingWindow().max).format("MMMM D, YYYY");
+  return `Reservations open up to ${BOOKING_WINDOW_MONTHS} month${BOOKING_WINDOW_MONTHS === 1 ? "" : "s"} ahead — the latest date you can book is ${last}.`;
+}
+
+/** Whole days from today (Manila) to dateStr: 1 for tomorrow. */
+export function daysUntil(dateStr: string): number {
+  const d = parseDateStr(dateStr);
+  if (!d) return 0;
+  return Math.round((d.getTime() - startOfToday().getTime()) / 86_400_000);
+}
+
+/** Null when a guest may still ask to move a booking on dateStr, else why
+ *  not. The resort's notice rule, RESCHEDULE_NOTICE_DAYS. */
+export function rescheduleProblem(dateStr: string): string | null {
+  const left = daysUntil(dateStr);
+  if (left <= 0) return "Date changes close on your reserved date. Please contact the resort.";
+  if (left < RESCHEDULE_NOTICE_DAYS) {
+    return `Date changes close ${RESCHEDULE_NOTICE_DAYS} day${RESCHEDULE_NOTICE_DAYS === 1 ? "" : "s"} before your visit, so the resort has time to offer the date to someone else. Your visit is ${left === 1 ? "tomorrow" : `in ${left} days`} — please contact the resort.`;
+  }
+  return null;
 }
 
 /** True when dateStr is a real date inside the bookable window. */
@@ -399,9 +440,15 @@ export interface LimitValues {
   venueRate: number;
   exclusiveFlatRate: number;
   sharedPerHeadRate: number;
+  sharedNightRate: number;
+  exclusiveNightRate: number;
+  sharedStayRate: number;
+  exclusiveStayRate: number;
   overtimeMax: number;
   overtimeRate: number;
   bookingWindowMonths: number;
+  bookingHistoryMonths: number;
+  rescheduleNoticeDays: number;
   maxStayDays: number;
 }
 
@@ -414,8 +461,14 @@ export function applyLimitValues(v: LimitValues): void {
   EVENT_VENUE_RATE = v.venueRate;
   EXCLUSIVE_FLAT_RATE = v.exclusiveFlatRate;
   SHARED_PER_HEAD_RATE = v.sharedPerHeadRate;
+  SHARED_NIGHT_RATE = v.sharedNightRate;
+  EXCLUSIVE_NIGHT_RATE = v.exclusiveNightRate;
+  SHARED_STAY_RATE = v.sharedStayRate;
+  EXCLUSIVE_STAY_RATE = v.exclusiveStayRate;
   OVERTIME_MAX = v.overtimeMax;
   OVERTIME_RATE = v.overtimeRate;
   BOOKING_WINDOW_MONTHS = v.bookingWindowMonths;
+  BOOKING_HISTORY_MONTHS = v.bookingHistoryMonths;
+  RESCHEDULE_NOTICE_DAYS = v.rescheduleNoticeDays;
   MAX_STAY_DAYS = v.maxStayDays;
 }

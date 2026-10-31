@@ -13,7 +13,9 @@
  * enough to take the account.
  */
 
-import { useEffect, useState } from "react";
+import { StaffAvatar } from "@/components/admin/StaffTab";
+import { compressImage } from "@/lib/image";
+import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
 import { Modal, Label, ActionButton, ErrorNote, useAdminStyle } from "@/components/admin/ui";
 import { Input } from "@/components/ui/input";
@@ -113,12 +115,15 @@ export function AccountModal({ onClose, onSignedOut, forced = false }: {
       }
     >
       <div style={{ display: "grid", gap: 16 }}>
+        {/* Your name and photo: saved on their own, no password needed. */}
+        {!forced && me?.id && <ProfileSection />}
         {forced && (
           <p style={{ color: C.textB, fontSize: 13.5, margin: 0, lineHeight: 1.6 }}>
             The owner gave you a temporary password. Pick one only you know before you start — the temporary one stops working when you save.
           </p>
         )}
-        <div>
+        <div style={!forced && me?.id ? { borderTop: `1px solid ${cBr}`, paddingTop: 16 } : undefined}>
+          {!forced && me?.id && <p style={{ color: C.textH, fontSize: 13.5, fontWeight: 600, margin: "0 0 10px" }}>Sign-in <span style={{ color: C.textS, fontWeight: 400, fontSize: 12 }}>· asks for your current password, then signs you out</span></p>}
           <Label htmlFor="acc-username">USERNAME</Label>
           <Input id="acc-username" value={username} onChange={(e) => setUsername(e.target.value)}
             autoComplete="username" maxLength={64} style={field} />
@@ -168,5 +173,87 @@ export function AccountModal({ onClose, onSignedOut, forced = false }: {
         </p>
       </div>
     </Modal>
+  );
+}
+
+/** My profile: your own photo and name, saved without the password the
+ *  sign-in change below needs (/api/staff/me, /api/staff/photo). */
+function ProfileSection() {
+  const { C, inp } = useAdminStyle();
+  const { toast } = useToast();
+  const { me, refresh } = useStaff();
+  const [name, setName] = useState(me?.name ?? "");
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [photoChanged, setPhotoChanged] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!me?.id) return;
+    let alive = true;
+    fetch(`/api/staff/photo?id=${encodeURIComponent(me.id)}&meta=1`, { cache: "no-store" })
+      .then((r) => r.json()).then((j: { photo?: string | null }) => { if (alive && j.photo) setPhoto(j.photo); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [me?.id]);
+
+  if (!me?.id) return null;
+  const myId = me.id;
+  const nameBad = name.trim().length < 2 ? "Enter your name (at least 2 letters)." : null;
+  const dirty = name.trim() !== me.name || photoChanged;
+
+  const save = async () => {
+    setError("");
+    if (nameBad) return setError(nameBad);
+    setBusy(true);
+    try {
+      if (name.trim() !== me.name) {
+        const r = await fetch("/api/staff/me", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim() }) });
+        const j = await r.json().catch(() => null);
+        if (!r.ok || !j?.success) return setError(j?.error ?? "Could not save your name.");
+      }
+      if (photoChanged) {
+        const r = photo
+          ? await fetch("/api/staff/photo", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: myId, photo }) })
+          : await fetch(`/api/staff/photo?id=${encodeURIComponent(myId)}`, { method: "DELETE" });
+        const j = await r.json().catch(() => null);
+        if (!r.ok || !j?.success) return setError(j?.error ?? "Could not save your photo.");
+        setPhotoChanged(false);
+      }
+      await refresh();
+      toast("Your profile is saved.", "success");
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "grid", gap: 12 }}>
+      <p style={{ color: C.textH, fontSize: 13.5, fontWeight: 600, margin: 0 }}>Your profile</p>
+      <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ position: "relative" }}>
+          <StaffAvatar name={name || me.name} role={me.role} photo={photo} size={64} />
+          <button type="button" className="sw-staff__camera" onClick={() => fileRef.current?.click()} aria-label="Choose a photo"><Icon name="image" size={13} /></button>
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
+            const f = e.target.files?.[0]; e.target.value = "";
+            if (!f || !f.type.startsWith("image/")) return;
+            try { setPhoto(await compressImage(f, 512)); setPhotoChanged(true); } catch { setError("Could not read that photo."); }
+          }} />
+        </div>
+        <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+          <Label htmlFor="acc-name">YOUR NAME</Label>
+          <Input id="acc-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} style={{ ...inp, width: "100%" }} />
+          {nameBad && name.length > 0 && <p role="alert" style={{ color: "#e5484d", fontSize: 12, margin: "6px 0 0" }}>{nameBad}</p>}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+        {photo && <ActionButton size="sm" kind="ghost" onClick={() => { setPhoto(null); setPhotoChanged(true); }}>Remove photo</ActionButton>}
+        <ActionButton size="sm" kind="primary" icon="check" disabled={busy || !dirty || !!nameBad} onClick={() => void save()}>{busy ? "Saving…" : "Save profile"}</ActionButton>
+      </div>
+      {error && <p role="alert" style={{ color: "#e5484d", fontSize: 12.5, margin: 0 }}>{error}</p>}
+    </div>
   );
 }

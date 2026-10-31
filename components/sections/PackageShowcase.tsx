@@ -140,7 +140,7 @@ export function PackageShowcase({ packages, onBookPackage, onFallbackBook, tierS
                 <TabsTrigger
                   key={g.key}
                   value={g.key}
-                  className="flex h-auto min-h-11 flex-col items-center gap-2 rounded-xl border px-5 py-6 data-[state=active]:shadow-none"
+                  className="flex h-auto min-h-11 flex-col items-center gap-2 rounded-xl border px-5 py-6 data-[state=active]:shadow-none sw-choice"
                   style={{
                     background: on ? `${gold}12` : C.bgCard2,
                     borderColor: on ? gold : C.border,
@@ -161,7 +161,7 @@ export function PackageShowcase({ packages, onBookPackage, onFallbackBook, tierS
                 key={g.key}
                 value={g.key}
                 // min-h-11 = 44px, the HIG default control size.
-                className="min-h-11 rounded-full border px-6 text-[11.5px] font-medium tracking-[2px] data-[state=active]:shadow-none"
+                className="min-h-11 rounded-full border px-6 text-[11.5px] font-medium tracking-[2px] data-[state=active]:shadow-none sw-choice"
                 style={{
                   background: on ? `${gold}18` : "transparent",
                   color: on ? C.goldInk : C.textS,

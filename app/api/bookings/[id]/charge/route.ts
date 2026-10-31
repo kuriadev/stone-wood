@@ -19,6 +19,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToBooking, rowToRoom } from "@/lib/supabase";
 import { requirePermission } from "@/lib/auth";
 import { checkFits } from "@/lib/rebooking.server";
+import { GUESTS_MAX } from "@/lib/validators";
 import { priceCharge, type ChargeRequest } from "@/lib/charges";
 import { bookingLabel } from "@/lib/pricing";
 import { logActivity } from "@/lib/activity.server";
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     hours: Number(body.hours) || undefined,
     guests: Number(body.guests) || undefined,
     roomId: Number(body.roomId) || undefined,
+    overCapacity: body.overCapacity === true,
   };
   const no = (error: string, status = 409) => NextResponse.json({ success: false, error }, { status });
 
@@ -63,7 +65,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const priced = priceCharge(b, request, (rm.data as RoomRow[]).map(rowToRoom));
     if (!priced.ok) return no(priced.error, 400);
 
-    const fits = await checkFits({ ...b, ...priced.next });
+    const over = !!request.overCapacity && priced.next.guests > GUESTS_MAX;
+    const fits = await checkFits({ ...b, ...priced.next }, [], { overCapacity: over });
     if (!fits.ok) return no(fits.error);
 
     const total = b.total + priced.amount;

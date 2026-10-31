@@ -41,6 +41,9 @@ export function TomorrowPanel({ bookings }: { bookings: Booking[] }) {
       sessionStorage.setItem(key, "1");
     } catch { /* private mode: run anyway, the route is idempotent */ }
     void fetch("/api/reminders", { method: "POST" }).then(() => ops.refresh()).catch(() => {});
+    // Data retention's daily run (Rates & Settings): the server does
+    // nothing unless the owner switched it on, and only once a day.
+    void fetch("/api/retention", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "auto" }) }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today]);
 
@@ -57,8 +60,8 @@ export function TomorrowPanel({ bookings }: { bookings: Booking[] }) {
   };
 
   return (
-    <section aria-labelledby="tomorrow" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, padding: shown ? "16px 20px 8px" : "16px 20px", marginBottom: 24 }}>
-      <FoldHeader id="tomorrow" icon="calendar-clock" iconColor="#3a8fc4" open={shown} onToggle={toggleShown}
+    <section aria-labelledby="tomorrow" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, padding: shown ? "16px 20px 8px" : "16px 20px", marginBottom: 20 }}>
+      <FoldHeader id="tomorrow" icon="calendar-clock" iconColor="#3e8ed0" open={shown} onToggle={toggleShown}
         title={<>Tomorrow&apos;s arrivals ({arriving.length})</>} />
       {shown && (<div id="tomorrow-body">
       <p style={{ color: C.textS, fontSize: 12.5, margin: "6px 0 10px" }}>
@@ -77,7 +80,7 @@ export function TomorrowPanel({ bookings }: { bookings: Booking[] }) {
                     {s.label} {s.hours} · {b.guests} guest{b.guests === 1 ? "" : "s"}{m.balance > 0 ? ` · ${fmt(m.balance)} due on arrival` : " · paid"}
                   </div>
                 </div>
-                {b.status === "Pending" && <StatusBadge color="#e0a020">Not confirmed</StatusBadge>}
+                {b.status === "Pending" && <StatusBadge color="#f5a524">Not confirmed</StatusBadge>}
                 {b.remindedAt ? <StatusBadge color="#2e9e4e">Emailed</StatusBadge> : b.email ? null : <StatusBadge color="#888">No email</StatusBadge>}
                 <ActionButton size="sm" icon="message" onClick={() => void open(b)}>{openId === b.id ? "Close" : "Text reminder"}</ActionButton>
               </div>

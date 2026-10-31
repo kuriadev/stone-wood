@@ -37,10 +37,12 @@ import type { Booking } from "@/types/booking";
 import type { Activity, DailyClosing, DateChange } from "@/types/finance";
 
 type Group = "approvals" | "money" | "supplies";
-const GROUP: Record<Group, { title: string; hint: string; color: string; stat: string }> = {
-  approvals: { title: "Approvals", hint: "Front desk's requests and guests' new dates. Nothing happens until you answer.", color: "#e0a020", stat: "To approve" },
-  money: { title: "Money", hint: "Refunds to send, cash counts that were off, bookings to check.", color: "#d44", stat: "Money" },
-  supplies: { title: "Supplies", hint: "At or under the minimum you set.", color: "#4a9fd4", stat: "Supplies" },
+/* `stat` and `note` are the summary cards at the top: what the number
+   counts, and in a few words what is in it. */
+const GROUP: Record<Group, { title: string; hint: string; color: string; stat: string; note: string }> = {
+  approvals: { title: "Approvals", hint: "Front desk's requests and guests' new dates. Nothing happens until you answer.", color: "#f5a524", stat: "Waiting for your approval", note: "Front desk requests and guests' new dates" },
+  money: { title: "Money", hint: "Refunds to send, cash counts that were off, bookings to check.", color: "#e5484d", stat: "Money to sort out", note: "Refunds to send and cash counts that were off" },
+  supplies: { title: "Supplies", hint: "At or under the minimum you set.", color: "#3e8ed0", stat: "Supplies running low", note: "At or under the minimum you set" },
 };
 
 interface OwnerTask {
@@ -105,7 +107,7 @@ export function OwnerTasks({ mob, onGoTab, onOpenBooking }: {
       title: r.label,
       detail: r.summary,
       meta: `${r.requestedByName} · ${manilaTime(r.requestedAt)}${r.reason ? ` · "${r.reason}"` : ""}`,
-      badge: r.lastError ? { text: "Last try failed", color: "#d44" } : undefined,
+      badge: r.lastError ? { text: "Last try failed", color: "#e5484d" } : undefined,
       actions: <>
         <ActionButton size="sm" disabled={busy === r.id} onClick={() => { setDeclining(r); setNote(""); }}>Decline</ActionButton>
         <ActionButton size="sm" kind="primary" icon="check" disabled={busy === r.id} onClick={() => setApproving(r)}>{busy === r.id ? "Working…" : "Approve"}</ActionButton>
@@ -132,7 +134,7 @@ export function OwnerTasks({ mob, onGoTab, onOpenBooking }: {
       title: `Refund ${b.name}`,
       detail: `${fmt(owed)} owed after the resort cancelled.`,
       meta: b.id,
-      badge: { text: fmt(owed), color: "#d44" },
+      badge: { text: fmt(owed), color: "#e5484d" },
       actions: <ActionButton size="sm" kind="primary" onClick={() => setRefunding(b)}>Send refund</ActionButton>,
     });
   }
@@ -153,7 +155,7 @@ export function OwnerTasks({ mob, onGoTab, onOpenBooking }: {
       title: unclosed.length === 1 ? `${fmtDate(unclosed[0])} wasn't closed` : `${unclosed.length} days weren't closed`,
       detail: "Count the cash box so the records match the money in it.",
       meta: unclosed.length > 1 ? unclosed.map((d) => fmtDate(d)).join(", ") : undefined,
-      badge: { text: unclosed.length > 1 ? "Late" : "Yesterday", color: unclosed.length > 1 ? "#d44" : "#d4a800" },
+      badge: { text: unclosed.length > 1 ? "Late" : "Yesterday", color: unclosed.length > 1 ? "#e5484d" : "#f5a524" },
       actions: <ActionButton size="sm" kind="primary" onClick={() => onGoTab?.("Operations")}>Close it on the Dashboard</ActionButton>,
     });
   }
@@ -173,7 +175,7 @@ export function OwnerTasks({ mob, onGoTab, onOpenBooking }: {
       detail: short
         ? `${fmt(c.countedCash)} was counted, but the records say ${fmt(c.expectedCash)} should be in the box. Usually something paid out without a record, or a payment recorded as cash that wasn't.${c.notes ? ` Their note: ${c.notes}` : ""}`
         : `${fmt(c.countedCash)} was counted, but the records say only ${fmt(c.expectedCash)} should be in the box. Usually a cash payment that wasn't recorded, or an opening float left out.${c.notes ? ` Their note: ${c.notes}` : ""}`,
-      badge: { text: short ? "Short" : "Over", color: short ? "#d44" : "#d4a800" },
+      badge: { text: short ? "Short" : "Over", color: short ? "#e5484d" : "#f5a524" },
       actions: <ActionButton size="sm" kind="primary" icon="search" onClick={() => setCounting(c)}>Review the count</ActionButton>,
     });
   }
@@ -242,7 +244,8 @@ export function OwnerTasks({ mob, onGoTab, onOpenBooking }: {
 
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(3, 1fr)", gap: 12, marginBottom: 28 }}>
         {(Object.keys(GROUP) as Group[]).map((g) => (
-          <StatCard key={g} label={GROUP[g].stat} value={of(g).length} color={of(g).length ? GROUP[g].color : undefined} />
+          <StatCard key={g} label={GROUP[g].stat} value={of(g).length} color={of(g).length ? GROUP[g].color : undefined}
+            note={of(g).length ? GROUP[g].note : "Nothing waiting"} />
         ))}
       </div>
 

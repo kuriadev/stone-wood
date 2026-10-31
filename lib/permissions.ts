@@ -96,7 +96,11 @@ const ALL: Permission[] = [
   "inventory.view", "inventory.use", "inventory.buy",
 ];
 
-const GRANTS: Record<StaffRole, ReadonlySet<Permission>> = {
+/* The built-in defaults. The super admin can change what Front desk and
+   Caretaker may do (Staff Accounts → Roles & permissions); those choices
+   are applied over these by applyRoleOverrides, on the server before every
+   check and in each person's browser from /api/auth/me. */
+const DEFAULT_GRANTS: Record<StaffRole, ReadonlySet<Permission>> = {
   Owner: new Set(ALL),
   FrontDesk: new Set<Permission>([
     "ops.view", "bookings.view",
@@ -115,7 +119,7 @@ const GRANTS: Record<StaffRole, ReadonlySet<Permission>> = {
 };
 
 /** Actions a role may ASK the owner to do, though it can't do them itself. */
-const REQUESTABLE: Record<StaffRole, ReadonlySet<Permission>> = {
+const DEFAULT_REQUESTABLE: Record<StaffRole, ReadonlySet<Permission>> = {
   Owner: new Set(),
   FrontDesk: new Set<Permission>([
     "bookings.cancel", "bookings.resortCancel", "bookings.delete",
@@ -126,6 +130,90 @@ const REQUESTABLE: Record<StaffRole, ReadonlySet<Permission>> = {
     "inventory.delete", "facilities.delete",
   ]),
 };
+
+let GRANTS: Record<StaffRole, ReadonlySet<Permission>> = { ...DEFAULT_GRANTS };
+let REQUESTABLE: Record<StaffRole, ReadonlySet<Permission>> = { ...DEFAULT_REQUESTABLE };
+
+/** Never anyone's but a super admin's, so nobody can be locked out of
+ *  fixing the accounts, the settings or the approvals. */
+export const LOCKED_PERMISSIONS: Permission[] = ["staff.manage", "settings.manage", "requests.decide", "reschedules.decide"];
+
+/** What one role may do: itself, or by asking the super admin. */
+export interface RolePermissionSet { grants: Permission[]; requests: Permission[] }
+export type EditableRole = "FrontDesk" | "Caretaker";
+export const EDITABLE_ROLES: EditableRole[] = ["FrontDesk", "Caretaker"];
+export type RoleOverrides = Partial<Record<EditableRole, RolePermissionSet>>;
+
+export function defaultRolePermissions(role: EditableRole): RolePermissionSet {
+  return { grants: ALL.filter((p) => DEFAULT_GRANTS[role].has(p)), requests: ALL.filter((p) => DEFAULT_REQUESTABLE[role].has(p)) };
+}
+
+/** A clean set from anything stored or sent: known permissions only, the
+ *  locked ones never, and nothing both allowed and asked for. */
+export function cleanRoleSet(raw: unknown): RolePermissionSet | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as { grants?: unknown; requests?: unknown };
+  const pick = (v: unknown) => (Array.isArray(v) ? v : []).filter((p): p is Permission => (ALL as string[]).includes(p as string) && !LOCKED_PERMISSIONS.includes(p as Permission));
+  const grants = [...new Set(pick(r.grants))];
+  const requests = [...new Set(pick(r.requests))].filter((p) => !grants.includes(p));
+  return { grants, requests };
+}
+
+export function validateRoleOverrides(raw: unknown): RoleOverrides {
+  const out: RoleOverrides = {};
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  for (const role of EDITABLE_ROLES) {
+    const set = cleanRoleSet(r[role]);
+    if (set) out[role] = set;
+  }
+  return out;
+}
+
+/** Use these choices (missing roles keep the defaults). The super admin's
+ *  own powers never change. */
+export function applyRoleOverrides(o: RoleOverrides): void {
+  GRANTS = { ...DEFAULT_GRANTS };
+  REQUESTABLE = { ...DEFAULT_REQUESTABLE };
+  for (const role of EDITABLE_ROLES) {
+    const set = o[role];
+    if (!set) continue;
+    GRANTS[role] = new Set(set.grants);
+    REQUESTABLE[role] = new Set(set.requests);
+  }
+}
+
+/** Every permission a super admin can hand out, in plain words, grouped
+ *  the way the Roles & permissions window shows them. */
+export const PERMISSION_INFO: { perm: Permission; group: string; label: string; hint: string; requestable?: boolean }[] = [
+  { perm: "ops.view", group: "Seeing", label: "See today's work", hint: "Bookings, payments and inspections behind My Tasks and the Dashboard." },
+  { perm: "bookings.view", group: "Seeing", label: "See the booking calendar", hint: "Who is booked on which date." },
+  { perm: "activity.viewAll", group: "Seeing", label: "See everyone's activity", hint: "The whole Activity History, not only their own lines." },
+  { perm: "bookings.edit", group: "Bookings", label: "Handle bookings", hint: "Dashboard, walk-ins, details, confirm, move, add charges, check in and out." },
+  { perm: "messages.handle", group: "Bookings", label: "Answer guest messages", hint: "Customer Service and replies." },
+  { perm: "bookings.cancel", group: "Bookings", label: "Cancel or mark a no-show", hint: "", requestable: true },
+  { perm: "bookings.resortCancel", group: "Bookings", label: "Cancel because the resort can't host", hint: "The guest then picks a new date or a refund.", requestable: true },
+  { perm: "bookings.delete", group: "Bookings", label: "Delete a booking", hint: "", requestable: true },
+  { perm: "payments.record", group: "Money", label: "Record payments", hint: "Down payments, balances, penalties and settling a stay." },
+  { perm: "expenses.record", group: "Money", label: "Record expenses", hint: "Money spent." },
+  { perm: "day.close", group: "Money", label: "Close the day", hint: "Count the cash box.", requestable: true },
+  { perm: "payments.refund", group: "Money", label: "Refund a guest", hint: "", requestable: true },
+  { perm: "payments.void", group: "Money", label: "Void a payment", hint: "", requestable: true },
+  { perm: "expenses.void", group: "Money", label: "Void an expense", hint: "", requestable: true },
+  { perm: "payments.writeOff", group: "Money", label: "Close a stay with money unpaid", hint: "", requestable: true },
+  { perm: "facilities.view", group: "Facilities", label: "See facilities", hint: "Facility Management." },
+  { perm: "facilities.status", group: "Facilities", label: "Mark facilities available or under maintenance", hint: "And add notes." },
+  { perm: "facilities.inspect", group: "Facilities", label: "Prepare and inspect facilities", hint: "Before arrival and at check-out." },
+  { perm: "facilities.clean", group: "Facilities", label: "Mark facilities cleaned", hint: "" },
+  { perm: "facilities.manage", group: "Facilities", label: "Add and edit facilities", hint: "Names, checklists, website photos." },
+  { perm: "facilities.delete", group: "Facilities", label: "Remove a facility", hint: "", requestable: true },
+  { perm: "inventory.view", group: "Supplies", label: "See supplies", hint: "Supplies & Equipment." },
+  { perm: "inventory.use", group: "Supplies", label: "Record supplies used", hint: "Use, breakage and stock counts." },
+  { perm: "inventory.buy", group: "Supplies", label: "Record a purchase", hint: "Also saved as an expense." },
+  { perm: "inventory.manage", group: "Supplies", label: "Add and edit supply items", hint: "Items, minimums and the upkeep schedule." },
+  { perm: "inventory.delete", group: "Supplies", label: "Remove a supply item", hint: "", requestable: true },
+  { perm: "catalog.manage", group: "Website & calendar", label: "Edit rooms, packages and the website", hint: "Photos, home page cards, damage rates." },
+  { perm: "calendar.manage", group: "Website & calendar", label: "Close or reopen dates", hint: "", requestable: true },
+];
 
 export const isStaffRole = (v: unknown): v is StaffRole =>
   typeof v === "string" && (STAFF_ROLES as string[]).includes(v);

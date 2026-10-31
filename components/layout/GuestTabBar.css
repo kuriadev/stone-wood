@@ -1,0 +1,77 @@
+/* The guest's bottom tab bar -- see GuestTabBar.tsx. Phones only. */
+
+.sw-tabbar__bar { display: none; }
+
+@media (max-width: 759px) {
+  .sw-tabbar__bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1100;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: end;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    background: var(--sw-tabbar-bg, rgba(14, 12, 9, 0.82));
+    border-top: 1px solid rgba(201, 168, 76, 0.22);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    backdrop-filter: blur(18px) saturate(150%);
+    box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.28);
+    animation: sw-tabbar-in .45s cubic-bezier(.22, 1, .36, 1) both;
+  }
+  .sw-light .sw-tabbar__bar {
+    --sw-tabbar-bg: rgba(255, 252, 246, 0.86);
+    border-top-color: rgba(176, 141, 87, 0.3);
+    box-shadow: 0 -8px 24px rgba(100, 70, 10, 0.1);
+  }
+  @keyframes sw-tabbar-in { from { transform: translateY(100%); } to { transform: none; } }
+
+  .sw-tabbar__tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    min-height: 52px;
+    padding: 4px 2px;
+    border: 0;
+    background: none;
+    color: var(--sw-text-s, rgba(238, 232, 220, 0.6));
+    font: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .sw-dark .sw-tabbar__tab { color: rgba(238, 232, 220, 0.62); }
+  .sw-light .sw-tabbar__tab { color: #6f6556; }
+  .sw-tabbar__icon {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 30px;
+    border-radius: 15px;
+    transition: background-color .25s ease, transform .3s cubic-bezier(.22, 1, .36, 1);
+  }
+  .sw-tabbar__label { font-size: 11px; font-weight: 600; letter-spacing: .2px; line-height: 1.1; }
+  .sw-tabbar__tab.is-on { color: var(--sw-gold-ink); }
+  .sw-dark .sw-tabbar__tab.is-on { color: #e6c76a; }
+  .sw-tabbar__tab.is-on .sw-tabbar__icon { background: rgba(201, 168, 76, 0.16); }
+  .sw-tabbar__tab:active .sw-tabbar__icon { transform: scale(0.9); }
+  .sw-tabbar__tab:focus-visible { outline: 2px solid var(--sw-gold); outline-offset: -2px; border-radius: 12px; }
+
+  /* Book stands out, like a shop app's centre button: a gold disc. */
+  .sw-tabbar__tab--book .sw-tabbar__icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    margin-top: -18px;
+    background: linear-gradient(135deg, #e6c76a, #c9a84c);
+    color: #1a1408;
+    box-shadow: 0 6px 18px rgba(201, 168, 76, 0.45);
+  }
+  .sw-tabbar__tab--book.is-on .sw-tabbar__icon { background: linear-gradient(135deg, #f2d98b, #d4b459); }
+
+  /* Room for the bar: the page's end, and the floating buttons above it. */
+  .sw-tabbar body { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
+  .sw-tabbar .sw-float-bottom,
+  .sw-tabbar .sw-dock { bottom: calc(80px + env(safe-area-inset-bottom)) !important; }
+}

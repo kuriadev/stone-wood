@@ -16,7 +16,7 @@ import { bookingMoney, manilaDate } from "@/lib/finance";
 import { fmt, fmtDate, getBookingSlot, holdsDate, bookingCoversDate } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
 import { SLOTS, RESORT_CONTACT } from "@/lib/resort";
-import { SHARED_PER_HEAD_RATE, EXCLUSIVE_FLAT_RATE, EVENT_VENUE_RATE, OVERTIME_RATE, OVERTIME_MAX, RESORT_MAX_CAPACITY } from "@/lib/validators";
+import { SHARED_PER_HEAD_RATE, EXCLUSIVE_FLAT_RATE, SHARED_NIGHT_RATE, EXCLUSIVE_NIGHT_RATE, SHARED_STAY_RATE, EXCLUSIVE_STAY_RATE, EVENT_VENUE_RATE, OVERTIME_RATE, OVERTIME_MAX, RESORT_MAX_CAPACITY } from "@/lib/validators";
 import { caretakerTasks, addDaysIso } from "@/lib/tasks";
 import { IMPORT_COLUMNS } from "@/lib/importBookings";
 import type { Booking } from "@/types/booking";
@@ -79,8 +79,12 @@ th{background:#f3eee4}.n{text-align:right}.mono{font-family:monospace}.muted{col
 <div class="box"><strong>While offline:</strong> take bookings on the last page (or in the import template on a laptop). Write the amount and how it was paid.
 <strong>When the internet is back:</strong> All Bookings → Import, and enter any payments for existing bookings with Record payment.</div>
 <div class="grid"><div><h2>Rates</h2><table>
-<tr><td>Shared pool</td><td class="n">${e(fmt(SHARED_PER_HEAD_RATE))} per guest, per tour</td></tr>
-<tr><td>Exclusive pool (up to ${RESORT_MAX_CAPACITY})</td><td class="n">${e(fmt(EXCLUSIVE_FLAT_RATE))} per tour</td></tr>
+<tr><td>Day Tour — Shared</td><td class="n">${e(fmt(SHARED_PER_HEAD_RATE))} per guest</td></tr>
+<tr><td>Day Tour — Exclusive (up to ${RESORT_MAX_CAPACITY})</td><td class="n">${e(fmt(EXCLUSIVE_FLAT_RATE))}</td></tr>
+<tr><td>Night Tour — Shared</td><td class="n">${e(fmt(SHARED_NIGHT_RATE))} per guest</td></tr>
+<tr><td>Night Tour — Exclusive (up to ${RESORT_MAX_CAPACITY})</td><td class="n">${e(fmt(EXCLUSIVE_NIGHT_RATE))}</td></tr>
+<tr><td>Staycation — Shared</td><td class="n">${e(fmt(SHARED_STAY_RATE))} per guest</td></tr>
+<tr><td>Staycation — Exclusive (up to ${RESORT_MAX_CAPACITY})</td><td class="n">${e(fmt(EXCLUSIVE_STAY_RATE))}</td></tr>
 <tr><td>Events venue</td><td class="n">${e(fmt(EVENT_VENUE_RATE))} per tour</td></tr>
 ${OVERTIME_MAX > 0 ? `<tr><td>Day Tour overtime</td><td class="n">${e(fmt(OVERTIME_RATE))} per hour, up to ${OVERTIME_MAX}</td></tr>` : ""}
 ${rooms.length ? `<tr><td>Rooms</td><td class="n">${e(rooms.map((r) => r.name.split(" –")[0]).join(", "))}</td></tr>` : ""}

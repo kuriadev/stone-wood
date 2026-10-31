@@ -32,7 +32,7 @@ export async function PATCH(req: NextRequest) {
   const denied = await requirePermission(req, "settings.manage");
   if (denied) return denied;
   const body = await req.json().catch(() => null);
-  const v = validateSettings(body);
+  const v = validateSettings(body, { strict: true });
   if (!v.ok) return NextResponse.json({ success: false, error: v.error }, { status: 400 });
 
   try {

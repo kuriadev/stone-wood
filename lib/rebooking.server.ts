@@ -190,7 +190,7 @@ export async function checkMove(b: Booking, date: string): Promise<{ ok: true } 
  *  charge added on the day (the booking with its extra guests, overtime or
  *  room), so neither can overbook the pool, take the Night slot or
  *  double-book a room. */
-export async function checkFits(b: Booking, alsoHeld: Booking[] = []): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function checkFits(b: Booking, alsoHeld: Booking[] = [], opts: { overCapacity?: boolean } = {}): Promise<{ ok: true } | { ok: false; error: string }> {
   const no = (error: string) => ({ ok: false as const, error });
   await ensureSettings();
   const db = getSupabaseAdmin();
@@ -210,7 +210,11 @@ export async function checkFits(b: Booking, alsoHeld: Booking[] = []): Promise<{
   const facilities = (fac.data as FacilityRow[]).map(rowToFacility);
   const slot = getBookingSlot(b);
   const overtime = b.overtime ?? 0;
-  const capacity = checkRangeAvailability(b.date, last, slot, b.guests, getBookingTier(b), getBookingResource(b), others, facilities, overtime);
+  // Staff overriding the capacity: everything else is still checked (a
+  // closed pool, an Exclusive buyout, a taken slot), only the headcount
+  // isn't -- counted as one guest, so a slot with no room at all still says so.
+  const counted = opts.overCapacity ? 1 : b.guests;
+  const capacity = checkRangeAvailability(b.date, last, slot, counted, getBookingTier(b), getBookingResource(b), others, facilities, overtime);
   if (!capacity.ok) return no(capacity.reason ?? "That date is no longer available.");
   const taken = roomsTakenInRange(b.date, last, slot, others, overtime);
   if ((b.rooms ?? []).some((r) => taken.has(r))) return no("A room in your booking is already taken on one of those dates.");

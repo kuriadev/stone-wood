@@ -200,6 +200,10 @@ export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar" }: P
         side={variant === "sidebar" ? "top" : "bottom"}
         sideOffset={8}
         style={{
+          // Above the phone's full-screen side menu (z-index 80 in
+          // Admin.tsx), which the default z-50 sat under: on a phone the
+          // menu opened out of sight and Sign out couldn't be tapped.
+          zIndex: 2100,
           minWidth: 248,
           padding: SPACE.xs,
           background: C.bgCard,
@@ -237,7 +241,7 @@ export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar" }: P
 
         <DropdownMenuSeparator style={{ background: C.borderLight }} />
 
-        {item("lock", "Username & password", onAccountSettings)}
+        {item("user", "My profile & sign-in", onAccountSettings)}
         {item(nextMode === "light" ? "sun" : "moon", `${THEME_LABEL[nextMode]} theme`, toggle)}
         {item("home", "View public site", () => window.open("/", "_blank", "noopener"))}
 

@@ -166,19 +166,19 @@ export function ImportBookingsModal({ onClose, onPrintOffline }: { onClose: () =
               const good = done ? !!l.id : l.ok;
               return (
                 <li key={l.line} style={{ padding: "10px 14px", borderTop: i ? `1px solid ${cBr}` : "none", display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  <Icon name={good ? "check-circle" : "alert"} size={16} style={{ color: good ? "#2e9e4e" : "#d44", flexShrink: 0, marginTop: 2 }} />
+                  <Icon name={good ? "check-circle" : "alert"} size={16} style={{ color: good ? "#2e9e4e" : "#e5484d", flexShrink: 0, marginTop: 2 }} />
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ color: C.textH, fontSize: 13.5, overflowWrap: "anywhere" }}>
                       <span style={{ color: C.textS, fontSize: 12 }}>Row {l.line} · </span>{l.summary}
                     </div>
-                    <div style={{ color: good ? C.textS : "#d44", fontSize: 12.5, marginTop: 2 }}>
+                    <div style={{ color: good ? C.textS : "#e5484d", fontSize: 12.5, marginTop: 2 }}>
                       {good
                         ? <>{l.id ? <><strong style={{ fontFamily: "monospace" }}>{l.id}</strong> · </> : null}{l.total !== undefined ? fmt(l.total) : ""}
                             {l.body?.initialPayment ? ` · ${fmt(l.body.initialPayment.amount)} paid by ${l.body.initialPayment.method}` : " · nothing paid yet"}</>
                         : l.note ?? "Not imported."}
                     </div>
                   </div>
-                  {good && l.status && <StatusBadge color={l.status === "Confirmed" ? "#2e9e4e" : "#d4a800"}>{l.status === "Confirmed" ? "Confirmed" : "Awaiting payment"}</StatusBadge>}
+                  {good && l.status && <StatusBadge color={l.status === "Confirmed" ? "#2e9e4e" : "#f5a524"}>{l.status === "Confirmed" ? "Confirmed" : "Awaiting payment"}</StatusBadge>}
                 </li>
               );
             })}

@@ -33,6 +33,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { FullSelect } from "@/components/admin/ui";
 import { HomeCardsEditor } from "@/components/admin/HomeCardsEditor";
+import { DateField } from "@/components/common/DateField";
 
 interface PackagesTabProps {
   packages: ResortPackage[];
@@ -73,7 +74,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
 
   const cBg = isDark ? "var(--sw-bg)" : "#ffffff";
   const cBr = isDark ? "var(--sw-border)" : "#e4ddd1";
-  /* Delete stays red in both themes, but #e55 is a pale red: it reads on the
+  /* Delete stays red in both themes, but #e5484d is a pale red: it reads on the
      dark card and washes out to about 3:1 on the white one. The ink follows
      the theme so the icon is legible either way. */
   const dangerInk = C.dangerInk;   // the shared token, see --sw-danger-ink
@@ -320,7 +321,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   onChange={(e) => setF("code", e.target.value)}
                   placeholder={form.title.trim() ? normCode(form.title) : "POOL-ROOM-PACKAGE"}
                   className="sw-input"
-                  style={{ ...inpS, ...(codeTaken ? { borderColor: "#e55" } : {}) }}
+                  style={{ ...inpS, ...(codeTaken ? { borderColor: "#e5484d" } : {}) }}
                   aria-describedby="pkg-code-hint"
                   aria-invalid={codeTaken || undefined}
                 />
@@ -427,12 +428,12 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                       {form.requiresRoom && <> The room the guest picks is added at its own rate.</>}
                     </p>
                     {priced && v.save > 0 && (
-                      <p style={{ color: "#f5c518", margin: "4px 0 0" }}>
+                      <p style={{ color: "#f5a524", margin: "4px 0 0" }}>
                         This is {fmt(v.save)} cheaper than booking the same thing in Book Now, so guests may pick it just for the discount. Price it at {fmt(v.diy)} or more and add extras instead, unless the discount is a deliberate promo.
                       </p>
                     )}
                     {priced && price === v.diy && !form.requiresRoom && (
-                      <p style={{ color: "#f5c518", margin: "4px 0 0" }}>
+                      <p style={{ color: "#f5a524", margin: "4px 0 0" }}>
                         Guests can book exactly this in Book Now for the same price. Add extras Book Now can&apos;t give (setup, decorations, equipment, early access) and price them in, or it adds nothing.
                       </p>
                     )}
@@ -479,7 +480,7 @@ export function PackagesTab({ packages, setPackages, mob }: PackagesTabProps) {
                   </div>
                   <div className="sm:col-span-4">
                     <Label htmlFor="pkg-disc-until" style={{ display: "block", color: C.textXS, fontSize: 10.5, letterSpacing: 2, marginBottom: 6 }}>LAST DAY (OPTIONAL)</Label>
-                    <Input id="pkg-disc-until" type="date" min={today} value={form.discountUntil} onChange={(e) => setF("discountUntil", e.target.value)} className="sw-input" style={inpS} />
+                    <DateField id="pkg-disc-until" min={today} value={form.discountUntil} onChange={(v) => setF("discountUntil", v)} placeholder="No end date" style={inpS} />
                   </div>
                 </div>
                 <p role={promoCheck.ok ? undefined : "alert"} style={{ fontSize: 12.5, margin: "10px 0 0", lineHeight: 1.6, color: promoCheck.ok ? C.textS : C.dangerInk }}>

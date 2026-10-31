@@ -353,6 +353,8 @@ export async function createStaff(input: NewStaff, hash: Hasher, salt: string): 
 
 export interface StaffPatch {
   name?: string;
+  /** A new username, set by the owner. */
+  username?: string;
   role?: StaffRole;
   active?: boolean;
   /** A new password set by the owner (a reset). */
@@ -377,6 +379,11 @@ export async function updateStaff(id: string, patch: StaffPatch, hash: Hasher, s
 
   const row: Record<string, unknown> = {};
   if (patch.name !== undefined) row.name = patch.name;
+  if (patch.username !== undefined && patch.username !== cur.username) {
+    const clash = await findRowByUsername(patch.username);
+    if (clash && clash.id !== id) throw new StaffError(`The username "${patch.username}" is already taken.`);
+    row.username = patch.username;
+  }
   if (patch.role !== undefined) row.role = patch.role;
   if (patch.active !== undefined) row.active = patch.active;
   if (patch.password !== undefined) {
@@ -391,6 +398,36 @@ export async function updateStaff(id: string, patch: StaffPatch, hash: Hasher, s
   if (error) throw new Error(error.message);
   forgetStaff(id);
   return toRecord(data as StaffRow);
+}
+
+/** Delete a person for good (the super admin only). Their records keep
+ *  their name: the activity log stores it as text, and requests they made
+ *  or decided keep requested_by_name / decided_by_name while the link to
+ *  the deleted account is cleared. Never the last active super admin. */
+export async function deleteStaff(id: string): Promise<StaffRecord> {
+  const all = await listStaff();
+  const cur = all.find((s) => s.id === id);
+  if (!cur) throw new StaffError("That person is no longer on the staff list.");
+  const otherOwners = all.filter((s) => s.id !== id && s.role === "Owner" && s.active).length;
+  if (cur.role === "Owner" && cur.active && otherOwners === 0) {
+    throw new StaffError("This is the only active super admin. Make someone else a super admin first.");
+  }
+  const db = getSupabaseAdmin();
+  for (const col of ["requested_by", "decided_by"] as const) {
+    const { error } = await db.from("owner_requests").update({ [col]: null }).eq(col, id);
+    if (error && !/owner_requests/.test(error.message)) throw new Error(error.message);
+  }
+  const { error } = await db.from("staff").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  forgetStaff(id);
+  return cur;
+}
+
+/** A person changing their own display name (My profile). */
+export async function updateOwnName(id: string, name: string): Promise<void> {
+  const { error } = await getSupabaseAdmin().from("staff").update({ name }).eq("id", id);
+  if (error) throw new Error(error.message);
+  forgetStaff(id);
 }
 
 /** A person changing their OWN username and/or password (Account screen). */

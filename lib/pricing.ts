@@ -23,8 +23,8 @@
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 import type { PackageDiscount } from "@/types/package";
 import {
-  EXCLUSIVE_FLAT_RATE,
-  SHARED_PER_HEAD_RATE,
+  exclusiveRateFor,
+  sharedRateFor,
   EVENT_VENUE_RATE,
   OVERTIME_RATE,
   RESORT_MAX_CAPACITY,
@@ -255,7 +255,9 @@ export function priceBooking(input: PriceInput): PriceBreakdown {
   const tier: BookingTier = usesPool ? input.tier : "Exclusive";
   const exclusivePool = usesPool && tier === "Exclusive";
 
-  const poolFee = !usesPool ? 0 : exclusivePool ? EXCLUSIVE_FLAT_RATE * slots : guests * SHARED_PER_HEAD_RATE * slots;
+  // Each kind of booking at its own rate (Rates & Settings): a Staycation's
+  // rate already covers both tours, so it isn't doubled here.
+  const poolFee = !usesPool ? 0 : exclusivePool ? exclusiveRateFor(slot) : guests * sharedRateFor(slot);
   const venueFee = usesVenue ? EVENT_VENUE_RATE * slots : 0;
 
   // Overtime exists only on a Day booking.

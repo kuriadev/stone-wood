@@ -2,6 +2,7 @@
 
 import { useTheme, nextTheme, THEME_LABEL, type ThemeMode } from "@/contexts/ThemeContext";
 import { Icon, type IconName } from "@/components/common/Icon";
+import { RoomCartDock } from "@/components/common/RoomCartDock";
 
 /** The glyph of the theme a tap switches TO. */
 const NEXT_ICON: Record<ThemeMode, IconName> = { light: "sun", dark: "moon" };
@@ -11,7 +12,12 @@ export function ThemeToggle() {
   const { isDark, mode, toggle } = useTheme();
   const next = nextTheme(mode);
   return (
+    <>
+    {/* The rooms a guest added with "Add to booking", beside this button
+        on every public page (it hides itself in the admin and on Book Now). */}
+    <RoomCartDock />
     <button
+      className="sw-float-bottom"
       onClick={toggle}
       title={`${THEME_LABEL[mode]} theme · switch to ${THEME_LABEL[next]}`}
       aria-label={`Switch to the ${THEME_LABEL[next].toLowerCase()} theme`}
@@ -51,5 +57,6 @@ export function ThemeToggle() {
           carry it, a 1.75-weight outline at that size does not. */}
       <Icon name={NEXT_ICON[next]} size={20} strokeWidth={2} />
     </button>
+    </>
   );
 }

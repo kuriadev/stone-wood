@@ -30,9 +30,10 @@ import { manilaDate, manilaTime } from "@/lib/finance";
 import { fmt, fmtDate } from "@/lib/utils";
 import type { InventoryItem } from "@/types/inventory";
 import type { StockMovement, SupplyLine, UpkeepData, UpkeepTask } from "@/types/tasks";
+import { DateField } from "@/components/common/DateField";
 
 const REASON_LABEL: Record<StockMovement["reason"], string> = { Used: "Used", Broken: "Broken / lost", Bought: "Added", Counted: "Counted", Adjusted: "Adjusted" };
-const REASON_COLOR: Record<StockMovement["reason"], string> = { Used: "#888", Broken: "#e55", Bought: "#2e9e4e", Counted: "#4a9fd4", Adjusted: "#c9a84c" };
+const REASON_COLOR: Record<StockMovement["reason"], string> = { Used: "#888", Broken: "#e5484d", Bought: "#2e9e4e", Counted: "#3e8ed0", Adjusted: "#c9a84c" };
 
 async function send(url: string, method: string, body?: unknown): Promise<{ ok: boolean; error?: string; json?: Record<string, unknown> }> {
   try {
@@ -112,7 +113,7 @@ function HistoryView({ movements, items, enabled, mob }: { movements: StockMovem
             <Row key={m.id} style={{ background: rowBg(idx), borderBottom: `1px solid ${cBr}` }}>
               <Cell style={{ ...td, color: C.textS, whiteSpace: "nowrap" }}>{fmtDate(manilaDate(m.at))}, {manilaTime(m.at)}</Cell>
               <Cell style={{ ...td, color: C.textH }}>{it?.name ?? `#${m.itemId}`}</Cell>
-              <Cell style={{ ...td, whiteSpace: "nowrap", fontWeight: 600, color: m.delta > 0 ? "#2e9e4e" : m.delta < 0 ? "#d44" : C.textS }}>
+              <Cell style={{ ...td, whiteSpace: "nowrap", fontWeight: 600, color: m.delta > 0 ? "#2e9e4e" : m.delta < 0 ? "#e5484d" : C.textS }}>
                 {m.delta > 0 ? "+" : ""}{m.delta} {it?.unit ?? ""}
               </Cell>
               <Cell style={td}>
@@ -158,7 +159,7 @@ function ScheduleView({ data, items, facilities, mob, onChanged }: {
               <Cell style={td}><div style={{ color: C.textH, fontWeight: 600 }}>{t.title}</div>{f && <div style={{ color: C.textS, fontSize: 12 }}>{f.name}</div>}</Cell>
               <Cell style={{ ...td, color: C.textB }}>Every {t.everyDays === 1 ? "day" : `${t.everyDays} days`}</Cell>
               <Cell style={{ ...td, fontSize: 12.5 }}><SupplySummary lines={t.supplies} inventory={items} /></Cell>
-              <Cell style={{ ...td, whiteSpace: "nowrap", color: s.state === "overdue" ? "#e55" : C.textB }}>
+              <Cell style={{ ...td, whiteSpace: "nowrap", color: s.state === "overdue" ? "#e5484d" : C.textB }}>
                 {!t.active ? "Paused" : s.state === "overdue" ? `Late — was ${fmtDate(s.dueDate)}` : s.state === "due" ? "Today" : fmtDate(next)}
               </Cell>
               <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
@@ -215,7 +216,7 @@ function UpkeepModal({ task, items, facilities, onClose, onDone }: {
         <div><Label htmlFor="up-title">WHAT</Label><Input id="up-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} placeholder="e.g. Pool cleaning" style={field} /></div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div><Label htmlFor="up-every">EVERY HOW MANY DAYS</Label><Input id="up-every" type="number" min={1} max={365} value={every} onChange={(e) => setEvery(e.target.value)} style={field} /></div>
-          <div><Label htmlFor="up-start">FIRST DAY</Label><Input id="up-start" type="date" value={start} onChange={(e) => setStart(e.target.value)} style={field} /></div>
+          <div><Label htmlFor="up-start">FIRST DAY</Label><DateField id="up-start" value={start} onChange={setStart} style={field} /></div>
         </div>
         <div>
           <Label htmlFor="up-fac">WHERE (optional)</Label>

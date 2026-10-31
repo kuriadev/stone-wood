@@ -2,13 +2,15 @@
 
 import { useWidth } from "@/hooks/useWidth";
 import { THEME_COLORS } from "@/lib/theme";
-import { gold, outBtn } from "@/lib/styles";
+import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
 import type { Room } from "@/types/room";
 import { useState } from "react";
 import { srcSetFor, SIZES } from "@/lib/img";
 import { roomShots } from "@/lib/gallery";
 import { Icon } from "@/components/common/Icon";
+import { useRoomCart, roomCart } from "@/hooks/useRoomCart";
+import { useToast } from "@/contexts/ToastContext";
 import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
 import { Button } from "@/components/ui/button";
 import { MediaGallery } from "@/components/common/MediaGallery";
@@ -26,6 +28,19 @@ interface RoomsPageProps {
 }
 
 export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
+  const inCart = useRoomCart();
+  const { toast } = useToast();
+  /* Add and remove with the same button: an added room's button takes it
+     off again (the pill beside the theme button is the way on to Book
+     Now). */
+  const toggleRoom = (r: Room) => {
+    if (inCart.includes(r.id)) {
+      roomCart.remove(r.id);
+      toast(`${r.name} removed from your booking.`, "info");
+    } else {
+      onAddToBooking(r.id);
+    }
+  };
   // Scroll reveals. Called here, not in the layout: the effect must run
   // after THIS page has hydrated or it mutates un-hydrated DOM.
 
@@ -155,21 +170,22 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
                 </p>
 
                 {/* BUTTON */}
+                {/* Added: says so; tapping again takes it off. */}
                 <button
-                  className="sw-btn-out"
+                  className={inCart.includes(r.id) ? "sw-btn" : "sw-btn-out"}
                   onClick={(e) => {
                     e.stopPropagation(); //  prevents modal opening
-                    onAddToBooking(r.id);
+                    toggleRoom(r);
                   }}
                   style={{
-                    ...outBtn,
+                    ...(inCart.includes(r.id) ? goldBtn : outBtn),
                     width: "100%",
                     padding: "12px",
                     borderRadius: 8,
                     marginTop: "auto",
                   }}
                 >
-                  ADD TO BOOKING
+                  {inCart.includes(r.id) ? "✓ ADDED · TAP TO REMOVE" : "ADD TO BOOKING"}
                 </button>
               </div>
             </div>
@@ -218,9 +234,9 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
               <div className="mt-auto border-t border-border-soft p-6 pt-5">
                 <Button
                   className="sw-btn h-auto w-full rounded-lg border border-accent-ink bg-transparent py-4 text-xs font-bold tracking-wider text-accent-ink hover:bg-accent-ink/10"
-                  onClick={() => onAddToBooking(activeRoom.id)}
+                  onClick={() => toggleRoom(activeRoom)}
                 >
-                  ADD TO BOOKING
+                  {inCart.includes(activeRoom.id) ? "✓ ADDED · TAP TO REMOVE" : "ADD TO BOOKING"}
                 </Button>
               </div>
             </div>

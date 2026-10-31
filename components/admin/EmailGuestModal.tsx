@@ -128,7 +128,7 @@ export function EmailGuestModal({ booking, onClose }: { booking: Booking; onClos
             <span style={{ color: C.textS, fontSize: 11.5 }}>
               Their booking details are added underneath automatically.
             </span>
-            <span style={{ color: message.length >= GUEST_MESSAGE_MAX ? "#e55" : C.textS, fontSize: 11.5, fontFamily: "monospace" }}>
+            <span style={{ color: message.length >= GUEST_MESSAGE_MAX ? "#e5484d" : C.textS, fontSize: 11.5, fontFamily: "monospace" }}>
               {message.length}/{GUEST_MESSAGE_MAX}
             </span>
           </div>

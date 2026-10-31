@@ -8,6 +8,8 @@
 // collected like any balance, at Check out, Settle or Record a payment, so it
 // reaches Sales and the day's cash count.
 
+import { GUESTS_MAX } from "@/lib/validators";
+import { OverCapacityNote } from "@/components/admin/OverCapacityNote";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useApp } from "@/contexts/AppContext";
@@ -17,13 +19,13 @@ import { chargeKindsFor, priceCharge, type ChargeKind } from "@/lib/charges";
 import { bookingMoney } from "@/lib/finance";
 import { SLOTS, TURNOVER_WINDOW } from "@/lib/resort";
 import { fmt, fmtDate, getBookingSlot, roomsTakenOn } from "@/lib/utils";
-import { OVERTIME_MAX, OVERTIME_RATE, SHARED_PER_HEAD_RATE, EVENT_VENUE_RATE } from "@/lib/validators";
+import { OVERTIME_MAX, OVERTIME_RATE, sharedRateFor, EVENT_VENUE_RATE } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
 import { ActionButton, ErrorNote, FullSelect, Label, AmountRow, Modal, ChoiceButtons, useAdminStyle } from "@/components/admin/ui";
 
 const KIND_LABEL: Record<ChargeKind, string> = { overtime: "Overtime", guests: "Extra guests", room: "A room", venue: "Events venue" };
 
-export function AddChargeModal({ booking, onClose }: { booking: Booking; onClose: () => void }) {
+export function AddChargeModal({ booking, onClose, initialKind }: { booking: Booking; onClose: () => void; /** Open on this kind (from Edit booking). */ initialKind?: ChargeKind }) {
   const { C, soft, inp } = useAdminStyle();
   const { rooms, bookings } = useApp();
   const ops = useOps();
@@ -31,7 +33,7 @@ export function AddChargeModal({ booking, onClose }: { booking: Booking; onClose
 
   const blocked = chargeKindsFor(booking);
   const kinds = (Object.keys(KIND_LABEL) as ChargeKind[]);
-  const [kind, setKind] = useState<ChargeKind>(kinds.find((k) => !blocked[k]) ?? "overtime");
+  const [kind, setKind] = useState<ChargeKind>(initialKind && !blocked[initialKind] ? initialKind : kinds.find((k) => !blocked[k]) ?? "overtime");
   const [hours, setHours] = useState("1");
   const [extra, setExtra] = useState("");
   const [roomId, setRoomId] = useState("");
@@ -44,14 +46,18 @@ export function AddChargeModal({ booking, onClose }: { booking: Booking; onClose
   const taken = roomsTakenOn(booking.date, slot, bookings.filter((x) => x.id !== booking.id), booking.overtime ?? 0);
   const roomChoices = rooms.filter((r) => !(booking.rooms ?? []).includes(r.id));
 
-  const priced = priceCharge(booking, { kind, hours: Number(hours), guests: Number(extra), roomId: Number(roomId) }, rooms);
+  // Going over the resort's capacity: staff may, with a warning.
+  const [overCap, setOverCap] = useState(false);
+  const newTotal = booking.guests + (Number(extra) || 0);
+  const overLimit = kind === "guests" && newTotal > GUESTS_MAX;
+  const priced = priceCharge(booking, { kind, hours: Number(hours), guests: Number(extra), roomId: Number(roomId), overCapacity: overLimit && overCap }, rooms);
   const due = bookingMoney(booking, ops.payments, ops.damages).due;
 
   const save = async () => {
     setError("");
     if (!priced.ok) return setError(priced.error);
     setBusy(true);
-    const r = await ops.addCharge(booking.id, { kind, hours: Number(hours), guests: Number(extra), roomId: Number(roomId) });
+    const r = await ops.addCharge(booking.id, { kind, hours: Number(hours), guests: Number(extra), roomId: Number(roomId), overCapacity: overLimit && overCap });
     setBusy(false);
     if (!r.ok) return setError(r.error);
     toast(`Added ${priced.label} for ${booking.name}: +${fmt(priced.amount)}. Collect it at check-out or settle.`, "success");
@@ -94,8 +100,9 @@ export function AddChargeModal({ booking, onClose }: { booking: Booking; onClose
           <div>
             <Label htmlFor="ch-guests">How many more guests came?</Label>
             <Input id="ch-guests" type="number" min={1} value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="e.g. 3" style={inp} />
+            {overLimit && <OverCapacityNote capacity={GUESTS_MAX} guests={newTotal} checked={overCap} onChange={setOverCap} />}
             <p style={{ color: C.textS, fontSize: 12.5, margin: "8px 0 0" }}>
-              {fmt(SHARED_PER_HEAD_RATE)} each. Booked for {booking.guests}.
+              {fmt(sharedRateFor(getBookingSlot(booking)))} each. Booked for {booking.guests}.
             </p>
           </div>
         )}

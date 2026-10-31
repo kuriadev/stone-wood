@@ -82,6 +82,7 @@ export function PageSkeleton() {
       role="status"
       aria-live="polite"
       aria-busy="true"
+      data-sw-route-loading=""
       style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}
     >
       <span style={srOnly()}>Loading page</span>

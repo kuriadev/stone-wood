@@ -1,6 +1,11 @@
 /** @type {import('jest').Config} */
 module.exports = {
   testEnvironment: "node",
+  // 15s, not Jest's 5s. A few tests build real files (the import .xlsx) and
+  // ts-jest type-checks each one first; with a build or lint running beside
+  // the suite, one now and then ran out the clock and failed on an
+  // otherwise green run. A genuine failure still fails.
+  testTimeout: 15_000,
   roots: ["<rootDir>/tests/unit", "<rootDir>/tests/integration"],
   moduleNameMapper: { "^@/(.*)$": "<rootDir>/$1" },
   transform: {

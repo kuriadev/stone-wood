@@ -160,4 +160,7 @@ export interface Booking {
   /** Client → server only, on a walk-in create: the package it was sold as,
    *  so the server can price it from the package's own price. Never stored. */
   walkInPackageCode?: string;
+  /** Staff only, on a walk-in: more guests than the resort's capacity, on
+   *  purpose (OVERRIDE_GUESTS_MAX). Never set by the website. */
+  overCapacity?: boolean;
 }

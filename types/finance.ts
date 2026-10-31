@@ -50,6 +50,8 @@ export interface Expense {
   amount: number;
   method: Exclude<PaymentMethod, "PayMongo">;
   spentOn: string;
+  /** When it was entered (the timestamp shown beside the date). */
+  recordedAt?: string;
   voided: boolean;
   voidReason?: string;
 }

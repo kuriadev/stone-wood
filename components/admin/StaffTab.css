@@ -1,0 +1,74 @@
+/* Staff Accounts as a card per person -- see StaffTab.tsx. */
+
+.sw-staff__roles { display: grid; gap: 12px; margin-bottom: 28px; }
+.sw-staff__role { display: flex; gap: 12px; align-items: flex-start; border: 1px solid; border-radius: 12px; padding: 14px 16px; }
+.sw-staff__roleicon { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; }
+
+.sw-staff__grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+.sw-staff__card {
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column;
+  border: 1px solid; border-radius: 14px;
+  transition: transform .3s cubic-bezier(.22,1,.36,1), box-shadow .3s ease, border-color .25s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .sw-staff__card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(0,0,0,.25); border-color: rgba(201,168,76,.45) !important; }
+}
+.sw-staff__card.is-off { opacity: .62; }
+.sw-staff__card.is-off:hover { opacity: .9; }
+.sw-staff__stripe { position: absolute; top: 0; left: 0; right: 0; height: 3px; opacity: .85; }
+
+.sw-staff__top { display: flex; gap: 14px; align-items: flex-start; padding: 18px 14px 12px 16px; }
+.sw-staff__avatar {
+  flex-shrink: 0; border-radius: 50%; object-fit: cover;
+  border: 2px solid; box-sizing: border-box;
+}
+.sw-staff__avatar--initials { display: grid; place-items: center; font-weight: 700; letter-spacing: .5px; }
+.sw-staff__name { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; line-height: 1.3; white-space: nowrap; min-width: 0; }
+.sw-staff__you {
+  flex-shrink: 0; padding: 1px 7px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .4px;
+  background: rgba(201,168,76,.16); color: var(--sw-gold-ink);
+}
+.sw-staff__user { font-family: monospace; font-size: 12.5px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.sw-staff__iconbtn {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  display: inline-grid; place-items: center;
+  border: 1px solid rgba(150,130,100,.3); background: transparent; color: inherit; cursor: pointer;
+  transition: background-color .2s ease, border-color .2s ease;
+}
+.sw-staff__iconbtn:hover { background: rgba(201,168,76,.12); border-color: rgba(201,168,76,.45); }
+.sw-staff__iconbtn:disabled { opacity: .5; cursor: default; }
+.sw-staff__more { margin-top: -4px; }
+
+.sw-staff__note {
+  margin: 0 16px 10px; padding: 6px 10px; border-radius: 8px;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: #f5a524; background: rgba(245,165,36,.1);
+}
+.sw-staff__foot {
+  margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 14px 10px 16px; border-top: 1px solid; min-height: 50px; box-sizing: border-box;
+}
+.sw-staff__chip {
+  padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(201,168,76,.5);
+  background: rgba(201,168,76,.1); color: var(--sw-gold-ink); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+
+/* The camera button on the form's photo. */
+.sw-staff__camera {
+  position: absolute; right: -2px; bottom: -2px;
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  border: 2px solid var(--sw-bg, #121212);
+  background: linear-gradient(135deg, #e6c76a, #c9a84c); color: #1a1408; cursor: pointer;
+}
+.sw-staff__camera:disabled { opacity: .6; }
+
+/* The password row in the card body. */
+.sw-staff__pw {
+  margin: 0 16px 12px; padding: 8px 8px 8px 12px; border: 1px solid; border-radius: 10px;
+  display: flex; align-items: center; gap: 10px; background: rgba(150, 130, 100, 0.06);
+}
+.sw-staff__pwlabel { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; flex-shrink: 0; }

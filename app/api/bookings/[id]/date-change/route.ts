@@ -17,6 +17,7 @@ import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { loadGuestBooking, checkMove, guestLinkFor, sweepExpired } from "@/lib/rebooking.server";
 import { HOLD_HOURS, GUEST_CHANGES_ALLOWED } from "@/lib/rebooking";
 import { manilaDate } from "@/lib/finance";
+import { rescheduleProblem } from "@/lib/validators";
 import { notices } from "@/lib/notices";
 import { buildNoticeEmail } from "@/lib/emailTemplate";
 import { trySendMail } from "@/lib/mailer";
@@ -45,7 +46,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const b = await loadGuestBooking(id, { email: body.email as string, token: body.t as string });
     if (!b) return no("No booking found for those details.", 404);
     if (b.status !== "Confirmed") return no("Only a confirmed booking can be moved.");
-    if (b.checkedInAt || b.date <= manilaDate()) return no("Date changes close on your reserved date. Please contact the resort.");
+    if (b.checkedInAt) return no("Date changes close on your reserved date. Please contact the resort.");
+    // The notice rule (Rates & Settings): not within a few days of the visit.
+    const tooLate = rescheduleProblem(b.date);
+    if (tooLate) return no(tooLate);
 
     const db = getSupabaseAdmin();
     const { data: past, error: pastErr } = await db.from("date_change_requests").select("*").eq("booking_id", b.id);

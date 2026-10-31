@@ -96,7 +96,7 @@ interface OpsState extends OpsData {
   /** Approve or decline a guest's date-change request. */
   decideDateChange: (id: number, approve: boolean, note: string) => Promise<Result>;
   /** Overtime, extra guests or a room taken on the day: raises the total. */
-  addCharge: (bookingId: string, c: { kind: string; hours?: number; guests?: number; roomId?: number }) => Promise<Result>;
+  addCharge: (bookingId: string, c: { kind: string; hours?: number; guests?: number; roomId?: number; overCapacity?: boolean }) => Promise<Result>;
   /** After a resort cancellation the guest asked for their money back: the
    *  booking is cancelled and what was held becomes a refund to send. */
   chooseRefund: (bookingId: string) => Promise<Result>;

@@ -1,7 +1,8 @@
 // ── GET   /api/staff      → everyone who can sign in        (owner only)
 // ── POST  /api/staff      → add a person                     (owner only)
-// ── PATCH /api/staff?id=  → rename, change role, reset the password,
-//                            deactivate or reactivate          (owner only)
+// ── PATCH /api/staff?id=  → rename, change username or role, reset the
+//                            password, deactivate or reactivate (owner only)
+// ── DELETE /api/staff?id= → delete for good                   (super admin only)
 //
 // The owner sets each person up once with a temporary password; they pick
 // their own at first sign-in (must_change_password). Nobody is ever
@@ -13,12 +14,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requirePermission, hashPassword, newSalt } from "@/lib/auth";
 import {
-  listStaff, createStaff, updateStaff, StaffError, staffTableReady,
+  listStaff, createStaff, updateStaff, deleteStaff, StaffError, staffTableReady, actingStaff,
   passwordProblem, usernameProblem,
 } from "@/lib/staff.server";
 import { isStaffRole, ROLE_LABEL } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity.server";
 import { sanitizeName } from "@/lib/validators";
+import { staffPhotoUrls } from "@/lib/staffPhotos.server";
+import { getSupabaseAdmin } from "@/lib/supabase";
+import { staffPhotoKey } from "@/lib/staffPhotos";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +38,10 @@ export async function GET(req: NextRequest) {
   if (denied) return denied;
   try {
     if (!(await staffTableReady())) return NextResponse.json({ success: true, staff: [], staffEnabled: false });
-    return NextResponse.json({ success: true, staff: await listStaff(), staffEnabled: true });
+    // Each person's photo, as a versioned link (lib/staffPhotos.ts).
+    const photos = await staffPhotoUrls();
+    const staff = (await listStaff()).map((s) => ({ ...s, photo: photos.get(s.id) ?? null }));
+    return NextResponse.json({ success: true, staff, staffEnabled: true });
   } catch (err) {
     console.error("[/api/staff GET]", err);
     return NextResponse.json({ success: false, error: "Could not load the staff list." }, { status: 500 });
@@ -86,6 +93,12 @@ export async function PATCH(req: NextRequest) {
     if (name.length < 2) return NextResponse.json({ success: false, error: "Enter the person's name." }, { status: 400 });
     patch.name = name;
   }
+  if (b.username !== undefined) {
+    const username = String(b.username).trim();
+    const uBad = usernameProblem(username);
+    if (uBad) return NextResponse.json({ success: false, error: uBad }, { status: 400 });
+    patch.username = username;
+  }
   if (b.role !== undefined) {
     if (!isStaffRole(b.role)) return NextResponse.json({ success: false, error: "Unknown role." }, { status: 400 });
     patch.role = b.role;
@@ -102,6 +115,7 @@ export async function PATCH(req: NextRequest) {
     const person = await updateStaff(id, patch, hashPassword, newSalt());
     const said: string[] = [];
     if (patch.name && before && before.name !== person.name) said.push(`renamed from ${before.name}`);
+    if (patch.username && before && before.username !== person.username) said.push(`username now "${person.username}" (was "${before.username}")`);
     if (patch.role && before && before.role !== person.role) said.push(`now ${ROLE_LABEL[person.role]} (was ${ROLE_LABEL[before.role]})`);
     if (patch.active !== undefined && before && before.active !== person.active) said.push(person.active ? "reactivated" : "deactivated");
     if (patch.password) said.push("password reset — they choose a new one at their next sign-in");
@@ -116,5 +130,31 @@ export async function PATCH(req: NextRequest) {
     if (err instanceof StaffError) return NextResponse.json({ success: false, error: err.message }, { status: 409 });
     console.error("[/api/staff PATCH]", err);
     return NextResponse.json({ success: false, error: "Could not save that change." }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const denied = await requirePermission(req, "staff.manage");
+  if (denied) return denied;
+  // Only a super admin deletes an account, whatever else they may do.
+  const me = actingStaff();
+  if (me && me.role !== "Owner") return NextResponse.json({ success: false, error: "Only a super admin can delete an account." }, { status: 403 });
+  if (!(await staffTableReady())) return notReady();
+  const id = req.nextUrl.searchParams.get("id") ?? "";
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ success: false, error: "Which person?" }, { status: 400 });
+  if (me?.id === id) return NextResponse.json({ success: false, error: "You can't delete your own account." }, { status: 400 });
+  try {
+    const gone = await deleteStaff(id);
+    // Their photo goes with them.
+    await getSupabaseAdmin().from("site_content").delete().eq("key", staffPhotoKey(id));
+    await logActivity({
+      actor: "Admin", action: "staff.deleted", entity: "staff", entityId: id,
+      summary: `Deleted the account of ${gone.name} (${ROLE_LABEL[gone.role]}, username "${gone.username}"). Everything they recorded keeps their name.`,
+    });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    if (err instanceof StaffError) return NextResponse.json({ success: false, error: err.message }, { status: 409 });
+    console.error("[/api/staff DELETE]", err);
+    return NextResponse.json({ success: false, error: "Could not delete that account." }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { GuestTabBar } from "@/components/layout/GuestTabBar";
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
@@ -212,12 +213,15 @@ export function Navbar({ page, setPage }: NavbarProps) {
                       color: active ? linkActive : linkColor,
                       transition: "color .2s ease",
                     }}
+                    className="sw-navlink"
                     onMouseEnter={(e) => { e.currentTarget.style.color = linkActive; }}
                     onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = linkColor; }}
                   >
                     {l.toUpperCase()}
-                    {/* Underline grows from centre — marks position, not decoration. */}
+                    {/* Underline grows from centre — marks position, and on
+                        hover fades in to say where a click goes. */}
                     <span
+                      className="sw-navlink__line"
                       style={{
                         /* The button pads 16px so the hit area clears 44px;
                            the underline stays 8px under the text, where it
@@ -341,7 +345,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
             </button>
 
             <div style={{ marginTop: "auto", paddingTop: 24, borderTop: `1px solid ${C.borderLight}` }}>
-              <button
+              <button className="sw-ulink"
                 onClick={() => go("Manage Booking")}
                 style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: C.textS, fontSize: 13.5, letterSpacing: 1 }}
               >
@@ -354,6 +358,8 @@ export function Navbar({ page, setPage }: NavbarProps) {
           </SheetContent>
         </Sheet>
       )}
+      {/* Phones: the app-style bottom tabs (hidden by CSS above 760px). */}
+      {mob && <GuestTabBar page={page} setPage={setPage} />}
     </>
   );
 }

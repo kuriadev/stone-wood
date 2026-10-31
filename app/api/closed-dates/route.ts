@@ -8,7 +8,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { requirePermission } from "@/lib/auth";
-import { parseDateStr, isInBookingYear, currentBookingYear } from "@/lib/validators";
+import { parseDateStr, isInStaffWindow, staffDateWindow } from "@/lib/validators";
 import { closeDateInput, parseInput } from "@/lib/schemas";
 import type { ClosedDateRow } from "@/types/database";
 
@@ -36,8 +36,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: parsed.error }, { status: 400 });
     }
     const { date, reason } = parsed.data;
-    if (!isInBookingYear(date)) {
-      return NextResponse.json({ success: false, error: `Only dates in ${currentBookingYear().year} can be closed.` }, { status: 400 });
+    if (!isInStaffWindow(date)) {
+      return NextResponse.json({ success: false, error: `Only dates up to ${staffDateWindow().last} can be closed — as far ahead as guests can book.` }, { status: 400 });
     }
 
     const { error } = await getSupabaseAdmin()

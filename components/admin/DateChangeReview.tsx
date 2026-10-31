@@ -97,7 +97,7 @@ export function DateChangeReview({ request, booking, onClose }: { request: DateC
           <AmountRow label={rebook ? "Picked instead" : "Asks to move to"} value={`${fmtDate(request.toDate)} · ${slot.label}`} strong />
           <AmountRow label="Guests" value={String(booking.guests)} />
         </div>
-        <p style={{ color: held ? C.textS : "#d4a800", fontSize: 13, margin: 0 }}>
+        <p style={{ color: held ? C.textS : "#f5a524", fontSize: 13, margin: 0 }}>
           {!held
             ? rebook
               ? "The 48-hour hold has run out, so the date wasn't kept. Decline it and the guest can pick another date."

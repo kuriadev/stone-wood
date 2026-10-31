@@ -110,7 +110,7 @@ export function PrepModal({ booking, facilities, onClose }: { booking: Booking; 
     <Modal title={`Prepare for ${booking.name}`} subtitle={<BookingSummary b={booking} />} onClose={onClose} width={980}
       footer={
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <span style={{ color: left ? "#d4a800" : "#2e9e4e", fontSize: 13 }}>{left ? `${left} item${left === 1 ? "" : "s"} not ticked yet` : "Everything is ticked"}</span>
+          <span style={{ color: left ? "#f5a524" : "#2e9e4e", fontSize: 13 }}>{left ? `${left} item${left === 1 ? "" : "s"} not ticked yet` : "Everything is ticked"}</span>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <ActionButton onClick={tickAll}>{all ? "Untick all" : "Tick all"}</ActionButton>
             <ActionButton kind="primary" icon="clipboard-check" disabled={busy} onClick={save}>{busy ? "Saving…" : last ? "Update preparation" : "Mark as prepared"}</ActionButton>
@@ -130,7 +130,7 @@ export function PrepModal({ booking, facilities, onClose }: { booking: Booking; 
             <div key={x.facilityId} style={{ border: `1px solid ${cBr}`, borderRadius: 10, padding: "12px 16px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
                 <span style={{ color: C.textH, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}><Icon name={iconOf(f)} size={15} />{x.facilityName}</span>
-                {f.status !== "Available" && <StatusBadge color={f.status === "Under Maintenance" ? "#d44" : "#d4a800"}>{f.status}</StatusBadge>}
+                {f.status !== "Available" && <StatusBadge color={f.status === "Under Maintenance" ? "#e5484d" : "#f5a524"}>{f.status}</StatusBadge>}
               </div>
               <Checklist items={x.checklist} onToggle={(ci) => toggle(fi, ci)} />
             </div>
@@ -333,16 +333,16 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
       footer={
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ color: C.textS, fontSize: 13.5 }}>
-            {damagedCount ? <><strong style={{ color: "#d44" }}>{fmt(newPenalty)}</strong> in penalties{handlesMoney ? " · " : ""}</> : handlesMoney ? "No damage · " : "No damage"}
+            {damagedCount ? <><strong style={{ color: "#e5484d" }}>{fmt(newPenalty)}</strong> in penalties{handlesMoney ? " · " : ""}</> : handlesMoney ? "No damage · " : "No damage"}
             {!handlesMoney ? null : left > 0
-              ? <strong style={{ color: "#d4a800" }}>{fmt(left)} {closeUnpaid ? "left unpaid" : "still owed after this"}</strong>
+              ? <strong style={{ color: "#f5a524" }}>{fmt(left)} {closeUnpaid ? "left unpaid" : "still owed after this"}</strong>
               : "Fully paid after this"}
           </span>
           <ActionButton kind="primary" icon={completes ? "check" : "logout"} disabled={busy} onClick={save}>{buttonLabel}</ActionButton>
         </div>
       }>
       {!wasCheckedIn && (
-        <p style={{ color: "#3a8fc4", fontSize: 13, marginTop: 0, display: "flex", gap: 8, alignItems: "flex-start" }}>
+        <p style={{ color: "#3e8ed0", fontSize: 13, marginTop: 0, display: "flex", gap: 8, alignItems: "flex-start" }}>
           <Icon name="info" size={14} style={{ marginTop: 4, flexShrink: 0 }} />
           This group was never checked in. Completing the stay records the check-in and check-out now.
         </p>
@@ -466,10 +466,10 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
             <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Bill</div>
             <AmountRow label="Booking total" value={fmt(booking.total)} />
             <AmountRow label="Already paid" value={`− ${fmt(Math.min(money.paid, booking.total))}`} color={money.paid > 0 ? "#2e9e4e" : undefined} />
-            {money.penaltyDue > 0 && <AmountRow label="Earlier unpaid penalties" value={fmt(money.penaltyDue)} color="#d44" />}
-            <AmountRow label={`Damage penalties${allDamages.length ? ` (${allDamages.length} item${allDamages.length === 1 ? "" : "s"})` : ""}`} value={fmt(newPenalty)} color={newPenalty > 0 ? "#d44" : undefined} />
+            {money.penaltyDue > 0 && <AmountRow label="Earlier unpaid penalties" value={fmt(money.penaltyDue)} color="#e5484d" />}
+            <AmountRow label={`Damage penalties${allDamages.length ? ` (${allDamages.length} item${allDamages.length === 1 ? "" : "s"})` : ""}`} value={fmt(newPenalty)} color={newPenalty > 0 ? "#e5484d" : undefined} />
             <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 8, paddingTop: 4 }}>
-              <AmountRow label="To collect now" value={fmt(toCollect)} strong color={toCollect > 0 ? "#d4a800" : "#2e9e4e"} />
+              <AmountRow label="To collect now" value={fmt(toCollect)} strong color={toCollect > 0 ? "#f5a524" : "#2e9e4e"} />
             </div>
           </div>
 
@@ -479,7 +479,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
                   <Label htmlFor="co-amount">Amount received</Label>
                   {amount !== "" && paying !== toCollect && (
-                    <button type="button" onClick={() => setAmount("")} style={{ background: "none", border: "none", padding: 0, color: C.goldInk, fontSize: 12, cursor: "pointer" }}>
+                    <button className="sw-ulink" type="button" onClick={() => setAmount("")} style={{ background: "none", border: "none", padding: 0, color: C.goldInk, fontSize: 12, cursor: "pointer" }}>
                       Use the full {fmt(toCollect)}
                     </button>
                   )}
@@ -560,7 +560,7 @@ export function BookingStatement({ booking }: { booking: Booking }) {
       <AmountRow label={`${packageAvailed(booking)} · ${slot.label}, ${fmtDate(booking.date)} · ${booking.guests} guest${booking.guests === 1 ? "" : "s"}`} value={fmt(round2(booking.total - overtimeFee))} />
       {overtimeFee > 0 && <AmountRow label={`Overtime (${booking.overtime} hr)`} value={fmt(overtimeFee)} />}
       {damages.map((d) => (
-        <AmountRow key={d.id} label={`Damage: ${d.itemName} × ${d.quantity} (${d.facilityName})`} value={fmt(d.amount)} color="#d44" />
+        <AmountRow key={d.id} label={`Damage: ${d.itemName} × ${d.quantity} (${d.facilityName})`} value={fmt(d.amount)} color="#e5484d" />
       ))}
       <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}>
         <AmountRow label="Total charges" value={fmt(round2(booking.total + money.penaltyTotal))} strong />
@@ -569,14 +569,14 @@ export function BookingStatement({ booking }: { booking: Booking }) {
       <div style={sub}>PAYMENTS</div>
       {pays.map((p) => (
         <AmountRow key={p.id} label={`${paymentLine(p)}${p.reference ? ` · ref ${p.reference}` : ""} · ${fmtDate(manilaDate(p.receivedAt))}`}
-          value={`${p.type === "Refund" ? "+" : "−"} ${fmt(p.amount)}`} color={p.type === "Refund" ? "#d44" : "#2e9e4e"} />
+          value={`${p.type === "Refund" ? "+" : "−"} ${fmt(p.amount)}`} color={p.type === "Refund" ? "#e5484d" : "#2e9e4e"} />
       ))}
       {pays.length === 0 && <p style={{ color: C.textS, fontSize: 13, margin: "4px 0" }}>No payments yet.</p>}
 
       <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 8, paddingTop: 4 }}>
-        {money.balance > 0 && <AmountRow label="Stay balance" value={fmt(money.balance)} color="#d4a800" />}
-        {money.penaltyDue > 0 && <AmountRow label="Unpaid penalties" value={fmt(money.penaltyDue)} color="#d44" />}
-        <AmountRow label={money.due > 0 ? "Amount due" : "Fully paid"} value={fmt(money.due)} strong color={money.due > 0 ? "#d4a800" : "#2e9e4e"} />
+        {money.balance > 0 && <AmountRow label="Stay balance" value={fmt(money.balance)} color="#f5a524" />}
+        {money.penaltyDue > 0 && <AmountRow label="Unpaid penalties" value={fmt(money.penaltyDue)} color="#e5484d" />}
+        <AmountRow label={money.due > 0 ? "Amount due" : "Fully paid"} value={fmt(money.due)} strong color={money.due > 0 ? "#f5a524" : "#2e9e4e"} />
       </div>
       {booking.settledAt && (
         <p style={{ color: C.textS, fontSize: 12.5, margin: "8px 0 0" }}>
@@ -638,7 +638,7 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ color: C.textS, fontSize: 13.5 }}>
             {paying > 0 ? <>Collecting <strong style={{ color: "#2e9e4e" }}>{fmt(paying)}</strong> by {method}</> : "Nothing to collect"}
-            {left > 0 && <> · <strong style={{ color: "#d44" }}>{fmt(left)} {closeUnpaid ? "left unpaid" : "still owed"}</strong></>}
+            {left > 0 && <> · <strong style={{ color: "#e5484d" }}>{fmt(left)} {closeUnpaid ? "left unpaid" : "still owed"}</strong></>}
           </span>
           <ActionButton kind="primary" icon={completes ? "check" : "cash"} disabled={busy} onClick={save}>
             {busy ? "Saving…" : completes ? "Collect & close booking" : "Record payment"}
@@ -748,8 +748,8 @@ export function VisitRecord({ booking, onClose }: { booking: Booking; onClose: (
           <div key={it.facilityId} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13, padding: "4px 0" }}>
             <span style={{ color: C.textB }}>{it.facilityName}</span>
             <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <span style={{ color: done < it.checklist.length ? "#d4a800" : C.textS }}>{done}/{it.checklist.length} checked</span>
-              {i.stage === "Checkout" && <StatusBadge color={it.condition === "Damaged" ? "#d44" : "#2e9e4e"}>{it.condition}</StatusBadge>}
+              <span style={{ color: done < it.checklist.length ? "#f5a524" : C.textS }}>{done}/{it.checklist.length} checked</span>
+              {i.stage === "Checkout" && <StatusBadge color={it.condition === "Damaged" ? "#e5484d" : "#2e9e4e"}>{it.condition}</StatusBadge>}
             </span>
           </div>
         );
@@ -790,8 +790,8 @@ export function VisitRecord({ booking, onClose }: { booking: Booking; onClose: (
           {(b.notes || b.cancelReason || b.settlementNote) && (
             <div style={{ background: soft, borderRadius: 8, padding: "12px 12px", fontSize: 13, color: C.textB, display: "flex", flexDirection: "column", gap: 4 }}>
               {b.notes && <div><span style={{ color: C.textS }}>Notes: </span>{b.notes}</div>}
-              {b.status === "Cancelled" && b.cancelReason && <div style={{ color: "#d44" }}>Cancelled: {b.cancelReason}</div>}
-              {b.settlementNote && <div style={{ color: "#d4a800" }}>Settled unpaid: {b.settlementNote}</div>}
+              {b.status === "Cancelled" && b.cancelReason && <div style={{ color: "#e5484d" }}>Cancelled: {b.cancelReason}</div>}
+              {b.settlementNote && <div style={{ color: "#f5a524" }}>Settled unpaid: {b.settlementNote}</div>}
             </div>
           )}
 

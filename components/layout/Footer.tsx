@@ -77,15 +77,17 @@ export function Footer({ setPage }: FooterProps) {
             NAVIGATION
           </div>
           {[...NAV, "Book Now"].map((l) => (
-            <div
+            <button
               key={l}
+              type="button"
+              className="sw-footlink"
               onClick={() => setPage(l)}
-              style={{ color: "#9a8d7a", fontSize: 14.5, marginBottom: 8, cursor: "pointer", transition: "color .2s" }}
+              style={{ display: "block", background: "none", border: "none", padding: 0, textAlign: "left", fontFamily: "inherit", color: "#9a8d7a", fontSize: 14.5, marginBottom: 8, cursor: "pointer", transition: "color .2s" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = gold)}
               onMouseLeave={(e) => (e.currentTarget.style.color = "#9a8d7a")}
             >
-              {l}
-            </div>
+              <span className="sw-ulink">{l}</span>
+            </button>
           ))}
         </div>
 
@@ -98,15 +100,17 @@ export function Footer({ setPage }: FooterProps) {
             { label: "Customer Service", action: () => setPage("Customer Service") },
             { label: "Manage Booking", action: () => router.push("/my-booking") },
           ].map(({ label, action }) => (
-            <div
+            <button
               key={label}
+              type="button"
+              className="sw-footlink"
               onClick={action}
-              style={{ color: "#9a8d7a", fontSize: 14.5, marginBottom: 8, cursor: "pointer", transition: "color .2s" }}
+              style={{ display: "block", background: "none", border: "none", padding: 0, textAlign: "left", fontFamily: "inherit", color: "#9a8d7a", fontSize: 14.5, marginBottom: 8, cursor: "pointer", transition: "color .2s" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = gold)}
               onMouseLeave={(e) => (e.currentTarget.style.color = "#9a8d7a")}
             >
-              {label}
-            </div>
+              <span className="sw-ulink">{label}</span>
+            </button>
           ))}
         </div>
 

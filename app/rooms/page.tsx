@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { THEME_COLORS } from "@/lib/theme";
 import { RoomsPage } from "@/components/sections/RoomsPage";
+import { roomCart } from "@/hooks/useRoomCart";
+import { useToast } from "@/contexts/ToastContext";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
@@ -11,6 +13,7 @@ import { CardGridSkeleton } from "@/components/common/Skeleton";
 
 export default function RoomsRoute() {
   const router = useRouter();
+  const { toast } = useToast();
   const C = THEME_COLORS;
   const { rooms, skeleton } = useApp();
 
@@ -42,8 +45,7 @@ export default function RoomsRoute() {
       // link — and it called finish() *before* navigating, so the bar
       // completed while the next page had not begun. ClientShell now
       // finishes it when the new route has actually rendered.
-      loader.start();
-      router.push(target);
+      loader.start(target, () => router.push(target));
   };
 
   return (
@@ -57,7 +59,13 @@ export default function RoomsRoute() {
         <RoomsPage
           setPage={nav}
           rooms={rooms}
-          onAddToBooking={(id) => router.push(`/book?room=${id}`)}
+          // Kept on the page: the room joins the guest's booking (the pill
+          // beside the theme button shows it) and Book Now starts with it.
+          onAddToBooking={(id) => {
+            roomCart.add(id);
+            const room = rooms.find((x) => x.id === id);
+            toast(`${room ? room.name : "Room"} added to your booking.`, "success");
+          }}
         />
       )}
       <Footer setPage={nav} />

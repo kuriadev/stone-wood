@@ -43,8 +43,8 @@ import type { SupplyLine, UpkeepData } from "@/types/tasks";
 
 const KIND: Record<TaskKind, { section: string; hint: string; stat: string; icon: IconName; color: string; verb: string; verbIcon: IconName }> = {
   inspect: { section: "Groups leaving", hint: "Inspect what they used as they go. Damage goes on their bill.", stat: "To inspect", icon: "search", color: "#d4644a", verb: "Inspect", verbIcon: "clipboard-check" },
-  prepare: { section: "Arrivals", hint: "Get their facilities ready. Opens the day before they arrive.", stat: "To prepare", icon: "clipboard", color: "#3a8fc4", verb: "Prepare", verbIcon: "clipboard-check" },
-  clean: { section: "To clean", hint: "Left by a check-out. Confirm what you used when you're done.", stat: "To clean", icon: "toolbox", color: "#d4a800", verb: "Mark cleaned", verbIcon: "check" },
+  prepare: { section: "Arrivals", hint: "Get their facilities ready. Opens the day before they arrive.", stat: "To prepare", icon: "clipboard", color: "#3e8ed0", verb: "Prepare", verbIcon: "clipboard-check" },
+  clean: { section: "To clean", hint: "Left by a check-out. Confirm what you used when you're done.", stat: "To clean", icon: "toolbox", color: "#f5a524", verb: "Mark cleaned", verbIcon: "check" },
   upkeep: { section: "Upkeep", hint: "The super admin's schedule. Its supplies come off the stock when you finish.", stat: "Upkeep due", icon: "refresh", color: "#2e9e4e", verb: "Done", verbIcon: "check" },
 };
 const ORDER: TaskKind[] = ["inspect", "prepare", "clean", "upkeep"];
@@ -121,11 +121,11 @@ function CaretakerTasks({ mob }: { mob: boolean }) {
 
   /** The badge that says how pressing it is. */
   const when = (t: CaretakerTask) => {
-    if (t.overdue) return <StatusBadge color="#d44">{t.kind === "upkeep" ? `Late · was ${fmtDate(t.date)}` : "Overdue"}</StatusBadge>;
-    if (timeUp(t)) return <StatusBadge color="#d44">Time&apos;s up · inspect now</StatusBadge>;
+    if (t.overdue) return <StatusBadge color="#e5484d">{t.kind === "upkeep" ? `Late · was ${fmtDate(t.date)}` : "Overdue"}</StatusBadge>;
+    if (timeUp(t)) return <StatusBadge color="#e5484d">Time&apos;s up · inspect now</StatusBadge>;
     if (t.kind === "inspect") return <StatusBadge color="#2e9e4e">{t.endsAt ? `On site · out ${clockTime(t.endsAt)}` : "On site"}</StatusBadge>;
-    if (t.kind === "prepare") return t.date === today ? <StatusBadge color="#d4a800">Today</StatusBadge> : <StatusBadge color="#3a8fc4">Tomorrow</StatusBadge>;
-    return <StatusBadge color="#d4a800">Today</StatusBadge>;
+    if (t.kind === "prepare") return t.date === today ? <StatusBadge color="#f5a524">Today</StatusBadge> : <StatusBadge color="#3e8ed0">Tomorrow</StatusBadge>;
+    return <StatusBadge color="#f5a524">Today</StatusBadge>;
   };
 
   const card = (t: CaretakerTask) => {

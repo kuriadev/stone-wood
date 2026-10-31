@@ -23,7 +23,8 @@
 // Names say what the piece IS for staff-facing screens. They were Btn,
 // Pill, ViewTabs, Segmented, PageHead, Figure, Line and TotalLine.
 
-import { useEffect, useId, useState } from "react";
+import { SIGNAL } from "@/components/admin/signals";
+import { useEffect, useId, useState, useSyncExternalStore } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { SPACE, TAP_MIN } from "@/lib/spacing";
@@ -33,7 +34,6 @@ import { Icon, type IconName } from "@/components/common/Icon";
 import { GlideSelect } from "@/components/common/GlideSelect";
 import { BOOKING_STATUS_LABEL } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label as UiLabel } from "@/components/ui/label";
 import {
@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NativeSelect } from "@/components/ui/native-select";
+import { DateField } from "@/components/common/DateField";
 
 export { TableRow as Row, TableCell as Cell };
 
@@ -278,9 +279,9 @@ export function DateRange({ from, to, onFrom, onTo, fromLabel = "From", toLabel 
   const { C, inp } = useAdminStyle();
   return (
     <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
-      <Input type="date" value={from} onChange={(e) => onFrom(e.target.value)} aria-label={fromLabel} style={{ ...inp, minWidth: 0, flex: 1 }} />
+      <DateField value={from} onChange={onFrom} max={to || undefined} aria-label={fromLabel} placeholder="From" style={{ ...inp, minWidth: 0, flex: 1 }} />
       <span style={{ color: C.textS, fontSize: 13, flexShrink: 0 }}>to</span>
-      <Input type="date" value={to} min={from || undefined} onChange={(e) => onTo(e.target.value)} aria-label={toLabel} style={{ ...inp, minWidth: 0, flex: 1 }} />
+      <DateField value={to} onChange={onTo} min={from || undefined} aria-label={toLabel} placeholder="To" style={{ ...inp, minWidth: 0, flex: 1 }} />
     </div>
   );
 }
@@ -328,15 +329,31 @@ export function ChoiceButtons<V extends string>({
   );
 }
 
+/** A phone-width screen, followed as the window resizes. */
+const PHONE_QUERY = "(max-width: 640px)";
+const subscribePhone = (on: () => void) => {
+  const q = window.matchMedia(PHONE_QUERY);
+  q.addEventListener("change", on);
+  return () => q.removeEventListener("change", on);
+};
+const isPhone = () => window.matchMedia(PHONE_QUERY).matches;
+
 /** One choice from a list, as a GlideSelect chip with a small label in
  *  front: "Status  All bookings 9 v". Replaces the rows of pill buttons that
  *  wrapped onto two or three lines on the admin pages. A count, when given,
  *  sits at the right of each row and on the chip. */
 export function FilterSelect<V extends string>({
-  label, value, onChange, options, menuWidth = 240, fullWidthOnPhone = true,
+  label, value, onChange, options, menuWidth = 240, fullWidthOnPhone = true, hideLabel = false, labelOnPhone = true, fullWidth = false,
 }: {
+  /** Fill the space it is given at every width (two equal chips in a row). */
+  fullWidth?: boolean;
   /** Shown before the chip and used as its accessible name. */
   label: string;
+  /** Keep the label as the chip's accessible name but don't print it, where
+   *  the chip's own text already says what it is ("Inbox", "All messages"). */
+  hideLabel?: boolean;
+  /** False: drop the printed label on a phone, so two chips fit one row. */
+  labelOnPhone?: boolean;
   value: V;
   onChange: (v: V) => void;
   options: { value: V; label: string; count?: number }[];
@@ -344,18 +361,11 @@ export function FilterSelect<V extends string>({
   fullWidthOnPhone?: boolean;
 }) {
   const { C, cBr } = useAdminStyle();
-  const [narrow, setNarrow] = useState(false);
-  useEffect(() => {
-    const q = window.matchMedia("(max-width: 640px)");
-    const sync = () => setNarrow(q.matches);
-    sync();
-    q.addEventListener("change", sync);
-    return () => q.removeEventListener("change", sync);
-  }, []);
-  const full = fullWidthOnPhone && narrow;
+  const narrow = useSyncExternalStore(subscribePhone, isPhone, () => false);
+  const full = fullWidth || (fullWidthOnPhone && narrow);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: full ? "1 1 100%" : "0 0 auto" }}>
-      <span style={{ color: C.textXS, fontSize: 11, letterSpacing: 1.6, fontWeight: 600, whiteSpace: "nowrap", textTransform: "uppercase" }}>{label}</span>
+      {!hideLabel && (labelOnPhone || !narrow) && <span style={{ color: C.textXS, fontSize: 11, letterSpacing: 1.6, fontWeight: 600, whiteSpace: "nowrap", textTransform: "uppercase" }}>{label}</span>}
       <div style={{ flex: full ? 1 : "0 0 auto", minWidth: 0 }}>
         <GlideSelect<V>
           ariaLabel={label}
@@ -381,13 +391,16 @@ export function FilterSelect<V extends string>({
  *  it. It was a row of shadcn tab pills, which wrapped onto two or three
  *  lines on Payments and Facilities. */
 export function ViewSwitcherTabs<V extends string>({
-  value, onChange, views, label = "Showing",
+  value, onChange, views, label = "Showing", aside,
 }: {
   value: V;
   onChange: (v: V) => void;
   views: { value: V; label: ReactNode; content: ReactNode; count?: number }[];
   /** The word before the chip. */
   label?: string;
+  /** Another control on the same row (a filter that applies to every view),
+   *  instead of stacked under the switcher. */
+  aside?: ReactNode;
   /** Kept for callers that still pass it; the chip sizes itself. */
   maxWidth?: number;
 }) {
@@ -395,13 +408,16 @@ export function ViewSwitcherTabs<V extends string>({
   const text = (n: ReactNode) => (typeof n === "string" || typeof n === "number" ? String(n) : "");
   return (
     <div>
-      <div style={{ marginBottom: SPACE.md, display: "flex" }}>
+      <div style={{ marginBottom: SPACE.md, display: "flex", flexWrap: "wrap", alignItems: "center", gap: SPACE.sm }}>
         <FilterSelect<V>
           label={label}
           value={current?.value as V}
           onChange={onChange}
           options={views.map((v) => ({ value: v.value, label: text(v.label) || v.value, count: v.count }))}
+          fullWidthOnPhone={!aside}
+          labelOnPhone={!aside}
         />
+        {aside}
       </div>
       <div role="region" aria-label={current ? text(current.label) || current.value : undefined}>{current?.content}</div>
     </div>
@@ -428,26 +444,29 @@ export function StatusBadge({ children, color, style }: { children: ReactNode; c
   );
 }
 
-// Status colours follow README → "Chart and status colours mean something".
+// Status colours mean one thing each (components/admin/signals.ts):
+// waiting for approval is amber, confirmed and coming is blue, a finished
+// stay is green, a cancelled one is grey -- closed, not an emergency.
 export const STATUS_COLOR: Record<string, string> = {
-  Pending: "#f5c518",
-  Confirmed: "#4caf50",
-  Completed: "#4a9fd4",
-  Cancelled: "#e55",
-  ResortCancelled: "#9a7bd0",
+  Pending: SIGNAL.attention,
+  Confirmed: SIGNAL.progress,
+  Completed: SIGNAL.done,
+  Cancelled: SIGNAL.closed,
+  ResortCancelled: SIGNAL.guest,
 };
 
 /** What staff read for a status. The stored value stays a single word. */
 export const STATUS_LABEL: Record<string, string> = BOOKING_STATUS_LABEL;
 
 export const MONEY_COLOR: Record<string, string> = {
-  "Paid in full": "#4caf50",
-  "Partially paid": "#f5c518",
-  Unpaid: "#e55",
-  Forfeited: "#8a7a66",
-  Refunded: "#4a9fd4",
-  "Held for guest": "#9a7bd0",
-  "Refund owed": "#e07a3a",
+  "Paid in full": SIGNAL.done,
+  "Partially paid": SIGNAL.attention,
+  Unpaid: SIGNAL.urgent,
+  Forfeited: SIGNAL.closed,
+  Refunded: SIGNAL.closed,
+  "Held for guest": SIGNAL.guest,
+  // The resort owes the guest money: act on it.
+  "Refund owed": SIGNAL.urgent,
 };
 
 // ── Buttons ───────────────────────────────────────────────────────────
@@ -456,7 +475,7 @@ type BtnKind = "primary" | "ghost" | "green" | "blue" | "red";
 // its own tint in both themes; green and blue labels were 2.3:1 in light mode.
 const TINT: Record<Exclude<BtnKind, "primary" | "ghost">, CSSProperties> = {
   green: { background: "rgba(76,175,80,0.1)", ["--ink-c" as string]: "#4caf50", border: "1px solid rgba(76,175,80,0.35)" },
-  blue: { background: "rgba(74,159,212,0.1)", ["--ink-c" as string]: "#4a9fd4", border: "1px solid rgba(74,159,212,0.35)" },
+  blue: { background: "rgba(74,159,212,0.1)", ["--ink-c" as string]: "#3e8ed0", border: "1px solid rgba(74,159,212,0.35)" },
   red: { background: "rgba(229,85,85,0.08)", ["--ink-c" as string]: "#ee5555", border: "1px solid rgba(229,85,85,0.3)" },
 };
 

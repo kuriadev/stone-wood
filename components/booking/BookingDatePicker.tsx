@@ -21,11 +21,12 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { T } from "@/lib/theme";
-import { getBookingWindow, bookingWindowNote, toDateStr, MAX_STAY_DAYS, manilaNow } from "@/lib/validators";
+import { getBookingWindow, bookingWindowNote, firstViewableMonth, toDateStr, MAX_STAY_DAYS, manilaNow } from "@/lib/validators";
 import { slotStartedProblem } from "@/lib/resort";
 import { RangeConnector } from "@/components/common/RangeConnector";
 import { CAL, CAL_LINE, GUEST_LEGEND } from "@/components/common/calendarColors";
-import { checkBookingAvailability, holdsDate, fmtDate, bookingDates } from "@/lib/utils";
+import { checkBookingAvailability, holdsDate, fmtDate, bookingDates, slotsBookedByDate } from "@/lib/utils";
+import { SlotMarks, SlotMarksKey, slotMarksLabel } from "@/components/common/SlotMarks";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 
 /** `ds` shifted by `n` days, in UTC so it cannot drift across a timezone. */
@@ -110,6 +111,8 @@ export function BookingDatePicker({
     });
     return full;
   }, [bookings, guests, resource, tier]);
+  // Which tours are booked on each date: the sun, moon and beach chair marks.
+  const slotsByDate = useMemo(() => slotsBookedByDate(bookings), [bookings]);
   const fullDates = useMemo(() => {
     const full = fullFor(slot);
     // Today, once this tour has started, can't be booked (lib/resort.ts).
@@ -178,9 +181,9 @@ export function BookingDatePicker({
     `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   const C = T(isDark);
 
-  // Navigation is bounded by the same window, so the guest can never page
-  // into a month that contains no bookable dates.
-  const firstMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  // Forward: as far as the bookable window. Back: a few months (Rates &
+  // Settings), so a guest can see the dates just gone; they show as past.
+  const firstMonth = firstViewableMonth();
   const lastMonth = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
   const viewing = new Date(year, month, 1);
   const canGoPrev = viewing > firstMonth;
@@ -354,7 +357,7 @@ export function BookingDatePicker({
               type="button"
               onClick={() => !disabled && pick(ds)}
               disabled={disabled}
-              aria-label={`${ds}${label}`}
+              aria-label={`${ds}${label}${slotMarksLabel(slotsByDate.get(ds))}`}
               aria-pressed={isStart || isEnd || inRange}
               title={
                 isPast
@@ -393,7 +396,11 @@ export function BookingDatePicker({
                 lineHeight: "inherit",
               }}
             >
-              {d}
+              {/* The tours booked that day, above the number. */}
+              <span style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, lineHeight: 1, position: "relative", zIndex: 1 }}>
+                <SlotMarks slots={slotsByDate.get(ds)} />
+                <span>{d}</span>
+              </span>
               {/* The thread joining the first day of the stay to the
                   last. Shared with the home page's calendar so the two read
                   as one control — see components/common/RangeConnector. */}
@@ -449,6 +456,7 @@ export function BookingDatePicker({
           </div>
         ))}
       </div>
+      <SlotMarksKey color={C.textS} />
     </div>
   );
 }

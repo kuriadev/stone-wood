@@ -51,8 +51,13 @@ describe("the offline sheet", () => {
 
   it("carries the rates, the hours and blank forms laid out like the import template", () => {
     const html = sheet([]);
-    expect(html).toContain("₱200 per guest, per tour");
-    expect(html).toContain("₱6,000 per tour");
+    // Each booking type's own rates (Rates & Settings).
+    expect(html).toContain("Day Tour — Shared");
+    expect(html).toContain("₱200 per guest");
+    expect(html).toContain("Night Tour — Exclusive");
+    expect(html).toContain("Staycation — Shared");
+    expect(html).toContain("₱6,000");
+    expect(html).toContain("₱12,000"); // a Staycation, both tours
     expect(html).toContain("7:00 AM – 5:00 PM");
     for (const c of IMPORT_COLUMNS.filter((c) => c.key !== "email" && c.key !== "notes")) expect(html).toContain(`<th>${c.header}</th>`);
   });

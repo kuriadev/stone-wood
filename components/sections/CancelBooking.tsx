@@ -1,5 +1,7 @@
 "use client";
 
+import { reschedulePolicy, emergencyPolicy } from "@/lib/policies";
+import { rescheduleProblem } from "@/lib/validators";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -314,13 +316,16 @@ export function ManageBooking(_props: ManageBookingProps) {
     ? latestRebook : undefined;
   const lastRefund = [...payments].reverse().find((p) => p.type === "Refund");
   const choosing = !!found && choiceOpen(found);
-  const canMove = !!found && found.status === "Confirmed" && !found.checkedInAt && !!today && found.date > today;
+  // The notice rule (Rates & Settings): date changes close a few days
+  // before the visit, so the resort can still offer the date to someone.
+  const noticeProblem = found && today ? rescheduleProblem(found.date) : null;
+  const canMove = !!found && found.status === "Confirmed" && !found.checkedInAt && !!today && !noticeProblem;
   const closed = !!found && (found.status === "Cancelled" || found.status === "Completed" || found.status === "ResortCancelled");
 
   const actions: { key: ActionKey; icon: IconName; title: string; sub: string; disabled?: string }[] = [
     {
       key: "reschedule", icon: "calendar", title: "Change the date", sub: "Pick another free date",
-      disabled: !canMove ? "Only a confirmed booking can be moved, before its reserved date."
+      disabled: !canMove ? (found?.status === "Confirmed" && !found.checkedInAt && noticeProblem ? noticeProblem : "Only a confirmed booking can be moved, before its reserved date.")
         : pendingChange ? "You already have a request waiting."
           : changesLeft <= 0 ? "This booking's date has already been changed once." : undefined,
     },
@@ -748,13 +753,17 @@ export function ManageBooking(_props: ManageBookingProps) {
                       <div style={{ border: `1px solid ${gold}55`, background: `${gold}0f`, borderRadius: 10, padding: 16, margin: "0 0 20px", display: "flex", gap: 12, alignItems: "flex-start" }}>
                         <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, flexShrink: 0, marginTop: 4 }}><Icon name="info" size={15} strokeWidth={1.5} /></span>
                         <div style={{ color: C.textB, fontSize: 13, lineHeight: 1.65 }}>
-                          <strong style={{ display: "block", color: C.textH, marginBottom: 4 }}>Before you choose a new date</strong>
+                          <strong style={{ display: "block", color: C.textH, marginBottom: 4 }}>Rescheduling policy</strong>
                           <ul style={{ margin: 0, paddingLeft: 18 }}>
-                            <li>Moving your date is <strong>free</strong> — there is no rescheduling fee, and everything you have paid carries over.</li>
-                            <li>This is a change of date only. <strong>It is not a refund</strong>, and what you have paid cannot be returned.</li>
+                            {reschedulePolicy().map((line) => <li key={line}>{line}</li>)}
                             <li>The resort checks the date you pick is still open and then approves or declines it, so <strong>please watch your email</strong> — we send the answer to {found.email || "the address on your booking"}.</li>
-                            <li>You can move a booking <strong>once</strong>.</li>
                           </ul>
+                          <details style={{ marginTop: 10 }}>
+                            <summary style={{ cursor: "pointer", color: C.textH, fontWeight: 600 }}>In an emergency</summary>
+                            <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                              {emergencyPolicy().map((line) => <li key={line}>{line}</li>)}
+                            </ul>
+                          </details>
                         </div>
                       </div>
 
@@ -808,7 +817,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                         <p style={{ display: "flex", gap: 12, alignItems: "flex-start", border: `1px solid ${gold}66`, borderRadius: 10, padding: "16px 16px", color: C.textB, fontSize: 13, lineHeight: 1.6, margin: "0 0 16px" }}>
                           <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, flexShrink: 0, marginTop: 4 }}><Icon name="calendar" size={15} strokeWidth={1.5} /></span>
                           <span>
-                            Can&rsquo;t make it on {fmtDate(found.date)}? You can <button type="button" onClick={() => setAction("reschedule")} style={{ background: "none", border: "none", padding: 0, color: C.goldInk, textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>move it to another date</button> instead, once, and keep what you paid.
+                            Can&rsquo;t make it on {fmtDate(found.date)}? You can <button className="sw-ulink" type="button" onClick={() => setAction("reschedule")} style={{ background: "none", border: "none", padding: 0, color: C.goldInk, textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>move it to another date</button> instead, once, and keep what you paid.
                           </span>
                         </p>
                       )}

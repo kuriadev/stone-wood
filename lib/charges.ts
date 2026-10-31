@@ -28,7 +28,7 @@ import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
 import { SLOTS } from "@/lib/resort";
 import { getBookingSlot, getBookingResource, getBookingTier, bookingDays } from "@/lib/utils";
-import { OVERTIME_MAX, OVERTIME_RATE, SHARED_PER_HEAD_RATE, GUESTS_MAX, EVENT_VENUE_RATE } from "@/lib/validators";
+import { OVERTIME_MAX, OVERTIME_RATE, sharedRateFor, GUESTS_MAX, OVERRIDE_GUESTS_MAX, EVENT_VENUE_RATE } from "@/lib/validators";
 
 export type ChargeKind = "overtime" | "guests" | "room" | "venue";
 
@@ -40,6 +40,8 @@ export interface ChargeRequest {
   guests?: number;
   /** A room: which one. */
   roomId?: number;
+  /** Staff chose to go over the resort's capacity (OVERRIDE_GUESTS_MAX). */
+  overCapacity?: boolean;
 }
 
 export type ChargeResult =
@@ -91,9 +93,14 @@ export function priceCharge(b: Booking, req: ChargeRequest, rooms: Room[]): Char
   if (req.kind === "guests") {
     const extra = Math.round(Number(req.guests) || 0);
     if (extra < 1) return no("Enter how many more guests came.");
-    if (keep.guests + extra > GUESTS_MAX) return no(`That would make ${keep.guests + extra} guests; the most for one booking is ${GUESTS_MAX}.`);
+    const cap = req.overCapacity ? OVERRIDE_GUESTS_MAX : GUESTS_MAX;
+    if (keep.guests + extra > cap) {
+      return no(req.overCapacity
+        ? `That would make ${keep.guests + extra} guests; even over capacity the most for one booking is ${OVERRIDE_GUESTS_MAX}.`
+        : `That would make ${keep.guests + extra} guests, more than the resort's capacity of ${GUESTS_MAX}. Tick "Allow more than ${GUESTS_MAX} guests" to add them anyway.`);
+    }
     return {
-      ok: true, amount: extra * SHARED_PER_HEAD_RATE * slots * days,
+      ok: true, amount: extra * sharedRateFor(getBookingSlot(b)) * days,
       label: `${extra} extra guest${extra === 1 ? "" : "s"}${days > 1 ? ` × ${days} days` : ""}`,
       next: { ...keep, guests: keep.guests + extra },
     };

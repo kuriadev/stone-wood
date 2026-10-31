@@ -9,8 +9,11 @@
 // both the old Reports tab, which counted booking totals as revenue, and
 // the separate Analytics tab, whose charts now live at the bottom here.
 
+import { Icon } from "@/components/common/Icon";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { statusLabel, bookingStatusLabel, payTypeLabel, payMethodLabel, adminTabLabel } from "@/lib/labels";
-import { Input } from "@/components/ui/input";
 import { useMemo, useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
 import { useApp } from "@/contexts/AppContext";
@@ -30,6 +33,7 @@ import { gold } from "@/lib/styles";
 import { Panel, BarChart, ProgressRow } from "@/components/admin/charts";
 import { AdminPageHeader, StatCard, ChoiceButtons, ActionButton, AmountRow, useAdminStyle, FullSelect} from "@/components/admin/ui";
 import { dayjs, DATE_FMT } from "@/lib/dayjs";
+import { DateField } from "@/components/common/DateField";
 
 type Period = "Month" | "Year" | "Custom";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -141,10 +145,10 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
   ]);
 
   const exportMoney = () => downloadCsv(`StoneWood_Sales_${fileTag}.csv`, [
-    ["Date", "Time", "Booking", "Guest", "Type", "Method", "Reference", "Amount (PHP)"],
+    ["Date", "Time", "Booking", "Guest", "Type", "Payment method", "Reference", "Amount (PHP)"],
     ...pays.map((p) => [manilaDate(p.receivedAt), manilaTime(p.receivedAt), p.bookingId ?? "", p.guestName, p.type, p.method, p.reference, signedAmount(p)]),
     [],
-    ["Date", "Category", "Description", "Method", "", "", "", "Amount (PHP)"],
+    ["Date", "Category", "Description", "Payment method", "", "", "", "Amount (PHP)"],
     ...exps.map((e) => [e.spentOn, e.category, e.description, e.method, "", "", "", -e.amount]),
     [],
     ["", "", "", "", "", "", "Money received", collected],
@@ -229,7 +233,7 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
           name: "Payments",
           columns: [
             { header: "Date", key: "d", width: 12 }, { header: "Time", key: "t", width: 9 }, { header: "Booking", key: "b", width: 12 },
-            { header: "Guest", key: "g", width: 22 }, { header: "Type", key: "type", width: 14 }, { header: "Method", key: "m", width: 13 },
+            { header: "Guest", key: "g", width: 22 }, { header: "Type", key: "type", width: 14 }, { header: "Payment method", key: "m", width: 17 },
             { header: "Reference", key: "ref", width: 18 }, { header: "Amount", key: "amt", width: 13, money: true },
           ],
           rows: pays.map((p) => ({
@@ -242,7 +246,7 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
           name: "Expenses",
           columns: [
             { header: "Date", key: "d", width: 12 }, { header: "Category", key: "c", width: 18 }, { header: "Description", key: "desc", width: 36 },
-            { header: "Method", key: "m", width: 13 }, { header: "Amount", key: "amt", width: 13, money: true },
+            { header: "Payment method", key: "m", width: 17 }, { header: "Amount", key: "amt", width: 13, money: true },
           ],
           rows: exps.map((e) => ({ d: e.spentOn, c: e.category, desc: e.description, m: e.method, amt: e.amount })),
           footer: [["Expenses", spent]],
@@ -270,14 +274,25 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
   return (
     <div>
       <AdminPageHeader title={adminTabLabel("Reports")} mob={mob} subtitle={`Summary for ${label}.`}
-        action={<div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <ActionButton icon="download" disabled={exporting} onClick={() => void exportExcel()}>{exporting ? "Preparing…" : "Excel (.xlsx)"}</ActionButton>
-          <ActionButton icon="download" onClick={exportMoney}>Sales CSV</ActionButton>
-          <ActionButton icon="download" onClick={exportBookings}>Bookings CSV</ActionButton>
-          {/* The print view's own "Save as PDF" makes the PDF: the same
-              report, laid out for paper. */}
-          <ActionButton kind="primary" icon="printer" onClick={print} title="Opens the report to print, or to save as a PDF">Print / Save as PDF</ActionButton>
-        </div>} />
+        action={
+          /* One "Export" menu for the four ways out (they were four buttons). */
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <ActionButton kind="primary" icon="download" disabled={exporting} aria-label="Export or print this report">
+                {exporting ? "Preparing…" : "Export"} <Icon name="chevron-down" size={14} />
+              </ActionButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" style={{ minWidth: 230 }}>
+              <DropdownMenuItem onSelect={() => void exportExcel()}><Icon name="download" />Excel (.xlsx)</DropdownMenuItem>
+              <DropdownMenuItem onSelect={exportMoney}><Icon name="download" />Sales CSV</DropdownMenuItem>
+              <DropdownMenuItem onSelect={exportBookings}><Icon name="download" />Bookings CSV</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {/* The print view's own "Save as PDF" makes the PDF: the same
+                  report, laid out for paper. */}
+              <DropdownMenuItem onSelect={print}><Icon name="printer" />Print / Save as PDF</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        } />
 
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
         <div style={{ width: 280 }}>
@@ -285,16 +300,16 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
             { value: "Month", label: "Month" }, { value: "Year", label: "Year" }, { value: "Custom", label: "Custom" },
           ]} />
         </div>
-        {period === "Month" && <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month" style={sel} />}
+        {period === "Month" && <DateField mode="month" value={month} onChange={(v) => v && setMonth(v)} aria-label="Month" style={sel} />}
         {period === "Year" && (
           <FullSelect value={year} onChange={(e) => setYear(e.target.value)} aria-label="Year" style={sel}>
             {years.map((y) => <option key={y}>{y}</option>)}
           </FullSelect>
         )}
         {period === "Custom" && <>
-          <Input type="date" value={cFrom} onChange={(e) => setCFrom(e.target.value)} aria-label="From" style={sel} />
+          <DateField value={cFrom} onChange={setCFrom} max={cTo || undefined} aria-label="From" placeholder="From" style={sel} />
           <span style={{ color: C.textS, fontSize: 13 }}>to</span>
-          <Input type="date" value={cTo} onChange={(e) => setCTo(e.target.value)} aria-label="To" style={sel} />
+          <DateField value={cTo} onChange={setCTo} min={cFrom || undefined} aria-label="To" placeholder="To" style={sel} />
         </>}
       </div>
 
@@ -302,8 +317,8 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
       <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
         <StatCard label="Money received" value={fmt(collected)} note={`${pays.length} payment${pays.length === 1 ? "" : "s"}`} color="#2e9e4e" />
         <StatCard label="Expenses" value={fmt(spent)} note={`${exps.length} expense${exps.length === 1 ? "" : "s"}`} />
-        <StatCard label="Net income" value={fmt(round2(collected - spent))} color={collected - spent < 0 ? "#d44" : gold} />
-        <StatCard label="Still owed" value={fmt(owed)} note="on bookings in this period" color={owed > 0 ? "#d4a800" : undefined} />
+        <StatCard label="Net income" value={fmt(round2(collected - spent))} color={collected - spent < 0 ? "#e5484d" : gold} />
+        <StatCard label="Still owed" value={fmt(owed)} note="on bookings in this period" color={owed > 0 ? "#f5a524" : undefined} />
       </div>
 
       <Panel title={period === "Year" ? `Money received per month (${year})` : "Money received per day"} style={{ marginBottom: 20 }}>

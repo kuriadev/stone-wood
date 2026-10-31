@@ -8,6 +8,7 @@
 // `staffEnabled` is false until the staff migration is applied: the screens
 // then hide the Staff page and requests, and the single sign-in is the Owner.
 
+import { ensureRolePermissions } from "@/lib/rolePermissions.server";
 import { NextResponse, type NextRequest } from "next/server";
 import { sessionOf, currentIdentity } from "@/lib/auth";
 import { staffTableReady } from "@/lib/staff.server";
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
   const session = sessionOf(req);
   if (!session) return NextResponse.json({ success: false, error: "Not authorised." }, { status: 401 });
   try {
-    const who = await currentIdentity(session);
+    const [who] = await Promise.all([currentIdentity(session), ensureRolePermissions()]);
     if (!who) return NextResponse.json({ success: false, error: "Your account is no longer active." }, { status: 401 });
     return NextResponse.json({
       success: true,

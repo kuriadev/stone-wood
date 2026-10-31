@@ -8,8 +8,9 @@
 // it: checkWalkIn validates, prices and checks availability without
 // writing; saveWalkIn writes the booking and the money taken.
 
+import { getPaymentStatus } from "@/lib/paymongo";
 import { getSupabaseAdmin, rowToBooking, bookingToRow, missingNewColumn, withoutNewColumns } from "@/lib/supabase";
-import { isValidEmail, isValidPHNumber, sanitizeName, sanitizeNotes, NAME_MIN, NAME_MAX, OVERTIME_MAX, MAX_STAY_DAYS, isInBookingYear, currentBookingYear } from "@/lib/validators";
+import { isValidEmail, isValidPHNumber, sanitizeName, sanitizeNotes, NAME_MIN, NAME_MAX, OVERTIME_MAX, MAX_STAY_DAYS, isInStaffWindow, staffDateWindow, GUESTS_MAX, OVERRIDE_GUESTS_MAX } from "@/lib/validators";
 import { logActivity } from "@/lib/activity.server";
 import { daysInRange, fmt, fmtDate, getPackageTier } from "@/lib/utils";
 import { priceBooking, pricingProblem, packageAvailed, bookingLabel, packagePriceToday } from "@/lib/pricing";
@@ -66,8 +67,9 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
   const endDate = typeof b.endDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(b.endDate) ? b.endDate : startDate;
   if (endDate < startDate) return bad("The last day of the stay must be on or after the first.");
   // Bookings are taken for the current year only, staff-entered ones too.
-  if (!isInBookingYear(startDate) || !isInBookingYear(endDate)) {
-    return bad(`Bookings can only be made for dates in ${currentBookingYear().year}.`);
+  if (!isInStaffWindow(startDate) || !isInStaffWindow(endDate)) {
+    const w = staffDateWindow();
+    return bad(`Bookings can only be made for dates from ${fmtDate(w.first)} to ${fmtDate(w.last)} (Rates & Settings: months back and months ahead).`);
   }
   const stayDays = daysInRange(startDate, endDate);
   if (stayDays < 1 || stayDays > MAX_STAY_DAYS) return bad(`A booking can run for at most ${MAX_STAY_DAYS} days.`);
@@ -82,6 +84,13 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
   }
   const guests = Number(b.guests);
   if (!Number.isFinite(guests) || guests < 1) return bad("Guest count must be at least 1.");
+  // More than the resort's capacity only when staff said so on purpose.
+  const overCapacity = b.overCapacity === true && Math.round(guests) > GUESTS_MAX;
+  if (Math.round(guests) > (overCapacity ? OVERRIDE_GUESTS_MAX : GUESTS_MAX)) {
+    return bad(overCapacity
+      ? `The most for one booking, even over capacity, is ${OVERRIDE_GUESTS_MAX} guests.`
+      : `That's more than the resort's capacity of ${GUESTS_MAX}. Tick "Allow more than ${GUESTS_MAX} guests" to book it anyway.`);
+  }
 
   // Priced here from the database's own package and room prices, with the
   // same priceBooking the walk-in window and Book Now use, rather than
@@ -123,7 +132,7 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
     resource: resourceIn, tier: tierIn, slot: slotIn, overtime: overtimeIn, rooms: roomIds,
     total, downpayment, status: "Confirmed", paymentProof: true, notes: "", package: "",
   };
-  const fits = await checkFits(candidate, opts.alsoHeld ?? []);
+  const fits = await checkFits(candidate, opts.alsoHeld ?? [], { overCapacity });
   if (!fits.ok) return bad(fits.error, 409);
 
   // The money taken decides the status: any payment makes it a real
@@ -138,6 +147,20 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
   const reference = String(payIn?.reference ?? "").replace(/[<>]/g, "").trim().slice(0, 80);
   if (payIn && payIn.method !== "Cash" && !reference) return bad(`Enter the ${payIn.method} reference number.`);
   const pay = payIn ? { method: payIn.method, amount: payAmount, reference } : null;
+  // Paid by the desk's QR Ph code (reference = the PayMongo payment): only
+  // if PayMongo says it went through, for exactly this amount, and it
+  // hasn't already been used for another booking.
+  if (pay && /^pi_[A-Za-z0-9]+$/.test(pay.reference)) {
+    try {
+      const st = await getPaymentStatus(pay.reference);
+      if (st.status !== "succeeded") return bad("That QR payment hasn't gone through yet.", 409);
+      if (Math.round(st.amountCentavos) !== Math.round(pay.amount * 100)) return bad("The QR payment was for a different amount. Make a new code.", 409);
+    } catch {
+      return bad("Couldn't confirm the QR payment with PayMongo. Try again in a moment.", 502);
+    }
+    const used = await getSupabaseAdmin().from("payments").select("id").eq("reference", pay.reference).limit(1);
+    if (used.data && used.data.length > 0) return bad("That QR payment is already recorded on another booking.", 409);
+  }
   const status = pay ? "Confirmed" : "Pending";
 
   const booking: Booking = {

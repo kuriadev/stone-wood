@@ -104,7 +104,7 @@ export function RecordPaymentModal({
               <button key={b.id} type="button" onClick={() => { setPickedId(b.id); setAmount(""); }}
                 style={{ display: "flex", justifyContent: "space-between", gap: 12, textAlign: "left", padding: "8px 12px", borderRadius: 8, cursor: "pointer", background: pickedId === b.id ? "rgba(201,168,76,0.12)" : "transparent", border: `1px solid ${pickedId === b.id ? "rgba(201,168,76,0.5)" : cBr}`, color: C.textH }}>
                 <span><strong style={{ fontWeight: 600 }}>{b.name}</strong> <span style={{ color: C.textS, fontSize: 12.5 }}>{b.id} · {b.date}</span></span>
-                <span style={{ color: m.due > 0 ? "#d4a800" : C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{m.due > 0 ? `${fmt(m.due)} owed` : "Paid in full"}</span>
+                <span style={{ color: m.due > 0 ? "#f5a524" : C.textS, fontSize: 12.5, whiteSpace: "nowrap" }}>{m.due > 0 ? `${fmt(m.due)} owed` : "Paid in full"}</span>
               </button>
             ))}
             {candidates.length === 0 && <p style={{ color: C.textS, fontSize: 13, margin: 0 }}>No bookings match.</p>}
@@ -117,8 +117,8 @@ export function RecordPaymentModal({
           <div style={{ background: soft, borderRadius: 8, padding: "12px 16px", marginBottom: 16 }}>
             <AmountRow label="Booking total" value={fmt(booking.total)} />
             <AmountRow label="Paid so far" value={fmt(money.paid)} />
-            <AmountRow label="Balance" value={fmt(money.balance)} color={money.balance > 0 ? "#d4a800" : undefined} />
-            {(money.penaltyTotal > 0) && <AmountRow label="Unpaid penalties" value={fmt(money.penaltyDue)} color={money.penaltyDue > 0 ? "#d44" : undefined} />}
+            <AmountRow label="Balance" value={fmt(money.balance)} color={money.balance > 0 ? "#f5a524" : undefined} />
+            {(money.penaltyTotal > 0) && <AmountRow label="Unpaid penalties" value={fmt(money.penaltyDue)} color={money.penaltyDue > 0 ? "#e5484d" : undefined} />}
           </div>
 
           <div style={{ marginBottom: 16 }}>

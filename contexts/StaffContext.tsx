@@ -26,7 +26,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useApp } from "@/contexts/AppContext";
 import { useToast } from "@/contexts/ToastContext";
 import { ROLE_LABEL } from "@/lib/permissions";
-import { can as roleCan, canRequest as roleCanRequest, type Permission, type StaffRole } from "@/lib/permissions";
+import { can as roleCan, canRequest as roleCanRequest, applyRoleOverrides, type Permission, type StaffRole } from "@/lib/permissions";
 
 export interface Me {
   id: string | null;
@@ -76,6 +76,10 @@ export function StaffProvider({ children }: { children: ReactNode }) {
       const before = meRef.current;
       if (json?.success && json.staff) {
         const now = json.staff as Me;
+        // What the super admin lets this role do (Roles & permissions).
+        if (now.role === "FrontDesk" || now.role === "Caretaker") {
+          applyRoleOverrides({ [now.role]: { grants: json.permissions ?? [], requests: json.requestable ?? [] } });
+        }
         // Someone else signed in on this browser (another tab): this tab now
         // acts as them, so say so plainly and show their screens.
         if (before && before !== OWNER_FALLBACK && (before.id !== now.id || before.role !== now.role)) {

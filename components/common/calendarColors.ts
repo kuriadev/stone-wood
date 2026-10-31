@@ -19,7 +19,8 @@ export const CAL = {
   closed: { bg: "#b3261e", ink: "#ffffff", rim: "#d04437" },
   selected: { bg: "#c9a84c", ink: "#1a1000", rim: "#e8c97a" },
   // The admin calendar's own states.
-  pending: { bg: "#f5c518", ink: "#2b2200", rim: "#ffd84a" },
+  // Amber: waiting for approval (components/admin/signals.ts).
+  pending: { bg: "#f5a524", ink: "#2b1a00", rim: "#ffbf4d" },
   completed: { bg: "#5f6368", ink: "#ffffff", rim: "#7a7f85" },
 } as const;
 

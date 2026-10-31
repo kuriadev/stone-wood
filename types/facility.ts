@@ -50,4 +50,7 @@ export interface PublicAmenity {
   /** Set Under Maintenance in Facility Management. The only part of the
    *  status a guest sees: "In Use" or "Needs Cleaning" is staff business. */
   underMaintenance: boolean;
+  /** The photo staff set in Facility Management, or null for the stock one
+   *  (lib/facilityPhotos.ts). */
+  photo?: string | null;
 }

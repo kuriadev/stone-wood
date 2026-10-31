@@ -230,14 +230,14 @@ export function HomeCardsEditor({ mob }: { mob: boolean }) {
           {saving ? "SAVING…" : "SAVE CARDS"}
         </button>
         {dirty && (
-          <button type="button" onClick={() => { setDirty(false); setDrafts(live.map(toDraft)); }}
-            style={{ background: "none", border: "none", color: C.textS, cursor: "pointer", fontSize: 13, textDecoration: "underline", textUnderlineOffset: 3 }}>
+          <button className="sw-ulink" type="button" onClick={() => { setDirty(false); setDrafts(live.map(toDraft)); }}
+            style={{ background: "none", border: "none", color: C.textS, cursor: "pointer", fontSize: 13 }}>
             Discard changes
           </button>
         )}
         {custom && (
-          <button type="button" onClick={() => setConfirm({ kind: "reset" })} disabled={saving}
-            style={{ marginLeft: "auto", background: "none", border: "none", color: C.textS, cursor: "pointer", fontSize: 13, textDecoration: "underline", textUnderlineOffset: 3 }}>
+          <button className="sw-ulink" type="button" onClick={() => setConfirm({ kind: "reset" })} disabled={saving}
+            style={{ marginLeft: "auto", background: "none", border: "none", color: C.textS, cursor: "pointer", fontSize: 13 }}>
             Reset to automatic
           </button>
         )}

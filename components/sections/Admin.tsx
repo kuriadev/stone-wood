@@ -1,6 +1,8 @@
 "use client";
 
-import { ActionButton, ConfirmDialog } from "@/components/admin/ui";
+import { findRef } from "@/lib/bookingRef";
+import { HeroMediaEditor } from "@/components/admin/HeroMediaEditor";
+import { ActionButton, ConfirmDialog, FilterSelect } from "@/components/admin/ui";
 import { statusLabel, bookingStatusLabel, ADMIN_NAV_GROUPS, ADMIN_TAB_LABEL } from "@/lib/labels";
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -30,11 +32,12 @@ import { draftReply } from "@/lib/autoReply";
 import { MonthStatusColumn } from "@/components/admin/MonthStatusColumn";
 import { manilaTime } from "@/lib/finance";
 import { ProfileMenu } from "@/components/admin/ProfileMenu";
+import { NotificationBell, type NoteTarget } from "@/components/admin/NotificationBell";
 import { attentionTally } from "@/lib/operations";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { useOps } from "@/contexts/OpsContext";
 import { useStaff } from "@/contexts/StaffContext";
-import { canOpenTab, landingTab } from "@/lib/permissions";
+import { canOpenTab, landingTab, ROLE_LABEL } from "@/lib/permissions";
 import { StaffTab } from "@/components/admin/StaffTab";
 import { TasksTab } from "@/components/admin/TasksTab";
 import { SettingsTab } from "@/components/admin/SettingsTab";
@@ -67,7 +70,7 @@ import { compressImage } from "@/lib/image";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { priceBooking, bookingLabel } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
-import { sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail, RESORT_MAX_CAPACITY, OVERTIME_MAX, OVERTIME_RATE, GALLERY_MAX, currentBookingYear } from "@/lib/validators";
+import { sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail, RESORT_MAX_CAPACITY, OVERTIME_MAX, OVERTIME_RATE, GALLERY_MAX, staffDateWindow } from "@/lib/validators";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 import type { Room } from "@/types/room";
 import type { AdminTab, CustomerMessage } from "@/types/admin";
@@ -145,6 +148,21 @@ export function Admin({
   // A temporary password from the owner: choose your own before anything else.
   const mustChangePassword = !!staff.me?.mustChangePassword;
   const [sideOpen, setSideOpen] = useState(false);
+  /* Sidebar sections folded by this person, remembered on this device. */
+  const [foldedGroups, setFoldedGroups] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("sw_side_folded") ?? "[]") as string[];
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from storage after mount
+      if (Array.isArray(saved)) setFoldedGroups(new Set(saved));
+    } catch { /* nothing saved, or private mode */ }
+  }, []);
+  const toggleGroup = (label: string) => setFoldedGroups((prev) => {
+    const next = new Set(prev);
+    if (next.has(label)) next.delete(label); else next.add(label);
+    try { localStorage.setItem("sw_side_folded", JSON.stringify([...next])); } catch { /* still folds this visit */ }
+    return next;
+  });
 
   const [showModal, setShowModal] = useState(false);
   const [editRoom, setEditRoom] = useState<Room | null>(null);
@@ -364,8 +382,8 @@ export function Admin({
   /* One place for the status colours the legend promises. */
   const statusTone = (st: string | null | undefined) =>
     st === "Confirmed" ? "#4caf50"
-      : st === "Pending" ? "#f5c518"
-      : st === "Completed" ? "#4a9fd4"
+      : st === "Pending" ? "#f5a524"
+      : st === "Completed" ? "#3e8ed0"
       : st === "Closed" ? "#e07070"
       : C.textS;
 
@@ -546,6 +564,8 @@ export function Admin({
      to open the right record, so the owner does not have to copy a reference
      between two tabs. */
   const [focusBookingId, setFocusBookingId] = useState<string | null>(null);
+  /** A notification's booking, to show lit in All Bookings' list. */
+  const [spotBookingId, setSpotBookingId] = useState<string | null>(null);
   /* Reply from the dashboard rail: switch to Guest Messages and open the
      reply window on that message. The composer (templates, the send to
      /api/customer-reply) lives there and stays the only one. */
@@ -556,7 +576,7 @@ export function Admin({
     setReplyMessage("");
   };
   const bookingForMessage = (msg: { message: string; email: string }): Booking | null => {
-    const ref = msg.message.match(/\bSW-\d{4,}\b/i)?.[0]?.toUpperCase();
+    const ref = findRef(msg.message) ?? undefined;
     if (ref) {
       const byRef = bookings.find((b) => b.id.toUpperCase() === ref);
       if (byRef) return byRef;
@@ -571,6 +591,15 @@ export function Admin({
     return theirs[0] ?? null;
   };
   const openBooking = (id: string) => { setFocusBookingId(id); goTab("Bookings"); };
+  /* A tapped notification: its booking's window in All Bookings, the
+     Dashboard on the right view searched to that booking, or just the
+     screen it belongs to. */
+  const [opsFocus, setOpsFocus] = useState<{ bookingId: string; view: "today" | "upcoming" | "reschedule"; key: number } | null>(null);
+  const openNote = ({ tab: to, bookingId, opsView }: NoteTarget) => {
+    if (to === "Bookings" && bookingId) { setSpotBookingId(bookingId); goTab("Bookings"); return; }
+    if (to === "Operations" && bookingId && opsView) setOpsFocus({ bookingId, view: opsView, key: Date.now() });
+    goTab(to);
+  };
 
   const adminBg = isDark ? "#080706" : "#f2ede6";
   const sideBg = isDark ? "var(--sw-bg)" : "#ffffff";
@@ -594,33 +623,21 @@ export function Admin({
                 {/* What the message is about. Counts come from the list being
                     shown, so switching to the archive recounts rather than
                     advertising inbox numbers against archived messages. */}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-                  {(["All", ...CS_TYPES] as string[]).map((key) => {
-                    const n = key === "All"
-                      ? csBase.length
-                      : csBase.filter((m) => (m.type ?? "Other") === key).length;
-                    if (key !== "All" && key !== csType && n === 0 && !CS_ALWAYS.includes(key)) return null;
-                    const on = csType === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        aria-pressed={on}
-                        onClick={() => setCsType(key)}
-                        style={{
-                          minHeight: 36, padding: "0 14px", borderRadius: 999, cursor: "pointer",
-                          border: `1px solid ${on ? gold + "66" : cBr}`,
-                          background: on ? `${gold}1c` : "transparent",
-                          color: on ? C.goldInk : C.textS,
-                          fontSize: 12.5, fontWeight: on ? 600 : 400,
-                          display: "inline-flex", alignItems: "center", gap: 6,
-                        }}
-                      >
-                        {key === "All" ? "All" : CS_LABELS[key] ?? key}
-                        <span style={{ color: on ? C.goldInk : C.textXS, fontSize: 11.5 }}>{n}</span>
-                      </button>
-                    );
-                  })}
+                {/* One dropdown (it was a row of pills). The always-shown four
+                    stay listed at zero; the rest appear once something lands. */}
+                <div style={{ marginBottom: 16 }}>
+                  <FilterSelect<string>
+                    label="Type"
+                    value={csType}
+                    onChange={setCsType}
+                    options={(["All", ...CS_TYPES] as string[])
+                      .map((key) => ({
+                        value: key,
+                        label: key === "All" ? "All types" : CS_LABELS[key] ?? key,
+                        count: key === "All" ? csBase.length : csBase.filter((m) => (m.type ?? "Other") === key).length,
+                      }))
+                      .filter((o) => o.value === "All" || o.value === csType || (o.count ?? 0) > 0 || CS_ALWAYS.includes(o.value))}
+                  />
                 </div>
 
                 {csList.length === 0 ? (
@@ -844,7 +861,11 @@ export function Admin({
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: gold }} />
             <span style={{ color: isDark ? "#e0e0e0" : "#111", fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 16, letterSpacing: 2 }}>STONEWOOD</span>
           </div>
-          <button onClick={() => setSideOpen((o) => !o)} style={{ background: "none", border: `1px solid ${cBr}`, color: isDark ? "#888" : "#666", cursor: "pointer", padding: "8px 12px", borderRadius: 3, fontSize: 14.5 }}>{<Icon name={sideOpen ? "x" : "menu"} size={16} />}</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* The notification bell: what this person should know, in one tap. */}
+            <NotificationBell size={38} onOpen={openNote} />
+            <button onClick={() => setSideOpen((o) => !o)} aria-label={sideOpen ? "Close menu" : "Open menu"} style={{ background: "none", border: `1px solid ${cBr}`, color: isDark ? "#888" : "#666", cursor: "pointer", padding: "8px 12px", borderRadius: 3, fontSize: 14.5 }}>{<Icon name={sideOpen ? "x" : "menu"} size={16} />}</button>
+          </div>
         </div>
       )}
 
@@ -853,47 +874,88 @@ export function Admin({
         {(!mob || sideOpen) && (
           <div style={{ width: mob ? "100%" : 220, background: sideBg, borderRight: mob ? "none" : `1px solid ${sideBorder}`, flexShrink: 0, display: "flex", flexDirection: "column", position: mob ? "fixed" : "relative", inset: mob ? "56px 0 0 0" : "auto", zIndex: mob ? 80 : 1, overflow: "hidden", boxShadow: isDark ? "none" : "2px 0 16px rgba(80,55,20,0.06)" }}>
             {!mob && (
-              <div style={{ padding: "32px 24px 24px", borderBottom: `1px solid ${sideBorder}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: gold, flexShrink: 0 }} />
-                  <span style={{ color: isDark ? "#e0e0e0" : "#111", fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 17, letterSpacing: 2 }}>STONEWOOD</span>
+              <div data-sidebar-head="" style={{ padding: "30px 14px 22px 20px", borderBottom: `1px solid ${sideBorder}`, display: "flex", alignItems: "center" }}>
+                {/* Wordmark and bell share 220px. The bell keeps 12px clear
+                    of the wordmark so its count badge (which sits off its
+                    top-left corner) never lands on the text; the wordmark is
+                    a touch smaller than it was to make that room. */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: gold, flexShrink: 0 }} />
+                    <span data-wordmark="" style={{ color: isDark ? "#e0e0e0" : "#111", fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 16, letterSpacing: 1.6, whiteSpace: "nowrap" }}>STONEWOOD</span>
+                  </div>
+                  {/* Which kind of account is signed in: SUPER ADMIN, FRONT DESK or
+                      CARETAKER, so a shared phone or desk shows at a glance. */}
+                  <div style={{ color: isDark ? "#888888" : "#6c6c6c", fontSize: 10, letterSpacing: 2.6, marginLeft: 16, whiteSpace: "nowrap" }}>{ROLE_LABEL[role].toUpperCase()}</div>
                 </div>
-                <div style={{ color: isDark ? "#888888" : "#6c6c6c", fontSize: 10.5, letterSpacing: 3, marginLeft: 16 }}>ADMIN PANEL</div>
+                {/* The notification bell: what this person should know, in one tap. */}
+                <div style={{ marginLeft: 12, flexShrink: 0 }}>
+                  <NotificationBell size={36} onOpen={openNote} />
+                </div>
               </div>
             )}
             <div className="sw-noscrollbar" style={{ padding: "8px 0", flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
               {SIDEBAR_GROUPS.map((group, gi) => (
                 <div key={group.label}>
 
-                  {/* Section label + horizontal rule */}
-                  <div style={{
-                    padding: gi === 0 ? "16px 24px 8px" : "20px 24px 8px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                  }}>
-                  <span style={{
-                    color: isDark ? "#a68154" : "#896630",
-                    fontSize: 10.5,
-                    letterSpacing: 3.5,
-                    fontWeight: 600,
-                    whiteSpace: "nowrap",
-                    textTransform: "uppercase" as const,
-                    fontFamily: "'Satoshi',system-ui,sans-serif",
-                  }}>
-                    {group.label}
-                  </span>
+                  {/* Section label + rule: a button that folds the section.
+                      Folded, it still says when something inside matters: a
+                      gold dot for the page you're on, red for work waiting. */}
+                  {(() => {
+                    const isFolded = foldedGroups.has(group.label);
+                    const hasCurrent = group.tabs.includes(tab);
+                    const needsYou = group.tabs.some((t) => (t === "Operations" && attentionCount > 0) || (t === "Customer Service" && inboxMessages.length > 0));
+                    const panelId = `side-group-${gi}`;
+                    return (
+                      <button
+                        type="button"
+                        className="sw-side-group"
+                        aria-expanded={!isFolded}
+                        aria-controls={panelId}
+                        onClick={() => toggleGroup(group.label)}
+                        title={isFolded ? `Show ${group.label.toLowerCase()}` : `Fold ${group.label.toLowerCase()}`}
+                        style={{
+                          margin: gi === 0 ? "8px 10px 2px" : "12px 10px 2px",
+                          padding: "8px 14px",
+                          width: "calc(100% - 20px)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          background: "transparent",
+                          border: "none",
+                          borderRadius: 8,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          color: isDark ? "#a68154" : "#896630",
+                        }}
+                      >
+                        <span className="sw-side-group__label" style={{
+                          fontSize: 10.5,
+                          letterSpacing: 3.5,
+                          fontWeight: 600,
+                          whiteSpace: "nowrap",
+                          textTransform: "uppercase" as const,
+                          fontFamily: "'Satoshi',system-ui,sans-serif",
+                        }}>
+                          {group.label}
+                        </span>
+                        {isFolded && (hasCurrent || needsYou) && (
+                          <span aria-label={needsYou ? "needs attention" : "current page"} style={{ width: 6, height: 6, borderRadius: "50%", background: needsYou ? "#e5484d" : gold, flexShrink: 0 }} />
+                        )}
+                        <span aria-hidden="true" style={{
+                          flex: 1,
+                          height: 1,
+                          background: isDark ? "rgba(176,141,87,0.18)" : "rgba(176,141,87,0.25)",
+                        }} />
+                        <Icon name="chevron-down" size={13} className="sw-side-group__chev" style={{ flexShrink: 0, transition: "transform .25s ease", transform: isFolded ? "rotate(-90deg)" : "none" }} />
+                      </button>
+                    );
+                  })()}
 
-                  <div style={{
-                    flex: 1,
-                    height: 1,
-                    background: isDark
-                      ? "rgba(176,141,87,0.18)"
-                      : "rgba(176,141,87,0.25)",
-                  }} />
-                  </div>
-
-                  {/* Nav items for this group */}
+                  {/* Nav items for this group: fold by animating grid rows,
+                      and out of the tab order while folded. */}
+                  <div id={`side-group-${gi}`} style={{ display: "grid", gridTemplateRows: foldedGroups.has(group.label) ? "0fr" : "1fr", transition: "grid-template-rows .28s ease" }}>
+                  <div style={{ overflow: "hidden", minHeight: 0 }} inert={foldedGroups.has(group.label)}>
                   {group.tabs.map((t) => (
                     <div
                       key={t}
@@ -949,7 +1011,7 @@ export function Admin({
                           style={{
                             /* Red when something is overdue or money is owed,
                                gold when it can wait. */
-                            background: attention.urgent > 0 || pendingRequests > 0 ? "#e55" : gold,
+                            background: attention.urgent > 0 || pendingRequests > 0 ? "#e5484d" : gold,
                             color: attention.urgent > 0 || pendingRequests > 0 ? "#fff" : "#000",
                             fontSize: 10.5, fontWeight: 700,
                             borderRadius: 20, padding: "4px 7px", letterSpacing: 0,
@@ -959,18 +1021,17 @@ export function Admin({
                           }}
                         >
                           <Icon name="alert" size={11} strokeWidth={2} />
-                          {/* Capped at one character so the badge's width is
-                              the same at 9 as at 90 and the label beside it
-                              never has to give way. The real figure is on the
-                              aria-label above, and on the board itself. */}
-                          {attentionCount > 9 ? "9+" : attentionCount}
+                          {/* Capped at 99+, like the notification bell. The
+                              real figure is on the aria-label above, and on
+                              the board itself. */}
+                          {attentionCount > 99 ? "99+" : attentionCount}
                         </Badge>
                       )}
 
                       {/* Facilities badge */}
                       {t === "Facilities" && facilities.filter(f => f.status === "Needs Cleaning").length > 0 && (
                         <Badge variant="outline" style={{
-                          background: "#e0a020", color: "#000",
+                          background: "#f5a524", color: "#000",
                           fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "4px 8px", letterSpacing: 0,
                           flexShrink: 0, alignSelf: "flex-start", marginLeft: "auto",
@@ -984,7 +1045,7 @@ export function Admin({
                           badge that kept counting it would never clear. */}
                       {t === "Customer Service" && inboxMessages.length > 0 && (
                         <Badge variant="outline" style={{
-                          background: "#4a9fd4", color: "#fff",
+                          background: "#3e8ed0", color: "#fff",
                           fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "4px 8px", letterSpacing: 0,
                           flexShrink: 0, alignSelf: "flex-start", marginLeft: "auto",
@@ -994,6 +1055,8 @@ export function Admin({
                       )}
                     </div>
                   ))}
+                  </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1026,7 +1089,7 @@ export function Admin({
               background: "rgba(212,168,0,0.10)", border: "1px solid rgba(212,168,0,0.35)",
               color: C.textB, fontSize: 13.5,
             }}>
-              <Icon name="clock" size={16} style={{ color: "#d4a800", flexShrink: 0 }} />
+              <Icon name="clock" size={16} style={{ color: "#f5a524", flexShrink: 0 }} />
               <span style={{ flex: 1, minWidth: 0 }}>
                 You&rsquo;ve been inactive for nearly {idle.minutes} minutes and will be signed out shortly.
               </span>
@@ -1042,13 +1105,15 @@ export function Admin({
               onArchiveMessage={archiveMessage}
               onRestoreMessage={restoreMessage}
               onReplyMessage={replyFromDashboard}
-              bookingForMessage={bookingForMessage} />
+              bookingForMessage={bookingForMessage}
+              focus={opsFocus} />
           )}
 
           {/* BOOKINGS (online and walk-in) */}
           {tab === "Bookings" && (
             <BookingsTab bookings={bookings} setBookings={setBookings} updateStatus={updateStatus} mob={mob} rooms={rooms} packages={packages} facilities={facilities}
-              focusId={focusBookingId} onFocusHandled={() => setFocusBookingId(null)} />
+              focusId={focusBookingId} onFocusHandled={() => setFocusBookingId(null)}
+              spotId={spotBookingId} onSpotHandled={() => setSpotBookingId(null)} />
           )}
 
           {/* OCCUPANCY */}
@@ -1081,13 +1146,15 @@ export function Admin({
                 );
               })()}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                {/* The calendar covers the current year only, January to
-                    December: that is the only year anything can be booked
-                    or closed in. */}
+                {/* The same months as the guest's calendar: a few back (to
+                    look up what happened) and as far ahead as anything can
+                    be booked or closed (Rates & Settings). */}
                 {(() => {
-                  const yr = currentBookingYear().year;
-                  const canPrev = calMonth.getFullYear() > yr || calMonth.getMonth() > 0;
-                  const canNext = calMonth.getFullYear() < yr || calMonth.getMonth() < 11;
+                  const w = staffDateWindow();
+                  const monthKey = (d: Date) => d.getFullYear() * 12 + d.getMonth();
+                  const at = monthKey(calMonth);
+                  const canPrev = at > monthKey(new Date(`${w.first}T00:00:00`));
+                  const canNext = at < monthKey(new Date(`${w.last}T00:00:00`));
                   const navBtn = (on: boolean) => ({ background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: on ? "pointer" : "not-allowed", opacity: on ? 1 : 0.35, borderRadius: 4, padding: "8px 16px", fontSize: 14.5 });
                   return (
                     <>
@@ -1272,6 +1339,8 @@ export function Admin({
                   <button className="sw-btn" onClick={() => galleryFileRef.current?.click()} style={{ ...goldBtn, padding: "12px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD PHOTOS</button>
                 </div>
               </div>
+
+              <HeroMediaEditor mob={mob} />
 
               {galleryImgs.length === 0 ? (
                 <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "40px 24px", textAlign: "center" }}>

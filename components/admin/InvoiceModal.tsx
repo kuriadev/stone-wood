@@ -45,7 +45,7 @@ export function InvoiceModal({ booking, onClose }: { booking: Booking; onClose: 
     <>
       <Modal title={`Invoice ${booking.id}`} subtitle={`${booking.name} · ${fmtDate(booking.date)}`} onClose={onClose} width={720}
         footer={<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          {m.due > 0 ? <StatusBadge color="#d4a800">{fmt(m.due)} due</StatusBadge> : <StatusBadge color="#2e9e4e">Paid in full</StatusBadge>}
+          {m.due > 0 ? <StatusBadge color="#f5a524">{fmt(m.due)} due</StatusBadge> : <StatusBadge color="#2e9e4e">Paid in full</StatusBadge>}
           <ActionButton kind="primary" icon="printer" onClick={() => window.print()}>Print invoice</ActionButton>
         </div>}>
         <Head b={booking} />

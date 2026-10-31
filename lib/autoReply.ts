@@ -23,19 +23,17 @@
 // that booking when it can be found. The type decides the middle; the
 // context decides the rest.
 
+import { findRef } from "@/lib/bookingRef";
 import type { Booking } from "@/types/booking";
 import type { CustomerMessage } from "@/types/admin";
 import { RESORT_CONTACT } from "@/lib/resort";
 import { stayLabel, getBookingSlot } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
 
-/** A booking reference as guests write it: SW-10141, sw10141, "SW 10141". */
-const REF = /\bSW[\s-]?(\d{4,6})\b/i;
-
-/** The reference a message quotes, normalised to SW-NNNNN. Null if none. */
+/** The reference a message quotes (DT-, NT-, SC- or an older SW-),
+ *  written the standard way. Null if none. lib/bookingRef.ts. */
 export function referenceIn(text: string): string | null {
-  const m = REF.exec(text ?? "");
-  return m ? `SW-${m[1]}` : null;
+  return findRef(text);
 }
 
 /** The booking a message is about: the one it quotes by reference, else the

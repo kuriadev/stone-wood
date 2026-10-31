@@ -6,7 +6,7 @@
   import { useToast } from "@/contexts/ToastContext";
   import { T } from "@/lib/theme";
   import { gold, goldBtn, outBtn } from "@/lib/styles";
-  import { fmt, fmtTimer, fmtDate, getPackageTier, checkBookingAvailability, checkRangeAvailability, datesBetween, daysInRange, getSharedPoolUsage, isRoomOpen, isPoolOpen, isVenueOpen, roomsTakenInRange, stayLabel } from "@/lib/utils";
+  import { fmt, fmtTimer, fmtDate, getPackageTier, checkBookingAvailability, checkRangeAvailability, datesBetween, daysInRange, getSharedPoolUsage, isRoomOpen, isPoolOpen, isVenueOpen, roomsTakenInRange, stayLabel, SLOT_ICON } from "@/lib/utils";
   import { roomShots } from "@/lib/gallery";
   import { EventPackages } from "@/components/booking/EventPackages";
   import type { ResortPackage } from "@/types/package";
@@ -15,11 +15,14 @@
   import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
   import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
   import { SLOTS, QUIET_HOURS_POLICY, TURNOVER_WINDOW, stayPatternNote, stayUnit, allowsMultiDay, MULTI_DAY_SLOT, slotStartedProblem } from "@/lib/resort";
+  import { checkoutPolicy } from "@/lib/policies";
   import { SuccessCheck } from "@/components/common/SuccessCheck";
   import { stayWindowLabel } from "@/lib/occupancy";
   import type { Room } from "@/types/room";
   import type { Facility } from "@/types/facility";
   import { Icon, type IconName } from "@/components/common/Icon";
+  import { RoomCartDock } from "@/components/common/RoomCartDock";
+  import { useRoomCart, roomCart } from "@/hooks/useRoomCart";
   import { GuestInput, useHoldStep } from "@/components/common/GuestCount";
   import {
     isValidEmail,
@@ -43,6 +46,7 @@
     EXCLUSIVE_DEFAULT_GUESTS,
     EVENT_VENUE_RATE,
     SHARED_PER_HEAD_RATE,
+    sharedRateFor,
   } from "@/lib/validators";
   import {
     AlertDialog,
@@ -184,7 +188,9 @@
     // exclusively?" without forcing a choice on everyone.
     const [resource, setResource] = useState<BookingResource>(initialResource ?? "Pool");
     const [tierChoice, setTierChoice] = useState<BookingTier | null>(initialTier ?? null);
-    const [selRooms, setSelRooms] = useState<number[]>(preselectedRoom ? [preselectedRoom] : []);
+    // A ?room= link wins; otherwise the rooms added with "Add to booking".
+    const [selRooms, setSelRooms] = useState<number[]>(() => (preselectedRoom ? [preselectedRoom] : roomCart.get()));
+    const addedRooms = useRoomCart();
     const [form, setFormState] = useState({ name: "", email: "", contact: "", notes: "" });
     const [bookingId, setBookingId] = useState("");
     // Paid online bookings are confirmed at once; only one the server
@@ -366,6 +372,28 @@
     // Rooms are rented per slot, so only a clash in the same slot counts.
     const takenRooms = date ? roomsTakenInRange(date, lastDay, slot, bookings) : new Set<number>();
     const showRoomPicker = (!isPackage && resource !== "Venue") || (isPackage && requiresRoom);
+
+    // ── The rooms added with "Add to booking", kept in step with the booking ──
+    // A ?room= link joins the list too, so it shows on the card like any other.
+    useEffect(() => {
+      if (preselectedRoom) roomCart.add(preselectedRoom);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    // Before the room step the list leads: removing a room from the card
+    // takes it off the booking. A package takes one room or none.
+    useEffect(() => {
+      if (step !== 3) return;
+      const wanted = isPackage ? (requiresRoom ? addedRooms.slice(0, 1) : []) : addedRooms;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the added rooms decide the pick until the room step
+      setSelRooms((cur) => (cur.length === wanted.length && cur.every((id, i) => id === wanted[i]) ? cur : wanted));
+    }, [step, addedRooms, isPackage, requiresRoom]);
+    // From the room step on, the pick leads (a venue-only booking has no
+    // rooms but leaves the list alone, so going back to the pool keeps it),
+    // and a finished booking empties it.
+    useEffect(() => {
+      if (step === 7) { roomCart.clear(); return; }
+      if (step >= 4 && showRoomPicker) roomCart.set(selRooms);
+    }, [step, selRooms, showRoomPicker]);
     const selectedRoomDetails = selRooms.map((rid) => rooms.find((r) => r.id === rid)).filter((r): r is Room => !!r);
     // Same function the server uses to set the QR amount (lib/pricing), so
     // what's shown here is what gets charged. Named fields are unpacked
@@ -459,8 +487,8 @@
           ...(poolFee > 0
             ? [{
                 label: tier === "Exclusive"
-                  ? `Exclusive pool${perSlot}`
-                  : `Shared pool (${guests} × ${fmt(SHARED_PER_HEAD_RATE)}${perSlot})`,
+                  ? `Exclusive pool${stayDays > 1 ? ` × ${stayDays} days` : ""}`
+                  : `Shared pool (${guests} × ${fmt(sharedRateFor(slot))}${stayDays > 1 ? ` × ${stayDays} days` : ""})`,
                 amount: poolFee,
               }]
             : []),
@@ -802,6 +830,16 @@
 
     return (
       <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "32px 16px" : "80px 24px" }}>
+        {/* The rooms added from the Rooms page, in full, until the room step
+            (where they are already picked and on screen). */}
+        {step === 3 && addedRooms.length > 0 && (
+          <RoomCartDock
+            variant="full"
+            note={showRoomPicker
+              ? "Already picked for you at the Room step."
+              : "Not with Events Venue only. Choose Resort & pool to keep it."}
+          />
+        )}
         <div style={{ maxWidth: 1080, margin: "0 auto" }}>
           <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 12.5, marginBottom: 8, textAlign: "center" }}>RESERVATIONS</p>
           <h2 style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 30 : 46, color: C.textH, textAlign: "center", marginBottom: 12, fontWeight: 400, lineHeight: 1.1 }}>Create Your Stay</h2>
@@ -923,6 +961,7 @@
                         type="button"
                         role="tab"
                         aria-selected={bookView === id}
+                        className="sw-choice"
                         onClick={() => setBookView(id)}
                         style={{ minHeight: 40, padding: "0 18px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 700, letterSpacing: 0.4, background: bookView === id ? `${gold}26` : "transparent", color: bookView === id ? C.goldInk : C.textS }}
                       >
@@ -1012,10 +1051,10 @@
                     {!isPackage && !allowsMultiDay(slot) && resource !== "Venue" && (
                       <p style={{ color: C.textS, fontSize: 13, lineHeight: 1.6, margin: "16px 0 0" }}>
                         Staying more than one day?{" "}
-                        <button
+                        <button className="sw-ulink"
                           type="button"
                           onClick={() => { setSlot(MULTI_DAY_SLOT); setTierChoice(null); }}
-                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: C.goldInk, fontSize: 13, textDecoration: "underline", textUnderlineOffset: 3 }}
+                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: C.goldInk, fontSize: 13 }}
                         >
                           Choose {SLOTS[MULTI_DAY_SLOT].label}
                         </button>
@@ -1149,8 +1188,10 @@
                                   // it would book days this slot cannot cover.
                                   if (!allowsMultiDay(id)) setEndDate("");
                                 }}
+                                className="sw-choice"
                                 style={{ ...tileStyle(on), padding: "10px 6px", textAlign: "center", minHeight: 44, ...(off ? { opacity: 0.45, cursor: "not-allowed" } : null) }}
                               >
+                                <Icon name={SLOT_ICON[id]} size={18} style={{ display: "block", margin: "0 auto 4px", color: on ? goldSmall : C.textS }} />
                                 <span style={{ display: "block", color: on ? C.textH : C.textB, fontSize: 13.5, fontWeight: on ? 700 : 500 }}>{SLOTS[id].label}</span>
                                 <span style={{ display: "block", color: on ? goldSmall : C.textS, fontSize: 11, marginTop: 2, lineHeight: 1.35 }}>{SLOTS[id].hours}</span>
                                 <span style={{ display: "block", color: C.textS, fontSize: 10.5, marginTop: 4 }}>
@@ -1198,6 +1239,7 @@
                                 // A venue-only booking takes no rooms; drop any
                                 // picked earlier so they are neither priced nor sent.
                                 onClick={() => { setResource(opt.id); if (opt.id === "Venue") setSelRooms([]); }}
+                                className="sw-choice"
                                 style={{ ...tileStyle(on), padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, ...(closed || notStay ? { opacity: 0.5, cursor: "not-allowed" } : null) }}
                               >
                                 <span style={{ color: on ? C.textH : C.textB, fontSize: 13.5, fontWeight: on ? 700 : 500 }}>{opt.title}</span>
@@ -1377,7 +1419,7 @@
                             {/* What a guest actually pays for this slot rather
                                 than the rate it is built from. A Staycation is
                                 Exclusive only, so it has no Shared price. */}
-                            {!tierFixed && <>Shared {fmt(SHARED_PER_HEAD_RATE * SLOTS[slot].span)} / guest · </>}Exclusive{" "}
+                            {!tierFixed && <>Shared {fmt(sharedRateFor(slot))} / guest · </>}Exclusive{" "}
                             {fmt(priceBooking({ resource: "Pool", tier: "Exclusive", slot, guests: 1, overtime: 0, roomPrices: [] }).total)}
                             {resource === "Pool+Venue" && <> · plus the events venue, {fmt(EVENT_VENUE_RATE)} per tour</>}
                           </>
@@ -1428,6 +1470,7 @@
                       type="button"
                       aria-pressed={selRooms.length === 0}
                       onClick={() => selRooms.forEach((id) => toggleRoom(id))}
+                      className="sw-choice"
                       style={{ ...tileStyle(selRooms.length === 0), display: "flex", alignItems: "center", gap: 16, padding: "16px 20px" }}
                     >
                       {pickCircle(selRooms.length === 0)}
@@ -1462,6 +1505,7 @@
                          overflow somewhere else. */
                       <div
                         key={r.id}
+                        className="sw-choice"
                         style={{ ...tileStyle(sel), opacity: taken && !sel ? 0.45 : 1, cursor: "default", padding: "16px 20px", display: "flex", flexDirection: mob ? "column" : "row", alignItems: mob ? "stretch" : "center", gap: mob ? 12 : 16 }}
                       >
                         <button
@@ -1676,7 +1720,7 @@
                       ] as const).map((o) => {
                         const on = payFull === o.full;
                         return (
-                          <button key={o.title} type="button" role="radio" aria-checked={on} onClick={() => setPayFull(o.full)}
+                          <button key={o.title} type="button" role="radio" aria-checked={on} className="sw-choice" onClick={() => setPayFull(o.full)}
                             style={{ textAlign: "left", padding: "12px 16px", borderRadius: 10, cursor: "pointer", background: on ? "rgba(201,168,76,0.12)" : "transparent", border: `1px solid ${on ? gold : C.border}`, display: "flex", gap: 12, alignItems: "flex-start" }}>
                             <span aria-hidden="true" style={{ width: 16, height: 16, borderRadius: "50%", border: `1.5px solid ${on ? gold : C.textS}`, marginTop: 4, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                               {on && <span style={{ width: 8, height: 8, borderRadius: "50%", background: gold }} />}
@@ -2133,18 +2177,13 @@
               </DialogDescription>
             </DialogHeader>
 
-            {/* Four policies, each a heading and a plain sentence. The old
+            {/* The policies (lib/policies.ts), each a heading and a plain sentence. The old
                 version leaned on emoji to carry meaning, which a screen
                 reader announces as decoration and which carried no meaning
                 for anyone who could not place the pictogram. */}
             <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : "24px 24px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
               <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2" style={{ margin: 0 }}>
-                {[
-                  ["Cancellations", "If the resort has to cancel, you choose a free new date or a full refund. If you cancel, payments aren't refunded, but you can move your booking to another date once."],
-                  [payFull ? "Paying in full" : "50% reservation deposit", payFull ? "The whole total is paid now; nothing is due on arrival." : "Half of the total is due now; the balance is paid on arrival."],
-                  ["Flexible rescheduling", "Changes depend on availability and must be arranged with the resort."],
-                  ["Quiet hours", QUIET_HOURS_POLICY],
-                ].map(([title, body]) => (
+                {checkoutPolicy(payFull, QUIET_HOURS_POLICY).map(([title, body]) => (
                   <div key={title}>
                     <dt style={{ color: C.textH, fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{title}</dt>
                     <dd style={{ color: C.textS, fontSize: 12.5, lineHeight: 1.6, margin: 0 }}>{body}</dd>

@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useMemo, type CSSProperties } from "react";
 import { gold } from "@/lib/styles";
-import { getBookingWindow, bookingWindowNote, toDateStr, MAX_STAY_DAYS, manilaNow } from "@/lib/validators";
+import { getBookingWindow, bookingWindowNote, firstViewableMonth, toDateStr, MAX_STAY_DAYS, manilaNow } from "@/lib/validators";
 import { slotStartedProblem } from "@/lib/resort";
 import type { Booking, BookingSlot, BookingTier } from "@/types/booking";
-import { checkBookingAvailability, holdsDate, bookingDates } from "@/lib/utils";
+import { checkBookingAvailability, holdsDate, bookingDates, slotsBookedByDate } from "@/lib/utils";
+import { SlotMarks, SlotMarksKey, slotMarksLabel } from "@/components/common/SlotMarks";
 import { RangeConnector } from "@/components/common/RangeConnector";
 import { CAL, CAL_LINE, GUEST_LEGEND } from "@/components/common/calendarColors";
 
@@ -104,6 +105,8 @@ export function AvailabilityCalendar({
     return full;
   }, [bookings, request]);
   const closedSet = useMemo(() => new Set(closedDates), [closedDates]);
+  // Which tours are booked on each date: the sun, moon and beach chair marks.
+  const slotsByDate = useMemo(() => slotsBookedByDate(bookings), [bookings]);
 
   /* The furthest day this stay may reach: MAX_STAY_DAYS long at most, and
      stopping short of the first booked or closed day, so a range can never
@@ -162,9 +165,9 @@ export function AvailabilityCalendar({
   const toStr = (d: number) =>
     `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
-  // Month navigation is bounded by the same window, so the guest can never
-  // page into a month that holds no bookable dates.
-  const firstMonth = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+  // Forward: as far as the bookable window. Back: a few months (Rates &
+  // Settings), so a guest can see the dates just gone; they show as past.
+  const firstMonth = useMemo(() => firstViewableMonth(), [mounted]);
   const lastMonth = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
   const viewing = new Date(year, month, 1);
   const canGoPrev = mounted && viewing > firstMonth;
@@ -366,7 +369,7 @@ export function AvailabilityCalendar({
                 : isClosed ? " — closed"
                 : isPast || isBeyond ? " — unavailable"
                 : beyondStay ? ` — too far for one stay (up to ${MAX_STAY_DAYS} days)`
-                : " — available"}`}
+                : " — available"}${slotMarksLabel(slotsByDate.get(ds))}`}
               aria-pressed={isSel || inRange}
               title={
                 isPast
@@ -408,7 +411,11 @@ export function AvailabilityCalendar({
                 lineHeight: "inherit",
               }}
             >
-              {d}
+              {/* The tours booked that day, above the number. */}
+              <span style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, lineHeight: 1, position: "relative", zIndex: 1 }}>
+                <SlotMarks slots={slotsByDate.get(ds)} />
+                <span>{d}</span>
+              </span>
               {/* ── The line that joins the first day to the last ──
                   One segment per day, bleeding 6px past the tile on each
                   side to cross the grid gap, and clipped at the week's
@@ -455,6 +462,7 @@ export function AvailabilityCalendar({
           </div>
         ))}
       </div>
+      <SlotMarksKey color="rgba(238,232,220,0.62)" />
     </div>
   );
 }

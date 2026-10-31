@@ -12,6 +12,7 @@
 // signed, httpOnly cookie it cannot read or forge, and the API routes that do
 // privileged work require that cookie.
 
+import { ensureRolePermissions } from "@/lib/rolePermissions.server";
 import { createHmac, timingSafeEqual, createHash, randomBytes, scryptSync } from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { NextResponse, type NextRequest } from "next/server";
@@ -325,7 +326,7 @@ export function requirePermission(req: NextRequest, perm: Permission): Promise<N
   const acting = identityFromSession(s);
   enterStaff(acting);
   return (async () => {
-    const [who] = await Promise.all([currentIdentity(s), ensureSettings()]);
+    const [who] = await Promise.all([currentIdentity(s), ensureSettings(), ensureRolePermissions()]);
     if (!who) return unauthorised("Your account is no longer active. Ask the super admin.");
     // The store holds the object enterStaff was given; refreshing it in
     // place keeps the log's name and role current without a new context.
@@ -344,7 +345,7 @@ export function requirePermission(req: NextRequest, perm: Permission): Promise<N
 export async function ownerGate(req: NextRequest, perm: Permission, body: unknown): Promise<NextResponse | null> {
   const s = sessionOf(req);
   if (!s) return unauthorised();
-  const who = await currentIdentity(s);
+  const [who] = await Promise.all([currentIdentity(s), ensureRolePermissions()]);
   if (!who) return unauthorised("Your account is no longer active. Ask the super admin.");
   if (can(who.role, perm)) return null;
   if (!canRequest(who.role, perm)) return forbidden();

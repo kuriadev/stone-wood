@@ -148,6 +148,26 @@ export function datesBetween(from: string, to: string): string[] {
 export const bookingDates = (b: Pick<Booking, "date" | "endDate">): string[] =>
   datesBetween(b.date, bookingEndDate(b));
 
+/** For each date, which tours (Day, Night, Staycation) have a booking on
+ *  it -- what the guest calendars mark with a sun, a moon or a beach chair.
+ *  Cancelled bookings don't count; a stay marks every one of its days. */
+export function slotsBookedByDate(bookings: Booking[]): Map<string, Set<BookingSlot>> {
+  const out = new Map<string, Set<BookingSlot>>();
+  for (const b of bookings) {
+    if (!holdsDate(b)) continue;
+    const slot = getBookingSlot(b);
+    for (const d of bookingDates(b)) {
+      const set = out.get(d) ?? new Set<BookingSlot>();
+      set.add(slot);
+      out.set(d, set);
+    }
+  }
+  return out;
+}
+
+/** The icon for each tour, used wherever a tour is shown. */
+export const SLOT_ICON: Record<BookingSlot, "sun" | "moon" | "staycation"> = { Day: "sun", Night: "moon", WholeDay: "staycation" };
+
 /** How many days a stay is charged for. One for a single-day booking. */
 export const bookingDays = (b: Pick<Booking, "date" | "endDate">): number =>
   Math.max(1, bookingDates(b).length);

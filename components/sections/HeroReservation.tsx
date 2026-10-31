@@ -5,13 +5,13 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
-import { fmt, fmtDate } from "@/lib/utils";
+import { fmt, fmtDate, SLOT_ICON } from "@/lib/utils";
 import { daysInRange, stayLabel, checkRangeAvailability, isPoolOpen } from "@/lib/utils";
 import { SLOTS, stayPatternNote, allowsMultiDay, MULTI_DAY_SLOT, slotStartedProblem } from "@/lib/resort";
 import { useApp } from "@/contexts/AppContext";
 import { priceBooking } from "@/lib/pricing";
 import {
-  GUESTS_MIN, GUESTS_MAX, SHARED_PER_HEAD_RATE, MAX_STAY_DAYS,
+  GUESTS_MIN, GUESTS_MAX, SHARED_PER_HEAD_RATE, sharedRateFor, MAX_STAY_DAYS,
 } from "@/lib/validators";
 import { AvailabilityCalendar } from "@/components/common/AvailabilityCalendar";
 import { GuestInput, useHoldStep } from "@/components/common/GuestCount";
@@ -246,11 +246,11 @@ export function HeroReservation({
             style={{ fontSize: 12.5, color: "rgba(238,232,220,0.6)", margin: "12px 0 0", textAlign: "center", visibility: allowsMultiDay(slot) ? "hidden" : "visible" }}
           >
             Staying more than one day?{" "}
-            <button
+            <button className="sw-ulink"
               type="button"
               tabIndex={allowsMultiDay(slot) ? -1 : undefined}
               onClick={() => setSlot(MULTI_DAY_SLOT)}
-              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: gold, fontSize: 12.5, textDecoration: "underline", textUnderlineOffset: 3 }}
+              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: gold, fontSize: 12.5 }}
             >
               Choose {SLOTS[MULTI_DAY_SLOT].label}
             </button>
@@ -333,6 +333,7 @@ export function HeroReservation({
                       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
                     }}
                   >
+                    <Icon name={SLOT_ICON[k]} size={17} style={{ color: on ? gold : "rgba(238,232,220,0.55)" }} />
                     <span style={{ fontSize: 13, fontWeight: on ? 600 : 400, lineHeight: 1.1 }}>
                       {SLOTS[k].label}
                     </span>
@@ -382,7 +383,7 @@ export function HeroReservation({
             <div>
               <p style={{ ...label, margin: "0 0 4px" }}>GUESTS</p>
               <p style={{ fontSize: 12, color: "rgba(238,232,220,0.55)", margin: 0 }}>
-                {slot === "WholeDay" ? "Flat rate, however many come" : `${fmt(SHARED_PER_HEAD_RATE)} per guest, per tour`}
+                {`${fmt(sharedRateFor(slot))} per guest${slot === "WholeDay" ? ", Day and Night together" : ", per tour"}`}
               </p>
             </div>
             <div
@@ -560,7 +561,7 @@ function Linkish({ onClick, children }: { onClick: () => void; children: React.R
         color: "rgba(238,232,220,0.72)", fontSize: 13, padding: "0 4px",
       }}
     >
-      {children}
+      <span className="sw-ulink">{children}</span>
     </button>
   );
 }

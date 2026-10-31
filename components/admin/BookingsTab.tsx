@@ -22,13 +22,19 @@
 // refund owed → sent), along with any date change the guest asked for and
 // the booking's full history.
 
+import { downloadWorkbook } from "@/lib/excelReport";
+import { escapeHtml } from "@/lib/escapeHtml";
+import { RetentionPanel } from "@/components/admin/RetentionPanel";
+import { spotlight } from "@/lib/spotlight";
+import { bookingIndicator } from "@/lib/bookingIndicator";
+import { SIGNAL } from "@/components/admin/signals";
 import { statusLabel, bookingStatusLabel, moneyLabel, paymentLine, adminTabLabel } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
 import { useOps } from "@/contexts/OpsContext";
 import { useStaff } from "@/contexts/StaffContext";
-import { bookingMoney, manilaDate, manilaTime, livePayments } from "@/lib/finance";
+import { bookingMoney, manilaDate, manilaTime, livePayments, downloadCsv } from "@/lib/finance";
 import { fmt, fmtDate, getBookingSlot, getBookingTier, getBookingResource, stayLabel, stayRange, bookingDays, bookingEndDate } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
@@ -59,7 +65,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { BookingHistory } from "@/components/admin/BookingHistory";
 import { choiceOpen, fmtDeadline, holdActive, withHolds } from "@/lib/rebooking";
-import { AdminPageHeader, TableShell, td, ActionButton, StatusBadge, Modal, AmountRow, useAdminStyle, STATUS_COLOR, STATUS_LABEL, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewSwitcherTabs, usePaged, Pager, FullSelect, FilterSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
+import { AdminPageHeader, TableShell, td, ActionButton, StatusBadge, Modal, AmountRow, useAdminStyle, STATUS_COLOR, STATUS_LABEL, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewSwitcherTabs, usePaged, Pager, PAGE_SIZE, FullSelect, FilterSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
 
 interface BookingsTabProps {
   bookings: Booking[];
@@ -68,6 +74,10 @@ interface BookingsTabProps {
   /** Open this booking's detail panel on arrival — set when the owner jumps
    *  here from a Customer Service message. */
   focusId?: string | null;
+  /** From a notification: show this booking's row in the list, lit up,
+   *  rather than opening its window. */
+  spotId?: string | null;
+  onSpotHandled?: () => void;
   onFocusHandled?: () => void;
   mob: boolean;
   rooms: Room[];
@@ -77,7 +87,7 @@ interface BookingsTabProps {
 
 const STATUSES = ["All", "Pending", "Confirmed", "Completed", "ResortCancelled", "Cancelled"] as const;
 
-export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, packages, facilities, focusId, onFocusHandled }: BookingsTabProps) {
+export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, packages, facilities, focusId, onFocusHandled, spotId, onSpotHandled }: BookingsTabProps) {
   /* Correcting a guest's own details on a booking that already exists. */
   const [editId, setEditId] = useState<string | null>(null);
   const { C, rowBg, cBr, soft, inp } = useAdminStyle();
@@ -98,6 +108,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
 
   const [walkIn, setWalkIn] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [retention, setRetention] = useState(false);
   const [viewId, setViewId] = useState<string | null>(null);
 
   /* Arriving from a message. The id is cleared once consumed so reopening
@@ -141,6 +152,18 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
       : b.checkedOutAt ? "settle"
         : bookingEndDate(b) <= today && staff.can("facilities.inspect") ? "complete" : null;
 
+  /* Where each live booking is in the day, as on the Dashboard: due and
+     not in yet, on site, or checked out with money still to collect. The
+     strip above the list counts them; tapping one shows only those. */
+  const todayStr = manilaDate();
+  const stageOf = (b: Booking): "arriving" | "onsite" | "settle" | null => {
+    if (b.archived || b.status !== "Confirmed") return null;
+    if (b.checkedOutAt) return bookingMoney(b, ops.payments, ops.damages).due > 0 ? "settle" : null;
+    if (b.checkedInAt) return "onsite";
+    return b.date <= todayStr && todayStr <= bookingEndDate(b) ? "arriving" : null;
+  };
+  const [stage, setStage] = useState<"arriving" | "onsite" | "settle" | null>(null);
+  const stageCount = (k: "arriving" | "onsite" | "settle") => bookings.filter((b) => stageOf(b) === k).length;
   const q = search.toLowerCase().trim();
   const pool = bookings.filter((b) => (bView === "archived" ? !!b.archived : !b.archived));
   const penalised = new Set(ops.damages.filter((d) => !d.voided).map((d) => d.bookingId));
@@ -161,10 +184,88 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
       (b.email || "").toLowerCase().includes(q) || b.contact.includes(q) || b.date.includes(q) || packageAvailed(b).toLowerCase().includes(q);
   });
   const rows = (status === "All" ? filteredNoStatus : filteredNoStatus.filter((b) => b.status === status))
+    .filter((b) => !stage || stageOf(b) === stage)
     .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
   const paged = usePaged(rows);
-  const filtersOn = status !== "All" || source !== "All" || slot !== "All" || kind !== "All" || has !== "All" || !!from || !!to || !!q;
-  const clear = () => { setStatus("All"); setSource("All"); setSlot("All"); setKind("All"); setHas("All"); setFrom(""); setTo(""); setSearch(""); };
+  const filtersOn = status !== "All" || source !== "All" || slot !== "All" || kind !== "All" || has !== "All" || !!from || !!to || !!q || !!stage;
+  const clear = () => { setStatus("All"); setSource("All"); setSlot("All"); setKind("All"); setHas("All"); setFrom(""); setTo(""); setSearch(""); setStage(null); };
+
+  // ── Export: what the list shows now, with its filters ──
+  const roomNames = (b: Booking) => (b.rooms || []).map((id) => rooms.find((r) => r.id === id)?.name ?? `#${id}`).join(" | ") || "None";
+  const exportTag = `${manilaDate()}${filtersOn ? "_filtered" : ""}`;
+  const exportRows = () => rows.map((b) => {
+    const m = bookingMoney(b, ops.payments, ops.damages);
+    return { id: b.id, name: b.name, contact: b.contact, email: b.email, date: b.date, end: bookingEndDate(b),
+      slot: SLOTS[getBookingSlot(b)].label, pkg: packageAvailed(b), src: b.source ?? "Online", guests: b.guests, rooms: roomNames(b),
+      total: b.total, paid: m.paid, pen: m.penaltyTotal, due: m.due, status: bookingStatusLabel(b) };
+  });
+  const exportCsv = () => downloadCsv(`StoneWood_Bookings_${exportTag}.csv`, [
+    ["Booking ID", "Guest", "Contact", "Email", "First day", "Last day", "Slot", "Package", "Source", "Guests", "Rooms", "Total (PHP)", "Paid (PHP)", "Penalties (PHP)", "Owed (PHP)", "Status"],
+    ...exportRows().map((r) => [r.id, r.name, r.contact, r.email, r.date, r.end, r.slot, r.pkg, r.src, r.guests, r.rooms, r.total, r.paid, r.pen, r.due, r.status]),
+  ]);
+  const [exporting, setExporting] = useState(false);
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      await downloadWorkbook(`StoneWood_Bookings_${exportTag}`, "StoneWood bookings", [{
+        name: "Bookings",
+        columns: [
+          { header: "Booking", key: "id", width: 12 }, { header: "Guest", key: "name", width: 22 }, { header: "Contact", key: "contact", width: 15 },
+          { header: "Email", key: "email", width: 24 }, { header: "First day", key: "date", width: 12 }, { header: "Last day", key: "end", width: 12 },
+          { header: "Slot", key: "slot", width: 11 }, { header: "Package", key: "pkg", width: 26 }, { header: "Source", key: "src", width: 9 },
+          { header: "Guests", key: "guests", width: 8 }, { header: "Rooms", key: "rooms", width: 18 },
+          { header: "Total", key: "total", width: 12, money: true }, { header: "Paid", key: "paid", width: 12, money: true },
+          { header: "Penalties", key: "pen", width: 12, money: true }, { header: "Owed", key: "due", width: 12, money: true },
+          { header: "Status", key: "status", width: 16 },
+        ],
+        rows: exportRows(),
+        footer: [["Exported", `${fmtDate(manilaDate())}, ${manilaTime(new Date().toISOString())}`], ["Bookings", rows.length]],
+      }]);
+    } catch {
+      toast("Could not make the Excel file. Try the CSV instead.", "error");
+    } finally {
+      setExporting(false);
+    }
+  };
+  const printList = () => {
+    const body = exportRows().map((r) => `<tr><td>${escapeHtml(r.id)}</td><td>${escapeHtml(r.name)}<div class="m">${escapeHtml(r.contact)}</div></td><td>${escapeHtml(r.date)}${r.end !== r.date ? ` – ${escapeHtml(r.end)}` : ""}<div class="m">${escapeHtml(r.slot)}</div></td><td>${escapeHtml(r.pkg)}</td><td class="n">${r.guests}</td><td class="n">${escapeHtml(fmt(r.total))}</td><td class="n">${escapeHtml(fmt(r.paid))}</td><td class="n">${escapeHtml(fmt(r.due))}</td><td>${escapeHtml(r.status)}</td></tr>`).join("");
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>StoneWood bookings · ${escapeHtml(fmtDate(manilaDate()))}</title>
+<style>body{font:12px/1.45 system-ui,sans-serif;color:#222;margin:28px}h1{font:400 22px Georgia,serif;margin:0 0 4px}table{border-collapse:collapse;width:100%;margin-top:14px}th,td{padding:5px 6px;border-bottom:1px solid #e5e5e5;text-align:left;vertical-align:top}th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#666}.n{text-align:right;font-variant-numeric:tabular-nums}.m{color:#777;font-size:11px}</style></head><body>
+<h1>StoneWood bookings</h1><div class="m">${rows.length} booking${rows.length === 1 ? "" : "s"}${filtersOn ? " (filtered)" : ""} · printed ${escapeHtml(fmtDate(manilaDate()))}</div>
+<table><thead><tr><th>Booking</th><th>Guest</th><th>Date</th><th>Package</th><th class="n">Guests</th><th class="n">Total</th><th class="n">Paid</th><th class="n">Owed</th><th>Status</th></tr></thead><tbody>${body}</tbody></table>
+<script>window.onload=()=>window.print()</script></body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) return toast("Allow pop-ups to print the list.", "warning");
+    w.document.write(html);
+    w.document.close();
+  };
+
+  /* From a notification: every filter off (so the row can't be hidden),
+     the right list (active or archived), the page that holds it, then the
+     row itself scrolled to and lit (lib/spotlight.ts). */
+  const [spotting, setSpotting] = useState<string | null>(null);
+  useEffect(() => {
+    if (!spotId) return;
+    const b = bookings.find((x) => x.id === spotId);
+    onSpotHandled?.();
+    if (!b) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- following a tapped notification to its row
+    clear();
+    setBView(b.archived ? "archived" : "active");
+    setSpotting(spotId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spotId]);
+  useEffect(() => {
+    if (!spotting) return;
+    const idx = rows.findIndex((b) => b.id === spotting);
+    if (idx < 0) return;
+    const page = Math.floor(idx / PAGE_SIZE) + 1;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the page holding the notified booking
+    if (paged.page !== page) { paged.setPage(page); return; }
+    const id = spotting;
+    setSpotting(null);
+    void spotlight(id);
+  }, [spotting, rows, paged]);
 
   const viewing = bookings.find((b) => b.id === viewId) ?? null;
 
@@ -250,20 +351,6 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
   // archived rows), rendered into each TabsContent like Customer Service.
   const listPanel = (
     <>
-      {/* Status: one select with a count per status, instead of six pills
-          wrapping onto three lines. */}
-      <div style={{ display: "flex", marginBottom: 12 }}>
-        <FilterSelect<typeof status>
-          label="Status"
-          value={status}
-          onChange={setStatus}
-          options={STATUSES.map((s) => ({
-            value: s,
-            label: s === "All" ? "All bookings" : statusLabel(s),
-            count: s === "All" ? filteredNoStatus.length : filteredNoStatus.filter((b) => b.status === s).length,
-          }))}
-        />
-      </div>
 
       {/* Search, and the rest of the filters behind one Filters button. */}
       <FilterBar
@@ -350,7 +437,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
           const m = bookingMoney(b, ops.payments, ops.damages);
           const s = SLOTS[getBookingSlot(b)];
           return (
-            <Row key={b.id} style={{ background: rowBg(i) }}>
+            <Row key={b.id} data-spot={b.id} style={{ background: rowBg(i) }}>
               <Cell style={{ ...td, width: 36 }}>
                 <Checkbox
                   checked={picked.has(b.id)}
@@ -368,21 +455,26 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
               <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.email || b.contact}</div></Cell>
               <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{stayRange(b)}<div style={{ color: C.textS, fontSize: 11.5 }}>{s.label}{bookingDays(b) > 1 ? ` · ${bookingDays(b)} days` : ""}</div></Cell>
               <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{packageAvailed(b)}</Cell>
-              <Cell style={td}><StatusBadge color={b.source === "Walk-In" ? "#3a8fc4" : gold}>{b.source ?? "Online"}</StatusBadge></Cell>
+              <Cell style={td}><StatusBadge color={b.source === "Walk-In" ? "#3e8ed0" : gold}>{b.source ?? "Online"}</StatusBadge></Cell>
               <Cell style={{ ...td, color: C.textH, fontWeight: 600, whiteSpace: "nowrap" }}>{fmt(b.total)}</Cell>
               <Cell style={{ ...td, whiteSpace: "nowrap" }}>
                 <span style={{ color: C.textB }}>{fmt(m.paid)}</span>
                 <div><span className="sw-ink" style={{ ["--ink-c" as string]: MONEY_COLOR[m.state], fontSize: 11.5 }}>{moneyLabel(m.state)}{m.due > 0 && b.status !== "Cancelled" ? ` · ${fmt(m.due)} owed` : ""}{b.refundStatus === "Owed" ? ` · ${fmt(b.refundAmount ?? 0)}` : ""}</span></div>
               </Cell>
               <Cell style={td}>
-                <StatusBadge color={STATUS_COLOR[b.status]}>{bookingStatusLabel(b)}</StatusBadge>
-                {ops.dateChanges.some((r) => r.bookingId === b.id && r.status === "Pending") && (
-                  <div style={{ color: "#d4a800", fontSize: 11.5, marginTop: 4 }}>Asks to change date</div>
-                )}
-                {/* Where the day-of work stands; it is done in Daily Operations. */}
-                {b.status === "Confirmed" && (b.checkedInAt || b.checkedOutAt) && (
-                  <div style={{ color: C.textS, fontSize: 11.5, marginTop: 4 }}>{b.checkedOutAt ? "Checked out · balance to collect" : "Checked in"}</div>
-                )}
+                {/* Where it stands, in the colour that says how soon to act
+                    (lib/bookingIndicator.ts); the stored status under it. */}
+                {(() => {
+                  const ind = bookingIndicator(b, manilaDate(), m.due, ops.dateChanges.some((r) => r.bookingId === b.id && r.status === "Pending"));
+                  const tone = SIGNAL[ind.signal];
+                  return (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px 4px 8px", borderRadius: 999, background: `${tone}1f`, border: `1px solid ${tone}55`, fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>
+                      <Icon name={ind.icon} size={13} style={{ color: tone }} />
+                      <span className="sw-ink" style={{ ["--ink-c" as string]: tone }}>{ind.label}</span>
+                    </span>
+                  );
+                })()}
+                <div style={{ color: C.textS, fontSize: 11.5, marginTop: 4 }}>{bookingStatusLabel(b)}</div>
               </Cell>
               <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                 <div style={{ display: "inline-flex", gap: 4 }}>
@@ -494,12 +586,75 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
             <LiveStatus />
             {/* Bookings taken while the internet was down (or on the
                 printed offline sheet), brought in from a spreadsheet. */}
-            <ActionButton icon="upload" onClick={() => setImporting(true)}>Import</ActionButton>
+            {/* Data retention: how long finished bookings are kept. The
+                owner's alone; one icon, the controls in a pop-up. */}
+            {staff.can("settings.manage") && (
+              <button type="button" className="sw-hit" onClick={() => setRetention(true)}
+                aria-label="Data retention: how long finished bookings are kept" title="Data retention"
+                style={{ width: 40, height: 40, borderRadius: 10, border: `1px solid ${cBr}`, background: "transparent", color: C.textB, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                <Icon name="history" size={17} />
+              </button>
+            )}
+            {/* Export and import in one menu, so the header stays two buttons. */}
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <ActionButton icon="download" disabled={exporting} aria-label="Export, print or import bookings">
+                  {exporting ? "Preparing…" : "Export"} <Icon name="chevron-down" size={14} />
+                </ActionButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" style={{ minWidth: 240 }}>
+                <DropdownMenuItem onSelect={() => void exportExcel()}><Icon name="download" />Excel (.xlsx)</DropdownMenuItem>
+                <DropdownMenuItem onSelect={exportCsv}><Icon name="download" />CSV</DropdownMenuItem>
+                <DropdownMenuItem onSelect={printList}><Icon name="printer" />Print / Save as PDF</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setImporting(true)}><Icon name="upload" />Import from a spreadsheet</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <ActionButton kind="primary" icon="plus" onClick={() => setWalkIn(true)}>New walk-in</ActionButton>
           </div>
         } />
 
-      <ViewSwitcherTabs<"active" | "archived"> value={bView} onChange={setBView} views={[
+      {/* Today at a glance, as on the Dashboard: tap one to list only those. */}
+      <div className="sw-bkstrip" role="group" aria-label="Today's bookings by stage">
+        {([
+          ["arriving", "Arriving", "calendar", "#3e8ed0", "Due today, not checked in"],
+          ["onsite", "On site", "users", "#2e9e4e", "Checked in now"],
+          ["settle", "Balance to collect", "cash", "#e07a3a", "Checked out, still owing"],
+        ] as const).map(([k, label, icon, color, hint]) => {
+          const on = stage === k;
+          return (
+            <button key={k} type="button" className={`sw-bkstrip__item${on ? " is-on" : ""}`} aria-pressed={on}
+              onClick={() => { setStage(on ? null : k); if (!on) setBView("active"); }}
+              style={{ borderColor: on ? color : cBr, background: on ? `${color}14` : undefined }}>
+              <span className="sw-bkstrip__icon" style={{ color, background: `${color}1f` }}><Icon name={icon} size={16} /></span>
+              <span style={{ minWidth: 0, flex: 1 }}>
+                <span className="sw-bkstrip__label" style={{ color: C.textS }}>{label}</span>
+                <span className="sw-bkstrip__hint" style={{ color: C.textXS }}>{hint}</span>
+              </span>
+              <span className="sw-bkstrip__n" style={{ color: stageCount(k) ? color : C.textS }}>{stageCount(k)}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Status sits beside Active / Archived: one row of two choices, not
+          two rows. One select with a count per status, instead of six pills. */}
+      <ViewSwitcherTabs<"active" | "archived"> value={bView} onChange={setBView}
+        aside={
+          <FilterSelect<typeof status>
+            label="Status"
+            value={status}
+            onChange={setStatus}
+            fullWidthOnPhone={false}
+            labelOnPhone={false}
+            options={STATUSES.map((s) => ({
+              value: s,
+              label: s === "All" ? "All bookings" : statusLabel(s),
+              count: s === "All" ? filteredNoStatus.length : filteredNoStatus.filter((b) => b.status === s).length,
+            }))}
+          />
+        }
+        views={[
         { value: "active", label: `Active (${bookings.filter((b) => !b.archived).length})`, content: listPanel },
         { value: "archived", label: `Archived (${bookings.filter((b) => !!b.archived).length})`, content: listPanel },
       ]} />
@@ -571,7 +726,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                   <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}><AmountRow label="Total" value={fmt(b.total)} strong /></div>
                 </div>
                 {b.notes && <p style={{ color: C.textS, fontSize: 13, marginTop: 12 }}>Notes: {b.notes}</p>}
-                {(b.status === "Cancelled" || b.status === "ResortCancelled") && b.cancelReason && <p style={{ color: "#d44", fontSize: 13, marginTop: 12 }}>Cancelled: {b.cancelReason}</p>}
+                {(b.status === "Cancelled" || b.status === "ResortCancelled") && b.cancelReason && <p style={{ color: "#e5484d", fontSize: 13, marginTop: 12 }}>Cancelled: {b.cancelReason}</p>}
 
                 {/* What the guest is deciding, or what the resort owes them. */}
                 {b.status === "ResortCancelled" && (
@@ -608,10 +763,10 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
               <div>
                 <div style={{ background: soft, borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}>
                   <AmountRow label="Paid for the stay" value={fmt(m.paid)} />
-                  <AmountRow label={b.status === "Cancelled" ? "Balance (forfeited, not owed)" : "Balance"} value={fmt(b.status === "Cancelled" ? Math.max(0, b.total - m.paid) : m.balance)} color={m.balance > 0 ? "#d4a800" : undefined} />
-                  {m.penaltyTotal > 0 && <AmountRow label="Damage penalties" value={`${fmt(m.penaltyTotal)} (${fmt(m.penaltyDue)} unpaid)`} color="#d44" />}
+                  <AmountRow label={b.status === "Cancelled" ? "Balance (forfeited, not owed)" : "Balance"} value={fmt(b.status === "Cancelled" ? Math.max(0, b.total - m.paid) : m.balance)} color={m.balance > 0 ? "#f5a524" : undefined} />
+                  {m.penaltyTotal > 0 && <AmountRow label="Damage penalties" value={`${fmt(m.penaltyTotal)} (${fmt(m.penaltyDue)} unpaid)`} color="#e5484d" />}
                   <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}>
-                    <AmountRow label="Still owed" value={fmt(m.due)} strong color={m.due > 0 ? "#d4a800" : "#2e9e4e"} />
+                    <AmountRow label="Still owed" value={fmt(m.due)} strong color={m.due > 0 ? "#f5a524" : "#2e9e4e"} />
                   </div>
                 </div>
                 <div style={{ color: C.textH, fontWeight: 600, fontSize: 14, marginBottom: 8 }}>Payments</div>
@@ -622,7 +777,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                       <div style={{ color: C.textH, fontSize: 13 }}>{paymentLine(p)}{p.voided ? " · undone" : ""}</div>
                       <div style={{ color: C.textS, fontSize: 11.5 }}>{fmtDate(manilaDate(p.receivedAt))}, {manilaTime(p.receivedAt)}{p.reference ? ` · ref ${p.reference}` : ""}</div>
                     </div>
-                    <div style={{ color: p.type === "Refund" ? "#d44" : C.textH, fontWeight: 600, textDecoration: p.voided ? "line-through" : "none" }}>{p.type === "Refund" ? "−" : ""}{fmt(p.amount)}</div>
+                    <div style={{ color: p.type === "Refund" ? "#e5484d" : C.textH, fontWeight: 600, textDecoration: p.voided ? "line-through" : "none" }}>{p.type === "Refund" ? "−" : ""}{fmt(p.amount)}</div>
                   </div>
                 ))}
                 {livePayments(pays).length > 0 && <p style={{ color: C.textS, fontSize: 12, marginTop: 8 }}>To correct a payment, undo it in Payments &amp; Expenses → Transactions.</p>}
@@ -639,7 +794,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                           <div style={{ color: C.textH, fontSize: 13 }}>{d.itemName}{d.quantity > 1 ? ` × ${d.quantity}` : ""}</div>
                           <div style={{ color: C.textS, fontSize: 11.5 }}>{d.facilityName}{d.description ? ` · ${d.description}` : ""}</div>
                         </div>
-                        <div style={{ color: "#d44", fontWeight: 600 }}>{fmt(d.amount)}</div>
+                        <div style={{ color: "#e5484d", fontWeight: 600 }}>{fmt(d.amount)}</div>
                       </div>
                     ))}
                   </>
@@ -783,6 +938,11 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
         </ConfirmDialog>
       )}
 
+      {retention && (
+        <Modal title="Data retention" subtitle="How long guests' finished bookings are kept." onClose={() => setRetention(false)} width={640}>
+          <RetentionPanel mob={mob} bare />
+        </Modal>
+      )}
       {importing && (
         <ImportBookingsModal onClose={() => setImporting(false)}
           onPrintOffline={() => printOfflineSheet({ bookings, payments: ops.payments, damages: ops.damages, inspections: ops.inspections, facilities, rooms })} />

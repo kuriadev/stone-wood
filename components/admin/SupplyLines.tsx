@@ -38,7 +38,7 @@ export function SupplyLines({ value, onChange, inventory, emptyText = "No suppli
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ color: C.textH, fontSize: 14 }}>{it?.name ?? `Item #${line.itemId}`}</div>
               {it && (
-                <div style={{ color: low ? "#d4a800" : C.textS, fontSize: 11.5 }}>
+                <div style={{ color: low ? "#f5a524" : C.textS, fontSize: 11.5 }}>
                   {it.qty} {it.unit} in stock{low ? " — low after this" : ""}
                 </div>
               )}
