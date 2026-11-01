@@ -20,6 +20,7 @@
 //   Daily liquidation  end-of-day cash count vs. expected, and the day's
 //                  income minus expenses
 
+import "./Sales.css";
 import { statusLabel, bookingStatusLabel, moneyLabel, payTypeLabel, payMethodLabel, paymentLine, adminTabLabel } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,7 +28,7 @@ import { useMemo, useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
 import { useApp } from "@/contexts/AppContext";
 import { closingBlockers, unclosedDays, CLOSE_NEED } from "@/lib/operations";
-import { Icon } from "@/components/common/Icon";
+import { Icon, type IconName } from "@/components/common/Icon";
 import { useToast } from "@/contexts/ToastContext";
 import {
   bookingMoney, collectedBetween, expensesBetween, manilaDate, manilaTime, monthRange,
@@ -42,7 +43,7 @@ import { gold } from "@/lib/styles";
 import { RecordPaymentModal } from "@/components/admin/RecordPaymentModal";
 import { RefundModal } from "@/components/admin/RefundModal";
 import { InvoiceModal } from "@/components/admin/InvoiceModal";
-import { AdminPageHeader, StatCard, ChoiceButtons, TableShell, td, ActionButton, StatusBadge, Modal, Label, AmountRow, ErrorNote, useAdminStyle, Row, Cell, STATUS_COLOR, FullSelect, ViewSwitcherTabs, ConfirmDialog, TotalRow, TOGGLE_CLEARANCE, usePaged, Pager, FilterSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
+import { AdminPageHeader, StatCard, ChoiceButtons, TableShell, td, ActionButton, IconAction, StatusBadge, Modal, Label, AmountRow, ErrorNote, useAdminStyle, Row, Cell, STATUS_COLOR, FullSelect, ConfirmDialog, TotalRow, TOGGLE_CLEARANCE, usePaged, Pager, FilterSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
 import { DateField } from "@/components/common/DateField";
 
 type View = "Transactions" | "Payments" | "Receivables" | "Settlements" | "Clients" | "Expenses" | "Closing";
@@ -89,8 +90,22 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
   const owed = round2(receivables.reduce((s, r) => s + r.m.due, 0));
   const todayCount = livePayments(ops.payments).filter((p) => manilaDate(p.receivedAt) === today).length;
 
+  const { C, cBg, cBr } = useAdminStyle();
+  const monthName = new Date(today).toLocaleString("en-PH", { month: "long", year: "numeric" });
+  /** A headline figure: icon and coloured edge, the number in plain ink. */
+  const kpi = (icon: IconName, label: string, value: string, note: string, accent: string) => (
+    <div className="sw-sales__kpi" style={{ background: cBg, borderColor: cBr, ["--acc" as string]: accent }}>
+      <div className="sw-sales__kpitop">
+        <span style={{ color: C.textS }}>{label}</span>
+        <span className="sw-sales__kpiicon" aria-hidden><Icon name={icon} size={15} /></span>
+      </div>
+      <div className="sw-sales__kpival" style={{ color: C.textH }}>{value}</div>
+      <div className="sw-sales__kpinote" style={{ color: C.textS }}>{note}</div>
+    </div>
+  );
+
   return (
-    <div>
+    <div className="sw-sales">
       <AdminPageHeader
         title={adminTabLabel("Sales")}
         subtitle="Money actually received and spent, from the payment records."
@@ -103,24 +118,73 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
         }
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
-        <StatCard label="Collected today" value={fmt(collectedToday)} note={`${todayCount} payment${todayCount === 1 ? "" : "s"}`} color="#2e9e4e" />
-        <StatCard label="Collected this month" value={fmt(collectedMonth)} note={new Date(today).toLocaleString("en-PH", { month: "long", year: "numeric" })} />
-        <StatCard label="Net income this month" value={fmt(round2(collectedMonth - spentMonth))} note={`after ${fmt(spentMonth)} in expenses`} color={collectedMonth - spentMonth < 0 ? "#e5484d" : gold} />
-        <StatCard label="Still to collect" value={fmt(owed)} note={`${receivables.length} booking${receivables.length === 1 ? "" : "s"} with a balance or penalty`} color={owed > 0 ? "#f5a524" : undefined} />
+      {/* Headline figures: the colour is on the icon and the edge, so the
+          label says what each one is. Styles: Sales.css. */}
+      <div className="sw-sales__kpis" style={{ gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))" }}>
+        {kpi("cash", "Collected today", fmt(collectedToday), `${todayCount} payment${todayCount === 1 ? "" : "s"}`, "#2e9e4e")}
+        {kpi("calendar", "Collected this month", fmt(collectedMonth), monthName, gold)}
+        {kpi("trending-up", "Net income this month", fmt(round2(collectedMonth - spentMonth)), `after ${fmt(spentMonth)} in expenses`, collectedMonth - spentMonth < 0 ? "#e5484d" : gold)}
+        {kpi("wallet", "Still to collect", fmt(owed), `${receivables.length} booking${receivables.length === 1 ? "" : "s"} with a balance or penalty`, owed > 0 ? "#f5a524" : "#9a8f80")}
       </div>
+
+      {/* This month's money in one line: what came in, what went out, and
+          the share each takes, as a split bar. */}
+      {(() => {
+        const total = collectedMonth + spentMonth;
+        const inPct = total > 0 ? (collectedMonth / total) * 100 : 50;
+        return (
+          <div className="sw-sales__flow" style={{ background: cBg, borderColor: cBr }}>
+            <div className="sw-sales__flowhead">
+              <span style={{ color: C.textH }}><Icon name="bar-chart" size={15} style={{ color: C.goldInk }} /> Money flow · {monthName}</span>
+              <span style={{ color: C.textS }}>Net <strong style={{ color: collectedMonth - spentMonth < 0 ? "#e5484d" : C.textH }}>{fmt(round2(collectedMonth - spentMonth))}</strong></span>
+            </div>
+            <div className="sw-sales__split" role="img" aria-label={`In ${fmt(collectedMonth)}, out ${fmt(spentMonth)}`}>
+              {total > 0 ? <>
+                {collectedMonth > 0 && <i className="is-in" style={{ width: `${inPct}%` }} />}
+                {spentMonth > 0 && <i className="is-out" style={{ width: `${100 - inPct}%` }} />}
+              </> : <i className="is-empty" style={{ width: "100%" }} />}
+            </div>
+            <div className="sw-sales__flowlegend">
+              <span style={{ color: C.textS }}><b className="is-in" />In <strong style={{ color: C.textH }}>{fmt(collectedMonth)}</strong></span>
+              <span style={{ color: C.textS }}><b className="is-out" />Out <strong style={{ color: C.textH }}>{fmt(spentMonth)}</strong></span>
+            </div>
+          </div>
+        );
+      })()}
 
       {!ops.loaded && ops.loading && <p style={{ color: "#8a7a66", fontSize: 13 }}>Loading payment records…</p>}
 
-      <ViewSwitcherTabs<View> value={view} onChange={setView} views={[
-        { value: "Transactions", label: "Transactions", content: <Transactions payments={ops.payments} /> },
-        { value: "Payments", label: "Invoices", content: <BookingPayments rows={withMoney} onPay={(id) => setPayFor({ bookingId: id })} onInvoice={setInvoiceId} /> },
-        { value: "Receivables", label: `Receivables (${receivables.length})`, content: <Receivables rows={receivables} refunds={bookings.filter((b) => b.refundStatus === "Owed")} onPay={(id) => setPayFor({ bookingId: id })} onRefund={setRefundFor} onInvoice={setInvoiceId} /> },
-        { value: "Settlements", label: "Settlements", content: <Settlements rows={withMoney} onInvoice={setInvoiceId} /> },
-        { value: "Clients", label: "Clients", content: <Clients bookings={bookings} /> },
-        { value: "Expenses", label: "Expenses", content: <Expenses expenses={ops.expenses} onAdd={() => setAddExpense(true)} /> },
-        { value: "Closing", label: "Daily liquidation", content: <Closing /> },
-      ]} />
+      {/* The seven views as tabs with icons (they were a "Showing" menu), so
+          every one is in sight and one tap away. Scrolls sideways on a phone. */}
+      {(() => {
+        const views: { value: View; label: string; icon: IconName; count?: number; content: React.ReactNode }[] = [
+          { value: "Transactions", label: "Transactions", icon: "menu", content: <Transactions payments={ops.payments} /> },
+          { value: "Payments", label: "Invoices", icon: "receipt", content: <BookingPayments rows={withMoney} onPay={(id) => setPayFor({ bookingId: id })} onInvoice={setInvoiceId} /> },
+          { value: "Receivables", label: "Receivables", icon: "wallet", count: receivables.length, content: <Receivables rows={receivables} refunds={bookings.filter((b) => b.refundStatus === "Owed")} onPay={(id) => setPayFor({ bookingId: id })} onRefund={setRefundFor} onInvoice={setInvoiceId} /> },
+          { value: "Settlements", label: "Settlements", icon: "check-circle", content: <Settlements rows={withMoney} onInvoice={setInvoiceId} /> },
+          { value: "Clients", label: "Clients", icon: "users", content: <Clients bookings={bookings} /> },
+          { value: "Expenses", label: "Expenses", icon: "minus", content: <Expenses expenses={ops.expenses} onAdd={() => setAddExpense(true)} /> },
+          { value: "Closing", label: "Daily liquidation", icon: "calendar-clock", content: <Closing /> },
+        ];
+        const current = views.find((v) => v.value === view) ?? views[0];
+        return (
+          <>
+            <div className="sw-sales__tabs" role="tablist" aria-label="Payments and expenses views" style={{ borderColor: cBr }}>
+              {views.map((v) => {
+                const on = v.value === current.value;
+                return (
+                  <button key={v.value} type="button" role="tab" aria-selected={on} className={on ? "is-on" : undefined}
+                    onClick={() => setView(v.value)} style={{ color: on ? C.goldInk : C.textS }}>
+                    <Icon name={v.icon} size={15} />{v.label}
+                    {v.count ? <span className="sw-sales__count">{v.count}</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+            <div key={current.value} role="tabpanel" aria-label={current.label} className="sw-sales__panel">{current.content}</div>
+          </>
+        );
+      })()}
 
       {payFor && <RecordPaymentModal bookings={bookings} bookingId={payFor.bookingId} onClose={() => setPayFor(null)} />}
       {refundFor && bookings.find((b) => b.id === refundFor) && (
@@ -209,9 +273,13 @@ function Transactions({ payments }: { payments: Payment[] }) {
           <Row key={p.id} style={{ background: rowBg(i), opacity: p.voided ? 0.5 : 1 }}>
             <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(manilaDate(p.receivedAt))}<div style={{ color: C.textS, fontSize: 11.5 }}>{manilaTime(p.receivedAt)}</div></Cell>
             <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace" }}>{p.bookingId ?? "—"}</Cell>
-            <Cell style={{ ...td, color: C.textH }}>{p.guestName}</Cell>
+            <Cell style={{ ...td, color: C.textH }}>
+              <span className="sw-sales__guest"><span className="sw-sales__avatar" aria-hidden>{(p.guestName || "?").trim().charAt(0).toUpperCase()}</span>{p.guestName}</span>
+            </Cell>
             <Cell style={td}><StatusBadge color={TYPE_COLOR[p.type]}>{payTypeLabel(p.type)}</StatusBadge></Cell>
-            <Cell style={{ ...td, color: C.textB }}>{payMethodLabel(p.method)}</Cell>
+            <Cell style={{ ...td, color: C.textB }}>
+              <span className="sw-sales__method"><Icon name={p.method === "Cash" ? "cash" : p.method === "PayMongo" ? "grid" : p.method === "Bank Transfer" ? "folder" : "phone"} size={14} style={{ color: C.goldInk }} />{payMethodLabel(p.method)}</span>
+            </Cell>
             <Cell style={{ ...td, color: C.textS, fontSize: 12 }}>{p.reference || "—"}</Cell>
             <Cell style={{ ...td, color: p.type === "Refund" ? "#e5484d" : C.textH, fontWeight: 600, whiteSpace: "nowrap", textDecoration: p.voided ? "line-through" : "none" }}>
               {p.type === "Refund" ? "−" : ""}{fmt(p.amount)}
@@ -219,13 +287,26 @@ function Transactions({ payments }: { payments: Payment[] }) {
             <Cell style={{ ...td, textAlign: "right" }}>
               {p.voided
                 ? <span title={p.voidReason} style={{ color: C.textS, fontSize: 12 }}>Undone</span>
-                : <ActionButton size="sm" kind="red" onClick={() => setVoiding(p)}>Undo payment</ActionButton>}
+                : <IconAction icon="history" label="Undo payment" kind="red" onClick={() => setVoiding(p)} />}
             </Cell>
           </Row>
         ))}
       </TableShell>
       <Pager {...paged} noun="payments" />
-      <TotalRow label="Net total" value={fmt(net)} />
+      {/* What these rows add up to: money in, refunds out, and the net. */}
+      {(() => {
+        const live = rows.filter((p) => !p.voided);
+        const inSum = round2(live.filter((p) => p.type !== "Refund").reduce((n, p) => n + p.amount, 0));
+        const outSum = round2(live.filter((p) => p.type === "Refund").reduce((n, p) => n + p.amount, 0));
+        return (
+          <div className="sw-sales__totals" style={{ borderColor: C.border }}>
+            <span style={{ color: C.textS }}>{live.length} payment{live.length === 1 ? "" : "s"}</span>
+            <span style={{ color: C.textS }}>In <strong style={{ color: C.textH }}>{fmt(inSum)}</strong></span>
+            {outSum > 0 && <span style={{ color: C.textS }}>Refunds <strong style={{ color: "#e5484d" }}>−{fmt(outSum)}</strong></span>}
+            <span className="sw-sales__net" style={{ color: C.textS }}>Net total <strong style={{ color: C.textH }}>{fmt(net)}</strong></span>
+          </div>
+        );
+      })()}
       {voiding && <VoidModal what={`${voiding.type} of ${fmt(voiding.amount)} from ${voiding.guestName}`} kind="payment" id={voiding.id} onClose={() => setVoiding(null)} />}
     </div>
   );
@@ -344,9 +425,9 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
             <Cell style={{ ...td, color: m.penaltyDue > 0 ? "#e5484d" : C.textS }}>{fmt(m.penaltyDue)}</Cell>
             <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
               <div style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
-                {!b.id.startsWith("TMP-") && <ActionButton size="sm" icon="receipt" onClick={() => onInvoice(b.id)}>View invoice</ActionButton>}
+                {!b.id.startsWith("TMP-") && <IconAction icon="receipt" label="View invoice" onClick={() => onInvoice(b.id)} />}
                 {m.due > 0
-                  ? <ActionButton size="sm" kind="green" icon="cash" onClick={() => onPay(b.id)}>Record payment</ActionButton>
+                  ? <IconAction icon="cash" label="Record payment" kind="green" onClick={() => onPay(b.id)} />
                   : <span style={{ color: C.textS, fontSize: 12 }}>{m.state === "Forfeited" || m.state === "Refunded" || m.state === "Refund owed" || m.state === "Held for guest" ? m.state : "Settled"}</span>}
               </div>
             </Cell>
@@ -385,7 +466,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
                 <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.email || b.contact}</div></Cell>
                 <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
                 <Cell style={{ ...td, color: "#e07a3a", fontWeight: 700 }}>{fmt(b.refundAmount ?? 0)}</Cell>
-                <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm" kind="primary" icon="cash" onClick={() => onRefund(b.id)}>Send refund</ActionButton></Cell>
+                <Cell style={{ ...td, textAlign: "right" }}><IconAction icon="cash" label="Send refund" kind="primary" onClick={() => onRefund(b.id)} /></Cell>
               </Row>
             ))}
           </TableShell>
@@ -409,8 +490,8 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
             <Cell style={{ ...td, color: C.textH, fontWeight: 700 }}>{fmt(m.due)}</Cell>
             <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
               <div style={{ display: "inline-flex", gap: 8 }}>
-                <ActionButton size="sm" icon="receipt" onClick={() => onInvoice(b.id)}>View invoice</ActionButton>
-                <ActionButton size="sm" kind="green" icon="cash" onClick={() => onPay(b.id)}>Record payment</ActionButton>
+                <IconAction icon="receipt" label="View invoice" onClick={() => onInvoice(b.id)} />
+                <IconAction icon="cash" label="Record payment" kind="green" onClick={() => onPay(b.id)} />
               </div>
             </Cell>
           </Row>
@@ -485,7 +566,7 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
               {m.due > 0 ? fmt(m.due) : "—"}
               {b.settlementNote && <div style={{ color: C.textS, fontSize: 11.5 }}>{b.settlementNote}</div>}
             </Cell>
-            <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm" icon="receipt" onClick={() => onInvoice(b.id)}>View invoice</ActionButton></Cell>
+            <Cell style={{ ...td, textAlign: "right" }}><IconAction icon="receipt" label="View invoice" onClick={() => onInvoice(b.id)} /></Cell>
           </Row>
         ))}
       </TableShell>
@@ -537,7 +618,7 @@ function Clients({ bookings }: { bookings: Booking[] }) {
             <Cell style={{ ...td, color: C.textB }}>{c.last ? fmtDate(c.last) : "—"}</Cell>
             <Cell style={{ ...td, color: C.textH, fontWeight: 600 }}>{fmt(c.paid)}</Cell>
             <Cell style={{ ...td, color: c.owed > 0 ? "#f5a524" : C.textS }}>{fmt(c.owed)}</Cell>
-            <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm">View client</ActionButton></Cell>
+            <Cell style={{ ...td, textAlign: "right" }}><IconAction icon="eye" label="View client" /></Cell>
           </Row>
         ))}
       </TableShell>
@@ -627,7 +708,7 @@ function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void 
               <Cell style={{ ...td, color: C.textS }}>{e.method}</Cell>
               <Cell style={{ ...td, color: C.textH, fontWeight: 600, textDecoration: e.voided ? "line-through" : "none" }}>{fmt(e.amount)}</Cell>
               <Cell style={{ ...td, textAlign: "right" }}>
-                {e.voided ? <span title={e.voidReason} style={{ color: C.textS, fontSize: 12 }}>Undone</span> : <ActionButton size="sm" kind="red" onClick={() => setVoiding(e)}>Undo expense</ActionButton>}
+                {e.voided ? <span title={e.voidReason} style={{ color: C.textS, fontSize: 12 }}>Undone</span> : <IconAction icon="history" label="Undo expense" kind="red" onClick={() => setVoiding(e)} />}
               </Cell>
             </Row>
           ))}
@@ -876,15 +957,15 @@ export function Closing({ onAct, initialDate }: {
                 {onAct && (
                   <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {need === "confirm" && <>
-                      <ActionButton size="sm" kind="green" onClick={() => onAct("accept", b)}>Accept booking</ActionButton>
-                      <ActionButton size="sm" kind="red" onClick={() => onAct("reject", b)}>Decline booking</ActionButton>
+                      <IconAction icon="check" label="Accept booking" kind="green" onClick={() => onAct("accept", b)} />
+                      <IconAction icon="x" label="Decline booking" kind="red" onClick={() => onAct("reject", b)} />
                     </>}
                     {need === "arrival" && <>
-                      <ActionButton size="sm" kind="primary" onClick={() => onAct("checkout", b)}>Complete stay</ActionButton>
-                      <ActionButton size="sm" kind="red" onClick={() => onAct("noshow", b)}>No-show</ActionButton>
+                      <IconAction icon="check" label="Complete stay" kind="primary" onClick={() => onAct("checkout", b)} />
+                      <IconAction icon="x" label="No-show" kind="red" onClick={() => onAct("noshow", b)} />
                     </>}
-                    {need === "checkout" && <ActionButton size="sm" kind="primary" onClick={() => onAct("checkout", b)}>Check out</ActionButton>}
-                    {need === "settle" && <ActionButton size="sm" kind="primary" onClick={() => onAct("settle", b)}>Collect & close</ActionButton>}
+                    {need === "checkout" && <IconAction icon="logout" label="Check out" kind="primary" onClick={() => onAct("checkout", b)} />}
+                    {need === "settle" && <IconAction icon="receipt" label="Collect & close" kind="primary" onClick={() => onAct("settle", b)} />}
                   </span>
                 )}
               </li>

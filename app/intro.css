@@ -48,14 +48,36 @@
   to { transform: translateY(0); }
 }
 
-/* The mark draws itself, stroke by stroke. */
+/* The mark builds itself: ring, disc, then the S. */
 .sw-intro__mark { width: clamp(76px, 18vmin, 112px); height: auto; margin-bottom: 18px; overflow: visible; }
 .sw-intro__draw {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   animation: sw-intro-draw .75s cubic-bezier(.65, 0, .35, 1) both;
 }
-.sw-intro__draw--pine { animation-duration: .9s; }
+/* The ring fills in to the gold disc. */
+.sw-intro__disc {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sw-intro-disc .55s cubic-bezier(.22, 1, .36, 1) .7s both;
+}
+@keyframes sw-intro-disc {
+  from { opacity: 0; transform: scale(.82); }
+  to { opacity: 1; transform: none; }
+}
+/* Each half of the S slides in along its bar, from opposite edges. */
+.sw-intro__half {
+  fill: #0b0907;
+  stroke: #0b0907;
+  stroke-width: 7;
+  stroke-linejoin: round;
+  animation: sw-intro-half .65s cubic-bezier(.22, 1, .36, 1) .95s both;
+}
+.sw-intro__half--b { animation-delay: 1.05s; }
+@keyframes sw-intro-half {
+  from { opacity: 0; transform: translateX(70px); }
+  to { opacity: 1; transform: none; }
+}
 @keyframes sw-intro-draw {
   to { stroke-dashoffset: 0; }
 }

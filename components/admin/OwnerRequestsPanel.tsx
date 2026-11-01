@@ -75,10 +75,12 @@ export function OwnerRequestsPanel({ mob, reschedules = 0, onReviewReschedules, 
   };
 
   const row = (r: OwnerRequest) => (
-    <li key={r.id} style={{ listStyle: "none", borderTop: `1px solid ${cBr}`, padding: "14px 0", display: "flex", gap: 16, alignItems: "flex-start", flexWrap: mob ? "wrap" : "nowrap" }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
+    // Wraps whenever the row is narrow (a phone, or the half-width panel
+    // beside Reminders): the text takes the line, the buttons go under it.
+    <li key={r.id} style={{ listStyle: "none", borderTop: `1px solid ${cBr}`, padding: "14px 0", display: "flex", gap: "10px 16px", alignItems: "flex-start", flexWrap: "wrap" }}>
+      <div style={{ flex: "1 1 240px", minWidth: 0 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
-          <StatusBadge color={STATUS_COLOR[r.status]}>{r.status === "Pending" ? r.label : r.status}</StatusBadge>
+          <span style={{ maxWidth: "100%", whiteSpace: "normal" }}><StatusBadge color={STATUS_COLOR[r.status]}>{r.status === "Pending" ? r.label : r.status}</StatusBadge></span>
           <span style={{ color: C.textS, fontSize: 12 }}>
             {isOwner ? `${r.requestedByName} · ` : ""}{manilaTime(r.requestedAt)}
           </span>
@@ -94,13 +96,15 @@ export function OwnerRequestsPanel({ mob, reschedules = 0, onReviewReschedules, 
           </p>
         )}
       </div>
-      <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+      <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap", marginLeft: "auto" }}>
         {r.status === "Pending" && isOwner && (
           <>
-            <ActionButton size="sm" onClick={() => { setDeclining(r); setNote(""); }} disabled={busy === r.id}>Decline</ActionButton>
-            <ActionButton size="sm" kind="primary" icon="check" onClick={() => setApproving(r)} disabled={busy === r.id}>
-              {busy === r.id ? "Working…" : "Approve"}
-            </ActionButton>
+            {/* Icons only, to keep the row short; each says what it does
+                on hover and to a screen reader. */}
+            <ActionButton size="sm" icon="x" onClick={() => { setDeclining(r); setNote(""); }} disabled={busy === r.id}
+              aria-label={`Decline: ${r.summary}`} title="Decline" style={{ width: 36, padding: 0, justifyContent: "center" }} />
+            <ActionButton size="sm" kind="primary" icon={busy === r.id ? "clock" : "check"} onClick={() => setApproving(r)} disabled={busy === r.id}
+              aria-label={busy === r.id ? "Working…" : `Approve: ${r.summary}`} title={busy === r.id ? "Working…" : "Approve"} style={{ width: 36, padding: 0, justifyContent: "center" }} />
           </>
         )}
         {r.status === "Pending" && !isOwner && (
@@ -137,8 +141,8 @@ export function OwnerRequestsPanel({ mob, reschedules = 0, onReviewReschedules, 
             aria-label="Requests waiting for approval"
             style={{ margin: 0, padding: 0 }}>
             {isOwner && reschedules > 0 && (
-              <li style={{ listStyle: "none", borderTop: `1px solid ${cBr}`, padding: "14px 0", display: "flex", gap: 16, alignItems: "center", flexWrap: mob ? "wrap" : "nowrap" }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
+              <li style={{ listStyle: "none", borderTop: `1px solid ${cBr}`, padding: "14px 0", display: "flex", gap: "10px 16px", alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ flex: "1 1 220px", minWidth: 0 }}>
                   <StatusBadge color="#f5a524">Reschedule</StatusBadge>
                   <p style={{ color: C.textH, fontSize: 14, margin: "4px 0 0", lineHeight: 1.55 }}>
                     {reschedules} guest{reschedules === 1 ? " wants" : "s want"} a new date. The date is held for them while you decide.

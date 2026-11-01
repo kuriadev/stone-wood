@@ -1,0 +1,134 @@
+/* Page-shaped loading placeholders -- PageSkeletons.tsx. Each bone is the
+   site's gold glass with a shimmer sweeping across; the shapes rise in a
+   little at a time so the page seems to assemble. Works in both themes. */
+
+.sk {
+  position: relative; overflow: hidden; flex-shrink: 0;
+  background: rgba(201, 168, 76, 0.08);
+  border: 1px solid rgba(201, 168, 76, 0.14);
+  border-radius: 8px;
+  animation: sk-in .5s cubic-bezier(.22, 1, .36, 1) both;
+}
+.sk::before {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(110deg, transparent 25%, rgba(255, 215, 120, 0.22) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.6s linear infinite;
+}
+@keyframes sk-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes sk-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.sk-dim { opacity: .55; }
+.sk-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Layout helpers */
+.sk-page { min-height: 100vh; }
+.sk-wrap { max-width: 1280px; margin: 0 auto; padding: 48px 24px 80px; }
+.sk-narrow { max-width: 680px; }
+.sk-row { display: flex; align-items: center; gap: 12px; }
+.sk-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sk-between { justify-content: space-between; }
+.sk-mt { margin-top: 10px; }
+.sk-push { margin-top: auto; }
+.sk-center { justify-content: center; }
+.sk-center-self { align-self: center; }
+.sk-card { border: 1px solid rgba(201, 168, 76, 0.14); border-radius: 16px; padding: 20px; background: rgba(201, 168, 76, 0.02); }
+.sk-line { padding: 14px 0; border-bottom: 1px solid rgba(201, 168, 76, 0.1); }
+.sk-line:last-child { border-bottom: 0; }
+
+/* Nav */
+.sk-nav { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 18px 48px; border-bottom: 1px solid rgba(201, 168, 76, 0.1); }
+.sk-nav__links { display: flex; gap: 36px; }
+
+/* Section head */
+.sk-head { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 40px; }
+.sk-head > .sk { max-width: 90%; }
+
+/* Home hero */
+.sk-hero { height: min(78vh, 720px); display: flex; align-items: flex-end; padding: 0 48px 80px; background: linear-gradient(180deg, rgba(201, 168, 76, 0.03), rgba(201, 168, 76, 0.07)); border-bottom: 1px solid rgba(201, 168, 76, 0.1); }
+.sk-hero__copy { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 760px; }
+.sk-durations { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; max-width: 1000px; margin: 0 auto 48px; }
+.sk-durations > .sk-row { justify-content: center; }
+
+/* Packages: wheel + card */
+.sk-pkg { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 52px; align-items: center; }
+.sk-pkg__wheel { display: flex; flex-direction: column; gap: 14px; padding-left: 18px; border-left: 3px solid rgba(201, 168, 76, 0.4); }
+.sk-pkg__card { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1fr); min-height: 640px; border: 1px solid rgba(201, 168, 76, 0.14); border-radius: 18px; overflow: hidden; }
+.sk-pkg__photo { border: 0 !important; height: 100% !important; }
+.sk-pkg__info { display: flex; flex-direction: column; gap: 12px; padding: 28px; }
+
+/* Rooms: zigzag rows */
+.sk-rooms { display: flex; flex-direction: column; gap: 56px; }
+.sk-room { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 40px; align-items: center; }
+.sk-room.is-flip { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); }
+.sk-room.is-flip .sk-room__photo { order: 2; }
+.sk-room__photo { aspect-ratio: 16 / 10; height: auto !important; }
+.sk-room__text { display: flex; flex-direction: column; gap: 12px; }
+
+/* Gallery: masonry */
+.sk-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+.sk-masonry { columns: 4 220px; column-gap: 16px; }
+.sk-masonry > .sk { break-inside: avoid; margin-bottom: 16px; }
+.sk-masonry > .sk:nth-child(3n) { animation-delay: .08s; } .sk-masonry > .sk:nth-child(3n+1) { animation-delay: .16s; }
+
+/* About */
+.sk-band { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; height: 420px; background: radial-gradient(circle at 50% 30%, rgba(201, 168, 76, 0.1), transparent 60%); }
+.sk-about { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 64px; align-items: start; margin-bottom: 56px; }
+.sk-faq { display: grid; grid-template-columns: minmax(0, .62fr) minmax(0, 1fr); gap: 48px; align-items: start; }
+
+/* Book Now */
+.sk-steps { display: flex; flex-direction: column; gap: 10px; margin-bottom: 36px; }
+.sk-steps__labels { display: grid; grid-template-columns: repeat(5, 1fr); justify-items: center; }
+.sk-book { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; align-items: start; }
+.sk-book__main, .sk-book__side { display: flex; flex-direction: column; gap: 12px; }
+.sk-book__cols { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 28px; margin-top: 10px; }
+.sk-cal { display: flex; flex-direction: column; gap: 14px; }
+.sk-cal__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.sk-trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+
+/* Forms (Manage booking, Customer Service) */
+.sk-form { display: flex; flex-direction: column; gap: 12px; padding: 28px; }
+
+/* Sign-in */
+.sk-login { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.sk-login__card { width: min(420px, 100%); display: flex; flex-direction: column; gap: 12px; padding: 32px; }
+
+/* Admin */
+.sk-admin { display: flex; min-height: 100vh; }
+.sk-admin__side { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 30px 20px 16px; border-right: 1px solid rgba(201, 168, 76, 0.12); }
+.sk-admin__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 18px; padding: 40px; }
+.sk-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.sk-bars { display: flex; align-items: flex-end; gap: 10px; height: 180px; }
+.sk-bars > .sk { flex: 1; }
+.sk-table { padding: 6px 20px; }
+
+/* Phones and small tablets */
+@media (max-width: 1023px) {
+  .sk-pkg { grid-template-columns: 1fr; gap: 24px; }
+  .sk-pkg__wheel { flex-direction: row; flex-wrap: wrap; border-left: 0; padding-left: 0; }
+  .sk-pkg__wheel > .sk { width: 30% !important; height: 44px !important; border-radius: 999px; }
+  .sk-pkg__wheel > .sk-row { display: none; }
+  .sk-book { grid-template-columns: 1fr; }
+  .sk-book__side { display: none; }
+}
+@media (max-width: 767px) {
+  .sk-nav { padding: 14px 16px; }
+  .sk-nav__links, .sk-nav > .sk:last-child { display: none; }
+  .sk-wrap { padding: 32px 16px 56px; }
+  .sk-hero { padding: 0 16px 48px; height: 70vh; }
+  .sk-durations { grid-template-columns: 1fr; gap: 10px; }
+  .sk-durations > .sk-row { justify-content: flex-start; }
+  .sk-pkg__card { grid-template-columns: 1fr; min-height: 0; }
+  .sk-pkg__photo { height: 240px !important; }
+  .sk-room, .sk-room.is-flip { grid-template-columns: 1fr; gap: 16px; }
+  .sk-room.is-flip .sk-room__photo { order: 0; }
+  .sk-masonry { columns: 2 140px; column-gap: 10px; }
+  .sk-masonry > .sk { margin-bottom: 10px; }
+  .sk-band { height: 300px; }
+  .sk-about, .sk-faq { grid-template-columns: 1fr; gap: 24px; }
+  .sk-book__cols { grid-template-columns: 1fr; }
+  .sk-steps__labels { display: none; }
+  .sk-admin__side { display: none; }
+  .sk-admin__main { padding: 20px 16px; }
+  .sk-kpis { grid-template-columns: 1fr 1fr; }
+  .sk-head > .sk { max-width: 100%; }
+}

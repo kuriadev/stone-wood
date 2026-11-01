@@ -1,12 +1,13 @@
 "use client";
 
+import "./RoomsPage.css";
 import { useWidth } from "@/hooks/useWidth";
 import { THEME_COLORS } from "@/lib/theme";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
 import type { Room } from "@/types/room";
 import { useState } from "react";
-import { srcSetFor, SIZES } from "@/lib/img";
+import { srcSetFor } from "@/lib/img";
 import { roomShots } from "@/lib/gallery";
 import { Icon } from "@/components/common/Icon";
 import { useRoomCart, roomCart } from "@/hooks/useRoomCart";
@@ -47,7 +48,6 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
   const C = THEME_COLORS;
   const w = useWidth();
   const mob = w < 768;
-  const tab = w < 1024;
 
   const [activeRoom, setActiveRoom] = useState<Room | null>(null);
 
@@ -77,120 +77,64 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
         </p>
         </Reveal>
 
-        {/* GRID */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: mob ? "1fr" : tab ? "1fr 1fr" : "repeat(3,1fr)",
-          gap: 28,
-        }}>
-          {rooms.map((r, i) => (
-            /* Reveal is a Motion element and writes `transform` inline as it
-               animates in. An inline style beats every class, so a :hover
-               transform on this node was silently dead — the card never
-               lifted. The entrance stays here; the card surface and its
-               hover move to a plain div inside, where CSS can reach them. */
-            <Reveal key={r.id} delay={i * REVEAL_STEP} style={{ display: "flex" }}>
-            <div
-              className="lux-room-card"
-              onClick={() => setActiveRoom(r)}
-              style={{
-                background: C.bgCard,
-                border: `1px solid ${C.border}`,
-                borderRadius: 14,
-                overflow: "hidden",
-                boxShadow: C.shadowCard,
-                cursor: "pointer",
-                // See PackagesPage: column layout so the button can sit at the
-                // bottom of every card regardless of description length.
-                display: "flex",
-                flexDirection: "column",
-                flex: 1,
-              }}
-            >
-              {/* IMAGE */}
-              <div style={{ position: "relative", overflow: "hidden" }}>
-                <img
-                  loading="lazy" decoding="async"
-                  src={r.img}
-                  srcSet={srcSetFor(r.img)}
-                  sizes={SIZES.card}
-                  alt={r.name}
-                  style={{
-                    width: "100%",
-                    height: 220,
-                    objectFit: "cover",
-                    // transition now lives on .room-img in globals.css, so the
-                    // Packages cards get the same easing from the same place.
-                  }}
-                  className="room-img"
-                />
+        {/* ROOMS — one wide row each, the photo and the words side by side,
+            alternating left and right down the page. Everything the cards
+            held is here: name, beds, how many it sleeps, price, the
+            description, and Add to booking. The photo opens the details. */}
+        <div className="sw-rooms">
+          {rooms.map((r, i) => {
+            // "Room 1 — Queen & Deck" reads as a small "ROOM 1" and a big
+            // "Queen & Deck"; a name without the pattern stays whole.
+            const m = /^(Room\s*\d+)\s*[—–-]\s*(.+)$/i.exec(r.name);
+            const eyebrow = (m ? m[1] : `Room ${i + 1}`).toUpperCase();
+            const title = m ? m[2] : r.name;
+            const flip = !mob && i % 2 === 1;
+            const added = inCart.includes(r.id);
+            return (
+              <Reveal key={r.id} delay={i * REVEAL_STEP}>
+                <article className={`sw-room${flip ? " is-flip" : ""}`} style={{ gridTemplateColumns: mob ? "1fr" : flip ? "minmax(0,1fr) minmax(0,1.15fr)" : "minmax(0,1.15fr) minmax(0,1fr)" }}>
+                  <button type="button" className="sw-room__photo" onClick={() => setActiveRoom(r)} aria-label={`See ${r.name}`}
+                    style={{ order: flip ? 2 : 0 }}>
+                    <img
+                      loading="lazy" decoding="async"
+                      src={r.img}
+                      srcSet={srcSetFor(r.img)}
+                      sizes={mob ? "100vw" : "(max-width: 1100px) 55vw, 600px"}
+                      alt={r.name}
+                      className="room-img"
+                    />
+                    <span className="sw-room__chip"><Icon name="users" size={13} /> {r.capacity} guests</span>
+                  </button>
 
-                {/* gradient */}
-                <div style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: "linear-gradient(to top,rgba(0,0,0,0.5),transparent 60%)",
-                }} />
-
-                {/* info */}
-                <div style={{
-                  position: "absolute",
-                  bottom: 12,
-                  left: 14,
-                  right: 14,
-                  display: "flex",
-                  justifyContent: "space-between",
-                }}>
-                  <span style={{
-                    fontSize: 12.5,
-                    background: "rgba(0,0,0,0.4)",
-                    padding: "4px 8px",
-                    borderRadius: 6,
-                    color: "#fff",
-                  }}>
-                    <Icon name="users" size={13} style={{ marginRight: 4 }} />{r.capacity} guests
-                  </span>
-
-                  <span style={{
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontFamily: "'Satoshi',system-ui,sans-serif",
-                  }}>
-                    {fmt(r.price)}
-                  </span>
-                </div>
-              </div>
-
-              {/* CONTENT */}
-              <div style={{ padding: 20, flex: 1, display: "flex", flexDirection: "column" }}>
-                <h3 style={{ color: C.textH, fontSize: 18 }}>{r.name}</h3>
-                <p style={{ color: C.goldInk, fontSize: 13.5 }}><Icon name="bed" size={13} style={{ marginRight: 4 }} />{r.beds}</p>
-                <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 16 }}>
-                  {r.desc}
-                </p>
-
-                {/* BUTTON */}
-                {/* Added: says so; tapping again takes it off. */}
-                <button
-                  className={inCart.includes(r.id) ? "sw-btn" : "sw-btn-out"}
-                  onClick={(e) => {
-                    e.stopPropagation(); //  prevents modal opening
-                    toggleRoom(r);
-                  }}
-                  style={{
-                    ...(inCart.includes(r.id) ? goldBtn : outBtn),
-                    width: "100%",
-                    padding: "12px",
-                    borderRadius: 8,
-                    marginTop: "auto",
-                  }}
-                >
-                  {inCart.includes(r.id) ? "✓ ADDED · TAP TO REMOVE" : "ADD TO BOOKING"}
-                </button>
-              </div>
-            </div>
-            </Reveal>
-          ))}
+                  <div className="sw-room__text" style={{ order: flip ? 1 : 0 }}>
+                    <p className="sw-room__eyebrow" style={{ color: C.goldInk }}>{eyebrow}</p>
+                    <h3 className="sw-room__title" style={{ color: C.textH }}>{title}</h3>
+                    <p className="sw-room__beds" style={{ color: C.textB }}>
+                      <Icon name="bed" size={14} style={{ color: C.goldInk }} /> {r.beds} · Up to {r.capacity} guests
+                    </p>
+                    <p className="sw-room__price" style={{ color: C.textH }}>{fmt(r.price)} <span style={{ color: C.textS }}>per tour</span></p>
+                    {r.desc && <p className="sw-room__desc" style={{ color: C.textS }}>{r.desc}</p>}
+                    <div className="sw-room__actions">
+                      {/* Added: says so; tapping again takes it off. */}
+                      <button
+                        type="button"
+                        className={added ? "sw-btn" : "sw-btn-out"}
+                        onClick={() => toggleRoom(r)}
+                        aria-pressed={added}
+                        style={{ ...(added ? goldBtn : outBtn), padding: "12px 22px", borderRadius: 8 }}
+                      >
+                        {added ? "✓ ADDED · TAP TO REMOVE" : "ADD TO BOOKING"}
+                      </button>
+                      <button type="button" className="sw-ulink" onClick={() => setActiveRoom(r)}
+                        style={{ background: "none", border: "none", padding: "8px 2px", color: C.goldInk, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                        View details
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              </Reveal>
+            );
+          })}
         </div>
       </div>
 

@@ -9,7 +9,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { CardGridSkeleton } from "@/components/common/Skeleton";
+import { RoomsSkeleton } from "@/components/common/PageSkeletons";
 
 export default function RoomsRoute() {
   const router = useRouter();
@@ -53,7 +53,7 @@ export default function RoomsRoute() {
       <Navbar page="Rooms" setPage={nav} />
       {skeleton.rooms ? (
         <div style={{ padding: "120px 24px 80px" }}>
-          <CardGridSkeleton count={6} label="Loading rooms" />
+          <RoomsSkeleton page={false} />
         </div>
       ) : (
         <RoomsPage

@@ -1,9 +1,10 @@
-// ── GET  /api/retention → the settings, when it last ran, and how many bookings would go now (settings.manage)
-// ── PUT  /api/retention { enabled, months } → save                                          (settings.manage)
-// ── POST /api/retention { action: "run" }  → delete now, by hand                            (settings.manage)
-// ── POST /api/retention { action: "auto" } → the daily run: only when switched on, once a day (staff, or a scheduler)
+// ── GET  /api/retention → the settings, when it last ran, what would be archived / deleted now (settings.manage)
+// ── PUT  /api/retention { archiveEnabled, archiveMonths, enabled, schedule, day, month } → save (settings.manage)
+// ── POST /api/retention { action: "archive" } → archive old finished bookings now, by hand  (settings.manage)
+// ── POST /api/retention { action: "purge" }   → delete the archive now, by hand              (settings.manage)
+// ── POST /api/retention { action: "auto" }    → the daily run: archive, and delete on the scheduled date (staff, or a scheduler)
 //
-// How long guests' bookings are kept -- lib/retention.ts has the rules.
+// Auto-archive and data retention -- lib/retention.ts has the rules.
 // The Dashboard calls "auto" the first time it is opened each day, the same
 // way it sends tomorrow's reminders; a scheduler can call it with
 // `Authorization: Bearer <NOTIFY_SECRET>`.
@@ -13,8 +14,8 @@ import { requirePermission } from "@/lib/auth";
 import { actingStaff } from "@/lib/staff.server";
 import { logActivity } from "@/lib/activity.server";
 import { manilaDate } from "@/lib/finance";
-import { validateRetention, monthsLabel } from "@/lib/retention";
-import { loadRetention, saveRetention, findPurgeable, purgeBookings } from "@/lib/retention.server";
+import { validateRetention, monthsLabel, scheduleLabel, nextScheduledOn, purgeDueFor, type RetentionState } from "@/lib/retention";
+import { loadRetention, saveRetention, findArchivable, findDeletable, archiveOld, purgeArchive } from "@/lib/retention.server";
 
 export const dynamic = "force-dynamic";
 
@@ -23,16 +24,23 @@ function schedulerAuthorised(req: NextRequest): boolean {
   return !!secret && (req.headers.get("authorization") ?? "") === `Bearer ${secret}`;
 }
 
+async function preview(state: RetentionState) {
+  const [arch, del] = await Promise.all([findArchivable(state.archiveMonths), findDeletable()]);
+  return {
+    wouldArchive: arch.ids.length, archiveCutoff: arch.cutoff,
+    wouldDelete: del.length, nextDeleteOn: nextScheduledOn(manilaDate(), state),
+  };
+}
+
 export async function GET(req: NextRequest) {
   const denied = await requirePermission(req, "settings.manage");
   if (denied) return denied;
   try {
     const { state, ready } = await loadRetention();
-    const preview = await findPurgeable(state.months);
-    return NextResponse.json({ success: true, ready, ...state, wouldDelete: preview.ids.length, cutoff: preview.cutoff });
+    return NextResponse.json({ success: true, ready, ...state, ...(await preview(state)) });
   } catch (err) {
     console.error("[/api/retention GET]", err);
-    return NextResponse.json({ success: false, error: "Could not load data retention." }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Could not load the archive settings." }, { status: 500 });
   }
 }
 
@@ -43,29 +51,35 @@ export async function PUT(req: NextRequest) {
   if (!v.ok) return NextResponse.json({ success: false, error: v.error }, { status: 400 });
   try {
     const { state } = await loadRetention();
-    const err = await saveRetention({ ...state, ...v.settings }, actingStaff()?.name ?? null);
+    const s = v.settings;
+    // Switching deletion on starts its clock today, so a scheduled date
+    // that already passed doesn't delete the moment it is saved.
+    const enabledOn = s.enabled ? (state.enabled ? state.enabledOn ?? manilaDate() : manilaDate()) : null;
+    const next: RetentionState = { ...state, ...s, enabledOn };
+    const err = await saveRetention(next, actingStaff()?.name ?? null);
     if (err) return NextResponse.json({ success: false, error: err }, { status: 409 });
     await logActivity({
       actor: "Admin", action: "data.retention_settings", entity: "site_content", entityId: "data_retention",
-      summary: v.settings.enabled
-        ? `Turned on data retention: finished bookings are deleted ${monthsLabel(v.settings.months)} after the stay.`
-        : `Turned off data retention: bookings are kept until deleted by hand.`,
-      details: { ...v.settings },
+      summary: [
+        s.archiveEnabled ? `Auto-archive on: finished bookings move to the archive ${monthsLabel(s.archiveMonths)} after the stay.` : "Auto-archive off.",
+        s.enabled ? `Archive deleted ${scheduleLabel(s)}.` : "The archive is kept until deleted by hand.",
+      ].join(" "),
+      details: { ...s },
     });
-    const preview = await findPurgeable(v.settings.months);
-    return NextResponse.json({ success: true, ...v.settings, wouldDelete: preview.ids.length, cutoff: preview.cutoff });
+    return NextResponse.json({ success: true, ...next, ...(await preview(next)) });
   } catch (err) {
     console.error("[/api/retention PUT]", err);
-    return NextResponse.json({ success: false, error: "Could not save data retention." }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Could not save the archive settings." }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as { action?: string };
-  if (body.action === "run") {
+  const action = body.action === "run" ? "purge" : body.action;
+  if (action === "archive" || action === "purge") {
     const denied = await requirePermission(req, "settings.manage");
     if (denied) return denied;
-  } else if (body.action === "auto") {
+  } else if (action === "auto") {
     if (!schedulerAuthorised(req)) {
       const denied = await requirePermission(req, "ops.view");
       if (denied) return denied;
@@ -75,18 +89,39 @@ export async function POST(req: NextRequest) {
   }
   try {
     const { state, ready } = await loadRetention();
-    if (!ready) return NextResponse.json({ success: true, deleted: 0, enabled: false });
+    if (!ready) return NextResponse.json({ success: true, archived: 0, deleted: 0 });
     const today = manilaDate();
-    if (body.action === "auto") {
-      // Switched off, or already ran today: nothing to do.
-      if (!state.enabled) return NextResponse.json({ success: true, deleted: 0, enabled: false });
-      if (state.lastRunAt && manilaDate(new Date(state.lastRunAt)) === today) return NextResponse.json({ success: true, deleted: 0, ranToday: true });
+    const by = action === "auto" ? null : actingStaff()?.name ?? null;
+
+    if (action === "archive") {
+      const { archived } = await archiveOld(state.archiveMonths, "manual");
+      await saveRetention({ ...state, lastArchived: archived }, by);
+      return NextResponse.json({ success: true, archived });
     }
-    const { deleted, cutoff } = await purgeBookings(state.months, body.action === "auto" ? "auto" : "manual");
-    await saveRetention({ ...state, lastRunAt: new Date().toISOString(), lastDeleted: deleted }, body.action === "run" ? actingStaff()?.name ?? null : null);
-    return NextResponse.json({ success: true, deleted, cutoff });
+    if (action === "purge") {
+      const { deleted } = await purgeArchive("manual");
+      await saveRetention({ ...state, lastDeleted: deleted, lastRunAt: new Date().toISOString() }, by);
+      return NextResponse.json({ success: true, deleted });
+    }
+
+    // The daily run: once a day.
+    if (state.lastRunAt && manilaDate(new Date(state.lastRunAt)) === today) {
+      return NextResponse.json({ success: true, archived: 0, deleted: 0, ranToday: true });
+    }
+    // Delete before archiving, so this run's newly archived bookings stay
+    // until the next scheduled date rather than going the same morning.
+    const dueOn = purgeDueFor(today, state);
+    const { deleted } = dueOn ? await purgeArchive("auto", dueOn) : { deleted: 0 };
+    const { archived } = state.archiveEnabled ? await archiveOld(state.archiveMonths, "auto") : { archived: 0 };
+    await saveRetention({
+      ...state,
+      lastRunAt: new Date().toISOString(),
+      lastArchived: state.archiveEnabled ? archived : state.lastArchived ?? null,
+      ...(dueOn ? { lastDeleted: deleted, lastPurgeOn: dueOn } : {}),
+    }, null);
+    return NextResponse.json({ success: true, archived, deleted });
   } catch (err) {
     console.error("[/api/retention POST]", err);
-    return NextResponse.json({ success: false, error: "Could not delete the old bookings. Nothing further was removed." }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Could not finish. Nothing further was changed." }, { status: 500 });
   }
 }

@@ -38,7 +38,7 @@ import { gold } from "@/lib/styles";
 import { Icon } from "@/components/common/Icon";
 import { VisitRecord } from "@/components/admin/InspectionModals";
 import {
-  AdminPageHeader, ChoiceButtons, TableShell, td, ActionButton, StatusBadge, Modal, Label, ErrorNote, useAdminStyle, Row, Cell, FullSelect, ViewSwitcherTabs, ConfirmDialog, usePaged, Pager,
+  AdminPageHeader, ChoiceButtons, TableShell, td, ActionButton, IconAction, StatusBadge, Modal, Label, ErrorNote, useAdminStyle, Row, Cell, FullSelect, ViewSwitcherTabs, ConfirmDialog, usePaged, Pager,
 } from "@/components/admin/ui";
 
 interface FacilitiesTabProps {
@@ -283,10 +283,10 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
               <Cell style={td}>{statusCell(f)}</Cell>
               <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                 <div style={{ display: "inline-flex", gap: 8 }}>
-                  <ActionButton size="sm" icon="edit" onClick={() => setEdit(f)}>Edit</ActionButton>
+                  <IconAction icon="edit" label="Edit" onClick={() => setEdit(f)} />
                   {!isCoreAmenity(f) && <>
-                    <ActionButton size="sm" onClick={() => setRetiring(f)}>Stop offering</ActionButton>
-                    <ActionButton size="sm" kind="red" onClick={() => setRemoving(f)}>Remove</ActionButton>
+                    <IconAction icon="eye-off" label="Stop offering" onClick={() => setRetiring(f)} />
+                    <IconAction icon="trash" label="Remove" kind="red" onClick={() => setRemoving(f)} />
                   </>}
                 </div>
               </Cell>
@@ -302,8 +302,8 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
                 {retired.map((f) => (
                   <span key={f.id} style={{ display: "inline-flex", alignItems: "center", gap: 8, color: C.textS, fontSize: 13 }}>
                     <Icon name={facilityIcon(f)} size={14} />{f.name}
-                    <ActionButton size="sm" onClick={() => setActive(f, true)}>Offer again</ActionButton>
-                    <ActionButton size="sm" kind="red" onClick={() => setRemoving(f)}>Remove</ActionButton>
+                    <IconAction icon="refresh" label="Offer again" onClick={() => setActive(f, true)} />
+                    <IconAction icon="trash" label="Remove" kind="red" onClick={() => setRemoving(f)} />
                   </span>
                 ))}
               </div>
@@ -330,7 +330,7 @@ function FacilityList({ facilities, bookings, mob }: { facilities: Facility[]; b
               <Cell style={{ ...td, color: C.textH, fontWeight: 600 }}>{tick(f)}<Icon name="bed" size={15} style={{ marginRight: 8, verticalAlign: -2 }} />{f.name}</Cell>
               <Cell style={{ ...td, color: C.textS }}>{lastUsed(f)}</Cell>
               <Cell style={td}>{statusCell(f)}</Cell>
-              <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm" icon="edit" onClick={() => setEdit(f)}>Edit</ActionButton></Cell>
+              <Cell style={{ ...td, textAlign: "right" }}><IconAction icon="edit" label="Edit" onClick={() => setEdit(f)} /></Cell>
             </Row>
           ))}
         </TableShell>
@@ -603,7 +603,7 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
               <Cell style={{ ...td, color: m.due > 0 ? "#f5a524" : C.textS, whiteSpace: "nowrap" }}>
                 {b.status === "Completed" ? (m.due > 0 ? `${fmt(m.due)} unpaid` : "Closed") : "Balance to collect"}
               </Cell>
-              <Cell style={{ ...td, textAlign: "right" }}><ActionButton size="sm">View inspection</ActionButton></Cell>
+              <Cell style={{ ...td, textAlign: "right" }}><IconAction icon="eye" label="View inspection" /></Cell>
             </Row>
           );
         })}
@@ -757,8 +757,8 @@ function DamageRates() {
               </Cell>
               <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                 <div style={{ display: "inline-flex", gap: 8 }}>
-                  {edited && <ActionButton size="sm" kind="green" onClick={() => saveRate(r.id)}>Save</ActionButton>}
-                  <ActionButton size="sm" kind="red" icon="trash" aria-label={`Delete ${r.name}`} onClick={() => setDeleting(r)}>Delete</ActionButton>
+                  {edited && <IconAction icon="check" label="Save" kind="green" onClick={() => saveRate(r.id)} />}
+                  <IconAction icon="trash" label="Delete" kind="red" onClick={() => setDeleting(r)} />
                 </div>
               </Cell>
             </Row>

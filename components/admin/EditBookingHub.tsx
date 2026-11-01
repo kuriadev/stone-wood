@@ -1,6 +1,6 @@
 "use client";
 
-/* "Edit" on a Dashboard card: one window that lists what can still be
+/* "Edit" on a Dashboard card, and "Edit booking" in All bookings: one window that lists what can still be
  * changed on a booking, each opening the window that already does it
  * properly (with the price, the calendar and the activity log kept right):
  * guest details, more guests (over capacity with a warning), overtime, a
@@ -15,16 +15,25 @@ import type { Booking } from "@/types/booking";
 
 export type EditChoice = "details" | "charge" | "pay" | "move";
 
-export function EditBookingHub({ booking: b, canMove, canPay, onPick, onClose }: {
+export function EditBookingHub({ booking: b, canMove, canPay, moveOff, chargeOff, onPick, onClose }: {
   booking: Booking;
   /** The date can still be changed by hand (not today or on site). */
   canMove: boolean;
   canPay: boolean;
+  /** Why the date can't change, when canMove is false (each screen says it
+   *  in its own words). */
+  moveOff?: string;
+  /** Set when nothing can be charged at all (a cancelled or archived
+   *  booking): every charge tile is off with this reason. */
+  chargeOff?: string;
   onPick: (what: EditChoice, charge?: ChargeKind) => void;
   onClose: () => void;
 }) {
   const { C, cBr } = useAdminStyle();
-  const blocked = chargeKindsFor(b);
+  const rules = chargeKindsFor(b);
+  const blocked = chargeOff
+    ? { overtime: chargeOff, guests: chargeOff, room: chargeOff, venue: chargeOff }
+    : rules;
   const tile = (icon: IconName, title: string, sub: string, onClick: () => void, off?: string) => (
     <button type="button" onClick={onClick} disabled={!!off} title={off}
       className="sw-gold-hover"
@@ -49,7 +58,7 @@ export function EditBookingHub({ booking: b, canMove, canPay, onPick, onClose }:
         {tile("bed", "Add a room", "A room for the group", () => onPick("charge", "room"), blocked.room || undefined)}
         {tile("tent", "Add the events venue", "The hall for their event", () => onPick("charge", "venue"), blocked.venue || undefined)}
         {canPay && tile("cash", "Record a payment", "Money received from the guest", () => onPick("pay"))}
-        {tile("calendar", "Change the date", "Move it to another free date", () => onPick("move"), canMove ? undefined : "Only bookings not yet arriving can be moved. Use Coming up.")}
+        {tile("calendar", "Change the date", "Move it to another free date", () => onPick("move"), canMove ? undefined : moveOff ?? "Only bookings not yet arriving can be moved. Use Coming up.")}
       </div>
       <p style={{ color: C.textS, fontSize: 12, margin: "14px 0 0", lineHeight: 1.5 }}>
         Each change updates the price and the balance, and is written to Activity History with your name.

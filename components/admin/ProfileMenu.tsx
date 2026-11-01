@@ -47,10 +47,12 @@ interface ProfileMenuProps {
   /** "sidebar": a full-width card at the foot of the nav. "bar": a compact
    *  pill for a page header. */
   variant?: "sidebar" | "bar";
+  /** The sidebar folded to its icons: the avatar alone. */
+  compact?: boolean;
 }
 
 /** Under the name: the person's role, e.g. "Front desk". */
-export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar" }: ProfileMenuProps) {
+export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar", compact = false }: ProfileMenuProps) {
   const { isDark, mode, toggle } = useTheme();
   const nextMode = nextTheme(mode);
   const C = T(isDark);
@@ -123,11 +125,12 @@ export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar" }: P
         width: "100%",
         display: "flex",
         alignItems: "center",
+        justifyContent: compact ? "center" : undefined,
         gap: SPACE.sm,
         minHeight: TAP_MIN,
-        padding: `${SPACE.xs}px ${SPACE.sm}px`,
+        padding: compact ? 4 : `${SPACE.xs}px ${SPACE.sm}px`,
         borderRadius: 12,
-        border: `1px solid ${C.border}`,
+        border: compact ? "1px solid transparent" : `1px solid ${C.border}`,
         background: "transparent",
         color: C.textB,
         cursor: "pointer",
@@ -135,6 +138,7 @@ export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar" }: P
       }}
     >
       {avatar(34)}
+      {!compact && <>
       <span style={{ minWidth: 0, flex: 1 }}>
         <span
           style={{
@@ -153,6 +157,7 @@ export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar" }: P
         <span style={{ display: "block", color: C.textS, fontSize: 11.5, letterSpacing: 0 }}>{ROLE}</span>
       </span>
       <Icon name="chevron-down" size={15} strokeWidth={STROKE} style={{ flexShrink: 0 }} />
+      </>}
     </button>
   );
 

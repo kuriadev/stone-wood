@@ -46,7 +46,7 @@ export function MonthStatusColumn({
         <p style={{ color: C.textS, fontSize: 12.5, margin: 0 }}>None this month.</p>
       ) : (
         <>
-          <div
+          <div className="sw-thinscroll"
             style={{
               display: "flex",
               flexDirection: "column",
@@ -58,9 +58,10 @@ export function MonthStatusColumn({
                  not make the page four screens long. */
               maxHeight: expanded ? 480 : PREVIEW * ROW,
               overflowY: "auto",
-              // Room for the scrollbar so it never sits on the dates.
-              paddingRight: overflowing ? 6 : 0,
-              marginRight: overflowing ? -6 : 0,
+              // A clear gap between the dates and the scrollbar, which sits
+              // in the card's own padding rather than on the text.
+              paddingRight: overflowing ? 14 : 0,
+              marginRight: overflowing ? -8 : 0,
             }}
           >
             {rows.map((bk) => (

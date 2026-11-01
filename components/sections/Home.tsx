@@ -9,12 +9,12 @@ import { HERO_BG } from "@/lib/constants";
 import { automaticHomeCards } from "@/lib/homeCards";
 import { useHomeCards } from "@/hooks/useHomeCards";
 import { TiltedCard } from "@/components/common/TiltedCard";
-import { CardGridSkeleton } from "@/components/common/Skeleton";
+import { PackagesSkeleton } from "@/components/common/PageSkeletons";
 import { SLOTS, QUIET_HOURS_POLICY } from "@/lib/resort";
 import { fmt } from "@/lib/utils";
 import { HeroReservation } from "@/components/sections/HeroReservation";
 import { MediaGallery } from "@/components/common/MediaGallery";
-import { PackageShowcase } from "@/components/sections/PackageShowcase";
+import { PackageTierScroll } from "@/components/sections/PackageTierScroll";
 import { Button } from "@/components/ui/button";
 import {
   Carousel,
@@ -145,7 +145,8 @@ const RESORT_WIDE = "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d
 
 // Day, Night and Whole Day — times from lib/resort.ts, the one place the
 // resort's hours are set.
-const DURATIONS = [SLOTS.Day, SLOTS.Night, SLOTS.WholeDay].map((s) => ({ label: s.label, window: s.hours }));
+const DURATIONS = ([[SLOTS.Day, "sun"], [SLOTS.Night, "moon"], [SLOTS.WholeDay, "staycation"]] as const)
+  .map(([s, icon]) => ({ label: s.label, window: s.hours, icon }));
 
 // Packages themselves now come from the admin-editable `packages` prop (see
 // types/package.ts and the admin Packages tab) — grouping them by Shared vs
@@ -514,14 +515,21 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
             </p>
           </Reveal>
 
-          {/* Duration windows — Day, Night and Whole Day. */}
+          {/* Duration windows — Day, Night and Staycation. A light row of
+              three, each with its icon, rather than three heavy boxes: it
+              introduces the packages below instead of competing with them. */}
           <Reveal
-            style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(200px,300px))", justifyContent: "center", gap: 4, background: C.border, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden", marginBottom: mob ? 28 : 40, maxWidth: mob ? "100%" : 903, marginLeft: "auto", marginRight: "auto" }}
+            style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))", gap: mob ? 10 : 0, maxWidth: mob ? "100%" : 1020, margin: `0 auto ${mob ? 28 : 56}px` }}
           >
-            {DURATIONS.map((d) => (
-              <div key={d.label} style={{ background: C.bgCard2, padding: mob ? "20px 20px" : "24px 24px", textAlign: "center" }}>
-                <div style={{ color: C.textXS, fontSize: 11, letterSpacing: 2.5, marginBottom: 8 }}>{d.label.toUpperCase()}</div>
-                <div style={{ color: C.goldInk, fontSize: mob ? 15 : 16, fontWeight: 500, letterSpacing: 0.3 }}>{d.window}</div>
+            {DURATIONS.map((d, i) => (
+              <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 14, justifyContent: mob ? "flex-start" : "center", padding: mob ? "14px 16px" : "6px 20px", borderLeft: !mob && i > 0 ? `1px solid ${C.border}` : undefined, border: mob ? `1px solid ${C.border}` : undefined, borderRadius: mob ? 12 : undefined }}>
+                <span style={{ flexShrink: 0, width: 40, height: 40, borderRadius: "50%", display: "grid", placeItems: "center", color: C.goldInk, background: "rgba(201,168,76,0.10)", border: "1px solid rgba(201,168,76,0.28)" }}>
+                  <Icon name={d.icon} size={18} strokeWidth={1.6} />
+                </span>
+                <span style={{ minWidth: 0, textAlign: "left" }}>
+                  <span style={{ display: "block", color: C.textXS, fontSize: 11, letterSpacing: 2.5, marginBottom: 4 }}>{d.label.toUpperCase()}</span>
+                  <span style={{ display: "block", color: C.goldInk, fontSize: mob ? 14.5 : 15, fontWeight: 500, letterSpacing: 0.2, whiteSpace: "nowrap" }}>{d.window}</span>
+                </span>
               </div>
             ))}
           </Reveal>
@@ -531,9 +539,11 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
               a full package card and a gallery lightbox, which is more than
               belongs inline in the page shell. */}
           {packagesLoading ? (
-            <CardGridSkeleton count={2} label="Loading packages" />
+            <PackagesSkeleton page={false} />
           ) : (
-            <PackageShowcase
+            /* Wide screens: the wheel and the card, turned by the page
+               scroll (as on the Packages page). Phones: the tabs. */
+            <PackageTierScroll
               packages={visiblePackages}
               onBookPackage={onBookPackage}
               onFallbackBook={() => setPage("Book Now")}

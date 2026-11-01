@@ -7,7 +7,7 @@ import { Gallery } from "@/components/sections/Gallery";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { CardGridSkeleton } from "@/components/common/Skeleton";
+import { GallerySkeleton } from "@/components/common/PageSkeletons";
 
 export default function GalleryRoute() {
   const router = useRouter();
@@ -49,7 +49,7 @@ export default function GalleryRoute() {
       <Navbar page="Gallery" setPage={nav} />
       {skeleton.gallery ? (
         <div style={{ padding: "120px 24px 80px" }}>
-          <CardGridSkeleton count={6} label="Loading gallery" />
+          <GallerySkeleton page={false} />
         </div>
       ) : (
         <Gallery photos={galleryPhotos} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
@@ -8,7 +8,12 @@ import { gold, goldBtn } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
 // The owner's phone and email from Rates & Settings, not a typed-in copy.
-import { RESORT_CONTACT } from "@/lib/resort";
+import { RESORT_CONTACT, SLOTS, QUIET_HOURS_START } from "@/lib/resort";
+import { RESCHEDULE_NOTICE_DAYS } from "@/lib/validators";
+import "./About.css";
+
+/** Where the resort is. The footer prints the same line. */
+const ADDRESS = "22 Yakal cor. Ipil St. Doña Justa Village Phase, 2nd St, Angono, Rizal";
 
 interface AboutProps {
   setPage: (p: string) => void;
@@ -29,6 +34,28 @@ export function About({
   const C = T(isDark);
   const w = useWidth();
   const mob = w < 768;
+  // Policies and questions: one answer open at a time. Opening another
+  // closes the last; tapping the open one closes it.
+  const [openQ, setOpenQ] = useState<number | null>(null);
+
+  // Built at render, so the numbers follow Rates & Settings (the notice
+  // days) and lib/resort (the hours) -- the same rules the guest agrees to
+  // on Book Now (lib/policies.ts).
+  const notice = `${RESCHEDULE_NOTICE_DAYS} day${RESCHEDULE_NOTICE_DAYS === 1 ? "" : "s"}`;
+  const stay = SLOTS.WholeDay;
+  const facts: { icon: IconName; label: string; value: string; href?: string }[] = [
+    { icon: "pin", label: "Address", value: ADDRESS },
+    { icon: "clock", label: "Hours", value: `${SLOTS.Day.label} ${SLOTS.Day.start} – ${SLOTS.Day.end} · ${SLOTS.Night.label} ${SLOTS.Night.start} – ${SLOTS.Night.end}` },
+    { icon: "phone", label: "Call or text", value: RESORT_CONTACT.phone, href: `tel:${RESORT_CONTACT.phone.replace(/[^\d+]/g, "")}` },
+    { icon: "mail", label: "Email", value: RESORT_CONTACT.email, href: `mailto:${RESORT_CONTACT.email}` },
+  ];
+  const faqs: { q: string; a: string }[] = [
+    { q: "How much do I pay to book?", a: "Half of the total, paid online by QR Ph — scan it with GCash or any QR Ph wallet. The other half is paid when you arrive. You can also pay the full amount at once." },
+    { q: "What if I need to cancel?", a: `If you cancel, payments are not refunded — but you can move your booking to another free date once, at no charge, if you ask at least ${notice} before your visit.` },
+    { q: "What if the resort has to cancel?", a: "You choose: a free new date, or a full refund. The same goes for a PAGASA storm signal or a travel restriction. The resort contacts you." },
+    { q: "Do I have to sleep over for a stay of several days?", a: `A booking of more than one date is a ${stay.label}: the resort stays yours from ${stay.start} on the first day until ${stay.end} after the last night.` },
+    { q: "Are there quiet hours?", a: `Videoke and speakers go off at ${QUIET_HOURS_START} so our neighbours can rest.` },
+  ];
 
 
   return (
@@ -227,211 +254,79 @@ export function About({
   `}</style>
 </div>
 
-      {/* STORY SECTION */}
-      <section
-        style={{
-          maxWidth: 820,
-          margin: "0 auto",
-          padding: mob ? "40px 20px" : "72px 24px",
-          textAlign: "center",
-        }}
-      >
-        <p style={{ color: C.textB, lineHeight: 1.9, marginBottom: 20 }}>
-          StoneWood Private Resort is nestled in the heart of Angono, Rizal —
-          a sanctuary where nature and privacy come together.
-        </p>
+      {/* ABOUT — the story on the left, the resort's facts in a card on
+          the right; under them, the booking rules as questions. */}
+      <section className="sw-about">
+        <div className="sw-about__top">
+          <Reveal>
+            <div>
+              <p className="sw-about__eyebrow" style={{ color: C.goldInk }}>ABOUT STONEWOOD</p>
+              <h2 className="sw-about__title" style={{ color: C.textH }}>A family-run private resort in Angono, Rizal.</h2>
+              <p className="sw-about__lead" style={{ color: C.textS }}>
+                StoneWood Private Resort is nestled in the heart of Angono, Rizal —
+                a sanctuary where nature and privacy come together.
+              </p>
+              <p className="sw-about__lead" style={{ color: C.textS }}>
+                Enjoy private pools, BBQ areas, billiards, videoke, and serene
+                surroundings designed for unforgettable experiences.
+              </p>
+            </div>
+          </Reveal>
 
-        <p style={{ color: C.textB, lineHeight: 1.9 }}>
-          Enjoy private pools, BBQ areas, billiards, videoke, and serene
-          surroundings designed for unforgettable experiences.
-        </p>
-      </section>
-
-     {/* WHY CHOOSE */}
-      <section style={{ textAlign: "center", marginBottom: 80 }}>
-        <h2
-          style={{
-            fontFamily: "'Satoshi',system-ui,sans-serif",
-            fontSize: mob ? 26 : 32,
-            color: C.textH,
-            marginBottom: mob ? 24 : 40,
-            /* The theme toggle floats over the right edge, so a full-width
-               centred heading had its last letter sitting underneath it. */
-            padding: mob ? "0 56px" : 0,
-          }}
-        >
-          Why Choose StoneWood
-        </h2>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)",
-            /* Two changes fix the wasted space this row used to show.
-               `alignItems: start` lets each card end where its text ends --
-               with stretch, the two short cards were padded out to match the
-               tallest and sat half empty. And the column is wider than the
-               1,100px it was: at that width the first card's bullets wrapped
-               to two lines each while the others fit on one, which is what
-               made it taller in the first place. */
-            alignItems: "start",
-            gap: mob ? 16 : 24,
-            maxWidth: 1240,
-            margin: "0 auto",
-            padding: mob ? "0 20px" : 0,
-          }}
-        >
-          {[
-            {
-              // Was "Private & Exclusive" / "No shared guests or overcrowding",
-              // which contradicted the product: the resort sells a Shared tier
-              // where the pool IS shared with other groups in the same slot.
-              // This now describes the real choice a guest makes, in the same
-              // words the booking screen uses (see BookNow's tier copy).
-              icon: "handshake",
-              title: "Shared or Exclusive",
-              desc: "Book the way that suits your group.",
-              details: [
-                "Share the pool with other groups, billed per guest",
-                "Or buy out the whole pool for your group alone",
-                "Day Tour, Night Tour, or Staycation — you choose",
-              ],
-            },
-            {
-              icon: "palm",
-              title: "Premium Amenities",
-              desc: "Everything you need in one place.",
-              details: [
-                "Private swimming pool",
-                "BBQ & outdoor dining area",
-                "Billiards & videoke entertainment",
-              ],
-            },
-            {
-              icon: "sunrise",
-              title: "Nature Escape",
-              desc: "Relax in a peaceful environment.",
-              details: [
-                "Fresh air & greenery",
-                "Quiet and calming atmosphere",
-                "Perfect break from city stress",
-              ],
-            },
-          ].map((item, i) => {
-            return (
-              /* The entrance goes on the wrapper, not the card: the card
-                 sets `transform` from its own hover handlers, and Motion
-                 writes `transform` inline too — one would overwrite the
-                 other. */
-              <Reveal key={item.title} delay={i * REVEAL_STEP} style={{ display: "flex" }}>
-              <div
-        className="sw-why-card"
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = "translateY(-8px) scale(1.025)";
-          e.currentTarget.style.boxShadow = "0 25px 50px rgba(0,0,0,0.25)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = "translateY(0) scale(1)";
-          e.currentTarget.style.boxShadow = "none";
-        }}
-        style={{
-          /* Fills the Reveal wrapper, which is the grid item. Without this
-             the card is a flex item at its default `auto` basis, so it
-             shrank to the width of its own longest bullet and the three
-             equal 1fr columns ended up holding three different-width
-             cards. */
-          flex: 1,
-          minWidth: 0,
-          padding: mob ? "20px 20px" : "28px 24px",
-          borderRadius: 16,
-          background: C.bgCard,
-          border: `1px solid ${C.border}`,
-          textAlign: "left",
-          // The cards are not interactive any more — they only respond to
-          // hover. A pointer cursor would promise a click that does nothing.
-          cursor: "default",
-          transition: "all .35s cubic-bezier(.2,.8,.2,1)",
-          transform: "scale(1)",
-          boxShadow: "none",
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        {/* GOLD SWEEP HOVER EFFECT */}
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: "-120%",
-            width: "120%",
-            height: "100%",
-            background:
-              "linear-gradient(120deg, transparent, rgba(201,168,76,0.25), transparent)",
-            transform: "skewX(-20deg)",
-            transition: "all .6s ease",
-            pointerEvents: "none",
-          }}
-          className="hover-sweep"
-        />
-
-        {/* HEADER */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div
-            style={{
-              lineHeight: 0,
-              color: C.goldInk,
-              transition: "transform .3s ease",
-            }}
-            className="icon-anim"
-          >
-            <Icon name={item.icon as IconName} size={26} strokeWidth={1.5} />
-          </div>
-
-          <h3
-            style={{
-              fontSize: 17,
-              color: C.textH,
-              letterSpacing: 0.5,
-            }}
-          >
-            {item.title}
-          </h3>
+          <Reveal delay={REVEAL_STEP}>
+            <ul className="sw-about__facts" style={{ background: C.bgCard, borderColor: C.border }}>
+              {facts.map((f) => {
+                const body = (
+                  <>
+                    <span className="sw-about__ficon" style={{ color: C.goldInk }}><Icon name={f.icon} size={18} strokeWidth={1.6} /></span>
+                    <span style={{ minWidth: 0 }}>
+                      <span className="sw-about__flabel" style={{ color: C.textH }}>{f.label}</span>
+                      <span className="sw-about__fvalue" style={{ color: C.textS }}>{f.value}</span>
+                    </span>
+                  </>
+                );
+                return (
+                  <li key={f.label} style={{ borderColor: C.border }}>
+                    {f.href ? <a href={f.href} className="sw-about__frow">{body}</a> : <div className="sw-about__frow">{body}</div>}
+                  </li>
+                );
+              })}
+            </ul>
+          </Reveal>
         </div>
 
-        {/* DESC */}
-        <p
-          style={{
-            fontSize: 14.5,
-            color: C.textB,
-            marginTop: 12,
-          }}
-        >
-          {item.desc}
-        </p>
-
-        {/* DETAILS — always shown. These used to sit behind a tap-to-expand
-            toggle; the cards are now static, so the full list is visible at
-            rest and nothing about the page moves when a visitor mouses over
-            them. */}
-        <div>
-          <ul
-            style={{
-              margin: "12px 0 0",
-              paddingLeft: 20,
-              color: C.textB,
-              fontSize: 14.5,
-              lineHeight: 1.6,
-            }}
-          >
-            {item.details.map((d) => (
-              <li key={d}>{d}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
-              </Reveal>
-            );
-          })}
+        <div className="sw-about__faq">
+          <Reveal>
+            <div>
+              <h3 className="sw-about__faqtitle" style={{ color: C.textH }}>Policies and questions</h3>
+              <p className="sw-about__faqsub" style={{ color: C.textS }}>The same rules you agree to when you book.</p>
+            </div>
+          </Reveal>
+          <Reveal delay={REVEAL_STEP}>
+            <div className="sw-about__acc" style={{ background: C.bgCard, borderColor: C.border }}>
+              {faqs.map((f, i) => {
+                const open = openQ === i;
+                return (
+                  <div key={f.q} className={`sw-about__item${open ? " is-open" : ""}`} style={{ borderColor: C.border }}>
+                    <button
+                      type="button"
+                      className="sw-about__q"
+                      aria-expanded={open}
+                      aria-controls={`sw-faq-${i}`}
+                      onClick={() => setOpenQ(open ? null : i)}
+                      style={{ color: C.textH }}
+                    >
+                      <span>{f.q}</span>
+                      <Icon name="chevron-down" size={18} className="sw-about__chev" />
+                    </button>
+                    <div id={`sw-faq-${i}`} className="sw-about__a" role="region" aria-hidden={!open}>
+                      <div><p style={{ color: C.textB }}>{f.a}</p></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Reveal>
         </div>
       </section>
 
@@ -484,7 +379,7 @@ export function About({
             Stonewood Garden<br />Private Pool
           </h2>
           <p style={{ color: C.textS, fontSize: 14, lineHeight: 1.8, margin: "0 0 28px", maxWidth: 360 }}>
-            22 Yakal cor. Ipil St. Doña Justa Village Phase, 2nd St, Angono, Rizal
+            {ADDRESS}
           </p>
           <button
             onClick={() => setPage("Book Now")}

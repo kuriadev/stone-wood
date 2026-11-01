@@ -7,7 +7,7 @@ import { PackagesPage } from "@/components/sections/PackagesPage";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { CardGridSkeleton } from "@/components/common/Skeleton";
+import { PackagesSkeleton } from "@/components/common/PageSkeletons";
 import { buildPackageBookingUrl } from "@/lib/utils";
 import { packageLinkPrices } from "@/lib/pricing";
 import { manilaNow } from "@/lib/validators";
@@ -52,7 +52,7 @@ export default function PackagesRoute() {
       <Navbar page="Packages" setPage={nav} />
       {skeleton.packages ? (
         <div style={{ padding: "120px 24px 80px" }}>
-          <CardGridSkeleton count={6} label="Loading packages" />
+          <PackagesSkeleton page={false} />
         </div>
       ) : (
         <PackagesPage

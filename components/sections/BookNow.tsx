@@ -2,6 +2,7 @@
 
   import { useState, useEffect, useRef } from "react";
   import { useTheme } from "@/contexts/ThemeContext";
+  import "./BookNow.css";
   import { useWidth } from "@/hooks/useWidth";
   import { useToast } from "@/contexts/ToastContext";
   import { T } from "@/lib/theme";
@@ -719,8 +720,10 @@
            so it is never a place to return to in those flows.
        Everything ahead of the guest stays inert -- the bar reports progress,
        it does not let anyone skip validation to reach payment. */
+    // No jumping back once the QR is up (step 6): a live payment is open,
+    // so the way out is CANCEL PAYMENT, which closes it first.
     const canJumpTo = (i: number) =>
-      step !== 7 && i < currentIdx && !(i === 1 && !showRoomPicker);
+      step !== 6 && step !== 7 && i < currentIdx && !(i === 1 && !showRoomPicker);
 
     /* Every step opens the same way: a gold eyebrow, a serif question, and an
        optional quiet note on the right. Written once as a function (not a
@@ -828,6 +831,191 @@
     );
 
 
+    // ── The booking summary: one card that follows the guest from the
+    // first step to payment. Wide screens hold it on the right beside the
+    // step; narrower ones show it inline where each step always had it.
+    // Each step's summary says exactly what it said before -- only the
+    // card around it is shared.
+    const wide = w >= 1200;
+    const summaryKind: "selected" | "reservation" | "order" | null =
+      step === 6 ? "order"
+      : step === 5 ? "reservation"
+      : step === 4 || (step === 3 && (isPackage || bookView !== "packages")) ? "selected"
+      : null;
+    const sideSummary = wide && summaryKind !== null;
+    const sumRow = (l: string, v: string) => (
+      <div key={l} className="sw-bsum__row">
+        <span style={{ color: C.textS }}>{l}</span>
+        <span style={{ color: C.textB }}>{v}</span>
+      </div>
+    );
+    const sumHr = <hr className="sw-bsum__hr" style={{ borderColor: C.border }} />;
+    const sumTotal = (l: string, v: string) => (
+      <div className="sw-bsum__total">
+        <span style={{ color: C.textH }}>{l}</span>
+        <span style={{ color: C.textH }}>{v}</span>
+      </div>
+    );
+    const sumLine = (l: string, v: string) => (
+      <div className="sw-bsum__line">
+        <span style={{ color: C.textS }}>{l}</span>
+        <span style={{ color: C.goldInk }}>{v}</span>
+      </div>
+    );
+    const summaryBody =
+      summaryKind === "selected" ? (
+        <>
+          <p className="sw-bsum__eyebrow" style={{ color: C.goldInk }}>YOUR SELECTED BOOKING</p>
+          <h3 className="sw-bsum__title" style={{ color: C.textH }}>
+            {isPackage ? availedLabel : `${SLOTS[slot].label} · ${SLOTS[slot].hours}`}
+          </h3>
+          {isPackage && (
+            <p className="sw-bsum__sub" style={{ color: C.textS }}>{SLOTS[slot].label} · {SLOTS[slot].hours}</p>
+          )}
+          {!isPackage && stayDays > 1 && (
+            <p className="sw-bsum__sub" style={{ color: C.textB }}>{stayPatternNote(slot, stayDays)}</p>
+          )}
+          {!isPackage && (
+            <p className="sw-bsum__sub" style={{ color: C.textS }}>
+              {slot === "Day"
+                ? `Want to stay a little later? Up to ${OVERTIME_MAX} hrs of overtime (${fmt(OVERTIME_RATE)}/hr) can be arranged at the resort when no Night group is booked — ${TURNOVER_WINDOW} is otherwise cleaning time.`
+                : slot === "Night"
+                ? `The resort is yours for the whole night — ${SLOTS.Night.start} until ${SLOTS.Night.end} the next morning. ${QUIET_HOURS_POLICY}`
+                : `The resort is yours all day and night — no break between the Day and Night Tours. ${QUIET_HOURS_POLICY}`}
+            </p>
+          )}
+          {sumHr}
+          {sumTotal("Total", fmt(total))}
+          {step === 3 && showRoomPicker && selRooms.length === 0 && (
+            <p className="sw-bsum__foot" style={{ color: C.textS }}>A room can be added in the next step.</p>
+          )}
+          {!isPackage && (
+            <p className="sw-bsum__foot" style={{ color: C.goldInk }}>
+              {resource === "Venue" ? (
+                <>Events venue only, no pool · {fmt(priceBooking({ resource: "Venue", tier: "Exclusive", slot, guests: 1, overtime: 0, roomPrices: [] }).total)} flat</>
+              ) : (
+                <>
+                  {/* What a guest actually pays for this slot rather than
+                      the rate it is built from. A Staycation is Exclusive
+                      only, so it has no Shared price. */}
+                  {!tierFixed && <>Shared {fmt(sharedRateFor(slot))} / guest · </>}Exclusive{" "}
+                  {fmt(priceBooking({ resource: "Pool", tier: "Exclusive", slot, guests: 1, overtime: 0, roomPrices: [] }).total)}
+                  {resource === "Pool+Venue" && <> · plus the events venue, {fmt(EVENT_VENUE_RATE)} per tour</>}
+                </>
+              )}
+            </p>
+          )}
+        </>
+      ) : summaryKind === "reservation" ? (
+        <>
+          {/* An itemized liquidation rather than one lump total, so a guest
+              can see exactly what each peso is for before paying. */}
+          <p className="sw-bsum__eyebrow" style={{ color: C.goldInk }}>RESERVATION SUMMARY</p>
+          {sumRow(stayDays > 1 ? "Dates" : "Date", date ? stayLabel({ date, endDate: lastDay }) : "\u2014")}
+          {sumRow("Check in", stayWin ? stayWin.arrive : "\u2014")}
+          {sumRow("Check out", stayWin ? stayWin.depart : "\u2014")}
+          {sumRow("Package availed", availedLabel)}
+          {sumRow("Guests", String(guests))}
+          {sumRow("Room", selRooms.length
+            ? rooms.filter((r) => selRooms.includes(r.id)).map((r) => r.name).join(", ")
+            : "No room add-on")}
+          {sumHr}
+          {/* How much to pay now. A radio group of two cards: the 50%
+              deposit stays the default, and paying in full means nothing is
+              left to settle on arrival. */}
+          <div id="pay-plan-label" style={{ color: C.textS, fontSize: 12, letterSpacing: 1.6, fontWeight: 700, marginBottom: 12 }}>HOW MUCH TO PAY NOW</div>
+          <div role="radiogroup" aria-labelledby="pay-plan-label" style={{ display: "grid", gridTemplateColumns: mob || sideSummary ? "1fr" : "1fr 1fr", gap: 10 }}>
+            {([
+              { full: false, title: "50% deposit", amount: down, note: `${fmt(total - down)} paid at the resort` },
+              { full: true, title: "Pay in full", amount: total, note: "Nothing to pay on arrival" },
+            ] as const).map((o) => {
+              const on = payFull === o.full;
+              return (
+                <button key={o.title} type="button" role="radio" aria-checked={on} className="sw-choice" onClick={() => setPayFull(o.full)}
+                  style={{ textAlign: "left", padding: "12px 14px", borderRadius: 12, cursor: "pointer", background: on ? "rgba(201,168,76,0.12)" : "transparent", border: `1px solid ${on ? gold : C.border}`, display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <span aria-hidden="true" style={{ width: 16, height: 16, borderRadius: "50%", border: `1.5px solid ${on ? gold : C.textS}`, marginTop: 3, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {on && <span style={{ width: 8, height: 8, borderRadius: "50%", background: gold }} />}
+                  </span>
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: "block", color: C.textH, fontSize: 13.5, fontWeight: 700 }}>{o.title} · {fmt(o.amount)}</span>
+                    <span style={{ display: "block", color: C.textS, fontSize: 12, marginTop: 4 }}>{o.note}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {sumHr}
+          {sumTotal("Total", fmt(total))}
+          {sumLine("Due now", fmt(payFull ? total : down))}
+          {sumLine("Balance on arrival", fmt(payFull ? 0 : total - down))}
+        </>
+      ) : summaryKind === "order" ? (
+        <>
+          <p className="sw-bsum__eyebrow" style={{ color: C.goldInk }}>ORDER SUMMARY</p>
+          {sumRow("Guest", form.name || "\u2014")}
+          {sumRow(stayDays > 1 ? "Dates" : "Date", date ? stayLabel({ date, endDate: lastDay }) : "\u2014")}
+          {sumRow("Check in", stayWin ? stayWin.arrive : "\u2014")}
+          {sumRow("Check out", stayWin ? stayWin.depart : "\u2014")}
+          {sumRow("Package availed", availedLabel)}
+          {sumRow("Guests", overtime > 0 ? `${guests} \u00b7 +${overtime}hr OT` : String(guests))}
+          {sumHr}
+          {sumTotal("Full total", fmt(serverQuote?.total ?? total))}
+          <p className="sw-bsum__foot" style={{ color: C.textS, margin: "14px 0 16px" }}>
+            Keep this page open while you pay.
+          </p>
+          {/* Live status. There is deliberately no "I've paid" button any
+              more — the old one recorded the booking as Paid on the guest's
+              say-so, whether or not any money had moved. Confirmation now
+              comes from PayMongo. */}
+          {paid ? (
+            <div style={{ background: "rgba(0,169,82,0.10)", border: "1px solid rgba(0,169,82,0.35)", borderRadius: 12, padding: "16px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 18 }}>✅</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: "#00a952", fontSize: 14.5, fontWeight: 700 }}>Payment received</div>
+                {!saveError && <div style={{ color: C.textS, fontSize: 12.5 }}>Saving your booking…</div>}
+                {saveError && (
+                  <>
+                    <div style={{ color: C.dangerInk, fontSize: 12.5, lineHeight: 1.6, margin: "4px 0 8px" }}>
+                      {saveError} Your payment is safe — retrying can't charge you twice.
+                      If this keeps failing, contact us and quote payment ref <span style={{ fontFamily: "monospace" }}>{qrData?.paymentIntentId}</span>.
+                    </div>
+                    <button onClick={() => void confirmOnline()} disabled={saving} style={{ background: "#00a952", color: "#fff", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, cursor: saving ? "wait" : "pointer", letterSpacing: 1, opacity: saving ? 0.6 : 1 }}>
+                      {saving ? "SAVING…" : "RETRY SAVING"}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div style={{ background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 16, height: 16, border: "2px solid rgba(0,169,82,0.25)", borderTopColor: "#00a952", borderRadius: "50%", flexShrink: 0, animation: "sw-spin .8s linear infinite" }} />
+              <div>
+                <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600 }}>Waiting for your payment…</div>
+                <div style={{ color: C.textS, fontSize: 12.5 }}>This page updates by itself once GCash confirms.</div>
+              </div>
+            </div>
+          )}
+          {/* Test mode only. PayMongo hands back a test_url that simulates a
+              scan — it is absent with live keys, so this link cannot appear
+              in production. */}
+          {qrData?.testUrl && !paid && (
+            <a
+              href={qrData.testUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ display: "block", marginTop: 12, textAlign: "center", color: C.goldInk, fontSize: 12.5, letterSpacing: 1, textDecoration: "underline" }}
+            >
+              ⚡ TEST MODE — simulate a successful payment
+            </a>
+          )}
+        </>
+      ) : null;
+    const summaryCard = summaryBody && (
+      <div key={summaryKind} className="sw-bsum" style={{ background: C.bgCard, borderColor: C.border, boxShadow: sideSummary ? C.shadow : "none" }}>
+        {summaryBody}
+      </div>
+    );
+
     return (
       <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "32px 16px" : "80px 24px" }}>
         {/* The rooms added from the Rooms page, in full, until the room step
@@ -840,7 +1028,7 @@
               : "Not with Events Venue only. Choose Resort & pool to keep it."}
           />
         )}
-        <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+        <div style={{ maxWidth: wide ? 1320 : 1080, margin: "0 auto" }}>
           <p style={{ color: C.goldInk, letterSpacing: 4, fontSize: 12.5, marginBottom: 8, textAlign: "center" }}>RESERVATIONS</p>
           <h2 style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 30 : 46, color: C.textH, textAlign: "center", marginBottom: 12, fontWeight: 400, lineHeight: 1.1 }}>Create Your Stay</h2>
           <p style={{ color: C.textS, fontSize: mob ? 14.5 : 16, textAlign: "center", margin: "0 0 12px" }}>
@@ -922,8 +1110,10 @@
             </div>
           </div>
 
-          {/* Main card */}
-          <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : "44px 48px", boxShadow: C.shadow }}>
+          {/* Main card, with the booking summary held on its right on wide
+              screens. */}
+          <div className={sideSummary ? "sw-bnow-grid" : undefined}>
+          <div style={{ minWidth: 0, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : sideSummary ? "40px 40px" : "44px 48px", boxShadow: C.shadow }}>
 
             {/* STEP 1 – Visit & date, on one screen.
                 The visit type and the date used to be two steps, so a guest
@@ -1381,53 +1571,10 @@
                 {/* What the choice comes to: a full-width bar under both
                     columns, so the right column stays about as tall as the
                     calendar and the guest's eye ends on the price. */}
-                {!isPackage && (
-                      <div style={{ marginTop: 24, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "16px" : "18px 22px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)", display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1.6fr) minmax(0,1fr)", gap: mob ? 12 : 28, alignItems: "center" }}>
-                      <div>
-                      <p style={{ color: C.goldInk, fontSize: 11.5, letterSpacing: 2, display: "block", marginBottom: 8 }}>
-                        YOUR SELECTED BOOKING
-                      </p>
-                      <p style={{ color: C.textH, fontSize: 15, fontWeight: 600, margin: "0 0 8px" }}>
-                        {SLOTS[slot].label} · {SLOTS[slot].hours}
-                      </p>
-                      {stayDays > 1 && (
-                        <p style={{ color: C.textB, fontSize: 12.5, lineHeight: 1.6, margin: "0 0 8px" }}>
-                          {stayPatternNote(slot, stayDays)}
-                        </p>
-                      )}
-                      <p style={{ color: C.textS, fontSize: 12.5, lineHeight: 1.6, margin: 0 }}>
-                        {slot === "Day"
-                          ? `Want to stay a little later? Up to ${OVERTIME_MAX} hrs of overtime (${fmt(OVERTIME_RATE)}/hr) can be arranged at the resort when no Night group is booked — ${TURNOVER_WINDOW} is otherwise cleaning time.`
-                          : slot === "Night"
-                          ? `The resort is yours for the whole night — ${SLOTS.Night.start} until ${SLOTS.Night.end} the next morning. ${QUIET_HOURS_POLICY}`
-                          : `The resort is yours all day and night — no break between the Day and Night Tours. ${QUIET_HOURS_POLICY}`}
-                      </p>
-                      </div>
-                      <div style={{ textAlign: mob ? "left" : "right" }}>
-                      {/* The figure the guest is deciding on, for exactly
-                          what is picked now; the rates it comes from follow. */}
-                      <p style={{ color: C.textS, fontSize: 11.5, letterSpacing: 1.6, margin: 0 }}>TOTAL</p>
-                      <p style={{ color: C.textH, fontSize: mob ? 22 : 26, fontFamily: "'Satoshi',system-ui,sans-serif", margin: "0 0 4px" }}>{fmt(total)}</p>
-                      {showRoomPicker && selRooms.length === 0 && (
-                        <p style={{ color: C.textS, fontSize: 12, margin: "0 0 8px" }}>A room can be added in the next step.</p>
-                      )}
-                      <p style={{ color: C.goldInk, fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-                        {resource === "Venue" ? (
-                          <>Events venue only, no pool · {fmt(priceBooking({ resource: "Venue", tier: "Exclusive", slot, guests: 1, overtime: 0, roomPrices: [] }).total)} flat</>
-                        ) : (
-                          <>
-                            {/* What a guest actually pays for this slot rather
-                                than the rate it is built from. A Staycation is
-                                Exclusive only, so it has no Shared price. */}
-                            {!tierFixed && <>Shared {fmt(sharedRateFor(slot))} / guest · </>}Exclusive{" "}
-                            {fmt(priceBooking({ resource: "Pool", tier: "Exclusive", slot, guests: 1, overtime: 0, roomPrices: [] }).total)}
-                            {resource === "Pool+Venue" && <> · plus the events venue, {fmt(EVENT_VENUE_RATE)} per tour</>}
-                          </>
-                        )}
-                      </p>
-                      </div>
-                      </div>
-                )}
+                {/* What the choice comes to. Wide screens hold it on the
+                    right beside the step; here it sits under both columns,
+                    so the guest's eye ends on the price. */}
+                {!sideSummary && summaryCard && <div style={{ marginTop: 24 }}>{summaryCard}</div>}
 
                 {/* Step 4 only holds the room picker, so skip it when there is
                     no room to pick (venue-only, or a package without one). */}
@@ -1577,6 +1724,7 @@
                   </p>
                 )}
 
+                {!sideSummary && summaryCard && <div style={{ marginTop: 16 }}>{summaryCard}</div>}
                 {blockedNow?.step === "room" && (
                   <p role="alert" style={{ color: C.dangerInk, fontSize: 13.5, margin: "16px 0 0" }}>⚠ {blockedNow.reason}</p>
                 )}
@@ -1683,66 +1831,7 @@
                     </div>
                   </div>
                 </div>
-                {/* Summary — an itemized liquidation rather than one lump
-                    total, so a guest can see exactly what each peso is for
-                    before paying. */}
-                <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : "24px 24px", marginBottom: 4, background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
-                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
-                    <span style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.2, fontWeight: 700 }}>RESERVATION SUMMARY</span>
-                    <span style={{ color: C.goldInk, fontSize: 24, fontFamily: "'Satoshi',system-ui,sans-serif" }}>{fmt(total)}</span>
-                  </div>
-
-                  {([
-                    [stayDays > 1 ? "Dates" : "Date", date ? stayLabel({ date, endDate: lastDay }) : "\u2014"],
-                    ["Check in", stayWin ? stayWin.arrive : "\u2014"],
-                    ["Check out", stayWin ? stayWin.depart : "\u2014"],
-                    ["Package availed", availedLabel],
-                    ["Guests", String(guests)],
-                    ["Room", selRooms.length
-                      ? rooms.filter((r) => selRooms.includes(r.id)).map((r) => r.name).join(", ")
-                      : "No room add-on"],
-                  ] as const).map(([l, v]) => (
-                    <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "12px 0", borderTop: `1px solid ${C.border}` }}>
-                      <span style={{ color: C.textS, fontSize: 13 }}>{l}</span>
-                      <span style={{ color: C.textB, fontSize: 13, fontWeight: 600, textAlign: "right" }}>{v}</span>
-                    </div>
-                  ))}
-
-                  {/* How much to pay now. A radio group of two cards: the 50%
-                      deposit stays the default, and paying in full means
-                      nothing is left to settle on arrival. */}
-                  <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 8, paddingTop: 16 }}>
-                    <div id="pay-plan-label" style={{ color: C.textS, fontSize: 12, letterSpacing: 1.6, fontWeight: 700, marginBottom: 12 }}>HOW MUCH TO PAY NOW</div>
-                    <div role="radiogroup" aria-labelledby="pay-plan-label" style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 12 }}>
-                      {([
-                        { full: false, title: "50% deposit", amount: down, note: `${fmt(total - down)} paid at the resort` },
-                        { full: true, title: "Pay in full", amount: total, note: "Nothing to pay on arrival" },
-                      ] as const).map((o) => {
-                        const on = payFull === o.full;
-                        return (
-                          <button key={o.title} type="button" role="radio" aria-checked={on} className="sw-choice" onClick={() => setPayFull(o.full)}
-                            style={{ textAlign: "left", padding: "12px 16px", borderRadius: 10, cursor: "pointer", background: on ? "rgba(201,168,76,0.12)" : "transparent", border: `1px solid ${on ? gold : C.border}`, display: "flex", gap: 12, alignItems: "flex-start" }}>
-                            <span aria-hidden="true" style={{ width: 16, height: 16, borderRadius: "50%", border: `1.5px solid ${on ? gold : C.textS}`, marginTop: 4, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              {on && <span style={{ width: 8, height: 8, borderRadius: "50%", background: gold }} />}
-                            </span>
-                            <span style={{ minWidth: 0 }}>
-                              <span style={{ display: "block", color: C.textH, fontSize: 13.5, fontWeight: 700 }}>{o.title} · {fmt(o.amount)}</span>
-                              <span style={{ display: "block", color: C.textS, fontSize: 12, marginTop: 4 }}>{o.note}</span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginTop: 16 }}>
-                    <span style={{ color: C.textS, fontSize: 13 }}>Due now</span>
-                    <span style={{ color: C.goldInk, fontSize: 13, fontWeight: 700 }}>{fmt(payFull ? total : down)}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginTop: 8 }}>
-                    <span style={{ color: C.textS, fontSize: 13 }}>Balance on arrival</span>
-                    <span style={{ color: C.goldInk, fontSize: 13, fontWeight: 700 }}>{fmt(payFull ? 0 : total - down)}</span>
-                  </div>
-                </div>
+                {!sideSummary && summaryCard && <div style={{ marginBottom: 4 }}>{summaryCard}</div>}
                 {!dateOk && (
                   <p style={{ color: C.dangerInk, fontSize: 13.5, marginBottom: 12 }}>
                     ⚠ {describeDateProblem(date) ?? "That date is no longer available — please pick another."}
@@ -1793,7 +1882,7 @@
                       : <>Session expires in <strong style={{ color: qrSeconds <= 60 ? "#e07a7a" : C.textB, fontFamily: "monospace" }}>{fmtTimer(qrSeconds)}</strong></>}
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,0.85fr) minmax(0,1.15fr)", gap: mob ? 16 : 20, alignItems: "start" }}>
+                <div style={{ display: "grid", gridTemplateColumns: mob || sideSummary ? "1fr" : "minmax(0,0.85fr) minmax(0,1.15fr)", gap: mob ? 16 : 20, alignItems: "start" }}>
                   {/* QR */}
                   <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : "24px 20px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
                     {/* Real QR from PayMongo — unique to this payment intent.
@@ -1843,76 +1932,8 @@
                       <div style={{ color: isDark ? "#fff" : "#111", fontSize: mob ? 24 : 28, fontWeight: 700, fontFamily: "'Satoshi',system-ui,sans-serif" }}>{fmt(dueNow)}</div>
                     </div>
                   </div>
-                  {/* Order summary */}
-                  <div style={{ minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : "24px 24px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
-                    <div style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.2, fontWeight: 700, marginBottom: 16 }}>ORDER SUMMARY</div>
-                    <div style={{ marginBottom: 16 }}>
-                      {([
-                        ["Guest", form.name || "\u2014"],
-                        [stayDays > 1 ? "Dates" : "Date", date ? stayLabel({ date, endDate: lastDay }) : "\u2014"],
-                        ["Check in", stayWin ? stayWin.arrive : "\u2014"],
-                        ["Check out", stayWin ? stayWin.depart : "\u2014"],
-                        ["Package availed", availedLabel],
-                        ["Guests", overtime > 0 ? `${guests} \u00b7 +${overtime}hr OT` : String(guests)],
-                        ["Full total", fmt(serverQuote?.total ?? total)],
-                      ] as const).map(([l, v]) => (
-                        <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "12px 0", borderBottom: `1px solid ${C.border}` }}>
-                          <span style={{ color: C.textS, fontSize: 13 }}>{l}</span>
-                          <span style={{ color: C.textB, fontSize: 13, fontWeight: 600, textAlign: "right" }}>{v}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <p style={{ color: C.textS, fontSize: 12, lineHeight: 1.6, margin: "0 0 16px" }}>
-                      Keep this page open while you pay.
-                    </p>
-                    {/* "I've completed payment" → shows confirm modal */}
-                    {/* Live status. There is deliberately no "I've paid"
-                        button any more — the old one recorded the booking as
-                        Paid on the guest's say-so, whether or not any money
-                        had moved. Confirmation now comes from PayMongo. */}
-                    {paid ? (
-                      <div style={{ background: "rgba(0,169,82,0.10)", border: "1px solid rgba(0,169,82,0.35)", borderRadius: 8, padding: "16px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-                        <span style={{ fontSize: 18 }}>✅</span>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ color: "#00a952", fontSize: 14.5, fontWeight: 700 }}>Payment received</div>
-                          {!saveError && <div style={{ color: C.textS, fontSize: 12.5 }}>Saving your booking…</div>}
-                          {saveError && (
-                            <>
-                              <div style={{ color: C.dangerInk, fontSize: 12.5, lineHeight: 1.6, margin: "4px 0 8px" }}>
-                                {saveError} Your payment is safe — retrying can't charge you twice.
-                                If this keeps failing, contact us and quote payment ref <span style={{ fontFamily: "monospace" }}>{qrData?.paymentIntentId}</span>.
-                              </div>
-                              <button onClick={() => void confirmOnline()} disabled={saving} style={{ background: "#00a952", color: "#fff", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, cursor: saving ? "wait" : "pointer", letterSpacing: 1, opacity: saving ? 0.6 : 1 }}>
-                                {saving ? "SAVING…" : "RETRY SAVING"}
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "16px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ width: 16, height: 16, border: "2px solid rgba(0,169,82,0.25)", borderTopColor: "#00a952", borderRadius: "50%", flexShrink: 0, animation: "sw-spin .8s linear infinite" }} />
-                        <div>
-                          <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600 }}>Waiting for your payment…</div>
-                          <div style={{ color: C.textS, fontSize: 12.5 }}>This page updates by itself once GCash confirms.</div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Test mode only. PayMongo hands back a test_url that
-                        simulates a scan — it is absent with live keys, so this
-                        link cannot appear in production. */}
-                    {qrData?.testUrl && !paid && (
-                      <a
-                        href={qrData.testUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ display: "block", marginTop: 12, textAlign: "center", color: C.goldInk, fontSize: 12.5, letterSpacing: 1, textDecoration: "underline" }}
-                      >
-                        ⚡ TEST MODE — simulate a successful payment
-                      </a>
-                    )}
-                  </div>
+                  {/* Order summary: on the right on wide screens. */}
+                  {!sideSummary && summaryCard}
                 </div>
 
                 {/* Only while the payment is still outstanding. Once PayMongo
@@ -1920,22 +1941,17 @@
                     this is no longer the guest's to undo. */}
                 {!paid && (
                   <div style={{ marginTop: 24, textAlign: "center" }}>
+                    {/* Hover (or keyboard focus): the button turns red and a
+                        "!" pops up beside it -- the one way back from here,
+                        and it closes the payment. BookNow.css. */}
                     <button
                       type="button"
+                      className="sw-cancelpay"
                       onClick={() => setShowCancelPay(true)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: C.textS,
-                        fontSize: 12.5,
-                        letterSpacing: 1.2,
-                        cursor: "pointer",
-                        minHeight: 44,
-                        padding: "0 16px",
-                        fontFamily: "inherit",
-                      }}
+                      style={{ color: C.textS }}
                     >
-                      CANCEL PAYMENT
+                      <span className="sw-cancelpay__bang" aria-hidden="true">!</span>
+                      <span className="sw-cancelpay__label">CANCEL PAYMENT</span>
                     </button>
                   </div>
                 )}
@@ -2002,9 +2018,11 @@
                   </ol>
                 </div>
                 <p style={{ color: C.textS, fontSize: 12.5, margin: "0 auto 24px", maxWidth: 540 }}>
-                  {paidInFull
-                    ? <>No refunds. Nothing more is due at the resort, apart from any damage or extra hours.</>
-                    : <>No refunds. The remaining balance of {fmt(fullTotal - dueNow)} is paid at the resort.</>}
+                  {/* "No refunds." in red with a "!" so it can't be missed. */}
+                  <span className="sw-norefund" style={{ color: C.dangerInk }}>
+                    <span className="sw-norefund__bang" aria-hidden="true">!</span>No refunds.
+                  </span>
+                  {!paidInFull && <> The remaining balance of {fmt(fullTotal - dueNow)} is paid at the resort.</>}
                 </p>
                 <button className="sw-btn"
                   onClick={() => onGoHome?.()}
@@ -2015,6 +2033,8 @@
               </div>
             )}
 
+          </div>
+          {sideSummary && <aside className="sw-bnow-side" aria-label="Your booking">{summaryCard}</aside>}
           </div>
         </div>
 
@@ -2063,7 +2083,7 @@
                     <ul style={{ listStyle: "none", margin: "0 0 16px", padding: 0, display: "grid", gap: 8 }}>
                       {([
                         { icon: "bed", text: roomPhoto.beds },
-                        { icon: "users", text: `Sleeps up to ${roomPhoto.capacity} guests` },
+                        { icon: "users", text: `Up to ${roomPhoto.capacity} guests` },
                         { icon: "clock", text: `One ${SLOTS[slot].label.toLowerCase()} slot · ${SLOTS[slot].hours}` },
                       ] as const).map((row) => (
                         <li key={row.text} style={{ display: "flex", gap: 12, alignItems: "flex-start", color: C.textB, fontSize: 14, lineHeight: 1.5 }}>
@@ -2176,6 +2196,21 @@
                 Please review the resort&rsquo;s payment and stay policies.
               </DialogDescription>
             </DialogHeader>
+
+            {/* The refund rule first, in red, so no one agrees without seeing
+                it: no refund when the guest cancels; a full refund only when
+                the resort cancels (owner's rule, lib/policies.ts). */}
+            <div role="note" className="sw-refundnote">
+              <span className="sw-refundnote__bang" aria-hidden="true">!</span>
+              <div style={{ minWidth: 0 }}>
+                <p className="sw-refundnote__title">No refund policy</p>
+                <p className="sw-refundnote__body" style={{ color: C.textB }}>
+                  Payments are not refunded if you cancel your booking. You will only be
+                  refunded if the resort cancels your booking — then you choose a full
+                  refund or a free new date.
+                </p>
+              </div>
+            </div>
 
             {/* The policies (lib/policies.ts), each a heading and a plain sentence. The old
                 version leaned on emoji to carry meaning, which a screen

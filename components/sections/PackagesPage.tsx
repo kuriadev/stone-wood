@@ -5,7 +5,7 @@ import { THEME_COLORS } from "@/lib/theme";
 import type { ResortPackage } from "@/types/package";
 import type { BookingResource, BookingTier } from "@/types/booking";
 import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
-import { PackageShowcase } from "@/components/sections/PackageShowcase";
+import { PackageTierScroll } from "@/components/sections/PackageTierScroll";
 
 interface PackagesPageProps {
   setPage: (p: string) => void;
@@ -20,8 +20,6 @@ export function PackagesPage({ setPage, packages, onBookPackage }: PackagesPageP
   const C = THEME_COLORS;
   const w = useWidth();
   const mob = w < 768;
-
-
   const visible = packages.filter((p) => p.active);
 
   return (
@@ -39,7 +37,7 @@ export function PackagesPage({ setPage, packages, onBookPackage }: PackagesPageP
           textAlign: "center",
           marginBottom: 12,
         }}>
-          Choose Your Kind of Escape
+          Choose Your Package
         </h2>
         <p style={{ color: C.textS, textAlign: "center", marginBottom: 48, fontSize: 14.5 }}>
           From relaxed group days to private celebrations, find the experience that feels made for you.
@@ -56,7 +54,9 @@ export function PackagesPage({ setPage, packages, onBookPackage }: PackagesPageP
           </p>
         ) : (
           <Reveal delay={REVEAL_STEP}>
-          <PackageShowcase
+          {/* The wheel and the card, turned by the page scroll on wide
+              screens; the tier cards on narrower ones. */}
+          <PackageTierScroll
             packages={visible}
             tierStyle="card"
             showTierIntro

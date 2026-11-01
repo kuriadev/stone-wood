@@ -1,5 +1,6 @@
 // ── GET  /api/customer-service  → list messages   (admin only)
 // ── POST /api/customer-service  → submit one      (public)
+// ── PATCH / DELETE ?id= (archive, delete an archived one) and DELETE ?archived=all (clear the archive) -- admin only
 //
 // Backed by Supabase. This used to be a module-level array, which meant every
 // enquiry a guest sent was lost on the next deploy, and each serverless
@@ -106,5 +107,41 @@ export async function PATCH(req: NextRequest) {
   } catch (err) {
     console.error("[/api/customer-service PATCH]", err);
     return NextResponse.json({ success: false, error: "Could not update that message." }, { status: 500 });
+  }
+}
+
+/** DELETE /api/customer-service?id=        → delete one archived message      (admin only)
+ *  DELETE /api/customer-service?archived=all → delete every archived message  (admin only)
+ *
+ *  Only ever archived messages: a message still in the inbox has to be
+ *  archived first, so nothing waiting for a reply can be deleted by a slip. */
+export async function DELETE(req: NextRequest) {
+  const denied = await requirePermission(req, "messages.handle");
+  if (denied) return denied;
+
+  const all = req.nextUrl.searchParams.get("archived") === "all";
+  const id = Number(req.nextUrl.searchParams.get("id"));
+  if (!all && !Number.isFinite(id)) {
+    return NextResponse.json({ success: false, error: "Say which message to delete." }, { status: 400 });
+  }
+  try {
+    let q = getSupabaseAdmin().from("customer_messages").delete().not("archived_at", "is", null);
+    if (!all) q = q.eq("id", id);
+    const { data, error } = await q.select("id,name,type");
+    if (error) throw new Error(error.message);
+    const gone = (data ?? []) as { id: number; name: string; type: string }[];
+    if (!all && gone.length === 0) {
+      return NextResponse.json({ success: false, error: "That message is not in the archive." }, { status: 404 });
+    }
+    await logActivity({
+      actor: "Admin", action: "message.deleted", entity: "customer_message", entityId: all ? "archive" : id,
+      summary: all
+        ? `Cleared the message archive: deleted ${gone.length} archived message${gone.length === 1 ? "" : "s"}.`
+        : `Deleted the archived message from ${gone[0].name} (${gone[0].type}).`,
+    });
+    return NextResponse.json({ success: true, deleted: gone.map((g) => g.id) });
+  } catch (err) {
+    console.error("[/api/customer-service DELETE]", err);
+    return NextResponse.json({ success: false, error: "Could not delete. Nothing was removed." }, { status: 500 });
   }
 }

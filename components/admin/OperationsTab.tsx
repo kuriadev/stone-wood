@@ -1013,7 +1013,7 @@ export function OperationsTab({
     if (spots.length === 0) return;
     void spotlight(spots[0]).then(() => spots.slice(1).forEach((id) => void spotlight(id, { scroll: false })));
   };
-  const dashStat = (o: { icon: IconName; label: string; value: ReactNode; note: ReactNode; badge?: string; badgeColor?: string; color?: string; onOpen?: () => void; openLabel?: string }) => {
+  const dashStat = (o: { icon: IconName; label: string; value: ReactNode; note?: ReactNode; badge?: string; badgeColor?: string; color?: string; onOpen?: () => void; openLabel?: string }) => {
     const chip = o.badge ? (
       <span style={{ fontSize: 10.5, fontWeight: 700, borderRadius: 20, padding: "3px 8px", whiteSpace: "nowrap", flexShrink: 0, background: `${o.badgeColor ?? C.textS}22`, color: o.badgeColor ?? C.textS }}>{o.badge}</span>
     ) : null;
@@ -1028,11 +1028,24 @@ export function OperationsTab({
           {!mob && chip}
         </div>
         <div style={{ color: o.color ?? C.textH, fontSize: mob ? 20 : 27, fontWeight: 600, lineHeight: 1.15, overflowWrap: "anywhere" }}>{o.value}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
-          <span style={{ flex: 1, minWidth: 0, color: C.textXS, fontSize: 12 }}>{o.note}</span>
-          {mob && chip}
-          {o.onOpen && <span className="sw-stat__go" aria-hidden="true"><Icon name="arrow-right" size={13} /></span>}
-        </div>
+        {mob ? (
+          /* A phone's half-width card: the note gets its own lines, then
+             the tag and the arrow share one row, so nothing is squeezed. */
+          <>
+            {o.note && <span style={{ color: C.textXS, fontSize: 12, lineHeight: 1.4 }}>{o.note}</span>}
+            {(chip || o.onOpen) && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", marginTop: "auto" }}>
+                {chip}
+                {o.onOpen && <span className="sw-stat__go" aria-hidden="true" style={{ marginLeft: "auto" }}><Icon name="arrow-right" size={13} /></span>}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0, width: "100%" }}>
+            <span style={{ flex: 1, minWidth: 0, color: C.textXS, fontSize: 12 }}>{o.note}</span>
+            {o.onOpen && <span className="sw-stat__go" aria-hidden="true"><Icon name="arrow-right" size={13} /></span>}
+          </div>
+        )}
       </button>
     );
   };
@@ -1066,7 +1079,7 @@ export function OperationsTab({
         icon: "cash", label: "Net money today", value: fmt(netToday),
         color: netToday < 0 ? "#e5484d" : "#2e9e4e",
         badge: netToday < 0 ? "More spent" : "More received", badgeColor: netToday < 0 ? "#e5484d" : "#2e9e4e",
-        note: `${fmt(collectedToday)} received − ${fmt(spentToday)} spent`,
+        note: null,
         onOpen: () => goStat("today", ["dash-endofday"]), openLabel: "Show today's money",
       })}
     </div>

@@ -1,0 +1,58 @@
+/* Shared / Exclusive / Events on a wheel beside the packages, turned by
+   the page scroll -- PackageTierScroll.tsx (the home page and the Packages
+   page). Wide screens only; phones keep the tier tabs.
+
+   The track is tall (the pinned block plus one scroll step per kind); the
+   wheel and the card pin inside it, and the page scroll turns the wheel.
+   Its height and the pin's `top` are set from the component. */
+
+.sw-pkgscroll { position: relative; }
+.sw-pkgscroll__pin { position: sticky; }
+
+.sw-pkgwheel-layout {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 40px;
+  align-items: center;
+}
+@media (min-width: 1280px) { .sw-pkgwheel-layout { grid-template-columns: 290px minmax(0, 1fr); gap: 52px; } }
+
+.sw-pkgwheel { position: relative; min-width: 0; }
+
+/* The wheel, fading out at its top and bottom edges, with a gold marker at
+   the selected line. Rows are spaced wide so the selected kind's
+   description fits under its name before the next kind. */
+.sw-pkgwheel__wheel {
+  position: relative;
+  height: 440px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22%, #000 78%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 22%, #000 78%, transparent 100%);
+}
+.sw-pkgwheel__wheel::before {
+  content: "";
+  position: absolute; left: 0; top: 50%;
+  width: 3px; height: 36px; border-radius: 2px;
+  transform: translateY(-50%);
+  background: linear-gradient(180deg, #f2d98b, #c9a84c);
+  box-shadow: 0 0 12px rgba(201, 168, 76, 0.6);
+  z-index: 1; pointer-events: none;
+}
+.sw-pkgwheel__wheel .option-wheel { font-family: var(--font-satoshi), system-ui, sans-serif; }
+.sw-pkgwheel__wheel .option-wheel__item { letter-spacing: -0.5px; }
+.sw-pkgwheel__wheel .option-wheel:focus-visible { outline: 2px solid var(--sw-gold); outline-offset: -2px; border-radius: 12px; }
+
+/* The selected kind's line, under its name. */
+.sw-pkgwheel__desc {
+  position: absolute; left: 18px; right: 4px; top: calc(50% + 30px);
+  pointer-events: none;
+  animation: sw-pkgwheel-in .45s cubic-bezier(.22, 1, .36, 1) .08s both;
+}
+.sw-pkgwheel__desc p { margin: 0; }
+.sw-pkgwheel__desc p:first-child { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.sw-pkgwheel__desc p:last-child { font-size: 13px; line-height: 1.55; }
+@keyframes sw-pkgwheel-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Where you are in the scroll: one short bar per kind. */
+.sw-pkgwheel__steps { display: flex; gap: 6px; padding-left: 18px; margin-top: 6px; }
+.sw-pkgwheel__steps span { width: 18px; height: 3px; border-radius: 2px; background: rgba(201, 168, 76, 0.25); transition: width .35s cubic-bezier(.22, 1, .36, 1), background-color .35s ease; }
+.sw-pkgwheel__steps span.is-on { width: 34px; background: #c9a84c; }

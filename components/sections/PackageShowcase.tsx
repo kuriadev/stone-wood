@@ -42,9 +42,9 @@ import { LazyBackground } from "@/components/common/LazyBackground";
  *   - every control at least 44px (accessibility.md: iOS 44x44 default)
  */
 
-type TierKey = "SHARED" | "EXCLUSIVE" | "EVENTS";
+export type TierKey = "SHARED" | "EXCLUSIVE" | "EVENTS";
 
-const TIERS: { key: TierKey; label: string; icon: IconName; tagline: string; blurb: string }[] = [
+export const TIERS: { key: TierKey; label: string; icon: IconName; tagline: string; blurb: string }[] = [
   { key: "SHARED", label: "Shared", icon: "pool", tagline: "Come together",
     blurb: "Share the pool with other groups and pay per guest." },
   { key: "EXCLUSIVE", label: "Exclusive", icon: "lock", tagline: "Make it entirely yours",
@@ -77,11 +77,17 @@ function packageMeaning(p: ResortPackage): string {
   return "You share the pool with other groups booked on the same tour, and pay per guest.";
 }
 
-const tierOf = (p: ResortPackage): TierKey =>
+export const tierOf = (p: ResortPackage): TierKey =>
   isEventPackage(p) ? "EVENTS" : p.status === "Exclusive" ? "EXCLUSIVE" : "SHARED";
 
-interface PackageShowcaseProps {
+export interface PackageShowcaseProps {
   packages: ResortPackage[];
+  /** Controlled tier, for a page that picks it with its own control (the
+   *  Packages page's wheel). Left out, the showcase keeps its own. */
+  tier?: TierKey;
+  onTierChange?: (t: TierKey) => void;
+  /** Hide the built-in tier tabs (another control is choosing). */
+  hideTabs?: boolean;
   onBookPackage?: (
     pkg: {
       code: string; title: string; price: number; listPrice?: number;
@@ -100,13 +106,15 @@ interface PackageShowcaseProps {
   showTierIntro?: boolean;
 }
 
-export function PackageShowcase({ packages, onBookPackage, onFallbackBook, tierStyle = "pill", showTierIntro = false }: PackageShowcaseProps) {
+export function PackageShowcase({ packages, onBookPackage, onFallbackBook, tierStyle = "pill", showTierIntro = false, tier: tierProp, onTierChange, hideTabs = false }: PackageShowcaseProps) {
   const { isDark } = useTheme();
   const C = T(isDark);
   const w = useWidth();
   const mob = w < 768;
 
-  const [tier, setTier] = useState<TierKey>("SHARED");
+  const [ownTier, setOwnTier] = useState<TierKey>("SHARED");
+  const tier = tierProp ?? ownTier;
+  const setTier = (t: TierKey) => { setOwnTier(t); onTierChange?.(t); };
   const [lightbox, setLightbox] = useState<{ pkg: ResortPackage; idx: number } | null>(null);
 
   const groups = TIERS.map((t) => ({ ...t, items: packages.filter((p) => tierOf(p) === t.key) }))
@@ -127,6 +135,7 @@ export function PackageShowcase({ packages, onBookPackage, onFallbackBook, tierS
         {/* TabsList pins its own height with a group-data variant, so a plain
             h-auto loses and a wrapped row spills onto the content below. */}
         <TabsList
+          hidden={hideTabs}
           className={
             tierStyle === "card"
               ? "mx-auto mb-0 grid w-full max-w-[760px] grid-cols-1 gap-4 bg-transparent p-0 sm:grid-cols-3 group-data-[orientation=horizontal]/tabs:h-auto"
@@ -175,10 +184,9 @@ export function PackageShowcase({ packages, onBookPackage, onFallbackBook, tierS
         </TabsList>
 
         {showTierIntro && (
-          <div style={{ textAlign: "center", margin: mob ? "36px 0 24px" : "48px 0 28px" }}>
-            <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.4, fontWeight: 700, margin: "0 0 12px" }}>
-              {String(groups.findIndex((g) => g.key === active.key) + 1).padStart(2, "0")} · {active.label.toUpperCase()}
-            </p>
+          // No "01 · SHARED" eyebrow: the tabs (or the wheel) right beside
+          // this already name the tier.
+          <div style={{ textAlign: "center", margin: mob ? "32px 0 22px" : hideTabs ? "0 0 28px" : "44px 0 28px" }}>
             <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 26 : 34, fontWeight: 400, margin: "0 0 12px", lineHeight: 1.15 }}>
               {active.tagline}
             </h3>
@@ -338,7 +346,13 @@ function PackageCard({
 }) {
   const shots = p.gallery?.length ? p.gallery : [{ src: p.cover, label: p.title, kind: "" }];
   const exclusive = p.status === "Exclusive";
+  // The tab or wheel already names the tier: a "SHARED" badge on a Shared
+  // package says it twice. Kept where it adds something (Exclusive in Events).
+  const tierSaysIt = tierOf(p) === p.status.toUpperCase();
   const slots = p.slotMode === "WholeDay" ? [SLOTS.WholeDay] : [SLOTS.Day, SLOTS.Night];
+  // "Day (7:00 AM – 5:00 PM) or Night (…)" in the inclusions says what the
+  // hours list under it already says. Shown once, there.
+  const includes = p.includes.filter((inc) => ![SLOTS.Day.hours, SLOTS.Night.hours, SLOTS.WholeDay.hours].some((h) => inc.includes(h)));
   // A promo the owner set (Packages & Prices): what is charged today.
   const promo = packagePriceToday(p, manilaNow().date);
 
@@ -396,7 +410,6 @@ function PackageCard({
         </div>
 
         <div className="absolute right-5 bottom-5 left-5 z-[2]">
-          <p className="mb-2 text-[11px] tracking-[3px]" style={{ color: gold }}>PACKAGE</p>
           <h3 className="font-serif text-[26px] leading-tight font-normal break-words text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.6)] min-[380px]:text-[30px] sm:text-4xl">
             {p.title}
           </h3>
@@ -406,7 +419,8 @@ function PackageCard({
       {/* Detail column. One rhythm, left aligned, action pinned at the foot. */}
       <div className="flex flex-col">
         <div className="flex min-w-0 flex-col gap-4 p-5 min-[380px]:p-6 sm:p-7">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 empty:hidden">
+            {!tierSaysIt && (
             <Badge
               variant="outline"
               className="rounded-full px-3 py-1 text-[11px] tracking-[1.5px]"
@@ -418,6 +432,7 @@ function PackageCard({
             >
               {p.status.toUpperCase()}
             </Badge>
+            )}
             {promo.badge && (
               <Badge
                 variant="outline"
@@ -475,11 +490,11 @@ function PackageCard({
 
           <p className="text-[15px] leading-relaxed" style={{ color: C.textS }}>{p.blurb}</p>
 
-          {p.includes.length > 0 && (
+          {includes.length > 0 && (
             <div>
               <p className="mb-3 text-[11px] tracking-[2.5px]" style={{ color: C.textXS }}>WHAT&apos;S INCLUDED</p>
               <ul className="m-0 flex list-none flex-col p-0">
-                {p.includes.map((inc) => (
+                {includes.map((inc) => (
                   <li
                     key={inc}
                     className="flex items-start gap-3 border-b py-2 text-[14.5px] leading-snug last:border-0"
@@ -516,7 +531,7 @@ function PackageCard({
               icon and no idea what it implied for them. It now says it in a
               sentence. `info`, not `alert`: this is what the package is,
               not something going wrong. */}
-          {p.note && (
+          {p.note && !/^(shared pool|exclusive)$/i.test(p.note) && (
             <p className="flex items-start gap-2 text-[12.5px]" style={{ color: C.textXS, lineHeight: 1.55 }}>
               <Icon name="info" size={12} style={{ marginTop: 4, flexShrink: 0 }} />
               <span>
@@ -585,7 +600,7 @@ function GalleryLightbox({
               type="button"
               onClick={() => setIdx((n) => (n - 1 + shots.length) % shots.length)}
               aria-label="Previous photo"
-              className="absolute top-1/2 left-4 z-[3] flex size-12 -translate-y-1/2 items-center justify-center rounded-full border bg-black/40 text-xl backdrop-blur-sm sm:left-8"
+              className="sw-arrow absolute top-1/2 left-4 z-[3] flex size-12 -translate-y-1/2 items-center justify-center rounded-full border bg-black/40 text-xl backdrop-blur-sm sm:left-8"
               style={{ borderColor: `${gold}44`, color: gold }}
             >
               &lsaquo;
@@ -594,7 +609,7 @@ function GalleryLightbox({
               type="button"
               onClick={() => setIdx((n) => (n + 1) % shots.length)}
               aria-label="Next photo"
-              className="absolute top-1/2 right-4 z-[3] flex size-12 -translate-y-1/2 items-center justify-center rounded-full border bg-black/40 text-xl backdrop-blur-sm sm:right-8"
+              className="sw-arrow absolute top-1/2 right-4 z-[3] flex size-12 -translate-y-1/2 items-center justify-center rounded-full border bg-black/40 text-xl backdrop-blur-sm sm:right-8"
               style={{ borderColor: `${gold}44`, color: gold }}
             >
               &rsaquo;

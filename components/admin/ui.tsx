@@ -479,6 +479,20 @@ const TINT: Record<Exclude<BtnKind, "primary" | "ghost">, CSSProperties> = {
   red: { background: "rgba(229,85,85,0.08)", ["--ink-c" as string]: "#ee5555", border: "1px solid rgba(229,85,85,0.3)" },
 };
 
+/** A row action as an icon only (a table's last column), so rows stay
+ *  short. `label` is its tooltip and what a screen reader says; the kind
+ *  keeps its colour (green accept, red remove). */
+export function IconAction({ icon, label, kind = "ghost", ...rest }: {
+  icon: IconName;
+  label: string;
+  kind?: BtnKind;
+} & Omit<React.ComponentProps<typeof Button>, "size" | "children">) {
+  return (
+    <ActionButton size="sm" kind={kind} icon={icon} aria-label={label} title={label} {...rest}
+      style={{ width: 34, padding: 0, justifyContent: "center", ...(rest.style ?? {}) }} />
+  );
+}
+
 export function ActionButton({
   kind = "ghost", size = "md", icon, children, style, className, ...rest
 }: {

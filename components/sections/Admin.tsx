@@ -65,7 +65,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { getPackageTier, checkBookingAvailability, isRoomOpen, roomsTakenOn, bookingCoversDate, bookingDates } from "@/lib/utils";
+import { getPackageTier, checkBookingAvailability, isRoomOpen, roomsTakenOn, bookingCoversDate, bookingDates, getBookingSlot } from "@/lib/utils";
+import "@/components/admin/BookingCalendar.css";
+import "@/components/admin/GuestMessages.css";
+import "@/components/admin/AdminSidebar.css";
 import { compressImage } from "@/lib/image";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { priceBooking, bookingLabel } from "@/lib/pricing";
@@ -148,6 +151,29 @@ export function Admin({
   // A temporary password from the owner: choose your own before anything else.
   const mustChangePassword = !!staff.me?.mustChangePassword;
   const [sideOpen, setSideOpen] = useState(false);
+  // Desktop: the sidebar folded to its icons. Remembered on this browser.
+  // Read lazily: the first render is the "loading your account" screen,
+  // which doesn't use it, so the server and the browser still agree.
+  const [sideMini, setSideMini] = useState<boolean>(() => {
+    try { return typeof window !== "undefined" && localStorage.getItem("sw_side_mini") === "1"; } catch { return false; }
+  });
+  const mainRef = useRef<HTMLDivElement>(null);
+  /* Smooth without re-laying out the page every frame: the sidebar's slot
+     changes size once, the sidebar animates its own width inside it
+     (contained, so only its few items move), and the page beside it slides
+     across with a transform -- the GPU's job, not layout's. */
+  const toggleMini = () => {
+    const next = !sideMini;
+    try { localStorage.setItem("sw_side_mini", next ? "1" : "0"); } catch { /* private mode */ }
+    setSideMini(next);
+    const el = mainRef.current;
+    if (el && typeof el.animate === "function") {
+      el.animate(
+        [{ transform: `translateX(${next ? 144 : -144}px)` }, { transform: "translateX(0)" }],
+        { duration: 380, easing: "cubic-bezier(.22, 1, .36, 1)" },
+      );
+    }
+  };
   /* Sidebar sections folded by this person, remembered on this device. */
   const [foldedGroups, setFoldedGroups] = useState<Set<string>>(() => new Set());
   useEffect(() => {
@@ -218,6 +244,14 @@ export function Admin({
   const [csType, setCsType] = useState<string>("All");
   const csBase = csView === "inbox" ? inboxMessages : archivedMessages;
   const csList = csType === "All" ? csBase : csBase.filter((m) => (m.type ?? "Other") === csType);
+  // The open message (Guest Messages is a list beside the open message) and
+  // its reply draft. The draft belongs to one message: opening another
+  // starts that one's automated draft afresh.
+  const [csSel, setCsSel] = useState<CustomerMessage["id"] | null>(null);
+  // Deleting archived messages: one, or the whole archive. Asked first.
+  const [csDelAsk, setCsDelAsk] = useState<CustomerMessage | "all" | null>(null);
+  const [csDeleting, setCsDeleting] = useState(false);
+  const [csDraft, setCsDraft] = useState<{ id: CustomerMessage["id"]; mode: "automated" | "manual"; text: string } | null>(null);
   const [confirmArchiveMsg, setConfirmArchiveMsg] = useState<CustomerMessage | null>(null);
   // Live refresh for the Customer Service inbox.
   //
@@ -555,6 +589,20 @@ export function Admin({
     toast("Message archived.", "info");
   };
 
+  /** Delete one archived message, or every archived message. Only archived
+   *  ones can go (the server checks too). */
+  const deleteArchived = async (what: CustomerMessage | "all") => {
+    setCsDeleting(true);
+    const url = what === "all" ? "/api/customer-service?archived=all" : `/api/customer-service?id=${what.id}`;
+    const j = await fetch(url, { method: "DELETE" }).then((r) => r.json()).catch(() => null) as { success?: boolean; error?: string; deleted?: CustomerMessage["id"][] } | null;
+    setCsDeleting(false);
+    setCsDelAsk(null);
+    if (!j?.success) { toast(j?.error ?? "Could not delete.", "error"); return; }
+    const gone = new Set(j.deleted ?? []);
+    setCustomerMessages((prev) => prev.filter((m) => !gone.has(m.id)));
+    toast(what === "all" ? `Archive cleared: ${gone.size} message${gone.size === 1 ? "" : "s"} deleted.` : "Message deleted.", "success");
+  };
+
   const goTab = (t: AdminTab) => { setTab(t); if (mob) setSideOpen(false); };
 
   /* Jumping from a message to the booking it is about.
@@ -625,7 +673,7 @@ export function Admin({
                     advertising inbox numbers against archived messages. */}
                 {/* One dropdown (it was a row of pills). The always-shown four
                     stay listed at zero; the rest appear once something lands. */}
-                <div style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                   <FilterSelect<string>
                     label="Type"
                     value={csType}
@@ -638,6 +686,14 @@ export function Admin({
                       }))
                       .filter((o) => o.value === "All" || o.value === csType || (o.count ?? 0) > 0 || CS_ALWAYS.includes(o.value))}
                   />
+                  {/* Clear the archive: a quiet "Clear all" pill, asked first. */}
+                  {csView === "archive" && archivedMessages.length > 0 && (
+                    <button type="button" className="sw-msgs__iconbtn sw-msgs__clear is-danger" onClick={() => setCsDelAsk("all")}
+                      aria-label={`Clear all (delete all ${archivedMessages.length} archived messages)`} title="Clear the archive"
+                      style={{ borderColor: cBr, color: C.textS }}>
+                      <Icon name="trash" size={15} /> Clear all
+                    </button>
+                  )}
                 </div>
 
                 {csList.length === 0 ? (
@@ -645,7 +701,7 @@ export function Admin({
                     style={{
                       background: cBg,
                       border: `1px solid ${cBr}`,
-                      borderRadius: 10,
+                      borderRadius: 14,
                       padding: "52px 20px",
                       textAlign: "center",
                       boxShadow: C.shadowCard,
@@ -654,196 +710,152 @@ export function Admin({
                     {/* Sized and coloured against the theme rather than left at
                         the default text colour, so the empty state reads as one
                         muted unit instead of a hard black mark above grey text. */}
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        marginBottom: 16,
-                        color: C.textXS,
-                        opacity: 0.6,
-                      }}
-                    >
+                    <div style={{ display: "flex", justifyContent: "center", marginBottom: 16, color: C.textXS, opacity: 0.6 }}>
                       <Icon name="message" size={30} strokeWidth={1.5} />
                     </div>
-
-                    <p
-                      style={{
-                        color: C.textS,
-                        fontSize: 15,
-                      }}
-                    >
-                      {csView === "inbox"
-                        ? "No new messages."
-                        : "No archived messages."}
+                    <p style={{ color: C.textS, fontSize: 15 }}>
+                      {csView === "inbox" ? "No new messages." : "No archived messages."}
                     </p>
                   </div>
-                ) : (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 12,
-                    }}
-                  >
-                    {csList.map((msg) => (
-                      <div
-                        key={msg.id}
-                        style={{
-                          background: cBg,
-                          border: `1px solid ${cBr}`,
-                          borderRadius: 10,
-                          padding: "20px 24px",
-                          boxShadow: C.shadowCard,
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "flex-start",
-                            marginBottom: 12,
-                          }}
-                        >
-                          <div>
-                            <div
-                              style={{
-                                color: C.textH,
-                                fontSize: 15,
-                                fontWeight: 600,
-                              }}
-                            >
-                              {msg.name}
-                            </div>
-
-                            <div
-                              style={{
-                                color: C.textXS,
-                                fontSize: 12.5,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                                flexWrap: "wrap",
-                              }}
-                            >
-                              {/* The date alone could not separate two
-                                  messages from the same morning, and staff
-                                  answering an inbox need to know whether
-                                  something came in an hour ago or at
-                                  midnight. The clock time is only shown
-                                  when the record carries one — older rows
-                                  stored a date and nothing else. */}
-                              {msg.email} · {msg.date}
-                              {msg.createdAt ? (
-                                <span style={{ color: C.textXS }}> · {manilaTime(msg.createdAt)}</span>
-                              ) : null}
-                              {/* If this person has a booking, the owner can
-                                  open it straight from the message instead of
-                                  copying the reference into the Bookings tab. */}
-                              {(() => {
-                                const linked = bookingForMessage(msg);
-                                if (!linked) return null;
-                                return (
-                                  <>
-                                    <span aria-hidden="true">·</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => openBooking(linked.id)}
-                                      title={`Open ${linked.id} — ${fmtDate(linked.date)}`}
-                                      style={{
-                                        display: "inline-flex", alignItems: "center", gap: 4,
-                                        background: "transparent", border: `1px solid ${cBr}`,
-                                        borderRadius: 999, padding: "2px 10px", cursor: "pointer",
-                                        color: C.goldInk, fontSize: 12, fontFamily: "monospace",
-                                      }}
-                                    >
-                                      <Icon name="calendar" size={12} />
-                                      {linked.id} · {fmtDate(linked.date)}
-                                      <Icon name="arrow-right" size={12} />
-                                    </button>
-                                  </>
-                                );
-                              })()}
-                            </div>
-                          </div>
-
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 8,
-                            }}
-                          >
-                            {/* TYPE BADGE */}
-                            <span
-                              style={{
-                                background: `${gold}18`,
-                                color: C.goldInk,
-                                fontSize: 10.5,
-                                padding: "4px 8px",
-                                borderRadius: 20,
-                                border: `1px solid ${gold}44`,
-                                letterSpacing: 1,
-                              }}
-                            >
-                              {(CS_LABELS[msg.type] ?? msg.type).toUpperCase()}
-                            </span>
-                            {/* REPLY BUTTON */}
-                            <button
-                              onClick={() => {
-                                setReplyModal(msg);
-
-                                setReplyMode("automated");
-                                setReplyMessage(automatedDraft(msg));
-                              }}
-                              style={{
-                                background: `${gold}18`,
-                                border: `1px solid ${gold}44`,
-                                color: C.goldInk,
-                                padding: "4px 12px",
-                                fontSize: 11.5,
-                                cursor: "pointer",
-                                borderRadius: 4,
-                              }}
-                            >
-                              REPLY
-                            </button>
-
-                            {/* ARCHIVE BUTTON */}
-                            {csView === "inbox" && (
+                ) : (() => {
+                  /* The list on the left, the open message on the right with
+                     its reply under it. Phones stack them: the list, then the
+                     open message. Styles: components/admin/GuestMessages.css. */
+                  const open = csList.find((m) => m.id === csSel) ?? csList[0];
+                  const draft = csDraft && csDraft.id === open.id
+                    ? csDraft
+                    : { id: open.id, mode: "automated" as const, text: automatedDraft(open) };
+                  const linked = bookingForMessage(open);
+                  const when = (m: CustomerMessage) => `${m.date}${m.createdAt ? ` · ${manilaTime(m.createdAt)}` : ""}`;
+                  const typeLabel = (m: CustomerMessage) => CS_LABELS[m.type] ?? m.type;
+                  return (
+                    <div className="sw-msgs">
+                      <ul className="sw-msgs__list" style={{ background: cBg, borderColor: cBr, boxShadow: C.shadowCard }} aria-label="Messages">
+                        {csList.map((msg) => {
+                          const on = msg.id === open.id;
+                          return (
+                            <li key={msg.id} style={{ borderColor: cBr }}>
                               <button
-                                onClick={() =>
-                                  setConfirmArchiveMsg(msg)
-                                }
-                                style={{
-                                  background: "transparent",
-                                  border: `1px solid ${cBr}`,
-                                  color: C.textXS,
-                                  padding: "4px 12px",
-                                  fontSize: 11.5,
-                                  cursor: "pointer",
-                                  borderRadius: 4,
+                                type="button"
+                                className={`sw-msgs__item${on ? " is-on" : ""}`}
+                                aria-current={on ? "true" : undefined}
+                                onClick={() => {
+                                  setCsSel(msg.id);
+                                  if (mob) requestAnimationFrame(() => document.getElementById("sw-msg-open")?.scrollIntoView({ behavior: "smooth", block: "start" }));
                                 }}
                               >
-                                ARCHIVE
+                                {/* In the inbox every message is still waiting for a reply. */}
+                                <span className="sw-msgs__dot" aria-hidden style={{ opacity: csView === "inbox" ? 1 : 0 }} />
+                                <span style={{ minWidth: 0, flex: 1 }}>
+                                  <span className="sw-msgs__row">
+                                    <span className="sw-msgs__name" style={{ color: C.textH }}>{msg.name}</span>
+                                    <span className="sw-msgs__when" style={{ color: C.textXS }}>{when(msg)}</span>
+                                  </span>
+                                  <span className="sw-msgs__peek" style={{ color: C.textS }}>
+                                    {typeLabel(msg)} · {msg.message}
+                                  </span>
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+
+                      <article id="sw-msg-open" key={open.id} className="sw-msgs__open" style={{ background: cBg, borderColor: cBr, boxShadow: C.shadowCard }}>
+                        <header className="sw-msgs__head">
+                          <span className="sw-msgs__avatar" aria-hidden>{(open.name || "?").trim().charAt(0).toUpperCase()}</span>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div className="sw-msgs__title" style={{ color: C.textH }}>
+                              {open.name}
+                              {/* TYPE BADGE */}
+                              <span className="sw-msgs__type" style={{ color: C.goldInk, borderColor: `${gold}44`, background: `${gold}18` }}>
+                                {typeLabel(open).toUpperCase()}
+                              </span>
+                            </div>
+                            {/* The date alone could not separate two messages
+                                from the same morning; the clock time is shown
+                                when the record carries one. */}
+                            <div className="sw-msgs__meta" style={{ color: C.textXS }}>
+                              {open.email} · {when(open)}
+                            </div>
+                            {/* If this person has a booking, open it straight
+                                from the message. */}
+                            {linked && (
+                              <button
+                                type="button"
+                                className="sw-msgs__booking"
+                                onClick={() => openBooking(linked.id)}
+                                title={`Open ${linked.id} — ${fmtDate(linked.date)}`}
+                                style={{ borderColor: cBr, color: C.goldInk }}
+                              >
+                                <Icon name="calendar" size={12} />
+                                {linked.id} · {fmtDate(linked.date)}
+                                <Icon name="arrow-right" size={12} />
                               </button>
                             )}
                           </div>
-                        </div>
+                          {/* ARCHIVE BUTTON */}
+                          {csView === "inbox" && (
+                            <button type="button" className="sw-msgs__archive" onClick={() => setConfirmArchiveMsg(open)}
+                              style={{ borderColor: cBr, color: C.textS }}>
+                              <Icon name="folder" size={14} /> Archive
+                            </button>
+                          )}
+                          {/* In the archive: delete this one message for good. */}
+                          {csView === "archive" && (
+                            <button type="button" className="sw-msgs__iconbtn is-danger" onClick={() => setCsDelAsk(open)}
+                              aria-label={`Delete the message from ${open.name}`} title="Delete this message"
+                              style={{ borderColor: cBr, color: C.textS }}>
+                              <Icon name="trash" size={15} />
+                            </button>
+                          )}
+                        </header>
 
-                        <p
-                          style={{
-                            color: C.textB,
-                            fontSize: 14.5,
-                            lineHeight: 1.7,
-                            margin: 0,
-                          }}
-                        >
-                          {msg.message}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                        <p className="sw-msgs__body" style={{ color: C.textB }}>{open.message}</p>
+
+                        {/* The reply: automated (a draft from the booking) or
+                            written by hand, sent from the email app -- the
+                            same as the reply window. */}
+                        <div className="sw-msgs__reply" style={{ borderColor: cBr }}>
+                          <div className="sw-msgs__replyhead">
+                            <label htmlFor="sw-msg-reply" style={{ color: C.textH }}>Reply by email</label>
+                            <div className="sw-msgs__modes" role="radiogroup" aria-label="Reply type">
+                              {(["automated", "manual"] as const).map((type) => (
+                                <button key={type} type="button" role="radio" aria-checked={draft.mode === type}
+                                  onClick={() => setCsDraft({ id: open.id, mode: type, text: type === "automated" ? automatedDraft(open) : "" })}
+                                  style={{
+                                    background: draft.mode === type ? `${gold}18` : "transparent",
+                                    color: draft.mode === type ? C.goldInk : C.textS,
+                                    borderColor: draft.mode === type ? `${gold}55` : cBr,
+                                  }}>
+                                  {type.toUpperCase()}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <Textarea
+                            id="sw-msg-reply"
+                            value={draft.text}
+                            onChange={(e) => setCsDraft({ id: open.id, mode: draft.mode, text: e.target.value })}
+                            rows={5}
+                            style={{ resize: "vertical", padding: 14, borderRadius: 10, border: `1px solid ${cBr}`, background: "transparent", color: C.textB, fontSize: 14.5, lineHeight: 1.7 }}
+                          />
+                          <div className="sw-msgs__actions">
+                            <span style={{ color: C.textXS, fontSize: 12 }}>To {open.email}</span>
+                            <Button className="sw-btn"
+                              disabled={!draft.text.trim()}
+                              onClick={() => {
+                                window.location.href = `mailto:${open.email}?subject=Customer Service Response&body=${encodeURIComponent(draft.text)}`;
+                              }}
+                              style={{ ...goldBtn, padding: "11px 20px", height: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
+                              <Icon name="arrow-right" size={14} /> Send reply
+                            </Button>
+                          </div>
+                        </div>
+                      </article>
+                    </div>
+                  );
+                })()}
     </>
   );
   // Until the role is known, nothing: a caretaker must not see the owner's
@@ -864,17 +876,45 @@ export function Admin({
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {/* The notification bell: what this person should know, in one tap. */}
             <NotificationBell size={38} onOpen={openNote} />
-            <button onClick={() => setSideOpen((o) => !o)} aria-label={sideOpen ? "Close menu" : "Open menu"} style={{ background: "none", border: `1px solid ${cBr}`, color: isDark ? "#888" : "#666", cursor: "pointer", padding: "8px 12px", borderRadius: 3, fontSize: 14.5 }}>{<Icon name={sideOpen ? "x" : "menu"} size={16} />}</button>
+            {/* Three lines that fold into an X (AdminSidebar.css). */}
+            <button onClick={() => setSideOpen((o) => !o)} aria-label={sideOpen ? "Close menu" : "Open menu"} aria-expanded={sideOpen}
+              className={`sw-burger${sideOpen ? " is-open" : ""}`}
+              style={{ border: `1px solid ${cBr}`, color: isDark ? "#c9c2b6" : "#555" }}>
+              <span /><span /><span />
+            </button>
           </div>
         </div>
       )}
 
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         {/* Sidebar */}
-        {(!mob || sideOpen) && (
-          <div style={{ width: mob ? "100%" : 220, background: sideBg, borderRight: mob ? "none" : `1px solid ${sideBorder}`, flexShrink: 0, display: "flex", flexDirection: "column", position: mob ? "fixed" : "relative", inset: mob ? "56px 0 0 0" : "auto", zIndex: mob ? 80 : 1, overflow: "hidden", boxShadow: isDark ? "none" : "2px 0 16px rgba(80,55,20,0.06)" }}>
+        {(() => {
+          const mini = !mob && sideMini;
+          let itemNo = 0;
+          const panel = (
+          <div
+            className={`sw-side${mini ? " is-mini" : ""}${mob ? " is-mob" : ""}${mob && sideOpen ? " is-open" : ""}`}
+            inert={mob && !sideOpen}
+            aria-hidden={mob && !sideOpen ? true : undefined}
+            style={{ width: mob ? "100%" : mini ? 76 : 220, background: sideBg, borderRight: mob ? "none" : `1px solid ${sideBorder}`, flexShrink: 0, display: "flex", flexDirection: "column", position: mob ? "fixed" : "absolute", inset: mob ? "56px 0 0 0" : "0 auto 0 0", zIndex: mob ? 80 : 2, overflow: mob ? "hidden" : "visible", boxShadow: isDark ? "none" : "2px 0 16px rgba(80,55,20,0.06)" }}>
+            {/* Desktop: fold the sidebar to its icons, or open it again. A
+                round button on the sidebar's edge, at the top. */}
             {!mob && (
-              <div data-sidebar-head="" style={{ padding: "30px 14px 22px 20px", borderBottom: `1px solid ${sideBorder}`, display: "flex", alignItems: "center" }}>
+              <button type="button" className="sw-side__toggle" onClick={toggleMini}
+                aria-label={mini ? "Expand the sidebar" : "Collapse the sidebar to icons"} aria-expanded={!mini}
+                title={mini ? "Expand" : "Collapse"}
+                style={{ background: sideBg, borderColor: sideBorder, color: isDark ? "#c9a84c" : "#896630" }}>
+                <Icon name="chevron-left" size={14} />
+              </button>
+            )}
+            {mini && (
+              <div data-sidebar-head="" className="sw-side__minihead" style={{ borderBottom: `1px solid ${sideBorder}` }}>
+                <span className="sw-side__mark" aria-label="StoneWood" title={`StoneWood · ${ROLE_LABEL[role]}`}>S</span>
+                <NotificationBell size={36} onOpen={openNote} />
+              </div>
+            )}
+            {!mob && !mini && (
+              <div data-sidebar-head="" className="sw-side__head" style={{ padding: "30px 14px 22px 20px", borderBottom: `1px solid ${sideBorder}`, display: "flex", alignItems: "center", overflow: "hidden" }}>
                 {/* Wordmark and bell share 220px. The bell keeps 12px clear
                     of the wordmark so its count badge (which sits off its
                     top-left corner) never lands on the text; the wordmark is
@@ -901,7 +941,9 @@ export function Admin({
                   {/* Section label + rule: a button that folds the section.
                       Folded, it still says when something inside matters: a
                       gold dot for the page you're on, red for work waiting. */}
-                  {(() => {
+                  {mini ? (
+                    <div className="sw-side__rule" aria-hidden style={{ background: isDark ? "rgba(176,141,87,0.22)" : "rgba(176,141,87,0.3)" }} />
+                  ) : (() => {
                     const isFolded = foldedGroups.has(group.label);
                     const hasCurrent = group.tabs.includes(tab);
                     const needsYou = group.tabs.some((t) => (t === "Operations" && attentionCount > 0) || (t === "Customer Service" && inboxMessages.length > 0));
@@ -954,14 +996,16 @@ export function Admin({
 
                   {/* Nav items for this group: fold by animating grid rows,
                       and out of the tab order while folded. */}
-                  <div id={`side-group-${gi}`} style={{ display: "grid", gridTemplateRows: foldedGroups.has(group.label) ? "0fr" : "1fr", transition: "grid-template-rows .28s ease" }}>
-                  <div style={{ overflow: "hidden", minHeight: 0 }} inert={foldedGroups.has(group.label)}>
+                  <div id={`side-group-${gi}`} style={{ display: "grid", gridTemplateRows: !mini && foldedGroups.has(group.label) ? "0fr" : "1fr", transition: "grid-template-rows .28s ease" }}>
+                  <div style={{ overflow: "hidden", minHeight: 0 }} inert={!mini && foldedGroups.has(group.label)}>
                   {group.tabs.map((t) => (
                     <div
                       key={t}
                       onClick={() => goTab(t as AdminTab)}
                       className="sw-sidebar-item"
-                      style={sideS(t as AdminTab)}
+                      title={mini ? tabLabels[t] ?? t : undefined}
+                      aria-label={mini ? tabLabels[t] ?? t : undefined}
+                      style={{ ...sideS(t as AdminTab), ["--i" as string]: itemNo++ }}
                     >
                       <Icon
                         name={tabIcons[t as AdminTab]}
@@ -969,6 +1013,7 @@ export function Admin({
                         style={{ opacity: tab === t ? 1 : 0.55, transition: "opacity .15s" }}
                       />
                       <span
+                        className="sw-side__label"
                         style={{
                           flex: 1,
                           minWidth: 0,
@@ -1007,6 +1052,7 @@ export function Admin({
                       {t === "Operations" && attentionCount > 0 && (
                         <Badge
                           variant="outline"
+                          className="sw-side__badge"
                           aria-label={`${attentionCount} ${attentionCount === 1 ? "item needs" : "items need"} your attention`}
                           style={{
                             /* Red when something is overdue or money is owed,
@@ -1030,7 +1076,7 @@ export function Admin({
 
                       {/* Facilities badge */}
                       {t === "Facilities" && facilities.filter(f => f.status === "Needs Cleaning").length > 0 && (
-                        <Badge variant="outline" style={{
+                        <Badge variant="outline" className="sw-side__badge" style={{
                           background: "#f5a524", color: "#000",
                           fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "4px 8px", letterSpacing: 0,
@@ -1044,7 +1090,7 @@ export function Admin({
                           message is the admin saying it is dealt with, so a
                           badge that kept counting it would never clear. */}
                       {t === "Customer Service" && inboxMessages.length > 0 && (
-                        <Badge variant="outline" style={{
+                        <Badge variant="outline" className="sw-side__badge" style={{
                           background: "#3e8ed0", color: "#fff",
                           fontSize: 10.5, fontWeight: 700,
                           borderRadius: 20, padding: "4px 8px", letterSpacing: 0,
@@ -1064,21 +1110,31 @@ export function Admin({
                 spent the sidebar's one permanent slot on the action you want
                 least often. The account menu holds sign-out along with the
                 username, password and theme. */}
-            <div style={{ padding: "12px 16px", borderTop: `1px solid ${sideBorder}`, flexShrink: 0 }}>
+            {/* On a phone, lifted clear of the floating theme button (and the
+                iPhone home bar), which sat over this row and took the tap. */}
+            <div style={{ padding: mob ? "12px 16px calc(80px + env(safe-area-inset-bottom))" : mini ? "12px 10px" : "12px 16px", borderTop: `1px solid ${sideBorder}`, flexShrink: 0 }}>
               <ProfileMenu
                 variant="sidebar"
+                compact={mini}
                 onAccountSettings={() => setShowAccount(true)}
                 onSignOut={() => setShowLogoutConfirm(true)}
               />
             </div>
           </div>
-        )}
+          );
+          // Desktop: the slot the sidebar sits in. It takes its new size at
+          // once; the sidebar eases to it on top.
+          return mob ? panel : (
+            <div className="sw-side-rail" style={{ width: mini ? 76 : 220 }}>{panel}</div>
+          );
+        })()}
 
         {/* Main Content */}
         {/* paddingBottom leaves room for the theme toggle, which floats over
             the bottom-right corner. Without it the last row of any admin
             table sits under the button with no way to scroll it clear. */}
-        <div style={{ flex: 1, padding: mob ? "20px 16px" : "40px", paddingBottom: mob ? 96 : 104, overflowY: "auto", minHeight: 0, minWidth: 0, background: adminBg }}>
+        {/* Keyed on the page: each one opens at the top and fades in. */}
+        <div key={tab} ref={mainRef} className="sw-main-in" style={{ flex: 1, padding: mob ? "20px 16px" : "40px", paddingBottom: mob ? 96 : 104, overflowY: "auto", minHeight: 0, minWidth: 0, background: adminBg }}>
 
           {/* About to be signed out. Any click, key or scroll cancels it —
               the same events that keep the session alive. */}
@@ -1145,112 +1201,150 @@ export function Admin({
                   </ConfirmDialog>
                 );
               })()}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                {/* The same months as the guest's calendar: a few back (to
-                    look up what happened) and as far ahead as anything can
-                    be booked or closed (Rates & Settings). */}
-                {(() => {
-                  const w = staffDateWindow();
-                  const monthKey = (d: Date) => d.getFullYear() * 12 + d.getMonth();
-                  const at = monthKey(calMonth);
-                  const canPrev = at > monthKey(new Date(`${w.first}T00:00:00`));
-                  const canNext = at < monthKey(new Date(`${w.last}T00:00:00`));
-                  const navBtn = (on: boolean) => ({ background: "transparent", border: `1px solid ${cBr}`, color: C.textS, cursor: on ? "pointer" : "not-allowed", opacity: on ? 1 : 0.35, borderRadius: 4, padding: "8px 16px", fontSize: 14.5 });
-                  return (
-                    <>
-                      <button type="button" aria-label="Previous month" disabled={!canPrev} onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))} style={navBtn(canPrev)}>‹</button>
-                      <span style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18 }}>{calMonth.toLocaleString("default", { month: "long", year: "numeric" })}</span>
-                      <button type="button" aria-label="Next month" disabled={!canNext} onClick={() => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))} style={navBtn(canNext)}>›</button>
-                    </>
-                  );
-                })()}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: 8 }}>
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d} style={{ textAlign: "center", color: C.textXS, fontSize: 11.5, padding: "8px 0", letterSpacing: 1 }}>{d}</div>)}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: 24 }}>
-                {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
-                {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
-                  const ds = `${calMonth.getFullYear()}-${String(calMonth.getMonth() + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-                  const status = getDateStatus(d);
-                  const isPast = new Date(calMonth.getFullYear(), calMonth.getMonth(), d) < new Date(new Date().setHours(0, 0, 0, 0));
-                  let bg = isDark ? "#111" : "#f0ede7", col = C.textB, border = `1px solid ${cBr}`;
-                  let dim = false;
-                  if (isPast) { bg = isDark ? "var(--sw-bg)" : "#f8f6f3"; col = C.textB; dim = true; }
-                  // Solid fills, the same palette as the guest calendars
-                  // (components/common/calendarColors.ts).
-                  else if (status === "Closed") { bg = CAL.closed.bg; col = CAL.closed.ink; border = `1px solid ${CAL.closed.rim}`; }
-                  else if (status === "Pending") { bg = CAL.pending.bg; col = CAL.pending.ink; border = `1px solid ${CAL.pending.rim}`; }
-                  else if (status === "Confirmed") { bg = CAL.available.bg; col = CAL.available.ink; border = `1px solid ${CAL.available.rim}`; }
-                  else if (status === "Completed") { bg = CAL.completed.bg; col = CAL.completed.ink; border = `1px solid ${CAL.completed.rim}`; }
-                  const dayBookings = bookingsOn(ds);
-                  /* History the admin cannot act on: a date already gone by
-                     whose bookings are all finished. The cell itself states
-                     the outcome, so a card repeating it is noise — and it
-                     covers the dates around it while being read.
+              {/* The month, in one panel: the nav, the weekdays, the days and
+                  the legend. Same colours, labels, clicks and hover cards as
+                  before; each day also shows an icon for every kind of tour
+                  booked on it (sun, moon, staycation). Styles in
+                  components/admin/BookingCalendar.css. */}
+              {(() => {
+                const w = staffDateWindow();
+                const monthKey = (dt: Date) => dt.getFullYear() * 12 + dt.getMonth();
+                const at = monthKey(calMonth);
+                const canPrev = at > monthKey(new Date(`${w.first}T00:00:00`));
+                const canNext = at < monthKey(new Date(`${w.last}T00:00:00`));
+                const ym = `${calMonth.getFullYear()}-${String(calMonth.getMonth() + 1).padStart(2, "0")}`;
+                const now = new Date();
+                const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+                const SLOT_ICON = { Day: "sun", Night: "moon", WholeDay: "staycation" } as const;
+                const SLOT_ORDER = ["Day", "Night", "WholeDay"] as const;
+                return (
+                  <section className="sw-bcal" style={{ background: isDark ? "#0d0c0a" : "#fffdf9", borderColor: cBr, marginBottom: 24 }}>
+                    <header className="sw-bcal__head">
+                      <button type="button" className="sw-bcal__nav" aria-label="Previous month" disabled={!canPrev}
+                        onClick={() => { setHoverDay(null); setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1)); }}
+                        style={{ borderColor: cBr, color: C.textB }}>
+                        <Icon name="chevron-left" size={18} />
+                      </button>
+                      <div key={ym} className="sw-bcal__month">
+                        <span style={{ color: C.textH }}>{calMonth.toLocaleString("default", { month: "long" })}</span>{" "}
+                        <span style={{ color: C.goldInk }}>{calMonth.getFullYear()}</span>
+                      </div>
+                      <button type="button" className="sw-bcal__nav" aria-label="Next month" disabled={!canNext}
+                        onClick={() => { setHoverDay(null); setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1)); }}
+                        style={{ borderColor: cBr, color: C.textB }}>
+                        <Icon name="chevron-right" size={18} />
+                      </button>
+                    </header>
 
-                     A past date with something still unresolved (a Pending
-                     booking nobody chased) keeps its card, because that is
-                     exactly when the detail is still wanted. */
-                  const settled = dayBookings.length > 0
-                    && dayBookings.every((bk) => bk.status === "Completed" || bk.status === "Cancelled");
-                  const showDayCard = dayBookings.length > 0 && !(isPast && settled);
-                  /* Which weekday column and row this cell sits in: the column
-                     decides whether the card centres or hugs an edge, the row
-                     decides whether it opens downward or upward. */
-                  const colIdx = (firstDay + d - 1) % 7;
-                  const rowIdx = Math.floor((firstDay + d - 1) / 7);
-                  const cardAbove = rowIdx >= Math.ceil((firstDay + daysInMonth) / 7) - 2;
-                  return (
-                    <div
-                      key={d}
-                      onClick={() => !isPast && !["Confirmed", "Pending", "Completed"].includes(status || "") && toggleClosed(ds)}
-                      onMouseEnter={() => setHoverDay(ds)}
-                      onMouseLeave={() => setHoverDay((cur) => (cur === ds ? null : cur))}
-                      onFocus={() => setHoverDay(ds)}
-                      onBlur={() => setHoverDay((cur) => (cur === ds ? null : cur))}
-                      tabIndex={dayBookings.length ? 0 : -1}
-                      aria-label={dayBookings.length
-                        ? `${ds}: ${dayBookings.map((bk) => `${bk.name}, ${bookingStatusLabel(bk)}`).join("; ")}`
-                        : undefined}
-                      style={{ 
-                      textAlign: "center", 
-                      padding: mob ? "12px 4px" : "16px 4px", 
-                      borderRadius: 6, 
-                      // Same rule as the guest calendars: a date nobody can
-                      // act on recedes, rather than just having muted ink.
-                      opacity: dim ? 0.38 : 1,
-                      background: bg, border, 
-                      color: col, 
-                      fontSize: mob ? 12.5 : 14.5, 
-                      cursor:
-                        isPast || !canCloseDates
-                          ? "default"
-                          : ["Confirmed", "Pending", "Completed"].includes(status || "")
-                          ? "default"
-                          : "pointer",
-                      userSelect: "none", 
-                      transition: "all .15s", 
-                      position: "relative" }}>
-                      {d}
-                      {/* A phone's day tile is ~43px wide, too narrow for the
-                          word: "CONFIRMED" broke into "CONFI / RMED". There the
-                          tile's colour says it, read with the legend below,
-                          and a dot marks the day; the aria-label still says it. */}
-                      {status && (mob
-                        ? <div aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", margin: "6px auto 0" }} />
-                        : <div style={{ fontSize: 11, marginTop: 4, opacity: 0.85, letterSpacing: 0.4, lineHeight: 1.2, overflowWrap: "anywhere" }}>{(CAL_TILE_LABEL[status] ?? status).toUpperCase()}</div>)}
-
-                      {hoverDay === ds && showDayCard && dayCard(ds, dayBookings, colIdx, cardAbove)}
+                    <div className="sw-bcal__dow">
+                      {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d} style={{ color: C.textXS }}>{d}</div>)}
                     </div>
-                  );
-                })}
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                {[["Booked/Confirmed", CAL.available.bg], ["Pending", CAL.pending.bg], ["Completed", CAL.completed.bg], ["Closed", CAL.closed.bg]].map(([l, c]) => (
-                  <div key={l} style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: c }} /><span style={{ color: C.textS, fontSize: 12.5 }}>{l}</span></div>
-                ))}
-              </div>
+
+                    <div key={ym} className="sw-bcal__grid">
+                      {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} aria-hidden />)}
+                      {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
+                        const ds = `${ym}-${String(d).padStart(2, "0")}`;
+                        const status = getDateStatus(d);
+                        const isPast = new Date(calMonth.getFullYear(), calMonth.getMonth(), d) < new Date(new Date().setHours(0, 0, 0, 0));
+                        let bg = isDark ? "#151411" : "#f4f0e8", col = C.textB, rim = cBr;
+                        let dim = false;
+                        if (isPast) { bg = isDark ? "var(--sw-bg)" : "#f8f6f3"; col = C.textB; dim = true; }
+                        // Solid fills, the same palette as the guest calendars
+                        // (components/common/calendarColors.ts).
+                        else if (status === "Closed") { bg = CAL.closed.bg; col = CAL.closed.ink; rim = CAL.closed.rim; }
+                        else if (status === "Pending") { bg = CAL.pending.bg; col = CAL.pending.ink; rim = CAL.pending.rim; }
+                        else if (status === "Confirmed") { bg = CAL.available.bg; col = CAL.available.ink; rim = CAL.available.rim; }
+                        else if (status === "Completed") { bg = CAL.completed.bg; col = CAL.completed.ink; rim = CAL.completed.rim; }
+                        const dayBookings = bookingsOn(ds);
+                        // Which tours are booked on this date, one icon each.
+                        const slots = SLOT_ORDER.filter((sl) => dayBookings.some((bk) => getBookingSlot(bk) === sl));
+                        /* History the admin cannot act on: a date already gone by
+                           whose bookings are all finished. The cell itself states
+                           the outcome, so a card repeating it is noise — and it
+                           covers the dates around it while being read.
+
+                           A past date with something still unresolved (a Pending
+                           booking nobody chased) keeps its card, because that is
+                           exactly when the detail is still wanted. */
+                        const settled = dayBookings.length > 0
+                          && dayBookings.every((bk) => bk.status === "Completed" || bk.status === "Cancelled");
+                        const showDayCard = dayBookings.length > 0 && !(isPast && settled);
+                        /* Which weekday column and row this cell sits in: the column
+                           decides whether the card centres or hugs an edge, the row
+                           decides whether it opens downward or upward. */
+                        const colIdx = (firstDay + d - 1) % 7;
+                        const rowIdx = Math.floor((firstDay + d - 1) / 7);
+                        const cardAbove = rowIdx >= Math.ceil((firstDay + daysInMonth) / 7) - 2;
+                        const locked = ["Confirmed", "Pending", "Completed"].includes(status || "");
+                        const clickable = !isPast && canCloseDates && !locked;
+                        return (
+                          <div
+                            key={d}
+                            className={`sw-bcal__day${clickable ? " is-click" : ""}${ds === todayStr ? " is-today" : ""}${status && !isPast ? " has-fill" : ""}${hoverDay === ds ? " is-hover" : ""}`}
+                            onClick={() => !isPast && !locked && toggleClosed(ds)}
+                            /* A real pointer only. A tap on a phone fires a fake
+                               "mouse enter" and never a "leave", which left the
+                               glow and the card stuck on the tapped date. Taps
+                               go through focus instead: the tapped date shows
+                               its card, and tapping anywhere else blurs it. */
+                            onPointerEnter={(e) => { if (e.pointerType === "mouse") setHoverDay(ds); }}
+                            onPointerLeave={(e) => { if (e.pointerType === "mouse") setHoverDay((cur) => (cur === ds ? null : cur)); }}
+                            onFocus={() => setHoverDay(ds)}
+                            onBlur={() => setHoverDay((cur) => (cur === ds ? null : cur))}
+                            tabIndex={dayBookings.length ? 0 : -1}
+                            aria-label={dayBookings.length
+                              ? `${ds}: ${dayBookings.map((bk) => `${bk.name}, ${SLOTS[getBookingSlot(bk)].label}, ${bookingStatusLabel(bk)}`).join("; ")}`
+                              : undefined}
+                            style={{
+                              background: bg, borderColor: rim, color: col,
+                              // Same rule as the guest calendars: a date nobody can
+                              // act on recedes, rather than just having muted ink.
+                              opacity: dim ? 0.38 : 1,
+                              animationDelay: `${Math.min(d, 31) * 12}ms`,
+                            }}>
+                            <div className="sw-bcal__top">
+                              <span className="sw-bcal__num">{d}</span>
+                              {slots.length > 0 && (
+                                <span className="sw-bcal__slots" aria-hidden>
+                                  {slots.map((sl) => (
+                                    <span key={sl} className="sw-bcal__slot" title={SLOTS[sl].label}>
+                                      <Icon name={SLOT_ICON[sl]} size={mob ? 10 : 13} strokeWidth={1.9} />
+                                    </span>
+                                  ))}
+                                </span>
+                              )}
+                            </div>
+                            {/* A phone's day tile is ~43px wide, too narrow for the
+                                word: "CONFIRMED" broke into "CONFI / RMED". There the
+                                tile's colour says it, read with the legend below,
+                                and a dot marks the day; the aria-label still says it. */}
+                            {status && (mob
+                              ? <span aria-hidden className="sw-bcal__dot" />
+                              : <span className="sw-bcal__tag">{(CAL_TILE_LABEL[status] ?? status).toUpperCase()}</span>)}
+
+                            {hoverDay === ds && showDayCard && dayCard(ds, dayBookings, colIdx, cardAbove)}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <footer className="sw-bcal__legend" style={{ borderColor: cBr }}>
+                      <div className="sw-bcal__legend-row">
+                        {[["Booked/Confirmed", CAL.available.bg], ["Pending", CAL.pending.bg], ["Completed", CAL.completed.bg], ["Closed", CAL.closed.bg]].map(([l, c]) => (
+                          <span key={l} className="sw-bcal__chip" style={{ color: C.textS, borderColor: cBr }}><i style={{ background: c }} />{l}</span>
+                        ))}
+                      </div>
+                      <div className="sw-bcal__legend-row">
+                        {SLOT_ORDER.map((sl) => (
+                          <span key={sl} className="sw-bcal__chip" style={{ color: C.textS, borderColor: cBr }}>
+                            <Icon name={SLOT_ICON[sl]} size={13} style={{ color: C.goldInk }} />{SLOTS[sl].label}
+                          </span>
+                        ))}
+                      </div>
+                    </footer>
+                  </section>
+                );
+              })()}
 
               {/* The same information the hover card gives, in a form that
                   survives a touchscreen. Scoped to the month on screen, so
@@ -1577,6 +1671,23 @@ export function Admin({
                 <TabsContent value="inbox">{messagesPanel}</TabsContent>
                 <TabsContent value="archive">{messagesPanel}</TabsContent>
               </Tabs>
+              {csDelAsk && (
+                <ConfirmDialog
+                  title={csDelAsk === "all"
+                    ? `Clear the archive?`
+                    : `Delete ${csDelAsk.name}'s message?`}
+                  description={csDelAsk === "all"
+                    ? `${archivedMessages.length} archived message${archivedMessages.length === 1 ? "" : "s"} will be deleted for good.`
+                    : `${CS_LABELS[csDelAsk.type] ?? csDelAsk.type} · ${csDelAsk.date}`}
+                  onCancel={() => setCsDelAsk(null)} cancelLabel="Go back" width={480}
+                  confirm={<ActionButton kind="red" icon="trash" disabled={csDeleting} onClick={() => void deleteArchived(csDelAsk)}>
+                    {csDeleting ? "Deleting…" : csDelAsk === "all" ? "Delete all" : "Delete"}
+                  </ActionButton>}>
+                  <p style={{ color: C.textS, fontSize: 14, margin: 0, lineHeight: 1.6 }}>
+                    This can&apos;t be undone. Messages in the inbox are not touched.
+                  </p>
+                </ConfirmDialog>
+              )}
               {/* REPLY MODAL */}
               <Dialog open={!!replyModal} onOpenChange={(open) => { if (!open) setReplyModal(null); }}>
                 <DialogContent

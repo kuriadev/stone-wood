@@ -1,10 +1,11 @@
-// SERVER ONLY -- the data-retention clean-up (rules in lib/retention.ts).
+// SERVER ONLY -- auto-archive and the scheduled archive clean-up (rules in
+// lib/retention.ts).
 
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { manilaDate } from "@/lib/finance";
 import { logActivity } from "@/lib/activity.server";
 import {
-  RETENTION_KEY, DEFAULT_RETENTION, validateRetention, retentionCutoff, isPurgeable, monthsLabel,
+  RETENTION_KEY, DEFAULT_RETENTION, validateRetention, retentionCutoff, isArchivable, isDeletableFromArchive, monthsLabel,
   type RetentionState,
 } from "@/lib/retention";
 
@@ -21,8 +22,14 @@ export async function loadRetention(): Promise<{ state: RetentionState; ready: b
   const raw = ((data as { data?: Record<string, unknown> } | null)?.data ?? {}) as Record<string, unknown>;
   const v = validateRetention(raw);
   const settings = v.ok ? v.settings : DEFAULT_RETENTION;
+  const str = (k: string) => (typeof raw[k] === "string" ? (raw[k] as string) : null);
+  const num = (k: string) => (typeof raw[k] === "number" ? (raw[k] as number) : null);
   return {
-    state: { ...settings, lastRunAt: typeof raw.lastRunAt === "string" ? raw.lastRunAt : null, lastDeleted: typeof raw.lastDeleted === "number" ? raw.lastDeleted : null },
+    state: {
+      ...settings,
+      lastRunAt: str("lastRunAt"), lastDeleted: num("lastDeleted"), lastArchived: num("lastArchived"),
+      lastPurgeOn: str("lastPurgeOn"), enabledOn: str("enabledOn"),
+    },
     ready: true,
   };
 }
@@ -32,31 +39,56 @@ export async function saveRetention(state: RetentionState, by: string | null): P
     { key: RETENTION_KEY, data: state, updated_at: new Date().toISOString(), updated_by_name: by },
     { onConflict: "key" },
   );
-  if (error) return missingTable(error.message) ? "Data retention switches on once the database update (20261028130000_site_content.sql) is applied." : error.message;
+  if (error) return missingTable(error.message) ? "This switches on once the database update (20261028130000_site_content.sql) is applied." : error.message;
   return null;
 }
 
-type Row = { id: string; date: string; end_date: string | null; status: string; refund_status: string | null };
+type Row = { id: string; date: string; end_date: string | null; status: string; refund_status: string | null; archived: boolean | null };
+const COLS = "id,date,end_date,status,refund_status,archived";
+const asCandidate = (r: Row) => ({ status: r.status, date: r.date, endDate: r.end_date, refundStatus: r.refund_status, archived: r.archived });
 
-/** The bookings that would be deleted with these months, oldest first. */
-export async function findPurgeable(months: number): Promise<{ cutoff: string; ids: string[] }> {
+/** Finished bookings old enough to archive. */
+export async function findArchivable(months: number): Promise<{ cutoff: string; ids: string[] }> {
   const cutoff = retentionCutoff(manilaDate(), months);
-  // Every finished booking that started before the cutoff; the end date
-  // and refund are checked here (isPurgeable), the same rule as the tests.
-  const { data, error } = await getSupabaseAdmin().from("bookings")
-    .select("id,date,end_date,status,refund_status")
-    .in("status", ["Completed", "Cancelled"]).lt("date", cutoff).order("date");
+  const { data, error } = await getSupabaseAdmin().from("bookings").select(COLS)
+    .in("status", ["Completed", "Cancelled"]).eq("archived", false).lt("date", cutoff).order("date");
   if (error) throw new Error(error.message);
-  const ids = ((data ?? []) as Row[])
-    .filter((r) => isPurgeable({ status: r.status, date: r.date, endDate: r.end_date, refundStatus: r.refund_status }, cutoff))
-    .map((r) => r.id);
-  return { cutoff, ids };
+  return { cutoff, ids: ((data ?? []) as Row[]).filter((r) => isArchivable(asCandidate(r), cutoff)).map((r) => r.id) };
 }
 
-/** Delete them. Payments stay, anonymised. Returns how many went. */
-export async function purgeBookings(months: number, how: "auto" | "manual"): Promise<{ deleted: number; cutoff: string }> {
+/** Archived bookings that a deletion would remove. */
+export async function findDeletable(): Promise<string[]> {
+  const { data, error } = await getSupabaseAdmin().from("bookings").select(COLS)
+    .eq("archived", true).in("status", ["Completed", "Cancelled"]).order("date");
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Row[]).filter((r) => isDeletableFromArchive(asCandidate(r))).map((r) => r.id);
+}
+
+/** Move old finished bookings to the archive. Nothing is deleted. */
+export async function archiveOld(months: number, how: "auto" | "manual"): Promise<{ archived: number; cutoff: string }> {
   const db = getSupabaseAdmin();
-  const { cutoff, ids } = await findPurgeable(months);
+  const { cutoff, ids } = await findArchivable(months);
+  const at = new Date().toISOString();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { error } = await db.from("bookings").update({ archived: true, archived_at: at }).in("id", ids.slice(i, i + 200));
+    if (error) throw new Error(error.message);
+  }
+  if (ids.length > 0 || how === "manual") {
+    await logActivity({
+      actor: how === "auto" ? "System" : "Admin", action: "bookings.auto_archive", entity: "bookings", entityId: cutoff,
+      summary: ids.length > 0
+        ? `${how === "auto" ? "Auto-archived" : "Archived"} ${ids.length} finished booking${ids.length === 1 ? "" : "s"} whose stay ended before ${cutoff} (${monthsLabel(months)} after the stay).`
+        : `Archived by hand: no finished bookings older than ${monthsLabel(months)}.`,
+      details: { cutoff, months, archived: ids.length, ids: ids.slice(0, 500) },
+    });
+  }
+  return { archived: ids.length, cutoff };
+}
+
+/** Delete everything deletable in the archive. Payments stay, anonymised. */
+export async function purgeArchive(how: "auto" | "manual", dueOn?: string): Promise<{ deleted: number }> {
+  const db = getSupabaseAdmin();
+  const ids = await findDeletable();
   let deleted = 0;
   for (let i = 0; i < ids.length; i += 200) {
     const chunk = ids.slice(i, i + 200);
@@ -69,12 +101,12 @@ export async function purgeBookings(months: number, how: "auto" | "manual"): Pro
   }
   if (deleted > 0 || how === "manual") {
     await logActivity({
-      actor: how === "auto" ? "System" : "Admin", action: "data.retention", entity: "bookings", entityId: cutoff,
+      actor: how === "auto" ? "System" : "Admin", action: "data.retention", entity: "bookings", entityId: dueOn ?? manilaDate(),
       summary: deleted > 0
-        ? `${how === "auto" ? "Data retention deleted" : "Deleted"} ${deleted} finished booking${deleted === 1 ? "" : "s"} whose stay ended before ${cutoff} (kept for ${monthsLabel(months)}). Their payments were kept, without the guest's name.`
-        : `Ran data retention by hand: no finished bookings older than ${monthsLabel(months)} to delete.`,
-      details: { cutoff, months, deleted, ids: ids.slice(0, 500) },
+        ? `${how === "auto" ? `Scheduled clean-up (${dueOn}) deleted` : "Deleted"} ${deleted} archived booking${deleted === 1 ? "" : "s"}. Their payments were kept, without the guest's name.`
+        : "Emptied the archive by hand: nothing to delete.",
+      details: { deleted, dueOn: dueOn ?? null, ids: ids.slice(0, 500) },
     });
   }
-  return { deleted, cutoff };
+  return { deleted };
 }

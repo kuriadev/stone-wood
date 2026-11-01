@@ -9,7 +9,10 @@
 // both the old Reports tab, which counted booking totals as revenue, and
 // the separate Analytics tab, whose charts now live at the bottom here.
 
-import { Icon } from "@/components/common/Icon";
+import { Icon, type IconName } from "@/components/common/Icon";
+import "./Reports.css";
+import { useToast } from "@/contexts/ToastContext";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -30,8 +33,8 @@ import { EXPENSE_CATEGORIES, type PaymentType } from "@/types/finance";
 import type { Booking, BookingSlot } from "@/types/booking";
 import type { Room } from "@/types/room";
 import { gold } from "@/lib/styles";
-import { Panel, BarChart, ProgressRow } from "@/components/admin/charts";
-import { AdminPageHeader, StatCard, ChoiceButtons, ActionButton, AmountRow, useAdminStyle, FullSelect} from "@/components/admin/ui";
+import { BarChart } from "@/components/admin/charts";
+import { AdminPageHeader, ChoiceButtons, useAdminStyle, FullSelect } from "@/components/admin/ui";
 import { dayjs, DATE_FMT } from "@/lib/dayjs";
 import { DateField } from "@/components/common/DateField";
 
@@ -39,7 +42,7 @@ type Period = "Month" | "Year" | "Custom";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; rooms: Room[]; mob: boolean }) {
-  const { C, soft, inp } = useAdminStyle();
+  const { C, inp, cBg, cBr } = useAdminStyle();
   const ops = useOps();
   const { inventory } = useApp();
   const today = manilaDate();
@@ -49,8 +52,16 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
   const [year, setYear] = useState(today.slice(0, 4));
   const [cFrom, setCFrom] = useState(monthRange(today).from);
   const [cTo, setCTo] = useState(today);
+  // Filters: which bookings count (and the payments made on them), and
+  // whether each figure is compared with the period before.
+  const [source, setSource] = useState<"All" | "Online" | "Walk-In">("All");
+  const [compare, setCompare] = useState(true);
+  const [view, setView] = useState<"Overview" | "Money" | "Bookings">("Overview");
+  const [showPeriod, setShowPeriod] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  const { toast } = useToast();
 
-  const { from, to, label } = useMemo(() => {
+  const { from, to, label: periodLabel } = useMemo(() => {
     if (period === "Month") {
       const r = monthRange(`${month}-01`);
       return { ...r, label: dayjs(`${month}-01`, DATE_FMT, true).format("MMMM YYYY") };
@@ -58,6 +69,22 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
     if (period === "Year") return { from: `${year}-01-01`, to: `${year}-12-31`, label: year };
     return { from: cFrom, to: cTo, label: `${fmtDate(cFrom)} – ${fmtDate(cTo)}` };
   }, [period, month, year, cFrom, cTo]);
+  const sourceNote = source === "All" ? "" : source === "Walk-In" ? "Walk-ins only" : "Online only";
+  const label = sourceNote ? `${periodLabel} · ${sourceNote}` : periodLabel;
+
+  // The period before, the same length: last month, last year, or the same
+  // number of days just before a custom range.
+  const prevRange = useMemo(() => {
+    const f = dayjs(from, DATE_FMT, true), t = dayjs(to, DATE_FMT, true);
+    if (period === "Month") {
+      const p = f.subtract(1, "month");
+      return { ...monthRange(p.format(DATE_FMT)), label: p.format("MMMM YYYY") };
+    }
+    if (period === "Year") { const y = String(Number(year) - 1); return { from: `${y}-01-01`, to: `${y}-12-31`, label: y }; }
+    const days = Math.max(1, t.diff(f, "day") + 1);
+    const pt = f.subtract(1, "day"), pf = pt.subtract(days - 1, "day");
+    return { from: pf.format(DATE_FMT), to: pt.format(DATE_FMT), label: `${fmtDate(pf.format(DATE_FMT))} – ${fmtDate(pt.format(DATE_FMT))}` };
+  }, [period, year, from, to]);
 
   // Years that have any data, plus this one.
   const years = useMemo(() => {
@@ -67,11 +94,41 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
     return [...ys].sort().reverse();
   }, [bookings, ops.payments, today]);
 
-  const inRange = (d: string) => d >= from && d <= to;
-  const pays = livePayments(ops.payments).filter((p) => inRange(manilaDate(p.receivedAt)));
-  const exps = liveExpenses(ops.expenses).filter((e) => inRange(e.spentOn));
-  const bks = bookings.filter((b) => !b.id.startsWith("TMP-") && b.date && inRange(b.date));
-  const kept = bks.filter(holdsDate);
+  // The source filter: a booking is a walk-in or it came online; a payment
+  // follows the booking it was made on (one with no booking counts only
+  // under All). Expenses belong to the resort, not to a booking, so they
+  // are never filtered.
+  const bookingById = useMemo(() => new Map(bookings.map((b) => [b.id, b])), [bookings]);
+  const srcOk = (b: Booking) => source === "All" || (source === "Walk-In" ? b.source === "Walk-In" : b.source !== "Walk-In");
+  const payOk = (p: { bookingId: string | null }) => {
+    if (source === "All") return true;
+    const b = p.bookingId ? bookingById.get(p.bookingId) : undefined;
+    return !!b && srcOk(b);
+  };
+  /** Everything a period's figures are made from. */
+  const slice = (f: string, t: string) => {
+    const inR = (d: string) => d >= f && d <= t;
+    const sp = livePayments(ops.payments).filter((p) => inR(manilaDate(p.receivedAt)) && payOk(p));
+    const se = liveExpenses(ops.expenses).filter((e) => inR(e.spentOn));
+    const sb = bookings.filter((b) => !b.id.startsWith("TMP-") && b.date && inR(b.date) && srcOk(b));
+    return { pays: sp, exps: se, bks: sb, kept: sb.filter(holdsDate) };
+  };
+  const { pays, exps, bks, kept } = slice(from, to);
+  /** The headline figures for one period. */
+  const figures = (x: ReturnType<typeof slice>) => {
+    const got = round2(x.pays.reduce((n, p) => n + signedAmount(p), 0));
+    const out = round2(x.exps.reduce((n, e) => n + e.amount, 0));
+    const cancelled = x.bks.filter((b) => b.status === "Cancelled").length;
+    return {
+      collected: got, payments: x.pays.length, spent: out, expenses: x.exps.length, net: round2(got - out),
+      owed: round2(x.kept.reduce((n, b) => n + bookingMoney(b, ops.payments, ops.damages).due, 0)),
+      bookings: x.bks.length, kept: x.kept.length, guests: x.kept.reduce((n, b) => n + b.guests, 0),
+      walkins: x.kept.filter((b) => b.source === "Walk-In").length,
+      cancelRate: x.bks.length ? Math.round((cancelled / x.bks.length) * 100) : 0,
+    };
+  };
+  const now = figures({ pays, exps, bks, kept });
+  const before = figures(slice(prevRange.from, prevRange.to));
 
   const collected = round2(pays.reduce((s, p) => s + signedAmount(p), 0));
   const spent = round2(exps.reduce((s, e) => s + e.amount, 0));
@@ -109,12 +166,13 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
     if (period === "Year") {
       return MONTHS.map((m, i) => {
         const r = monthRange(`${year}-${String(i + 1).padStart(2, "0")}-01`);
-        const money = livePayments(ops.payments).filter((p) => { const d = manilaDate(p.receivedAt); return d >= r.from && d <= r.to; }).reduce((s, p) => s + signedAmount(p), 0);
-        const count = bookings.filter((b) => holdsDate(b) && b.date >= r.from && b.date <= r.to);
-        return { label: m, money: round2(money), bookings: count.length, guests: count.reduce((s, b) => s + b.guests, 0) };
+        const money = livePayments(ops.payments).filter((p) => { const d = manilaDate(p.receivedAt); return d >= r.from && d <= r.to && payOk(p); }).reduce((s, p) => s + signedAmount(p), 0);
+        const spentM = liveExpenses(ops.expenses).filter((e) => e.spentOn >= r.from && e.spentOn <= r.to).reduce((s, e) => s + e.amount, 0);
+        const count = bookings.filter((b) => holdsDate(b) && srcOk(b) && b.date >= r.from && b.date <= r.to);
+        return { label: m, date: r.from, money: round2(money), spent: round2(spentM), bookings: count.length, guests: count.reduce((s, b) => s + b.guests, 0) };
       });
     }
-    const out: { label: string; money: number; bookings: number; guests: number }[] = [];
+    const out: { label: string; date: string; money: number; spent: number; bookings: number; guests: number }[] = [];
     // Was a mutable Date advanced in the loop header. dayjs is immutable, so
     // each step produces a new value and the cursor cannot be clobbered.
     const end = dayjs(to, DATE_FMT, true);
@@ -123,10 +181,12 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
       const money = pays.filter((p) => manilaDate(p.receivedAt) === ds).reduce((s, p) => s + signedAmount(p), 0);
       // Groups at the resort that day: a three-day stay counts on all three.
       const count = kept.filter((b) => bookingCoversDate(b, ds));
-      out.push({ label: String(d.date()), money: round2(money), bookings: count.length, guests: count.reduce((s, b) => s + b.guests, 0) });
+      const spentD = exps.filter((e) => e.spentOn === ds).reduce((s, e) => s + e.amount, 0);
+      out.push({ label: String(d.date()), date: ds, money: round2(money), spent: round2(spentD), bookings: count.length, guests: count.reduce((s, b) => s + b.guests, 0) });
     }
     return out;
-  }, [period, year, from, to, ops.payments, bookings, pays, kept]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- payOk/srcOk follow `source`
+  }, [period, year, from, to, ops.payments, ops.expenses, bookings, pays, exps, kept, source]);
 
   const fileTag = label.replace(/[^\w]+/g, "_");
   const roomNames = (b: Booking) => (b.rooms || []).map((id) => rooms.find((r) => r.id === id)?.name ?? `#${id}`).join(" | ") || "None";
@@ -271,98 +331,408 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
 
   const sel = { ...inp, padding: "8px 12px", width: "auto" } as const;
 
+  // ── The pieces the page is built from (Reports.css) ──
+  /** "↗ 12%" against the period before. Green when it moved the good way,
+   *  red when the bad way; the arrow says which way it moved. */
+  const delta = (cur: number, prev: number, up = true) => {
+    if (cur === prev) return <span className="sw-rep__delta is-flat">— 0%</span>;
+    if (prev === 0) return <span className={`sw-rep__delta ${(cur > 0) === up ? "is-good" : "is-bad"}`}>{cur > 0 ? "↗ New" : "↘ New"}</span>;
+    const pct = ((cur - prev) / Math.abs(prev)) * 100;
+    const rising = pct > 0;
+    const shown = Math.abs(pct) >= 100 ? Math.round(Math.abs(pct)).toLocaleString() : Math.abs(pct).toFixed(1).replace(/\.0$/, "");
+    return <span className={`sw-rep__delta ${rising === up ? "is-good" : "is-bad"}`} title={`Was ${prev.toLocaleString()}`}>{rising ? "↗" : "↘"} {shown}%</span>;
+  };
+  /** A small line of the figure across the period. */
+  const spark = (vals: number[], color: string) => {
+    const W = 96, H = 34, max = Math.max(...vals), min = Math.min(...vals, 0), span = max - min || 1;
+    const pts = vals.map((v, i) => [(i / (vals.length - 1)) * W, H - 3 - ((v - min) / span) * (H - 6)] as const);
+    const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+    const id = `sp${color.replace(/[^a-z0-9]/gi, "")}${vals.length}`;
+    return (
+      <svg className="sw-rep__spark" viewBox={`0 0 ${W} ${H}`} width={W} height={H} aria-hidden>
+        <defs><linearGradient id={id} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={color} stopOpacity="0.28" /><stop offset="1" stopColor={color} stopOpacity="0" /></linearGradient></defs>
+        <path d={`${line} L${W},${H} L0,${H} Z`} fill={`url(#${id})`} />
+        <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  };
+  /** Share: the period's headline figures as text, to a chat or the clipboard. */
+  const share = async () => {
+    const text = [
+      `StoneWood report · ${label}`,
+      `Money received: ${fmt(now.collected)} (${now.payments} payments)`,
+      `Expenses: ${fmt(now.spent)}`,
+      `Net income: ${fmt(now.net)}`,
+      `Still owed: ${fmt(now.owed)}`,
+      `Bookings: ${now.bookings} (${now.kept} not cancelled) · Guests: ${now.guests} · Walk-ins: ${now.walkins}`,
+      `Cancellation rate: ${now.cancelRate}%`,
+    ].join("\n");
+    try {
+      if (typeof navigator.share === "function" && mob) { await navigator.share({ title: `StoneWood report · ${label}`, text }); return; }
+      await navigator.clipboard.writeText(text);
+      toast("Report summary copied. Paste it into a chat or email.", "success");
+    } catch {
+      toast("Could not share from this browser. Use ••• to export instead.", "error");
+    }
+  };
+  const SLOT_ICON: Record<BookingSlot, IconName> = { Day: "sun", Night: "moon", WholeDay: "staycation" };
+  /** A section heading: an icon, the name, and one line on what it is for. */
+  const section = (icon: IconName, title: string, hint: string) => (
+    <div className="sw-rep__section">
+      <span className="sw-rep__sicon" aria-hidden><Icon name={icon} size={16} /></span>
+      <div>
+        <h3 style={{ color: C.textH }}>{title}</h3>
+        <p style={{ color: C.textS }}>{hint}</p>
+      </div>
+    </div>
+  );
+  /** A headline figure. The colour is on the icon and the edge, never the
+   *  number, so the figures read alike and the label says what each is. */
+  const kpi = ({ icon, label, value, note, accent, meter, cur, prev, up = true, trend }: {
+    icon: IconName; label: string; value: string; note?: string; accent: string;
+    meter?: { pct: number; text: string };
+    /** This period and the one before, for the change. */
+    cur?: number; prev?: number; up?: boolean;
+    /** The figure across the period, drawn small. */
+    trend?: number[];
+  }) => (
+    <div className="sw-rep__kpi" style={{ background: cBg, borderColor: cBr, ["--acc" as string]: accent }}>
+      <div className="sw-rep__kpitop">
+        <span style={{ color: C.textS }}>{label}</span>
+        <span className="sw-rep__kpiicon" aria-hidden><Icon name={icon} size={15} /></span>
+      </div>
+      <div className="sw-rep__kpimid">
+        <div className="sw-rep__kpival" style={{ color: C.textH }}>{value}</div>
+        {trend && trend.length > 1 && spark(trend, accent)}
+      </div>
+      {compare && cur !== undefined && prev !== undefined && (
+        <div className="sw-rep__vs" style={{ color: C.textS }}>{delta(cur, prev, up)} <span>vs {prevRange.label}</span></div>
+      )}
+      {meter && (
+        <div className="sw-rep__meter" title={meter.text}>
+          <i style={{ width: `${Math.min(100, Math.max(0, meter.pct * 100))}%` }} />
+        </div>
+      )}
+      {(meter || note) && <div className="sw-rep__kpinote" style={{ color: C.textS }}>{meter ? meter.text : note}</div>}
+    </div>
+  );
+  /** A money breakdown: each line with its share of the whole as a bar. */
+  const breakdown = ({ icon, title, hint, rows, empty, total }: {
+    icon: IconName; title: string; hint: string;
+    rows: readonly (readonly [string, number, string])[];
+    empty?: string; total?: [string, string];
+  }) => {
+    const whole = rows.reduce((t, [, v]) => t + Math.abs(v), 0);
+    return (
+      <div className="sw-rep__card" style={{ background: cBg, borderColor: cBr }}>
+        <div className="sw-rep__cardhead">
+          <span className="sw-rep__sicon is-sm" aria-hidden><Icon name={icon} size={14} /></span>
+          <div><h4 style={{ color: C.textH }}>{title}</h4><p style={{ color: C.textS }}>{hint}</p></div>
+        </div>
+        {rows.length === 0 && empty && <p className="sw-rep__empty" style={{ color: C.textS }}>{empty}</p>}
+        {rows.map(([l, v, shown]) => {
+          const share = whole ? Math.abs(v) / whole : 0;
+          return (
+            <div key={l} className="sw-rep__line" title={`${l}: ${shown} · ${Math.round(share * 100)}%`}>
+              <div className="sw-rep__linetop">
+                <span style={{ color: C.textB }}>{l}</span>
+                <span className="sw-rep__pct" style={{ color: C.textS }}>{Math.round(share * 100)}%</span>
+                <strong style={{ color: C.textH }}>{shown}</strong>
+              </div>
+              <div className="sw-rep__meter"><i style={{ width: `${share * 100}%` }} /></div>
+            </div>
+          );
+        })}
+        {total && (
+          <div className="sw-rep__total" style={{ borderColor: cBr }}>
+            <span style={{ color: C.textH }}>{total[0]}</span>
+            <strong style={{ color: C.textH }}>{total[1]}</strong>
+          </div>
+        )}
+      </div>
+    );
+  };
+  /** A count split (by status, by slot): each row's share of the whole. */
+  const dist = (title: string, icon: IconName, rows: { label: string; sub?: string; icon?: IconName; n: number; pct: number }[]) => (
+    <div className="sw-rep__card" style={{ background: cBg, borderColor: cBr }}>
+      <div className="sw-rep__cardhead">
+        <span className="sw-rep__sicon is-sm" aria-hidden><Icon name={icon} size={14} /></span>
+        <div><h4 style={{ color: C.textH }}>{title}</h4></div>
+      </div>
+      {rows.map((r) => (
+        <div key={r.label} className="sw-rep__line" title={`${r.label}: ${r.n} · ${r.pct}%`}>
+          <div className="sw-rep__linetop">
+            <span style={{ color: C.textB, display: "inline-flex", alignItems: "center", gap: 7 }}>
+              {r.icon && <Icon name={r.icon} size={14} style={{ color: C.goldInk }} />}
+              {r.label}{r.sub && <small style={{ color: C.textS }}>{r.sub}</small>}
+            </span>
+            <span className="sw-rep__pct" style={{ color: C.textS }}>{r.pct}%</span>
+            <strong style={{ color: C.textH }}>{r.n}</strong>
+          </div>
+          <div className="sw-rep__meter"><i style={{ width: `${r.pct}%` }} /></div>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div>
-      <AdminPageHeader title={adminTabLabel("Reports")} mob={mob} subtitle={`Summary for ${label}.`}
+      <AdminPageHeader title={adminTabLabel("Reports")} mob={mob}
+        subtitle={`Activity from ${fmtDate(from)} – ${fmtDate(to)}${sourceNote ? ` · ${sourceNote}` : ""}`}
         action={
-          /* One "Export" menu for the four ways out (they were four buttons). */
-          <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <ActionButton kind="primary" icon="download" disabled={exporting} aria-label="Export or print this report">
-                {exporting ? "Preparing…" : "Export"} <Icon name="chevron-down" size={14} />
-              </ActionButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" style={{ minWidth: 230 }}>
-              <DropdownMenuItem onSelect={() => void exportExcel()}><Icon name="download" />Excel (.xlsx)</DropdownMenuItem>
-              <DropdownMenuItem onSelect={exportMoney}><Icon name="download" />Sales CSV</DropdownMenuItem>
-              <DropdownMenuItem onSelect={exportBookings}><Icon name="download" />Bookings CSV</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {/* The print view's own "Save as PDF" makes the PDF: the same
-                  report, laid out for paper. */}
-              <DropdownMenuItem onSelect={print}><Icon name="printer" />Print / Save as PDF</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="sw-rep__actions">
+            {/* The period on show, and what it is compared with. Opens and
+                closes the period controls. */}
+            <button type="button" className="sw-rep__btn sw-rep__datebtn" aria-expanded={showPeriod} onClick={() => setShowPeriod((v) => !v)}
+              style={{ borderColor: cBr, color: C.textH }}>
+              <Icon name="calendar" size={15} />
+              <strong>{fmtDate(from)} – {fmtDate(to)}</strong>
+              {compare && <small style={{ color: C.textS }}>vs {prevRange.label}</small>}
+            </button>
+            {/* "•••": the four ways out (Excel, the two CSVs, print / PDF). */}
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className="sw-rep__btn is-icon" disabled={exporting} aria-label="Export or print this report" title="Export or print"
+                  style={{ borderColor: cBr, color: C.textH }}>
+                  <Icon name="more" size={17} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" style={{ minWidth: 230 }}>
+                <DropdownMenuItem onSelect={() => void exportExcel()}><Icon name="download" />Excel (.xlsx)</DropdownMenuItem>
+                <DropdownMenuItem onSelect={exportMoney}><Icon name="download" />Sales CSV</DropdownMenuItem>
+                <DropdownMenuItem onSelect={exportBookings}><Icon name="download" />Bookings CSV</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {/* The print view's own "Save as PDF" makes the PDF: the same
+                    report, laid out for paper. */}
+                <DropdownMenuItem onSelect={print}><Icon name="printer" />Print / Save as PDF</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <button type="button" className="sw-rep__btn" onClick={() => void share()} style={{ borderColor: cBr, color: C.textH }}>
+              <Icon name="upload" size={15} /> Share
+            </button>
+            <button type="button" className={`sw-rep__btn${showFilters || source !== "All" ? " is-on" : ""}`} aria-expanded={showFilters} onClick={() => setShowFilters((v) => !v)}
+              style={{ borderColor: cBr, color: C.textH }}>
+              <Icon name="filter" size={15} /> Filters{source !== "All" && <span className="sw-rep__badge">1</span>}
+            </button>
+          </div>
         } />
 
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
-        <div style={{ width: 280 }}>
-          <ChoiceButtons value={period} onChange={setPeriod} size="sm" options={[
-            { value: "Month", label: "Month" }, { value: "Year", label: "Year" }, { value: "Custom", label: "Custom" },
-          ]} />
+      {/* The period controls (Month / Year / Custom and the picker). */}
+      {showPeriod && (
+        <div className="sw-rep__bar" style={{ background: cBg, borderColor: cBr }}>
+          <div style={{ width: 280, maxWidth: "100%" }}>
+            <ChoiceButtons value={period} onChange={setPeriod} size="sm" options={[
+              { value: "Month", label: "Month" }, { value: "Year", label: "Year" }, { value: "Custom", label: "Custom" },
+            ]} />
+          </div>
+          {period === "Month" && <DateField mode="month" value={month} onChange={(v) => v && setMonth(v)} aria-label="Month" style={sel} />}
+          {period === "Year" && (
+            <FullSelect value={year} onChange={(e) => setYear(e.target.value)} aria-label="Year" style={sel}>
+              {years.map((y) => <option key={y}>{y}</option>)}
+            </FullSelect>
+          )}
+          {period === "Custom" && <>
+            <DateField value={cFrom} onChange={setCFrom} max={cTo || undefined} aria-label="From" placeholder="From" style={sel} />
+            <span style={{ color: C.textS, fontSize: 13 }}>to</span>
+            <DateField value={cTo} onChange={setCTo} min={cFrom || undefined} aria-label="To" placeholder="To" style={sel} />
+          </>}
+          <span className="sw-rep__range" style={{ color: C.textS, borderColor: cBr }}>
+            <Icon name="history" size={13} /> Compared with {prevRange.label}
+          </span>
         </div>
-        {period === "Month" && <DateField mode="month" value={month} onChange={(v) => v && setMonth(v)} aria-label="Month" style={sel} />}
-        {period === "Year" && (
-          <FullSelect value={year} onChange={(e) => setYear(e.target.value)} aria-label="Year" style={sel}>
-            {years.map((y) => <option key={y}>{y}</option>)}
-          </FullSelect>
-        )}
-        {period === "Custom" && <>
-          <DateField value={cFrom} onChange={setCFrom} max={cTo || undefined} aria-label="From" placeholder="From" style={sel} />
-          <span style={{ color: C.textS, fontSize: 13 }}>to</span>
-          <DateField value={cTo} onChange={setCTo} min={cFrom || undefined} aria-label="To" placeholder="To" style={sel} />
-        </>}
+      )}
+
+      {/* Filters: which bookings count, and the comparison. */}
+      {showFilters && (
+        <div className="sw-rep__bar" style={{ background: cBg, borderColor: cBr }}>
+          <span className="sw-rep__barlabel" style={{ color: C.textS }}>Bookings from</span>
+          <div style={{ width: 300, maxWidth: "100%" }}>
+            <ChoiceButtons value={source} onChange={setSource} size="sm" options={[
+              { value: "All", label: "All" }, { value: "Online", label: "Online" }, { value: "Walk-In", label: "Walk-in" },
+            ]} />
+          </div>
+          <label className="sw-rep__check" style={{ color: C.textH }}>
+            <Checkbox checked={compare} onCheckedChange={(v) => setCompare(v === true)} /> Compare with the period before
+          </label>
+          {source !== "All" && (
+            <span className="sw-rep__range" style={{ color: C.textS, borderColor: cBr }}>
+              <Icon name="info" size={13} /> Payments follow their booking; expenses always count.
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Overview shows everything; Money and Bookings show their half. */}
+      <div className="sw-rep__tabs" role="tablist" aria-label="Report sections" style={{ borderColor: cBr }}>
+        {(["Overview", "Money", "Bookings"] as const).map((t) => (
+          <button key={t} type="button" role="tab" aria-selected={view === t} className={view === t ? "is-on" : undefined}
+            onClick={() => setView(t)} style={{ color: view === t ? C.goldInk : C.textS }}>
+            <Icon name={t === "Overview" ? "grid" : t === "Money" ? "cash" : "calendar"} size={15} /> {t}
+          </button>
+        ))}
       </div>
 
-      <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: "0 0 12px" }}>Financial Overview</h3>
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
-        <StatCard label="Money received" value={fmt(collected)} note={`${pays.length} payment${pays.length === 1 ? "" : "s"}`} color="#2e9e4e" />
-        <StatCard label="Expenses" value={fmt(spent)} note={`${exps.length} expense${exps.length === 1 ? "" : "s"}`} />
-        <StatCard label="Net income" value={fmt(round2(collected - spent))} color={collected - spent < 0 ? "#e5484d" : gold} />
-        <StatCard label="Still owed" value={fmt(owed)} note="on bookings in this period" color={owed > 0 ? "#f5a524" : undefined} />
+      {view === "Overview" && (
+        <>
+          {/* Performance summary: the four figures that tell the period. */}
+          <div className="sw-rep__summary" style={{ background: cBg, borderColor: cBr }}>
+            <div className="sw-rep__summaryhead" style={{ borderColor: cBr }}>
+              <div>
+                <h3 style={{ color: C.textH }}>Performance Summary</h3>
+                <p style={{ color: C.textS }}>The key figures for {periodLabel}{compare ? `, against ${prevRange.label}` : ""}.</p>
+              </div>
+              <button type="button" className="sw-rep__btn is-icon" title="See every figure in a table" aria-label="Go to the full table"
+                onClick={() => document.getElementById("sw-rep-table")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                style={{ borderColor: cBr, color: C.textS }}>
+                <Icon name="grid" size={16} />
+              </button>
+            </div>
+            <div className="sw-rep__summarygrid" style={{ gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))" }}>
+              {([
+                ["Money received", fmt(now.collected), now.collected, before.collected, true],
+                ["Net income", fmt(now.net), now.net, before.net, true],
+                ["Bookings", String(now.bookings), now.bookings, before.bookings, true],
+                ["Guests", String(now.guests), now.guests, before.guests, true],
+              ] as const).map(([l, v, cur, prev, up]) => (
+                <div key={l} className="sw-rep__summarycell" style={{ borderColor: cBr }}>
+                  <span className="sw-rep__dotted" style={{ color: C.textS }}>{l}</span>
+                  <div className="sw-rep__bigline">
+                    <strong style={{ color: C.textH }}>{v}</strong>
+                    {compare && delta(cur, prev, up)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {(view === "Overview" || view === "Money") && <>
+      {/* ── Money ── */}
+      {section("cash", "Financial Overview", "What came in, what went out, and what is still owed.")}
+      <div className="sw-rep__kpis" style={{ gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))" }}>
+        {kpi({ icon: "cash", label: "Money received", value: fmt(collected), note: `${pays.length} payment${pays.length === 1 ? "" : "s"}`, accent: "#2e9e4e", cur: now.collected, prev: before.collected, trend: series.map((x) => x.money) })}
+        {kpi({ icon: "receipt", label: "Expenses", value: fmt(spent), note: `${exps.length} expense${exps.length === 1 ? "" : "s"}`, accent: "#9a8f80", cur: now.spent, prev: before.spent, up: false, trend: series.map((x) => x.spent),
+          meter: collected > 0 ? { pct: spent / collected, text: `${Math.round((spent / collected) * 100)}% of money received` } : undefined })}
+        {kpi({ icon: "trending-up", label: "Net income", value: fmt(round2(collected - spent)), accent: collected - spent < 0 ? "#e5484d" : gold, cur: now.net, prev: before.net, trend: series.map((x) => round2(x.money - x.spent)),
+          note: collected - spent < 0 ? "Spent more than came in" : undefined })}
+        {kpi({ icon: "wallet", label: "Still owed", value: fmt(owed), note: "on bookings in this period", accent: owed > 0 ? "#f5a524" : "#9a8f80", cur: now.owed, prev: before.owed, up: false })}
       </div>
 
-      <Panel title={period === "Year" ? `Money received per month (${year})` : "Money received per day"} style={{ marginBottom: 20 }}>
-        <BarChart data={series.map((s) => ({ label: s.label, value: s.money }))} color="#4caf50" height={210} mob={mob}
-          formatValue={(v) => (v >= 1000 ? `₱${(v / 1000).toFixed(1)}k` : `₱${v}`)} />
-      </Panel>
+      {(() => {
+        const peak = series.reduce<(typeof series)[number] | null>((m, x) => (x.money > (m?.money ?? 0) ? x : m), null);
+        return (
+          <div className="sw-rep__panel" style={{ background: cBg, borderColor: cBr }}>
+            <div className="sw-rep__panelhead">
+              <h4 style={{ color: C.textH }}><Icon name="bar-chart" size={15} style={{ color: C.goldInk }} />
+                {period === "Year" ? `Money received per month (${year})` : "Money received per day"}</h4>
+              <div className="sw-rep__chips">
+                <span className="sw-rep__chip" style={{ borderColor: cBr, color: C.textS }}>Total <strong style={{ color: C.textH }}>{fmt(collected)}</strong></span>
+                {compare && <span className="sw-rep__chip" style={{ borderColor: cBr, color: C.textS }}>{prevRange.label} <strong style={{ color: C.textH }}>{fmt(before.collected)}</strong> {delta(now.collected, before.collected)}</span>}
+                {peak && <span className="sw-rep__chip" style={{ borderColor: cBr, color: C.textS }}>
+                  Best {period === "Year" ? "month" : "day"} <strong style={{ color: C.textH }}>{period === "Year" ? peak.label : fmtDate(peak.date)} · {fmt(peak.money)}</strong>
+                </span>}
+              </div>
+            </div>
+            <BarChart data={series.map((x) => ({ label: x.label, value: x.money }))} color="#4caf50" height={210} mob={mob}
+              formatValue={(v) => (v >= 1000 ? `₱${(v / 1000).toFixed(1)}k` : `₱${v}`)} />
+          </div>
+        );
+      })()}
 
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 16, marginBottom: 20 }}>
-        <div style={{ background: soft, borderRadius: 10, padding: "12px 16px" }}>
-          <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Summary</div>
-          {summary.map(([t, v]) => <AmountRow key={t} label={t} value={v < 0 ? `−${fmt(-v)}` : fmt(v)} />)}
-          {summary.length === 0 && <p style={{ color: C.textS, fontSize: 13, margin: "4px 0" }}>No payments in this period.</p>}
-          <div style={{ borderTop: `1px solid ${C.border}`, margin: "8px 0 4px" }} />
-          <AmountRow label="Total received" value={fmt(collected)} strong />
-        </div>
-        <div style={{ background: soft, borderRadius: 10, padding: "12px 16px" }}>
-          <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Payment Method</div>
-          {byMethod.map(([m, v]) => <AmountRow key={m} label={m} value={fmt(v)} />)}
-        </div>
-        <div style={{ background: soft, borderRadius: 10, padding: "12px 16px" }}>
-          <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Expenses by category</div>
-          {byCat.map(([c, v]) => <AmountRow key={c} label={c} value={fmt(v)} />)}
-          {byCat.length === 0 && <p style={{ color: C.textS, fontSize: 13, margin: "4px 0" }}>No expenses in this period.</p>}
-        </div>
+      <div className="sw-rep__grid3" style={{ gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))" }}>
+        {breakdown({
+          icon: "receipt", title: "Summary", hint: "Money in, by what it paid for",
+          rows: summary.map(([t, v]) => [t, v, v < 0 ? `−${fmt(-v)}` : fmt(v)] as const),
+          empty: "No payments in this period.",
+          total: ["Total received", fmt(collected)],
+        })}
+        {breakdown({
+          icon: "wallet", title: "Payment Method", hint: "How guests paid",
+          rows: byMethod.map(([m, v]) => [m, v, fmt(v)] as const),
+        })}
+        {breakdown({
+          icon: "folder", title: "Expenses by category", hint: "Where the money went",
+          rows: byCat.map(([c, v]) => [c, v, fmt(v)] as const),
+          empty: "No expenses in this period.",
+        })}
       </div>
 
-      <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: "28px 0 12px" }}>Bookings and guests</h3>
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
-        <StatCard label="Bookings" value={bks.length} note={`${kept.length} not cancelled`} />
-        <StatCard label="Guests" value={guests} />
-        <StatCard label="Walk-ins" value={kept.filter((b) => b.source === "Walk-In").length} />
-        <StatCard label="Cancellation rate" value={`${bks.length ? Math.round((statusCount[3][1] / bks.length) * 100) : 0}%`} />
+      </>}
+
+      {(view === "Overview" || view === "Bookings") && <>
+      {/* ── Bookings ── */}
+      {section("calendar", "Bookings and guests", "Who came, how they booked, and which tours.")}
+      <div className="sw-rep__kpis" style={{ gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))" }}>
+        {kpi({ icon: "calendar", label: "Bookings", value: String(bks.length), note: `${kept.length} not cancelled`, accent: gold, cur: now.bookings, prev: before.bookings, trend: series.map((x) => x.bookings) })}
+        {kpi({ icon: "users", label: "Guests", value: String(guests), accent: gold, cur: now.guests, prev: before.guests, trend: series.map((x) => x.guests) })}
+        {kpi({ icon: "log-in", label: "Walk-ins", value: String(kept.filter((b) => b.source === "Walk-In").length), accent: gold, cur: now.walkins, prev: before.walkins })}
+        {kpi({ icon: "x", label: "Cancellation rate", value: `${bks.length ? Math.round((statusCount[3][1] / bks.length) * 100) : 0}%`, accent: "#9a8f80", cur: now.cancelRate, prev: before.cancelRate, up: false,
+          meter: bks.length ? { pct: statusCount[3][1] / bks.length, text: `${statusCount[3][1]} of ${bks.length} bookings` } : undefined })}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 20 }}>
-        <Panel title="By status">
-          {statusCount.map(([s, n]) => <ProgressRow key={s} label={statusLabel(s)} value={n} pct={bks.length ? Math.round((n / bks.length) * 100) : 0} color={gold} />)}
-        </Panel>
-        <Panel title="By slot">
-          {slotCount.map(([s, n]) => <ProgressRow key={s} label={`${SLOTS[s].label} (${SLOTS[s].hours})`} value={n} pct={kept.length ? Math.round((n / kept.length) * 100) : 0} color={gold} />)}
-        </Panel>
+      <div className="sw-rep__grid2" style={{ gridTemplateColumns: mob ? "1fr" : "repeat(2,minmax(0,1fr))" }}>
+        {dist("By status", "clipboard-check", statusCount.map(([st, n]) => ({
+          label: statusLabel(st), n, pct: bks.length ? Math.round((n / bks.length) * 100) : 0,
+        })))}
+        {dist("By slot", "clock", slotCount.map(([sl, n]) => ({
+          label: SLOTS[sl].label, sub: SLOTS[sl].hours, icon: SLOT_ICON[sl], n, pct: kept.length ? Math.round((n / kept.length) * 100) : 0,
+        })))}
       </div>
-      <Panel title={period === "Year" ? `Guests per month (${year})` : "Guests per day"}>
-        <BarChart data={series.map((s) => ({ label: s.label, value: s.guests }))} color={gold} height={190} mob={mob} />
-      </Panel>
+      <div className="sw-rep__panel" style={{ background: cBg, borderColor: cBr }}>
+        <div className="sw-rep__panelhead">
+          <h4 style={{ color: C.textH }}><Icon name="users" size={15} style={{ color: C.goldInk }} />
+            {period === "Year" ? `Guests per month (${year})` : "Guests per day"}</h4>
+          <div className="sw-rep__chips">
+            <span className="sw-rep__chip" style={{ borderColor: cBr, color: C.textS }}>Total <strong style={{ color: C.textH }}>{guests}</strong></span>
+            {compare && <span className="sw-rep__chip" style={{ borderColor: cBr, color: C.textS }}>{prevRange.label} <strong style={{ color: C.textH }}>{before.guests}</strong> {delta(now.guests, before.guests)}</span>}
+          </div>
+        </div>
+        <BarChart data={series.map((x) => ({ label: x.label, value: x.guests }))} color={gold} height={190} mob={mob} />
+      </div>
+      </>}
+
+      {view === "Overview" && (
+        /* Every figure in one table: this period, the one before, and the
+           change. */
+        <div id="sw-rep-table" className="sw-rep__table" style={{ background: cBg, borderColor: cBr }}>
+          <div className="sw-rep__panelhead" style={{ padding: "16px 18px 6px" }}>
+            <h4 style={{ color: C.textH }}><Icon name="clipboard" size={15} style={{ color: C.goldInk }} /> Report metrics</h4>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table>
+              <thead>
+                <tr style={{ color: C.textS, borderColor: cBr }}>
+                  <th>Metric</th><th className="n">{periodLabel}</th>
+                  {compare && <><th className="n">{prevRange.label}</th><th className="n">Change</th></>}
+                </tr>
+              </thead>
+              <tbody>
+                {([
+                  ["Money received", now.collected, before.collected, fmt, true],
+                  ["Payments", now.payments, before.payments, String, true],
+                  ["Expenses", now.spent, before.spent, fmt, false],
+                  ["Net income", now.net, before.net, fmt, true],
+                  ["Still owed", now.owed, before.owed, fmt, false],
+                  ["Bookings", now.bookings, before.bookings, String, true],
+                  ["Not cancelled", now.kept, before.kept, String, true],
+                  ["Guests", now.guests, before.guests, String, true],
+                  ["Walk-ins", now.walkins, before.walkins, String, true],
+                  ["Cancellation rate", now.cancelRate, before.cancelRate, (n: number) => `${n}%`, false],
+                ] as const).map(([l, cur, prev, f, up]) => (
+                  <tr key={l} style={{ borderColor: cBr }}>
+                    <td style={{ color: C.textH }}>{l}</td>
+                    <td className="n" style={{ color: C.textH }}><strong>{(f as (n: number) => string)(cur)}</strong></td>
+                    {compare && <>
+                      <td className="n" style={{ color: C.textS }}>{(f as (n: number) => string)(prev)}</td>
+                      <td className="n">{delta(cur, prev, up)}</td>
+                    </>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -92,8 +92,8 @@ export function MediaGallery({
   };
 
   const arrow =
-    "absolute top-1/2 z-[3] flex size-9 -translate-y-1/2 items-center justify-center " +
-    "rounded-full border bg-black/40 text-lg backdrop-blur-sm transition hover:bg-black/60";
+    "sw-arrow absolute top-1/2 z-[3] flex size-9 -translate-y-1/2 items-center justify-center " +
+    "rounded-full border bg-black/40 text-lg backdrop-blur-sm";
 
   return (
     <div className={`relative flex flex-col overflow-hidden bg-black/20 ${className}`}>

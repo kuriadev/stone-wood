@@ -54,6 +54,8 @@ import { CheckoutModal, SettleModal } from "@/components/admin/InspectionModals"
 import { ResortCancelDialog, type UpdateStatus } from "@/components/admin/ResortCancelDialog";
 import { RefundModal } from "@/components/admin/RefundModal";
 import { AddChargeModal } from "@/components/admin/AddChargeModal";
+import { EditBookingHub } from "@/components/admin/EditBookingHub";
+import type { ChargeKind } from "@/lib/charges";
 import { ChooseRefundDialog } from "@/components/admin/ChooseRefundDialog";
 import { DateChangeReview } from "@/components/admin/DateChangeReview";
 import { MoveBookingModal } from "@/components/admin/MoveBookingModal";
@@ -65,7 +67,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { BookingHistory } from "@/components/admin/BookingHistory";
 import { choiceOpen, fmtDeadline, holdActive, withHolds } from "@/lib/rebooking";
-import { AdminPageHeader, TableShell, td, ActionButton, StatusBadge, Modal, AmountRow, useAdminStyle, STATUS_COLOR, STATUS_LABEL, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewSwitcherTabs, usePaged, Pager, PAGE_SIZE, FullSelect, FilterSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
+import { AdminPageHeader, TableShell, td, ActionButton, IconAction, StatusBadge, Modal, AmountRow, useAdminStyle, STATUS_COLOR, STATUS_LABEL, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewSwitcherTabs, usePaged, Pager, PAGE_SIZE, FullSelect, FilterSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
 
 interface BookingsTabProps {
   bookings: Booking[];
@@ -124,6 +126,11 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
   const [turnDown, setTurnDown] = useState<Booking | null>(null);
   const [refundFor, setRefundFor] = useState<Booking | null>(null);
   const [chargeFor, setChargeFor] = useState<Booking | null>(null);
+  const [chargeKind, setChargeKind] = useState<ChargeKind | undefined>(undefined);
+  // "Edit booking": one window listing everything that can be changed on a
+  // booking (guest details, guests, overtime, a room, the venue, a payment,
+  // the date), each opening the window that does it.
+  const [hubId, setHubId] = useState<string | null>(null);
   const [refundChoice, setRefundChoice] = useState<Booking | null>(null);
   /** "Set a new date": the date agreed with a guest the resort cancelled. */
   const [newDateFor, setNewDateFor] = useState<Booking | null>(null);
@@ -478,14 +485,14 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
               </Cell>
               <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                 <div style={{ display: "inline-flex", gap: 4 }}>
-                  <ActionButton size="sm" onClick={() => setViewId(b.id)}>Open booking</ActionButton>
+                  <IconAction icon="eye" label="Open booking" onClick={() => setViewId(b.id)} />
                   {!b.archived && b.status === "Pending" && <>
-                    <ActionButton size="sm" kind="green" onClick={() => setConfirm(b)}>Accept booking</ActionButton>
-                    <ActionButton size="sm" kind="red" onClick={() => setTurnDown(b)}>Decline booking</ActionButton>
+                    <IconAction icon="check" label="Accept booking" kind="green" onClick={() => setConfirm(b)} />
+                    <IconAction icon="x" label="Decline booking" kind="red" onClick={() => setTurnDown(b)} />
                   </>}
-                  {finishStep(b) === "complete" && <ActionButton size="sm" kind="blue" icon="check" onClick={() => setFinish({ kind: "complete", id: b.id })}>Complete</ActionButton>}
-                  {finishStep(b) === "settle" && <ActionButton size="sm" kind="blue" icon="receipt" onClick={() => setFinish({ kind: "settle", id: b.id })}>Collect & close</ActionButton>}
-                  {b.refundStatus === "Owed" && <ActionButton size="sm" kind="red" icon="cash" onClick={() => setRefundFor(b)}>Send refund</ActionButton>}
+                  {finishStep(b) === "complete" && <IconAction icon="check" label="Complete" kind="blue" onClick={() => setFinish({ kind: "complete", id: b.id })} />}
+                  {finishStep(b) === "settle" && <IconAction icon="receipt" label="Collect & close" kind="blue" onClick={() => setFinish({ kind: "settle", id: b.id })} />}
+                  {b.refundStatus === "Owed" && <IconAction icon="cash" label="Send refund" kind="red" onClick={() => setRefundFor(b)} />}
                   {/* ── Manage this booking ──
                       Changing a booking was possible before but not findable:
                       editing a guest's details was a 15px pencil INSIDE the
@@ -512,27 +519,14 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                       <DropdownMenuItem onSelect={() => setViewId(b.id)}>
                         <Icon name="eye" />Open booking
                       </DropdownMenuItem>
-                      {/* WHO the booking is for. Safe at any stage — it never
-                          touches the date, the money or the availability. */}
-                      <DropdownMenuItem onSelect={() => setEditId(b.id)}>
-                        <Icon name="edit" />Edit guest details
+                      {/* Everything that can change on a booking, in one
+                          window: who it is for, how many, overtime, a room,
+                          the venue, a payment and the date. Each choice
+                          opens the window that does it, with the price,
+                          the calendar and Activity History kept right. */}
+                      <DropdownMenuItem onSelect={() => setHubId(b.id)}>
+                        <Icon name="edit" />Edit booking
                       </DropdownMenuItem>
-                      {/* WHEN it is. Re-checked against availability by the
-                          server, so it cannot be moved onto a full date. Not
-                          offered once the group is on site, where a date is
-                          no longer a thing that can change. */}
-                      {!b.archived && !b.checkedInAt && (b.status === "Confirmed" || b.status === "Pending" || b.status === "ResortCancelled") && (
-                        <DropdownMenuItem onSelect={() => setNewDateFor(b)}>
-                          <Icon name="calendar" />Change the date
-                        </DropdownMenuItem>
-                      )}
-                      {/* WHAT it costs: overtime, extra guests, a room taken
-                          on the day. */}
-                      {!b.archived && (b.status === "Confirmed" || b.status === "Pending") && (
-                        <DropdownMenuItem onSelect={() => setChargeFor(b)}>
-                          <Icon name="plus" />Add a charge
-                        </DropdownMenuItem>
-                      )}
                       {(() => {
                         const canCancel = !b.archived && !b.checkedInAt && (b.status === "Confirmed" || b.status === "Pending");
                         const canArchive = !b.archived && (b.status === "Completed" || b.status === "Cancelled");
@@ -586,13 +580,14 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
             <LiveStatus />
             {/* Bookings taken while the internet was down (or on the
                 printed offline sheet), brought in from a spreadsheet. */}
-            {/* Data retention: how long finished bookings are kept. The
-                owner's alone; one icon, the controls in a pop-up. */}
+            {/* Auto-archive and data retention: when finished bookings move
+                to the archive, and when the archive is deleted. The owner's
+                alone; one quiet icon, the controls in a pop-up. */}
             {staff.can("settings.manage") && (
               <button type="button" className="sw-hit" onClick={() => setRetention(true)}
-                aria-label="Data retention: how long finished bookings are kept" title="Data retention"
+                aria-label="Archive and data retention settings" title="Archive & data retention"
                 style={{ width: 40, height: 40, borderRadius: 10, border: `1px solid ${cBr}`, background: "transparent", color: C.textB, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                <Icon name="history" size={17} />
+                <Icon name="settings" size={17} />
               </button>
             )}
             {/* Export and import in one menu, so the header stays two buttons. */}
@@ -675,9 +670,9 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
               {b.name}
               <button
                 type="button"
-                aria-label={`Edit ${b.name}'s details`}
-                title="Edit guest details"
-                onClick={() => setEditId(b.id)}
+                aria-label={`Edit ${b.name}'s booking`}
+                title="Edit booking"
+                onClick={() => setHubId(b.id)}
                 style={{ background: "none", border: "none", padding: 4, borderRadius: 6, cursor: "pointer", color: C.textS, lineHeight: 0 }}
               >
                 <Icon name="edit" size={15} />
@@ -846,7 +841,32 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
       )}
       {turnDown && <ResortCancelDialog booking={turnDown} onClose={() => setTurnDown(null)} />}
       {refundFor && <RefundModal booking={bookings.find((x) => x.id === refundFor.id) ?? refundFor} onClose={() => setRefundFor(null)} />}
-      {chargeFor && <AddChargeModal booking={bookings.find((x) => x.id === chargeFor.id) ?? chargeFor} onClose={() => setChargeFor(null)} />}
+      {chargeFor && <AddChargeModal booking={bookings.find((x) => x.id === chargeFor.id) ?? chargeFor} initialKind={chargeKind} onClose={() => { setChargeFor(null); setChargeKind(undefined); }} />}
+      {hubId && bookings.find((x) => x.id === hubId) && (() => {
+        const b = bookings.find((x) => x.id === hubId)!;
+        const active = !b.archived && (b.status === "Confirmed" || b.status === "Pending");
+        // The same rules the menu used: a date can change until the group
+        // is on site (and a resort-cancelled booking gets its new date
+        // here); charges go on an active booking.
+        const canMove = !b.archived && !b.checkedInAt && (b.status === "Confirmed" || b.status === "Pending" || b.status === "ResortCancelled");
+        return (
+          <EditBookingHub
+            booking={b}
+            canMove={canMove}
+            moveOff={b.checkedInAt ? "They're already at the resort, so the date can't change." : "Only an active booking can be moved to another date."}
+            chargeOff={active ? undefined : "Charges are only added to an active booking."}
+            canPay={bookingMoney(b, ops.payments, ops.damages).due > 0 && b.status !== "Cancelled" && !b.archived}
+            onClose={() => setHubId(null)}
+            onPick={(what, charge) => {
+              setHubId(null);
+              if (what === "details") setEditId(b.id);
+              else if (what === "charge") { setChargeKind(charge); setChargeFor(b); }
+              else if (what === "pay") setPayFor(b.id);
+              else setNewDateFor(b);
+            }}
+          />
+        );
+      })()}
       {newDateFor && (
         <MoveBookingModal
           booking={bookings.find((x) => x.id === newDateFor.id) ?? newDateFor}
@@ -939,8 +959,8 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
       )}
 
       {retention && (
-        <Modal title="Data retention" subtitle="How long guests' finished bookings are kept." onClose={() => setRetention(false)} width={640}>
-          <RetentionPanel mob={mob} bare />
+        <Modal title="Archive & data retention" subtitle="When finished bookings move to the archive, and when the archive is deleted." onClose={() => setRetention(false)} width={660}>
+          <RetentionPanel mob={mob} bare onChanged={() => void ops.live.syncNow()} />
         </Modal>
       )}
       {importing && (

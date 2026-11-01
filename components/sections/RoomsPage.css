@@ -1,0 +1,35 @@
+/* The Rooms page: one wide row per room, photo and words alternating
+   sides -- see RoomsPage.tsx. */
+
+.sw-rooms { display: flex; flex-direction: column; gap: 56px; }
+.sw-room { display: grid; gap: 40px; align-items: center; }
+
+.sw-room__photo {
+  position: relative; display: block; width: 100%; padding: 0; border: 0;
+  border-radius: 18px; overflow: hidden; cursor: pointer; background: #111;
+  aspect-ratio: 16 / 10; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+}
+.sw-room__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sw-room__photo:focus-visible { outline: 2px solid var(--sw-gold); outline-offset: 3px; }
+.sw-room__chip {
+  position: absolute; left: 14px; bottom: 14px;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5); color: #fff; font-size: 12.5px;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+
+.sw-room__eyebrow { margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 4px; }
+.sw-room__title { margin: 0 0 12px; font-family: 'Satoshi', system-ui, sans-serif; font-size: clamp(26px, 3.2vw, 36px); font-weight: 400; line-height: 1.15; }
+.sw-room__beds { margin: 0 0 14px; font-size: 15px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sw-room__price { margin: 0 0 14px; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sw-room__price span { font-size: 13.5px; font-weight: 400; }
+.sw-room__desc { margin: 0 0 22px; font-size: 15px; line-height: 1.65; max-width: 46ch; }
+.sw-room__actions { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+
+@media (max-width: 767px) {
+  .sw-rooms { gap: 40px; }
+  .sw-room { gap: 18px; }
+  .sw-room__photo { aspect-ratio: 4 / 3; border-radius: 16px; }
+  .sw-room__actions > .sw-btn, .sw-room__actions > .sw-btn-out { flex: 1 1 100%; }
+}
