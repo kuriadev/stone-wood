@@ -5,7 +5,6 @@ import { useApp } from "@/contexts/AppContext";
 import { THEME_COLORS } from "@/lib/theme";
 import { RoomsPage } from "@/components/sections/RoomsPage";
 import { roomCart } from "@/hooks/useRoomCart";
-import { useToast } from "@/contexts/ToastContext";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
@@ -13,7 +12,6 @@ import { RoomsSkeleton } from "@/components/common/PageSkeletons";
 
 export default function RoomsRoute() {
   const router = useRouter();
-  const { toast } = useToast();
   const C = THEME_COLORS;
   const { rooms, skeleton } = useApp();
 
@@ -59,13 +57,10 @@ export default function RoomsRoute() {
         <RoomsPage
           setPage={nav}
           rooms={rooms}
-          // Kept on the page: the room joins the guest's booking (the pill
-          // beside the theme button shows it) and Book Now starts with it.
-          onAddToBooking={(id) => {
-            roomCart.add(id);
-            const room = rooms.find((x) => x.id === id);
-            toast(`${room ? room.name : "Room"} added to your booking.`, "success");
-          }}
+          // Kept on the page: the room joins the guest's booking (its button
+          // turns to "Added" and the pill beside the theme button shows it,
+          // so no toast) and Book Now starts with it.
+          onAddToBooking={(id) => roomCart.add(id)}
         />
       )}
       <Footer setPage={nav} />

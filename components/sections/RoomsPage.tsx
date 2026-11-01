@@ -11,7 +11,6 @@ import { srcSetFor } from "@/lib/img";
 import { roomShots } from "@/lib/gallery";
 import { Icon } from "@/components/common/Icon";
 import { useRoomCart, roomCart } from "@/hooks/useRoomCart";
-import { useToast } from "@/contexts/ToastContext";
 import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
 import { Button } from "@/components/ui/button";
 import { MediaGallery } from "@/components/common/MediaGallery";
@@ -30,14 +29,12 @@ interface RoomsPageProps {
 
 export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
   const inCart = useRoomCart();
-  const { toast } = useToast();
   /* Add and remove with the same button: an added room's button takes it
      off again (the pill beside the theme button is the way on to Book
      Now). */
   const toggleRoom = (r: Room) => {
     if (inCart.includes(r.id)) {
       roomCart.remove(r.id);
-      toast(`${r.name} removed from your booking.`, "info");
     } else {
       onAddToBooking(r.id);
     }
