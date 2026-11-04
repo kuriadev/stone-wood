@@ -96,3 +96,21 @@
 }
 .sw-refundnote__title { margin: 0 0 4px; color: #e5484d; font-size: 14px; font-weight: 800; letter-spacing: .3px; }
 .sw-refundnote__body { margin: 0; font-size: 12.5px; line-height: 1.6; }
+
+/* Booking today's tour after it started: ends at the usual time, overtime
+   for longer. Amber: worth reading, not an error. */
+.sw-latenote {
+  display: flex; gap: 10px; align-items: flex-start;
+  margin: 10px 0 0; padding: 10px 12px; border-radius: 10px;
+  font-size: 12.5px; line-height: 1.5;
+  color: var(--sw-text-s, inherit);
+  background: rgba(224, 168, 60, 0.1);
+  border: 1px solid rgba(224, 168, 60, 0.35);
+  animation: sw-latenote-in .4s cubic-bezier(.22, 1, .36, 1) both;
+}
+.sw-latenote__ico {
+  flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%;
+  display: grid; place-items: center; margin-top: 1px;
+  font-size: 11px; font-weight: 800; color: #1a1306; background: #e0a83c;
+}
+@keyframes sw-latenote-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }

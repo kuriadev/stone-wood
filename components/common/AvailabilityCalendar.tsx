@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, type CSSProperties } from "react";
 import { gold } from "@/lib/styles";
 import { getBookingWindow, bookingWindowNote, firstViewableMonth, toDateStr, MAX_STAY_DAYS, manilaNow } from "@/lib/validators";
-import { slotStartedProblem } from "@/lib/resort";
+import { SLOTS, slotStartedProblem } from "@/lib/resort";
 import type { Booking, BookingSlot, BookingTier } from "@/types/booking";
 import { checkBookingAvailability, holdsDate, bookingDates, slotsBookedByDate } from "@/lib/utils";
 import { SlotMarks, SlotMarksKey, slotMarksLabel } from "@/components/common/SlotMarks";
@@ -99,11 +99,13 @@ export function AvailabilityCalendar({
           );
       if (taken) full.add(d);
     });
-    // Today, once the requested tour has started, can't be booked online.
-    const today = manilaNow().date;
-    if (request && slotStartedProblem(today, request.slot)) full.add(today);
     return full;
   }, [bookings, request]);
+  /* Today, once online booking for the requested tour has closed (near its
+     end, lib/resort.ts). Shown like a day gone by, not as "Booked": nobody
+     took it, it is just too late. */
+  const todayStr = mounted ? manilaNow().date : "";
+  const todayClosed = !!request && !!todayStr && !!slotStartedProblem(todayStr, request.slot);
   const closedSet = useMemo(() => new Set(closedDates), [closedDates]);
   // Which tours are booked on each date: the sun, moon and beach chair marks.
   const slotsByDate = useMemo(() => slotsBookedByDate(bookings), [bookings]);
@@ -306,7 +308,8 @@ export function AvailabilityCalendar({
               {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
           const ds = toStr(d);
           const dayDate = new Date(year, month, d);
-          const isPast = dayDate < minDate;
+          const isTodayClosed = todayClosed && ds === todayStr;
+          const isPast = dayDate < minDate || isTodayClosed;
           const isBeyond = dayDate > maxDate;
           // A past date is just past. It used to be tested for availability
           // as well, and because `isBooked` is applied after `isPast` in the
@@ -367,12 +370,15 @@ export function AvailabilityCalendar({
                 : inRange ? " — part of your stay"
                 : isBooked ? " — booked"
                 : isClosed ? " — closed"
+                : isTodayClosed ? " — online booking for today has closed"
                 : isPast || isBeyond ? " — unavailable"
                 : beyondStay ? ` — too far for one stay (up to ${MAX_STAY_DAYS} days)`
                 : " — available"}${slotMarksLabel(slotsByDate.get(ds))}`}
               aria-pressed={isSel || inRange}
               title={
-                isPast
+                isTodayClosed
+                  ? `Online booking for today's ${SLOTS[request!.slot].label} has closed`
+                  : isPast
                   ? "Past date"
                   : isBeyond
                   ? bookingWindowNote()

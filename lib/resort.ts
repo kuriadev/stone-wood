@@ -163,17 +163,49 @@ export function stayPatternNote(id: BookingSlot, days: number): string | null {
   return `${unit}, one after another. You arrive at ${s.start} each morning and ${s.cycleEnd} — the resort is not yours overnight. Any room you book stays locked and held for you in between, so you can leave your things.`;
 }
 
-/** Today's tour can't be booked online once it has started.
+/** How long before today's tour ends online booking for it closes. */
+export const LATE_BOOKING_CUTOFF_HOURS = 2;
+
+/** The hour (24-hour clock, Manila) from which today's tour can no longer
+ *  be booked online. Past 24 means it never closes on the day itself. */
+export const lateBookingCloses = (slot: BookingSlot): number => SLOTS[slot].endHour - LATE_BOOKING_CUTOFF_HOURS;
+
+/** Today's tour can be booked after it has started, up to
+ *  LATE_BOOKING_CUTOFF_HOURS before it ends.
  *
- *  The booking window opens at midnight, so a guest could pay at 9 PM for
- *  that day's Day Tour (7 AM – 5 PM), or at 4 AM for a Night Tour that had
- *  nearly ended. Only the first date matters: the later days of a stay are
- *  all in the future. Walk-ins at the front desk are not held to this; the
- *  staff can see who is actually there. */
+ *  A late booking still ends at the tour's usual time and costs the same:
+ *  booking the Day Tour at noon buys noon to 5 PM, not a full ten hours.
+ *  Staying longer is overtime, asked for at the front desk. Online booking
+ *  closes near the end so nobody pays for a tour with almost nothing left.
+ *  Only the first date matters: the later days of a stay are all in the
+ *  future. Walk-ins at the front desk are not held to this; the staff can
+ *  see who is actually there. */
 export function slotStartedProblem(date: string, slot: BookingSlot, at: Date = new Date()): string | null {
   const now = manilaNow(at);
-  if (date !== now.date || now.hour < SLOTS[slot].startHour) return null;
-  return `Today's ${SLOTS[slot].label} has already started (${SLOTS[slot].start}), so it can't be booked online. Choose another date, or visit the front desk.`;
+  if (date !== now.date || now.hour < lateBookingCloses(slot)) return null;
+  return `Online booking for today's ${SLOTS[slot].label} has closed (it ends at ${SLOTS[slot].end}). Choose another date, or visit the front desk.`;
+}
+
+/** The note shown when someone books today's tour after it has started:
+ *  it still ends at the usual time, and staying longer is overtime. Null
+ *  when the tour hasn't started yet, or the date isn't today. */
+export function lateArrivalNote(date: string, slot: BookingSlot, at: Date = new Date()): string | null {
+  const now = manilaNow(at);
+  if (date !== now.date || now.hour < SLOTS[slot].startHour || slotStartedProblem(date, slot, at)) return null;
+  const s = SLOTS[slot];
+  return `Today's ${s.label} started at ${s.start}. You can still book it and arrive now, but it ends at ${s.end}${s.endsNextDay ? " the next morning" : ""} as usual, at the full price. To stay longer, ask the front desk for overtime.`;
+}
+
+/** Where today's tour stands right now, for the front desk, which can book
+ *  a tour at any point (lib/resort.ts slotStartedProblem only limits the
+ *  website). "upcoming" for any other date, or before the tour starts;
+ *  "started" while it runs; "ended" once it is over (only the Day Tour can
+ *  end on the date it starts). */
+export type SlotTiming = "upcoming" | "started" | "ended";
+export function slotTiming(date: string, slot: BookingSlot, at: Date = new Date()): SlotTiming {
+  const now = manilaNow(at);
+  if (date !== now.date || now.hour < SLOTS[slot].startHour) return "upcoming";
+  return now.hour >= SLOTS[slot].endHour ? "ended" : "started";
 }
 
 /** The two bookable single slots, in order. */

@@ -22,7 +22,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { T } from "@/lib/theme";
 import { getBookingWindow, bookingWindowNote, firstViewableMonth, toDateStr, MAX_STAY_DAYS, manilaNow } from "@/lib/validators";
-import { slotStartedProblem } from "@/lib/resort";
+import { SLOTS, slotStartedProblem } from "@/lib/resort";
 import { RangeConnector } from "@/components/common/RangeConnector";
 import { CAL, CAL_LINE, GUEST_LEGEND } from "@/components/common/calendarColors";
 import { checkBookingAvailability, holdsDate, fmtDate, bookingDates, slotsBookedByDate } from "@/lib/utils";
@@ -113,13 +113,12 @@ export function BookingDatePicker({
   }, [bookings, guests, resource, tier]);
   // Which tours are booked on each date: the sun, moon and beach chair marks.
   const slotsByDate = useMemo(() => slotsBookedByDate(bookings), [bookings]);
-  const fullDates = useMemo(() => {
-    const full = fullFor(slot);
-    // Today, once this tour has started, can't be booked (lib/resort.ts).
-    const today = manilaNow().date;
-    if (slotStartedProblem(today, slot)) full.add(today);
-    return full;
-  }, [fullFor, slot]);
+  const fullDates = useMemo(() => fullFor(slot), [fullFor, slot]);
+  /* Today, once online booking for this tour has closed (near its end,
+     lib/resort.ts). Shown like a day gone by, not as "Booked": nobody took
+     it, it is just too late. */
+  const todayStr = manilaNow().date;
+  const todayClosed = !!slotStartedProblem(todayStr, slot);
   const rangeFull = useMemo(() => (rangeSlot && rangeSlot !== slot ? fullFor(rangeSlot) : fullDates), [fullFor, rangeSlot, slot, fullDates]);
   const closedSet = useMemo(() => new Set(closedDates), [closedDates]);
 
@@ -292,7 +291,8 @@ export function BookingDatePicker({
         {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
           const ds = toStr(d);
           const dayDate = new Date(year, month, d);
-          const isPast = dayDate < today;
+          const isTodayClosed = todayClosed && ds === todayStr;
+          const isPast = dayDate < today || isTodayClosed;
           const isBeyond = dayDate > maxDate;
           // A past date is just past. It used to be tested for availability
           // as well, and because `isBooked` is applied after `isPast` in the
@@ -347,6 +347,7 @@ export function BookingDatePicker({
             : inRange ? " — part of your stay"
             : isBooked ? " — booked"
             : isClosed ? " — closed"
+            : isTodayClosed ? " — online booking for today has closed"
             : isPast || isBeyond ? " — unavailable"
             : beyondStay ? ` — too far for one stay (up to ${MAX_STAY_DAYS} days)`
             : " — available";
@@ -360,7 +361,9 @@ export function BookingDatePicker({
               aria-label={`${ds}${label}${slotMarksLabel(slotsByDate.get(ds))}`}
               aria-pressed={isStart || isEnd || inRange}
               title={
-                isPast
+                isTodayClosed
+                  ? `Online booking for today's ${SLOTS[slot].label} has closed`
+                  : isPast
                   ? "Past date"
                   : isBeyond
                   ? bookingWindowNote()

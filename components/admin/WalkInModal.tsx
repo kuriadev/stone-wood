@@ -24,7 +24,7 @@ import { MAX_STAY_DAYS, staffDateWindow, OVERRIDE_GUESTS_MAX } from "@/lib/valid
 import { OverCapacityNote } from "@/components/admin/OverCapacityNote";
 import { UNPAID_HOLD_HOURS } from "@/lib/rebooking";
 import { priceBooking, bookingLabel, packagePriceToday } from "@/lib/pricing";
-import { SLOTS, multiDayProblem } from "@/lib/resort";
+import { SLOTS, multiDayProblem, slotTiming } from "@/lib/resort";
 import { manilaDate } from "@/lib/finance";
 import {
   sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail,
@@ -39,6 +39,7 @@ import { gold } from "@/lib/styles";
 import { Icon } from "@/components/common/Icon";
 import { Modal, Label, ChoiceButtons, ActionButton, AmountRow, ErrorNote, useAdminStyle, FullSelect } from "@/components/admin/ui";
 import { DateField } from "@/components/common/DateField";
+import "@/components/admin/WalkInModal.css";
 
 type PayChoice = "Full" | "Downpayment" | "None";
 
@@ -66,6 +67,15 @@ export function WalkInModal({
   const lastDay = wf.endDate && wf.endDate > wf.date ? wf.endDate : wf.date;
   const stayDays = wf.date ? Math.max(1, daysInRange(wf.date, lastDay)) : 1;
   const stayTooLong = stayDays > MAX_STAY_DAYS;
+
+  /* The time now, refreshed each minute while the form is open, so the
+     note about today's tour (started, ended) keeps up with the clock. */
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const clock = now.toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit" });
 
   const [mode, setMode] = useState<"Custom" | "Package">("Custom");
   const [pkgId, setPkgId] = useState<number | null>(null);
@@ -120,6 +130,10 @@ export function WalkInModal({
   // Only a Staycation spans dates. The window let the desk pick a Day Tour
   // over three days, and the server then refused it on Save.
   const tourTooLong = multiDayProblem(slot, stayDays);
+  /* Booking today's tour after it started. Staff may (the website stops
+     2 hours before the end); the group just gets the hours that are left,
+     and staying past the end is overtime. */
+  const timing = wf.date ? slotTiming(wf.date, slot, now) : "upcoming";
   /* More than the resort's capacity: staff may, on purpose, with a
      warning (the website never can). The date is still checked -- only
      the headcount stops counting against the limit. */
@@ -217,7 +231,9 @@ export function WalkInModal({
   const qrSummary = {
     title: `${SLOTS[slot].label} · ${resource === "Pool" ? "Pool" : resource === "Venue" ? "Events venue" : "Pool + venue"}`,
     lines: [
-      `${SLOTS[slot].hours} · ${guests} guest${guests === 1 ? "" : "s"}`,
+      timing === "started"
+        ? `From arrival until ${SLOTS[slot].end} (late start) · ${guests} guest${guests === 1 ? "" : "s"}`
+        : `${SLOTS[slot].hours} · ${guests} guest${guests === 1 ? "" : "s"}`,
       wf.date ? (lastDay !== wf.date ? `${fmtDate(wf.date)} – ${fmtDate(lastDay)}` : fmtDate(wf.date)) : "No date yet",
     ],
     guest: [sanitizeName(wf.name) || "Walk-in guest", wf.contact].filter(Boolean).join(" · "),
@@ -381,7 +397,39 @@ export function WalkInModal({
             ) : (
               <ChoiceButtons<BookingSlot> value={slot} size="sm"
                 onChange={(t) => set("slot", t)}
-                options={((isPkg ? ["Day", "Night"] : ["Day", "Night", "WholeDay"]) as BookingSlot[]).map((t) => ({ value: t, label: SLOTS[t].label, hint: SLOTS[t].hours }))} />
+                options={((isPkg ? ["Day", "Night"] : ["Day", "Night", "WholeDay"]) as BookingSlot[]).map((t) => {
+                  const st = wf.date ? slotTiming(wf.date, t, now) : "upcoming";
+                  return {
+                    value: t, label: SLOTS[t].label,
+                    hint: (
+                      <>
+                        {SLOTS[t].hours}
+                        {st !== "upcoming" && (
+                          <span className={`sw-wi-tag sw-wi-tag--${st}`}>{st === "started" ? "In progress" : "Ended"}</span>
+                        )}
+                      </>
+                    ),
+                  };
+                })} />
+            )}
+            {timing !== "upcoming" && (
+              <div className={`sw-wi-late sw-wi-late--${timing}`} role="note">
+                <Icon name={timing === "started" ? "clock" : "alert"} size={15} style={{ flexShrink: 0, marginTop: 2 }} />
+                <span>
+                  {timing === "started" ? (
+                    <>
+                      <strong>Today&apos;s {SLOTS[slot].label} started at {SLOTS[slot].start}</strong> (it&apos;s {clock} now).
+                      This group can stay from arrival until <strong>{SLOTS[slot].end}{SLOTS[slot].endsNextDay ? " the next morning" : ""}</strong> only, at the full price.
+                      Anything later is overtime.
+                    </>
+                  ) : (
+                    <>
+                      <strong>Today&apos;s {SLOTS[slot].label} ended at {SLOTS[slot].end}</strong> (it&apos;s {clock} now).
+                      You can still save it as a record, but the group has no tour time left. Choose the {SLOTS.Night.label} or another date for a stay.
+                    </>
+                  )}
+                </span>
+              </div>
             )}
             {stayVenueOnly && (
               <p style={{ color: "#e5484d", fontSize: 12, margin: "6px 0 0", lineHeight: 1.5 }}>
@@ -434,6 +482,12 @@ export function WalkInModal({
             <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 8, paddingTop: 4 }}>
               <AmountRow label="Total" value={fmt(total)} strong />
             </div>
+            {timing === "started" && (
+              <p className="sw-wi-stay">
+                <Icon name="clock" size={13} style={{ flexShrink: 0 }} />
+                At the resort from arrival until {SLOTS[slot].end}{SLOTS[slot].endsNextDay ? ", next day" : ""}
+              </p>
+            )}
           </div>
 
           <div>

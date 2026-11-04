@@ -15,7 +15,7 @@
   import { priceBooking, bookingLabel, labelWithTier } from "@/lib/pricing";
   import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
   import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
-  import { SLOTS, QUIET_HOURS_POLICY, TURNOVER_WINDOW, stayPatternNote, stayUnit, allowsMultiDay, MULTI_DAY_SLOT, slotStartedProblem } from "@/lib/resort";
+  import { SLOTS, QUIET_HOURS_POLICY, TURNOVER_WINDOW, stayPatternNote, stayUnit, allowsMultiDay, MULTI_DAY_SLOT, slotStartedProblem, lateArrivalNote } from "@/lib/resort";
   import { checkoutPolicy } from "@/lib/policies";
   import { SuccessCheck } from "@/components/common/SuccessCheck";
   import { stayWindowLabel } from "@/lib/occupancy";
@@ -324,6 +324,8 @@
     const outsideWindow = stayDates.find((d) => !isWithinBookingWindow(d));
     // Today's tour, once it has started, can't be booked online.
     const startedProblem = date ? slotStartedProblem(date, slot) : null;
+    // Booking today's tour after it started: it still ends at the usual time.
+    const lateNote = date ? lateArrivalNote(date, slot) : null;
     const dateOk =
       !!date &&
       !startedProblem &&
@@ -1293,6 +1295,13 @@
                     {date && dateOk && (
                       <p style={{ color: "#6ec071", fontSize: 13, marginTop: 16, marginBottom: 0 }}>
                         Available on {fmtDate(date)}. Your date is held only after payment.
+                      </p>
+                    )}
+
+                    {date && dateOk && lateNote && (
+                      <p className="sw-latenote" role="note">
+                        <span className="sw-latenote__ico" aria-hidden>!</span>
+                        <span>{lateNote}</span>
                       </p>
                     )}
 

@@ -11,7 +11,7 @@
 import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
 import { manilaNow } from "@/lib/validators";
-import { slotStartedProblem } from "@/lib/resort";
+import { slotStartedProblem, lateArrivalNote } from "@/lib/resort";
 import { splitBookingMatch } from "@/lib/utils";
 import { chargeKindsFor, priceCharge } from "@/lib/charges";
 import { EVENT_VENUE_RATE } from "@/lib/validators";
@@ -28,21 +28,38 @@ describe("today is Manila's today, whatever the machine's time zone", () => {
   });
 });
 
-describe("today's tour can't be booked online once it has started", () => {
-  it("allows today's Day Tour before 7 AM and refuses it after", () => {
+describe("today's tour can be booked late, until 2 hours before it ends", () => {
+  it("allows today's Day Tour after 7 AM and closes it from 3 PM", () => {
     expect(slotStartedProblem("2026-10-20", "Day", manila(6))).toBeNull();
-    expect(slotStartedProblem("2026-10-20", "Day", manila(7))).not.toBeNull();
+    expect(slotStartedProblem("2026-10-20", "Day", manila(12))).toBeNull();
+    expect(slotStartedProblem("2026-10-20", "Day", manila(14))).toBeNull();
+    expect(slotStartedProblem("2026-10-20", "Day", manila(15))).not.toBeNull();
     expect(slotStartedProblem("2026-10-20", "Day", manila(21))).not.toBeNull();
   });
-  it("still allows tonight's Night Tour during the day", () => {
+  it("keeps tonight's Night Tour open all evening (it ends at 5 AM)", () => {
     expect(slotStartedProblem("2026-10-20", "Night", manila(15))).toBeNull();
-    expect(slotStartedProblem("2026-10-20", "Night", manila(19))).not.toBeNull();
+    expect(slotStartedProblem("2026-10-20", "Night", manila(23))).toBeNull();
   });
-  it("treats a Staycation like the Day Tour it starts with", () => {
-    expect(slotStartedProblem("2026-10-20", "WholeDay", manila(9))).not.toBeNull();
+  it("keeps today's Staycation open (it ends the next morning)", () => {
+    expect(slotStartedProblem("2026-10-20", "WholeDay", manila(16))).toBeNull();
   });
   it("never blocks a future date", () => {
     expect(slotStartedProblem("2026-10-21", "Day", manila(23))).toBeNull();
+  });
+});
+
+describe("a late booking is told it still ends at the usual time", () => {
+  it("says nothing before the tour starts or on another date", () => {
+    expect(lateArrivalNote("2026-10-20", "Day", manila(6))).toBeNull();
+    expect(lateArrivalNote("2026-10-21", "Day", manila(12))).toBeNull();
+  });
+  it("names the end time and overtime once the tour has started", () => {
+    const note = lateArrivalNote("2026-10-20", "Day", manila(12));
+    expect(note).toContain("5:00 PM");
+    expect(note).toContain("overtime");
+  });
+  it("says nothing once online booking has closed", () => {
+    expect(lateArrivalNote("2026-10-20", "Day", manila(16))).toBeNull();
   });
 });
 

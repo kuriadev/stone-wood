@@ -1,0 +1,26 @@
+/* Booking today's tour after it started -- WalkInModal.tsx. Amber while
+   the tour is running (the group gets what is left), red once it is over. */
+.sw-wi-tag {
+  display: block; width: fit-content; margin: 5px auto 0; padding: 1px 7px;
+  border-radius: 999px; font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+}
+.sw-wi-tag--started { color: #e0a83c; background: rgba(224, 168, 60, .14); border: 1px solid rgba(224, 168, 60, .4); }
+.sw-wi-tag--ended { color: #e5484d; background: rgba(229, 72, 77, .12); border: 1px solid rgba(229, 72, 77, .4); }
+
+.sw-wi-late {
+  display: flex; gap: 8px; align-items: flex-start;
+  margin-top: 8px; padding: 10px 12px; border-radius: 10px;
+  font-size: 12.5px; line-height: 1.5; color: var(--sw-text-b);
+  animation: sw-wi-late-in .35s cubic-bezier(.22, 1, .36, 1) both;
+}
+.sw-wi-late strong { color: var(--sw-text-h); font-weight: 600; }
+.sw-wi-late--started { background: rgba(224, 168, 60, .08); border: 1px solid rgba(224, 168, 60, .45); }
+.sw-wi-late--started > svg { color: #e0a83c; }
+.sw-wi-late--ended { background: rgba(229, 72, 77, .07); border: 1px solid rgba(229, 72, 77, .45); }
+.sw-wi-late--ended > svg { color: #e5484d; }
+@keyframes sw-wi-late-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+.sw-wi-stay {
+  display: flex; gap: 6px; align-items: center; margin: 8px 0 0;
+  font-size: 12px; font-weight: 600; color: #e0a83c;
+}
