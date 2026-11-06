@@ -7,7 +7,7 @@
   import { useToast } from "@/contexts/ToastContext";
   import { T } from "@/lib/theme";
   import { gold, goldBtn, outBtn } from "@/lib/styles";
-  import { fmt, fmtTimer, fmtDate, getPackageTier, checkBookingAvailability, checkRangeAvailability, datesBetween, daysInRange, getSharedPoolUsage, isRoomOpen, isPoolOpen, isVenueOpen, roomsTakenInRange, stayLabel, SLOT_ICON } from "@/lib/utils";
+  import { fmt, fmtTimer, fmtDate, getPackageTier, checkRangeAvailability, datesBetween, daysInRange, getSharedPoolUsage, isRoomOpen, isPoolOpen, isVenueOpen, roomsTakenInRange, stayLabel, SLOT_ICON } from "@/lib/utils";
   import { roomShots } from "@/lib/gallery";
   import { EventPackages } from "@/components/booking/EventPackages";
   import type { ResortPackage } from "@/types/package";
@@ -46,7 +46,7 @@
     RESORT_MAX_CAPACITY,
     EXCLUSIVE_DEFAULT_GUESTS,
     EVENT_VENUE_RATE,
-    SHARED_PER_HEAD_RATE,
+    
     sharedRateFor,
   } from "@/lib/validators";
   import {
@@ -71,7 +71,6 @@
   import { Label } from "@/components/ui/label";
   import { Input } from "@/components/ui/input";
   import { Textarea } from "@/components/ui/textarea";
-  import { Badge } from "@/components/ui/badge";
 
   interface BookNowProps {
     /** Real bookings (personal details stripped) — used only to show which
@@ -693,7 +692,6 @@
       }
     };
 
-    const inpS: React.CSSProperties = { ...C.inp, borderRadius: 6 };
 
     /* Valid fields tint rather than announce. Kept subtle on purpose: it is
        confirmation, not an alert, and it sits behind the text the guest is
@@ -978,7 +976,7 @@
                 {saveError && (
                   <>
                     <div style={{ color: C.dangerInk, fontSize: 12.5, lineHeight: 1.6, margin: "4px 0 8px" }}>
-                      {saveError} Your payment is safe — retrying can't charge you twice.
+                      {saveError} Your payment is safe — retrying can&apos;t charge you twice.
                       If this keeps failing, contact us and quote payment ref <span style={{ fontFamily: "monospace" }}>{qrData?.paymentIntentId}</span>.
                     </div>
                     <button onClick={() => void confirmOnline()} disabled={saving} style={{ background: "#00a952", color: "#fff", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, cursor: saving ? "wait" : "pointer", letterSpacing: 1, opacity: saving ? 0.6 : 1 }}>

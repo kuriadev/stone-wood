@@ -7,15 +7,12 @@ import { Home } from "@/components/sections/Home";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { useState } from "react";
 import { buildPackageBookingUrl } from "@/lib/utils";
 
 export default function HomePage() {
   const router = useRouter();
   const C = THEME_COLORS;
   const { bookings, closedDates, packages, rooms, skeleton } = useApp();
-  const [selectedDate, setSelectedDate] = useState("");
-  const [page, setPage] = useState("Home");
   
 const nav = (p: string) => {
   const routes: Record<string, string> = {
@@ -32,7 +29,7 @@ const nav = (p: string) => {
 
     const target = routes[p] ?? "/";
 
-    const loader = (globalThis as any).loader?.current;
+    const loader = globalThis.loader?.current;
 
     if (!loader) {
       router.push(target);

@@ -13,7 +13,7 @@ import { priceBooking, pricingProblem } from "@/lib/pricing";
 import { getPackageTier } from "@/lib/utils";
 import { allowsMultiDay, multiDayProblem, MULTI_DAY_SLOT, SLOTS } from "@/lib/resort";
 import {
-  EXCLUSIVE_FLAT_RATE, SHARED_PER_HEAD_RATE, MAX_STAY_DAYS, OVERTIME_RATE,
+  EXCLUSIVE_FLAT_RATE, MAX_STAY_DAYS, OVERTIME_RATE,
 } from "@/lib/validators";
 
 const pool = (over: Partial<Parameters<typeof priceBooking>[0]> = {}) =>

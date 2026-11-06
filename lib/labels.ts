@@ -60,13 +60,30 @@ export function labelOf<K extends string>(map: Record<K, string>, value: string 
   return (map as Record<string, string>)[value] ?? value;
 }
 
-export const statusLabel = (s: string | null | undefined) => labelOf(BOOKING_STATUS_LABEL, s);
+export const statusLabel = (s: string | null | undefined) =>
+  s === NO_SHOW ? "No-show" : labelOf(BOOKING_STATUS_LABEL, s);
+
+/* ── No-show ──
+ * Stored as Cancelled, so availability, money (what was paid is kept) and
+ * archiving treat it exactly like one. Only "Mark no-show" on a guest's
+ * card sets the flag that tells it apart (20261106120000_booking_no_show).
+ * A booking cancelled any other way is Cancelled, whatever its reason says. */
+export const NO_SHOW = "NoShow" as const;
+export const isNoShow = (b: { status: string; noShow?: boolean }) => b.status === "Cancelled" && b.noShow === true;
+/** "No-show: <note>" for a no-show's detail line, whatever was typed. */
+export const noShowLine = (reason: string | null | undefined) => {
+  const note = (reason ?? "").trim().replace(/^no[\s-]?show\b[\s:.,-]*/i, "").trim();
+  return `No-show: ${note || "the group did not arrive."}`;
+};
+/** The status a booking is filtered and counted under: its stored status,
+ *  or NO_SHOW for a no-show. */
+export const statusKey = (b: { status: string; noShow?: boolean }) => (isNoShow(b) ? NO_SHOW : b.status);
 /** The status label for one booking. "Pending" means two different waits:
  *  an online booking is already paid and waits for the admin to accept it,
  *  while a walk-in saved before any money came in waits for payment (it
  *  confirms itself on the first payment — app/api/payments). */
-export const bookingStatusLabel = (b: { status: string; source?: string | null }) =>
-  b.status === "Pending" && b.source === "Walk-In" ? "Awaiting payment" : statusLabel(b.status);
+export const bookingStatusLabel = (b: { status: string; source?: string | null; noShow?: boolean }) =>
+  b.status === "Pending" && b.source === "Walk-In" ? "Awaiting payment" : statusLabel(statusKey(b));
 export const moneyLabel = (s: string | null | undefined) => labelOf(MONEY_STATE_LABEL, s);
 export const payTypeLabel = (s: string | null | undefined) => labelOf(PAYMENT_TYPE_LABEL, s);
 export const payMethodLabel = (s: string | null | undefined) => labelOf(PAYMENT_METHOD_LABEL, s);

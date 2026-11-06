@@ -15,7 +15,7 @@ import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
-import { fmtDeadline, holdActive, isRebookRequest, GUEST_CHOICE_DAYS } from "@/lib/rebooking";
+import { fmtDeadline, holdActive, isRebookRequest, isNoShowRebook, GUEST_CHOICE_DAYS } from "@/lib/rebooking";
 import { fmtDate, getBookingSlot } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
 import type { Booking } from "@/types/booking";
@@ -41,6 +41,8 @@ export function DateChangeReview({ request, booking, onClose }: { request: DateC
   const slot = SLOTS[getBookingSlot(booking)];
   // Read once: approving turns the booking Confirmed, which would flip it.
   const [rebook] = useState(() => isRebookRequest(request, booking));
+  // A no-show guest's new date (lib/rebooking.ts).
+  const [noShow] = useState(() => isNoShowRebook(request, booking));
 
   const decide = async (approve: boolean) => {
     setError("");
@@ -99,9 +101,11 @@ export function DateChangeReview({ request, booking, onClose }: { request: DateC
         </div>
         <p style={{ color: held ? C.textS : "#f5a524", fontSize: 13, margin: 0 }}>
           {!held
-            ? rebook
+            ? rebook || noShow
               ? "The 48-hour hold has run out, so the date wasn't kept. Decline it and the guest can pick another date."
               : "The 48-hour hold has run out, so the date wasn't kept. Decline it and the guest can ask again."
+            : noShow
+              ? `This group was a no-show and the guest picked a new date. It's held for them until ${fmtDeadline(request.holdUntil!)}. Approving checks it again, moves the booking and confirms it; what they paid carries over and any balance is due on arrival. Declining lets them pick another date while their time to choose is open.`
             : rebook
               ? `The resort cancelled this booking and the guest picked a new date. It's held for them until ${fmtDeadline(request.holdUntil!)}. Approving checks it again, moves the booking and confirms it; the payment carries over. Declining gives them ${GUEST_CHOICE_DAYS} days to pick another date.`
               : `The new date is held for them until ${fmtDeadline(request.holdUntil!)}. Approving checks it again and moves the booking; the payment carries over.`}

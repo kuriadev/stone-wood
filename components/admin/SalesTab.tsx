@@ -21,7 +21,7 @@
 //                  income minus expenses
 
 import "./Sales.css";
-import { statusLabel, bookingStatusLabel, moneyLabel, payTypeLabel, payMethodLabel, paymentLine, adminTabLabel } from "@/lib/labels";
+import { bookingStatusLabel, moneyLabel, payTypeLabel, payMethodLabel, paymentLine, adminTabLabel } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useMemo, useState } from "react";

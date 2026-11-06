@@ -42,7 +42,7 @@ export const ROLE_LABEL: Record<StaffRole, string> = {
 /** One line per role, for the Staff screen. */
 export const ROLE_HINT: Record<StaffRole, string> = {
   Owner: "Approval and supervision. Can still do everything: approving requests, prices and staff accounts included.",
-  FrontDesk: "Bookings, walk-ins, payments, check-in, guest messages and closing the day. Refunds, voids, cancellations and removals go to the super admin.",
+  FrontDesk: "Bookings, walk-ins, payments, check-in, no-shows, guest messages and closing the day. Refunds, voids, cancellations and removals go to the super admin.",
   Caretaker: "Preparing facilities, check-out inspections, cleaning, pool upkeep and supplies. Works from a phone.",
 };
 
@@ -56,8 +56,9 @@ export type Permission =
   | "payments.record"       // down payments, balances, penalties, settling
   | "expenses.record"
   | "messages.handle"       // guest messages and replies
+  | "bookings.noshow"       // mark a no-show, and approve the new date the guest then picks
   // Owner's decisions — front desk may request these
-  | "bookings.cancel"       // cancel / mark a no-show
+  | "bookings.cancel"       // cancel a booking
   | "bookings.resortCancel" // "Cancel (resort can't host)"
   | "bookings.delete"
   | "payments.refund"       // guest chose a refund, send a refund
@@ -87,7 +88,7 @@ export type Permission =
 
 const ALL: Permission[] = [
   "ops.view", "bookings.view", "activity.viewAll",
-  "bookings.edit", "payments.record", "expenses.record", "messages.handle",
+  "bookings.edit", "payments.record", "expenses.record", "messages.handle", "bookings.noshow",
   "bookings.cancel", "bookings.resortCancel", "bookings.delete", "payments.refund",
   "payments.void", "expenses.void", "payments.writeOff", "day.close",
   "reschedules.decide", "requests.decide", "catalog.manage", "facilities.manage",
@@ -105,6 +106,9 @@ const DEFAULT_GRANTS: Record<StaffRole, ReadonlySet<Permission>> = {
   FrontDesk: new Set<Permission>([
     "ops.view", "bookings.view",
     "bookings.edit", "payments.record", "expenses.record", "messages.handle",
+    // The desk is who sees a group not turn up, so it marks the no-show and
+    // handles the new date the guest picks, without waiting on the owner.
+    "bookings.noshow",
     // The counter handles the money, including counting the drawer at the
     // end of the day. The owner is told when a count comes out short or
     // over (their My Tasks), and every closing is in the activity log.
@@ -190,7 +194,8 @@ export const PERMISSION_INFO: { perm: Permission; group: string; label: string; 
   { perm: "activity.viewAll", group: "Seeing", label: "See everyone's activity", hint: "The whole Activity History, not only their own lines." },
   { perm: "bookings.edit", group: "Bookings", label: "Handle bookings", hint: "Dashboard, walk-ins, details, confirm, move, add charges, check in and out." },
   { perm: "messages.handle", group: "Bookings", label: "Answer guest messages", hint: "Customer Service and replies." },
-  { perm: "bookings.cancel", group: "Bookings", label: "Cancel or mark a no-show", hint: "", requestable: true },
+  { perm: "bookings.noshow", group: "Bookings", label: "Mark a no-show", hint: "And approve the new date the guest picks within 20 days.", requestable: true },
+  { perm: "bookings.cancel", group: "Bookings", label: "Cancel a booking", hint: "", requestable: true },
   { perm: "bookings.resortCancel", group: "Bookings", label: "Cancel because the resort can't host", hint: "The guest then picks a new date or a refund.", requestable: true },
   { perm: "bookings.delete", group: "Bookings", label: "Delete a booking", hint: "", requestable: true },
   { perm: "payments.record", group: "Money", label: "Record payments", hint: "Down payments, balances, penalties and settling a stay." },

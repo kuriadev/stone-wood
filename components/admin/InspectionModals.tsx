@@ -21,7 +21,7 @@
 // (lib/facilityUsage.ts), so the owner never has to remember which
 // amenities or rooms a group used.
 
-import { statusLabel, bookingStatusLabel, paymentLine } from "@/lib/labels";
+import { bookingStatusLabel, paymentLine } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -43,7 +43,6 @@ import type { Booking } from "@/types/booking";
 import type { Facility } from "@/types/facility";
 import { Icon } from "@/components/common/Icon";
 import { Modal, Label, ChoiceButtons, ActionButton, AmountRow, ErrorNote, StatusBadge, useAdminStyle, FullSelect, STATUS_COLOR, useConfirm } from "@/components/admin/ui";
-import { gold } from "@/lib/styles";
 import { BookingHistory } from "@/components/admin/BookingHistory";
 
 const iconOf = facilityIcon;
@@ -137,7 +136,7 @@ export function PrepModal({ booking, facilities, onClose }: { booking: Booking; 
           );
         })}
       </div>
-      {used.length === 0 && <p style={{ color: C.textS }}>This booking doesn't use any listed facility.</p>}
+      {used.length === 0 && <p style={{ color: C.textS }}>This booking doesn&apos;t use any listed facility.</p>}
       <div style={{ marginTop: 16 }}>
         <Label htmlFor="prep-notes">{left > 0 ? "Why isn't everything ticked?" : "Notes (optional)"}</Label>
         <Input id="prep-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Extra chairs set up in the venue" style={inp} />
@@ -736,7 +735,9 @@ export function VisitRecord({ booking, onClose }: { booking: Booking; onClose: (
     { label: "Settled", when: at(b.settledAt), done: !!b.settledAt || b.status === "Completed" },
   ];
 
-  const Stage = ({ i, title }: { i: Inspection; title: string }) => (
+  // A plain render helper, not a component: one declared inside this
+  // component would be a new type every render and remount its subtree.
+  const stage = (i: Inspection, title: string) => (
     <div style={{ border: `1px solid ${cBr}`, borderRadius: 10, padding: "12px 16px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
         <strong style={{ color: C.textH }}>{title}</strong>
@@ -829,8 +830,8 @@ export function VisitRecord({ booking, onClose }: { booking: Booking; onClose: (
           <div style={{ background: soft, borderRadius: 10, padding: "4px 16px 12px" }}>
             <BookingStatement booking={b} />
           </div>
-          {prep && <Stage i={prep} title="Preparation" />}
-          {checkout && <Stage i={checkout} title="Check-out inspection" />}
+          {prep && stage(prep, "Preparation")}
+          {checkout && stage(checkout, "Check-out inspection")}
           {damages.some((d) => d.description || d.adjustment !== 0) && (
             <div style={{ border: `1px solid ${cBr}`, borderRadius: 10, padding: "12px 16px" }}>
               <strong style={{ color: C.textH, display: "block", marginBottom: 8 }}>Damage notes</strong>

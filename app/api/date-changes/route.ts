@@ -25,7 +25,8 @@ import { getSupabaseAdmin, rowToBooking, rowToDateChange } from "@/lib/supabase"
 import { requirePermission } from "@/lib/auth";
 import { cleanText } from "@/lib/money";
 import { checkMove, moveBooking, guestLinkFor, reopenChoice } from "@/lib/rebooking.server";
-import { holdActive, isRebookRequest, fmtDeadline, REBOOK_NOTE } from "@/lib/rebooking";
+import { holdActive, isRebookRequest, isNoShowRebook, fmtDeadline, REBOOK_NOTE, NO_SHOW_REBOOK_NOTE } from "@/lib/rebooking";
+import { loadBookingLedger } from "@/lib/ledger.server";
 import { notices } from "@/lib/notices";
 import { buildNoticeEmail } from "@/lib/emailTemplate";
 import { trySendMail } from "@/lib/mailer";
@@ -37,8 +38,10 @@ import type { BookingRow, DateChangeRow } from "@/types/database";
 export const dynamic = "force-dynamic";
 
 export async function PATCH(req: NextRequest) {
-  const denied = await requirePermission(req, "reschedules.decide");
-  if (denied) return denied;
+  // Signed-in staff only; who may decide is checked once the request is
+  // known (a no-show's new date is the front desk's, the rest the owner's).
+  const signedIn = await requirePermission(req, "ops.view");
+  if (signedIn) return signedIn;
 
   const id = Number(req.nextUrl.searchParams.get("id"));
   if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "A request id is required." }, { status: 400 });
@@ -62,6 +65,56 @@ export async function PATCH(req: NextRequest) {
     const b = rowToBooking(bk.data as BookingRow);
     const now = new Date().toISOString();
     const rebook = isRebookRequest(request, b);
+    const noShowRebook = isNoShowRebook(request, b);
+    const denied = await requirePermission(req, noShowRebook ? "bookings.noshow" : "reschedules.decide");
+    if (denied) return denied;
+
+    // ── A no-show guest's new date ──
+    // Approve: the booking moves there and is confirmed again; what they
+    // paid carries over and any balance is due as usual. Decline (or a hold
+    // that ran out): the booking stays a no-show, and the guest can pick
+    // again while their window is open.
+    if (noShowRebook) {
+      if (approve && !holdActive(request)) {
+        await db.from("date_change_requests").update({ status: "Expired", decided_at: now }).eq("id", id).eq("status", "Pending");
+        return no("The 48-hour hold ran out, so the date wasn't kept. The guest can pick again from their booking page while their time to choose is open.");
+      }
+      if (!approve) {
+        const done = await db.from("date_change_requests").update({ status: "Declined", decided_at: now, note })
+          .eq("id", id).eq("status", "Pending").select("id").maybeSingle();
+        if (!done.data) return no("This request just changed. Refresh and try again.");
+        const link = guestLinkFor(b);
+        const open = !!b.choiceDeadline && Date.parse(b.choiceDeadline) > Date.now();
+        const n = open
+          ? notices.rebookDeclined(b, request.toDate, note, b.choiceDeadline!, link)
+          : notices.dateChangeDeclined(b, request.toDate, note, link);
+        if (b.email) await trySendMail({ to: b.email, ...buildNoticeEmail(n.email) }, `noshow-rebook-declined ${b.id}`);
+        await logActivity({
+          actor: "Admin", action: "date_change.declined", bookingId: b.id, entity: "date_change", entityId: id,
+          summary: `Declined ${fmtDate(request.toDate)} for ${b.name} (${b.id}, no-show).${open ? ` They can pick another date until ${fmtDeadline(b.choiceDeadline!)}.` : ""}${note ? ` Reason: ${note}` : ""}`,
+          details: { from: request.fromDate, to: request.toDate, note, rebook: true, noShow: true },
+        });
+        return NextResponse.json({ success: true, guestLink: link, sms: n.sms });
+      }
+      const check = await checkMove(b, request.toDate);
+      if (!check.ok) return no(`${check.error} Decline it and the guest can pick another date.`);
+      const saved = await moveBooking(b, request.toDate, {
+        status: "Confirmed", confirmed_at: now, no_show: false, choice_deadline: null, cancel_reason: null,
+      });
+      if (!saved) return no("This booking just changed. Refresh and try again.");
+      await db.from("date_change_requests").update({ status: "Approved", decided_at: now, note: NO_SHOW_REBOOK_NOTE }).eq("id", id);
+      const ledger = await loadBookingLedger(saved.id);
+      const balance = ledger ? Math.max(0, ledger.money.balance) : 0;
+      const link = guestLinkFor(saved);
+      const n = notices.noShowRebooked(saved, request.fromDate, balance, link);
+      if (saved.email) await trySendMail({ to: saved.email, ...buildNoticeEmail(n.email) }, `noshow-rebooked ${saved.id}`);
+      await logActivity({
+        actor: "Admin", action: "booking.rebooked", bookingId: saved.id, entity: "date_change", entityId: id,
+        summary: `Approved ${saved.name}'s new date after the no-show: ${fmtDate(request.fromDate)} → ${fmtDate(request.toDate)}. ${saved.id} is confirmed again; what they paid carries over.`,
+        details: { from: request.fromDate, to: request.toDate, rebook: true, noShow: true },
+      });
+      return NextResponse.json({ success: true, booking: saved, guestLink: link, sms: n.sms });
+    }
 
     if (approve && !holdActive(request)) {
       await db.from("date_change_requests").update({ status: "Expired", decided_at: now }).eq("id", id).eq("status", "Pending");

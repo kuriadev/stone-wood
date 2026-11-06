@@ -16,7 +16,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { getSupabaseAdmin, rowToBooking, rowToFacility } from "@/lib/supabase";
 import {
-  checkBookingAvailability, roomsTakenOn, isRoomOpen,
+  isRoomOpen,
   bookingEndDate, bookingDays, checkRangeAvailability, roomsTakenInRange, fmtDate,
   getBookingSlot, getBookingResource, getBookingTier, fmt,
 } from "@/lib/utils";

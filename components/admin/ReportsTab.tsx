@@ -16,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { statusLabel, bookingStatusLabel, payTypeLabel, payMethodLabel, adminTabLabel } from "@/lib/labels";
+import { statusLabel, bookingStatusLabel, payTypeLabel, payMethodLabel, adminTabLabel, NO_SHOW, statusKey, isNoShow } from "@/lib/labels";
 import { useMemo, useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
 import { useApp } from "@/contexts/AppContext";
@@ -118,13 +118,16 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
   const figures = (x: ReturnType<typeof slice>) => {
     const got = round2(x.pays.reduce((n, p) => n + signedAmount(p), 0));
     const out = round2(x.exps.reduce((n, e) => n + e.amount, 0));
-    const cancelled = x.bks.filter((b) => b.status === "Cancelled").length;
+    // A no-show is stored as Cancelled; it is counted on its own.
+    const noShows = x.bks.filter(isNoShow).length;
+    const cancelled = x.bks.filter((b) => b.status === "Cancelled").length - noShows;
     return {
       collected: got, payments: x.pays.length, spent: out, expenses: x.exps.length, net: round2(got - out),
       owed: round2(x.kept.reduce((n, b) => n + bookingMoney(b, ops.payments, ops.damages).due, 0)),
       bookings: x.bks.length, kept: x.kept.length, guests: x.kept.reduce((n, b) => n + b.guests, 0),
       walkins: x.kept.filter((b) => b.source === "Walk-In").length,
       cancelRate: x.bks.length ? Math.round((cancelled / x.bks.length) * 100) : 0,
+      noShowRate: x.bks.length ? Math.round((noShows / x.bks.length) * 100) : 0,
     };
   };
   const now = figures({ pays, exps, bks, kept });
@@ -157,7 +160,7 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
     ["Refunds", -typeTotal("Refund")],
   ] as const).filter(([, v]) => v !== 0);
   const byCat = EXPENSE_CATEGORIES.map((c) => [c, round2(exps.filter((e) => e.category === c).reduce((s, e) => s + e.amount, 0))] as const).filter(([, v]) => v > 0);
-  const statusCount = (["Pending", "Confirmed", "Completed", "Cancelled", "ResortCancelled"] as const).map((s) => [s, bks.filter((b) => b.status === s).length] as const);
+  const statusCount = (["Pending", "Confirmed", "Completed", "Cancelled", NO_SHOW, "ResortCancelled"] as const).map((s) => [s, bks.filter((b) => statusKey(b) === s).length] as const);
   const guests = kept.reduce((s, b) => s + b.guests, 0);
   const slotCount = (["Day", "Night", "WholeDay"] as BookingSlot[]).map((s) => [s, kept.filter((b) => getBookingSlot(b) === s).length] as const);
 
@@ -201,7 +204,7 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
     [],
     ["Summary", label],
     ["Bookings", bks.length], ["Guests (not cancelled)", guests],
-    ...statusCount.map(([s, n]) => [s, n]),
+    ...statusCount.map(([s, n]) => [statusLabel(s), n]),
   ]);
 
   const exportMoney = () => downloadCsv(`StoneWood_Sales_${fileTag}.csv`, [
@@ -718,6 +721,7 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
                   ["Guests", now.guests, before.guests, String, true],
                   ["Walk-ins", now.walkins, before.walkins, String, true],
                   ["Cancellation rate", now.cancelRate, before.cancelRate, (n: number) => `${n}%`, false],
+                  ["No-show rate", now.noShowRate, before.noShowRate, (n: number) => `${n}%`, false],
                 ] as const).map(([l, cur, prev, f, up]) => (
                   <tr key={l} style={{ borderColor: cBr }}>
                     <td style={{ color: C.textH }}>{l}</td>

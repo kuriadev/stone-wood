@@ -101,6 +101,12 @@ export interface Booking {
   notes: string;
   createdAt?: number;
   cancelReason?: string | null;
+  /** Set only by "Mark no-show": a Cancelled booking whose group never
+   *  came. Shown as "No-show" (lib/labels.ts isNoShow). */
+  noShow?: boolean;
+  /** When the guest was emailed the link to pick a new date (the day after
+   *  the no-show). Their window is choiceDeadline. */
+  noShowNotifiedAt?: string;
   /** "Online" (guest booked through the website) or "Walk-In" (staff
    *  encoded it at the front desk). Undefined on legacy records ⇒ Online. */
   source?: BookingSource;

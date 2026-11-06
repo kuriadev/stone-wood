@@ -31,6 +31,7 @@ import { logActivity } from "@/lib/activity.server";
 import { manilaDate } from "@/lib/finance";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import type { BookingRow } from "@/types/database";
+import { sendNoShowOffers } from "@/lib/noShow.server";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,11 @@ export async function POST(req: NextRequest) {
   }
   const limited = rateLimit(req, { name: "reminders", limit: 30, windowMs: 60 * 60 * 1000 });
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
-  if (!isMailConfigured()) return NextResponse.json({ success: true, sent: 0, note: "Email isn't set up on this server." });
+  // The day after a no-show, the guest is offered a new date
+  // (lib/noShow.server.ts). Its window opens even without email.
+  let noShowOffers = 0;
+  try { noShowOffers = await sendNoShowOffers(); } catch (err) { console.error("[/api/reminders] no-show offers", err); }
+  if (!isMailConfigured()) return NextResponse.json({ success: true, sent: 0, noShowOffers, note: "Email isn't set up on this server." });
 
   await ensureSettings();
   const tomorrow = manilaDate(new Date(Date.now() + 86_400_000));
@@ -55,7 +60,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await db.from("bookings").select("*")
       .eq("date", tomorrow).eq("status", "Confirmed").eq("archived", false).is("reminded_at", null);
     if (error) {
-      if (/reminded_at/.test(error.message)) return NextResponse.json({ success: true, sent: 0, enabled: false });
+      if (/reminded_at/.test(error.message)) return NextResponse.json({ success: true, sent: 0, noShowOffers, enabled: false });
       throw new Error(error.message);
     }
 
@@ -83,7 +88,7 @@ export async function POST(req: NextRequest) {
         summary: `Emailed ${b.name} a reminder for tomorrow (${b.id}).`,
       });
     }
-    return NextResponse.json({ success: true, sent, enabled: true });
+    return NextResponse.json({ success: true, sent, noShowOffers, enabled: true });
   } catch (err) {
     console.error("[/api/reminders POST]", err);
     return NextResponse.json({ success: false, error: "Could not send the reminders." }, { status: 500 });

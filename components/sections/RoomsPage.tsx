@@ -3,7 +3,7 @@
 import "./RoomsPage.css";
 import { useWidth } from "@/hooks/useWidth";
 import { THEME_COLORS } from "@/lib/theme";
-import { gold, goldBtn, outBtn } from "@/lib/styles";
+import { goldBtn, outBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
 import type { Room } from "@/types/room";
 import { useState } from "react";

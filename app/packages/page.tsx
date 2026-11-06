@@ -31,7 +31,7 @@ export default function PackagesRoute() {
 
     const target = routes[p] ?? "/";
 
-    const loader = (globalThis as any).loader?.current;
+    const loader = globalThis.loader?.current;
 
     if (!loader) {
       router.push(target);

@@ -21,7 +21,7 @@ import { manilaNow } from "@/lib/validators";
 import { THEME_COLORS } from "@/lib/theme";
 import { fmt } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
-import { gold, goldBtn, outBtn } from "@/lib/styles";
+import { goldBtn, outBtn } from "@/lib/styles";
 import { Icon } from "@/components/common/Icon";
 import { MediaGallery } from "@/components/common/MediaGallery";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";

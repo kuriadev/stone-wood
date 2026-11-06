@@ -158,6 +158,8 @@ export const rowToBooking = (b: BookingRow): Booking => ({
   notes: b.notes,
   createdAt: b.created_at ? new Date(b.created_at).getTime() : undefined,
   cancelReason: b.cancel_reason,
+  noShow: b.no_show || undefined,
+  noShowNotifiedAt: b.no_show_notified_at ?? undefined,
   source: b.source ?? "Online",
   resource: b.resource ?? undefined,
   tier: b.tier ?? undefined,
@@ -438,7 +440,7 @@ export const rowToDateChange = (r: DateChangeRow): DateChange => ({
  *  Until that migration has run, a write that sets them is retried
  *  without them, so taking a booking or a payment never fails because the
  *  database is one migration behind the code. */
-export const NEW_BOOKING_COLUMNS = ["confirmed_at", "cancelled_at"] as const;
+export const NEW_BOOKING_COLUMNS = ["confirmed_at", "cancelled_at", "no_show", "no_show_notified_at"] as const;
 
 export function missingNewColumn(err: { message?: string } | null | undefined): boolean {
   const msg = err?.message ?? "";

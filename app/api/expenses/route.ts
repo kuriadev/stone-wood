@@ -5,7 +5,7 @@
 // rather than deleted so the day's figures can always be traced.
 
 import { NextResponse, type NextRequest } from "next/server";
-import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server";
+import { logActivity } from "@/lib/activity.server";
 import { fmt } from "@/lib/utils";
 import { getSupabaseAdmin, rowToExpense } from "@/lib/supabase";
 import { requirePermission } from "@/lib/auth";

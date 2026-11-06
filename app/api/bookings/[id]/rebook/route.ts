@@ -17,7 +17,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToBooking, rowToDateChange } from "@/lib/supabase";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { loadGuestBooking, checkMove, guestLinkFor, sweepExpired } from "@/lib/rebooking.server";
-import { choiceOpen, HOLD_HOURS, REBOOK_NOTE } from "@/lib/rebooking";
+import { choiceOpen, noShowChoiceOpen, HOLD_HOURS, REBOOK_NOTE, NO_SHOW_REBOOK_NOTE } from "@/lib/rebooking";
 import { notices } from "@/lib/notices";
 import { buildNoticeEmail } from "@/lib/emailTemplate";
 import { trySendMail } from "@/lib/mailer";
@@ -42,7 +42,15 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     await sweepExpired(true);
     const b = await loadGuestBooking(id, { email: body.email as string, token: body.t as string });
     if (!b) return no("No booking found for those details.", 404);
-    if (!choiceOpen(b)) {
+    // After a no-show the guest picks too, within their window. The window
+    // doesn't pause while the pick waits, and the date they had stays.
+    const noShow = b.status === "Cancelled" && b.noShow === true;
+    if (noShow && !noShowChoiceOpen(b)) {
+      return no(b.choiceDeadline
+        ? "The time to pick a new date has passed. Please call or message the resort."
+        : "This booking can't be moved this way.");
+    }
+    if (!noShow && !choiceOpen(b)) {
       if (b.status !== "ResortCancelled") return no("This booking can't be moved this way.");
       // Paused while a pick waits for the owner; otherwise the time ran out.
       const picked = await getSupabaseAdmin().from("date_change_requests").select("id")
@@ -59,7 +67,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const holdUntil = new Date(Date.now() + HOLD_HOURS * 3_600_000).toISOString();
     const { data, error } = await db.from("date_change_requests").insert({
       booking_id: b.id, from_date: b.date, to_date: date, requested_by: "Resort",
-      status: "Pending", hold_until: holdUntil, note: REBOOK_NOTE,
+      status: "Pending", hold_until: holdUntil, note: noShow ? NO_SHOW_REBOOK_NOTE : REBOOK_NOTE,
     }).select().single();
     if (error) {
       if (error.code === "23505") return no("You've already picked a date. The resort will confirm it soon.");
@@ -67,10 +75,13 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }
     const request = rowToDateChange(data as DateChangeRow);
 
-    // Pause the deadline. If the booking changed meanwhile (the owner moved
-    // or closed it), withdraw the request rather than leave it orphaned.
-    const paused = await db.from("bookings").update({ choice_deadline: null })
-      .eq("id", b.id).eq("status", "ResortCancelled").select().maybeSingle();
+    // Pause the deadline (a no-show's keeps running). If the booking changed
+    // meanwhile (the owner moved or closed it), withdraw the request rather
+    // than leave it orphaned.
+    const paused = noShow
+      ? await db.from("bookings").select("*").eq("id", b.id).eq("status", "Cancelled").eq("no_show", true).maybeSingle()
+      : await db.from("bookings").update({ choice_deadline: null })
+        .eq("id", b.id).eq("status", "ResortCancelled").select().maybeSingle();
     if (paused.error || !paused.data) {
       await db.from("date_change_requests").delete().eq("id", request.id);
       if (paused.error) throw new Error(paused.error.message);
@@ -79,13 +90,15 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const saved = rowToBooking(paused.data as BookingRow);
 
     if (saved.email) {
-      const n = notices.rebookRequested(saved, date, holdUntil, guestLinkFor(saved));
+      const n = notices.rebookRequested(saved, date, holdUntil, guestLinkFor(saved), noShow);
       await trySendMail({ to: saved.email, ...buildNoticeEmail(n.email) }, `rebook-requested ${saved.id}`);
     }
     await logActivity({
       actor: "Guest", action: "date_change.requested", bookingId: saved.id, entity: "date_change", entityId: request.id,
-      summary: `${saved.name} picked ${fmtDate(date)} for ${saved.id} after the resort cancelled ${fmtDate(saved.date)}. Held for ${HOLD_HOURS} hours until you approve it.`,
-      details: { from: saved.date, to: date, holdUntil, rebook: true },
+      summary: noShow
+        ? `${saved.name} picked ${fmtDate(date)} for ${saved.id} after the no-show on ${fmtDate(saved.date)}. Held for ${HOLD_HOURS} hours until it's approved.`
+        : `${saved.name} picked ${fmtDate(date)} for ${saved.id} after the resort cancelled ${fmtDate(saved.date)}. Held for ${HOLD_HOURS} hours until you approve it.`,
+      details: { from: saved.date, to: date, holdUntil, rebook: true, ...(noShow ? { noShow: true } : {}) },
     });
 
     return NextResponse.json({ success: true, request, booking: saved }, { status: 201 });

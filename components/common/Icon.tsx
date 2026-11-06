@@ -10,7 +10,7 @@ import {
   Leaf, TreePalm, Sunrise, Phone, MapPin, Settings, Star, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   SunMoon, Handshake, Siren, Info, Circle, Bookmark,
   Plus, Minus, SquarePen, Pencil, LogOut, Eye, EyeOff,
-  Wallet, Receipt, ClipboardCheck, LogIn, ShieldAlert, Printer, History, UserRound, CalendarClock,
+  Wallet, Receipt, ClipboardCheck, LogIn, ShieldAlert, Printer, History, UserRound, UserRoundX, CalendarClock,
   RefreshCw, Ellipsis, CloudOff, ArrowRight, Upload, SlidersHorizontal, Bell, BellOff,
   createLucideIcon,
   type LucideIcon,
@@ -129,6 +129,7 @@ const REGISTRY = {
   printer: Printer,
   history: History,
   user: UserRound,
+  "user-x": UserRoundX,  // a no-show
   "calendar-clock": CalendarClock,
   refresh: RefreshCw,    // live sync
   more: Ellipsis,        // overflow menu

@@ -34,7 +34,7 @@ import type { ChargeKind } from "@/lib/charges";
 import { useFold } from "@/components/admin/FoldHeader";
 import { spotlight } from "@/lib/spotlight";
 import { SIGNAL } from "@/components/admin/signals";
-import { paymentLine, adminTabLabel } from "@/lib/labels";
+import { paymentLine, adminTabLabel, noShowLine } from "@/lib/labels";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,7 +70,7 @@ import { ChooseRefundDialog } from "@/components/admin/ChooseRefundDialog";
 import { DateChangeReview } from "@/components/admin/DateChangeReview";
 import { MoveBookingModal } from "@/components/admin/MoveBookingModal";
 import { TextGuest } from "@/components/admin/TextGuest";
-import { choiceOpen, choiceExpired, fmtDeadline, holdActive, isRebookRequest, withHolds } from "@/lib/rebooking";
+import { choiceOpen, choiceExpired, fmtDeadline, holdActive, isRebookRequest, withHolds, isNoShowRebook, NO_SHOW_CHOICE_DAYS } from "@/lib/rebooking";
 import { notices } from "@/lib/notices";
 import { Closing } from "@/components/admin/SalesTab";
 import { ActionButton, StatusBadge, Modal, ConfirmDialog, Label, AmountRow, ViewSwitcherTabs, useAdminStyle } from "@/components/admin/ui";
@@ -233,8 +233,6 @@ export function OperationsTab({
   const arrivedToday = dueToday.filter((b) => b.checkedInAt || b.status === "Completed").length;
   const onSite = cards.filter((c) => c.stage === "onsite");
   const headcount = onSite.reduce((n, c) => n + (c.b.guests || 0), 0);
-  const toSettle = cards.filter((c) => c.stage === "settle");
-  const toSettleDue = round2(toSettle.reduce((n, c) => n + money(c.b).due, 0));
   const collectedToday = collectedBetween(ops.payments, today);
   const spentToday = expensesBetween(ops.expenses, today);
   const closedToday = ops.closings.find((c) => c.closingDate === today);
@@ -276,7 +274,7 @@ export function OperationsTab({
   /** A booking reference inside a sentence. Same treatment as one in a
    *  column: monospace and bold, because it is what staff read out, search
    *  for and quote back. */
-  const Ref = ({ id }: { id: string }) => (
+  const ref = (id: string) => (
     <span style={{ fontFamily: "monospace", fontWeight: 700, color: C.textH }}>{id}</span>
   );
 
@@ -379,8 +377,10 @@ export function OperationsTab({
     const active = holdActive(r, now.getTime());
     attention.push({ key: `move-${r.id}`, kind: active ? "reminder" : "urgent", tone: active ? "amber" : "red", icon: "calendar",
       text: <><strong style={{ color: C.textH }}>{b.name}</strong>{" "}
-        {isRebookRequest(r, b)
-          ? <>picked {fmtDate(r.toDate)} for <Ref id={b.id} /> after <em style={{ fontStyle: "normal", fontWeight: 700 }}>the resort cancelled</em> {fmtDate(r.fromDate)}.</>
+        {isNoShowRebook(r, b)
+          ? <>picked {fmtDate(r.toDate)} for {ref(b.id)} after <em style={{ fontStyle: "normal", fontWeight: 700 }}>a no-show</em> on {fmtDate(r.fromDate)}. What they paid carries over.</>
+          : isRebookRequest(r, b)
+          ? <>picked {fmtDate(r.toDate)} for {ref(b.id)} after <em style={{ fontStyle: "normal", fontWeight: 700 }}>the resort cancelled</em> {fmtDate(r.fromDate)}.</>
           : <>asks to move {b.id} from {fmtDate(r.fromDate)} to {fmtDate(r.toDate)}.</>}{" "}
         {active ? <>Held for them until {fmtDeadline(r.holdUntil!)}.</> : <>The 48-hour hold ran out.</>}</>,
       actions: <ActionButton size="sm" kind="primary" onClick={() => setOpen({ kind: "datechange", reqId: r.id })}>Review</ActionButton> });
@@ -396,7 +396,7 @@ export function OperationsTab({
         actions: <ActionButton size="sm" kind="primary" onClick={() => go("refund", b)}>Send refund</ActionButton> });
     } else if (choiceOpen(b, now.getTime())) {
       attention.push({ key: `waiting-${b.id}`, kind: "reminder", tone: "blue", icon: "clock",
-        text: <>{who} hasn&apos;t picked a new date yet for <Ref id={b.id} /> (<em style={{ fontStyle: "normal", fontWeight: 700 }}>cancelled by the resort</em>). They have until {fmtDeadline(b.choiceDeadline!)}.</>,
+        text: <>{who} hasn&apos;t picked a new date yet for {ref(b.id)} (<em style={{ fontStyle: "normal", fontWeight: 700 }}>cancelled by the resort</em>). They have until {fmtDeadline(b.choiceDeadline!)}.</>,
         actions: <>
           <ActionButton size="sm" onClick={() => go("textagain", b)}>Text them</ActionButton>
           <ActionButton size="sm" kind="red" onClick={() => go("refundchoice", b)}>Refund instead</ActionButton>
@@ -405,7 +405,7 @@ export function OperationsTab({
       // Their time to pick online ran out. The booking waits on the owner
       // now: agree a date or a refund with them, then record it here.
       attention.push({ key: `expired-${b.id}`, kind: "urgent", tone: "red", icon: "clock",
-        text: <>{who} didn&apos;t pick a new date for <Ref id={b.id} /> in time (<em style={{ fontStyle: "normal", fontWeight: 700 }}>cancelled by the resort</em>).{(b.heldAmount ?? 0) > 0 ? <> {fmt(b.heldAmount ?? 0)} is still held for them.</> : null} Contact them to agree a new date or a refund.</>,
+        text: <>{who} didn&apos;t pick a new date for {ref(b.id)} in time (<em style={{ fontStyle: "normal", fontWeight: 700 }}>cancelled by the resort</em>).{(b.heldAmount ?? 0) > 0 ? <> {fmt(b.heldAmount ?? 0)} is still held for them.</> : null} Contact them to agree a new date or a refund.</>,
         actions: <>
           <ActionButton size="sm" kind="primary" onClick={() => go("move", b)}>Set a new date</ActionButton>
           <ActionButton size="sm" kind="red" onClick={() => go("refundchoice", b)}>Refund instead</ActionButton>
@@ -1544,24 +1544,30 @@ export function OperationsTab({
           description={`${current.name} · ${current.id} · ${fmtDate(current.date)}`}
           onCancel={() => setOpen(null)} cancelLabel="Go back" width={500}
           confirm={<ActionButton kind="red" onClick={async () => {
-            const why = reason.trim() || "No-show: the group did not arrive.";
-            // Cancelling is the owner's: front desk's no-show goes to them
-            // as a request, and nothing changes until they approve it.
-            if (!staff.can("bookings.cancel")) {
-              const r = await call(`/api/bookings/${encodeURIComponent(current.id)}`, "PATCH", { status: "Cancelled", cancelReason: why });
+            /* Every no-show reads the same way, "No-show: " then the desk's
+               note (lib/labels.ts), and carries the noShow flag: this button
+               is the only thing that sets it, so only these show as
+               "No-show" rather than "Cancelled". */
+            const why = noShowLine(reason);
+            // The desk's own call (bookings.noshow). Someone without it
+            // sends it to the super admin as a request instead.
+            if (!staff.can("bookings.noshow")) {
+              const r = await call(`/api/bookings/${encodeURIComponent(current.id)}`, "PATCH", { status: "Cancelled", cancelReason: why, noShow: true });
               toast(r.ok ? `${current.name} marked as a no-show.` : r.error, r.ok || r.requested ? "info" : "error");
               if (r.ok || r.requested) { void ops.refresh(); setOpen(null); }
               return;
             }
-            // A no-show isn't emailed a rejection.
-            updateStatus(current.id, "Cancelled", why, { silent: true });
-            setBookings((bs) => bs.map((x) => x.id === current.id ? { ...x, cancelReason: why } : x));
+            // One change, saved in one call (lib/collections.ts sends what
+            // changed). A no-show isn't emailed a rejection.
+            setBookings((bs) => bs.map((x) => x.id === current.id ? { ...x, status: "Cancelled", cancelReason: why, noShow: true } : x));
             toast(`${current.name} marked as a no-show.`, "warning");
             setOpen(null);
           }}>Mark no-show</ActionButton>}>
           <div>
             <p style={{ color: C.textS, fontSize: 14, marginTop: 0 }}>
-              Under the no-refund policy, what the guest paid stays recorded as income.
+              The booking is closed and the date opens up. Tomorrow the guest is emailed a link to pick a new
+              date within {NO_SHOW_CHOICE_DAYS} days; what they paid carries over. If they don&apos;t pick one,
+              the no-refund policy applies and what they paid stays recorded as income.
             </p>
             <Label htmlFor="ops-reason">Note (optional)</Label>
             <Textarea id="ops-reason" rows={3} value={reason} onChange={(e) => setReason(e.target.value)}

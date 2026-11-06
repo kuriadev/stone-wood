@@ -11,7 +11,7 @@ import { SLOTS, stayPatternNote, allowsMultiDay, MULTI_DAY_SLOT, slotStartedProb
 import { useApp } from "@/contexts/AppContext";
 import { priceBooking } from "@/lib/pricing";
 import {
-  GUESTS_MIN, GUESTS_MAX, SHARED_PER_HEAD_RATE, sharedRateFor, MAX_STAY_DAYS,
+  GUESTS_MIN, GUESTS_MAX, sharedRateFor, MAX_STAY_DAYS,
 } from "@/lib/validators";
 import { AvailabilityCalendar } from "@/components/common/AvailabilityCalendar";
 import { GuestInput, useHoldStep } from "@/components/common/GuestCount";

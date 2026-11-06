@@ -37,7 +37,6 @@ import { quoteBooking } from "@/lib/bookingQuote";
 import { checkWalkIn, saveWalkIn } from "@/lib/walkIn.server";
 import { fmt } from "@/lib/utils";
 import type { BookingRow } from "@/types/database";
-import type { Booking } from "@/types/booking";
 
 export const dynamic = "force-dynamic";
 

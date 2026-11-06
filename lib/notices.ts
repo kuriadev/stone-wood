@@ -84,9 +84,50 @@ export const notices = {
     };
   },
 
+  /** The day after a no-show: the group never came, and they can still
+   *  move the booking to a new date by `deadline`. What they paid carries
+   *  over; `balance` is what would still be due on the new date. */
+  noShowRebookOffer(b: Booking, paid: number, balance: number, deadline: string, link: string): NoticeText {
+    return {
+      email: {
+        subject: `We missed you – pick a new date for ${b.id}`,
+        title: "We missed you",
+        tagline: "You can still pick a new date",
+        name: b.name,
+        paragraphs: [
+          `Your group didn't arrive for your booking on ${visit(b)}, so it was marked as a no-show.`,
+          `You can still move it to another available date. Please pick one by ${fmtDeadline(deadline)}.${paid > 0 ? ` The ${fmt(paid)} you paid carries over to your new date${balance > 0 ? `, and the remaining ${fmt(balance)} is paid when you arrive` : ""}.` : ""} The resort confirms the date you pick.`,
+          `If we don't hear from you by then, the booking stays closed and, under our no-refund policy, what was paid isn't returned.`,
+        ],
+        rows: [["Booking", b.id], ["Missed date", visit(b)], ...(paid > 0 ? [["Paid, carries over", fmt(paid)] as [string, string]] : []), ["Pick a date by", fmtDeadline(deadline)]],
+        button: button(link, "Pick a new date"),
+      },
+      sms: `StoneWood Resort: We missed you on ${fmtDate(b.date)} (${b.id}). You can still move your booking to a new date${paid > 0 ? ` and your ${fmt(paid)} carries over` : ""}. Pick one by ${fmtDeadline(deadline)}: ${link}`,
+    };
+  },
+
+  /** The front desk or owner approved the date a no-show guest picked. */
+  noShowRebooked(b: Booking, oldDate: string, balance: number, link: string): NoticeText {
+    return {
+      email: {
+        subject: `Your new date is confirmed – ${b.id}`,
+        title: "Your new date is confirmed",
+        tagline: `See you on ${fmtDate(b.date)}`,
+        name: b.name,
+        paragraphs: [
+          `Your booking has moved from ${fmtDate(oldDate)} to ${visit(b)}. What you paid carries over.`,
+          balance > 0 ? `The balance of ${fmt(balance)} is paid when you arrive — cash or GCash.` : "Your booking is fully paid.",
+        ],
+        rows: [["Booking", b.id], ["New date", visit(b)], ...(balance > 0 ? [["Balance on arrival", fmt(balance)] as [string, string]] : [])],
+        button: button(link),
+      },
+      sms: `StoneWood Resort: Your booking ${b.id} is confirmed for ${visit(b)}.${balance > 0 ? ` Balance ${fmt(balance)} is due on arrival.` : ""} Details: ${link}`,
+    };
+  },
+
   /** The guest picked a new date after a resort cancellation; the owner
    *  has to approve it. The booking is still cancelled until then. */
-  rebookRequested(b: Booking, toDate: string, holdUntil: string, link: string): NoticeText {
+  rebookRequested(b: Booking, toDate: string, holdUntil: string, link: string, missed = false): NoticeText {
     return {
       email: {
         subject: `We got your new date – ${b.id}`,
@@ -96,7 +137,7 @@ export const notices = {
         paragraphs: [
           `You picked ${visit(b, toDate)} for booking ${b.id}. We're holding that date for you until ${fmtDeadline(holdUntil)} while the resort confirms it, and we'll email you the answer.`,
         ],
-        rows: [["Booking", b.id], ["Cancelled date", visit(b)], ["Your new date", visit(b, toDate)]],
+        rows: [["Booking", b.id], [missed ? "Missed date" : "Cancelled date", visit(b)], ["Your new date", visit(b, toDate)]],
         button: button(link, "Check my booking"),
       },
       sms: `StoneWood Resort: We got your new date for ${b.id}: ${fmtDate(toDate)}. We'll confirm it by ${fmtDeadline(holdUntil)}. ${link}`,

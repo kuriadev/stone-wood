@@ -77,7 +77,7 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
 
   // expose globally (for nav control)
   useEffect(() => {
-    (globalThis as any).loader = {
+    globalThis.loader = {
       get current() {
         return {
           /** `target` and `push`, when given, let the curtain run: it rises,

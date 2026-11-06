@@ -11,25 +11,11 @@ import { useHomeCards } from "@/hooks/useHomeCards";
 import { TiltedCard } from "@/components/common/TiltedCard";
 import { PackagesSkeleton } from "@/components/common/PageSkeletons";
 import { SLOTS, QUIET_HOURS_POLICY } from "@/lib/resort";
-import { fmt } from "@/lib/utils";
 import { HeroReservation } from "@/components/sections/HeroReservation";
-import { MediaGallery } from "@/components/common/MediaGallery";
 import { PackageTierScroll } from "@/components/sections/PackageTierScroll";
-import { Button } from "@/components/ui/button";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
 import type { ResortPackage } from "@/types/package";
-import { packageValue, packagePriceToday, packageLinkPrices, promoUntilLabel } from "@/lib/pricing";
-import { manilaNow } from "@/lib/validators";
-import { srcSetFor, SIZES, imageAt } from "@/lib/img";
+import { imageAt } from "@/lib/img";
 import { Icon } from "@/components/common/Icon";
 import { facilityIcon } from "@/lib/facilityUsage";
 import type { PublicAmenity } from "@/types/facility";
@@ -38,7 +24,6 @@ import { RoomCoverflow } from "@/components/sections/RoomCoverflow";
 import { FacilityLightbox, type FacilityShot } from "@/components/sections/FacilityLightbox";
 import { defaultFacilityPhoto } from "@/lib/facilityPhotos";
 import type { Room } from "@/types/room";
-import { Badge } from "@/components/ui/badge";
 import { LazyBackground } from "@/components/common/LazyBackground";
 
 interface HomeProps {
@@ -203,28 +188,6 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
   // index is reused by openPkg()/pkgCardRefs, so it's built once here off
   // the visible list only.
   const visiblePackages = packages.filter((p) => p.active);
-  // Grouped by what the guest is planning, not by tier: a pool visit for
-  // the day or night, a whole-day buyout, or an event with the venue.
-  // Which package group is on screen. The three groups used to stack, each
-  // with its own carousel, so the section was three rows tall before a guest
-  // had chosen anything. One row, switched by tabs, keeps it to one.
-  const [pkgGroup, setPkgGroup] = useState("DAY OR NIGHT");
-
-  const groupOf = (p: ResortPackage) =>
-    p.resource !== "Pool" ? "EVENTS & CELEBRATIONS" : p.slotMode === "WholeDay" ? "STAYCATION" : "DAY OR NIGHT";
-  const packageGroups = ["DAY OR NIGHT", "STAYCATION", "EVENTS & CELEBRATIONS"]
-    .map((label) => ({
-      label,
-      tiers: visiblePackages.map((p, i) => ({ p, i })).filter(({ p }) => groupOf(p) === label),
-    }))
-    .filter((g) => g.tiers.length > 0);
-
-  // Packages arrive async, so the remembered tab can name a group that has no
-  // packages yet (or none any more). Fall back to the first that does rather
-  // than render an empty row.
-  const activeGroup =
-    packageGroups.find((g) => g.label === pkgGroup) ?? packageGroups[0];
-
   // ── Shared type scale ──────────────────────────────────────────────
   // Larger, higher-contrast display type that holds up in both themes.
   const serif = "'Satoshi',system-ui,sans-serif";
@@ -267,33 +230,6 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
       seconds: Math.round((setWidth * copies) / MARQUEE_PX_PER_SEC),
     };
   }, [w, mob]);
-
-  const [activePkg, setActivePkg] = useState<number | null>(null);
-  // Which photo of the expanded package's gallery is showing.
-  const [photoIdx, setPhotoIdx] = useState(0);
-
-  const openPkg = (i: number) => {
-    setActivePkg(i);
-    setPhotoIdx(0);
-  };
-  // Closing is immediate: the dialog animates itself out off `data-state`, so
-  // the old "hide, then unmount 220ms later" pair would only postpone the
-  // exit animation rather than produce one.
-  const closePkg = () => setActivePkg(null);
-
-  // Arrow keys page through the gallery. Escape is deliberately NOT handled
-  // here any more — the dialog closes itself on Escape, and doing both ran
-  // closePkg twice for one keypress.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (activePkg === null) return;
-      const len = visiblePackages[activePkg].gallery.length;
-      if (e.key === "ArrowRight") setPhotoIdx((n) => (n + 1) % len);
-      if (e.key === "ArrowLeft") setPhotoIdx((n) => (n - 1 + len) % len);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [activePkg]);
 
   // Amenities the owner manages in Facility Management. null until loaded.
   const [amenities, setAmenities] = useState<PublicAmenity[] | null>(null);
@@ -349,15 +285,6 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
     return () => { io.disconnect(); clearInterval(tick); clearTimeout(clear); };
   }, []);
 
-  const ratesHeaderRef = useRef<HTMLDivElement>(null);
-  const amenitiesDivRef = useRef<HTMLDivElement>(null);
-  const testimonyHeaderRef = useRef<HTMLDivElement>(null);
-  const packageRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const amenityRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const pkgHeaderRef = useRef<HTMLDivElement>(null);
-  const pkgDurationRef = useRef<HTMLDivElement>(null);
-  const pkgCardRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const closingRef = useRef<HTMLDivElement>(null);
 
   // The reservation card stays folded away until asked for, so the hero
   // photo shows. `resSettled` lets the card's shadow out once it has opened
@@ -553,181 +480,6 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
         </div>
       </div>
 
-      {/* ── Expanded package card ──
-          Rendered through a portal directly into document.body instead of
-          in place here. Previously this modal was a normal descendant of
-          the page, and it kept breaking (needing a zoom-out, or opening cut
-          off near the bottom of a short window) because SOME ancestor
-          somewhere up the tree ends up with a non-"none" computed transform
-          (page-entrance animations, hover effects, etc. all reach for
-          `transform`) — and any one of those turns into the containing
-          block for this modal's `position: fixed`, sizing and centering it
-          against that ancestor's box instead of the actual viewport. A
-          portal sidesteps the whole category of bug: this element's parent
-          in the DOM is always <body> itself, no matter what the rest of the
-          page's CSS is doing. The backdrop also now scrolls itself
-          (instead of capping the card at 90vh with an inner scroll area),
-          which is what actually keeps it usable in a short/small browser
-          window like the one that triggered this. */}
-      {/* Package detail, as a LANDSCAPE dialog: the gallery on the left and
-          everything the guest actually decides on -- price, inclusions, which
-          slot, the book button -- on the right, so both halves are on screen
-          at once instead of the portrait card that scrolled for most of its
-          height.
-
-          Radix portals this itself, which is the job createPortal was doing
-          here: any ancestor with a transform other than "none" becomes the
-          containing block for a position:fixed child, which would size the
-          modal against that box rather than the viewport. */}
-      <Dialog open={activePkg !== null} onOpenChange={(open) => { if (!open) closePkg(); }}>
-        {/* `min(...)` rather than a bare max-w-5xl: the sm: variant would else
-            override the base max-w-[calc(100%-2rem)] gutter, and between about
-            640px and 1024px the dialog went edge to edge with its rounded
-            corners clipped off against the viewport. */}
-                <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto p-0 sm:max-w-[min(64rem,calc(100%-2rem))]">
-          {activePkg !== null && (() => {
-            const p = visiblePackages[activePkg];
-            const exclusive = p.status === "Exclusive";
-            // A promo the owner set (Packages & Prices): what is charged today.
-            const promo = packagePriceToday(p, manilaNow().date);
-            const struck = promo.off > 0 ? promo.regular : packageValue(p).compare;
-            const gallery = p.gallery;
-            // The dialog scrolls, not the individual columns: a grid item with
-            // its own overflow contributes ~0 to row sizing, which left the two
-            // columns disagreeing about the row height by a few pixels.
-            // A JSX comment cannot sit directly after `return (` -- it would be
-            // a second sibling and break the element.
-            return (
-              <div className="grid grid-cols-[minmax(0,1fr)] md:grid-cols-2">
-                <MediaGallery
-                  shots={gallery}
-                  eyebrow="PACKAGE"
-                  compact={mob}
-                  title={
-                    <DialogTitle asChild>
-                      <div className="truncate font-serif text-[26px] leading-tight font-normal text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.6)] sm:text-3xl">
-                        {p.title}
-                      </div>
-                    </DialogTitle>
-                  }
-                />
-
-                {/* Detail column.
-                    Left-aligned throughout: the previous version centred the
-                    badge, price and blurb while the lists below ran left,
-                    which broke the reading edge halfway down the panel.
-                    One vertical rhythm (gap-5) instead of per-block margins,
-                    and the action is pinned to the foot behind a divider so
-                    it lands in the same place in every dialog. */}
-                <div className="flex flex-col">
-                  <div className="flex min-w-0 flex-col gap-5 p-5 min-[380px]:p-6 sm:p-7">
-
-                    {/* Status */}
-                    <div>
-                      <Badge
-                        variant="outline"
-                        className="rounded-full px-3 py-1 text-[10.5px] tracking-[2px]"
-                        style={{
-                          background: exclusive ? `${gold}18` : ("var(--sw-chip-tint)"),
-                          color: exclusive ? C.goldInk : C.textS,
-                          borderColor: exclusive ? `${gold}44` : C.border,
-                        }}
-                      >
-                        {p.status.toUpperCase()}{p.note ? ` · ${p.note.toUpperCase()}` : ""}
-                      </Badge>
-                    </div>
-
-                    {/* Price. A package is a one-time purchase, so this is the
-                        whole tour/venue cost regardless of how many of the
-                        included guests turn up. */}
-                    <div>
-                      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                        <span className="font-serif text-[34px] leading-none font-normal text-foreground min-[380px]:text-[40px]">{fmt(promo.pay)}</span>
-                        {struck && (
-                          <span className="text-[17px] text-faint line-through">{fmt(struck)}</span>
-                        )}
-                      </div>
-                      {/* A promo first; otherwise against booking the same
-                          thing yourself in Book Now, not a pre-discount total
-                          nobody pays. */}
-                      {promo.badge ? (
-                        <p className="mt-2 text-[12.5px] tracking-wide" style={{ color: "#e2574c" }}>
-                          {promo.badge}: you save {fmt(promo.off)}{promo.until ? `, ${promoUntilLabel(promo.until)}` : ""}
-                        </p>
-                      ) : packageValue(p).save > 0 ? (
-                        <p className="mt-2 text-[12.5px] tracking-wide text-[#4caf50]">
-                          You save {fmt(packageValue(p).save)} compared with booking it yourself
-                        </p>
-                      ) : p.requiresRoom ? (
-                        <p className="mt-2 text-[12.5px] text-faint">Plus a room of your choice</p>
-                      ) : (
-                        <p className="mt-2 text-[12.5px] text-faint">Flat price for up to {p.capacity} guests</p>
-                      )}
-                    </div>
-
-                    <DialogDescription asChild>
-                      <p className="text-[14.5px] leading-relaxed text-muted-foreground">{p.blurb}</p>
-                    </DialogDescription>
-
-                    {/* Inclusions */}
-                    <div>
-                      <p className="mb-3 text-[10.5px] tracking-[2.5px] text-faint">WHAT&apos;S INCLUDED</p>
-                      <ul className="m-0 flex list-none flex-col p-0">
-                        {p.includes.map((inc) => (
-                          <li key={inc} className="flex items-start gap-2 border-b border-border-soft py-3 last:border-0 last:pb-0">
-                            <Icon name="check" size={12} className="mt-1 shrink-0 text-accent-ink" />
-                            <span className="text-[14.5px] leading-snug text-body">{inc}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    {/* When it can be booked: Day or Night (guest picks), or
-                        Whole Day. */}
-                    <div>
-                      <p className="mb-3 text-[10.5px] tracking-[2.5px] text-faint">
-                        {p.slotMode === "WholeDay" ? "DURATION" : "CHOOSE WHEN YOU BOOK"}
-                      </p>
-                      <ul className="m-0 flex list-none flex-col p-0">
-                        {(p.slotMode === "WholeDay" ? [SLOTS.WholeDay] : [SLOTS.Day, SLOTS.Night])
-                          .map((sl) => ({ label: sl.label, window: sl.hours }))
-                          .map((d) => (
-                            <li key={d.label} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-border-soft py-3 last:border-0 last:pb-0">
-                              <span className="text-[14.5px] text-body">{d.label}</span>
-                              <span className="ml-auto text-right text-[13.5px] font-medium text-accent-ink">{d.window}</span>
-                            </li>
-                          ))}
-                      </ul>
-                    </div>
-                  </div>
-
-                  {/* Action, pinned to the foot of the column. */}
-                  <div className="mt-auto border-t border-border-soft p-6 pt-5 sm:px-7">
-                    <Button
-                      className="sw-btn h-auto w-full rounded-lg py-4 text-[13.5px] tracking-[1.5px] whitespace-normal"
-                      onClick={() => {
-                        closePkg();
-                        if (onBookPackage) {
-                          onBookPackage(
-                            { code: p.code, title: p.title, ...packageLinkPrices(p, manilaNow().date), capacity: p.capacity, requiresRoom: p.requiresRoom, slotMode: p.slotMode },
-                            p.resource,
-                            p.status
-                          );
-                        } else {
-                          setPage("Book Now");
-                        }
-                      }}
-                      style={{ ...goldBtn, ...(mob ? { padding: "14px 18px" } : null), lineHeight: 1.4, textAlign: "center" }}
-                    >
-                      BOOK {p.title.toUpperCase()} →
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
 
       {/* ── RATES & FACILITIES (unchanged) ── */}
       <div className="sw-defer" style={{ background: "var(--sw-band-ivory)", padding: bandPad(mob ? 20 : 24), borderBottom: `1px solid ${C.border}` }}>
@@ -788,7 +540,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
 
           </div>
 
-          <p style={{ color: C.textXS, fontSize: 14.5, marginTop: 8, lineHeight: 1.8 }}>Pay a 50% down payment to book, or pay in full. If the resort has to cancel, you choose a free new date or a full refund; if you cancel, payments aren't refunded, but you can move your booking once. {QUIET_HOURS_POLICY}</p>
+          <p style={{ color: C.textXS, fontSize: 14.5, marginTop: 8, lineHeight: 1.8 }}>Pay a 50% down payment to book, or pay in full. If the resort has to cancel, you choose a free new date or a full refund; if you cancel, payments aren&apos;t refunded, but you can move your booking once. {QUIET_HOURS_POLICY}</p>
         </div>
       </div>
 

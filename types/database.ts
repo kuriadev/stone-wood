@@ -45,6 +45,9 @@ export interface BookingRow {
   payment_proof: boolean;
   notes: string;
   cancel_reason: string | null;
+  /** 20261106120000_booking_no_show.sql; absent until it has run. */
+  no_show?: boolean;
+  no_show_notified_at?: string | null;
   created_at: string;
   // ── Added by 20260923140000_booking_integrity.sql ──
   source: BookingSource;

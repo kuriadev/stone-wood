@@ -28,7 +28,7 @@ import { RetentionPanel } from "@/components/admin/RetentionPanel";
 import { spotlight } from "@/lib/spotlight";
 import { bookingIndicator } from "@/lib/bookingIndicator";
 import { SIGNAL } from "@/components/admin/signals";
-import { statusLabel, bookingStatusLabel, moneyLabel, paymentLine, adminTabLabel } from "@/lib/labels";
+import { statusLabel, bookingStatusLabel, moneyLabel, paymentLine, adminTabLabel, NO_SHOW, statusKey, isNoShow, noShowLine } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
@@ -66,8 +66,8 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { BookingHistory } from "@/components/admin/BookingHistory";
-import { choiceOpen, fmtDeadline, holdActive, withHolds } from "@/lib/rebooking";
-import { AdminPageHeader, TableShell, td, ActionButton, IconAction, StatusBadge, Modal, AmountRow, useAdminStyle, STATUS_COLOR, STATUS_LABEL, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewSwitcherTabs, usePaged, Pager, PAGE_SIZE, FullSelect, FilterSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
+import { choiceOpen, fmtDeadline, holdActive, withHolds, NO_SHOW_CHOICE_DAYS, noShowChoiceOpen } from "@/lib/rebooking";
+import { AdminPageHeader, TableShell, td, ActionButton, IconAction, StatusBadge, Modal, AmountRow, useAdminStyle, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewSwitcherTabs, usePaged, Pager, PAGE_SIZE, FullSelect, FilterSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
 
 interface BookingsTabProps {
   bookings: Booking[];
@@ -87,7 +87,7 @@ interface BookingsTabProps {
   facilities: Facility[];
 }
 
-const STATUSES = ["All", "Pending", "Confirmed", "Completed", "ResortCancelled", "Cancelled"] as const;
+const STATUSES = ["All", "Pending", "Confirmed", "Completed", "ResortCancelled", "Cancelled", NO_SHOW] as const;
 
 export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, packages, facilities, focusId, onFocusHandled, spotId, onSpotHandled }: BookingsTabProps) {
   /* Correcting a guest's own details on a booking that already exists. */
@@ -190,7 +190,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
     return !q || b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) ||
       (b.email || "").toLowerCase().includes(q) || b.contact.includes(q) || b.date.includes(q) || packageAvailed(b).toLowerCase().includes(q);
   });
-  const rows = (status === "All" ? filteredNoStatus : filteredNoStatus.filter((b) => b.status === status))
+  const rows = (status === "All" ? filteredNoStatus : filteredNoStatus.filter((b) => statusKey(b) === status))
     .filter((b) => !stage || stageOf(b) === stage)
     .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
   const paged = usePaged(rows);
@@ -645,7 +645,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
             options={STATUSES.map((s) => ({
               value: s,
               label: s === "All" ? "All bookings" : statusLabel(s),
-              count: s === "All" ? filteredNoStatus.length : filteredNoStatus.filter((b) => b.status === s).length,
+              count: s === "All" ? filteredNoStatus.length : filteredNoStatus.filter((b) => statusKey(b) === s).length,
             }))}
           />
         }
@@ -721,7 +721,17 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                   <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}><AmountRow label="Total" value={fmt(b.total)} strong /></div>
                 </div>
                 {b.notes && <p style={{ color: C.textS, fontSize: 13, marginTop: 12 }}>Notes: {b.notes}</p>}
-                {(b.status === "Cancelled" || b.status === "ResortCancelled") && b.cancelReason && <p style={{ color: "#e5484d", fontSize: 13, marginTop: 12 }}>Cancelled: {b.cancelReason}</p>}
+                {(b.status === "Cancelled" || b.status === "ResortCancelled") && b.cancelReason && <p style={{ color: "#e5484d", fontSize: 13, marginTop: 12 }}>{isNoShow(b) ? noShowLine(b.cancelReason) : `Cancelled: ${b.cancelReason}`}</p>}
+                {/* Where the no-show guest's new-date window stands (lib/noShow.server.ts). */}
+                {isNoShow(b) && (
+                  <p style={{ color: C.textS, fontSize: 12.5, lineHeight: 1.6, margin: "6px 0 0" }}>
+                    {noShowChoiceOpen(b) && b.choiceDeadline
+                      ? <>The guest can pick a new date until <strong style={{ color: C.textH }}>{fmtDeadline(b.choiceDeadline)}</strong>{b.noShowNotifiedAt ? <> (offered {fmtDeadline(b.noShowNotifiedAt)})</> : null}. What they paid carries over.</>
+                      : b.noShowNotifiedAt
+                        ? <>Their {NO_SHOW_CHOICE_DAYS} days to pick a new date have ended.</>
+                        : <>The day after the no-show, the guest is emailed a link to pick a new date within {NO_SHOW_CHOICE_DAYS} days.</>}
+                  </p>
+                )}
 
                 {/* What the guest is deciding, or what the resort owes them. */}
                 {b.status === "ResortCancelled" && (

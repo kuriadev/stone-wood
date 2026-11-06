@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, type CSSProperties } from "react";
-import { gold } from "@/lib/styles";
 import { getBookingWindow, bookingWindowNote, firstViewableMonth, toDateStr, MAX_STAY_DAYS, manilaNow } from "@/lib/validators";
 import { SLOTS, slotStartedProblem } from "@/lib/resort";
 import type { Booking, BookingSlot, BookingTier } from "@/types/booking";

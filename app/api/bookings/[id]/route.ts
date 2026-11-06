@@ -157,7 +157,9 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
         // forfeits their money: the owner's call. Front desk's attempt goes
         // to the owner as a request carrying just the cancellation.
         if (body.status === "Cancelled") {
-          const gate = await ownerGate(req, "bookings.cancel", { status: "Cancelled", cancelReason: body.cancelReason ?? null });
+          // A no-show is the desk's own call (bookings.noshow); any other
+          // cancellation is the owner's.
+          const gate = await ownerGate(req, body.noShow === true ? "bookings.noshow" : "bookings.cancel", { status: "Cancelled", cancelReason: body.cancelReason ?? null, ...(body.noShow === true ? { noShow: true } : {}) });
           if (gate) return gate;
         }
         if (body.status === "Confirmed") patch.confirmed_at = new Date().toISOString();
@@ -187,6 +189,12 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     }
 
     if (body.paymentProof !== undefined) patch.payment_proof = !!body.paymentProof;
+    // Only "Mark no-show" sends this (OperationsTab). It never applies to a
+    // booking that isn't being, or isn't already, cancelled.
+    if (body.noShow !== undefined) {
+      const willBe = body.status ?? before.status;
+      patch.no_show = willBe === "Cancelled" && body.noShow === true;
+    }
     if (body.cancelReason !== undefined) patch.cancel_reason = sanitizeNotes(String(body.cancelReason)).slice(0, 500) || null;
     if (body.notes !== undefined) patch.notes = sanitizeNotes(String(body.notes));
     // Archiving used to live only in the browser and was lost on reload.
@@ -217,7 +225,9 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       logs.push(after.status === "Confirmed"
         ? { action: "booking.confirmed", summary: `Accepted ${who}.` }
         : after.status === "Cancelled"
-          ? { action: "booking.cancelled", summary: `Cancelled ${who}.${after.cancel_reason ? ` Reason: ${after.cancel_reason}` : ""}` }
+          ? after.no_show
+            ? { action: "booking.noshow", summary: `Marked ${who} as a no-show.${after.cancel_reason ? ` ${after.cancel_reason}` : ""}` }
+            : { action: "booking.cancelled", summary: `Cancelled ${who}.${after.cancel_reason ? ` Reason: ${after.cancel_reason}` : ""}` }
           : { action: "booking.status", summary: `Changed ${who} from ${before.status} to ${after.status}.` });
     }
     if (after.archived !== before.archived) {

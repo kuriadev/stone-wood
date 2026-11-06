@@ -9,7 +9,7 @@
 // stored. Nothing the browser says about price, availability or labels
 // is taken on trust.
 
-import { getSupabaseAdmin, rowToBooking, rowToFacility, rowToPackage, rowToRoom } from "@/lib/supabase";
+import { getSupabaseAdmin, rowToFacility, rowToPackage, rowToRoom } from "@/lib/supabase";
 import {
   checkRangeAvailability,
   daysInRange,
@@ -28,7 +28,7 @@ import {
 } from "@/lib/validators";
 import { bookingsOverlapping } from "@/lib/rebooking.server";
 import { multiDayProblem, slotStartedProblem } from "@/lib/resort";
-import type { BookingRow, FacilityRow, PackageRow, RoomRow } from "@/types/database";
+import type { FacilityRow, PackageRow, RoomRow } from "@/types/database";
 import type { BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 import { ensureSettings } from "@/lib/settings.server";
 

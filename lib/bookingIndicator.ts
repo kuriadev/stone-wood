@@ -7,6 +7,7 @@
 // tests/unit/bookingIndicator.test.ts.
 
 import type { Booking } from "@/types/booking";
+import { isNoShow } from "@/lib/labels";
 import { bookingEndDate } from "@/lib/utils";
 
 export type IndicatorSignal = "urgent" | "attention" | "progress" | "done" | "guest" | "closed";
@@ -15,7 +16,7 @@ export interface Indicator {
   label: string;
   signal: IndicatorSignal;
   /** An Icon name (components/common/Icon.tsx). */
-  icon: "clock" | "calendar" | "alert" | "users" | "cash" | "check-circle" | "x" | "history" | "refresh";
+  icon: "clock" | "calendar" | "alert" | "users" | "cash" | "check-circle" | "x" | "history" | "refresh" | "user-x";
 }
 
 const daysBetween = (from: string, to: string) =>
@@ -27,6 +28,7 @@ const daysBetween = (from: string, to: string) =>
  * @param asksMove a guest date-change request is waiting
  */
 export function bookingIndicator(b: Booking, today: string, due: number, asksMove = false): Indicator {
+  if (isNoShow(b)) return { label: "No-show", signal: "closed", icon: "user-x" };
   if (b.status === "Cancelled") return { label: "Cancelled", signal: "closed", icon: "x" };
   if (b.status === "ResortCancelled") return { label: "Waiting for the guest to choose", signal: "guest", icon: "history" };
   if (b.status === "Completed") {

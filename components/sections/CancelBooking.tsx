@@ -27,7 +27,7 @@ import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { fmt, fmtDate, getBookingSlot, getBookingResource, getBookingTier, stayLabel } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
-import { choiceOpen, fmtDeadline, holdActive, HOLD_HOURS } from "@/lib/rebooking";
+import { choiceOpen, noShowChoiceOpen, fmtDeadline, holdActive, HOLD_HOURS, NO_SHOW_CHOICE_DAYS } from "@/lib/rebooking";
 import type { Booking, BookingSlot } from "@/types/booking";
 import type { DateChange } from "@/types/finance";
 import { Icon, type IconName } from "@/components/common/Icon";
@@ -278,7 +278,8 @@ export function ManageBooking(_props: ManageBookingProps) {
     return "#888";
   };
   const statusLabel = (b: Booking) =>
-    b.status === "ResortCancelled" ? "CANCELLED BY THE RESORT"
+    b.status === "Cancelled" && b.noShow ? "NO-SHOW"
+    : b.status === "ResortCancelled" ? "CANCELLED BY THE RESORT"
       : b.status === "Pending" ? "BEING REVIEWED"
         : b.status.toUpperCase();
 
@@ -314,6 +315,15 @@ export function ManageBooking(_props: ManageBookingProps) {
     : undefined;
   const rebookTurnedDown = !rebookPending && latestRebook && (latestRebook.status === "Declined" || latestRebook.status === "Expired")
     ? latestRebook : undefined;
+  /* After a no-show the guest can still pick a new date: from the day after
+     (when they are emailed) for NO_SHOW_CHOICE_DAYS. Their pick waits for
+     the resort, like a resort-cancelled guest's. */
+  const noShow = found?.status === "Cancelled" && found.noShow === true;
+  const noShowPending = noShow ? pendingChange : undefined;
+  const noShowChoosing = !!found && noShowChoiceOpen(found);
+  const noShowTurnedDown = noShow && !noShowPending && found?.noShowNotifiedAt
+    ? dateChanges.find((r) => r.requestedBy === "Resort" && Date.parse(r.createdAt) >= Date.parse(found.noShowNotifiedAt!) && (r.status === "Declined" || r.status === "Expired"))
+    : undefined;
   const lastRefund = [...payments].reverse().find((p) => p.type === "Refund");
   const choosing = !!found && choiceOpen(found);
   // The notice rule (Rates & Settings): date changes close a few days
@@ -592,6 +602,71 @@ export function ManageBooking(_props: ManageBookingProps) {
               </div>
             )}
 
+            {/* ── NO-SHOW: pick a new date ──────────────────────────────────── */}
+            {noShow && (
+              <div style={{ ...card, marginBottom: 20, borderColor: `${gold}66` }}>
+                <p style={{ ...eyebrow, marginBottom: 12 }}>WE MISSED YOU</p>
+                <h3 style={{ color: C.textH, fontFamily: serif, fontSize: mob ? 22 : 28, fontWeight: 400, margin: "0 0 12px", lineHeight: 1.2 }}>
+                  Your group didn&rsquo;t arrive on {fmtDate(found.date)}.
+                </h3>
+                {noShowPending ? (
+                  <div style={{ border: `1px solid ${gold}66`, background: `${gold}0f`, borderRadius: 10, padding: 16 }}>
+                    <p style={{ ...eyebrow, marginBottom: 8 }}>WAITING FOR THE RESORT</p>
+                    <p style={{ color: C.textB, fontSize: 14, lineHeight: 1.7, margin: 0 }}>
+                      You picked <strong style={{ color: C.textH }}>{fmtDate(noShowPending.toDate)}</strong>. We&rsquo;re holding it for you
+                      until {fmtDeadline(noShowPending.holdUntil!)} while the resort confirms it, and we&rsquo;ll email you the answer
+                      {found.email ? <> at {found.email}</> : null}.{paidNet > 0 && <> Your {fmt(paidNet)} carries over.</>}
+                    </p>
+                  </div>
+                ) : noShowChoosing ? (
+                  <>
+                    {noShowTurnedDown && (
+                      <p role="status" style={{ color: C.textB, fontSize: 13.5, lineHeight: 1.7, margin: "0 0 12px", borderLeft: "3px solid #e8a070", paddingLeft: 12 }}>
+                        {noShowTurnedDown.status === "Declined"
+                          ? <>The resort couldn&rsquo;t confirm {fmtDate(noShowTurnedDown.toDate)}.{noShowTurnedDown.note ? ` ${noShowTurnedDown.note}` : ""} Please pick another date.</>
+                          : <>The resort wasn&rsquo;t able to confirm {fmtDate(noShowTurnedDown.toDate)} in time, so the date wasn&rsquo;t kept. Please pick again.</>}
+                      </p>
+                    )}
+                    <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: "0 0 20px" }}>
+                      You can still move this booking to another free date.
+                      {paidNet > 0 && <> The {fmt(paidNet)} you paid carries over{found.total - paidNet > 0 ? <>, and the remaining {fmt(found.total - paidNet)} is paid when you arrive</> : null}.</>}
+                      {" "}The resort confirms the date you pick. Please choose by <strong style={{ color: C.textH }}>{fmtDeadline(found.choiceDeadline!)}</strong>.
+                    </p>
+                    {!picking ? (
+                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                        <button className="sw-btn" type="button" onClick={() => { setPicking(true); setNewDate(""); setDateError(null); }} style={{ ...goldBtn }}>PICK A NEW DATE</button>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                        {picker}
+                        {dateError && <p style={{ color: "#e07a7a", fontSize: 13, margin: 0 }}>{dateError}</p>}
+                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                          <button className="sw-btn-out" type="button" onClick={() => setPicking(false)} style={{ ...outBtn, color: C.goldInk, minHeight: 48 }}>BACK</button>
+                          <button className="sw-btn" type="button" disabled={!newDate || dateBusy} onClick={() => void confirmRebook()}
+                            style={{ ...goldBtn, opacity: !newDate || dateBusy ? 0.5 : 1, cursor: !newDate ? "not-allowed" : dateBusy ? "wait" : "pointer" }}>
+                            {dateBusy ? "SENDING…" : newDate ? `REQUEST ${fmtDate(newDate).toUpperCase()}` : "CHOOSE A DATE"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : !found.noShowNotifiedAt ? (
+                  <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: 0 }}>
+                    From tomorrow you can pick a new date here, for {NO_SHOW_CHOICE_DAYS} days{found.email ? <>, and we&rsquo;ll email you a link</> : null}.
+                    {paidNet > 0 && <> The {fmt(paidNet)} you paid carries over to it.</>}
+                  </p>
+                ) : (
+                  <>
+                    <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: "0 0 12px" }}>
+                      The time to pick a new date has passed, so this booking is closed. Under our no-refund policy, what was paid
+                      isn&rsquo;t returned. If you think that&rsquo;s wrong, call or message us with your reference <strong style={{ color: C.textH }}>{found.id}</strong>.
+                    </p>
+                    <ResortContact mailSubject={`No-show ${found.id}`} />
+                  </>
+                )}
+              </div>
+            )}
+
             {/* ── REFUND ──────────────────────────────────────────────────── */}
             {found.refundStatus && (
               <div style={{ ...card, marginBottom: 20, borderColor: found.refundStatus === "Sent" ? "rgba(110,192,113,0.45)" : "#e07a3a66" }}>
@@ -699,8 +774,8 @@ export function ManageBooking(_props: ManageBookingProps) {
 
               {closed || found.checkedInAt ? (
                 <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: 0 }}>
-                  {found.status === "ResortCancelled"
-                    ? choosing ? "Use the choice above to pick a new date." : "See the note above about your new date."
+                  {found.status === "ResortCancelled" || noShow
+                    ? choosing || noShowChoosing ? "Use the choice above to pick a new date." : "See the note above about your new date."
                     : `This reservation is ${found.checkedInAt && !closed ? "under way" : found.status.toLowerCase()}, so there is nothing left to change here. Contact support if you think that is wrong.`}
                 </p>
               ) : (

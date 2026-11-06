@@ -12,7 +12,6 @@ import { useToast } from "@/contexts/ToastContext";
 import { T } from "@/lib/theme";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
-import { Panel, StatCard, BarChart, ProgressRow } from "@/components/admin/charts";
 import { fmt, fmtDate, holdsDate } from "@/lib/utils";
 import { Masonry } from "@/components/common/Masonry";
 import { galleryTiles, galleryColumns, toGalleryPhoto, cleanCaption, GALLERY_TITLE_MAX, GALLERY_TEXT_MAX, type GalleryPhoto } from "@/lib/gallery";
@@ -65,16 +64,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { getPackageTier, checkBookingAvailability, isRoomOpen, roomsTakenOn, bookingCoversDate, bookingDates, getBookingSlot } from "@/lib/utils";
+import { bookingCoversDate, bookingDates, getBookingSlot } from "@/lib/utils";
 import "@/components/admin/BookingCalendar.css";
 import "@/components/admin/GuestMessages.css";
 import "@/components/admin/AdminSidebar.css";
 import { compressImage } from "@/lib/image";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
-import { priceBooking, bookingLabel } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
-import { sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail, RESORT_MAX_CAPACITY, OVERTIME_MAX, OVERTIME_RATE, GALLERY_MAX, staffDateWindow } from "@/lib/validators";
-import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
+import { GALLERY_MAX, staffDateWindow } from "@/lib/validators";
+import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
 import type { AdminTab, CustomerMessage } from "@/types/admin";
 import type { RejectionMoney } from "@/lib/emailTemplate";

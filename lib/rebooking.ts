@@ -30,6 +30,28 @@ import type { Booking } from "@/types/booking";
 import type { DateChange } from "@/types/finance";
 
 export const GUEST_CHOICE_DAYS = 7;
+
+/* ── After a no-show ──
+ * The group never came, so the booking is cancelled and, under the
+ * no-refund policy, what was paid is kept. It isn't lost, though: the day
+ * after, the guest is emailed a link and has NO_SHOW_CHOICE_DAYS to pick a
+ * new date. What they paid carries over; any balance is still due. Their
+ * pick is held HOLD_HOURS for the front desk or the owner to approve, the
+ * same queue as every other move. Their window doesn't pause while a pick
+ * waits: a declined pick can be replaced while the window is open. */
+export const NO_SHOW_NOTICE_DAYS = 1;
+export const NO_SHOW_CHOICE_DAYS = 20;
+export const NO_SHOW_REBOOK_NOTE = "Picked by the guest after a no-show.";
+
+/** A no-show whose guest can still pick a new date. */
+export function noShowChoiceOpen(b: Pick<Booking, "status" | "noShow" | "choiceDeadline">, now = Date.now()): boolean {
+  return b.status === "Cancelled" && b.noShow === true && !!b.choiceDeadline && Date.parse(b.choiceDeadline) > now;
+}
+
+/** A pending request that is a no-show guest's new date. */
+export function isNoShowRebook(r: Pick<DateChange, "status">, b: Pick<Booking, "status" | "noShow">): boolean {
+  return r.status === "Pending" && b.status === "Cancelled" && b.noShow === true;
+}
 export const HOLD_HOURS = 48;
 /** Date changes a guest may ask for on one booking. */
 export const GUEST_CHANGES_ALLOWED = 1;

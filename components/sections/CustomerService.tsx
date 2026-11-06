@@ -120,12 +120,6 @@ const submit = handleSubmit(async (values) => {
   }
 });
 
-  // ── Shared field border helper ───────────────────────────────────────────────
-  const fieldBorder = (ok: boolean, isTouched: boolean) => {
-    if (!isTouched) return C.inp.border;
-    return ok ? "1px solid rgba(76,175,80,0.6)" : "1px solid rgba(229,85,85,0.6)";
-  };
-
   return (
     <div style={{ background: C.bg, minHeight: "100vh", padding: mob ? "48px 20px" : "80px 24px" }}>
       <div style={{ maxWidth: 940, margin: "0 auto" }}>
@@ -165,7 +159,7 @@ const submit = handleSubmit(async (values) => {
           <div style={{ background: C.bgCard, border: `1px solid ${gold}44`, borderRadius: 12, padding: "52px 24px", textAlign: "center", boxShadow: C.shadow }}>
             <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg,${gold}22,${gold}11)`, border: `1px solid ${gold}44`, display: "flex", alignItems: "center", justifyContent: "center", color: C.goldInk, margin: "0 auto 20px" }}><Icon name="message" size={30} strokeWidth={1.5} /></div>
             <h3 style={{ color: C.goldInk, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 26, marginBottom: 12, fontWeight: 400 }}>Message Received!</h3>
-            <p style={{ color: C.textS, fontSize: 15, lineHeight: 1.8 }}>We'll respond within 24 hours.</p>
+            <p style={{ color: C.textS, fontSize: 15, lineHeight: 1.8 }}>We&apos;ll respond within 24 hours.</p>
           </div>
         ) : (
           <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "24px 20px" : "40px", boxShadow: C.shadow }}>

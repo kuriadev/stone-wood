@@ -69,7 +69,7 @@ export const rowToRequest = (r: OwnerRequestRow): OwnerRequest => ({
 /** Kinds worth an email to the owner as well as the badge. Closing the day
  *  is routine and happens every evening; the owner sees it in the app. */
 const EMAILED = new Set<Permission>([
-  "bookings.cancel", "bookings.resortCancel", "bookings.delete",
+  "bookings.cancel", "bookings.noshow", "bookings.resortCancel", "bookings.delete",
   "payments.refund", "payments.void", "expenses.void", "payments.writeOff",
   "inventory.delete", "facilities.delete",
 ]);
@@ -134,8 +134,11 @@ async function describe(perm: Permission, path: string, body: unknown, bookingId
         return /refund-request/.test(path)
           ? `Record that the guest chose a refund: ${guest}.`
           : `Send a ${fmt(Number(b.amount) || 0)} refund by ${str(b.method) || "—"} for ${guest}.`;
+      case "bookings.noshow":
       case "bookings.cancel":
-        return `Cancel ${guest}${str(b.cancelReason) ? ` — "${str(b.cancelReason)}"` : ""}.`;
+        return b.noShow === true
+          ? `Mark ${guest} as a no-show${str(b.cancelReason) ? ` — "${str(b.cancelReason)}"` : ""}.`
+          : `Cancel ${guest}${str(b.cancelReason) ? ` — "${str(b.cancelReason)}"` : ""}.`;
       case "bookings.resortCancel":
         return `Cancel ${guest} because the resort can't host it.`;
       case "bookings.delete":
