@@ -45,6 +45,7 @@ import { RefundModal } from "@/components/admin/RefundModal";
 import { InvoiceModal } from "@/components/admin/InvoiceModal";
 import { AdminPageHeader, StatCard, ChoiceButtons, TableShell, td, ActionButton, IconAction, StatusBadge, Modal, Label, AmountRow, ErrorNote, useAdminStyle, Row, Cell, STATUS_COLOR, FullSelect, ConfirmDialog, TotalRow, TOGGLE_CLEARANCE, usePaged, Pager, FilterSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
 import { DateField } from "@/components/common/DateField";
+import { ExportMenu } from "@/components/admin/ExportMenu";
 
 type View = "Transactions" | "Payments" | "Receivables" | "Settlements" | "Clients" | "Expenses" | "Closing";
 
@@ -241,7 +242,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
         search={
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Booking ID, email or guest" aria-label="Search transactions" style={{ ...sel, width: "100%", minWidth: 0, flex: 1 }} />
-            <ActionButton size="sm" icon="download" onClick={exportCsv}>CSV</ActionButton>
+            <ExportMenu size="sm" ariaLabel="Export the transactions" items={[{ label: "CSV", onSelect: exportCsv }]} />
           </div>
         }
       >
@@ -448,7 +449,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
   onRefund: (id: string) => void;
   onInvoice: (id: string) => void;
 }) {
-  const { C, rowBg, inp } = useAdminStyle();
+  const { C, rowBg } = useAdminStyle();
   const sorted = [...rows].sort((a, b) => a.b.date.localeCompare(b.b.date));
   const total = round2(rows.reduce((s, r) => s + r.m.due, 0));
   const refundTotal = round2(refunds.reduce((s, b) => s + (b.refundAmount ?? 0), 0));
@@ -730,7 +731,7 @@ function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void 
 }
 
 export function ExpenseModal({ onClose, initialDate }: { onClose: () => void; initialDate?: string }) {
-  const { C, inp } = useAdminStyle();
+  const { inp } = useAdminStyle();
   const ops = useOps();
   const { toast } = useToast();
   const [f, setF] = useState({ category: "Supplies", description: "", amount: "", method: "Cash" as (typeof MANUAL_METHODS)[number], spentOn: initialDate ?? manilaDate() });

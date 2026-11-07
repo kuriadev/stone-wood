@@ -39,7 +39,6 @@ export const GUEST_CHOICE_DAYS = 7;
  * pick is held HOLD_HOURS for the front desk or the owner to approve, the
  * same queue as every other move. Their window doesn't pause while a pick
  * waits: a declined pick can be replaced while the window is open. */
-export const NO_SHOW_NOTICE_DAYS = 1;
 export const NO_SHOW_CHOICE_DAYS = 20;
 export const NO_SHOW_REBOOK_NOTE = "Picked by the guest after a no-show.";
 

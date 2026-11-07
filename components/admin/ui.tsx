@@ -32,7 +32,6 @@ import { T } from "@/lib/theme";
 import { gold } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { GlideSelect } from "@/components/common/GlideSelect";
-import { BOOKING_STATUS_LABEL } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label as UiLabel } from "@/components/ui/label";
@@ -308,14 +307,24 @@ export function ChoiceButtons<V extends string>({
   label?: string;
 }) {
   const { C, cBr } = useAdminStyle();
+  /* An even grid, not one squeezed row. Each column is at least as wide as
+     the longest single word among the options (a label wraps between words,
+     never inside one), so options share a row while that fits and wrap into
+     equal-width rows when it doesn't: "Full / 50% down / Not yet" stays
+     three across, the four facility statuses become 2 x 2 in a phone-width
+     dialog. Squeezed into one row, "Maintenance" ran past its button. */
+  const words = options.flatMap((o) => [o.label, o.hint].filter((t): t is string => typeof t === "string").flatMap((t) => t.split(/\s+/)));
+  const longest = words.reduce((n, w) => Math.max(n, w.length), 0) || 10;
+  const minCol = Math.max(72, Math.round(longest * (size === "sm" ? 7.2 : 7.6) + (size === "sm" ? 22 : 34)));
   return (
-    <div role="radiogroup" aria-label={label} style={{ display: "flex", gap: SPACE.xs, flexWrap: "wrap" }}>
+    <div role="radiogroup" aria-label={label} style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(min(${minCol}px, 100%), 1fr))`, gap: SPACE.xs }}>
       {options.map((o) => {
         const on = o.value === value;
         return (
           <button key={o.value} type="button" role="radio" aria-checked={on} disabled={o.disabled} onClick={() => onChange(o.value)}
             style={{
-              flex: 1, minWidth: 0, minHeight: TAP_MIN, padding: size === "sm" ? "8px 12px" : "12px 16px", fontSize: 12.5, fontWeight: 600,
+              minWidth: 0, minHeight: TAP_MIN, padding: size === "sm" ? "8px 10px" : "12px 16px", fontSize: 12.5, fontWeight: 600,
+              lineHeight: 1.25, overflowWrap: "break-word",
               borderRadius: 10, cursor: o.disabled ? "not-allowed" : "pointer", opacity: o.disabled ? 0.4 : 1,
               background: on ? `${gold}1c` : "transparent", color: on ? C.goldInk : C.textS,
               border: `1px solid ${on ? gold + "66" : cBr}`, textAlign: "center",
@@ -454,9 +463,6 @@ export const STATUS_COLOR: Record<string, string> = {
   Cancelled: SIGNAL.closed,
   ResortCancelled: SIGNAL.guest,
 };
-
-/** What staff read for a status. The stored value stays a single word. */
-export const STATUS_LABEL: Record<string, string> = BOOKING_STATUS_LABEL;
 
 export const MONEY_COLOR: Record<string, string> = {
   "Paid in full": SIGNAL.done,

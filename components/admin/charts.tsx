@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { useTheme } from "@/contexts/ThemeContext";
 import { T } from "@/lib/theme";
@@ -38,69 +37,6 @@ function surface(isDark: boolean) {
 // ── PANEL ────────────────────────────────────────────────────────────
 // A titled card. `action` is the right-hand slot the reference dashboards
 // use for a filter or range control.
-
-export function Panel({
-  title,
-  action,
-  children,
-  padding = "22px 24px",
-  style,
-}: {
-  title?: string;
-  action?: ReactNode;
-  children: ReactNode;
-  padding?: string;
-  style?: React.CSSProperties;
-}) {
-  const { isDark } = useTheme();
-  const C = T(isDark);
-  const s = surface(isDark);
-
-  return (
-    <div
-      style={{
-        background: s.bg,
-        border: `1px solid ${s.border}`,
-        borderRadius: 14,
-        padding,
-        // A single soft shadow rather than the heavier card shadow — the
-        // border already separates the card from the page.
-        boxShadow: isDark
-          ? "0 1px 2px rgba(0,0,0,0.30)"
-          : "0 1px 2px rgba(60,50,30,0.05), 0 8px 24px -16px rgba(60,50,30,0.12)",
-        ...style,
-      }}
-    >
-      {(title || action) && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            marginBottom: 20,
-          }}
-        >
-          {title && (
-            <h3
-              style={{
-                color: C.textH,
-                fontSize: 13.5,
-                fontWeight: 600,
-                letterSpacing: 0.8,
-                margin: 0,
-              }}
-            >
-              {title}
-            </h3>
-          )}
-          {action}
-        </div>
-      )}
-      {children}
-    </div>
-  );
-}
 
 // ── SPARKLINE ────────────────────────────────────────────────────────
 // The small trend curve beside each figure in the reference. Purely
@@ -284,41 +220,3 @@ export function BarChart({
 // ── PROGRESS ROW ─────────────────────────────────────────────────────
 // Label, figure and a track — used by Status Breakdown and Package
 // Breakdown, which previously duplicated the same markup.
-
-export function ProgressRow({
-  label,
-  value,
-  pct,
-  color,
-}: {
-  label: string;
-  value: string | number;
-  pct: number;
-  color: string;
-}) {
-  const { isDark } = useTheme();
-  const C = T(isDark);
-
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-        <span style={{ color: C.textB, fontSize: 14 }}>{label}</span>
-        <span style={{ fontSize: 14, fontVariantNumeric: "tabular-nums" }}>
-          <span style={{ color, fontWeight: 700 }}>{value}</span>{" "}
-          <span style={{ color: C.textXS }}>({pct}%)</span>
-        </span>
-      </div>
-      <div style={{ background: isDark ? "#17130f" : "#f1ece3", borderRadius: 999, height: 5, overflow: "hidden" }}>
-        <div
-          style={{
-            width: `${pct}%`,
-            background: color,
-            height: "100%",
-            borderRadius: 999,
-            transition: "width .6s cubic-bezier(.22,1,.36,1)",
-          }}
-        />
-      </div>
-    </div>
-  );
-}

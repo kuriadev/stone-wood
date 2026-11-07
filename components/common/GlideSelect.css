@@ -61,7 +61,14 @@
 
 .glide-select[data-full] .glide-select__trigger {
   width: 100%;
-  justify-content: space-between;
+}
+/* Full width: the name takes the free space on the left, so the count and
+   the chevron sit together at the right. With space-between the count
+   floated alone in the middle of a wide picker. */
+.glide-select[data-full] .glide-select__label {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
 }
 
 .glide-select__trigger:focus-visible {
@@ -225,6 +232,20 @@
   color: color-mix(in srgb, var(--gs-text) 55%, transparent);
   font-size: calc(var(--gs-font) - 1px);
   font-variant-numeric: tabular-nums;
+}
+/* On the chip itself the count is a small pill beside the chevron, so it
+   reads as "how many", not as stray text. */
+.glide-select__trigger .glide-select__tag {
+  min-width: 20px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  text-align: center;
+  line-height: 1;
+  color: color-mix(in srgb, var(--gs-text) 75%, transparent);
+  background: color-mix(in srgb, var(--gs-text) 9%, transparent);
+  /* One number on its own: Satoshi's proportional figures. The tabular
+     ones (kept for the menu, where counts line up) draw a footed "1". */
+  font-variant-numeric: normal;
 }
 
 .glide-select__check {

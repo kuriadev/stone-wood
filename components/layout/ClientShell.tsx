@@ -6,7 +6,6 @@ import { useRef, useEffect, useState, useCallback, useSyncExternalStore } from "
 import { usePathname } from "next/navigation";
 import { TopLoader, LoaderRef } from "@/components/layout/TopLoader";
 import { GuestTabBar } from "@/components/layout/GuestTabBar";
-import { CursorDot } from "@/components/layout/CursorDot";
 import { useApp } from "@/contexts/AppContext";
 import { MaintenanceGate } from "@/components/layout/MaintenanceGate";
 import { PageCurtain, CURTAIN_PAGES, type CurtainPhase } from "@/components/layout/PageCurtain";
@@ -167,13 +166,6 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
       {/* Phones: the bottom tabs, in the first HTML of every guest page
           (hidden by CSS above 760px; never on the admin or sign-in). */}
       <GuestTabBar />
-      {/* Home only. The trailing dot is a flourish for the page a visitor
-          lands on; behind it are booking forms, calendars and the admin
-          dashboard, where a circle drifting over dense tables and number
-          fields is a distraction rather than a welcome. Gated here rather
-          than inside CursorDot so the component stays a dumb effect and
-          nothing it listens to is even registered on other routes. */}
-      {pathname === "/" && <CursorDot />}
       {/*
         Keyed on the pathname so React swaps the subtree on every route
         change, which restarts the .sw-page entrance animation. Without the

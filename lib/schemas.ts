@@ -84,10 +84,6 @@ export const overtime = z.coerce
     if (v > OVERTIME_MAX) ctx.addIssue({ code: "custom", message: `Overtime is capped at ${OVERTIME_MAX} hours.` });
   });
 
-export const bookingSlot = z.enum(["Day", "Night", "WholeDay"]);
-export const bookingTier = z.enum(["Shared", "Exclusive"]);
-export const bookingResource = z.enum(["Pool", "Venue", "Pool+Venue"]);
-
 /** Room ids: positive integers, de-duplicated, order preserved. */
 export const roomIds = z
   .array(z.coerce.number().int().positive())

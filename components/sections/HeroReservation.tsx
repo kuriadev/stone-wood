@@ -3,7 +3,6 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
-import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { fmt, fmtDate, SLOT_ICON } from "@/lib/utils";
 import { daysInRange, stayLabel, checkRangeAvailability, isPoolOpen } from "@/lib/utils";
@@ -80,7 +79,6 @@ export function HeroReservation({
   bookings, closedDates, onBookWithDate, onBrowseRooms, onManageBooking,
 }: HeroReservationProps) {
   const { isDark } = useTheme();
-  const C = T(isDark);
   const w = useWidth();
   const mob = w < 900;
 

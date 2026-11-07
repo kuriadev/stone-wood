@@ -4,7 +4,6 @@
   import { useTheme } from "@/contexts/ThemeContext";
   import "./BookNow.css";
   import { useWidth } from "@/hooks/useWidth";
-  import { useToast } from "@/contexts/ToastContext";
   import { T } from "@/lib/theme";
   import { gold, goldBtn, outBtn } from "@/lib/styles";
   import { fmt, fmtTimer, fmtDate, getPackageTier, checkRangeAvailability, datesBetween, daysInRange, getSharedPoolUsage, isRoomOpen, isPoolOpen, isVenueOpen, roomsTakenInRange, stayLabel, SLOT_ICON } from "@/lib/utils";
@@ -141,7 +140,6 @@
   }: BookNowProps) {
     const { isDark } = useTheme();
     const C = T(isDark);
-    const { toast } = useToast();
     const w = useWidth();
     const mob = w < 768;
 
@@ -230,7 +228,6 @@
     const activeIntentRef = useRef<string | null>(null);
 
     // Modal states
-    const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
     const [showGcashWarning, setShowGcashWarning] = useState(false);
     /** What the server refused before payment, and for which choices. */
     const [blocked, setBlocked] = useState<{ key: string; step: "date" | "room" | "contact"; reason: string } | null>(null);
@@ -401,7 +398,7 @@
     // what's shown here is what gets charged. Named fields are unpacked
     // because the breakdown below displays each line.
     const {
-      tourBase, poolFee, venueFee, total, down, slots: slotCount,
+      tourBase, venueFee, total, down, slots: slotCount,
     } = priceBooking({
       pkg: isPackage ? { price: initialPackage!.price, requiresRoom } : null,
       resource,
@@ -466,37 +463,6 @@
         setChecking(false);
       }
     };
-    // One line per part of the price, in the same order the server adds
-    // them up. Whole Day doubles the per-slot parts, and says so.
-    /* What each line is multiplied by, spelled out. The room and package
-       lines used to show ONE day's price beside a total that charged for
-       three, because only the suffix knew about slots and nothing knew
-       about days. Both now multiply by the same `stayDays` the total does. */
-    const perSlot = [slotCount === 2 ? "2 tours" : "", stayDays > 1 ? `${stayDays} days` : ""]
-      .filter(Boolean)
-      .map((x) => ` × ${x}`)
-      .join("");
-    const priceLines: { label: string; amount: number; strike?: number }[] = isPackage
-      ? [
-          {
-            label: `${initialPackage!.title} — ${SLOTS[slot].label}${stayDays > 1 ? ` × ${stayDays} days` : ""}`,
-            amount: initialPackage!.price * stayDays,
-            strike: initialPackage!.listPrice ? initialPackage!.listPrice * stayDays : undefined,
-          },
-          ...selectedRoomDetails.map((r) => ({ label: `Room — ${r.name}${perSlot}`, amount: r.price * slotCount * stayDays })),
-        ]
-      : [
-          ...(poolFee > 0
-            ? [{
-                label: tier === "Exclusive"
-                  ? `Exclusive pool${stayDays > 1 ? ` × ${stayDays} days` : ""}`
-                  : `Shared pool (${guests} × ${fmt(sharedRateFor(slot))}${stayDays > 1 ? ` × ${stayDays} days` : ""})`,
-                amount: poolFee,
-              }]
-            : []),
-          ...(venueFee > 0 ? [{ label: `Events venue${perSlot}`, amount: venueFee }] : []),
-          ...selectedRoomDetails.map((r) => ({ label: `Room — ${r.name}${perSlot}`, amount: r.price * slotCount * stayDays })),
-        ];
     // A package requiring a room only ever wants ONE — picking a new one
     // replaces the selection instead of adding to it.
     const toggleRoom = (id: number) => {
@@ -683,7 +649,6 @@
         onBooked?.();
         clearPreselected?.(); clearPreselectedDate?.();
         if (timerRef.current) clearInterval(timerRef.current);
-        setShowPaymentConfirm(false);
         setStep(7);
       } catch (err) {
         setSaveError(err instanceof Error ? err.message : "We couldn't save your booking.");

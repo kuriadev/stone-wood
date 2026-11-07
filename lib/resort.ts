@@ -208,9 +208,6 @@ export function slotTiming(date: string, slot: BookingSlot, at: Date = new Date(
   return now.hour >= SLOTS[slot].endHour ? "ended" : "started";
 }
 
-/** The two bookable single slots, in order. */
-export const SINGLE_SLOTS: BookingSlot[] = ["Day", "Night"];
-
 /** 5–7 PM: cleaning and turnover between the Day and Night groups. */
 export let TURNOVER_WINDOW = "5:00 – 7:00 PM";
 

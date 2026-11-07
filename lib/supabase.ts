@@ -61,11 +61,6 @@ const SUPABASE_ANON_KEY =
 const isPlaceholder = (v: string): boolean =>
   !v || v.includes("your-project-ref") || v.startsWith("your-");
 
-/** True once both public env vars hold real values, so callers can fall
- *  back to the hardcoded constants while the migration is in progress. */
-export const isSupabaseConfigured =
-  !isPlaceholder(SUPABASE_URL) && !isPlaceholder(SUPABASE_ANON_KEY);
-
 function missing(name: string): never {
   throw new Error(
     `${name} is not set or still holds a placeholder. Set it in ` +

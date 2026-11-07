@@ -40,7 +40,6 @@ import type { BookingRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
-const STATUSES = ["Pending", "Confirmed", "Completed", "Cancelled"] as const;
 
 export async function GET(req: NextRequest) {
   const denied = await requirePermission(req, "bookings.view");

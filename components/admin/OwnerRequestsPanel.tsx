@@ -34,7 +34,7 @@ const STATUS_COLOR: Record<OwnerRequest["status"], string> = {
   Pending: SIGNAL.attention, Approved: SIGNAL.done, Declined: SIGNAL.closed, Withdrawn: SIGNAL.closed,
 };
 
-export function OwnerRequestsPanel({ mob, reschedules = 0, onReviewReschedules, inRow = false }: {
+export function OwnerRequestsPanel({ reschedules = 0, onReviewReschedules, inRow = false }: {
   mob: boolean;
   /** Beside another panel in a row: no margin of its own, as tall as the row. */
   inRow?: boolean;

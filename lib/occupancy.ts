@@ -135,12 +135,3 @@ export function isInResort(booking: Booking, now: Date): boolean {
   const t = now.getTime();
   return t >= w.start.getTime() && t < w.end.getTime();
 }
-
-/** Bookings currently on site, and the headcount they represent. */
-export function getCurrentOccupancy(
-  bookings: Booking[],
-  now: Date
-): { present: Booking[]; total: number } {
-  const present = bookings.filter((b) => isInResort(b, now));
-  return { present, total: present.reduce((sum, b) => sum + (b.guests ?? 0), 0) };
-}

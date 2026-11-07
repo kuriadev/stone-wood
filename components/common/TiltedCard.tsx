@@ -71,14 +71,6 @@ const step = (state: SpringState, key: string, target: number, omega: number, ze
   return !settled;
 };
 
-export function TiltedCardLayer({ depth = 20, className = "", style, children }: { depth?: number; className?: string; style?: CSSProperties; children?: ReactNode }) {
-  return (
-    <div className={`tilted-card__layer ${className}`.trim()} style={{ "--tc-depth": depth, ...style } as CSSProperties}>
-      {children}
-    </div>
-  );
-}
-
 export interface TiltedCardProps {
   imageSrc?: string;
   altText?: string;

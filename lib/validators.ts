@@ -255,12 +255,6 @@ export function isWithinBookingWindow(dateStr: string): boolean {
   return d >= min && d <= max;
 }
 
-/** Check if a booking date string is not in the past. */
-export function isDateInFuture(dateStr: string): boolean {
-  const d = parseDateStr(dateStr);
-  return d !== null && d >= startOfToday();
-}
-
 /** Human-readable reason a date cannot be booked, or null when it can. */
 export function describeDateProblem(dateStr: string): string | null {
   const d = parseDateStr(dateStr);
@@ -354,7 +348,6 @@ export const LABEL_MAX = 120;
  */
 export function sanitizeLabel(raw: string): string {
   return (raw ?? "")
-    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001F\u007F]/g, "")
     .replace(/[<>]/g, "")
     .replace(/\s{2,}/g, " ")
@@ -408,20 +401,6 @@ export function validateBookingForm(form: {
   if (!isValidEmail(form.email)) return "Please enter a valid email address.";
   if (!isValidPHNumber(form.contact)) return "Please enter a valid 11-digit PH mobile number starting 09.";
   if ((form.notes ?? "").length > NOTES_MAX) return `Notes must be ${NOTES_MAX} characters or fewer.`;
-  return null;
-}
-
-export function validateOnsiteForm(form: {
-  name: string;
-  contact: string;
-  email?: string;
-}): string | null {
-  if (!form.name.trim()) return "Full name is required.";
-  if (!isValidName(form.name)) return `Please enter your full name (${NAME_MIN}–${NAME_MAX} letters).`;
-  if (!isValidPHNumber(form.contact)) return "Please enter a valid 11-digit PH mobile number starting 09.";
-  if (form.email !== undefined && !isGmailAddress(form.email)) {
-    return "Please enter a valid Gmail address.";
-  }
   return null;
 }
 

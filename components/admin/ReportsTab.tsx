@@ -13,9 +13,6 @@ import { Icon, type IconName } from "@/components/common/Icon";
 import "./Reports.css";
 import { useToast } from "@/contexts/ToastContext";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { statusLabel, bookingStatusLabel, payTypeLabel, payMethodLabel, adminTabLabel, NO_SHOW, statusKey, isNoShow } from "@/lib/labels";
 import { useMemo, useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
@@ -35,6 +32,7 @@ import type { Room } from "@/types/room";
 import { gold } from "@/lib/styles";
 import { BarChart } from "@/components/admin/charts";
 import { AdminPageHeader, ChoiceButtons, useAdminStyle, FullSelect } from "@/components/admin/ui";
+import { ExportMenu } from "@/components/admin/ExportMenu";
 import { dayjs, DATE_FMT } from "@/lib/dayjs";
 import { DateField } from "@/components/common/DateField";
 
@@ -492,24 +490,15 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
               <strong>{fmtDate(from)} – {fmtDate(to)}</strong>
               {compare && <small style={{ color: C.textS }}>vs {prevRange.label}</small>}
             </button>
-            {/* "•••": the four ways out (Excel, the two CSVs, print / PDF). */}
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <button type="button" className="sw-rep__btn is-icon" disabled={exporting} aria-label="Export or print this report" title="Export or print"
-                  style={{ borderColor: cBr, color: C.textH }}>
-                  <Icon name="more" size={17} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" style={{ minWidth: 230 }}>
-                <DropdownMenuItem onSelect={() => void exportExcel()}><Icon name="download" />Excel (.xlsx)</DropdownMenuItem>
-                <DropdownMenuItem onSelect={exportMoney}><Icon name="download" />Sales CSV</DropdownMenuItem>
-                <DropdownMenuItem onSelect={exportBookings}><Icon name="download" />Bookings CSV</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {/* The print view's own "Save as PDF" makes the PDF: the same
-                    report, laid out for paper. */}
-                <DropdownMenuItem onSelect={print}><Icon name="printer" />Print / Save as PDF</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* The four ways out (Excel, the two CSVs, print / PDF), behind the
+                same Export button as Bookings. The print view's own "Save as
+                PDF" makes the PDF: the same report, laid out for paper. */}
+            <ExportMenu busy={exporting} ariaLabel="Export or print this report" style={{ height: 40, borderRadius: 10 }} items={[
+              { label: "Excel (.xlsx)", onSelect: () => void exportExcel() },
+              { label: "Sales CSV", onSelect: exportMoney },
+              { label: "Bookings CSV", onSelect: exportBookings },
+              { label: "Print / Save as PDF", icon: "printer", divider: true, onSelect: print },
+            ]} />
             <button type="button" className="sw-rep__btn" onClick={() => void share()} style={{ borderColor: cBr, color: C.textH }}>
               <Icon name="upload" size={15} /> Share
             </button>

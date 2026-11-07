@@ -5,9 +5,6 @@
 // made before that keep SW-, so all four are recognised everywhere a
 // reference is read: guest messages, links, the refund form.
 
-/** The letters a reference can start with. */
-export const REF_PREFIXES = ["DT", "NT", "SC", "SW"] as const;
-
 /** The prefix a new booking of this type gets. */
 export const refPrefixFor = (slot: "Day" | "Night" | "WholeDay"): "DT" | "NT" | "SC" =>
   slot === "Night" ? "NT" : slot === "WholeDay" ? "SC" : "DT";

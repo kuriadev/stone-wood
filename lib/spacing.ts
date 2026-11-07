@@ -58,8 +58,3 @@ export const step = (n: number): number => n * 4;
  * to clear it, which is usually bought with padding rather than size.
  */
 export const TAP_MIN = 44;
-
-/** Vertical padding that lifts a control of `contentHeight` to the 44px
- *  minimum, rounded onto the grid. Returns 0 when it already clears it. */
-export const tapPad = (contentHeight: number): number =>
-  Math.max(0, Math.ceil((TAP_MIN - contentHeight) / 2 / 4) * 4);

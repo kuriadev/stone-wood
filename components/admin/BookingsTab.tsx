@@ -66,6 +66,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { BookingHistory } from "@/components/admin/BookingHistory";
+import { ExportMenu } from "@/components/admin/ExportMenu";
 import { choiceOpen, fmtDeadline, holdActive, withHolds, NO_SHOW_CHOICE_DAYS, noShowChoiceOpen } from "@/lib/rebooking";
 import { AdminPageHeader, TableShell, td, ActionButton, IconAction, StatusBadge, Modal, AmountRow, useAdminStyle, MONEY_COLOR, Row, Cell, ConfirmDialog, ViewSwitcherTabs, usePaged, Pager, PAGE_SIZE, FullSelect, FilterSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
 
@@ -267,7 +268,6 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
     const idx = rows.findIndex((b) => b.id === spotting);
     if (idx < 0) return;
     const page = Math.floor(idx / PAGE_SIZE) + 1;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the page holding the notified booking
     if (paged.page !== page) { paged.setPage(page); return; }
     const id = spotting;
     setSpotting(null);
@@ -591,20 +591,12 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
               </button>
             )}
             {/* Export and import in one menu, so the header stays two buttons. */}
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <ActionButton icon="download" disabled={exporting} aria-label="Export, print or import bookings">
-                  {exporting ? "Preparing…" : "Export"} <Icon name="chevron-down" size={14} />
-                </ActionButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" style={{ minWidth: 240 }}>
-                <DropdownMenuItem onSelect={() => void exportExcel()}><Icon name="download" />Excel (.xlsx)</DropdownMenuItem>
-                <DropdownMenuItem onSelect={exportCsv}><Icon name="download" />CSV</DropdownMenuItem>
-                <DropdownMenuItem onSelect={printList}><Icon name="printer" />Print / Save as PDF</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => setImporting(true)}><Icon name="upload" />Import from a spreadsheet</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ExportMenu busy={exporting} ariaLabel="Export, print or import bookings" items={[
+              { label: "Excel (.xlsx)", onSelect: () => void exportExcel() },
+              { label: "CSV", onSelect: exportCsv },
+              { label: "Print / Save as PDF", icon: "printer", onSelect: printList },
+              { label: "Import from a spreadsheet", icon: "upload", divider: true, onSelect: () => setImporting(true) },
+            ]} />
             <ActionButton kind="primary" icon="plus" onClick={() => setWalkIn(true)}>New walk-in</ActionButton>
           </div>
         } />

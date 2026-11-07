@@ -48,7 +48,7 @@ import { BookingHistory } from "@/components/admin/BookingHistory";
 const iconOf = facilityIcon;
 
 function Checklist({ items, onToggle }: { items: { label: string; done: boolean }[]; onToggle: (i: number) => void }) {
-  const { C, inp } = useAdminStyle();
+  const { C } = useAdminStyle();
   if (items.length === 0) return <p style={{ color: C.textS, fontSize: 12.5, margin: 0 }}>No checklist for this facility.</p>;
   return (
     // Each row is a full-width, 40px-tall target: caretakers tick these

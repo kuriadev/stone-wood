@@ -4,7 +4,12 @@
 .sw-shop { display: grid; gap: 20px; align-items: start; }
 
 /* ── Left column ── */
-.sw-shop__side { position: sticky; top: 0; min-width: 0; }
+.sw-shop__side { min-width: 0; }
+/* Beside the list (641px+, the two-column layout) the filters stay in view
+   while the items scroll. Stacked above the list on a phone they must not:
+   pinned there, the category and status pickers slid over the search box
+   and the cards as the page scrolled. */
+@media (min-width: 641px) { .sw-shop__side { position: sticky; top: 0; } }
 .sw-shop__head {
   display: flex; align-items: center; gap: 8px;
   font-size: 14px; font-weight: 700; letter-spacing: .2px;

@@ -26,6 +26,7 @@ import { gold } from "@/lib/styles";
 import type { Activity } from "@/types/finance";
 import { ACTOR_COLOR, fmtWhen } from "@/components/admin/BookingHistory";
 import { AdminPageHeader, TableShell, Row, Cell, td, ActionButton, StatusBadge, useAdminStyle, usePaged, Pager, FullSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
+import { ExportMenu } from "@/components/admin/ExportMenu";
 
 /** The part of an action before the dot, as the owner reads it. */
 const CATEGORIES: { value: string; label: string }[] = [
@@ -149,7 +150,7 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
         subtitle={isOwner
           ? "Everything that happened, who did it and when — every staff member's actions included. Entries can't be edited or deleted."
           : "What you've done, and the full history of any booking you look up. Entries can't be edited or deleted."}
-        action={<ActionButton icon="download" onClick={exportCsv} disabled={rows.length === 0}>Download CSV</ActionButton>} />
+        action={<ExportMenu disabled={rows.length === 0} ariaLabel="Export the activity log" items={[{ label: "CSV", onSelect: exportCsv }]} />} />
 
       <FilterBar
         active={[!!booking, !!actor, !!person, !!category, !!from || !!to].filter(Boolean).length}

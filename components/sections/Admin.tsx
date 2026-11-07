@@ -228,7 +228,7 @@ export function Admin({
     const t = setInterval(() => setOpsNow(new Date()), 60_000);
     return () => clearInterval(t);
   }, []);
-  const [autoArchiveEnabled, setAutoArchiveEnabled] = useState(true);
+  const [autoArchiveEnabled] = useState(true);
   /* Inbox and archive are two views of ONE list, split on archivedAt.
      They used to be two arrays, and archiving moved a message between them
      in local state only: the collection's sync never saw an archivedAt
@@ -353,7 +353,6 @@ export function Admin({
     const automatedDraft = (msg: CustomerMessage) => draftReply(msg, bookings);
 
 
-  const tabs: AdminTab[] = ["Operations", "Bookings", "Occupancy", "Facilities", "Inventory", "Sales", "Reports", "Activity", "Rooms", "Packages", "Gallery", "Customer Service", "Maintenance"];
   // Icon per tab. Names resolve against the stroke set in ./Icon, so the
   // sidebar inherits the theme instead of rendering OS colour emoji.
   /* What the sidebar prints. The keys stay "Occupancy" and "Activity"
