@@ -14,9 +14,6 @@
 // It is SVG stroke-dashoffset rather than a Motion component because it
 // needs no JavaScript at all: the whole thing is two paths and a keyframe,
 // so there is nothing to hydrate and nothing to tear down.
-//
-// Under prefers-reduced-motion the tick is simply there, fully drawn. The
-// meaning lives in the mark, never in the movement.
 
 import type { CSSProperties } from "react";
 

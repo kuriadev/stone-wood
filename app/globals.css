@@ -192,13 +192,7 @@
    A fade instead of a cut, so going to light is never a flash. Browsers with view
    transitions get the whole page faded as one picture; the others get the
    colours themselves eased (.sw-theme-fade, set for the length of the
-   switch).
-
-   Under reduced motion it still fades, just faster. A cross-fade moves
-   nothing — it is two still pictures changing opacity — so it is not the
-   kind of motion that setting exists to stop, and cutting instead turned
-   the switch into a white flash for exactly the people most likely to
-   mind one. */
+   switch). */
 /* The new theme fades in OVER the old one, which stays solid underneath.
 
    It used to be a symmetric cross-fade: both pictures half-transparent at
@@ -1250,8 +1244,7 @@ img {
    horizontal drift at ~53px/s with no flashing or parallax, which is the mild
    end of what the media query targets. */
 
-/* ── SMOOTH ANCHOR SCROLL ──────────────────────────────────────────
-   Overridden above when reduced motion is requested. */
+/* ── SMOOTH ANCHOR SCROLL ────────────────────────────────────────── */
 html {
   scroll-behavior: smooth;
 }
@@ -1332,20 +1325,6 @@ html {
 }
 
 
-/* Skeleton placeholders under reduced motion.
-   The shimmer is a gradient sweeping horizontally across each shape. Only
-   `.lux-btn::before` used to be suppressed, so a skeleton came out half
-   still and half sweeping — the button froze while the lines and images
-   kept moving. Suppress the sweep on all four and substitute a slow opacity
-   breath: no translation, but the placeholder still reads as "working" and
-   not as a page that has failed to paint. */
-
-@keyframes skeletonBreathe {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
-}
-
-
 /* ── Maintenance notice: the pulsing status dot ──────────────────────
    Two elements in one: the dot itself, and a ::after ring that expands
    and fades outward, which reads as a live "still happening" signal
@@ -1382,10 +1361,6 @@ html {
   70%  { transform: scale(2.6); opacity: 0; }
   100% { transform: scale(2.6); opacity: 0; }
 }
-
-/* The ring travels outward, which is exactly the kind of motion the
-   reduced-motion query is about. Keep a gentle opacity breath on the dot
-   so it still reads as live, and drop the ring entirely. */
 
 /* ── BOOKING PROGRESS ──────────────────────────────────
    The wave is two oversized, blob-shaped layers (border-radius ~43%) living
@@ -1544,8 +1519,7 @@ html {
    One slow breath, not a spin or a blink. It sits beside a board staff
    read all day, so it has to register as alive without ever pulling the
    eye away from the work: 3 seconds, and an opacity range narrow enough
-   that you notice it only if you look for it. Honoured by the global
-   reduced-motion rule below, where the readout alone carries the message. */
+   that you notice it only if you look for it. */
 @keyframes sw-clock-breathe {
   0%, 100% { opacity: 0.55; }
   50%      { opacity: 1; }
@@ -1580,20 +1554,6 @@ html {
      one gesture rather than two animations queued up. */
   animation: sw-success-draw .42s cubic-bezier(.65, 0, .35, 1) .2s both;
 }
-
-
-/* ── Reduced motion: still respond, just do not move ──
-   Each interactive class above has its own reduced-motion block that turns
-   off the hover lift and the press-scale. Those are movement, and the
-   setting exists to stop movement. But the same blocks also said
-   `transition: none`, which stopped the COLOUR change as well, so under
-   reduced motion a button snapped from one colour to the next and felt
-   broken rather than calm.
-
-   This restores the colour, background, border and glow easing for those
-   classes and nothing else. `transform` is deliberately not in the list,
-   and their own rules already pin it to none on hover, so nothing lifts,
-   slides or scales. Later in the file, so it wins at equal specificity. */
 
 
 /* ── Sections below the fold render when they are about to be seen ──
