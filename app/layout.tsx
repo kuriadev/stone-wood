@@ -5,8 +5,6 @@ import "./intro.css";
 import { Providers } from "@/components/layout/Providers";
 import { ClientShell } from "@/components/layout/ClientShell";
 import { JsonLd } from "@/components/seo/JsonLd";
-import { HERO_BG } from "@/lib/constants";
-import { imageAt } from "@/lib/img";
 import { SITE, resortJsonLd } from "@/lib/seo";
 import { SettingsBoot } from "@/components/layout/SettingsBoot";
 import { IntroSplash } from "@/components/layout/IntroSplash";
@@ -84,14 +82,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
        covers this element's own attributes only. */
     <html lang="en" className={`${satoshi.variable} sw-dark`} suppressHydrationWarning>
       <head>
-        {/* The hero photo is the LCP element on the home page. It is a CSS
-            background, so the browser cannot discover it until the stylesheet
-            has parsed — preloading starts the download immediately instead.
-            Two links with matching media queries mirror the .sw-hero-photo
-            rule in globals.css, so a phone only ever fetches the smaller crop. */}
+        {/* Every page shows Unsplash photos. The home page's hero preload is
+            in app/page.tsx, so other pages don't download it. */}
         <link rel="preconnect" href="https://images.unsplash.com" />
-        <link rel="preload" as="image" media="(max-width: 900px)" href={imageAt(HERO_BG, 1000)} fetchPriority="high" />
-        <link rel="preload" as="image" media="(min-width: 901px)" href={HERO_BG} fetchPriority="high" />
       </head>
       <body>
         {/* The first-load intro: in the HTML, so it is the first paint. */}

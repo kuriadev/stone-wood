@@ -1,0 +1,86 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useApp } from "@/contexts/AppContext";
+import { THEME_COLORS } from "@/lib/theme";
+import { Home } from "@/components/sections/Home";
+import { Navbar } from "@/components/layout/Navbar";
+import { Footer } from "@/components/layout/Footer";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { buildPackageBookingUrl } from "@/lib/utils";
+import type { HeroMedia } from "@/lib/heroMedia";
+
+export function HomeRoute({ initialHero }: { initialHero?: HeroMedia | null }) {
+  const router = useRouter();
+  const C = THEME_COLORS;
+  const { bookings, closedDates, packages, rooms, skeleton } = useApp();
+  
+const nav = (p: string) => {
+  const routes: Record<string, string> = {
+    Home: "/",
+    Rooms: "/rooms",
+    Packages: "/packages",
+    Gallery: "/gallery",
+    "About Us": "/about",
+    "Book Now": "/book",
+    AdminLogin: "/login",
+    "Customer Service": "/customer",
+    "Manage Booking": "/my-booking",
+  };
+
+    const target = routes[p] ?? "/";
+
+    const loader = globalThis.loader?.current;
+
+    if (!loader) {
+      router.push(target);
+      return;
+    }
+
+
+      // Start the bar and navigate immediately. This used to tick a
+      // `progress` variable nothing ever read, then wait a fixed 500ms
+      // before pushing — half a second of dead time on every internal
+      // link — and it called finish() *before* navigating, so the bar
+      // completed while the next page had not begun. ClientShell now
+      // finishes it when the new route has actually rendered.
+      loader.start(target, () => router.push(target));
+  };
+
+  // The gold wash behind the whole home page. Its second colour stop was
+  // hardcoded to #121212, so it stayed dark under a light theme — and
+  // because it spans the full page height and sits under the transparent
+  // Navbar, light mode showed a black band across the header. About.tsx
+  // already does this effect per theme; this now matches it.
+  return (
+    <div
+      style={{
+        background: `radial-gradient(circle at center, var(--sw-page-glow), ${C.bg})`,
+      }}
+    >
+      <Navbar page="Home" setPage={nav} />
+      <Home
+        setPage={nav}
+        initialHero={initialHero}
+        onBookWithDate={(d, opts) => {
+          const q = new URLSearchParams({ date: d });
+          // Only when it is a real stay: ?end= equal to ?date= would just be
+          // noise in the URL.
+          if (opts?.endDate && opts.endDate > d) q.set("end", opts.endDate);
+          if (opts?.slot) q.set("slot", opts.slot);
+          if (opts?.guests) q.set("guests", String(opts.guests));
+          if (opts?.tier) q.set("tier", opts.tier);
+          router.push(`/book?${q.toString()}`);
+        }}
+        onBookPackage={(pkg, resource, tier) => router.push(buildPackageBookingUrl(pkg, resource, tier))}
+        bookings={bookings}
+        closedDates={closedDates}
+        packages={packages}
+        packagesLoading={skeleton.packages}
+        rooms={rooms}
+      />
+      <Footer setPage={nav} />
+      <ThemeToggle />
+    </div>
+  );
+}

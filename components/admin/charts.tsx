@@ -1,12 +1,22 @@
 "use client";
 
 import type { ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { useTheme } from "@/contexts/ThemeContext";
 import { T } from "@/lib/theme";
 import { Icon, type IconName } from "@/components/common/Icon";
-import { BarChart as MuiBarChart } from "@mui/x-charts/BarChart";
-import { SparkLineChart } from "@mui/x-charts/SparkLineChart";
-import { ChartTheme } from "@/components/admin/ChartTheme";
+
+/* MUI X loads when a chart first renders (MuiCharts.tsx), not with the
+   admin. Until then an empty box of the same size holds the place, so
+   nothing moves when the chart arrives. */
+const MuiSpark = dynamic(() => import("@/components/admin/MuiCharts").then((m) => m.MuiSpark), {
+  ssr: false,
+  loading: () => <span aria-hidden style={{ display: "block", width: 78, height: 32 }} />,
+});
+const MuiBarChart = dynamic(() => import("@/components/admin/MuiCharts").then((m) => m.MuiBar), {
+  ssr: false,
+  loading: () => <div aria-hidden style={{ height: 190 }} />,
+});
 
 /**
  * Presentation primitives for the Reports and Analytics pages.
@@ -111,8 +121,7 @@ export function Sparkline({
   const pts = data.length >= 2 ? data : [0, 0];
 
   return (
-    <ChartTheme>
-      <SparkLineChart
+    <MuiSpark
         data={pts}
         width={width}
         height={height}
@@ -122,7 +131,6 @@ export function Sparkline({
         showTooltip={false}
         margin={{ top: 2, bottom: 2, left: 0, right: 0 }}
       />
-    </ChartTheme>
   );
 }
 
@@ -237,7 +245,7 @@ export function BarChart({
   // the hand-drawn SVG underneath became MUI X. The y-axis rounding, tick
   // maths and bar geometry that used to live here are the library's job now.
   return (
-    <ChartTheme>
+    <div style={{ minHeight: height }}>
       <MuiBarChart
         height={height}
         series={[
@@ -269,7 +277,7 @@ export function BarChart({
           "& .MuiChartsGrid-line": { stroke: s.grid },
         }}
       />
-    </ChartTheme>
+    </div>
   );
 }
 

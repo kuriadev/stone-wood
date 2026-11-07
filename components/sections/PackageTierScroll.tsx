@@ -36,7 +36,21 @@ export function PackageTierScroll(props: Props) {
   const [tier, setTier] = useState<TierKey>("SHARED");
   const at = Math.max(0, kinds.findIndex((k) => k.key === tier));
   const current = kinds[at];
-  const wheelOn = wide && kinds.length > 1;
+  /* The pinned block must fit under the nav, or part of the card is hidden
+     with no way to scroll to it. Measured once pinned (`fitH`, the block's
+     height); a screen too short for it gets the tabs instead, which scroll
+     normally. Re-checked whenever the window is resized. */
+  const fitH = useRef(0);
+  const [tooShort, setTooShort] = useState(false);
+  useEffect(() => {
+    const read = () => {
+      if (fitH.current) setTooShort(fitH.current > window.innerHeight - NAV_H - 24);
+    };
+    read();
+    window.addEventListener("resize", read);
+    return () => window.removeEventListener("resize", read);
+  }, []);
+  const wheelOn = wide && kinds.length > 1 && !tooShort;
   const count = kinds.length;
   const keys = kinds.map((k) => k.key).join();
 
@@ -45,9 +59,18 @@ export function PackageTierScroll(props: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const pinRef = useRef<HTMLDivElement>(null);
   const [pin, setPin] = useState({ h: 0, top: 96, step: 600 });
-  // Placed by the tallest card seen, so the block doesn't shift up and down
-  // as kinds with taller cards come and go.
+  /* Sized and placed by the tallest card seen, and held at that height.
+     The cards differ (Events is shorter than Barkada Pool + Room), and when
+     the track followed the card on screen it resized with every turn: the
+     footer slid up and down mid-scroll, and the shift could turn the wheel
+     again. Now the track only ever grows, once, to the tallest kind. */
   const tallest = useRef(0);
+  /* A kind picked on the wheel, while the page glides to its place. The
+     scroll would otherwise re-pick the kind under the glide on the way
+     (back to the old one, or through the one in between), so the card
+     flicked back and forth before landing. Until the glide ends, or the
+     person scrolls themselves, the picked kind stays. */
+  const picked = useRef<{ i: number; until: number } | null>(null);
 
   useEffect(() => {
     if (!wheelOn) return;
@@ -55,20 +78,25 @@ export function PackageTierScroll(props: Props) {
     if (!el) return;
     const measure = () => {
       const vh = window.innerHeight;
-      const h = el.offsetHeight;
-      tallest.current = Math.max(tallest.current, h);
+      tallest.current = Math.max(tallest.current, el.offsetHeight);
       const t = tallest.current;
+      fitH.current = t;
+      if (t > vh - NAV_H - 24) { setTooShort(true); return; }
       // Centred under the nav when it fits; when it is taller than the
       // screen, pinned by its foot so the Book button stays in view.
       const room = vh - NAV_H;
       const top = t <= room - 24 ? NAV_H + (room - t) / 2 : vh - t - 16;
-      setPin({ h, top, step: Math.round(vh * 0.7) });
+      const step = Math.round(vh * 0.7);
+      setPin((p) => (p.h === t && p.top === top && p.step === step ? p : { h: t, top, step }));
     };
+    // A new window size changes every card's height: start over from the
+    // one on screen (the hold is lifted first, or it would keep the old size).
+    const onResize = () => { tallest.current = 0; el.style.minHeight = "0px"; measure(); el.style.minHeight = `${tallest.current}px`; };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    window.addEventListener("resize", measure);
-    return () => { ro.disconnect(); window.removeEventListener("resize", measure); };
+    window.addEventListener("resize", onResize);
+    return () => { ro.disconnect(); window.removeEventListener("resize", onResize); };
   }, [wheelOn]);
 
   useEffect(() => {
@@ -82,12 +110,29 @@ export function PackageTierScroll(props: Props) {
         if (!track) return;
         const d = pin.top - track.getBoundingClientRect().top;
         const i = Math.min(order.length - 1, Math.max(0, Math.round(d / pin.step)));
+        const lock = picked.current;
+        if (lock) {
+          // Arrived (within a few px of its place), or the glide took too long.
+          if (Math.abs(d - lock.i * pin.step) < 4 || performance.now() > lock.until) picked.current = null;
+          else return;
+        }
         setTier((t) => (order[i] && order[i] !== t ? order[i] : t));
       });
     };
+    // The person taking over the scroll ends the glide's hold at once.
+    const release = () => { picked.current = null; };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("scroll", onScroll); };
+    window.addEventListener("wheel", release, { passive: true });
+    window.addEventListener("touchstart", release, { passive: true });
+    window.addEventListener("scrollend", onScroll);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("wheel", release);
+      window.removeEventListener("touchstart", release);
+      window.removeEventListener("scrollend", onScroll);
+    };
   }, [wheelOn, pin.top, pin.step, keys]);
 
   // Picking a kind on the wheel (a click, a drag, the arrow keys) scrolls
@@ -97,6 +142,7 @@ export function PackageTierScroll(props: Props) {
     if (!track || !kinds[i]) return;
     setTier(kinds[i].key);
     const y = window.scrollY + track.getBoundingClientRect().top - pin.top + i * pin.step;
+    picked.current = { i, until: performance.now() + 1500 };
     window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
   };
 
@@ -104,7 +150,7 @@ export function PackageTierScroll(props: Props) {
 
   return (
     <div ref={trackRef} className="sw-pkgscroll" style={{ height: pin.h + (count - 1) * pin.step }}>
-      <div ref={pinRef} className="sw-pkgwheel-layout sw-pkgscroll__pin" style={{ top: pin.top }}>
+      <div ref={pinRef} className="sw-pkgwheel-layout sw-pkgscroll__pin" style={{ top: pin.top, minHeight: pin.h || undefined }}>
         {current && (
           <aside className="sw-pkgwheel" aria-label="Choose a kind of package">
             <div className="sw-pkgwheel__wheel">
@@ -138,8 +184,19 @@ export function PackageTierScroll(props: Props) {
             </div>
           </aside>
         )}
-        <div style={{ minWidth: 0 }}>
-          <PackageShowcase {...props} showTierIntro={false} tier={tier} onTierChange={setTier} hideTabs />
+        {/* Every kind's card, stacked in one grid cell, only the current one
+            shown. The cell is as tall as the tallest from the first paint, so
+            turning the wheel never resizes the block (or moves the footer),
+            and the cards cross-fade instead of swapping. */}
+        <div className="sw-pkgscroll__cards">
+          {kinds.map((k) => {
+            const on = k.key === tier;
+            return (
+              <div key={k.key} className={on ? "is-on" : undefined} aria-hidden={on ? undefined : true} inert={!on}>
+                <PackageShowcase {...props} showTierIntro={false} tier={k.key} onTierChange={setTier} hideTabs />
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

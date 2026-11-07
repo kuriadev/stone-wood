@@ -11,9 +11,13 @@
    own few items instead of the whole page. */
 .sw-side:not(.is-mob) { transition: width .38s cubic-bezier(.22, 1, .36, 1); contain: layout style; will-change: width; }
 
-/* The round fold button, half over the sidebar's edge. */
+/* The round fold button, on the sidebar's edge. Its centre (48px down) is
+   level with the bell in the open header (96px tall, content centred) and
+   with the S in the folded one (30px down, 36px tall). It sits 20px past
+   the edge, and the open header keeps 20px on its right, so there is the
+   same 12px between it and the bell (open) as between it and the S (folded). */
 .sw-side__toggle {
-  position: absolute; top: 40px; right: -14px; z-index: 6;
+  position: absolute; top: 34px; right: -20px; z-index: 6;
   width: 28px; height: 28px; border-radius: 50%; border: 1px solid; display: grid; place-items: center; cursor: pointer;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
   transition: transform .38s cubic-bezier(.22, 1, .36, 1), box-shadow .2s ease, border-color .2s ease;
@@ -23,7 +27,7 @@
 .sw-side.is-mini .sw-side__toggle { transform: rotate(180deg); }
 
 /* Folded head: the monogram and the bell, stacked. */
-.sw-side__minihead { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 26px 0 18px; animation: sw-side-fade .35s ease both; }
+.sw-side__minihead { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 30px 0 18px; animation: sw-side-fade .35s ease both; }
 .sw-side__mark {
   width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center;
   font-family: 'Satoshi', system-ui, sans-serif; font-weight: 700; font-size: 17px; color: #1a1000;

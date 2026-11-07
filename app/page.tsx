@@ -1,84 +1,21 @@
-"use client";
+// The home page. A server component only to read the hero staff set
+// (lib/heroMedia.server.ts) and preload it, so the HTML arrives naming the
+// photo the visitor will see: phones fetch the 1000px crop, wide screens the
+// full one, and nothing is fetched twice. Everything else is HomeRoute.
 
-import { useRouter } from "next/navigation";
-import { useApp } from "@/contexts/AppContext";
-import { THEME_COLORS } from "@/lib/theme";
-import { Home } from "@/components/sections/Home";
-import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
-import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { buildPackageBookingUrl } from "@/lib/utils";
+import { preload } from "react-dom";
+import { HomeRoute } from "@/components/sections/HomeRoute";
+import { loadHeroMedia } from "@/lib/heroMedia.server";
+import { HERO_BG } from "@/lib/constants";
+import { imageAt } from "@/lib/img";
 
-export default function HomePage() {
-  const router = useRouter();
-  const C = THEME_COLORS;
-  const { bookings, closedDates, packages, rooms, skeleton } = useApp();
-  
-const nav = (p: string) => {
-  const routes: Record<string, string> = {
-    Home: "/",
-    Rooms: "/rooms",
-    Packages: "/packages",
-    Gallery: "/gallery",
-    "About Us": "/about",
-    "Book Now": "/book",
-    AdminLogin: "/login",
-    "Customer Service": "/customer",
-    "Manage Booking": "/my-booking",
-  };
-
-    const target = routes[p] ?? "/";
-
-    const loader = globalThis.loader?.current;
-
-    if (!loader) {
-      router.push(target);
-      return;
-    }
-
-
-      // Start the bar and navigate immediately. This used to tick a
-      // `progress` variable nothing ever read, then wait a fixed 500ms
-      // before pushing — half a second of dead time on every internal
-      // link — and it called finish() *before* navigating, so the bar
-      // completed while the next page had not begun. ClientShell now
-      // finishes it when the new route has actually rendered.
-      loader.start(target, () => router.push(target));
-  };
-
-  // The gold wash behind the whole home page. Its second colour stop was
-  // hardcoded to #121212, so it stayed dark under a light theme — and
-  // because it spans the full page height and sits under the transparent
-  // Navbar, light mode showed a black band across the header. About.tsx
-  // already does this effect per theme; this now matches it.
-  return (
-    <div
-      style={{
-        background: `radial-gradient(circle at center, var(--sw-page-glow), ${C.bg})`,
-      }}
-    >
-      <Navbar page="Home" setPage={nav} />
-      <Home
-        setPage={nav}
-        onBookWithDate={(d, opts) => {
-          const q = new URLSearchParams({ date: d });
-          // Only when it is a real stay: ?end= equal to ?date= would just be
-          // noise in the URL.
-          if (opts?.endDate && opts.endDate > d) q.set("end", opts.endDate);
-          if (opts?.slot) q.set("slot", opts.slot);
-          if (opts?.guests) q.set("guests", String(opts.guests));
-          if (opts?.tier) q.set("tier", opts.tier);
-          router.push(`/book?${q.toString()}`);
-        }}
-        onBookPackage={(pkg, resource, tier) => router.push(buildPackageBookingUrl(pkg, resource, tier))}
-        bookings={bookings}
-        closedDates={closedDates}
-        packages={packages}
-        packagesLoading={skeleton.packages}
-        rooms={rooms}
-      />
-      <Footer setPage={nav} />
-      <ThemeToggle />
-    </div>
-  );
+export default async function HomePage() {
+  const hero = await loadHeroMedia();
+  // A video hero has no photo to preload; it starts on its own.
+  if (hero?.kind !== "video") {
+    const src = hero?.kind === "image" ? hero.src : HERO_BG;
+    preload(imageAt(src, 1000), { as: "image", media: "(max-width: 900px)", fetchPriority: "high" });
+    preload(src, { as: "image", media: "(min-width: 901px)", fetchPriority: "high" });
+  }
+  return <HomeRoute initialHero={hero} />;
 }

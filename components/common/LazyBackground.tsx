@@ -19,6 +19,7 @@
 // in. Where IntersectionObserver is missing it simply loads at once.
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { imageAt } from "@/lib/img";
 
 export function LazyBackground({
   src,
@@ -31,6 +32,7 @@ export function LazyBackground({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [near, setNear] = useState(false);
+  const [width, setWidth] = useState(1200);
 
   useEffect(() => {
     const el = ref.current;
@@ -38,7 +40,16 @@ export function LazyBackground({
     if (typeof IntersectionObserver === "undefined") { setNear(true); return; }
     const io = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) { setNear(true); io.disconnect(); }
+        if (entry.isIntersecting) {
+          // Sized to the box it fills, at the screen's density, in 400px
+          // steps so neighbouring cards share one cached file (Unsplash
+          // only; other URLs are used as they are).
+          const r = el.getBoundingClientRect();
+          const need = Math.max(r.width, r.height) * Math.min(window.devicePixelRatio || 1, 2);
+          setWidth(Math.min(1600, Math.max(400, Math.ceil(need / 400) * 400)));
+          setNear(true);
+          io.disconnect();
+        }
       },
       // Ahead of the screen, not at its edge: the download has to finish
       // before the photo is looked at, not start then.
@@ -53,7 +64,7 @@ export function LazyBackground({
       ref={ref}
       aria-hidden="true"
       className={className}
-      style={{ ...style, backgroundImage: near ? `url(${src})` : undefined }}
+      style={{ ...style, backgroundImage: near ? `url(${imageAt(src, width)})` : undefined }}
     />
   );
 }

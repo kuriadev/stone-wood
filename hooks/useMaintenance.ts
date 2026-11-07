@@ -46,7 +46,9 @@ export function useMaintenance() {
     alive.current = true;
     void refresh();
 
-    const id = window.setInterval(() => void refresh(), POLL_MS);
+    // Only while the tab is on screen: a guest's background tab has no
+    // reason to keep asking. Returning to it (focus) checks straight away.
+    const id = window.setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, POLL_MS);
     const onFocus = () => void refresh();
     window.addEventListener("focus", onFocus);
 

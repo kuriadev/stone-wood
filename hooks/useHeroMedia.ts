@@ -20,8 +20,12 @@ function fromCache(): HeroMedia | null {
   }
 }
 
-export function useHeroMedia(): { media: HeroMedia | null; ready: boolean; loaded: boolean; reload: () => Promise<void> } {
-  const [media, setMedia] = useState<HeroMedia | null>(null);
+/** `initial`: what the server already read (the home page passes it), so the
+ *  first paint is the right hero and no second photo is fetched. Undefined
+ *  when the server couldn't say; the cache and a fetch decide then. */
+export function useHeroMedia(initial?: HeroMedia | null): { media: HeroMedia | null; ready: boolean; loaded: boolean; reload: () => Promise<void> } {
+  const known = initial !== undefined;
+  const [media, setMedia] = useState<HeroMedia | null>(known ? initial : null);
   const [ready, setReady] = useState(true);
   const [loaded, setLoaded] = useState(false);
 
@@ -46,11 +50,14 @@ export function useHeroMedia(): { media: HeroMedia | null; ready: boolean; loade
   }, []);
 
   useEffect(() => {
+    // The server's answer is current (saving a new hero refreshes the page),
+    // so there is nothing to look up.
+    if (known) return;
     const cached = fromCache();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after mount
     if (cached) setMedia(cached);
     void reload();
-  }, [reload]);
+  }, [reload, known]);
 
   return { media, ready, loaded, reload };
 }

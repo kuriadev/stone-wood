@@ -1,6 +1,7 @@
 "use client";
 
 import { useHeroMedia } from "@/hooks/useHeroMedia";
+import type { HeroMedia } from "@/lib/heroMedia";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useWidth } from "@/hooks/useWidth";
 import { THEME_COLORS } from "@/lib/theme";
@@ -28,6 +29,8 @@ import { LazyBackground } from "@/components/common/LazyBackground";
 
 interface HomeProps {
   setPage: (p: string) => void;
+  /** The hero staff set, as the server read it (app/page.tsx). */
+  initialHero?: HeroMedia | null;
   /** Shown as a coverflow deck. Empty while the first fetch is in flight, and
    *  the whole section is skipped then rather than rendering an empty deck. */
   rooms: Room[];
@@ -161,7 +164,7 @@ const MARQUEE_REVIEWS = [
   { name: "Christian David Falcutila", rating: 3, when: "8 years ago", message: "Perfect place for Family bonding / Birthday celebration." },
 ];
 
-export function Home({ setPage, onBookWithDate, bookings, closedDates, packages, packagesLoading = false, onBookPackage, rooms }: HomeProps) {
+export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDates, packages, packagesLoading = false, onBookPackage, rooms }: HomeProps) {
   // Scroll reveals. Called here, not in the layout: the effect must run
   // after THIS page has hydrated or it mutates un-hydrated DOM.
 
@@ -252,7 +255,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
   const [facShot, setFacShot] = useState<FacilityShot | null>(null);
   const [facOpen, setFacOpen] = useState(false);
   // The hero background staff chose (Website Photos), or the built-in one.
-  const { media: heroMedia } = useHeroMedia();
+  const { media: heroMedia } = useHeroMedia(initialHero);
 
   /* Every 6 seconds one facility, picked at random (never the same twice
      running), lights up for a moment -- a hint that the tiles open. Done
@@ -335,7 +338,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
           style={{
             position: "absolute",
             inset: 0,
-            ["--hero-sm" as string]: `url(${heroMedia?.kind === "image" ? heroMedia.src : imageAt(HERO_BG, 1000)})`,
+            ["--hero-sm" as string]: `url(${imageAt(heroMedia?.kind === "image" ? heroMedia.src : HERO_BG, 1000)})`,
             ["--hero-lg" as string]: `url(${heroMedia?.kind === "image" ? heroMedia.src : HERO_BG})`,
             backgroundSize: "cover",
             backgroundPosition: "center 60%",
@@ -360,9 +363,6 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
         {/* Legibility overlay — same gold-tinted dark tone as the rest of the design system */}
         <div style={{ position: "absolute", inset: 0, background: "var(--sw-hero-veil)" }} />
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 30%,transparent 40%,rgba(0,0,0,0.35) 100%)" }} />
-
-        {/* Gold accent lines — unchanged from the existing system */}
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(to right,transparent 0%,${gold}88 30%,${gold} 50%,${gold}88 70%,transparent 100%)` }} />
 
         {/* Heading */}
         <div style={{ position: "relative", zIndex: 2, textAlign: "center", maxWidth: 720, width: "100%", marginTop: mob ? 8 : 24 }}>

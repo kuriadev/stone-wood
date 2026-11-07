@@ -129,12 +129,16 @@
   margin: 0;
   padding: 0;
   display: grid;
+  /* minmax(0, …): without it a long one-line name widens the row past the
+     card, and the remove button ends up clipped off its right edge. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   max-height: 46vh;
   overflow-y: auto;
   overflow-x: hidden;
 }
 .sw-dock__room {
+  min-width: 0;
   display: flex;
   gap: 10px;
   align-items: center;
@@ -171,13 +175,14 @@
 .sw-dock__amt { color: #c9a84c; font-weight: 700; opacity: 1; }
 .sw-dock__remove {
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  border: 1px solid transparent;
-  background: transparent;
+  /* A visible ring, so it reads as a button on a phone with no hover. */
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  background: rgba(201, 168, 76, 0.08);
   color: inherit;
-  opacity: 0.55;
+  opacity: 0.85;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -187,6 +192,15 @@
 .sw-dock__remove:hover { opacity: 1; color: #e07a6e; background: rgba(224, 122, 110, 0.12); }
 .sw-dock__note { margin: 10px 2px 0; font-size: 11.5px; line-height: 1.45; opacity: 0.7; }
 
+/* Phones: the card takes the width beside the theme button, from the left
+   edge, and the remove button grows to a comfortable thumb size. */
+@media (max-width: 640px) {
+  .sw-dock--card { left: 12px; width: auto; }
+  .sw-dock__remove { width: 36px; height: 36px; }
+  .sw-dock__room { padding: 7px; }
+  /* Capacity and price wrap rather than cut the price off. */
+  .sw-dock__meta { white-space: normal; }
+}
 /* Phones: the pill shows just its thumbnail, text and arrow. */
 @media (max-width: 480px) {
   .sw-dock__cta { padding: 0 11px; }

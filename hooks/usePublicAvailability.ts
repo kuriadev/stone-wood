@@ -67,7 +67,8 @@ export function usePublicAvailability(enabled: boolean) {
     void refresh().finally(() => setLoading(false));
     const onFocus = () => void refresh();
     window.addEventListener("focus", onFocus);
-    const timer = setInterval(() => void refresh(), 2 * 60 * 1000);
+    // Only while the tab is on screen; coming back to it (focus) refreshes.
+    const timer = setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, 2 * 60 * 1000);
     return () => {
       window.removeEventListener("focus", onFocus);
       clearInterval(timer);

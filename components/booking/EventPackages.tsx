@@ -251,11 +251,16 @@ export function EventPackages({ kind, packages, mob, onBook }: EventPackagesProp
                   </p>
                 )}
 
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                  <button className="sw-btn-out" type="button" onClick={() => setOpen(null)} style={{ ...outBtn, color: C.goldInk, minHeight: 46 }}>
+                {/* Side by side, equal widths, when there's room; on a narrow
+                    dialog each takes the full width, and wrap-reverse puts
+                    the main action on top with Cancel under it. */}
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap-reverse" }}>
+                  <button className="sw-btn-out" type="button" onClick={() => setOpen(null)}
+                    style={{ ...outBtn, color: C.goldInk, minHeight: 48, padding: "0 16px", flex: "1 1 150px", whiteSpace: "nowrap" }}>
                     CANCEL
                   </button>
-                  <button className="sw-btn" type="button" onClick={() => { const chosen = open; setOpen(null); onBook(chosen); }} style={{ ...goldBtn, minHeight: 46 }}>
+                  <button className="sw-btn" type="button" onClick={() => { const chosen = open; setOpen(null); onBook(chosen); }}
+                    style={{ ...goldBtn, minHeight: 48, padding: "0 16px", flex: "1 1 190px", whiteSpace: "nowrap" }}>
                     {copy.add} <span aria-hidden="true">→</span>
                   </button>
                 </div>

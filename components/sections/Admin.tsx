@@ -1,10 +1,10 @@
 "use client";
 
 import { findRef } from "@/lib/bookingRef";
-import { HeroMediaEditor } from "@/components/admin/HeroMediaEditor";
 import { ActionButton, ConfirmDialog, FilterSelect } from "@/components/admin/ui";
 import { statusLabel, bookingStatusLabel, ADMIN_NAV_GROUPS, ADMIN_TAB_LABEL } from "@/lib/labels";
 import { useState, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { CAL } from "@/components/common/calendarColors";
@@ -16,17 +16,8 @@ import { fmt, fmtDate, holdsDate } from "@/lib/utils";
 import { Masonry } from "@/components/common/Masonry";
 import { galleryTiles, galleryColumns, toGalleryPhoto, cleanCaption, GALLERY_TITLE_MAX, GALLERY_TEXT_MAX, type GalleryPhoto } from "@/lib/gallery";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { BookingsTab } from "@/components/admin/BookingsTab";
-import { InventoryTab } from "@/components/admin/InventoryTab";
-import { SalesTab } from "@/components/admin/SalesTab";
-import { ReportsTab } from "@/components/admin/ReportsTab";
-import { ActivityTab } from "@/components/admin/ActivityTab";
-import { FacilitiesTab } from "@/components/admin/FacilitiesTab";
 import { OperationsTab } from "@/components/admin/OperationsTab";
-import { PackagesTab } from "@/components/admin/PackagesTab";
 import { PhotoSet } from "@/components/admin/PhotoSet";
-import { MaintenanceTab } from "@/components/admin/MaintenanceTab";
-import { AccountModal } from "@/components/admin/AccountModal";
 import { draftReply } from "@/lib/autoReply";
 import { MonthStatusColumn } from "@/components/admin/MonthStatusColumn";
 import { manilaTime } from "@/lib/finance";
@@ -37,9 +28,6 @@ import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { useOps } from "@/contexts/OpsContext";
 import { useStaff } from "@/contexts/StaffContext";
 import { canOpenTab, landingTab, ROLE_LABEL } from "@/lib/permissions";
-import { StaffTab } from "@/components/admin/StaffTab";
-import { TasksTab } from "@/components/admin/TasksTab";
-import { SettingsTab } from "@/components/admin/SettingsTab";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,6 +56,7 @@ import { bookingCoversDate, bookingDates, getBookingSlot } from "@/lib/utils";
 import "@/components/admin/BookingCalendar.css";
 import "@/components/admin/GuestMessages.css";
 import "@/components/admin/AdminSidebar.css";
+import "@/components/common/PageSkeletons.css";
 import { compressImage } from "@/lib/image";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { SLOTS } from "@/lib/resort";
@@ -80,6 +69,33 @@ import type { Facility } from "@/types/facility";
 import type { InventoryItem } from "@/types/inventory";
 import type { ResortPackage } from "@/types/package";
 import { Badge } from "@/components/ui/badge";
+
+/* Each admin screen's code loads the first time it is opened, not with the
+   admin: together they were about 2 MB, which a phone downloaded and parsed
+   before the Dashboard could show. The Dashboard (OperationsTab) stays in
+   the first load because nearly everyone lands on it. */
+function TabLoading() {
+  return (
+    <div role="status" aria-label="Loading" style={{ display: "grid", gap: 14, padding: "8px 0" }}>
+      <div className="sk" style={{ height: 34, width: "40%" }} />
+      <div className="sk" style={{ height: 120 }} />
+      <div className="sk" style={{ height: 260 }} />
+    </div>
+  );
+}
+const HeroMediaEditor = dynamic(() => import("@/components/admin/HeroMediaEditor").then((m) => m.HeroMediaEditor), { loading: TabLoading });
+const BookingsTab = dynamic(() => import("@/components/admin/BookingsTab").then((m) => m.BookingsTab), { loading: TabLoading });
+const InventoryTab = dynamic(() => import("@/components/admin/InventoryTab").then((m) => m.InventoryTab), { loading: TabLoading });
+const SalesTab = dynamic(() => import("@/components/admin/SalesTab").then((m) => m.SalesTab), { loading: TabLoading });
+const ReportsTab = dynamic(() => import("@/components/admin/ReportsTab").then((m) => m.ReportsTab), { loading: TabLoading });
+const ActivityTab = dynamic(() => import("@/components/admin/ActivityTab").then((m) => m.ActivityTab), { loading: TabLoading });
+const FacilitiesTab = dynamic(() => import("@/components/admin/FacilitiesTab").then((m) => m.FacilitiesTab), { loading: TabLoading });
+const PackagesTab = dynamic(() => import("@/components/admin/PackagesTab").then((m) => m.PackagesTab), { loading: TabLoading });
+const MaintenanceTab = dynamic(() => import("@/components/admin/MaintenanceTab").then((m) => m.MaintenanceTab), { loading: TabLoading });
+const AccountModal = dynamic(() => import("@/components/admin/AccountModal").then((m) => m.AccountModal), { loading: TabLoading });
+const StaffTab = dynamic(() => import("@/components/admin/StaffTab").then((m) => m.StaffTab), { loading: TabLoading });
+const TasksTab = dynamic(() => import("@/components/admin/TasksTab").then((m) => m.TasksTab), { loading: TabLoading });
+const SettingsTab = dynamic(() => import("@/components/admin/SettingsTab").then((m) => m.SettingsTab), { loading: TabLoading });
 
 /** What a calendar tile can say in the space it has. */
 const CAL_TILE_LABEL: Record<string, string> = { ResortCancelled: "New date" };
@@ -912,7 +928,7 @@ export function Admin({
               </div>
             )}
             {!mob && !mini && (
-              <div data-sidebar-head="" className="sw-side__head" style={{ padding: "30px 14px 22px 20px", borderBottom: `1px solid ${sideBorder}`, display: "flex", alignItems: "center", overflow: "hidden" }}>
+              <div data-sidebar-head="" className="sw-side__head" style={{ height: 96, boxSizing: "border-box", padding: "0 20px 0 20px", borderBottom: `1px solid ${sideBorder}`, display: "flex", alignItems: "center", overflow: "hidden" }}>
                 {/* Wordmark and bell share 220px. The bell keeps 12px clear
                     of the wordmark so its count badge (which sits off its
                     top-left corner) never lands on the text; the wordmark is

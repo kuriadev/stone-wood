@@ -22,6 +22,10 @@ export function imageAt(url: string, width: number): string {
   try {
     const u = new URL(url);
     u.searchParams.set("w", String(width));
+    // Never above 72: the sources ask for q=85, which on a 3x phone screen
+    // fetched 300 KB photos that look the same at 72 (WebP/AVIF, below).
+    const q = Number(u.searchParams.get("q") || 75);
+    u.searchParams.set("q", String(Math.min(q, 72)));
     // auto=format lets Unsplash serve WebP/AVIF to browsers that accept it,
     // which is a large saving over JPEG at identical visual quality.
     u.searchParams.set("auto", "format");

@@ -5,6 +5,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useRef, useEffect, useState, useCallback, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { TopLoader, LoaderRef } from "@/components/layout/TopLoader";
+import { GuestTabBar } from "@/components/layout/GuestTabBar";
 import { CursorDot } from "@/components/layout/CursorDot";
 import { useApp } from "@/contexts/AppContext";
 import { MaintenanceGate } from "@/components/layout/MaintenanceGate";
@@ -163,6 +164,9 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
     <>
       <TopLoader ref={loaderRef} />
       <PageCurtain phase={curtain.phase} path={curtain.path} />
+      {/* Phones: the bottom tabs, in the first HTML of every guest page
+          (hidden by CSS above 760px; never on the admin or sign-in). */}
+      <GuestTabBar />
       {/* Home only. The trailing dot is a flourish for the page a visitor
           lands on; behind it are booking forms, calendars and the admin
           dashboard, where a circle drifting over dense tables and number

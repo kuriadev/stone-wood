@@ -56,3 +56,26 @@
 .sw-pkgwheel__steps { display: flex; gap: 6px; padding-left: 18px; margin-top: 6px; }
 .sw-pkgwheel__steps span { width: 18px; height: 3px; border-radius: 2px; background: rgba(201, 168, 76, 0.25); transition: width .35s cubic-bezier(.22, 1, .36, 1), background-color .35s ease; }
 .sw-pkgwheel__steps span.is-on { width: 34px; background: #c9a84c; }
+
+/* The kinds' cards share one grid cell (PackageTierScroll.tsx): the cell
+   takes the tallest, so the block keeps one height, and the current card
+   fades in over the others. */
+.sw-pkgscroll__cards { display: grid; min-width: 0; }
+.sw-pkgscroll__cards > div {
+  grid-area: 1 / 1;
+  min-width: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .35s ease, visibility 0s linear .35s;
+}
+.sw-pkgscroll__cards > div.is-on {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity .35s ease, visibility 0s;
+}
+
+/* Pinned, the card is only as tall as its content: the 722-742px floor the
+   tabbed layout uses (to keep its tiers level) made the pinned block taller
+   than a laptop screen, and the top of the card slid under the nav. Here
+   the stacked cells already keep the kinds level. */
+.sw-pkgscroll__cards article { min-height: 0 !important; }

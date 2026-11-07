@@ -1,6 +1,5 @@
 "use client";
 
-import { GuestTabBar } from "@/components/layout/GuestTabBar";
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
@@ -49,14 +48,10 @@ export function Navbar({ page, setPage }: NavbarProps) {
   // being torn down and re-subscribed on every change.
   const solidRef = useRef(false);
 
-  /* The bar's own background used to be binary: fully transparent until 72px
-     of scroll, then a .35s fade to solid. The header is sticky, so during
-     those 72px the hero photo slides UP behind a bar that has nothing behind
-     its text -- which is where the links became unreadable.
-
-     `--nav-a` ramps 0 -> 1 across the same distance and is written straight
-     to the node each frame, so the background tracks the scroll instead of
-     snapping, and no React re-render happens while scrolling. */
+  /* The bar always has its own background (see the header below), so the
+     links stay readable over the hero; at the top of the home page it is a
+     little lighter and turns solid once, with a short fade, when the page
+     is scrolled. Nothing about it is recalculated per scroll frame. */
   const headerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -78,10 +73,10 @@ export function Navbar({ page, setPage }: NavbarProps) {
     const read = () => {
       frame = 0;
       const y = window.scrollY;
-      headerRef.current?.style.setProperty(
-        "--nav-a",
-        String(Math.min(1, Math.max(0, y / ENTER))),
-      );
+      // Nothing is written per frame any more. A scroll-linked blur and
+      // background (the old --nav-a) re-rendered the bar's backdrop on
+      // every frame, which is what stuttered on phones; now the bar changes
+      // once, when it crosses a threshold, with a short fade.
       const next = solidRef.current ? y > EXIT : y > ENTER;
       if (next === solidRef.current) return; // nothing changed, no re-render
       solidRef.current = next;
@@ -149,15 +144,18 @@ export function Navbar({ page, setPage }: NavbarProps) {
           zIndex: 200,
           /* Only the Home page has a hero to sit over; every other page keeps
              the bar solid from the start. */
-          background: onHero
-            ? (isDark
-                ? "rgb(8 6 4 / calc(0.62 + 0.26 * var(--nav-a, 0)))"
-                : "rgb(253 251 247 / calc(0.68 + 0.22 * var(--nav-a, 0)))")
-            : (isDark ? "rgba(8,6,4,0.88)" : "rgba(253,251,247,0.9)"),
-          backdropFilter: onHero ? "blur(calc(8px + 8px * var(--nav-a, 0)))" : "blur(16px)",
-          WebkitBackdropFilter: onHero ? "blur(calc(8px + 8px * var(--nav-a, 0)))" : "blur(16px)",
+          background: isDark
+            ? `rgba(8,6,4,${mob ? 0.95 : onHero && !solid ? 0.62 : 0.88})`
+            : `rgba(253,251,247,${mob ? 0.96 : onHero && !solid ? 0.68 : 0.9})`,
+          /* A backdrop blur is redrawn over the moving page on every frame
+             of a scroll, which a phone can't keep up with. Phones get a
+             near-solid bar instead; wider screens keep one fixed blur. */
+          backdropFilter: mob ? "none" : "blur(14px)",
+          WebkitBackdropFilter: mob ? "none" : "blur(14px)",
           borderBottom: `1px solid ${overlay ? "transparent" : C.border}`,
-          transition: onHero ? "border-color .35s ease" : "background .35s ease, border-color .35s ease",
+          /* One height at every scroll position. It used to shrink 88 → 74,
+             which reflowed the whole page on every frame of the change. */
+          transition: "background-color .3s ease, border-color .3s ease",
         }}
       >
 
@@ -166,12 +164,11 @@ export function Navbar({ page, setPage }: NavbarProps) {
             maxWidth: 1440,
             margin: "0 auto",
             padding: mob ? "0 20px" : "0 48px",
-            height: solid ? 74 : 88,
+            height: 74,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             gap: 24,
-            transition: "height .35s ease",
           }}
         >
           {/* Wordmark */}
@@ -197,6 +194,9 @@ export function Navbar({ page, setPage }: NavbarProps) {
             <nav aria-label="Main" style={{ display: "flex", alignItems: "center", gap: 44 }}>
               {LINKS.map((l) => {
                 const active = page === l;
+                // On the home page itself the underline under HOME says
+                // nothing new, so it isn't drawn there.
+                const underline = active && l !== "Home";
                 return (
                   <button
                     key={l}
@@ -228,7 +228,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
                            was before, rather than riding the new bottom. */
                         position: "absolute", left: 0, right: 0, bottom: 8, height: 1,
                         background: gold,
-                        transform: active ? "scaleX(1)" : "scaleX(0)",
+                        transform: underline ? "scaleX(1)" : "scaleX(0)",
                         transformOrigin: "center",
                         transition: "transform .3s cubic-bezier(.22,1,.36,1)",
                       }}
@@ -358,8 +358,6 @@ export function Navbar({ page, setPage }: NavbarProps) {
           </SheetContent>
         </Sheet>
       )}
-      {/* Phones: the app-style bottom tabs (hidden by CSS above 760px). */}
-      {mob && <GuestTabBar page={page} setPage={setPage} />}
     </>
   );
 }

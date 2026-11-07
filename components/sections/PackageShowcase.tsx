@@ -138,7 +138,7 @@ export function PackageShowcase({ packages, onBookPackage, onFallbackBook, tierS
           hidden={hideTabs}
           className={
             tierStyle === "card"
-              ? "mx-auto mb-0 grid w-full max-w-[760px] grid-cols-1 gap-4 bg-transparent p-0 sm:grid-cols-3 group-data-[orientation=horizontal]/tabs:h-auto"
+              ? "mx-auto mb-0 grid w-full max-w-[760px] grid-cols-3 gap-2 bg-transparent p-0 sm:gap-4 group-data-[orientation=horizontal]/tabs:h-auto"
               : "mx-auto mb-7 flex w-fit max-w-full flex-wrap justify-center gap-2 bg-transparent p-0 group-data-[orientation=horizontal]/tabs:h-auto"
           }
         >
@@ -149,7 +149,10 @@ export function PackageShowcase({ packages, onBookPackage, onFallbackBook, tierS
                 <TabsTrigger
                   key={g.key}
                   value={g.key}
-                  className="flex h-auto min-h-11 flex-col items-center gap-2 rounded-xl border px-5 py-6 data-[state=active]:shadow-none sw-choice"
+                  // One row of three on a phone too (icon and name; the
+                  // tagline joins from sm), so the tiers never stack into a
+                  // screen-tall column above the package.
+                  className="flex h-auto min-h-11 min-w-0 flex-col items-center gap-1.5 rounded-xl border px-2 py-3 data-[state=active]:shadow-none sm:gap-2 sm:px-5 sm:py-6 sw-choice"
                   style={{
                     background: on ? `${gold}12` : C.bgCard2,
                     borderColor: on ? gold : C.border,
@@ -158,10 +161,10 @@ export function PackageShowcase({ packages, onBookPackage, onFallbackBook, tierS
                   <span style={{ color: C.goldInk, lineHeight: 0 }}>
                     <Icon name={g.icon} size={22} strokeWidth={1.5} />
                   </span>
-                  <span style={{ color: C.textH, fontSize: 17, fontFamily: "'Satoshi',system-ui,sans-serif" }}>
+                  <span className="text-[14px] sm:text-[17px]" style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif" }}>
                     {g.label}
                   </span>
-                  <span style={{ color: C.textS, fontSize: 12 }}>{g.tagline}</span>
+                  <span className="hidden sm:inline" style={{ color: C.textS, fontSize: 12 }}>{g.tagline}</span>
                 </TabsTrigger>
               );
             }
@@ -387,7 +390,7 @@ function PackageCard({
       style={{ background: C.bgCard2, borderColor: C.border, boxShadow: C.shadowCard }}
     >
       {/* Artwork. Always dark, so the bright gold and white type belong here. */}
-      <div className="relative min-h-[240px] overflow-hidden bg-[#121212] md:min-h-[380px]">
+      <div className="relative min-h-[190px] overflow-hidden bg-[#121212] min-[480px]:min-h-[230px] md:min-h-[380px]">
         {/* Fetched as the card nears the screen, not at page load — see
             LazyBackground. */}
         <LazyBackground src={shots[0].src} className="absolute inset-0 bg-cover bg-center" />
@@ -409,8 +412,8 @@ function PackageCard({
           </Button>
         </div>
 
-        <div className="absolute right-5 bottom-5 left-5 z-[2]">
-          <h3 className="font-serif text-[26px] leading-tight font-normal break-words text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.6)] min-[380px]:text-[30px] sm:text-4xl">
+        <div className="absolute right-4 bottom-4 left-4 z-[2] md:right-5 md:bottom-5 md:left-5">
+          <h3 className="font-serif text-[24px] leading-tight font-normal break-words text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.6)] min-[380px]:text-[27px] sm:text-4xl">
             {p.title}
           </h3>
         </div>
@@ -418,7 +421,7 @@ function PackageCard({
 
       {/* Detail column. One rhythm, left aligned, action pinned at the foot. */}
       <div className="flex flex-col">
-        <div className="flex min-w-0 flex-col gap-4 p-5 min-[380px]:p-6 sm:p-7">
+        <div className="flex min-w-0 flex-col gap-3 p-4 min-[380px]:p-5 md:gap-4 md:p-7">
           <div className="flex flex-wrap gap-2 empty:hidden">
             {!tierSaysIt && (
             <Badge
@@ -467,12 +470,12 @@ function PackageCard({
           {/* "Starting at" rather than a struck-through list price. The
               saving it used to show is still on the SAVE badge above, so
               nothing is lost by dropping the second number. */}
-          <div className="pt-1">
-            <p className="mb-2 text-[11px] tracking-[2.5px]" style={{ color: promo.badge ? "#e2574c" : C.textS }}>
+          <div className="md:pt-1">
+            <p className="mb-1.5 text-[11px] tracking-[2.5px] md:mb-2" style={{ color: promo.badge ? "#e2574c" : C.textS }}>
               {promo.badge ? "PROMO PRICE" : "STARTING AT"}
             </p>
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span className="font-serif text-[34px] leading-none font-normal min-[380px]:text-[40px]" style={{ color: C.textH }}>
+              <span className="font-serif text-[32px] leading-none font-normal min-[380px]:text-[36px] md:text-[40px]" style={{ color: C.textH }}>
                 {fmt(promo.pay)}
               </span>
               {promo.badge && (
@@ -488,16 +491,17 @@ function PackageCard({
             )}
           </div>
 
-          <p className="text-[15px] leading-relaxed" style={{ color: C.textS }}>{p.blurb}</p>
+          {/* Two lines on a phone: the full text is in the gallery and on Book Now. */}
+          <p className="line-clamp-2 text-[14px] leading-relaxed md:line-clamp-none md:text-[15px]" style={{ color: C.textS }} title={p.blurb}>{p.blurb}</p>
 
           {includes.length > 0 && (
             <div>
-              <p className="mb-3 text-[11px] tracking-[2.5px]" style={{ color: C.textXS }}>WHAT&apos;S INCLUDED</p>
+              <p className="mb-1.5 text-[11px] tracking-[2.5px] md:mb-3" style={{ color: C.textXS }}>WHAT&apos;S INCLUDED</p>
               <ul className="m-0 flex list-none flex-col p-0">
                 {includes.map((inc) => (
                   <li
                     key={inc}
-                    className="flex items-start gap-3 border-b py-2 text-[14.5px] leading-snug last:border-0"
+                    className="flex items-start gap-2.5 py-1 text-[13.5px] leading-snug md:gap-3 md:border-b md:py-2 md:text-[14.5px] md:last:border-0"
                     style={{ borderColor: C.borderLight, color: C.textB }}
                   >
                     <Icon name="check" size={13} style={{ color: C.goldInk, marginTop: 4, flexShrink: 0 }} />
@@ -509,10 +513,20 @@ function PackageCard({
           )}
 
           <div>
-            <p className="mb-3 text-[11px] tracking-[2.5px]" style={{ color: C.textXS }}>
+            <p className="mb-1.5 text-[11px] tracking-[2.5px] md:mb-3" style={{ color: C.textXS }}>
               {p.slotMode === "WholeDay" ? "DURATION" : "CHOOSE WHEN YOU BOOK"}
             </p>
-            <ul className="m-0 flex list-none flex-col p-0">
+            {/* Phones: the tours as chips side by side, two lines instead of a
+                table. Wider screens keep the table. */}
+            <ul className="m-0 flex list-none flex-wrap gap-2 p-0 md:hidden">
+              {slots.map((sl) => (
+                <li key={sl.label} className="flex min-w-0 flex-[1_1_130px] flex-col rounded-xl border px-3 py-2" style={{ borderColor: C.borderLight, background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.025)" }}>
+                  <span className="text-[13px] font-medium" style={{ color: C.textB }}>{sl.label}</span>
+                  <span className="text-[12px]" style={{ color: C.goldInk }}>{sl.hours}</span>
+                </li>
+              ))}
+            </ul>
+            <ul className="m-0 hidden list-none flex-col p-0 md:flex">
               {slots.map((sl) => (
                 <li
                   key={sl.label}
@@ -542,13 +556,17 @@ function PackageCard({
           )}
         </div>
 
-        <div className="mt-auto p-5 pt-0 min-[380px]:p-6 min-[380px]:pt-0 sm:p-7 sm:pt-0">
+        <div className="mt-auto p-4 pt-1 min-[380px]:p-5 min-[380px]:pt-1 md:p-7 md:pt-0">
           <Button
             onClick={onBook}
+            aria-label={`Book ${p.title}`}
             className="sw-btn h-auto w-full whitespace-normal"
             style={{ ...goldBtn, ...(mob ? { padding: "14px 18px" } : null), lineHeight: 1.4, textAlign: "center" }}
           >
-            BOOK {p.title.toUpperCase()} <span aria-hidden="true">→</span>
+            {/* The name is on the photo just above; a phone gets the short
+                label so the button stays one line. */}
+            <span className="md:hidden">BOOK THIS PACKAGE</span>
+            <span className="hidden md:inline">BOOK {p.title.toUpperCase()}</span> <span aria-hidden="true">→</span>
           </Button>
         </div>
       </div>
