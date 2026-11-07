@@ -177,7 +177,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
           {/* Wordmark */}
           <button
             onClick={() => go("Home")}
-            aria-label="StoneWood — go to home"
+            aria-label="Stonewood Garden — go to home"
             style={{
               background: "none", border: "none", cursor: "pointer", padding: "4px 0",
               minHeight: TAP_MIN, display: "flex", alignItems: "center",

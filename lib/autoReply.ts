@@ -116,6 +116,6 @@ export function draftReply(
     body(msg.type ?? "Other", { about: describe(booking), ref }),
     "",
     "Warm regards,",
-    "StoneWood Private Resort",
+    "Stonewood Garden Private Resort",
   ].join("\n");
 }

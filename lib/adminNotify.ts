@@ -53,7 +53,7 @@ function shell(title: string, intro: string, blocks: string, accent = "#c9a84c")
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1eb;padding:28px 0;">
     <tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
       <tr><td style="background:#1a1108;border-radius:12px 12px 0 0;padding:28px 32px;">
-        <p style="margin:0 0 4px;color:${accent};font-size:10px;letter-spacing:4px;text-transform:uppercase;">StoneWood · Resort Desk</p>
+        <p style="margin:0 0 4px;color:${accent};font-size:10px;letter-spacing:4px;text-transform:uppercase;">Stonewood Garden · Resort Desk</p>
         <h1 style="margin:0;color:#f0e6cc;font-size:21px;font-weight:400;">${escapeHtml(title)}</h1>
       </td></tr>
       <tr><td style="background:#ffffff;padding:28px 32px;">
@@ -195,7 +195,7 @@ export function buildMorningBriefing({ date, bookings, now = new Date() }: Brief
   ].filter(Boolean).join(", ");
 
   return {
-    subject: `${urgent ? "⚠ " : ""}Today at StoneWood · ${fmtDate(date)}${counts ? ` · ${counts}` : ""}`,
+    subject: `${urgent ? "⚠ " : ""}Today at Stonewood Garden · ${fmtDate(date)}${counts ? ` · ${counts}` : ""}`,
     html: shell(
       `Today — ${fmtDate(date)}`,
       urgent

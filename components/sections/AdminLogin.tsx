@@ -124,7 +124,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
           <Button
             variant="ghost"
             onClick={onGoHome}
-            aria-label="Back to the StoneWood home page"
+            aria-label="Back to the Stonewood Garden home page"
             className="h-auto gap-3 p-0 hover:bg-transparent hover:opacity-70"
             style={{ display: "inline-flex", alignItems: "center", marginBottom: 12, transition: "opacity .2s" }}
           >

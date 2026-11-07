@@ -4,7 +4,7 @@ import { pageMetadata } from "@/lib/seo";
 // Server layout so this Client Component route can still declare its metadata.
 export const metadata = pageMetadata({
   title: "Admin",
-  description: "StoneWood resort administration.",
+  description: "Stonewood Garden resort administration.",
   path: "/admin", noindex: true,
 });
 

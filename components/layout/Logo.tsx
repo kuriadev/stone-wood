@@ -26,7 +26,7 @@ const COMPACT_H = 22;
 interface LogoProps {
   /** Rendered height in px; width follows. Full mark: 37 desktop, 32 mobile. */
   height?: number;
-  /** Colour of PRIVATE RESORT. Defaults to the faint text tier. */
+  /** Colour of GARDEN PRIVATE RESORT. Defaults to the faint text tier. */
   subColor?: string;
   /** STONEWOOD only, no tagline. */
   compact?: boolean;
@@ -53,7 +53,7 @@ export function Logo({
       width={(h * VIEW_W) / viewH}
       role={decorative ? undefined : "img"}
       aria-hidden={decorative ? true : undefined}
-      aria-label={decorative ? undefined : "StoneWood Private Resort"}
+      aria-label={decorative ? undefined : "Stonewood Garden Private Resort"}
       focusable="false"
       className={className}
       style={{
@@ -67,8 +67,8 @@ export function Logo({
         STONEWOOD
       </text>
       {!compact && (
-        <text x="0" y="35" fontSize="11" fontWeight="400" fill={subColor} textLength={150} lengthAdjust="spacing">
-          PRIVATE RESORT
+        <text x="0" y="35" fontSize="10" fontWeight="400" fill={subColor} textLength={VIEW_W} lengthAdjust="spacing">
+          GARDEN PRIVATE RESORT
         </text>
       )}
     </svg>

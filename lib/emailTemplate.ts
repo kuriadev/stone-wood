@@ -90,7 +90,7 @@ function formatDate(ds: string) {
  * and says plainly that a second email decides it.
  */
 export function buildBookingReceivedEmail(booking: Booking): { subject: string; html: string } {
-  const subject = `\u{1F4E5} Booking Received \u2013 ${sanitizeHeaderValue(booking.id, 40)} | StoneWood Resort`;
+  const subject = `\u{1F4E5} Booking Received \u2013 ${sanitizeHeaderValue(booking.id, 40)} | Stonewood Garden Private Resort`;
 
   const html = `
 <!DOCTYPE html>
@@ -98,7 +98,7 @@ export function buildBookingReceivedEmail(booking: Booking): { subject: string; 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Booking Received \u2013 StoneWood Resort</title>
+  <title>Booking Received \u2013 Stonewood Garden Private Resort</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f1eb;font-family:'Georgia',serif;">
 
@@ -109,7 +109,7 @@ export function buildBookingReceivedEmail(booking: Booking): { subject: string; 
 
           <tr>
             <td style="background:linear-gradient(135deg,#1a1108 0%,#2a1f0e 60%,#1a1108 100%);border-radius:12px 12px 0 0;padding:40px 36px;text-align:center;">
-              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:4px;text-transform:uppercase;">StoneWood Resort</p>
+              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:4px;text-transform:uppercase;">Stonewood Garden Private Resort</p>
               <h1 style="margin:0 0 6px;color:#f0e6cc;font-size:28px;font-weight:400;letter-spacing:1px;">Booking Received</h1>
               <p style="margin:0;color:#c9a84c;font-size:13px;">We have your reservation \u2014 it is awaiting confirmation</p>
               <div style="margin:20px auto 0;width:48px;height:1px;background:linear-gradient(90deg,transparent,#c9a84c,transparent);"></div>
@@ -123,7 +123,7 @@ export function buildBookingReceivedEmail(booking: Booking): { subject: string; 
                 Dear <strong>${escapeHtml(booking.name)}</strong>,
               </p>
               <p style="margin:0 0 28px;color:#5a4a35;font-size:14px;line-height:1.8;">
-                Thank you for booking with <strong>StoneWood Resort</strong>. We have received your reservation and our team is reviewing it now. Keep the reference below \u2014 you will need it to check or cancel your booking.
+                Thank you for booking with <strong>Stonewood Garden Private Resort</strong>. We have received your reservation and our team is reviewing it now. Keep the reference below \u2014 you will need it to check or cancel your booking.
               </p>
 
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
@@ -177,7 +177,7 @@ export function buildBookingReceivedEmail(booking: Booking): { subject: string; 
 
               <p style="margin:0;color:#5a4a35;font-size:14px;line-height:1.8;">
                 We look forward to hosting you.<br/>
-                <strong style="color:#2a1f0e;">The StoneWood Resort Team</strong>
+                <strong style="color:#2a1f0e;">The Stonewood Garden Private Resort Team</strong>
               </p>
 
             </td>
@@ -185,7 +185,7 @@ export function buildBookingReceivedEmail(booking: Booking): { subject: string; 
 
           <tr>
             <td style="background:#1a1108;border-radius:0 0 12px 12px;padding:24px 36px;text-align:center;">
-              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:3px;text-transform:uppercase;">StoneWood Resort</p>
+              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Stonewood Garden Private Resort</p>
               <p style="margin:0;color:#5a4a35;font-size:11px;">This is an automated notification email. Please do not reply.</p>
             </td>
           </tr>
@@ -212,7 +212,7 @@ export interface RejectionMoney {
 }
 
 export function buildRejectionEmail(booking: Booking, reason: string, money?: RejectionMoney): { subject: string; html: string } {
-  const subject = `❌ Booking Update – ${sanitizeHeaderValue(booking.id, 40)} | StoneWood Resort`;
+  const subject = `❌ Booking Update – ${sanitizeHeaderValue(booking.id, 40)} | Stonewood Garden Private Resort`;
   const defaultReason = "Your booking did not meet our current availability or requirements.";
   const displayReason = reason.trim() || defaultReason;
   const moneyLine = !money
@@ -229,7 +229,7 @@ export function buildRejectionEmail(booking: Booking, reason: string, money?: Re
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Booking Update – StoneWood Resort</title>
+  <title>Booking Update – Stonewood Garden Private Resort</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f1eb;font-family:'Georgia',serif;">
 
@@ -241,7 +241,7 @@ export function buildRejectionEmail(booking: Booking, reason: string, money?: Re
           <!-- Header -->
           <tr>
             <td style="background:linear-gradient(135deg,#1a0808 0%,#2d0a0a 60%,#1a0808 100%);border-radius:12px 12px 0 0;padding:40px 36px;text-align:center;">
-              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:4px;text-transform:uppercase;">StoneWood Resort</p>
+              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:4px;text-transform:uppercase;">Stonewood Garden Private Resort</p>
               <h1 style="margin:0 0 6px;color:#f0e6cc;font-size:28px;font-weight:400;letter-spacing:1px;">Booking Not Confirmed</h1>
               <p style="margin:0;color:#e07070;font-size:13px;">We're sorry, your reservation was not approved</p>
               <div style="margin:20px auto 0;width:48px;height:1px;background:linear-gradient(90deg,transparent,#c9a84c,transparent);"></div>
@@ -256,7 +256,7 @@ export function buildRejectionEmail(booking: Booking, reason: string, money?: Re
                 Dear <strong>${escapeHtml(booking.name)}</strong>,
               </p>
               <p style="margin:0 0 28px;color:#5a4a35;font-size:14px;line-height:1.8;">
-                Thank you for choosing <strong>StoneWood Resort</strong>. Unfortunately, we were unable to confirm your reservation at this time.
+                Thank you for choosing <strong>Stonewood Garden Private Resort</strong>. Unfortunately, we were unable to confirm your reservation at this time.
               </p>
 
               <!-- Booking ID -->
@@ -311,7 +311,7 @@ export function buildRejectionEmail(booking: Booking, reason: string, money?: Re
 
               <p style="margin:0;color:#5a4a35;font-size:14px;line-height:1.8;">
                 We hope to welcome you another time.<br/>
-                <strong style="color:#2a1f0e;">The StoneWood Resort Team</strong>
+                <strong style="color:#2a1f0e;">The Stonewood Garden Private Resort Team</strong>
               </p>
 
             </td>
@@ -320,7 +320,7 @@ export function buildRejectionEmail(booking: Booking, reason: string, money?: Re
           <!-- Footer -->
           <tr>
             <td style="background:#1a1108;border-radius:0 0 12px 12px;padding:24px 36px;text-align:center;">
-              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:3px;text-transform:uppercase;">StoneWood Resort</p>
+              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Stonewood Garden Private Resort</p>
               <p style="margin:0;color:#5a4a35;font-size:11px;">This is an automated notification email. Please do not reply.</p>
             </td>
           </tr>
@@ -346,7 +346,7 @@ export const GUEST_SUBJECT_MAX = 150;
 /** The subject an "Email guest" starts with, so staff rarely have to think
  *  about it and the guest can always see which booking is meant. */
 export function defaultGuestSubject(booking: Pick<Booking, "id">): string {
-  return `About your StoneWood booking ${booking.id}`;
+  return `About your Stonewood Garden booking ${booking.id}`;
 }
 
 /**
@@ -390,7 +390,7 @@ export function buildGuestMessageEmail(
 
           <tr>
             <td style="background:linear-gradient(135deg,#1a1108 0%,#2d1f0a 60%,#1a1108 100%);border-radius:12px 12px 0 0;padding:36px;text-align:center;">
-              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:4px;text-transform:uppercase;">StoneWood Resort</p>
+              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:4px;text-transform:uppercase;">Stonewood Garden Private Resort</p>
               <h1 style="margin:0;color:#f0e6cc;font-size:24px;font-weight:400;letter-spacing:1px;">A note about your booking</h1>
               <div style="margin:20px auto 0;width:48px;height:1px;background:linear-gradient(90deg,transparent,#c9a84c,transparent);"></div>
             </td>
@@ -424,7 +424,7 @@ export function buildGuestMessageEmail(
 
           <tr>
             <td style="background:#1a1108;border-radius:0 0 12px 12px;padding:24px 36px;text-align:center;">
-              <p style="margin:0;color:#8a7a5a;font-size:11px;line-height:1.8;">StoneWood Private Resort · ${escapeHtml(RESORT_CONTACT.phone)}</p>
+              <p style="margin:0;color:#8a7a5a;font-size:11px;line-height:1.8;">Stonewood Garden Private Resort · ${escapeHtml(RESORT_CONTACT.phone)}</p>
             </td>
           </tr>
 
@@ -439,7 +439,7 @@ export function buildGuestMessageEmail(
 }
 
 export function buildReceiptEmail(booking: Booking): { subject: string; html: string } {
-  const subject = `✅ Booking Confirmed – ${sanitizeHeaderValue(booking.id, 40)} | StoneWood Resort`;
+  const subject = `✅ Booking Confirmed – ${sanitizeHeaderValue(booking.id, 40)} | Stonewood Garden Private Resort`;
 
   // The booking's own stored total is the source of truth. The receipt
   // used to print a hardcoded ₱6,000 "base rate" whatever was booked.
@@ -457,7 +457,7 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Booking Confirmed – StoneWood Resort</title>
+  <title>Booking Confirmed – Stonewood Garden Private Resort</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f1eb;font-family:'Georgia',serif;">
 
@@ -469,7 +469,7 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
           <!-- Header -->
           <tr>
             <td style="background:linear-gradient(135deg,#1a1108 0%,#2d1f0a 60%,#1a1108 100%);border-radius:12px 12px 0 0;padding:40px 36px;text-align:center;">
-              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:4px;text-transform:uppercase;">StoneWood Resort</p>
+              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:4px;text-transform:uppercase;">Stonewood Garden Private Resort</p>
               <h1 style="margin:0 0 6px;color:#f0e6cc;font-size:28px;font-weight:400;letter-spacing:1px;">Booking Confirmed</h1>
               <p style="margin:0;color:#c9a84c;font-size:13px;">Your reservation has been accepted</p>
               <div style="margin:20px auto 0;width:48px;height:1px;background:linear-gradient(90deg,transparent,#c9a84c,transparent);"></div>
@@ -485,7 +485,7 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
                 Dear <strong>${escapeHtml(booking.name)}</strong>,
               </p>
               <p style="margin:0 0 28px;color:#5a4a35;font-size:14px;line-height:1.8;">
-                We're delighted to confirm your reservation at <strong>StoneWood Resort</strong>. Please find your booking details below.
+                We're delighted to confirm your reservation at <strong>Stonewood Garden Private Resort</strong>. Please find your booking details below.
               </p>
 
               <!-- Booking ID badge -->
@@ -577,7 +577,7 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
 
               <p style="margin:0 0 32px;color:#5a4a35;font-size:14px;line-height:1.8;">
                 We look forward to welcoming you!<br/>
-                <strong style="color:#2a1f0e;">The StoneWood Resort Team</strong>
+                <strong style="color:#2a1f0e;">The Stonewood Garden Private Resort Team</strong>
               </p>
 
               <!-- Cancellation Button -->
@@ -601,7 +601,7 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
           <!-- Footer -->
           <tr>
             <td style="background:#1a1108;border-radius:0 0 12px 12px;padding:24px 36px;text-align:center;">
-              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:3px;text-transform:uppercase;">StoneWood Resort</p>
+              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Stonewood Garden Private Resort</p>
               <p style="margin:0;color:#5a4a35;font-size:11px;">This is an automated confirmation email. Please do not reply.</p>
             </td>
           </tr>
@@ -653,7 +653,7 @@ export function buildNoticeEmail(n: Notice): { subject: string; html: string } {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${escapeHtml(n.title)} – StoneWood Resort</title>
+  <title>${escapeHtml(n.title)} – Stonewood Garden Private Resort</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f1eb;font-family:'Georgia',serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1eb;padding:32px 0;">
@@ -662,7 +662,7 @@ export function buildNoticeEmail(n: Notice): { subject: string; html: string } {
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">
           <tr>
             <td style="background:linear-gradient(135deg,#1a1108 0%,#2a1f0e 60%,#1a1108 100%);border-radius:12px 12px 0 0;padding:36px;text-align:center;">
-              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:4px;text-transform:uppercase;">StoneWood Resort</p>
+              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:4px;text-transform:uppercase;">Stonewood Garden Private Resort</p>
               <h1 style="margin:0 0 6px;color:#f0e6cc;font-size:26px;font-weight:400;letter-spacing:1px;">${escapeHtml(n.title)}</h1>
               <p style="margin:0;color:#c9a84c;font-size:13px;">${escapeHtml(n.tagline)}</p>
             </td>
@@ -701,7 +701,7 @@ export function buildNoticeEmail(n: Notice): { subject: string; html: string } {
           </tr>
           <tr>
             <td style="background:#1a1108;border-radius:0 0 12px 12px;padding:18px 36px;text-align:center;">
-              <p style="margin:0;color:#8a7a5a;font-size:11.5px;">StoneWood Private Resort · Angono, Rizal</p>
+              <p style="margin:0;color:#8a7a5a;font-size:11.5px;">Stonewood Garden Private Resort · Angono, Rizal</p>
             </td>
           </tr>
         </table>
@@ -710,5 +710,5 @@ export function buildNoticeEmail(n: Notice): { subject: string; html: string } {
   </table>
 </body>
 </html>`;
-  return { subject: `${sanitizeHeaderValue(n.subject, 120)} | StoneWood Resort`, html };
+  return { subject: `${sanitizeHeaderValue(n.subject, 120)} | Stonewood Garden Private Resort`, html };
 }

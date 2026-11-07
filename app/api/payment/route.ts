@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     const payment = await createQrPayment({
       amountCentavos: amount,
       referenceId: tag,
-      description: `StoneWood ${quote.packageLabel} — ${quote.draft.date}`.slice(0, 255),
+      description: `Stonewood Garden ${quote.packageLabel} — ${quote.draft.date}`.slice(0, 255),
     });
 
     return NextResponse.json({

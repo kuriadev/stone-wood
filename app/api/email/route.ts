@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
 
     // ── Send the email ───────────────────────────────────────────────────────
     await transporter.sendMail({
-      from: `"StoneWood Resort" <${process.env.GMAIL_USER}>`,
+      from: `"Stonewood Garden Private Resort" <${process.env.GMAIL_USER}>`,
       to: booking.email,
       subject,
       html,

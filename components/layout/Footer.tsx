@@ -139,7 +139,7 @@ export function Footer({ setPage }: FooterProps) {
           letterSpacing: 1,
         }}
       >
-        © 2026 StoneWood Private Resort · Angono, Rizal
+        © 2026 Stonewood Garden Private Resort · Angono, Rizal
       </div>
     </footer>
   );

@@ -194,7 +194,7 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
   const fileTag = label.replace(/[^\w]+/g, "_");
   const roomNames = (b: Booking) => (b.rooms || []).map((id) => rooms.find((r) => r.id === id)?.name ?? `#${id}`).join(" | ") || "None";
 
-  const exportBookings = () => downloadCsv(`StoneWood_Bookings_${fileTag}.csv`, [
+  const exportBookings = () => downloadCsv(`Stonewood_Bookings_${fileTag}.csv`, [
     ["Booking ID", "Guest", "Contact", "Email", "Date", "Last day", "Slot", "Package", "Source", "Guests", "Rooms", "Total (PHP)", "Paid (PHP)", "Penalties (PHP)", "Owed (PHP)", "Status", "Notes"],
     ...bks.map((b) => {
       const m = bookingMoney(b, ops.payments, ops.damages);
@@ -207,7 +207,7 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
     ...statusCount.map(([s, n]) => [statusLabel(s), n]),
   ]);
 
-  const exportMoney = () => downloadCsv(`StoneWood_Sales_${fileTag}.csv`, [
+  const exportMoney = () => downloadCsv(`Stonewood_Sales_${fileTag}.csv`, [
     ["Date", "Time", "Booking", "Guest", "Type", "Payment method", "Reference", "Amount (PHP)"],
     ...pays.map((p) => [manilaDate(p.receivedAt), manilaTime(p.receivedAt), p.bookingId ?? "", p.guestName, p.type, p.method, p.reference, signedAmount(p)]),
     [],
@@ -222,11 +222,11 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
   const print = () => {
     const rows = (pairs: readonly (readonly [string, number | string])[]) =>
       pairs.map(([k, v]) => `<tr><td>${escapeHtml(String(k))}</td><td class="n">${typeof v === "number" ? escapeHtml(fmt(v)) : escapeHtml(v)}</td></tr>`).join("");
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>StoneWood report · ${escapeHtml(label)}</title>
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Stonewood Garden report · ${escapeHtml(label)}</title>
 <style>body{font:13px/1.5 system-ui,sans-serif;color:#2a2a2a;margin:32px}h1{font:400 26px Georgia,serif;margin:0}h2{font-size:15px;margin:22px 0 6px;border-bottom:1px solid #ccc;padding-bottom:4px}
 table{border-collapse:collapse;width:100%}td,th{padding:4px 6px;border-bottom:1px solid #eee;text-align:left}.n{text-align:right;font-variant-numeric:tabular-nums}.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
 .muted{color:#777}</style></head><body>
-<h1>StoneWood Garden Private Pool</h1><div class="muted">Sales and bookings report · ${escapeHtml(label)} · generated ${escapeHtml(fmtDate(today))}</div>
+<h1>Stonewood Garden Private Resort</h1><div class="muted">Sales and bookings report · ${escapeHtml(label)} · generated ${escapeHtml(fmtDate(today))}</div>
 <h2>Summary</h2><table>${rows([["Money received", collected], ["Expenses", spent], ["Net income", round2(collected - spent)], ["Still owed on these bookings", owed]])}</table>
 <div class="grid"><div><h2>Received</h2><table>${rows([...summary, ["Total received", collected]])}</table>
 <h2>Payment Method</h2><table>${rows(byMethod)}</table></div>
@@ -257,7 +257,7 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
         .then((r) => r.json()).catch(() => null) as { movements?: StockMovement[] } | null;
       const moves = (mv?.movements ?? []).filter((m) => manilaDate(m.at) <= to);
       const itemName = (id: number) => inventory.find((i) => i.id === id);
-      await downloadWorkbook(`StoneWood_Report_${fileTag}`, `StoneWood report · ${label}`, [
+      await downloadWorkbook(`Stonewood_Report_${fileTag}`, `Stonewood Garden report · ${label}`, [
         {
           name: "Summary",
           columns: [{ header: "What", key: "k", width: 34 }, { header: "Amount", key: "v", width: 18, money: true }],
@@ -362,7 +362,7 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
   /** Share: the period's headline figures as text, to a chat or the clipboard. */
   const share = async () => {
     const text = [
-      `StoneWood report · ${label}`,
+      `Stonewood Garden report · ${label}`,
       `Money received: ${fmt(now.collected)} (${now.payments} payments)`,
       `Expenses: ${fmt(now.spent)}`,
       `Net income: ${fmt(now.net)}`,
@@ -371,7 +371,7 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
       `Cancellation rate: ${now.cancelRate}%`,
     ].join("\n");
     try {
-      if (typeof navigator.share === "function" && mob) { await navigator.share({ title: `StoneWood report · ${label}`, text }); return; }
+      if (typeof navigator.share === "function" && mob) { await navigator.share({ title: `Stonewood Garden report · ${label}`, text }); return; }
       await navigator.clipboard.writeText(text);
       toast("Report summary copied. Paste it into a chat or email.", "success");
     } catch {

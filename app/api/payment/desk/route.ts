@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     const payment = await createQrPayment({
       amountCentavos: amount,
       referenceId: `DESK-${randomBytes(4).toString("hex").toUpperCase()}`,
-      description: `StoneWood walk-in — ${String(body.description ?? "").replace(/[<>]/g, "")}`.slice(0, 255),
+      description: `Stonewood Garden walk-in — ${String(body.description ?? "").replace(/[<>]/g, "")}`.slice(0, 255),
     });
     return NextResponse.json({ success: true, payment });
   } catch (err) {

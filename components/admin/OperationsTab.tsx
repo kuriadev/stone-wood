@@ -1309,7 +1309,7 @@ export function OperationsTab({
           <h1 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 26 : 34, fontWeight: 400, margin: "6px 0 0" }}>
             {adminTabLabel("Operations")}
           </h1>
-          <p style={{ color: C.textS, fontSize: 13.5, margin: "6px 0 0" }}>See what needs to be done at StoneWood today.</p>
+          <p style={{ color: C.textS, fontSize: 13.5, margin: "6px 0 0" }}>See what needs to be done at Stonewood Garden today.</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           {/* Every time on this board is Manila time; nothing said so, and

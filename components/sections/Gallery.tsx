@@ -71,7 +71,7 @@ export function Gallery({ photos }: GalleryProps) {
           src={hero}
           srcSet={srcSetFor(hero)}
           sizes="100vw"
-          alt="StoneWood Resort at first light"
+          alt="Stonewood Garden Private Resort at first light"
           // The opening image is the LCP element, so it is eager and high
           // priority rather than lazy like the rest.
           fetchPriority="high"

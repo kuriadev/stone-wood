@@ -37,6 +37,6 @@ describe("galleryTiles", () => {
     // No words: no caption at all, and a plain description for screen readers.
     expect(pool.title).toBeUndefined();
     expect(pool.description).toBeUndefined();
-    expect(pool.alt).toBe("StoneWood Resort, photo 2 of 2");
+    expect(pool.alt).toBe("Stonewood Garden Private Resort, photo 2 of 2");
   });
 });

@@ -52,7 +52,7 @@ export function FacilityLightbox({ shot, open, onOpenChange }: {
             <D.Title className="sw-facbox__title">{shot.name}</D.Title>
             {shot.desc
               ? <D.Description className="sw-facbox__desc">{shot.desc}</D.Description>
-              : <D.Description className="sw-facbox__desc">Part of your stay at StoneWood.</D.Description>}
+              : <D.Description className="sw-facbox__desc">Part of your stay at Stonewood Garden.</D.Description>}
             {shot.closed && <span className="sw-facbox__tag">Under maintenance</span>}
           </div>
         </D.Content>

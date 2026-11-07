@@ -34,7 +34,7 @@ export async function sendMail({ to, subject, html }: Mail): Promise<void> {
     throw new Error("GMAIL_USER / GMAIL_APP_PASSWORD are not set.");
   }
   await transporter().sendMail({
-    from: `"StoneWood Resort" <${process.env.GMAIL_USER}>`,
+    from: `"Stonewood Garden Private Resort" <${process.env.GMAIL_USER}>`,
     to,
     subject,
     html,

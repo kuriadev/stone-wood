@@ -19,7 +19,7 @@ export async function downloadImportTemplate(rooms: { name: string }[]): Promise
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "StoneWood-bookings-import.xlsx";
+  a.download = "Stonewood-bookings-import.xlsx";
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -30,7 +30,7 @@ export async function downloadImportTemplate(rooms: { name: string }[]): Promise
 export async function buildImportTemplate(rooms: { name: string }[]): Promise<ArrayBuffer> {
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
-  wb.creator = "StoneWood";
+  wb.creator = "Stonewood Garden";
   wb.created = new Date();
 
   const ws = wb.addWorksheet("Bookings", { views: [{ state: "frozen", ySplit: 1 }] });

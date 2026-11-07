@@ -676,7 +676,7 @@ export function Home({ setPage, onBookWithDate, bookings, closedDates, packages,
         <Reveal style={{ position: "relative", zIndex: 2, maxWidth: 620, margin: "0 auto" }}>
           <p style={{ ...eyebrow, marginBottom: 20 }}>Angono, Rizal</p>
           <h2 style={{ ...h2, color: "#fff", marginBottom: 20 }}>
-            Your day at<br />StoneWood
+            Your day at<br />Stonewood Garden
           </h2>
           <p style={{ color: "rgba(238,232,220,0.78)", fontSize: mob ? 15 : 17, lineHeight: 1.85, fontWeight: 300, marginBottom: 36 }}>
             Check an open date and reserve in a few minutes.

@@ -69,12 +69,12 @@ ${list.map((b) => {
   const blank = (headers: string[], n: number) =>
     `<table class="blank"><tr>${headers.map((h) => `<th>${e(h)}</th>`).join("")}</tr>${Array.from({ length: n }, () => `<tr>${headers.map(() => "<td></td>").join("")}</tr>`).join("")}</table>`;
 
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>StoneWood offline sheet · ${e(fmtDate(today))}</title>
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Stonewood Garden offline sheet · ${e(fmtDate(today))}</title>
 <style>@page{size:A4 landscape;margin:12mm}body{font:12px/1.45 system-ui,sans-serif;color:#222;margin:0}h1{font:400 22px Georgia,serif;margin:0}
 h2{font-size:14px;margin:18px 0 6px;border-bottom:1px solid #bbb;padding-bottom:3px}table{border-collapse:collapse;width:100%}td,th{padding:3px 5px;border:1px solid #ccc;text-align:left;vertical-align:top}
 th{background:#f3eee4}.n{text-align:right}.mono{font-family:monospace}.muted{color:#777}.blank td{height:22px}.box{border:1px solid #bbb;border-radius:6px;padding:8px 12px;margin-top:8px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}ul{margin:4px 0;padding-left:18px}.break{break-before:page}</style></head><body>
-<h1>StoneWood — offline sheet</h1>
+<h1>Stonewood Garden — offline sheet</h1>
 <div class="muted">Printed ${e(fmtDate(today))}. Keep it at the front desk in case the internet drops.</div>
 <div class="box"><strong>While offline:</strong> take bookings on the last page (or in the import template on a laptop). Write the amount and how it was paid.
 <strong>When the internet is back:</strong> All Bookings → Import, and enter any payments for existing bookings with Record payment.</div>

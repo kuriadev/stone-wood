@@ -221,7 +221,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
   const paged = usePaged(rows);
   const net = round2(rows.filter((p) => !p.voided).reduce((s, p) => s + signedAmount(p), 0));
 
-  const exportCsv = () => downloadCsv(`StoneWood_Transactions_${from}_to_${to}.csv`, [
+  const exportCsv = () => downloadCsv(`Stonewood_Transactions_${from}_to_${to}.csv`, [
     ["Date", "Time", "Booking", "Guest", "Type", "Payment method", "Reference", "Amount (PHP)", "Undone", "Undo reason", "Notes"],
     ...rows.map((p) => [manilaDate(p.receivedAt), manilaTime(p.receivedAt), p.bookingId ?? "", p.guestName, p.type, p.method, p.reference,
       signedAmount(p), p.voided ? "Yes" : "No", p.voidReason ?? "", p.notes]),

@@ -103,7 +103,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
             fontFamily: "'Satoshi',system-ui,sans-serif",
           }}
         >
-          STONEWOOD PRIVATE RESORT
+          STONEWOOD GARDEN PRIVATE RESORT
         </p>
 
         {/* Headline + the pulsing dot. Wrapped in an inline-flex row so the

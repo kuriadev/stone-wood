@@ -24,7 +24,7 @@ const GOLD = "FFC9A84C";
 export async function downloadWorkbook(fileName: string, title: string, sheets: SheetSpec[]): Promise<void> {
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
-  wb.creator = "StoneWood";
+  wb.creator = "Stonewood Garden";
   wb.created = new Date();
   wb.title = title;
 

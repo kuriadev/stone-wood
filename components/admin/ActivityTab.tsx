@@ -135,7 +135,7 @@ export function ActivityTab({ mob, onOpenBooking }: { mob: boolean; onOpenBookin
     return () => clearTimeout(t);
   }, [load]);
 
-  const exportCsv = () => downloadCsv(`StoneWood_Audit_Log_${manilaDate()}.csv`, [
+  const exportCsv = () => downloadCsv(`Stonewood_Audit_Log_${manilaDate()}.csv`, [
     ["When", "Who", "Account type", "Action", "Booking", "What happened"],
     ...rows.map((a) => [fmtWhen(a.at), a.staffName ?? a.actor, accountType(a), a.action, a.bookingId ?? "", a.summary]),
   ]);

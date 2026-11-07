@@ -36,7 +36,7 @@ describe("a draft is never empty", () => {
     const out = draftReply(msg({ type }));
     expect(out.trim().length).toBeGreaterThan(60);
     expect(out).toContain("Hi Juan,");
-    expect(out).toContain("StoneWood Private Resort");
+    expect(out).toContain("Stonewood Garden Private Resort");
   });
 
   it("writes one for a type nobody has added a draft for", () => {

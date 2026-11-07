@@ -53,7 +53,7 @@ export function galleryTiles(photos: GalleryPhoto[], columns: number): MasonryIt
       full: imageAt(p.url, 1600),
       title: p.title || undefined,
       description: p.description || undefined,
-      alt: p.title ? `${p.title}${p.description ? `. ${p.description}` : ""}` : `StoneWood Resort, photo ${i + 1} of ${rest.length}`,
+      alt: p.title ? `${p.title}${p.description ? `. ${p.description}` : ""}` : `Stonewood Garden Private Resort, photo ${i + 1} of ${rest.length}`,
     };
   });
 }

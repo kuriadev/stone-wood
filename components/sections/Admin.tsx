@@ -907,7 +907,7 @@ export function Admin({
             )}
             {mini && (
               <div data-sidebar-head="" className="sw-side__minihead" style={{ borderBottom: `1px solid ${sideBorder}` }}>
-                <span className="sw-side__mark" aria-label="StoneWood" title={`StoneWood · ${ROLE_LABEL[role]}`}>S</span>
+                <span className="sw-side__mark" aria-label="Stonewood Garden" title={`Stonewood Garden · ${ROLE_LABEL[role]}`}>S</span>
                 <NotificationBell size={36} onOpen={openNote} />
               </div>
             )}

@@ -14,8 +14,8 @@ import { publicOrigin } from "@/lib/siteUrl";
  */
 
 export const SITE = {
-  name: "StoneWood Private Resort",
-  shortName: "StoneWood",
+  name: "Stonewood Garden Private Resort",
+  shortName: "Stonewood Garden",
   url: publicOrigin(process.env.NEXT_PUBLIC_SITE_URL),
   locale: "en_PH",
   description:
@@ -29,7 +29,7 @@ export const SITE = {
 export const CONTACT_VERIFIED = false;
 
 interface PageSeo {
-  /** Short page name; the root layout's template appends " · StoneWood Private Resort". */
+  /** Short page name; the root layout's template appends " · Stonewood Garden Private Resort". */
   title: string;
   description: string;
   /** Route path, e.g. "/rooms". Becomes the canonical URL. */

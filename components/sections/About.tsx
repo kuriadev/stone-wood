@@ -198,7 +198,7 @@ export function About({
       "fadeSlideUp 0.8s ease forwards 0.25s, shimmer 2.5s linear 1s infinite",
   }}
 >
-  StoneWood
+  Stonewood Garden
 </span>
 </h1>
 
@@ -260,10 +260,10 @@ export function About({
         <div className="sw-about__top">
           <Reveal>
             <div>
-              <p className="sw-about__eyebrow" style={{ color: C.goldInk }}>ABOUT STONEWOOD</p>
+              <p className="sw-about__eyebrow" style={{ color: C.goldInk }}>ABOUT STONEWOOD GARDEN</p>
               <h2 className="sw-about__title" style={{ color: C.textH }}>A family-run private resort in Angono, Rizal.</h2>
               <p className="sw-about__lead" style={{ color: C.textS }}>
-                StoneWood Private Resort is nestled in the heart of Angono, Rizal —
+                Stonewood Garden Private Resort is nestled in the heart of Angono, Rizal —
                 a sanctuary where nature and privacy come together.
               </p>
               <p className="sw-about__lead" style={{ color: C.textS }}>
@@ -376,7 +376,7 @@ export function About({
               lineHeight: 1.15,
             }}
           >
-            Stonewood Garden<br />Private Pool
+            Stonewood Garden<br />Private Resort
           </h2>
           <p style={{ color: C.textS, fontSize: 14, lineHeight: 1.8, margin: "0 0 28px", maxWidth: 360 }}>
             {ADDRESS}

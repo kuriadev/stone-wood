@@ -206,7 +206,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
       slot: SLOTS[getBookingSlot(b)].label, pkg: packageAvailed(b), src: b.source ?? "Online", guests: b.guests, rooms: roomNames(b),
       total: b.total, paid: m.paid, pen: m.penaltyTotal, due: m.due, status: bookingStatusLabel(b) };
   });
-  const exportCsv = () => downloadCsv(`StoneWood_Bookings_${exportTag}.csv`, [
+  const exportCsv = () => downloadCsv(`Stonewood_Bookings_${exportTag}.csv`, [
     ["Booking ID", "Guest", "Contact", "Email", "First day", "Last day", "Slot", "Package", "Source", "Guests", "Rooms", "Total (PHP)", "Paid (PHP)", "Penalties (PHP)", "Owed (PHP)", "Status"],
     ...exportRows().map((r) => [r.id, r.name, r.contact, r.email, r.date, r.end, r.slot, r.pkg, r.src, r.guests, r.rooms, r.total, r.paid, r.pen, r.due, r.status]),
   ]);
@@ -214,7 +214,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
   const exportExcel = async () => {
     setExporting(true);
     try {
-      await downloadWorkbook(`StoneWood_Bookings_${exportTag}`, "StoneWood bookings", [{
+      await downloadWorkbook(`Stonewood_Bookings_${exportTag}`, "Stonewood Garden bookings", [{
         name: "Bookings",
         columns: [
           { header: "Booking", key: "id", width: 12 }, { header: "Guest", key: "name", width: 22 }, { header: "Contact", key: "contact", width: 15 },
@@ -236,9 +236,9 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
   };
   const printList = () => {
     const body = exportRows().map((r) => `<tr><td>${escapeHtml(r.id)}</td><td>${escapeHtml(r.name)}<div class="m">${escapeHtml(r.contact)}</div></td><td>${escapeHtml(r.date)}${r.end !== r.date ? ` – ${escapeHtml(r.end)}` : ""}<div class="m">${escapeHtml(r.slot)}</div></td><td>${escapeHtml(r.pkg)}</td><td class="n">${r.guests}</td><td class="n">${escapeHtml(fmt(r.total))}</td><td class="n">${escapeHtml(fmt(r.paid))}</td><td class="n">${escapeHtml(fmt(r.due))}</td><td>${escapeHtml(r.status)}</td></tr>`).join("");
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>StoneWood bookings · ${escapeHtml(fmtDate(manilaDate()))}</title>
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Stonewood Garden bookings · ${escapeHtml(fmtDate(manilaDate()))}</title>
 <style>body{font:12px/1.45 system-ui,sans-serif;color:#222;margin:28px}h1{font:400 22px Georgia,serif;margin:0 0 4px}table{border-collapse:collapse;width:100%;margin-top:14px}th,td{padding:5px 6px;border-bottom:1px solid #e5e5e5;text-align:left;vertical-align:top}th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#666}.n{text-align:right;font-variant-numeric:tabular-nums}.m{color:#777;font-size:11px}</style></head><body>
-<h1>StoneWood bookings</h1><div class="m">${rows.length} booking${rows.length === 1 ? "" : "s"}${filtersOn ? " (filtered)" : ""} · printed ${escapeHtml(fmtDate(manilaDate()))}</div>
+<h1>Stonewood Garden bookings</h1><div class="m">${rows.length} booking${rows.length === 1 ? "" : "s"}${filtersOn ? " (filtered)" : ""} · printed ${escapeHtml(fmtDate(manilaDate()))}</div>
 <table><thead><tr><th>Booking</th><th>Guest</th><th>Date</th><th>Package</th><th class="n">Guests</th><th class="n">Total</th><th class="n">Paid</th><th class="n">Owed</th><th>Status</th></tr></thead><tbody>${body}</tbody></table>
 <script>window.onload=()=>window.print()</script></body></html>`;
     const w = window.open("", "_blank");

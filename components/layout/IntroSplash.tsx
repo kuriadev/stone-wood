@@ -46,7 +46,7 @@ export function IntroSplash() {
             ))}
           </div>
           <span className="sw-intro__rule" />
-          <div className="sw-intro__sub">PRIVATE RESORT</div>
+          <div className="sw-intro__sub">GARDEN PRIVATE RESORT</div>
         </div>
       </div>
       <script dangerouslySetInnerHTML={{ __html: DONE }} />

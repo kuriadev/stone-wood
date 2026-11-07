@@ -32,7 +32,7 @@ export const notices = {
         tagline: `${fmtDate(b.date)}, from ${s.start}`,
         name: b.name,
         paragraphs: [
-          `A reminder that your ${s.label} at StoneWood is tomorrow, ${visit(b)}: ${s.hours}.`,
+          `A reminder that your ${s.label} at Stonewood Garden is tomorrow, ${visit(b)}: ${s.hours}.`,
           balance > 0
             ? `The balance of ${fmt(balance)} is paid when you arrive — cash or GCash.`
             : "Your booking is fully paid. Just bring yourselves.",
@@ -41,7 +41,7 @@ export const notices = {
         rows: [["Booking", b.id], ["Date", visit(b)], ["Hours", s.hours], ["Guests", String(b.guests)], ...(balance > 0 ? [["Balance on arrival", fmt(balance)] as [string, string]] : [])],
         button: button(link),
       },
-      sms: `StoneWood Resort: See you tomorrow, ${fmtDate(b.date)}! Your ${s.label} is ${s.hours}.${balance > 0 ? ` Balance ${fmt(balance)} is due on arrival.` : ""} Booking ${b.id}: ${link}`,
+      sms: `Stonewood Garden Private Resort: See you tomorrow, ${fmtDate(b.date)}! Your ${s.label} is ${s.hours}.${balance > 0 ? ` Balance ${fmt(balance)} is due on arrival.` : ""} Booking ${b.id}: ${link}`,
     };
   },
 
@@ -80,7 +80,7 @@ export const notices = {
             }
           : {}),
       },
-      sms: `StoneWood Resort: Sorry, we had to cancel your ${fmtDate(b.date)} booking ${b.id}. ${reason} ${held > 0 ? `Your ${fmt(held)} is safe and stays with the booking. ` : ""}Pick a new date by ${fmtDeadline(deadline)}: ${link}`,
+      sms: `Stonewood Garden Private Resort: Sorry, we had to cancel your ${fmtDate(b.date)} booking ${b.id}. ${reason} ${held > 0 ? `Your ${fmt(held)} is safe and stays with the booking. ` : ""}Pick a new date by ${fmtDeadline(deadline)}: ${link}`,
     };
   },
 
@@ -102,7 +102,7 @@ export const notices = {
         rows: [["Booking", b.id], ["Missed date", visit(b)], ...(paid > 0 ? [["Paid, carries over", fmt(paid)] as [string, string]] : []), ["Pick a date by", fmtDeadline(deadline)]],
         button: button(link, "Pick a new date"),
       },
-      sms: `StoneWood Resort: We missed you on ${fmtDate(b.date)} (${b.id}). You can still move your booking to a new date${paid > 0 ? ` and your ${fmt(paid)} carries over` : ""}. Pick one by ${fmtDeadline(deadline)}: ${link}`,
+      sms: `Stonewood Garden Private Resort: We missed you on ${fmtDate(b.date)} (${b.id}). You can still move your booking to a new date${paid > 0 ? ` and your ${fmt(paid)} carries over` : ""}. Pick one by ${fmtDeadline(deadline)}: ${link}`,
     };
   },
 
@@ -121,7 +121,7 @@ export const notices = {
         rows: [["Booking", b.id], ["New date", visit(b)], ...(balance > 0 ? [["Balance on arrival", fmt(balance)] as [string, string]] : [])],
         button: button(link),
       },
-      sms: `StoneWood Resort: Your booking ${b.id} is confirmed for ${visit(b)}.${balance > 0 ? ` Balance ${fmt(balance)} is due on arrival.` : ""} Details: ${link}`,
+      sms: `Stonewood Garden Private Resort: Your booking ${b.id} is confirmed for ${visit(b)}.${balance > 0 ? ` Balance ${fmt(balance)} is due on arrival.` : ""} Details: ${link}`,
     };
   },
 
@@ -140,7 +140,7 @@ export const notices = {
         rows: [["Booking", b.id], [missed ? "Missed date" : "Cancelled date", visit(b)], ["Your new date", visit(b, toDate)]],
         button: button(link, "Check my booking"),
       },
-      sms: `StoneWood Resort: We got your new date for ${b.id}: ${fmtDate(toDate)}. We'll confirm it by ${fmtDeadline(holdUntil)}. ${link}`,
+      sms: `Stonewood Garden Private Resort: We got your new date for ${b.id}: ${fmtDate(toDate)}. We'll confirm it by ${fmtDeadline(holdUntil)}. ${link}`,
     };
   },
 
@@ -160,7 +160,7 @@ export const notices = {
         rows: [["Booking", b.id], ["Pick a date by", fmtDeadline(deadline)]],
         button: button(link, "Choose another date"),
       },
-      sms: `StoneWood Resort: Sorry, we couldn't confirm ${fmtDate(toDate)} for ${b.id}.${note ? ` ${note}` : ""} Please pick another date by ${fmtDeadline(deadline)}: ${link}`,
+      sms: `Stonewood Garden Private Resort: Sorry, we couldn't confirm ${fmtDate(toDate)} for ${b.id}.${note ? ` ${note}` : ""} Please pick another date by ${fmtDeadline(deadline)}: ${link}`,
     };
   },
 
@@ -177,7 +177,7 @@ export const notices = {
         rows: [["Booking", b.id], ["New date", visit(b)]],
         button: button(link),
       },
-      sms: `StoneWood Resort: Your booking ${b.id} is confirmed for ${visit(b)}. Details: ${link}`,
+      sms: `Stonewood Garden Private Resort: Your booking ${b.id} is confirmed for ${visit(b)}. Details: ${link}`,
     };
   },
 
@@ -195,7 +195,7 @@ export const notices = {
         rows: [["Booking", b.id], ["Refund", fmt(amount)]],
         button: button(link, "Track my refund"),
       },
-      sms: `StoneWood Resort: We'll refund your ${fmt(amount)} for booking ${b.id}. You'll get the reference when it's sent. Track it: ${link}`,
+      sms: `Stonewood Garden Private Resort: We'll refund your ${fmt(amount)} for booking ${b.id}. You'll get the reference when it's sent. Track it: ${link}`,
     };
   },
 
@@ -213,7 +213,7 @@ export const notices = {
         rows: [["Booking", b.id], ["Current date", fmtDate(b.date)], ["Requested date", visit(b, toDate)]],
         button: button(link, "Check my request"),
       },
-      sms: `StoneWood Resort: We got your request to move ${b.id} to ${fmtDate(toDate)}. We'll answer by ${fmtDeadline(holdUntil)}. ${link}`,
+      sms: `Stonewood Garden Private Resort: We got your request to move ${b.id} to ${fmtDate(toDate)}. We'll answer by ${fmtDeadline(holdUntil)}. ${link}`,
     };
   },
 
@@ -228,7 +228,7 @@ export const notices = {
         rows: [["Booking", b.id], ["New date", visit(b)]],
         button: button(link),
       },
-      sms: `StoneWood Resort: Your booking ${b.id} is moved to ${visit(b)}. See you then! ${link}`,
+      sms: `Stonewood Garden Private Resort: Your booking ${b.id} is moved to ${visit(b)}. See you then! ${link}`,
     };
   },
 
@@ -245,7 +245,7 @@ export const notices = {
         ],
         button: button(link),
       },
-      sms: `StoneWood Resort: Sorry, we couldn't move ${b.id} to ${fmtDate(toDate)}.${note ? ` ${note}` : ""} Your booking stays on ${fmtDate(b.date)}. ${link}`,
+      sms: `Stonewood Garden Private Resort: Sorry, we couldn't move ${b.id} to ${fmtDate(toDate)}.${note ? ` ${note}` : ""} Your booking stays on ${fmtDate(b.date)}. ${link}`,
     };
   },
 
@@ -260,7 +260,7 @@ export const notices = {
         rows: [["Booking", b.id], ["Refund", fmt(amount)], ["Sent by", method], ...(reference ? [["Reference", reference] as [string, string]] : [])],
         button: button(link, "See the receipt"),
       },
-      sms: `StoneWood Resort: We sent your ${fmt(amount)} refund for ${b.id} by ${method}${reference ? `, ref ${reference}` : ""}. Receipt: ${link}`,
+      sms: `Stonewood Garden Private Resort: We sent your ${fmt(amount)} refund for ${b.id} by ${method}${reference ? `, ref ${reference}` : ""}. Receipt: ${link}`,
     };
   },
 };
