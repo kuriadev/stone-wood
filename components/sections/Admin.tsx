@@ -251,10 +251,13 @@ export function Admin({
     Inquiry: "Question", Feedback: "Feedback", Complaint: "Concern",
     Refund: "Request for Refund", Suggestion: "Suggestion", Other: "Other",
   };
-  /* The four the owner asked to see as sections. These always show, even at
-     zero, so the row reads as a set of filters rather than appearing and
-     vanishing with the post. The rest only appear once something lands. */
-  const CS_ALWAYS = ["Inquiry", "Feedback", "Complaint", "Refund"];
+  /* The three a guest can send from the Customer Service form. These always
+     show, even at zero, so the row reads as a set of filters rather than
+     appearing and vanishing with the post. The rest only appear when the
+     list being viewed holds one: "Refund" came from the old refund form
+     (retired: refunds are arranged with the owner by call or chat), so it
+     shows only while old refund messages are there to find. */
+  const CS_ALWAYS = ["Inquiry", "Feedback", "Complaint"];
   const [csType, setCsType] = useState<string>("All");
   const csBase = csView === "inbox" ? inboxMessages : archivedMessages;
   const csList = csType === "All" ? csBase : csBase.filter((m) => (m.type ?? "Other") === csType);
@@ -684,7 +687,7 @@ export function Admin({
                 {/* What the message is about. Counts come from the list being
                     shown, so switching to the archive recounts rather than
                     advertising inbox numbers against archived messages. */}
-                {/* One dropdown (it was a row of pills). The always-shown four
+                {/* One dropdown (it was a row of pills). The always-shown three
                     stay listed at zero; the rest appear once something lands. */}
                 <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                   <FilterSelect<string>
@@ -1658,7 +1661,7 @@ export function Admin({
                   into both TabsContent rather than duplicated: the markup
                   stays in one place and each list still gets its own
                   announced tabpanel. */}
-              <Tabs value={csView} onValueChange={(v) => setCsView(v as "inbox" | "archive")}>
+              <Tabs value={csView} onValueChange={(v) => { setCsView(v as "inbox" | "archive"); if (!CS_ALWAYS.includes(csType)) setCsType("All"); }}>
                 <TabsList className="mb-5 h-auto gap-2 bg-transparent p-0">
                   {(["inbox", "archive"] as const).map((v) => (
                     <TabsTrigger
