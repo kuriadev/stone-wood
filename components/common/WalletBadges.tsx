@@ -7,11 +7,11 @@
 
 import { QRPH_WALLETS } from "@/lib/labels";
 
-export function WalletBadges({ muted, line }: { muted: string; line: string }) {
+export function WalletBadges({ muted }: { muted: string }) {
   return (
-    <div role="list" aria-label="E-wallets that can pay" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 8 }}>
+    <div role="list" aria-label="E-wallets that can pay" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 14 }}>
       {QRPH_WALLETS.map((w) => (
-        <span key={w.name} role="listitem" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 600, color: "inherit", border: `1px solid ${line}`, borderRadius: 999, padding: "4px 11px 4px 4px" }}>
+        <span key={w.name} role="listitem" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 600, color: "inherit" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={w.icon} alt="" width={22} height={22} loading="lazy" decoding="async" style={{ width: 22, height: 22, borderRadius: 6, display: "block" }} />
           {w.name}

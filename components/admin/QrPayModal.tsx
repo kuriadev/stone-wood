@@ -100,7 +100,7 @@ export function QrPayModal({ amount, description, summary, onPaid, onCancel }: {
             <div className="sw-qrpay__brand"><Icon name="cash" size={15} /> QR Ph</div>
             <DialogTitle className="sw-qrpay__amount">{fmt(amount)}</DialogTitle>
             <DialogDescription className="sw-qrpay__sub">Ask the guest to scan this with their app and pay. It saves by itself when the payment arrives.</DialogDescription>
-            <div style={{ margin: "10px 0 4px" }}><WalletBadges muted="rgba(150,140,120,0.95)" line="rgba(150,140,120,0.35)" /></div>
+            <div style={{ margin: "10px 0 4px" }}><WalletBadges muted="rgba(150,140,120,0.95)" /></div>
             <div className={`sw-qrpay__qr is-${phase}`}>
               {qr?.image && phase !== "error"
                 // eslint-disable-next-line @next/next/no-img-element -- PayMongo's QR, a data URL

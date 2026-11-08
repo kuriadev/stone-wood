@@ -2084,7 +2084,7 @@
                     </p>
                     {/* QR Ph is the gateway: any e-wallet that accepts it can pay. */}
                     <div style={{ color: C.textB }}>
-                      <WalletBadges muted={C.textS} line={isDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.12)"} />
+                      <WalletBadges muted={C.textS} />
                     </div>
                     <div style={{ width: "100%", background: "rgba(0,169,82,0.10)", border: "1px solid rgba(0,169,82,0.35)", borderRadius: 10, padding: "12px 16px", textAlign: "center" }}>
                       <div style={{ color: "#4caf50", fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>AMOUNT DUE NOW</div>
