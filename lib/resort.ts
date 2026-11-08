@@ -6,7 +6,7 @@
 //
 // Pure data: safe to import from client components and from the server.
 
-import type { BookingSlot } from "@/types/booking";
+import type { BookingResource, BookingSlot } from "@/types/booking";
 import { manilaNow } from "@/lib/validators";
 
 export interface SlotInfo {
@@ -115,6 +115,43 @@ export const SLOTS: Record<BookingSlot, SlotInfo> = {
   WholeDay: slot("WholeDay", "Staycation", 7, 29, 2, "continuous", "You stay right through"),
 };
 
+// ── The events venue closes before the resort does ──
+//
+// Events bring loud music, crowds and lights, so the hall shuts at
+// VENUE_END_HOUR (the owner's "Events venue closes", midnight by default)
+// even though the Night Tour runs on to 5 AM. A venue-only booking ends
+// then and goes home: it never had the pool, and isn't counted against it.
+// A pool + venue group keeps its booking to the end of the night and moves
+// to the pool once the hall shuts (owner's rule, 2026-11-08). The Day Tour
+// already ends before it, so only night hours change.
+
+/** When the events venue closes at night, 24-hour clock (24 = midnight). */
+export let VENUE_END_HOUR = 24;
+
+/** "12 midnight", or "11:00 PM" — for sentences. */
+export function venueCloseText(): string {
+  return VENUE_END_HOUR % 24 === 0 ? "12 midnight" : hourLabel(VENUE_END_HOUR);
+}
+
+/** The hours a booking of this kind really has: the slot's own, except
+ *  that a venue-only booking ends when the venue closes. Everything that
+ *  shows or times one booking (Book Now, emails, staff screens, the
+ *  occupancy window) reads this rather than SLOTS directly. */
+export function slotFor(id: BookingSlot, resource?: BookingResource | null): SlotInfo {
+  const s = SLOTS[id];
+  if (resource !== "Venue" || s.endHour <= VENUE_END_HOUR) return s;
+  // The hall is shut overnight, so even a whole-day venue booking returns
+  // the next morning rather than staying right through.
+  return slot(s.id, s.label, s.startHour, VENUE_END_HOUR, s.span, "returns", s.stayHint);
+}
+
+/** For a pool + venue booking whose night runs past the venue's closing:
+ *  "Events venue until 12 midnight". Null when it doesn't apply. */
+export function venueClosesNote(id: BookingSlot, resource?: BookingResource | null): string | null {
+  if (resource !== "Pool+Venue" || SLOTS[id].endHour <= VENUE_END_HOUR) return null;
+  return `Events venue until ${venueCloseText()}`;
+}
+
 /** Is a run of several days in this slot one unbroken stay? */
 export const isContinuousStay = (id: BookingSlot): boolean => SLOTS[id].stay === "continuous";
 
@@ -150,9 +187,13 @@ export function stayUnit(id: BookingSlot, days: number): string {
 /** The plain-language answer to "so do I sleep there?" for a stay of
  *  `days` days in this slot. Null for a single day, where the hours
  *  already say everything. */
-export function stayPatternNote(id: BookingSlot, days: number): string | null {
+export function stayPatternNote(id: BookingSlot, days: number, resource?: BookingResource | null): string | null {
   if (days <= 1) return null;
-  const s = SLOTS[id];
+  const s = slotFor(id, resource);
+  // The venue is closed overnight and takes no rooms.
+  if (resource === "Venue") {
+    return `${stayUnit(id, days)}, one after another. You arrive at ${s.start} each day and ${s.cycleEnd}, when the events venue closes.`;
+  }
   if (s.stay === "continuous") {
     return `The resort is yours without a break from ${s.start} on the first day until ${s.end} the morning after the last. Housekeeping works around you on the mornings in between.`;
   }
@@ -168,7 +209,7 @@ export const LATE_BOOKING_CUTOFF_HOURS = 2;
 
 /** The hour (24-hour clock, Manila) from which today's tour can no longer
  *  be booked online. Past 24 means it never closes on the day itself. */
-export const lateBookingCloses = (slot: BookingSlot): number => SLOTS[slot].endHour - LATE_BOOKING_CUTOFF_HOURS;
+export const lateBookingCloses = (slot: BookingSlot, resource?: BookingResource | null): number => slotFor(slot, resource).endHour - LATE_BOOKING_CUTOFF_HOURS;
 
 /** Today's tour can be booked after it has started, up to
  *  LATE_BOOKING_CUTOFF_HOURS before it ends.
@@ -180,19 +221,20 @@ export const lateBookingCloses = (slot: BookingSlot): number => SLOTS[slot].endH
  *  Only the first date matters: the later days of a stay are all in the
  *  future. Walk-ins at the front desk are not held to this; the staff can
  *  see who is actually there. */
-export function slotStartedProblem(date: string, slot: BookingSlot, at: Date = new Date()): string | null {
+export function slotStartedProblem(date: string, slot: BookingSlot, at: Date = new Date(), resource?: BookingResource | null): string | null {
   const now = manilaNow(at);
-  if (date !== now.date || now.hour < lateBookingCloses(slot)) return null;
-  return `Online booking for today's ${SLOTS[slot].label} has closed (it ends at ${SLOTS[slot].end}). Choose another date, or visit the front desk.`;
+  if (date !== now.date || now.hour < lateBookingCloses(slot, resource)) return null;
+  const s = slotFor(slot, resource);
+  return `Online booking for today's ${s.label} has closed (it ends at ${s.end}). Choose another date, or visit the front desk.`;
 }
 
 /** The note shown when someone books today's tour after it has started:
  *  it still ends at the usual time, and staying longer is overtime. Null
  *  when the tour hasn't started yet, or the date isn't today. */
-export function lateArrivalNote(date: string, slot: BookingSlot, at: Date = new Date()): string | null {
+export function lateArrivalNote(date: string, slot: BookingSlot, at: Date = new Date(), resource?: BookingResource | null): string | null {
   const now = manilaNow(at);
-  if (date !== now.date || now.hour < SLOTS[slot].startHour || slotStartedProblem(date, slot, at)) return null;
-  const s = SLOTS[slot];
+  if (date !== now.date || now.hour < SLOTS[slot].startHour || slotStartedProblem(date, slot, at, resource)) return null;
+  const s = slotFor(slot, resource);
   return `Today's ${s.label} started at ${s.start}. You can still book it and arrive now, but it ends at ${s.end}${s.endsNextDay ? " the next morning" : ""} as usual, at the full price. To stay longer, ask the front desk for overtime.`;
 }
 
@@ -202,10 +244,10 @@ export function lateArrivalNote(date: string, slot: BookingSlot, at: Date = new 
  *  "started" while it runs; "ended" once it is over (only the Day Tour can
  *  end on the date it starts). */
 export type SlotTiming = "upcoming" | "started" | "ended";
-export function slotTiming(date: string, slot: BookingSlot, at: Date = new Date()): SlotTiming {
+export function slotTiming(date: string, slot: BookingSlot, at: Date = new Date(), resource?: BookingResource | null): SlotTiming {
   const now = manilaNow(at);
   if (date !== now.date || now.hour < SLOTS[slot].startHour) return "upcoming";
-  return now.hour >= SLOTS[slot].endHour ? "ended" : "started";
+  return now.hour >= slotFor(slot, resource).endHour ? "ended" : "started";
 }
 
 /** 5–7 PM: cleaning and turnover between the Day and Night groups. */
@@ -216,11 +258,16 @@ export let TURNOVER_WINDOW = "5:00 – 7:00 PM";
  *  an overnight booking does not block the following day. */
 export let MORNING_TURNOVER_WINDOW = "5:00 – 7:00 AM";
 
-/** Videoke and speakers off from this time — keeps the neighbours happy. */
+/** Music, videoke and speakers off from this time — keeps the neighbours
+ *  happy, and is the usual barangay quiet hour. */
 export const QUIET_HOURS_START = "10:00 PM";
 
-/** One-line policy, reused on the booking policy screen and the site. */
-export const QUIET_HOURS_POLICY = `Quiet hours start at ${QUIET_HOURS_START} — videoke and speakers off.`;
+const quietHoursPolicy = () =>
+  `Quiet hours start at ${QUIET_HOURS_START} — music, videoke and speakers off. The events venue closes at ${venueCloseText()}; a venue-only booking ends then and doesn't include the pool.`;
+
+/** One-line policy, reused on the booking policy screen, the site and the
+ *  emails. Rebuilt when the owner moves the venue's closing time. */
+export let QUIET_HOURS_POLICY = quietHoursPolicy();
 
 // ── How guests reach the owner ─────────────────────────────────────────
 //
@@ -285,6 +332,8 @@ export interface ResortValues {
   nightStart: number;
   /** Past 24 = the next morning (29 = 5 AM). */
   nightEnd: number;
+  /** When the events venue closes at night (24 = midnight). */
+  venueEnd: number;
   contact: { phone: string; viber: string; email: string; messenger: string };
 }
 
@@ -301,5 +350,7 @@ export function applyResortValues(v: ResortValues): void {
   Object.assign(SLOTS.WholeDay, slot("WholeDay", "Staycation", v.dayStart, v.nightEnd, 2, "continuous", "You stay right through"));
   TURNOVER_WINDOW = twoHours(v.dayEnd, v.nightStart);
   MORNING_TURNOVER_WINDOW = twoHours(v.nightEnd % 24, v.dayStart);
+  VENUE_END_HOUR = v.venueEnd;
+  QUIET_HOURS_POLICY = quietHoursPolicy();
   Object.assign(RESORT_CONTACT, v.contact);
 }

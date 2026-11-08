@@ -114,3 +114,23 @@
   font-size: 11px; font-weight: 800; color: #1a1306; background: #e0a83c;
 }
 @keyframes sw-latenote-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* A group bigger than the rooms it picked. Still bookable (a room is extra
+   space; the headcount is checked against the resort's capacity), but said
+   plainly so nobody arrives expecting a bed for everyone. Amber like
+   .sw-latenote, bigger and titled so it isn't missed above CONTINUE. */
+.sw-roomnote {
+  display: flex; gap: 14px; align-items: flex-start;
+  margin: -4px 0 20px; padding: 14px 16px; border-radius: 12px;
+  background: rgba(224, 168, 60, 0.12);
+  border: 1px solid rgba(224, 168, 60, 0.5);
+  border-left: 4px solid #e0a83c;
+  animation: sw-latenote-in .4s cubic-bezier(.22, 1, .36, 1) both;
+}
+.sw-roomnote__ico {
+  flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  color: #1a1306; background: #e0a83c;
+}
+.sw-roomnote__title { margin: 0 0 4px; font-size: 14.5px; font-weight: 700; line-height: 1.4; }
+.sw-roomnote__body { margin: 0; font-size: 13px; line-height: 1.6; }

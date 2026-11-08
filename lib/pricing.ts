@@ -30,6 +30,7 @@ import {
   EVENT_VENUE_RATE,
   OVERTIME_RATE,
   RESORT_MAX_CAPACITY,
+  VENUE_CAPACITY,
 } from "@/lib/validators";
 import { SLOTS, multiDayProblem } from "@/lib/resort";
 import { getBookingResource, getBookingSlot, getBookingTier } from "@/lib/utils";
@@ -120,8 +121,10 @@ export function pricingProblem(
 }
 
 /** The events hall's own capacity, separate from the pool's
- *  (RESORT_MAX_CAPACITY): a venue-only package can hold up to this many. */
-export const VENUE_CAPACITY = 50;
+ *  (RESORT_MAX_CAPACITY): a venue-only booking or package can hold up to
+ *  this many. The owner sets it in Rates & Settings (lib/validators.ts);
+ *  re-exported here for the places that already read it from pricing. */
+export { VENUE_CAPACITY };
 
 /** The most guests a package of this kind can take. */
 export const packageCapacityLimit = (resource: BookingResource) =>

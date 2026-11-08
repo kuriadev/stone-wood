@@ -10,14 +10,13 @@
 import { createPortal } from "react-dom";
 import { useOps } from "@/contexts/OpsContext";
 import { bookingMoney, manilaDate } from "@/lib/finance";
-import { fmt, fmtDate, getBookingSlot } from "@/lib/utils";
-import { SLOTS } from "@/lib/resort";
+import { fmt, fmtDate, bookingSlotInfo } from "@/lib/utils";
 import type { Booking } from "@/types/booking";
 import { BookingStatement } from "@/components/admin/InspectionModals";
 import { Modal, ActionButton, StatusBadge, useAdminStyle } from "@/components/admin/ui";
 
 function Head({ b }: { b: Booking }) {
-  const slot = SLOTS[getBookingSlot(b)];
+  const slot = bookingSlotInfo(b);
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 8 }}>
       <div>

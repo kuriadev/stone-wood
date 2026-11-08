@@ -10,7 +10,7 @@
 
 import { getPaymentStatus } from "@/lib/paymongo";
 import { getSupabaseAdmin, rowToBooking, bookingToRow, missingNewColumn, withoutNewColumns } from "@/lib/supabase";
-import { isValidEmail, isValidPHNumber, sanitizeName, sanitizeNotes, NAME_MIN, NAME_MAX, OVERTIME_MAX, MAX_STAY_DAYS, isInStaffWindow, staffDateWindow, GUESTS_MAX, OVERRIDE_GUESTS_MAX } from "@/lib/validators";
+import { isValidEmail, isValidPHNumber, sanitizeName, sanitizeNotes, NAME_MIN, NAME_MAX, OVERTIME_MAX, MAX_STAY_DAYS, isInStaffWindow, staffDateWindow, GUESTS_MAX, OVERRIDE_GUESTS_MAX, guestLimitFor } from "@/lib/validators";
 import { logActivity } from "@/lib/activity.server";
 import { daysInRange, fmt, fmtDate, getPackageTier } from "@/lib/utils";
 import { priceBooking, pricingProblem, packageAvailed, bookingLabel, packagePricing, unpackDiscounts, type Deal } from "@/lib/pricing";
@@ -83,12 +83,16 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
   }
   const guests = Number(b.guests);
   if (!Number.isFinite(guests) || guests < 1) return bad("Guest count must be at least 1.");
-  // More than the resort's capacity only when staff said so on purpose.
-  const overCapacity = b.overCapacity === true && Math.round(guests) > GUESTS_MAX;
-  if (Math.round(guests) > (overCapacity ? OVERRIDE_GUESTS_MAX : GUESTS_MAX)) {
+  // More than the capacity only when staff said so on purpose. A venue-only
+  // group is held to what the hall holds; anything with the pool, to the
+  // resort's capacity (lib/validators.ts guestLimitFor).
+  const cap = guestLimitFor(RESOURCES.includes(b.resource as BookingResource) ? (b.resource as BookingResource) : "Pool");
+  const capWhat = cap === GUESTS_MAX ? "the resort's capacity" : "what the events venue holds";
+  const overCapacity = b.overCapacity === true && Math.round(guests) > cap;
+  if (Math.round(guests) > (overCapacity ? OVERRIDE_GUESTS_MAX : cap)) {
     return bad(overCapacity
       ? `The most for one booking, even over capacity, is ${OVERRIDE_GUESTS_MAX} guests.`
-      : `That's more than the resort's capacity of ${GUESTS_MAX}. Tick "Allow more than ${GUESTS_MAX} guests" to book it anyway.`);
+      : `That's more than ${capWhat} (${cap}). Tick "Allow more than ${cap} guests" to book it anyway.`);
   }
 
   // Priced here from the database's own package and room prices, with the

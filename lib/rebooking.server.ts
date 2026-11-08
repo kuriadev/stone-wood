@@ -165,7 +165,7 @@ export async function checkMove(b: Booking, date: string): Promise<{ ok: true } 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return no("Choose a date.");
   if (date === b.date) return no("Your booking is already on that date.");
   if (!isWithinBookingWindow(date)) return no(describeDateProblem(date) ?? "That date can't be booked.");
-  const started = slotStartedProblem(date, getBookingSlot(b));
+  const started = slotStartedProblem(date, getBookingSlot(b), undefined, getBookingResource(b));
   if (started) return no(started);
 
   // Moving a stay moves all of it, so every day of the new range has to be

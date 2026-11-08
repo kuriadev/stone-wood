@@ -118,7 +118,7 @@ export function BookingDatePicker({
      lib/resort.ts). Shown like a day gone by, not as "Booked": nobody took
      it, it is just too late. */
   const todayStr = manilaNow().date;
-  const todayClosed = !!slotStartedProblem(todayStr, slot);
+  const todayClosed = !!slotStartedProblem(todayStr, slot, undefined, resource);
   const rangeFull = useMemo(() => (rangeSlot && rangeSlot !== slot ? fullFor(rangeSlot) : fullDates), [fullFor, rangeSlot, slot, fullDates]);
   const closedSet = useMemo(() => new Set(closedDates), [closedDates]);
 

@@ -15,8 +15,8 @@ import { escapeHtml } from "@/lib/escapeHtml";
 import { bookingMoney, manilaDate } from "@/lib/finance";
 import { fmt, fmtDate, getBookingSlot, holdsDate, bookingCoversDate } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
-import { SLOTS, RESORT_CONTACT } from "@/lib/resort";
-import { SHARED_PER_HEAD_RATE, EXCLUSIVE_FLAT_RATE, SHARED_NIGHT_RATE, EXCLUSIVE_NIGHT_RATE, SHARED_STAY_RATE, EXCLUSIVE_STAY_RATE, EVENT_VENUE_RATE, OVERTIME_RATE, OVERTIME_MAX, RESORT_MAX_CAPACITY } from "@/lib/validators";
+import { SLOTS, RESORT_CONTACT, venueCloseText } from "@/lib/resort";
+import { SHARED_PER_HEAD_RATE, EXCLUSIVE_FLAT_RATE, SHARED_NIGHT_RATE, EXCLUSIVE_NIGHT_RATE, SHARED_STAY_RATE, EXCLUSIVE_STAY_RATE, EVENT_VENUE_RATE, OVERTIME_RATE, OVERTIME_MAX, RESORT_MAX_CAPACITY, VENUE_CAPACITY } from "@/lib/validators";
 import { caretakerTasks, addDaysIso } from "@/lib/tasks";
 import { IMPORT_COLUMNS } from "@/lib/importBookings";
 import type { Booking } from "@/types/booking";
@@ -90,6 +90,7 @@ ${OVERTIME_MAX > 0 ? `<tr><td>Day Tour overtime</td><td class="n">${e(fmt(OVERTI
 ${rooms.length ? `<tr><td>Rooms</td><td class="n">${e(rooms.map((r) => r.name.split(" –")[0]).join(", "))}</td></tr>` : ""}
 </table></div><div><h2>Hours and contact</h2><table>
 ${(["Day", "Night", "WholeDay"] as const).map((s) => `<tr><td>${e(SLOTS[s].label)}</td><td>${e(SLOTS[s].hours)}</td></tr>`).join("")}
+<tr><td>Events venue closes</td><td>${e(venueCloseText())} (up to ${VENUE_CAPACITY} guests, venue only)</td></tr>
 <tr><td>Resort phone</td><td>${e(RESORT_CONTACT.phone)}</td></tr></table></div></div>
 <h2>Today, ${e(fmtDate(today))}</h2>${dayTable(today)}
 <h2>Tomorrow, ${e(fmtDate(tomorrow))}</h2>${dayTable(tomorrow)}

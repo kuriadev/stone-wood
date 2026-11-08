@@ -46,6 +46,19 @@ export let GUESTS_SHARED_MAX = RESORT_MAX_CAPACITY;
  *  are just multiple parties splitting that one capacity. */
 export let RESORT_SHARED_CAPACITY = RESORT_MAX_CAPACITY;
 
+/** What the events hall holds (Rates & Settings, "Events venue capacity").
+ *  A venue-only group stays in the hall, so it is held to this; anything
+ *  with the pool is held to RESORT_MAX_CAPACITY, because that group uses
+ *  the pool area as well, and after the venue closes the whole group is
+ *  there. A booking is capped by the smallest space its guests use. */
+export let VENUE_CAPACITY = 50;
+
+/** The most guests one booking of this kind can have (staff can still go
+ *  over on purpose, up to OVERRIDE_GUESTS_MAX). */
+export function guestLimitFor(resource: "Pool" | "Venue" | "Pool+Venue" | undefined | null): number {
+  return resource === "Venue" ? VENUE_CAPACITY : GUESTS_MAX;
+}
+
 /** Events venue, per slot (Day or Night). Lowered from ₱8,000 after
  *  comparing Rizal resorts: party/function halls there rent for about
  *  ₱5,000 per slot (e.g. Tyvo Resort's A/C hall, 8 hrs; Casa de Amarella's
@@ -415,6 +428,7 @@ export function validateBookingForm(form: {
 // Only lib/settings.ts calls this. Each field is validated there first.
 export interface LimitValues {
   resortCapacity: number;
+  venueCapacity: number;
   exclusiveDefaultGuests: number;
   venueRate: number;
   exclusiveFlatRate: number;
@@ -436,6 +450,7 @@ export function applyLimitValues(v: LimitValues): void {
   GUESTS_MAX = v.resortCapacity;
   GUESTS_SHARED_MAX = v.resortCapacity;
   RESORT_SHARED_CAPACITY = v.resortCapacity;
+  VENUE_CAPACITY = v.venueCapacity;
   EXCLUSIVE_DEFAULT_GUESTS = Math.min(v.exclusiveDefaultGuests, v.resortCapacity);
   EVENT_VENUE_RATE = v.venueRate;
   EXCLUSIVE_FLAT_RATE = v.exclusiveFlatRate;

@@ -1,7 +1,7 @@
 import { escapeHtml, sanitizeHeaderValue } from "@/lib/escapeHtml";
-import { SLOTS, QUIET_HOURS_POLICY, RESORT_CONTACT, contactChannels, stayPatternNote } from "@/lib/resort";
+import { QUIET_HOURS_POLICY, RESORT_CONTACT, contactChannels, stayPatternNote, venueClosesNote } from "@/lib/resort";
 import { stayWindowLabel } from "@/lib/occupancy";
-import { getBookingSlot, bookingDays } from "@/lib/utils";
+import { bookingSlotInfo, bookingDays, getBookingResource } from "@/lib/utils";
 import { OVERTIME_RATE } from "@/lib/validators";
 import { packageAvailed } from "@/lib/pricing";
 
@@ -366,7 +366,7 @@ export function buildGuestMessageEmail(
   message: string
 ): { subject: string; html: string } {
   const clean = (subject || "").trim().slice(0, GUEST_SUBJECT_MAX) || defaultGuestSubject(booking);
-  const slotInfo = SLOTS[getBookingSlot(booking)];
+  const slotInfo = bookingSlotInfo(booking);
   // Escape first, then turn the newlines into <br>. The other way round
   // would escape the tags we just added.
   const body = escapeHtml((message || "").trim().slice(0, GUEST_MESSAGE_MAX))
@@ -443,11 +443,13 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
 
   // The booking's own stored total is the source of truth. The receipt
   // used to print a hardcoded ₱6,000 "base rate" whatever was booked.
-  const slotInfo = SLOTS[getBookingSlot(booking)];
+  const slotInfo = bookingSlotInfo(booking);
   // A multi-day confirmation has to answer "do I sleep there?" as well as
   // "what time?" — the hours on their own never did.
   const stayDays = bookingDays(booking);
-  const stayNote = stayPatternNote(slotInfo.id, stayDays);
+  const stayNote = stayPatternNote(slotInfo.id, stayDays, getBookingResource(booking));
+  // Pool + venue: the hall shuts before the night does.
+  const venueNote = venueClosesNote(slotInfo.id, getBookingResource(booking));
   const overtimeFee = slotInfo.id === "Day" ? (booking.overtime || 0) * OVERTIME_RATE : 0;
   const baseFee = Math.max(0, booking.total - overtimeFee);
 
@@ -565,7 +567,7 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
                   <td style="background:#faf5e8;border:1px solid #e2d5b0;border-radius:8px;padding:20px;">
                     <p style="margin:0 0 12px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;">Reminders</p>
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">🪪 Bring a valid ID upon check-in.</p>
-                    <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">⏰ Your ${slotInfo.label}: <strong>${slotInfo.start}</strong> to <strong>${slotInfo.end}</strong>${stayDays > 1 ? ", each day of your stay" : ""}.</p>
+                    <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">⏰ Your ${slotInfo.label}: <strong>${slotInfo.start}</strong> to <strong>${slotInfo.end}</strong>${stayDays > 1 ? ", each day of your stay" : ""}.${venueNote ? ` ${venueNote}.` : ""}</p>
                     ${stayNote ? `<p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">${escapeHtml(stayNote)}</p>` : ""}
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">🔇 ${QUIET_HOURS_POLICY}</p>
                     <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">💳 ${booking.downpayment >= booking.total ? "Your stay is fully paid. Nothing more is due on arrival." : `The remaining balance of ${fmt(booking.total - booking.downpayment)} is paid at the resort.`}</p>

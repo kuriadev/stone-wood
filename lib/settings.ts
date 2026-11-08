@@ -45,6 +45,10 @@ export interface BusinessSettings {
   limits: {
     /** The most guests at once; also caps a single booking and Shared. */
     resortCapacity: number;
+    /** What the events hall holds: the most guests for a venue-only
+     *  booking. Anything with the pool stays at resortCapacity, since that
+     *  group uses the pool area too. */
+    venueCapacity: number;
     exclusiveDefaultGuests: number;
     overtimeMaxHours: number;
     maxStayDays: number;
@@ -60,6 +64,11 @@ export interface BusinessSettings {
     dayEnd: number;
     nightStart: number;
     nightEnd: number;
+    /** When the events venue closes at night (24 = midnight). Events have
+     *  loud music, crowds and lights, so the hall shuts before the resort
+     *  does: a venue-only booking ends here, and a pool + venue group moves
+     *  to the pool until nightEnd (owner's rule, 2026-11-08). */
+    venueEnd: number;
   };
   contact: {
     phone: string;
@@ -72,8 +81,8 @@ export interface BusinessSettings {
 /** What the code has always used. An empty settings row means these. */
 export const DEFAULT_SETTINGS: BusinessSettings = {
   rates: { sharedPerHead: 200, exclusiveFlat: 6000, venue: 5000, overtimePerHour: 500, sharedPerHeadNight: 200, exclusiveNight: 6000, sharedPerHeadStay: 400, exclusiveStay: 12000 },
-  limits: { resortCapacity: 30, exclusiveDefaultGuests: 5, overtimeMaxHours: 2, maxStayDays: 3, bookingWindowMonths: 3, bookingHistoryMonths: 3, rescheduleNoticeDays: 2 },
-  hours: { dayStart: 7, dayEnd: 17, nightStart: 19, nightEnd: 29 },
+  limits: { resortCapacity: 30, venueCapacity: 50, exclusiveDefaultGuests: 5, overtimeMaxHours: 2, maxStayDays: 3, bookingWindowMonths: 3, bookingHistoryMonths: 3, rescheduleNoticeDays: 2 },
+  hours: { dayStart: 7, dayEnd: 17, nightStart: 19, nightEnd: 29, venueEnd: 24 },
   contact: {
     phone: "+63 912 345 6789",
     viber: "+63 912 345 6789",
@@ -96,6 +105,7 @@ const NUMS: { [G in keyof Omit<BusinessSettings, "contact">]: { [K in keyof Busi
   },
   limits: {
     resortCapacity: { min: 1, max: 500, whole: true, label: "Capacity" },
+    venueCapacity: { min: 1, max: 1000, whole: true, label: "Events venue capacity" },
     exclusiveDefaultGuests: { min: 1, max: 500, whole: true, label: "Exclusive starting guest count" },
     overtimeMaxHours: { min: 0, max: 6, whole: true, label: "Most overtime hours" },
     maxStayDays: { min: 1, max: 30, whole: true, label: "Longest stay" },
@@ -108,6 +118,7 @@ const NUMS: { [G in keyof Omit<BusinessSettings, "contact">]: { [K in keyof Busi
     dayEnd: { min: 9, max: 21, whole: true, label: "Day Tour ends" },
     nightStart: { min: 14, max: 23, whole: true, label: "Night Tour starts" },
     nightEnd: { min: 20, max: 35, whole: true, label: "Night Tour ends" },
+    venueEnd: { min: 16, max: 35, whole: true, label: "Events venue closes" },
   },
 };
 
@@ -170,6 +181,8 @@ export function settingsFieldErrors(raw: unknown): Record<string, string> {
   if (has("hours.dayEnd", "limits.overtimeMaxHours", "hours.nightEnd") && n["hours.dayEnd"] + n["limits.overtimeMaxHours"] > n["hours.nightEnd"]) {
     errs["limits.overtimeMaxHours"] = "Overtime would run past the end of the Night Tour.";
   }
+  if (has("hours.nightStart", "hours.venueEnd") && n["hours.venueEnd"] - n["hours.nightStart"] < 2) errs["hours.venueEnd"] = "Give the venue at least 2 hours after the Night Tour starts.";
+  if (has("hours.nightEnd", "hours.venueEnd") && n["hours.venueEnd"] > n["hours.nightEnd"]) errs["hours.venueEnd"] = "The venue can't close after the Night Tour ends.";
   // Contact details guests can actually use.
   const c = input.contact ?? {};
   const text = (k: string) => String(c[k] ?? "").trim();
@@ -248,6 +261,9 @@ export function validateSettings(raw: unknown, opts: { strict?: boolean } = {}):
   if (h.nightStart - h.dayEnd < 1) return { ok: false, error: "Leave at least an hour between the Day Tour ending and the Night Tour starting, for cleaning." };
   if (h.nightEnd - h.nightStart < 4) return { ok: false, error: "The Night Tour needs to be at least 4 hours." };
   if (h.dayStart + 24 - h.nightEnd < 1) return { ok: false, error: "The Night Tour has to end at least an hour before the next Day Tour starts." };
+  // Saved before the venue had its own closing time, or the night was moved
+  // since: the venue closes with the night rather than outside it.
+  if (h.venueEnd > h.nightEnd || h.venueEnd - h.nightStart < 2) h.venueEnd = h.nightEnd;
 
   if (out.limits.exclusiveDefaultGuests > out.limits.resortCapacity) out.limits.exclusiveDefaultGuests = out.limits.resortCapacity;
   return { ok: true, settings: out };
@@ -263,6 +279,7 @@ export function applySettings(s: BusinessSettings): void {
   appliedKey = key;
   applyLimitValues({
     resortCapacity: s.limits.resortCapacity,
+    venueCapacity: s.limits.venueCapacity,
     exclusiveDefaultGuests: s.limits.exclusiveDefaultGuests,
     venueRate: s.rates.venue,
     exclusiveFlatRate: s.rates.exclusiveFlat,

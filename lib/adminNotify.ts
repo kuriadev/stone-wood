@@ -28,9 +28,9 @@
 // gets lost. This is the single most important thing here, so it is a type:
 // `MailOut | null`, and the caller skips on null.
 
-import { RESORT_CONTACT, SLOTS } from "@/lib/resort";
+import { RESORT_CONTACT } from "@/lib/resort";
 import { escapeHtml } from "@/lib/escapeHtml";
-import { fmt, fmtDate, getBookingSlot, stayLabel, bookingEndDate } from "@/lib/utils";
+import { fmt, fmtDate, bookingSlotInfo, stayLabel, bookingEndDate } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
 import type { Booking } from "@/types/booking";
 
@@ -91,7 +91,7 @@ function who(b: Booking): string {
 /** Immediate: money moved and a date is now spoken for. One per booking,
  *  which is a volume that matches how often it actually happens. */
 export function buildNewBookingAlert(b: Booking, paid: number): MailOut {
-  const slot = SLOTS[getBookingSlot(b)];
+  const slot = bookingSlotInfo(b);
   const needsReview = b.status !== "Confirmed";
   const rows = [
     `<strong>${escapeHtml(b.name)}</strong> · ${escapeHtml(b.email || b.contact || "no contact given")}`,
@@ -175,7 +175,7 @@ export function buildMorningBriefing({ date, bookings, now = new Date() }: Brief
     ) +
     section(
       "Arriving today",
-      arriving.map((b) => `${who(b)} · ${escapeHtml(SLOTS[getBookingSlot(b)].label)} · ${b.guests} guest${b.guests === 1 ? "" : "s"}${b.status === "Pending" ? " — not confirmed yet" : ""}`),
+      arriving.map((b) => `${who(b)} · ${escapeHtml(bookingSlotInfo(b).label)} · ${b.guests} guest${b.guests === 1 ? "" : "s"}${b.status === "Pending" ? " — not confirmed yet" : ""}`),
     ) +
     section(
       "Leaving today",
@@ -240,7 +240,7 @@ export function buildDayClosedEmail({ date, counted, expected, checkedOut, outst
         ? "The day is closed and the cash count matches."
         : "The day is closed. The cash count did not match, so it is worth a look while the day is fresh.",
       section("Cash", cash, diff === 0 ? "#8a6d3b" : "#b02a2a") +
-        section("Guests who finished today", checkedOut.map((b) => `${who(b)} · ${escapeHtml(SLOTS[getBookingSlot(b)].label)} · ${b.guests} guest${b.guests === 1 ? "" : "s"}`)),
+        section("Guests who finished today", checkedOut.map((b) => `${who(b)} · ${escapeHtml(bookingSlotInfo(b).label)} · ${b.guests} guest${b.guests === 1 ? "" : "s"}`)),
       diff === 0 ? "#c9a84c" : "#e06060",
     ),
   };

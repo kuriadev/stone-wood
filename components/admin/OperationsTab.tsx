@@ -49,9 +49,8 @@ import { opsBoard, closingBlockers, attentionTally, unclosedDays, lowStock, prep
 import { useApp } from "@/contexts/AppContext";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { bookingMoney, collectedBetween, expensesBetween, livePayments, manilaDate, manilaTime, monthRange, round2, type BookingMoney } from "@/lib/finance";
-import { fmt, fmtDate, getBookingSlot, holdsDate, bookingDays, bookingEndDate } from "@/lib/utils";
+import { fmt, fmtDate, bookingSlotInfo, holdsDate, bookingDays, bookingEndDate } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
-import { SLOTS } from "@/lib/resort";
 import { gold } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
 import type { Booking } from "@/types/booking";
@@ -491,7 +490,7 @@ export function OperationsTab({
   const card = (c: OpsCard) => {
     const { b, stage } = c;
     const m = money(b);
-    const slot = SLOTS[getBookingSlot(b)];
+    const slot = bookingSlotInfo(b);
     const busy = busyId === b.id;
     const color = OPS_STAGES.find((s) => s.id === stage)!.color;
     // Arrived online while this screen was open (most are confirmed at once).

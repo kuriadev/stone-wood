@@ -40,6 +40,6 @@ export function checkoutPolicy(payFull: boolean, quietHours: string): [string, s
     [payFull ? "Paying in full" : "50% reservation deposit", payFull ? "The whole total is paid now; nothing is due on arrival." : "Half of the total is due now; the balance is paid on arrival."],
     ["Rescheduling", `Free, once, if you ask at least ${days(RESCHEDULE_NOTICE_DAYS)} before your visit. The new date must be free.`],
     ["Emergencies", "Illness, injury or a death in the family: contact the resort, even on the day. With proof, your date is moved at no charge."],
-    ["Quiet hours", quietHours],
+    ["Quiet hours and the events venue", quietHours],
   ];
 }

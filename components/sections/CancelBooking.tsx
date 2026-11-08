@@ -26,7 +26,7 @@ import { T } from "@/lib/theme";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { fmt, fmtDate, getBookingSlot, getBookingResource, getBookingTier, stayLabel } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
-import { SLOTS } from "@/lib/resort";
+import { SLOTS, slotFor } from "@/lib/resort";
 import { choiceOpen, noShowChoiceOpen, fmtDeadline, holdActive, HOLD_HOURS, NO_SHOW_CHOICE_DAYS } from "@/lib/rebooking";
 import type { Booking, BookingSlot } from "@/types/booking";
 import type { DateChange } from "@/types/finance";
@@ -299,7 +299,8 @@ export function ManageBooking(_props: ManageBookingProps) {
      dark card and washes out on the light one, so this follows the theme. */
   const dangerInk = C.dangerInk;   // the shared token, see --sw-danger-ink
 
-  const slotHours = found?.slot ? SLOTS[found.slot as BookingSlot]?.hours : null;
+  // A venue-only booking ends when the venue closes (lib/resort.ts slotFor).
+  const slotHours = found?.slot && SLOTS[found.slot as BookingSlot] ? slotFor(found.slot as BookingSlot, getBookingResource(found)).hours : null;
   const paidNet = payments.reduce((s, p) => s + (p.type === "Refund" ? -p.amount : p.type === "Penalty" ? 0 : p.amount), 0);
   const balance = found ? Math.max(0, found.total - paidNet) : 0;
   const pendingChange = dateChanges.find((r) => r.status === "Pending" && holdActive(r));

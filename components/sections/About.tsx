@@ -8,8 +8,8 @@ import { gold, goldBtn } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
 // The owner's phone and email from Rates & Settings, not a typed-in copy.
-import { RESORT_CONTACT, SLOTS, QUIET_HOURS_START } from "@/lib/resort";
-import { RESCHEDULE_NOTICE_DAYS } from "@/lib/validators";
+import { RESORT_CONTACT, SLOTS, QUIET_HOURS_START, venueCloseText } from "@/lib/resort";
+import { RESCHEDULE_NOTICE_DAYS, GUESTS_MAX, VENUE_CAPACITY } from "@/lib/validators";
 import "./About.css";
 
 /** Where the resort is. The footer prints the same line. */
@@ -45,7 +45,7 @@ export function About({
   const stay = SLOTS.WholeDay;
   const facts: { icon: IconName; label: string; value: string; href?: string }[] = [
     { icon: "pin", label: "Address", value: ADDRESS },
-    { icon: "clock", label: "Hours", value: `${SLOTS.Day.label} ${SLOTS.Day.start} – ${SLOTS.Day.end} · ${SLOTS.Night.label} ${SLOTS.Night.start} – ${SLOTS.Night.end}` },
+    { icon: "clock", label: "Hours", value: `${SLOTS.Day.label} ${SLOTS.Day.start} – ${SLOTS.Day.end} · ${SLOTS.Night.label} ${SLOTS.Night.start} – ${SLOTS.Night.end} · Events venue until ${venueCloseText()}` },
     { icon: "phone", label: "Call or text", value: RESORT_CONTACT.phone, href: `tel:${RESORT_CONTACT.phone.replace(/[^\d+]/g, "")}` },
     { icon: "mail", label: "Email", value: RESORT_CONTACT.email, href: `mailto:${RESORT_CONTACT.email}` },
   ];
@@ -54,7 +54,8 @@ export function About({
     { q: "What if I need to cancel?", a: `If you cancel, payments are not refunded — but you can move your booking to another free date once, at no charge, if you ask at least ${notice} before your visit.` },
     { q: "What if the resort has to cancel?", a: "You choose: a free new date, or a full refund. The same goes for a PAGASA storm signal or a travel restriction. The resort contacts you." },
     { q: "Do I have to sleep over for a stay of several days?", a: `A booking of more than one date is a ${stay.label}: the resort stays yours from ${stay.start} on the first day until ${stay.end} after the last night.` },
-    { q: "Are there quiet hours?", a: `Videoke and speakers go off at ${QUIET_HOURS_START} so our neighbours can rest.` },
+    { q: "Are there quiet hours?", a: `Music, videoke and speakers go off at ${QUIET_HOURS_START} so our neighbours can rest. The events venue closes at ${venueCloseText()}: a venue-only booking ends then, and a group that also booked the pool moves to the pool until the Night Tour ends.` },
+    { q: "How many guests can we bring?", a: `Up to ${GUESTS_MAX} with the pool, which is what the pool area holds. An event in the venue only, without the pool, can have up to ${VENUE_CAPACITY}.` },
   ];
 
 

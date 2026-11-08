@@ -21,15 +21,15 @@ import { useEffect, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
 import { fmt } from "@/lib/utils";
 import { getPackageTier, checkRangeAvailability, isRoomOpen, roomsTakenInRange, daysInRange, fmtDate } from "@/lib/utils";
-import { MAX_STAY_DAYS, staffDateWindow, OVERRIDE_GUESTS_MAX } from "@/lib/validators";
+import { MAX_STAY_DAYS, staffDateWindow, OVERRIDE_GUESTS_MAX, guestLimitFor } from "@/lib/validators";
 import { OverCapacityNote } from "@/components/admin/OverCapacityNote";
 import { UNPAID_HOLD_HOURS } from "@/lib/rebooking";
 import { priceBooking, bookingLabel, packagePriceToday, packagePricing, dealText } from "@/lib/pricing";
-import { SLOTS, multiDayProblem, slotTiming } from "@/lib/resort";
+import { SLOTS, multiDayProblem, slotTiming, slotFor } from "@/lib/resort";
 import { manilaDate } from "@/lib/finance";
 import {
   sanitizeName, sanitizeContact, isValidName, isValidPHNumber, isValidEmail,
-  RESORT_MAX_CAPACITY, sharedRateFor, EXCLUSIVE_DEFAULT_GUESTS,
+  sharedRateFor, EXCLUSIVE_DEFAULT_GUESTS,
 } from "@/lib/validators";
 import { DESK_METHODS } from "@/types/finance";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
@@ -135,12 +135,15 @@ export function WalkInModal({
   /* Booking today's tour after it started. Staff may (the website stops
      2 hours before the end); the group just gets the hours that are left,
      and staying past the end is overtime. */
-  const timing = wf.date ? slotTiming(wf.date, slot, now) : "upcoming";
+  const timing = wf.date ? slotTiming(wf.date, slot, now, resource) : "upcoming";
   /* More than the resort's capacity: staff may, on purpose, with a
      warning (the website never can). The date is still checked -- only
      the headcount stops counting against the limit. */
   const [overCap, setOverCap] = useState(false);
-  const overLimit = !isPkg && guests > RESORT_MAX_CAPACITY;
+  // A venue-only group is held to what the hall holds; anything with the
+  // pool, to the resort capacity (lib/validators.ts guestLimitFor).
+  const guestCap = guestLimitFor(resource);
+  const overLimit = !isPkg && guests > guestCap;
   const overriding = overLimit && overCap;
   const capacity = wf.date
     ? checkRangeAvailability(wf.date, lastDay, slot, overriding ? 1 : guests, tier, resource, bookings, facilities, overtime)
@@ -182,7 +185,7 @@ export function WalkInModal({
   if (!roomOk) problems.push("Choose the room included in this package.");
   if (!roomsFree) problems.push("A chosen room is already booked for this slot.");
   if (guests <= 0) problems.push("Enter the number of guests.");
-  if (overLimit && !overCap) problems.push(`That's more than the resort's capacity of ${RESORT_MAX_CAPACITY}. Tick "Allow more than ${RESORT_MAX_CAPACITY} guests" to book it anyway.`);
+  if (overLimit && !overCap) problems.push(`That's more than ${resource === "Venue" ? "what the events venue holds" : "the resort's capacity"} (${guestCap}). Tick "Allow more than ${guestCap} guests" to book it anyway.`);
   if (guests > OVERRIDE_GUESTS_MAX) problems.push(`The most for one booking is ${OVERRIDE_GUESTS_MAX} guests.`);
   if (!capacity.ok) problems.push(capacity.reason ?? "That date and slot is not available.");
   if (!refOk) problems.push(`Enter the ${method} reference number.`);
@@ -236,8 +239,8 @@ export function WalkInModal({
     title: `${SLOTS[slot].label} · ${resource === "Pool" ? "Pool" : resource === "Venue" ? "Events venue" : "Pool + venue"}`,
     lines: [
       timing === "started"
-        ? `From arrival until ${SLOTS[slot].end} (late start) · ${guests} guest${guests === 1 ? "" : "s"}`
-        : `${SLOTS[slot].hours} · ${guests} guest${guests === 1 ? "" : "s"}`,
+        ? `From arrival until ${slotFor(slot, resource).end} (late start) · ${guests} guest${guests === 1 ? "" : "s"}`
+        : `${slotFor(slot, resource).hours} · ${guests} guest${guests === 1 ? "" : "s"}`,
       wf.date ? (lastDay !== wf.date ? `${fmtDate(wf.date)} – ${fmtDate(lastDay)}` : fmtDate(wf.date)) : "No date yet",
     ],
     guest: [sanitizeName(wf.name) || "Walk-in guest", wf.contact].filter(Boolean).join(" · "),
@@ -375,9 +378,9 @@ export function WalkInModal({
                     is fixed. A venue booking is exclusive too, but only of the
                     venue -- the headcount is still whatever group walked in,
                     which is what the server stores (lib/bookingQuote.ts). */}
-                <Input id="wi-guests" type="number" min={1} max={overCap ? OVERRIDE_GUESTS_MAX : RESORT_MAX_CAPACITY} value={wf.guests}
+                <Input id="wi-guests" type="number" min={1} max={overCap ? OVERRIDE_GUESTS_MAX : guestCap} value={wf.guests}
                   onChange={(e) => set("guests", e.target.value)} style={{ ...inp, opacity: usesPool && tier === "Exclusive" ? 0.6 : 1 }} />
-                {overLimit && <OverCapacityNote capacity={RESORT_MAX_CAPACITY} guests={guests} checked={overCap} onChange={setOverCap} />}
+                {overLimit && <OverCapacityNote capacity={guestCap} guests={guests} checked={overCap} onChange={setOverCap} venue={resource === "Venue"} />}
               </div>
               <div>
                 <Label>Pool use</Label>
@@ -404,17 +407,17 @@ export function WalkInModal({
           <div>
             <Label>When</Label>
             {pkg?.slotMode === "WholeDay" ? (
-              <p style={{ color: C.textH, fontSize: 13.5, margin: 0 }}>{SLOTS.WholeDay.label} · {SLOTS.WholeDay.hours}</p>
+              <p style={{ color: C.textH, fontSize: 13.5, margin: 0 }}>{SLOTS.WholeDay.label} · {slotFor("WholeDay", resource).hours}</p>
             ) : (
               <ChoiceButtons<BookingSlot> value={slot} size="sm"
                 onChange={(t) => set("slot", t)}
                 options={((isPkg ? ["Day", "Night"] : ["Day", "Night", "WholeDay"]) as BookingSlot[]).map((t) => {
-                  const st = wf.date ? slotTiming(wf.date, t, now) : "upcoming";
+                  const st = wf.date ? slotTiming(wf.date, t, now, resource) : "upcoming";
                   return {
                     value: t, label: SLOTS[t].label,
                     hint: (
                       <>
-                        {SLOTS[t].hours}
+                        {slotFor(t, resource).hours}
                         {st !== "upcoming" && (
                           <span className={`sw-wi-tag sw-wi-tag--${st}`}>{st === "started" ? "In progress" : "Ended"}</span>
                         )}
@@ -429,13 +432,13 @@ export function WalkInModal({
                 <span>
                   {timing === "started" ? (
                     <>
-                      <strong>Today&apos;s {SLOTS[slot].label} started at {SLOTS[slot].start}</strong> (it&apos;s {clock} now).
-                      This group can stay from arrival until <strong>{SLOTS[slot].end}{SLOTS[slot].endsNextDay ? " the next morning" : ""}</strong> only, at the full price.
+                      <strong>Today&apos;s {SLOTS[slot].label} started at {slotFor(slot, resource).start}</strong> (it&apos;s {clock} now).
+                      This group can stay from arrival until <strong>{slotFor(slot, resource).end}{slotFor(slot, resource).endsNextDay ? " the next morning" : ""}</strong> only, at the full price.
                       Anything later is overtime.
                     </>
                   ) : (
                     <>
-                      <strong>Today&apos;s {SLOTS[slot].label} ended at {SLOTS[slot].end}</strong> (it&apos;s {clock} now).
+                      <strong>Today&apos;s {SLOTS[slot].label} ended at {slotFor(slot, resource).end}</strong> (it&apos;s {clock} now).
                       You can still save it as a record, but the group has no tour time left. Choose the {SLOTS.Night.label} or another date for a stay.
                     </>
                   )}
@@ -499,7 +502,7 @@ export function WalkInModal({
             {timing === "started" && (
               <p className="sw-wi-stay">
                 <Icon name="clock" size={13} style={{ flexShrink: 0 }} />
-                At the resort from arrival until {SLOTS[slot].end}{SLOTS[slot].endsNextDay ? ", next day" : ""}
+                At the resort from arrival until {slotFor(slot, resource).end}{slotFor(slot, resource).endsNextDay ? ", next day" : ""}
               </p>
             )}
           </div>

@@ -44,8 +44,8 @@
 
 import type { Booking } from "@/types/booking";
 import { parseDateStr } from "@/lib/validators";
-import { SLOTS } from "@/lib/resort";
-import { getBookingSlot, bookingEndDate, fmtDate } from "@/lib/utils";
+import { slotFor } from "@/lib/resort";
+import { getBookingSlot, getBookingResource, bookingEndDate, fmtDate } from "@/lib/utils";
 
 /** The least a caller needs to supply to ask when a stay runs: the
  *  dates, and enough to work out the slot. `package` and `slot` are both
@@ -54,7 +54,7 @@ import { getBookingSlot, bookingEndDate, fmtDate } from "@/lib/utils";
  *  because the first caller happened to pass a whole Booking. */
 export type StayWindowInput =
   Pick<Booking, "date" | "endDate"> &
-  Partial<Pick<Booking, "package" | "overtime" | "slot" | "rooms">>;
+  Partial<Pick<Booking, "package" | "overtime" | "slot" | "rooms" | "resource">>;
 
 /**
  * The window a booking occupies the resort for, in local time.
@@ -68,7 +68,9 @@ export function getOccupancyWindow(booking: StayWindowInput): { start: Date; end
   // setHours rolls into the following morning by itself.
   const lastDay = parseDateStr(bookingEndDate(booking)) ?? day;
 
-  const slot = SLOTS[getBookingSlot(booking as Booking)];
+  // A venue-only booking ends when the hall closes (midnight by default),
+  // not at the end of the Night Tour (lib/resort.ts slotFor).
+  const slot = slotFor(getBookingSlot(booking as Booking), getBookingResource(booking as Booking));
 
   const start = new Date(day);
   start.setHours(slot.startHour, 0, 0, 0);

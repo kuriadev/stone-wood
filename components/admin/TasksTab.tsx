@@ -34,8 +34,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { caretakerTasks, upcomingUpkeep, addDaysIso, type CaretakerTask, type TaskKind } from "@/lib/tasks";
 import { manilaDate } from "@/lib/finance";
-import { fmtDate, getBookingSlot } from "@/lib/utils";
-import { SLOTS } from "@/lib/resort";
+import { fmtDate, bookingSlotInfo } from "@/lib/utils";
 import { prepBlocked, prepOpensOn, clockTime } from "@/lib/operations";
 import type { Facility } from "@/types/facility";
 import type { InventoryItem } from "@/types/inventory";
@@ -131,7 +130,7 @@ function CaretakerTasks({ mob }: { mob: boolean }) {
   const card = (t: CaretakerTask) => {
     const k = KIND[t.kind];
     const b = t.booking;
-    const slot = b ? SLOTS[getBookingSlot(b)] : null;
+    const slot = b ? bookingSlotInfo(b) : null;
     const title = b ? b.name : t.kind === "clean" ? t.facilities[0]?.name ?? t.title : t.title;
     const edge = t.overdue || timeUp(t) ? "#d4444066" : cBr;
     return (

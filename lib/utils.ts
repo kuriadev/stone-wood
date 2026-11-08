@@ -1,5 +1,5 @@
 import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
-import { occupiedSlots, TURNOVER_WINDOW } from "@/lib/resort";
+import { occupiedSlots, slotFor, TURNOVER_WINDOW, type SlotInfo } from "@/lib/resort";
 import type { Facility } from "@/types/facility";
 import { dayjs, DATE_FMT } from "@/lib/dayjs";
 import {
@@ -108,6 +108,13 @@ export function usesVenue(b: Booking): boolean {
 export function getBookingSlot(b: Booking): BookingSlot {
   if (b.slot) return b.slot;
   return /^night/i.test(b.package ?? "") ? "Night" : "Day";
+}
+
+/** A booking's own hours: its slot's, except that a venue-only booking ends
+ *  when the events venue closes (lib/resort.ts slotFor). Use this, not
+ *  SLOTS[getBookingSlot(b)], wherever one booking's times are shown. */
+export function bookingSlotInfo(b: Booking): SlotInfo {
+  return slotFor(getBookingSlot(b), getBookingResource(b));
 }
 
 /** Single slots a booking holds, including the Night slot a Day booking

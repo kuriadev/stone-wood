@@ -34,9 +34,8 @@ import { useApp } from "@/contexts/AppContext";
 import { useToast } from "@/contexts/ToastContext";
 import { facilitiesForBooking, checklistFor } from "@/lib/facilityUsage";
 import { bookingMoney, round2, manilaDate, manilaTime, livePayments } from "@/lib/finance";
-import { fmt, fmtDate, getBookingSlot, getBookingResource, getBookingTier } from "@/lib/utils";
+import { fmt, fmtDate, bookingSlotInfo, getBookingResource, getBookingTier } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
-import { SLOTS } from "@/lib/resort";
 import { MANUAL_METHODS, type InspectionItem, type Inspection } from "@/types/finance";
 import { facilityIcon } from "@/lib/facilityUsage";
 import { OVERTIME_RATE } from "@/lib/validators";
@@ -66,7 +65,7 @@ function Checklist({ items, onToggle }: { items: { label: string; done: boolean 
 }
 
 function BookingSummary({ b }: { b: Booking }) {
-  const slot = SLOTS[getBookingSlot(b)];
+  const slot = bookingSlotInfo(b);
   return <>{b.id} · {fmtDate(b.date)} · {slot.label} ({slot.hours}){b.arrivalTime ? ` · arriving ${b.arrivalTime}` : ""} · {b.guests} guest{b.guests === 1 ? "" : "s"}</>;
 }
 
@@ -547,7 +546,7 @@ export function BookingStatement({ booking }: { booking: Booking }) {
   const { C, cBr } = useAdminStyle();
   const ops = useOps();
   const money = bookingMoney(booking, ops.payments, ops.damages);
-  const slot = SLOTS[getBookingSlot(booking)];
+  const slot = bookingSlotInfo(booking);
   const overtimeFee = slot.id === "Day" ? (booking.overtime || 0) * OVERTIME_RATE : 0;
   const damages = ops.damages.filter((d) => d.bookingId === booking.id && !d.voided);
   const pays = livePayments(ops.payments).filter((p) => p.bookingId === booking.id)
@@ -704,7 +703,7 @@ export function VisitRecord({ booking, onClose }: { booking: Booking; onClose: (
   const ops = useOps();
   const { rooms, facilities } = useApp();
   const b = booking;
-  const slot = SLOTS[getBookingSlot(b)];
+  const slot = bookingSlotInfo(b);
   const prep = ops.inspections.find((i) => i.bookingId === b.id && i.stage === "Preparation");
   const checkout = ops.inspections.find((i) => i.bookingId === b.id && i.stage === "Checkout");
   const damages = ops.damages.filter((d) => d.bookingId === b.id && !d.voided);

@@ -161,6 +161,7 @@ export function SettingsTab({ mob }: { mob: boolean }) {
 
       {section("Limits", "How many people, how long and how far ahead.", <>
         {num("limits", "resortCapacity", "Most guests at once", "Caps a booking, and all Shared groups in a slot together.", "")}
+        {num("limits", "venueCapacity", "Events venue capacity", "What the hall holds: the most guests for a venue-only booking or package. Anything with the pool stays at the number above.", "")}
         {num("limits", "exclusiveDefaultGuests", "Exclusive booking starts at", "The guest count a buyout starts at; guests can raise it.", "")}
         {num("limits", "overtimeMaxHours", "Most overtime, hours", "0 turns overtime off.", "")}
         {num("limits", "maxStayDays", "Longest stay, days", "For Staycations over several dates.", "")}
@@ -174,8 +175,10 @@ export function SettingsTab({ mob }: { mob: boolean }) {
         {hour("dayEnd", "Day Tour ends", 9, 21)}
         {hour("nightStart", "Night Tour starts", 14, 23)}
         {hour("nightEnd", "Night Tour ends", 20, 35)}
+        {hour("venueEnd", "Events venue closes", 16, 35)}
         <p style={{ gridColumn: "1 / -1", color: C.textS, fontSize: 12.5, margin: 0 }}>
           <Icon name="info" size={12} /> Each tour is at least 4 hours, with at least an hour between groups for cleaning — evening and morning.
+          The events venue closes at its own time at night: a venue-only booking ends then, and a group with the pool moves to the pool until the Night Tour ends.
           Package descriptions you wrote yourself keep their own wording; update them in Packages &amp; Prices if they mention times.
         </p>
       </>)}

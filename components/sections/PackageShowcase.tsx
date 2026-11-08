@@ -8,7 +8,7 @@ import { gold, goldBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
 import { packageValue, packagePriceToday, packageLinkPrices, promoUntilLabel, packageExtraDeals } from "@/lib/pricing";
 import { manilaNow } from "@/lib/validators";
-import { SLOTS } from "@/lib/resort";
+import { SLOTS, slotFor } from "@/lib/resort";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -354,10 +354,11 @@ export function PackageCard({
   // The tab or wheel already names the tier: a "SHARED" badge on a Shared
   // package says it twice. Kept where it adds something (Exclusive in Events).
   const tierSaysIt = tierOf(p) === p.status.toUpperCase();
-  const slots = p.slotMode === "WholeDay" ? [SLOTS.WholeDay] : [SLOTS.Day, SLOTS.Night];
+  // A venue-only package ends when the venue closes at night.
+  const slots = (p.slotMode === "WholeDay" ? (["WholeDay"] as const) : (["Day", "Night"] as const)).map((id) => slotFor(id, p.resource));
   // "Day (7:00 AM – 5:00 PM) or Night (…)" in the inclusions says what the
   // hours list under it already says. Shown once, there.
-  const includes = p.includes.filter((inc) => ![SLOTS.Day.hours, SLOTS.Night.hours, SLOTS.WholeDay.hours].some((h) => inc.includes(h)));
+  const includes = p.includes.filter((inc) => ![SLOTS.Day.hours, SLOTS.Night.hours, SLOTS.WholeDay.hours, ...slots.map((sl) => sl.hours)].some((h) => inc.includes(h)));
   // A promo the owner set (Packages & Prices): what is charged today.
   const promo = packagePriceToday(p, manilaNow().date);
   // Money off the room or each extra day, running today.

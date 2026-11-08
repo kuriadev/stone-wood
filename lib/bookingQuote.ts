@@ -21,7 +21,7 @@ import {
 } from "@/lib/utils";
 import { priceBooking, bookingLabel, pricingProblem, packagePricing, type Deal, type PriceBreakdown } from "@/lib/pricing";
 import {
-  GUESTS_MIN, GUESTS_MAX,
+  GUESTS_MIN, guestLimitFor,
   isValidEmail, isValidName, isValidPHNumber,
   sanitizeName, sanitizeContact, sanitizeNotes,
   isWithinBookingWindow, describeDateProblem, MAX_STAY_DAYS, manilaNow,
@@ -201,11 +201,14 @@ export async function quoteBooking(raw: unknown, opts: { requireEmailProof?: boo
       : TIERS.includes(d.tier as BookingTier) ? (d.tier as BookingTier) : getPackageTier(1, slot, resource);
 
     guests = Math.round(Number(d.guests));
-    if (!Number.isFinite(guests) || guests < GUESTS_MIN || guests > GUESTS_MAX) {
-      return bad(`Guests must be between ${GUESTS_MIN} and ${GUESTS_MAX}.`);
+    // A venue-only group is held to what the hall holds; anything with the
+    // pool to the resort's capacity (lib/validators.ts guestLimitFor).
+    const maxGuests = guestLimitFor(resource);
+    if (!Number.isFinite(guests) || guests < GUESTS_MIN || guests > maxGuests) {
+      return bad(`Guests must be between ${GUESTS_MIN} and ${maxGuests}.`);
     }
     /* An Exclusive booking's guest count is the guest's own, between
-       GUESTS_MIN and GUESTS_MAX (checked just above). It used to be
+       GUESTS_MIN and guestLimitFor(resource) (checked just above). It used to be
        overwritten with RESORT_MAX_CAPACITY here, which silently threw away
        what the guest typed and recorded 30 arrivals for every buyout. The
        price does not depend on it — EXCLUSIVE_FLAT_RATE is flat — so there
@@ -239,7 +242,7 @@ export async function quoteBooking(raw: unknown, opts: { requireEmailProof?: boo
   const sameDay = overlap.others;
 
   // Today's tour, once it has started (lib/resort.ts).
-  const started = slotStartedProblem(date, slot);
+  const started = slotStartedProblem(date, slot, undefined, resource);
   if (started) return bad(started, 409);
 
   // ── Availability ────────────────────────────────────────────────

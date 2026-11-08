@@ -20,7 +20,7 @@ import { packagePriceToday, packageExtraDeals } from "@/lib/pricing";
 import { manilaNow } from "@/lib/validators";
 import { THEME_COLORS } from "@/lib/theme";
 import { fmt } from "@/lib/utils";
-import { SLOTS } from "@/lib/resort";
+import { slotFor } from "@/lib/resort";
 import { goldBtn, outBtn } from "@/lib/styles";
 import { Icon } from "@/components/common/Icon";
 import { MediaGallery } from "@/components/common/MediaGallery";
@@ -66,7 +66,7 @@ const COPY: Record<StepPackageKind, {
 
 /** "Day or Night" / the whole-day hours — what the guest is choosing between. */
 const whenLabel = (p: ResortPackage): string =>
-  p.slotMode === "WholeDay" ? SLOTS.WholeDay.hours : "Day or Night";
+  p.slotMode === "WholeDay" ? slotFor("WholeDay", p.resource).hours : "Day or Night";
 
 export function EventPackages({ kind, packages, mob, onBook }: EventPackagesProps) {
   const C = THEME_COLORS;

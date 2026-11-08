@@ -13,7 +13,7 @@ import { isEventPackage } from "@/lib/packages";
 import { buildPackageBookingUrl, parseLinkDeal } from "@/lib/utils";
 import { packageLinkPrices } from "@/lib/pricing";
 import { manilaNow } from "@/lib/validators";
-import { GUESTS_MIN, GUESTS_MAX } from "@/lib/validators";
+import { GUESTS_MIN, guestLimitFor } from "@/lib/validators";
 
 export default function BookPage() {
   const router = useRouter();
@@ -35,8 +35,10 @@ export default function BookPage() {
   const guestsParam = Number(params.get("guests"));
   // Kept to a whole number within the booking limits: ?guests=999 used to
   // show 999 guests and a price to match until the server refused it.
+  // The venue alone holds more than the pool area (guestLimitFor).
+  const linkResource = params.get("resource");
   const initialGuests = Number.isFinite(guestsParam) && guestsParam > 0
-    ? Math.min(GUESTS_MAX, Math.max(GUESTS_MIN, Math.round(guestsParam)))
+    ? Math.min(guestLimitFor(linkResource === "Venue" ? "Venue" : "Pool"), Math.max(GUESTS_MIN, Math.round(guestsParam)))
     : undefined;
   // Support ?resource=Venue&tier=Exclusive from a Home page package card —
   // lets a package deep-link straight into the matching Book Now setup

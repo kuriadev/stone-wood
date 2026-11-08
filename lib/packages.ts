@@ -1,5 +1,6 @@
 import type { ResortPackage } from "@/types/package";
-import { SLOTS } from "@/lib/resort";
+import { slotFor } from "@/lib/resort";
+import type { BookingResource } from "@/types/booking";
 
 /** Which packages count as "events": anything that uses the hall, which is
  *  every package that is not pool-only.
@@ -25,14 +26,17 @@ export function isEventPackage(p: ResortPackage): boolean {
 const TIME = String.raw`\d{1,2}:\d{2}\s?[AP]M`;
 const RANGE = String.raw`${TIME}\s*[–—-]\s*${TIME}(?:,\s*next day)?`;
 
-function currentHours(text: string, wholeDay: boolean): string {
+// A venue-only package gets the venue's hours: it closes at midnight by
+// default, not at the end of the Night Tour (lib/resort.ts slotFor).
+function currentHours(text: string, wholeDay: boolean, resource: BookingResource): string {
+  const day = slotFor("Day", resource), night = slotFor("Night", resource), whole = slotFor("WholeDay", resource);
   let out = text
-    .replace(new RegExp(String.raw`\bDay \(${RANGE}\)`, "g"), `Day (${SLOTS.Day.hours})`)
-    .replace(new RegExp(String.raw`\bNight \(${RANGE}\)`, "g"), `Night (${SLOTS.Night.hours})`);
+    .replace(new RegExp(String.raw`\bDay \(${RANGE}\)`, "g"), `Day (${day.hours})`)
+    .replace(new RegExp(String.raw`\bNight \(${RANGE}\)`, "g"), `Night (${night.hours})`);
   if (wholeDay) {
     out = out
-      .replace(new RegExp(String.raw`^${RANGE}$`), SLOTS.WholeDay.hours)
-      .replace(new RegExp(String.raw`\bfrom ${TIME} to ${TIME}`, "g"), `from ${SLOTS.WholeDay.start} to ${SLOTS.WholeDay.end}`);
+      .replace(new RegExp(String.raw`^${RANGE}$`), whole.hours)
+      .replace(new RegExp(String.raw`\bfrom ${TIME} to ${TIME}`, "g"), `from ${whole.start} to ${whole.end}`);
   }
   return out;
 }
@@ -41,7 +45,7 @@ export function withCurrentHours(p: ResortPackage): ResortPackage {
   const wholeDay = p.slotMode === "WholeDay";
   return {
     ...p,
-    blurb: currentHours(p.blurb, wholeDay),
-    includes: p.includes.map((line) => currentHours(line, wholeDay)),
+    blurb: currentHours(p.blurb, wholeDay, p.resource),
+    includes: p.includes.map((line) => currentHours(line, wholeDay, p.resource)),
   };
 }

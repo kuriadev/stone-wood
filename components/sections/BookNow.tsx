@@ -15,7 +15,7 @@
   import { priceBooking, bookingLabel, labelWithTier, dealOff, dealText } from "@/lib/pricing";
   import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
   import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
-  import { SLOTS, QUIET_HOURS_POLICY, TURNOVER_WINDOW, stayPatternNote, stayUnit, allowsMultiDay, MULTI_DAY_SLOT, slotStartedProblem, lateArrivalNote } from "@/lib/resort";
+  import { SLOTS, QUIET_HOURS_POLICY, TURNOVER_WINDOW, stayPatternNote, stayUnit, allowsMultiDay, MULTI_DAY_SLOT, slotStartedProblem, lateArrivalNote, slotFor, venueClosesNote, venueCloseText } from "@/lib/resort";
   import { checkoutPolicy } from "@/lib/policies";
   import { SuccessCheck } from "@/components/common/SuccessCheck";
   import { stayWindowLabel } from "@/lib/occupancy";
@@ -43,6 +43,8 @@
     MAX_STAY_DAYS,
     GUESTS_MIN,
     GUESTS_MAX,
+    VENUE_CAPACITY,
+    guestLimitFor,
     OVERTIME_MAX,
     OVERTIME_RATE,
     RESORT_MAX_CAPACITY,
@@ -171,8 +173,10 @@
     const lastDay = endDate && endDate > date ? endDate : date;
     const stayDays = date ? Math.max(1, daysInRange(date, lastDay)) : 1;
     const [guests, setGuests] = useState(initialPackage?.capacity ?? initialGuests ?? 2);
-    const holdFewer = useHoldStep(() => setGuests((g) => clamp(g - 1, GUESTS_MIN, GUESTS_MAX)));
-    const holdMore = useHoldStep(() => setGuests((g) => clamp(g + 1, GUESTS_MIN, GUESTS_MAX)));
+    // guestCap (below) depends on what is booked; these run on a click, by
+    // which time it is set.
+    const holdFewer = useHoldStep(() => setGuests((g) => clamp(g - 1, GUESTS_MIN, guestCap)));
+    const holdMore = useHoldStep(() => setGuests((g) => clamp(g + 1, GUESTS_MIN, guestCap)));
     // Guests don't choose overtime any more: staff add it at the resort when
     // the Night slot is free (max 2 hrs). Kept at 0 so every price and
     // availability call below has one shape for both sides.
@@ -181,13 +185,25 @@
        first and last dates: a Night Tour booked for the 10th ends at 5 AM
        on the 11th, a date the booking never mentions anywhere. Guests were
        left to work that out from the hours themselves, and got it wrong. */
-    const stayWin = date ? stayWindowLabel({ date, endDate: lastDay, slot, overtime }) : null;
     // Which resource is being booked (Pool / events Venue / both), and an
     // explicit Shared-vs-Exclusive override. tierChoice starts as null so the
     // guest-count-derived default still applies until they actively pick one —
     // this is what answers "is it not better if we add if they are booking
     // exclusively?" without forcing a choice on everyone.
     const [resource, setResource] = useState<BookingResource>(initialResource ?? "Pool");
+    // This booking's own hours: the venue alone closes at midnight, not at
+    // the end of the Night Tour (lib/resort.ts slotFor).
+    const slotInfo = slotFor(slot, resource);
+    const venueNote = venueClosesNote(slot, resource);
+    const stayWin = date ? stayWindowLabel({ date, endDate: lastDay, slot, overtime, resource }) : null;
+    // The most guests for what is booked: the hall alone holds more than the
+    // pool area (lib/validators.ts guestLimitFor). Switching to anything with
+    // the pool brings the count back within the pool's limit.
+    const guestCap = guestLimitFor(resource);
+    const pickResource = (r: BookingResource) => {
+      setResource(r);
+      if (!initialPackage?.capacity) setGuests((g) => Math.min(g, guestLimitFor(r)));
+    };
     const [tierChoice, setTierChoice] = useState<BookingTier | null>(initialTier ?? null);
     // A ?room= link wins; otherwise the rooms added with "Add to booking".
     const [selRooms, setSelRooms] = useState<number[]>(() => (preselectedRoom ? [preselectedRoom] : roomCart.get()));
@@ -384,6 +400,7 @@
       const open = (["Pool", "Pool+Venue", "Venue"] as const).find((r) => !closed(r));
       if (open) {
         setResource(open);
+        setGuests((g) => Math.min(g, guestLimitFor(open)));
         if (open === "Venue") setSelRooms([]);
       }
     }, [isPackage, step, resource, poolClosed, venueClosed]);
@@ -403,9 +420,9 @@
     const shutDay = stayDates.find((d) => closedSet.has(d));
     const outsideWindow = stayDates.find((d) => !isWithinBookingWindow(d));
     // Today's tour, once it has started, can't be booked online.
-    const startedProblem = date ? slotStartedProblem(date, slot) : null;
+    const startedProblem = date ? slotStartedProblem(date, slot, undefined, resource) : null;
     // Booking today's tour after it started: it still ends at the usual time.
-    const lateNote = date ? lateArrivalNote(date, slot) : null;
+    const lateNote = date ? lateArrivalNote(date, slot, undefined, resource) : null;
     const dateOk =
       !!date &&
       !startedProblem &&
@@ -517,6 +534,14 @@
     const fullTotal = serverQuote?.total ?? total;
     const paidInFull = serverQuote?.payFull ?? payFull;
     const roomsFree = selRooms.every((r) => !takenRooms.has(r));
+    // A room is extra space, not where the whole group stays: the headcount
+    // is checked against the resort's capacity, never a room's, so a group
+    // bigger than its rooms still books (the Barkada package is 15 guests
+    // with one room). It is only told, so nobody arrives expecting a bed
+    // for everyone.
+    const roomsHold = selectedRoomDetails.reduce((sum, r) => sum + r.capacity, 0);
+    const roomsTooSmall = selRooms.length > 0 && guests > roomsHold;
+    const canAddRoom = !(isPackage && requiresRoom) && bookableRooms.some((r) => !selRooms.includes(r.id) && !takenRooms.has(r.id));
 
     /* Checked with the server as the guest leaves the contact step, before
        the payment screen. Some problems only show once the guest has said
@@ -924,18 +949,23 @@
         <>
           <p className="sw-bsum__eyebrow" style={{ color: C.goldInk }}>YOUR SELECTED BOOKING</p>
           <h3 className="sw-bsum__title" style={{ color: C.textH }}>
-            {isPackage ? availedLabel : `${SLOTS[slot].label} · ${SLOTS[slot].hours}`}
+            {isPackage ? availedLabel : `${slotInfo.label} · ${slotInfo.hours}`}
           </h3>
           {isPackage && (
-            <p className="sw-bsum__sub" style={{ color: C.textS }}>{SLOTS[slot].label} · {SLOTS[slot].hours}</p>
+            <p className="sw-bsum__sub" style={{ color: C.textS }}>{slotInfo.label} · {slotInfo.hours}</p>
+          )}
+          {venueNote && (
+            <p className="sw-bsum__sub" style={{ color: C.textB }}>{venueNote}, then the pool and resort until {slotInfo.end}.</p>
           )}
           {!isPackage && stayDays > 1 && (
-            <p className="sw-bsum__sub" style={{ color: C.textB }}>{stayPatternNote(slot, stayDays)}</p>
+            <p className="sw-bsum__sub" style={{ color: C.textB }}>{stayPatternNote(slot, stayDays, resource)}</p>
           )}
           {!isPackage && (
             <p className="sw-bsum__sub" style={{ color: C.textS }}>
               {slot === "Day"
                 ? `Want to stay a little later? Up to ${OVERTIME_MAX} hrs of overtime (${fmt(OVERTIME_RATE)}/hr) can be arranged at the resort when no Night group is booked — ${TURNOVER_WINDOW} is otherwise cleaning time.`
+                : resource === "Venue"
+                ? `The events venue is yours from ${slotInfo.start}. ${QUIET_HOURS_POLICY}`
                 : slot === "Night"
                 ? `The resort is yours for the whole night — ${SLOTS.Night.start} until ${SLOTS.Night.end} the next morning. ${QUIET_HOURS_POLICY}`
                 : `The resort is yours all day and night — no break between the Day and Night Tours. ${QUIET_HOURS_POLICY}`}
@@ -1096,7 +1126,7 @@
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: mob ? 24 : 32 }}>
             <Icon name="clock" size={13} style={{ color: C.goldInk, opacity: 0.7, flexShrink: 0 }} />
             <span style={{ color: C.textS, fontSize: 14.5 }}>
-              {SLOTS[slot].label}: <strong style={{ color: C.textB }}>{SLOTS[slot].hours}</strong>
+              {slotInfo.label}: <strong style={{ color: C.textB }}>{slotInfo.hours}</strong>
             </span>
           </div>
 
@@ -1386,7 +1416,7 @@
                       <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>
                         Fixed price of <strong style={{ color: C.goldInk }}>{fmt(initialPackage!.price)}</strong> for up to{" "}
                         <strong style={{ color: C.textH }}>{initialPackage!.capacity} guests</strong>
-                        {initialPackage!.slotMode === "WholeDay" ? <>, {SLOTS.WholeDay.hours}</> : " per tour"}.
+                        {initialPackage!.slotMode === "WholeDay" ? <>, {slotFor("WholeDay", resource).hours}</> : " per tour"}.
                         {requiresRoom ? " Pick your room next." : ""}
                         {roomDeal && <> Your room is <strong style={{ color: C.goldInk }}>{dealText(roomDeal)}</strong>.</>}
                         {extraDayDeal && <> Staying longer? Each extra day is <strong style={{ color: C.goldInk }}>{dealText(extraDayDeal)}</strong>.</>}
@@ -1415,7 +1445,7 @@
                                 }}
                               >
                                 <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: 0.8 }}><><Icon name={sl === "Day" ? "sun" : "moon"} size={13} style={{ marginRight: 4 }} />{sl === "Day" ? "DAY" : "NIGHT"}</></div>
-                                <div style={{ fontSize: 11.5, marginTop: 4, opacity: 0.8 }}>{SLOTS[sl].hours}</div>
+                                <div style={{ fontSize: 11.5, marginTop: 4, opacity: 0.8 }}>{slotFor(sl, resource).hours}</div>
                               </button>
                             );
                           })}
@@ -1451,7 +1481,7 @@
                               >
                                 <Icon name={SLOT_ICON[id]} size={18} style={{ display: "block", margin: "0 auto 4px", color: on ? goldSmall : C.textS }} />
                                 <span style={{ display: "block", color: on ? C.textH : C.textB, fontSize: 13.5, fontWeight: on ? 700 : 500 }}>{SLOTS[id].label}</span>
-                                <span style={{ display: "block", color: on ? goldSmall : C.textS, fontSize: 11, marginTop: 2, lineHeight: 1.35 }}>{SLOTS[id].hours}</span>
+                                <span style={{ display: "block", color: on ? goldSmall : C.textS, fontSize: 11, marginTop: 2, lineHeight: 1.35 }}>{slotFor(id, resource).hours}</span>
                                 <span style={{ display: "block", color: C.textS, fontSize: 10.5, marginTop: 4 }}>
                                   {off ? "Not with Venue only" : allowsMultiDay(id) ? `1–${MAX_STAY_DAYS} days` : "One date"}
                                 </span>
@@ -1480,8 +1510,8 @@
                         <div role="radiogroup" aria-label="What you are booking" style={{ display: "grid", gap: 6 }}>
                           {([
                             { id: "Pool", title: "Resort & pool", sub: "Everything but the events hall" },
-                            { id: "Pool+Venue", title: "Resort & pool + Events Venue", sub: `Exclusive · +${fmt(EVENT_VENUE_RATE)} per tour` },
-                            { id: "Venue", title: "Events Venue only", sub: `No pool · ${fmt(EVENT_VENUE_RATE)} per tour` },
+                            { id: "Pool+Venue", title: "Resort & pool + Events Venue", sub: `Exclusive · +${fmt(EVENT_VENUE_RATE)} per tour${slot !== "Day" ? ` · venue until ${venueCloseText()}` : ""}` },
+                            { id: "Venue", title: "Events Venue only", sub: `No pool · ${fmt(EVENT_VENUE_RATE)} per tour · up to ${VENUE_CAPACITY} guests${slot !== "Day" ? ` · until ${venueCloseText()}` : ""}` },
                           ] as const).map((opt) => {
                             const closed = resourceClosed(opt.id);
                             // Not for a Staycation, which is a stay at the resort.
@@ -1496,7 +1526,7 @@
                                 disabled={closed || notStay}
                                 // A venue-only booking takes no rooms; drop any
                                 // picked earlier so they are neither priced nor sent.
-                                onClick={() => { setResource(opt.id); if (opt.id === "Venue") setSelRooms([]); }}
+                                onClick={() => { pickResource(opt.id); if (opt.id === "Venue") setSelRooms([]); }}
                                 className="sw-choice"
                                 style={{ ...tileStyle(on), padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, ...(closed || notStay ? { opacity: 0.5, cursor: "not-allowed" } : null) }}
                               >
@@ -1530,7 +1560,7 @@
                               value={guests}
                               onChange={setGuests}
                               min={GUESTS_MIN}
-                              max={GUESTS_MAX}
+                              max={guestCap}
                               disabled={guestsLocked}
                               style={{ color: C.textH, fontSize: 20, fontWeight: 700, width: 44 }}
                             />
@@ -1538,7 +1568,7 @@
                               type="button"
                               className="sw-gold-hover sw-hit"
                               {...holdMore}
-                              disabled={guests >= GUESTS_MAX || guestsLocked}
+                              disabled={guests >= guestCap || guestsLocked}
                               aria-label="More guests"
                               style={guestBtn}
                             >
@@ -1555,9 +1585,11 @@
                           No other group shares the pool with you. Set the count so we prepare for the right number.
                         </p>
                       )}
-                      {guests >= GUESTS_MAX && (
+                      {!guestsLocked && guests >= guestCap && (
                         <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 8 }}>
-                          Maximum {GUESTS_MAX} guests per booking — please call us for larger groups.
+                          {resource === "Venue"
+                            ? `Maximum ${guestCap} guests — what the events venue holds. Please call us for larger groups.`
+                            : `Maximum ${guestCap} guests with the pool — please call us for larger groups.${VENUE_CAPACITY > GUESTS_MAX ? ` For an event without the pool, Events venue only takes up to ${VENUE_CAPACITY}.` : ""}`}
                         </p>
                       )}
                       </div>
@@ -1778,6 +1810,20 @@
                 )}
                 {requiresRoom && selRooms.length === 0 && (
                   <p style={{ color: C.dangerInk, fontSize: 13.5, marginTop: -16, marginBottom: 20 }}>⚠ Please pick a room to continue.</p>
+                )}
+                {roomsTooSmall && (
+                  <div className="sw-roomnote" role="status">
+                    <span className="sw-roomnote__ico" aria-hidden><Icon name="bed" size={16} strokeWidth={2} /></span>
+                    <div>
+                      <p className="sw-roomnote__title" style={{ color: C.goldInk }}>
+                        {selRooms.length === 1 ? "Your room fits" : "Your rooms fit"} {roomsHold} of your {guests} guests
+                      </p>
+                      <p className="sw-roomnote__body" style={{ color: C.textB }}>
+                        All {guests} can still use the pool and the resort, but only {roomsHold} can stay in the {selRooms.length === 1 ? "room" : "rooms"}.
+                        {canAddRoom ? " Add another room if you'd like space for everyone." : ""}
+                      </p>
+                    </div>
+                  </div>
                 )}
                 </>
                 )}
