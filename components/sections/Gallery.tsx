@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import { useWidth } from "@/hooks/useWidth";
 import { THEME_COLORS } from "@/lib/theme";
-import { gold } from "@/lib/styles";
 import { srcSetFor } from "@/lib/img";
 import { galleryTiles, galleryColumns, type GalleryPhoto } from "@/lib/gallery";
 import { Masonry } from "@/components/common/Masonry";
@@ -121,15 +120,6 @@ export function Gallery({ photos }: GalleryProps) {
           <p style={{ color: "rgba(246,241,232,0.9)", fontSize: mob ? 15 : 17, lineHeight: 1.75, maxWidth: 540, margin: 0, fontWeight: 300 }}>
             Tap any photo to see it full size.
           </p>
-        </div>
-
-        <div
-          aria-hidden="true"
-          className="sw-hero-scroll-indicator"
-          style={{ color: "rgba(246,241,232,0.65)", fontSize: 10.5, letterSpacing: 3 }}
-        >
-          SCROLL
-          <span style={{ display: "block", width: 1, height: 26, background: `${gold}88`, margin: "8px auto 0" }} />
         </div>
       </section>
 

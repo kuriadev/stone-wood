@@ -23,7 +23,7 @@ import { getPackageTier, checkRangeAvailability, isRoomOpen, roomsTakenInRange, 
 import { MAX_STAY_DAYS, staffDateWindow, OVERRIDE_GUESTS_MAX } from "@/lib/validators";
 import { OverCapacityNote } from "@/components/admin/OverCapacityNote";
 import { UNPAID_HOLD_HOURS } from "@/lib/rebooking";
-import { priceBooking, bookingLabel, packagePriceToday } from "@/lib/pricing";
+import { priceBooking, bookingLabel, packagePriceToday, packagePricing, dealText } from "@/lib/pricing";
 import { SLOTS, multiDayProblem, slotTiming } from "@/lib/resort";
 import { manilaDate } from "@/lib/finance";
 import {
@@ -144,9 +144,11 @@ export function WalkInModal({
     ? checkRangeAvailability(wf.date, lastDay, slot, overriding ? 1 : guests, tier, resource, bookings, facilities, overtime)
     : { ok: true as const };
   const selectedRooms = wf.rooms.map((id) => rooms.find((r) => r.id === id)).filter((r): r is Room => !!r);
+  // The promo price while one runs, and any room or extra-day deal, as
+  // the server charges.
+  const pkgPricing = pkg ? packagePricing(pkg, manilaDate()) : null;
   const price = priceBooking({
-    // The promo price while one runs, as the server charges.
-    pkg: isPkg ? { price: packagePriceToday(pkg!, manilaDate()).pay, requiresRoom } : null,
+    pkg: isPkg ? pkgPricing : null,
     resource, tier, slot, guests, overtime,
     roomPrices: selectedRooms.map((r) => r.price),
     days: stayDays,
@@ -241,7 +243,8 @@ export function WalkInModal({
       ...(price.tourBase && isPkg ? [{ label: pkg?.title ?? "Package", sub: SLOTS[slot].label, amount: price.tourBase }] : []),
       ...(!isPkg && price.poolFee > 0 ? [{ label: tier === "Exclusive" ? "Private pool" : `Shared pool (${guests} × ${fmt(sharedRateFor(slot))})`, sub: SLOTS[slot].label, amount: price.poolFee }] : []),
       ...(!isPkg && price.venueFee > 0 ? [{ label: "Events venue", amount: price.venueFee }] : []),
-      ...(price.roomsFee > 0 ? [{ label: "Rooms", sub: selectedRooms.map((r) => r.name).join(", "), amount: price.roomsFee }] : []),
+      ...(price.roomsFee > 0 ? [{ label: "Rooms", sub: [selectedRooms.map((r) => r.name).join(", "), price.roomsOff > 0 && pkgPricing?.roomDeal ? `package deal, ${dealText(pkgPricing.roomDeal)}` : ""].filter(Boolean).join(" · "), amount: price.roomsFee }] : []),
+      ...(price.extraDaysOff > 0 && pkgPricing?.extraDayDeal ? [{ label: "Extra days", sub: `package deal, ${dealText(pkgPricing.extraDayDeal)} each`, amount: -price.extraDaysOff }] : []),
       ...(price.overtimeFee > 0 ? [{ label: "Overtime", sub: `${overtime} hr`, amount: price.overtimeFee }] : []),
     ],
     total,
@@ -478,7 +481,10 @@ export function WalkInModal({
                 )}
               </>
             )}
-            {price.roomsFee > 0 && <AmountRow label="Rooms" value={fmt(price.roomsFee)} />}
+            {price.roomsFee > 0 && <AmountRow label={price.roomsOff > 0 && pkgPricing?.roomDeal ? `Rooms (${dealText(pkgPricing.roomDeal)})` : "Rooms"} value={fmt(price.roomsFee)} />}
+            {price.extraDaysOff > 0 && pkgPricing?.extraDayDeal && (
+              <AmountRow label={`Extra days (${dealText(pkgPricing.extraDayDeal)} each)`} value={`−${fmt(price.extraDaysOff)}`} />
+            )}
             <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 8, paddingTop: 4 }}>
               <AmountRow label="Total" value={fmt(total)} strong />
             </div>

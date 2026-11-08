@@ -1,4 +1,4 @@
-import type { PackageDiscount } from "@/types/package";
+import type { DiscountColumn } from "@/lib/pricing";
 // ── Supabase row shapes
 //
 // Hand-written to match supabase/migrations/. If you later install the
@@ -180,8 +180,9 @@ export interface PackageRow {
   status: BookingTier;
   price: number;
   list_price: number | null;
-  /** Missing until migration 20261028140000_package_discount has run. */
-  discount?: PackageDiscount | null;
+  /** Missing until migration 20261028140000_package_discount has run.
+   *  Holds all of a package's deals (lib/pricing.ts packDiscounts). */
+  discount?: DiscountColumn | null;
   capacity: number;
   requires_room: boolean;
   /** Added by 20260924090000_slots_and_packages.sql. */

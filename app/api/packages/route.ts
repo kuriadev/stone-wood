@@ -10,7 +10,7 @@ import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server
 import { fmt } from "@/lib/utils";
 import { getSupabaseAdmin, rowToPackage } from "@/lib/supabase";
 import { requirePermission } from "@/lib/auth";
-import { packageSetupProblem, packageTier, cleanPackageDiscount } from "@/lib/pricing";
+import { packageSetupProblem, packageTier, cleanPackageDeals, packDiscounts } from "@/lib/pricing";
 import { ensureSettings } from "@/lib/settings.server";
 import { GALLERY_MAX, sanitizeLabel, sanitizeNotes } from "@/lib/validators";
 import type { PackageRow } from "@/types/database";
@@ -99,10 +99,24 @@ function build(b: Record<string, unknown>) {
     includes: lines(b.includes),
     note: b.note ? sanitizeNotes(String(b.note)) : null,
     active: b.active !== false,
-    // Checked in problemWith; anything unusable here is no promo.
-    discount: (() => { const d = cleanPackageDiscount(b.discount, price); return d.ok ? d.discount : null; })(),
+    // All three deals in the one column: the price promo, and money off
+    // the room and each extra day. Checked in problemWith; anything
+    // unusable here is no deal.
+    discount: (() => { const d = dealsOf(b); return d.ok ? packDiscounts(d) : null; })(),
   };
 }
+
+/** The package's deals as sent, checked against its own price, room and
+ *  stay setting. */
+const dealsOf = (b: Record<string, unknown>) =>
+  cleanPackageDeals({
+    price: Number(b.price),
+    requiresRoom: !!b.requiresRoom,
+    slotMode: b.slotMode === "WholeDay" ? "WholeDay" : "Single",
+    discount: b.discount,
+    roomDiscount: b.roomDiscount,
+    extraDayDiscount: b.extraDayDiscount,
+  });
 
 function problemWith(b: Record<string, unknown>): string | null {
   if (!sanitizeLabel(String(b.title ?? ""))) return "A package title is required.";
@@ -110,8 +124,8 @@ function problemWith(b: Record<string, unknown>): string | null {
   if (!TIERS.includes(b.status as BookingTier)) return "Unknown tier.";
   const price = Number(b.price);
   if (!Number.isFinite(price) || price < 0) return "Price must be zero or more.";
-  const promo = cleanPackageDiscount(b.discount, Number(b.price));
-  if (!promo.ok) return promo.error;
+  const deals = dealsOf(b);
+  if (!deals.ok) return deals.error;
   return packageSetupProblem({
     resource: b.resource as BookingResource,
     status: b.status as BookingTier,

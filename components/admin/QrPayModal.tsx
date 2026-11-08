@@ -127,7 +127,7 @@ export function QrPayModal({ amount, description, summary, onPaid, onCancel }: {
             {summary.items.map((i) => (
               <div key={i.label} className="sw-qrpay__item">
                 <div><b>{i.label}</b>{i.sub && <span>{i.sub}</span>}</div>
-                <b>{fmt(i.amount)}</b>
+                <b>{i.amount < 0 ? `−${fmt(-i.amount)}` : fmt(i.amount)}</b>
               </div>
             ))}
             <hr />

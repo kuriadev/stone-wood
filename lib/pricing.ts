@@ -16,12 +16,14 @@
 //   Day overtime      ₱500/hr, max 2 hrs, admin only (see OVERTIME_MAX).
 //
 // No automatic discounts: a booking built by hand pays these rates, every
-// day of a stay alike. A package's own price (Packages & Prices) is where
-// any deal lives. Until 2026-10-27 there were four: 5% Exclusive, 10%
-// bundle, 8% room in a package, 15% each extra day.
+// day of a stay alike. A package (Packages & Prices) is where any deal
+// lives: its own price, and money off its price, its room or each extra
+// day of a stay, set package by package. Until 2026-10-27 there were four
+// resort-wide percentages instead: 5% Exclusive, 10% bundle, 8% room in a
+// package, 15% each extra day.
 
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
-import type { PackageDiscount } from "@/types/package";
+import type { PackageDiscount, PackageDealPart } from "@/types/package";
 import {
   exclusiveRateFor,
   sharedRateFor,
@@ -35,8 +37,10 @@ import { getBookingResource, getBookingSlot, getBookingTier } from "@/lib/utils"
 export { OVERTIME_RATE };
 
 export interface PriceInput {
-  /** Set when booking a fixed-price package; omit for a custom booking. */
-  pkg?: { price: number; requiresRoom?: boolean } | null;
+  /** Set when booking a fixed-price package; omit for a custom booking.
+   *  `price` is what the package costs today (packagePricing), and the two
+   *  deals are the ones running today, if any. */
+  pkg?: { price: number; requiresRoom?: boolean; roomDeal?: Deal | null; extraDayDeal?: Deal | null } | null;
   resource: BookingResource;
   tier: BookingTier;
   slot: BookingSlot;
@@ -57,8 +61,12 @@ export interface PriceBreakdown {
   /** Venue part (0 when no venue, and for a package). */
   venueFee: number;
   overtimeFee: number;
-  /** Rooms, already × slots and × days. */
+  /** Rooms, already × slots and × days, after any package room deal. */
   roomsFee: number;
+  /** What the package's room deal took off the rooms, all days. */
+  roomsOff: number;
+  /** What the package's extra-day deal took off, all days after the first. */
+  extraDaysOff: number;
   total: number;
   /** 50% down payment, rounded up to the peso. */
   down: number;
@@ -128,29 +136,177 @@ export const packageCapacityLimit = (resource: BookingResource) =>
 
 export const PACKAGE_DISCOUNT_MAX_PCT = 90;
 
+/** A deal as priceBooking takes it: already known to be running. */
+export type Deal = Pick<PackageDiscount, "type" | "value">;
+
 export type DiscountResult = { ok: true; discount: PackageDiscount | null } | { ok: false; error: string };
 
-/** A clean promo from anything (the form, the API), checked against the
- *  package's regular price. Blank or zero means no promo. */
-export function cleanPackageDiscount(raw: unknown, price: number): DiscountResult {
+/** What each part is called in the admin form and in error messages. */
+export const DEAL_PART_LABEL: Record<PackageDealPart, string> = {
+  price: "Package price",
+  room: "Room",
+  extraDay: "Each extra day",
+};
+
+/** One clean deal from anything (the form, the API). Blank or zero means
+ *  none. `below`: a peso amount has to stay under it (the package's own
+ *  price). A room or an extra day has no single price to check against, so
+ *  a peso amount there is capped at what it comes off instead (dealOff). */
+function cleanDeal(raw: unknown, part: PackageDealPart, below?: number): DiscountResult {
   if (raw === null || raw === undefined || raw === "") return { ok: true, discount: null };
   const r = (typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const type = r.type === "amount" ? "amount" : r.type === "percent" ? "percent" : null;
   const value = Number(r.value);
   if (!type || r.value === "" || r.value === null || r.value === undefined || value === 0) return { ok: true, discount: null };
-  if (!Number.isFinite(value) || value < 0) return { ok: false, error: "The discount must be a positive number." };
+  // The price promo keeps its original wording; the others say which part.
+  const on = part === "price" ? "" : `${DEAL_PART_LABEL[part]} discount: `;
+  if (!Number.isFinite(value) || value < 0) return { ok: false, error: `${on}The discount must be a positive number.` };
   if (type === "percent" && (value < 1 || value > PACKAGE_DISCOUNT_MAX_PCT || !Number.isInteger(value))) {
-    return { ok: false, error: `A percentage discount is a whole number from 1 to ${PACKAGE_DISCOUNT_MAX_PCT}.` };
+    return { ok: false, error: `${on}A percentage discount is a whole number from 1 to ${PACKAGE_DISCOUNT_MAX_PCT}.` };
   }
-  if (type === "amount" && (!Number.isInteger(value) || value >= price)) {
-    return { ok: false, error: `A peso discount has to be a whole amount less than the price (${price.toLocaleString()}).` };
+  if (type === "amount" && !Number.isInteger(value)) {
+    return { ok: false, error: `${on}A peso discount has to be a whole amount.` };
+  }
+  if (type === "amount" && below !== undefined && value >= below) {
+    return { ok: false, error: `${on}A peso discount has to be a whole amount less than the price (${below.toLocaleString()}).` };
   }
   let until: string | undefined;
   if (r.until !== undefined && r.until !== null && r.until !== "") {
     until = String(r.until);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(until) || Number.isNaN(Date.parse(until))) return { ok: false, error: "The promo end date isn't a real date." };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(until) || Number.isNaN(Date.parse(until))) return { ok: false, error: `${on}The promo end date isn't a real date.` };
   }
   return { ok: true, discount: { type, value, ...(until ? { until } : {}) } };
+}
+
+/** A clean promo from anything (the form, the API), checked against the
+ *  package's regular price. Blank or zero means no promo. */
+export function cleanPackageDiscount(raw: unknown, price: number): DiscountResult {
+  return cleanDeal(raw, "price", price);
+}
+
+/** One part's deal, checked the way cleanPackageDeals checks it: the admin
+ *  form shows each row's own problem under that row. */
+export function cleanPackageDealPart(part: PackageDealPart, raw: unknown, price: number): DiscountResult {
+  return cleanDeal(raw, part, part === "price" ? price : undefined);
+}
+
+export type DealsResult =
+  | { ok: true; discount: PackageDiscount | null; roomDiscount: PackageDiscount | null; extraDayDiscount: PackageDiscount | null }
+  | { ok: false; error: string };
+
+/** All of a package's deals, checked together. A room deal only means
+ *  something on a package that includes a room, and an extra-day deal only
+ *  on a Staycation (the one kind of package that can run past a day), so
+ *  either is dropped -- not refused -- on a package it can't apply to. */
+export function cleanPackageDeals(b: {
+  price: number;
+  requiresRoom?: boolean;
+  slotMode?: string;
+  discount?: unknown;
+  roomDiscount?: unknown;
+  extraDayDiscount?: unknown;
+}): DealsResult {
+  const price = cleanPackageDiscount(b.discount, b.price);
+  if (!price.ok) return price;
+  const room: DiscountResult = b.requiresRoom ? cleanDeal(b.roomDiscount, "room") : { ok: true, discount: null };
+  if (!room.ok) return room;
+  const day: DiscountResult = b.slotMode === "WholeDay" ? cleanDeal(b.extraDayDiscount, "extraDay") : { ok: true, discount: null };
+  if (!day.ok) return day;
+  return { ok: true, discount: price.discount, roomDiscount: room.discount, extraDayDiscount: day.discount };
+}
+
+/** How the three deals sit in the one `discount` column: the price promo
+ *  at the top, as it always was (so older code still reads it), and the
+ *  other two under `room` and `extraDay`. */
+export type DiscountColumn = Partial<PackageDiscount> & { room?: PackageDiscount; extraDay?: PackageDiscount };
+
+export function packDiscounts(p: {
+  discount?: PackageDiscount | null;
+  roomDiscount?: PackageDiscount | null;
+  extraDayDiscount?: PackageDiscount | null;
+}): DiscountColumn | null {
+  const col: DiscountColumn = { ...(p.discount ?? {}) };
+  if (p.roomDiscount) col.room = p.roomDiscount;
+  if (p.extraDayDiscount) col.extraDay = p.extraDayDiscount;
+  return Object.keys(col).length ? col : null;
+}
+
+/** The column back into the three deals. Anything unusable is no deal. */
+export function unpackDiscounts(col: unknown): {
+  discount?: PackageDiscount;
+  roomDiscount?: PackageDiscount;
+  extraDayDiscount?: PackageDiscount;
+} {
+  if (!col || typeof col !== "object") return {};
+  const one = (raw: unknown): PackageDiscount | undefined => {
+    const d = (raw ?? {}) as Record<string, unknown>;
+    const value = Number(d.value);
+    if ((d.type !== "percent" && d.type !== "amount") || !Number.isFinite(value) || value <= 0) return undefined;
+    return { type: d.type, value, ...(typeof d.until === "string" && d.until ? { until: d.until } : {}) };
+  };
+  const c = col as Record<string, unknown>;
+  const out: { discount?: PackageDiscount; roomDiscount?: PackageDiscount; extraDayDiscount?: PackageDiscount } = {};
+  const price = one(c), room = one(c.room), day = one(c.extraDay);
+  if (price) out.discount = price;
+  if (room) out.roomDiscount = room;
+  if (day) out.extraDayDiscount = day;
+  return out;
+}
+
+/** The deal if it runs on `today` ("YYYY-MM-DD", Manila), else null. */
+export function dealToday(d: PackageDiscount | null | undefined, today: string): Deal | null {
+  return d && d.value > 0 && (!d.until || d.until >= today) ? { type: d.type, value: d.value } : null;
+}
+
+/** What a deal takes off `amount`. A peso deal never takes more than the
+ *  amount itself. */
+export function dealOff(d: Deal | null | undefined, amount: number): number {
+  if (!d || !(amount > 0) || !(d.value > 0)) return 0;
+  return d.type === "percent"
+    ? Math.round((amount * Math.min(d.value, PACKAGE_DISCOUNT_MAX_PCT)) / 100)
+    : Math.min(Math.round(d.value), amount);
+}
+
+/** "8% off", "₱300 off". */
+export function dealText(d: Deal): string {
+  return d.type === "percent" ? `${d.value}% off` : `₱${d.value.toLocaleString()} off`;
+}
+
+/** Everything priceBooking needs about a package on `today`: its price
+ *  (the promo price while one runs) and the room and extra-day deals that
+ *  are running. The server quote, the walk-in window and the walk-in
+ *  server check all price a package through this, so all three agree. */
+export function packagePricing(
+  p: {
+    price: number;
+    requiresRoom?: boolean;
+    slotMode?: string;
+    discount?: PackageDiscount | null;
+    roomDiscount?: PackageDiscount | null;
+    extraDayDiscount?: PackageDiscount | null;
+  },
+  today: string,
+): { price: number; requiresRoom: boolean; roomDeal: Deal | null; extraDayDeal: Deal | null } {
+  return {
+    price: packagePriceToday(p, today).pay,
+    requiresRoom: !!p.requiresRoom,
+    roomDeal: p.requiresRoom ? dealToday(p.roomDiscount, today) : null,
+    extraDayDeal: p.slotMode === "WholeDay" ? dealToday(p.extraDayDiscount, today) : null,
+  };
+}
+
+/** The deals a guest sees beside a package's price today: "Room 8% off",
+ *  "Each extra day 15% off". The price promo has its own badge. */
+export function packageExtraDeals(
+  p: { requiresRoom?: boolean; slotMode?: string; roomDiscount?: PackageDiscount | null; extraDayDiscount?: PackageDiscount | null },
+  today: string,
+): { part: "room" | "extraDay"; text: string; until?: string }[] {
+  const out: { part: "room" | "extraDay"; text: string; until?: string }[] = [];
+  const room = p.requiresRoom ? dealToday(p.roomDiscount, today) : null;
+  if (room) out.push({ part: "room", text: `Room ${dealText(room)}`, until: p.roomDiscount?.until });
+  const day = p.slotMode === "WholeDay" ? dealToday(p.extraDayDiscount, today) : null;
+  if (day) out.push({ part: "extraDay", text: `Each extra day ${dealText(day)}`, until: p.extraDayDiscount?.until });
+  return out;
 }
 
 /** What a package costs on `today` ("YYYY-MM-DD", Manila): the regular
@@ -176,16 +332,23 @@ export function packagePriceToday(
   };
 }
 
-/** The price and struck-through price a booking link carries for a
- *  package: the promo against the regular price while one runs, else the
- *  Book Now comparison (packageValue). The server re-prices regardless. */
+/** The prices a booking link carries for a package: the price and the
+ *  struck-through price (the promo against the regular price while one
+ *  runs, else the Book Now comparison, packageValue), and any room or
+ *  extra-day deal running today, so Book Now can show them. The server
+ *  re-prices regardless. */
 export function packageLinkPrices(
-  p: { resource: BookingResource; status: BookingTier; slotMode: "Single" | "WholeDay"; capacity: number; price: number; discount?: PackageDiscount | null },
+  p: {
+    resource: BookingResource; status: BookingTier; slotMode: "Single" | "WholeDay"; capacity: number; price: number;
+    requiresRoom?: boolean; discount?: PackageDiscount | null; roomDiscount?: PackageDiscount | null; extraDayDiscount?: PackageDiscount | null;
+  },
   today: string,
-): { price: number; listPrice?: number } {
+): { price: number; listPrice?: number; roomDeal?: Deal; extraDayDeal?: Deal } {
   const t = packagePriceToday(p, today);
-  if (t.off > 0) return { price: t.pay, listPrice: t.regular };
-  return { price: p.price, listPrice: packageValue(p).compare };
+  const { roomDeal, extraDayDeal } = packagePricing(p, today);
+  const deals = { ...(roomDeal ? { roomDeal } : {}), ...(extraDayDeal ? { extraDayDeal } : {}) };
+  if (t.off > 0) return { price: t.pay, listPrice: t.regular, ...deals };
+  return { price: p.price, listPrice: packageValue(p).compare, ...deals };
 }
 
 /** "until 30 Nov" for a promo's end date. */
@@ -263,19 +426,28 @@ export function priceBooking(input: PriceInput): PriceBreakdown {
   // Overtime exists only on a Day booking.
   const overtimeFee = slot === "Day" ? Math.max(0, overtime) * OVERTIME_RATE : 0;
 
-  const roomsFee = roomPrices.reduce((sum, p) => sum + p, 0) * slots;
+  // A package's room deal comes off each room's own rate, before the
+  // rate is counted per slot.
+  const roomDeal = pkg?.roomDeal ?? null;
+  const roomsFull = roomPrices.reduce((sum, p) => sum + p, 0) * slots;
+  const roomsFee = roomPrices.reduce((sum, p) => sum + p - dealOff(roomDeal, p), 0) * slots;
 
   // A package's own price replaces the pool + venue part. The owner sets it
   // in the Packages tab.
   const stayFee = pkg ? pkg.price : poolFee + venueFee;
 
   const perDay = stayFee + roomsFee;
-  const total = perDay * days + overtimeFee;
+  // A package's extra-day deal comes off every day after the first.
+  const extraDays = days - 1;
+  const extraDayOff = pkg && extraDays > 0 ? dealOff(pkg.extraDayDeal ?? null, perDay) : 0;
+  const total = perDay * days - extraDayOff * extraDays + overtimeFee;
   return {
     poolFee: pkg ? 0 : poolFee * days,
     venueFee: pkg ? 0 : venueFee * days,
     overtimeFee,
     roomsFee: roomsFee * days,
+    roomsOff: (roomsFull - roomsFee) * days,
+    extraDaysOff: extraDayOff * extraDays,
     total,
     down: Math.ceil(total / 2),
     slots,

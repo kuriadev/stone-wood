@@ -16,7 +16,7 @@
  */
 
 import { useState } from "react";
-import { packagePriceToday } from "@/lib/pricing";
+import { packagePriceToday, packageExtraDeals } from "@/lib/pricing";
 import { manilaNow } from "@/lib/validators";
 import { THEME_COLORS } from "@/lib/theme";
 import { fmt } from "@/lib/utils";
@@ -164,6 +164,9 @@ export function EventPackages({ kind, packages, mob, onBook }: EventPackagesProp
                     </span>
                   );
                 })()}
+                {packageExtraDeals(p, manilaNow().date).map((d) => (
+                  <span key={d.part} style={{ display: "block", color: "#e2574c", fontSize: 11.5, fontWeight: 600, marginTop: 4 }}>{d.text}</span>
+                ))}
               </span>
             </button>
           </li>
