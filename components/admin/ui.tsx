@@ -93,7 +93,7 @@ export function AdminPageHeader({ title, subtitle, action, mob, as: Heading = "h
 // Header and footer stay put; only the body scrolls. The close X is
 // shadcn's own, top-right.
 export function Modal({
-  title, subtitle, onClose, children, footer, width = 560,
+  title, subtitle, onClose, children, footer, width = 560, dismissible = true,
 }: {
   title: ReactNode;
   subtitle?: ReactNode;
@@ -101,6 +101,11 @@ export function Modal({
   children: ReactNode;
   footer?: ReactNode;
   width?: number;
+  /** false: a click outside or Esc does nothing and there is no ✕, so the
+   *  window only closes through its own buttons. For a window whose
+   *  closing is itself an action, like the forced password change, where
+   *  closing signs the person out. */
+  dismissible?: boolean;
 }) {
   const { C } = useAdminStyle();
   const rem = Math.round((width / 16) * 10) / 10;
@@ -113,6 +118,9 @@ export function Modal({
       <DialogContent
         className="flex max-h-[92dvh] flex-col gap-0 p-0"
         style={{ maxWidth: `min(${rem}rem, calc(100% - 1rem))`, width: "100%" }}
+        showCloseButton={dismissible}
+        onInteractOutside={dismissible ? undefined : (e) => e.preventDefault()}
+        onEscapeKeyDown={dismissible ? undefined : (e) => e.preventDefault()}
       >
         <DialogHeader className="shrink-0 border-b px-4 py-4 pr-12 text-left sm:px-6">
           <DialogTitle style={{ color: C.textH, fontFamily: serif, fontSize: 22, fontWeight: 400 }}>{title}</DialogTitle>
