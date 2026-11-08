@@ -712,3 +712,49 @@ export function buildNoticeEmail(n: Notice): { subject: string; html: string } {
 </html>`;
   return { subject: `${sanitizeHeaderValue(n.subject, 120)} | Stonewood Garden Private Resort`, html };
 }
+
+/**
+ * The 6-digit code Book Now asks for before payment
+ * (lib/emailCode.server.ts). The code is in the subject too, so a phone's
+ * notification is enough to read it without opening the email.
+ */
+export function buildEmailCodeEmail(code: string, minutes: number): { subject: string; html: string } {
+  const safe = escapeHtml(code);
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your booking code – Stonewood Garden Private Resort</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f1eb;font-family:'Georgia',serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1eb;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+          <tr>
+            <td style="background:linear-gradient(135deg,#1a1108 0%,#2a1f0e 60%,#1a1108 100%);border-radius:12px 12px 0 0;padding:30px;text-align:center;">
+              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:4px;text-transform:uppercase;">Stonewood Garden Private Resort</p>
+              <h1 style="margin:0;color:#f0e6cc;font-size:24px;font-weight:400;letter-spacing:1px;">Confirm your email</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#ffffff;padding:30px 36px;text-align:center;">
+              <p style="margin:0 0 18px;color:#5a4a35;font-size:14px;line-height:1.8;">Type this code in Book Now to confirm this is your email address:</p>
+              <p style="margin:0 0 18px;color:#2a1f0e;font-size:34px;font-weight:700;letter-spacing:10px;font-family:'Courier New',monospace;">${safe}</p>
+              <p style="margin:0 0 6px;color:#8a6d3b;font-size:13px;line-height:1.7;">It works for ${minutes} minutes. If you asked for more than one code, use the one in the newest email.</p>
+              <p style="margin:0;color:#8a6d3b;font-size:12px;line-height:1.7;">Didn't try to book with us? You can ignore this email; nothing goes ahead without the code.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#faf5e8;border-radius:0 0 12px 12px;padding:16px;text-align:center;color:#8a6d3b;font-size:11px;">Never share this code with anyone, including people who say they are from the resort.</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+  return { subject: `${code} is your Stonewood booking code`, html };
+}

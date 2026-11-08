@@ -32,7 +32,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const result = await quoteBooking((body as { draft?: unknown })?.draft);
+    // No QR for an email the guest hasn't confirmed with a code.
+    const result = await quoteBooking((body as { draft?: unknown })?.draft, { requireEmailProof: true });
     if (!result.ok) {
       return NextResponse.json({ success: false, error: result.error }, { status: result.status });
     }

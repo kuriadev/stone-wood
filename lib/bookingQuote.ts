@@ -31,6 +31,7 @@ import { multiDayProblem, slotStartedProblem } from "@/lib/resort";
 import type { FacilityRow, PackageRow, RoomRow } from "@/types/database";
 import type { BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 import { ensureSettings } from "@/lib/settings.server";
+import { emailProofValid } from "@/lib/emailCode.server";
 
 /** What Book Now sends. Every field is re-checked here. */
 export interface BookingDraft {
@@ -53,6 +54,10 @@ export interface BookingDraft {
   notes: string;
   /** Pay the whole total online instead of the 50% down payment. */
   payFull: boolean;
+  /** The sealed proof that the guest typed the code sent to `email`
+   *  (lib/emailCode.server.ts). Needed before payment, see
+   *  requireEmailProof below. Not kept on the booking. */
+  emailProof?: string;
 }
 
 export interface BookingQuote {
@@ -85,7 +90,11 @@ const SLOTS_OK: BookingSlot[] = ["Day", "Night", "WholeDay"];
 
 const bad = (error: string, status = 400, step: QuoteStep = "date"): QuoteResult => ({ ok: false, status, error, step });
 
-export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
+/** requireEmailProof: refuse a draft whose email wasn't confirmed with a
+ *  code. Set by the two steps before money moves (the pre-payment check
+ *  and the QR payment), never by the save after payment, which must keep
+ *  a paying guest's booking whatever happens. */
+export async function quoteBooking(raw: unknown, opts: { requireEmailProof?: boolean } = {}): Promise<QuoteResult> {
   if (!raw || typeof raw !== "object") return bad("Booking details are missing.");
   // The owner's current rates, limits and hours (lib/settings.ts).
   await ensureSettings();
@@ -98,6 +107,9 @@ export async function quoteBooking(raw: unknown): Promise<QuoteResult> {
   const notes = sanitizeNotes(String(d.notes ?? ""));
   if (!isValidName(name)) return bad("A valid name is required.", 400, "contact");
   if (!isValidEmail(email)) return bad("A valid email address is required.", 400, "contact");
+  if (opts.requireEmailProof && !emailProofValid(d.emailProof, email)) {
+    return bad("Confirm your email with the 6-digit code we send you, then continue.", 400, "contact");
+  }
   if (!isValidPHNumber(contact)) return bad("A valid PH mobile number (09XXXXXXXXX) is required.", 400, "contact");
 
   // ── The stay ────────────────────────────────────────────────────
