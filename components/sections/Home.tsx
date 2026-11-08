@@ -446,7 +446,7 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
               three, each with its icon, rather than three heavy boxes: it
               introduces the packages below instead of competing with them. */}
           <Reveal
-            style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))", gap: mob ? 10 : 0, maxWidth: mob ? "100%" : 1020, margin: `0 auto ${mob ? 28 : 56}px` }}
+            style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(3,minmax(0,1fr))", gap: mob ? 10 : 0, maxWidth: mob ? "100%" : 1020, margin: `0 auto ${mob ? 28 : 56}px` }}
           >
             {DURATIONS.map((d, i) => (
               <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 14, justifyContent: mob ? "flex-start" : "center", padding: mob ? "14px 16px" : "6px 20px", borderLeft: !mob && i > 0 ? `1px solid ${C.border}` : undefined, border: mob ? `1px solid ${C.border}` : undefined, borderRadius: mob ? 12 : undefined }}>
@@ -490,7 +490,7 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
             <p style={{ ...lede, maxWidth: 520, margin: `0 auto ${headGap}px` }}>Base pricing before package configuration. Every reservation starts here.</p>
           </Reveal>
 
-          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 20, marginBottom: 48, maxWidth: 1100, margin: "0 auto 48px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 20, marginBottom: 48, maxWidth: 1100, margin: "0 auto 48px" }}>
             {rateCardsShown.map((p, i) => (
               /* React Bits' TiltedCard: each card tilts toward the cursor,
                  catches a glare across its face and edge, and lifts on a

@@ -190,7 +190,7 @@ function CaretakerTasks({ mob }: { mob: boolean }) {
         mob={mob}
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4, 1fr)", gap: 12, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 28 }}>
         {ORDER.map((k) => {
           const n = byKind(k).length;
           return <StatCard key={k} label={KIND[k].stat} value={n} color={n ? KIND[k].color : undefined} />;
@@ -210,7 +210,7 @@ function CaretakerTasks({ mob }: { mob: boolean }) {
             </h2>
             <span style={{ color: C.textS, fontSize: 12.5 }}>{KIND[k].hint}</span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fill,minmax(300px,1fr))", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(auto-fill,minmax(300px,1fr))", gap: 12 }}>
             {byKind(k).map(card)}
           </div>
         </section>

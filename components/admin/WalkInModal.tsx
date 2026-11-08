@@ -276,7 +276,7 @@ export function WalkInModal({
         </div>
       }
     >
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1.25fr 1fr", gap: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr)", gap: 24 }}>
         {/* ── Guest ── */}
         <div style={col}>
           <div>
@@ -367,7 +367,7 @@ export function WalkInModal({
               </FullSelect>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "0.8fr 1.2fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 1.2fr)", gap: 12 }}>
               <div>
                 <Label htmlFor="wi-guests">Guests</Label>
                 {/* An exclusive POOL buyout is the whole resort, so the count

@@ -579,7 +579,7 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
                 <Icon name="grid" size={16} />
               </button>
             </div>
-            <div className="sw-rep__summarygrid" style={{ gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))" }}>
+            <div className="sw-rep__summarygrid" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(4,minmax(0,1fr))" }}>
               {([
                 ["Money received", fmt(now.collected), now.collected, before.collected, true],
                 ["Net income", fmt(now.net), now.net, before.net, true],
@@ -602,7 +602,7 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
       {(view === "Overview" || view === "Money") && <>
       {/* ── Money ── */}
       {section("cash", "Financial Overview", "What came in, what went out, and what is still owed.")}
-      <div className="sw-rep__kpis" style={{ gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))" }}>
+      <div className="sw-rep__kpis" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(4,minmax(0,1fr))" }}>
         {kpi({ icon: "cash", label: "Money received", value: fmt(collected), note: `${pays.length} payment${pays.length === 1 ? "" : "s"}`, accent: "#2e9e4e", cur: now.collected, prev: before.collected, trend: series.map((x) => x.money) })}
         {kpi({ icon: "receipt", label: "Expenses", value: fmt(spent), note: `${exps.length} expense${exps.length === 1 ? "" : "s"}`, accent: "#9a8f80", cur: now.spent, prev: before.spent, up: false, trend: series.map((x) => x.spent),
           meter: collected > 0 ? { pct: spent / collected, text: `${Math.round((spent / collected) * 100)}% of money received` } : undefined })}
@@ -632,7 +632,7 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
         );
       })()}
 
-      <div className="sw-rep__grid3" style={{ gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))" }}>
+      <div className="sw-rep__grid3" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(3,minmax(0,1fr))" }}>
         {breakdown({
           icon: "receipt", title: "Summary", hint: "Money in, by what it paid for",
           rows: summary.map(([t, v]) => [t, v, v < 0 ? `−${fmt(-v)}` : fmt(v)] as const),
@@ -655,14 +655,14 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
       {(view === "Overview" || view === "Bookings") && <>
       {/* ── Bookings ── */}
       {section("calendar", "Bookings and guests", "Who came, how they booked, and which tours.")}
-      <div className="sw-rep__kpis" style={{ gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))" }}>
+      <div className="sw-rep__kpis" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(4,minmax(0,1fr))" }}>
         {kpi({ icon: "calendar", label: "Bookings", value: String(bks.length), note: `${kept.length} not cancelled`, accent: gold, cur: now.bookings, prev: before.bookings, trend: series.map((x) => x.bookings) })}
         {kpi({ icon: "users", label: "Guests", value: String(guests), accent: gold, cur: now.guests, prev: before.guests, trend: series.map((x) => x.guests) })}
         {kpi({ icon: "log-in", label: "Walk-ins", value: String(kept.filter((b) => b.source === "Walk-In").length), accent: gold, cur: now.walkins, prev: before.walkins })}
         {kpi({ icon: "x", label: "Cancellation rate", value: `${bks.length ? Math.round((statusCount[3][1] / bks.length) * 100) : 0}%`, accent: "#9a8f80", cur: now.cancelRate, prev: before.cancelRate, up: false,
           meter: bks.length ? { pct: statusCount[3][1] / bks.length, text: `${statusCount[3][1]} of ${bks.length} bookings` } : undefined })}
       </div>
-      <div className="sw-rep__grid2" style={{ gridTemplateColumns: mob ? "1fr" : "repeat(2,minmax(0,1fr))" }}>
+      <div className="sw-rep__grid2" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(2,minmax(0,1fr))" }}>
         {dist("By status", "clipboard-check", statusCount.map(([st, n]) => ({
           label: statusLabel(st), n, pct: bks.length ? Math.round((n / bks.length) * 100) : 0,
         })))}

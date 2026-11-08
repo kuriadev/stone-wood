@@ -119,7 +119,7 @@ export function SettingsTab({ mob }: { mob: boolean }) {
     <section style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, padding: mob ? "16px" : "20px 24px", marginBottom: 20 }}>
       <h2 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: 0 }}>{title}</h2>
       <p style={{ color: C.textS, fontSize: 13, margin: "6px 0 16px" }}>{intro}</p>
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(2, minmax(0, 1fr))", gap: 16 }}>{body}</div>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(2, minmax(0, 1fr))", gap: 16 }}>{body}</div>
     </section>
   );
 

@@ -982,7 +982,7 @@
               deposit stays the default, and paying in full means nothing is
               left to settle on arrival. */}
           <div id="pay-plan-label" style={{ color: C.textS, fontSize: 12, letterSpacing: 1.6, fontWeight: 700, marginBottom: 12 }}>HOW MUCH TO PAY NOW</div>
-          <div role="radiogroup" aria-labelledby="pay-plan-label" style={{ display: "grid", gridTemplateColumns: mob || sideSummary ? "1fr" : "1fr 1fr", gap: 10 }}>
+          <div role="radiogroup" aria-labelledby="pay-plan-label" style={{ display: "grid", gridTemplateColumns: mob || sideSummary ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(0, 1fr)", gap: 10 }}>
             {([
               { full: false, title: "50% deposit", amount: down, note: `${fmt(total - down)} paid at the resort` },
               { full: true, title: "Pay in full", amount: total, note: "Nothing to pay on arrival" },
@@ -1202,7 +1202,7 @@
                     under everything else, past the Continue button, where few
                     guests scrolled. */}
                 {!isPackage && onBookPackage && (
-                  <div role="tablist" aria-label="How to book" style={{ display: "inline-grid", gridTemplateColumns: "1fr 1fr", gap: 4, padding: 4, borderRadius: 999, border: `1px solid ${C.border}`, margin: "8px 0 4px" }}>
+                  <div role="tablist" aria-label="How to book" style={{ display: "inline-grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 4, padding: 4, borderRadius: 999, border: `1px solid ${C.border}`, margin: "8px 0 4px" }}>
                     {([["custom", "Build your reservation"], ["packages", `Ready-made packages (${resortPackages.length + eventPackages.length})`]] as const).map(([id, text]) => (
                       <button
                         key={id}
@@ -1240,7 +1240,7 @@
                   </>
                 ) : (
                 <>
-                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1.3fr) minmax(0,1fr)", gap: mob ? 20 : 28, marginTop: 16, alignItems: "start" }}>
+                <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0,1.3fr) minmax(0,1fr)", gap: mob ? 20 : 28, marginTop: 16, alignItems: "start" }}>
                   {/* The calendar, with the availability verdict attached. */}
                   <div
                     style={{ minWidth: 0 }}
@@ -2036,7 +2036,7 @@
                       : <>Session expires in <strong style={{ color: qrSeconds <= 60 ? "#e07a7a" : C.textB, fontFamily: "monospace" }}>{fmtTimer(qrSeconds)}</strong></>}
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: mob || sideSummary ? "1fr" : "minmax(0,0.85fr) minmax(0,1.15fr)", gap: mob ? 16 : 20, alignItems: "start" }}>
+                <div style={{ display: "grid", gridTemplateColumns: mob || sideSummary ? "minmax(0, 1fr)" : "minmax(0,0.85fr) minmax(0,1.15fr)", gap: mob ? 16 : 20, alignItems: "start" }}>
                   {/* QR */}
                   <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : "24px 20px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
                     {/* Real QR from PayMongo — unique to this payment intent.

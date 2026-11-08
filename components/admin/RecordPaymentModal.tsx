@@ -137,7 +137,7 @@ export function RecordPaymentModal({
             </p>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, marginBottom: 16 }}>
             <div>
               <Label htmlFor="pay-amount">Amount (₱)</Label>
               <Input id="pay-amount" type="number" min={0} step="0.01" max={max} value={shownAmount}

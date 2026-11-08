@@ -381,7 +381,7 @@ export function PackagesTab({ packages, setPackages, rooms = [], mob }: Packages
           </div>
           {applies[part] && (
             <>
-              <div className="sm:col-span-3" role="radiogroup" aria-labelledby={`${id}-label`} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+              <div className="sm:col-span-3" role="radiogroup" aria-labelledby={`${id}-label`} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 6 }}>
                 {(["percent", "amount"] as const).map((k) => {
                   const on = d.type === k;
                   return (
@@ -483,7 +483,7 @@ export function PackagesTab({ packages, setPackages, rooms = [], mob }: Packages
       {/* 1fr auto-rows equalises row heights on
           multi-column layouts (not mobile, which is one card per row), and each
           card is a column whose action row is pinned to the bottom. */}
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fill,minmax(280px,1fr))", gridAutoRows: mob ? "auto" : "1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(auto-fill,minmax(280px,1fr))", gridAutoRows: mob ? "auto" : "minmax(0, 1fr)", gap: 16 }}>
         {shown.map((p) => (
           <div key={p.id} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, overflow: "hidden", opacity: p.active ? 1 : 0.55, display: "flex", flexDirection: "column", height: "100%" }}>
             <div style={{ position: "relative" }}>
@@ -646,7 +646,7 @@ export function PackagesTab({ packages, setPackages, rooms = [], mob }: Packages
                 </div>
                 <div className="sm:col-span-12">
                   <p id="pkg-tier-label" className={LABEL} style={{ margin: "0 0 8px" }}>POOL ACCESS</p>
-                  <div role="radiogroup" aria-labelledby="pkg-tier-label" style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 10 }}>
+                  <div role="radiogroup" aria-labelledby="pkg-tier-label" style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(0, 1fr)", gap: 10 }}>
                     {STATUSES.map((st) => {
                       const on = form.status === st;
                       const blocked = st === "Shared" && !!sharedBlocked;

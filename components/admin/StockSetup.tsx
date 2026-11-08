@@ -214,7 +214,7 @@ function UpkeepModal({ task, items, facilities, onClose, onDone }: {
       }>
       <div style={{ display: "grid", gap: 14 }}>
         <div><Label htmlFor="up-title">WHAT</Label><Input id="up-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} placeholder="e.g. Pool cleaning" style={field} /></div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
           <div><Label htmlFor="up-every">EVERY HOW MANY DAYS</Label><Input id="up-every" type="number" min={1} max={365} value={every} onChange={(e) => setEvery(e.target.value)} style={field} /></div>
           <div><Label htmlFor="up-start">FIRST DAY</Label><DateField id="up-start" value={start} onChange={setStart} style={field} /></div>
         </div>

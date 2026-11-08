@@ -206,7 +206,7 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
 
       {/* ── Stats ── */}
       <div
-        style={{ display: "grid", marginBottom: 28, gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4, 1fr)", gap: mob ? 12 : 16 }}
+        style={{ display: "grid", marginBottom: 28, gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(4, minmax(0, 1fr))", gap: mob ? 12 : 16 }}
       >
         {[
           ["Total Items",  items.length,      "#c9a84c"],
@@ -238,12 +238,12 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
           item as a card (InventoryShop.css) -- the way people already browse
           a shop app. Every field of the old table is on the card: category,
           name, quantity with − / +, unit, minimum, status, notes, actions. */}
-      <div className="sw-shop" style={{ gridTemplateColumns: mob ? "1fr" : "220px minmax(0, 1fr)" }}>
+      <div className="sw-shop" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr)" : "220px minmax(0, 1fr)" }}>
 
         {/* ── Left: categories and filters ── */}
         <aside className="sw-shop__side" aria-label="Categories and filters">
           {mob ? (
-            <div style={{ display: "grid", gridTemplateColumns: showArchive ? "1fr" : "1fr 1fr", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: showArchive ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(0, 1fr)", gap: 8 }}>
               {!showArchive && (
                 <FilterSelect<string>
                   label="Category"
@@ -365,7 +365,7 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
               No items found{search ? ` for "${search}"` : ""}.
             </p>
           ) : (
-            <ul className="sw-shop__grid" aria-label="Inventory items" style={{ gridTemplateColumns: mob ? "1fr 1fr" : "repeat(auto-fill, minmax(190px, 1fr))" }}>
+            <ul className="sw-shop__grid" aria-label="Inventory items" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(auto-fill, minmax(190px, 1fr))" }}>
               {shown.map((item) => {
                 const low = item.qty <= item.minQty;
                 const cc = catC[item.category] || "#888";

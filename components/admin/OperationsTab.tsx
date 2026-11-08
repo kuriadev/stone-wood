@@ -741,7 +741,7 @@ export function OperationsTab({
   };
 
   const grid = (list: OpsCard[]) => (
-    <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fill,minmax(300px,1fr))", gap: 12 }}>
+    <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(auto-fill,minmax(300px,1fr))", gap: 12 }}>
       {list.map(card)}
     </div>
   );
@@ -775,7 +775,7 @@ export function OperationsTab({
   // ── Views ──────────────────────────────────────────────────────────
   const todayPanel = (
     <>
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit,minmax(290px,1fr))", gap: 16, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(auto-fit,minmax(290px,1fr))", gap: 16, alignItems: "start" }}>
         {TODAY_COLUMNS.map((col) => {
           const list = todayCards.filter((c) => c.column === col.id);
           return (
@@ -885,7 +885,7 @@ export function OperationsTab({
   const pendingGrid = pendingMoves.length === 0
     ? null
     : (
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fill,minmax(340px,1fr))", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(auto-fill,minmax(340px,1fr))", gap: 12 }}>
         {pendingMoves.map(({ r, b }) => {
           const active = holdActive(r, now.getTime());
           const rebook = isRebookRequest(r, b);
@@ -1051,7 +1051,7 @@ export function OperationsTab({
   };
 
   const statsRow = (
-    <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))", gap: mob ? 12 : 16, marginBottom: 20 }}>
+    <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(4,minmax(0,1fr))", gap: mob ? 12 : 16, marginBottom: 20 }}>
       {dashStat({
         icon: "calendar", label: "Guests still to arrive",
         value: dueToday.length - arrivedToday,
@@ -1213,7 +1213,7 @@ export function OperationsTab({
           <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>Start a common task</div>
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fit,minmax(190px,1fr))", gap: 10, padding: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(auto-fit,minmax(190px,1fr))", gap: 10, padding: 16 }}>
         {quickTask("plus", "Walk-in", "Create booking", () => setOpen({ kind: "walkin" }))}
         {quickTask("cash", "Payment", "Add guest payment", () => setOpen({ kind: "paynew" }))}
         {quickTask("receipt", "Cost", "Add money spent", () => onGoTab?.("Sales"))}
@@ -1260,7 +1260,7 @@ export function OperationsTab({
           </button>
         )}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))", gap: mob ? 12 : 16, padding: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(3,minmax(0,1fr))", gap: mob ? 12 : 16, padding: 16 }}>
         {moneyFigure("Money received this month", fmt(receivedMonth), "Includes today's payments", "#2e9e4e")}
         {moneyFigure("Money spent this month", fmt(spentMonth), receivedMonth > 0 ? `${Math.round((spentMonth / receivedMonth) * 100)}% of the money received` : "No income yet this month")}
         {moneyFigure("Money left this month", fmt(leftMonth),
@@ -1339,7 +1339,7 @@ export function OperationsTab({
       {/* Front desk's requests waiting on the owner, with the day's
           reminders beside them; both stretched to one height so their
           bottoms line up. */}
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1fr) minmax(0,1fr)", gap: mob ? 20 : 16, alignItems: "stretch", marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0,1fr) minmax(0,1fr)", gap: mob ? 20 : 16, alignItems: "stretch", marginBottom: 20 }}>
         <OwnerRequestsPanel mob={mob} inRow reschedules={canDecideMoves ? pendingMoves.length : 0} onReviewReschedules={() => {
           setView("reschedule");
           document.getElementById("dash-bookings")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1359,7 +1359,7 @@ export function OperationsTab({
           screen. `alignSelf: start` is what lets the rail stick at all: a
           stretched grid item is as tall as its row and has nothing to stick
           inside. */}
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1fr) minmax(320px,380px)", gap: 16, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0,1fr) minmax(320px,380px)", gap: 16, alignItems: "start" }}>
         <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
 
           {/* ── Today's guests: the same three stages, in one place ── */}

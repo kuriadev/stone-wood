@@ -346,7 +346,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
           This group was never checked in. Completing the stay records the check-in and check-out now.
         </p>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,1.7fr) minmax(300px,1fr)", gap: 20, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0,1.7fr) minmax(300px,1fr)", gap: 20, alignItems: "start" }}>
         {/* ── Inspection ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -396,7 +396,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
                   <div style={{ marginTop: 12, borderTop: `1px dashed ${cBr}`, paddingTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
                     {ds.map((d) => (
                       <div key={d.key} style={{ background: soft, borderRadius: 8, padding: "12px 12px" }}>
-                        <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,2fr) 80px minmax(0,1fr) auto", gap: 8, alignItems: "end" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0,2fr) 80px minmax(0,1fr) auto", gap: 8, alignItems: "end" }}>
                           <div>
                             <Label>Damaged item</Label>
                             <FullSelect aria-label="Damaged item" value={d.custom ? "custom" : String(d.rateId ?? "")} style={{ ...inp, padding: "8px 36px 8px 12px" }}
@@ -419,7 +419,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
                           <button type="button" onClick={() => confirmRemove({ title: "Remove this damage line?", body: "It won't be charged or recorded.", action: "Remove line", onConfirm: () => removeDamage(f.id, d.key) })} aria-label="Remove item" style={{ background: "transparent", border: "none", color: C.textS, cursor: "pointer", minWidth: 40, minHeight: 40, justifySelf: mob ? "end" : undefined }}><Icon name="trash" size={15} /></button>
                         </div>
                         {d.custom && (
-                          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "2fr 1fr", gap: 8, marginTop: 8 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0, 2fr) minmax(0, 1fr)", gap: 8, marginTop: 8 }}>
                             <Input value={d.itemName} onChange={(e) => patchDamage(f.id, d.key, { itemName: e.target.value })} placeholder="Item name" style={{ ...inp, padding: "8px 12px" }} />
                             <Input type="number" min={0} value={d.unitRate || ""} onChange={(e) => patchDamage(f.id, d.key, { unitRate: Math.max(0, Number(e.target.value) || 0) })} placeholder="Price each (₱)" style={{ ...inp, padding: "8px 12px" }} />
                           </div>
@@ -431,7 +431,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
                           </label>
                         </div>
                         {d.adjusting && (
-                          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "140px 1fr", gap: 8, marginTop: 8 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "140px minmax(0, 1fr)", gap: 8, marginTop: 8 }}>
                             <Input type="number" value={d.adjustment || ""} onChange={(e) => patchDamage(f.id, d.key, { adjustment: Number(e.target.value) || 0 })} placeholder="− or + ₱" aria-label="Adjustment" style={{ ...inp, padding: "8px 12px" }} />
                             <Input value={d.adjustmentReason} onChange={(e) => patchDamage(f.id, d.key, { adjustmentReason: e.target.value })} placeholder="Reason, e.g. only a small crack, repairable" style={{ ...inp, padding: "8px 12px" }} />
                           </div>
@@ -780,7 +780,7 @@ export function VisitRecord({ booking, onClose }: { booking: Booking; onClose: (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(320px,100%),1fr))", gap: 20, alignItems: "start" }}>
         {/* ── The reservation ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 8 }}>
             {fields.map(([l, v]) => (
               <div key={l} style={{ background: soft, borderRadius: 8, padding: "8px 12px", minWidth: 0 }}>
                 <div style={{ color: C.textS, fontSize: 11.5 }}>{l}</div>

@@ -81,7 +81,7 @@ export function HeroMediaEditor({ mob }: { mob: boolean }) {
 
   const busy = progress !== null;
   return (
-    <section aria-labelledby="hero-media-title" style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 12, padding: mob ? 14 : 18, marginBottom: 28, display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0,320px) 1fr", gap: 18, alignItems: "start" }}>
+    <section aria-labelledby="hero-media-title" style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 12, padding: mob ? 14 : 18, marginBottom: 28, display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0,320px) minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
       <div style={{ position: "relative", aspectRatio: "16 / 9", borderRadius: 10, overflow: "hidden", background: "#000" }}>
         {media?.kind === "video" ? (
           <video src={media.src} autoPlay muted loop playsInline style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />

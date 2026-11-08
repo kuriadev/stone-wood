@@ -1375,7 +1375,7 @@ export function Admin({
                   { label: statusLabel("Completed"), match: "Completed" },
                 ];
                 return (
-                  <div style={{ marginTop: 28, display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, minmax(0,1fr))", gap: 16 }}>
+                  <div style={{ marginTop: 28, display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(3, minmax(0,1fr))", gap: 16 }}>
                     {/* Each column shows five and scrolls the rest, with its
                         own "View all" — see MonthStatusColumn. It needs state
                         per column, which is why it is a component and not
@@ -1401,7 +1401,7 @@ export function Admin({
                 <div><p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>ACCOMMODATIONS</p><h2 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 22 : 26, fontWeight: 400, margin: 0 }}>{ADMIN_TAB_LABEL.Rooms}</h2></div>
                 <button className="sw-btn" onClick={openAdd} style={{ ...goldBtn, padding: "12px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD ROOM</button>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fill,minmax(280px,1fr))", gap: 20 }}>
+              <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(auto-fill,minmax(280px,1fr))", gap: 20 }}>
                 {rooms.map((r) => (
                   <div key={r.id} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, overflow: "hidden", boxShadow: C.shadowCard }}>
                     <div style={{ position: "relative", overflow: "hidden" }}>

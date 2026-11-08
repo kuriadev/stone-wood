@@ -149,7 +149,7 @@ export function HomeCardsEditor({ mob }: { mob: boolean }) {
         </p>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fill,minmax(320px,1fr))", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(auto-fill,minmax(320px,1fr))", gap: 16 }}>
         {drafts.map((d, i) => (
           <div key={d.id} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: 16, display: "grid", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -169,7 +169,7 @@ export function HomeCardsEditor({ mob }: { mob: boolean }) {
               </button>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "auto minmax(0, 1fr)", gap: 10 }}>
               <div>
                 <Label htmlFor={`hc-icon-${i}`} style={lbl}>ICON</Label>
                 <select id={`hc-icon-${i}`} value={d.icon} onChange={(e) => edit(i, { icon: e.target.value as HomeCardIcon })} style={{ ...inpS, height: 38, padding: "0 10px" }}>
@@ -187,7 +187,7 @@ export function HomeCardsEditor({ mob }: { mob: boolean }) {
               <Textarea id={`hc-desc-${i}`} value={d.description} maxLength={L.description} rows={2} onChange={(e) => edit(i, { description: e.target.value })} placeholder="Resort use 7:00 AM — 5:00 PM." style={{ ...inpS, resize: "vertical" }} />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr)", gap: 10 }}>
               <div>
                 <Label htmlFor={`hc-price-${i}`} style={lbl}>PRICE</Label>
                 <Input id={`hc-price-${i}`} value={d.price} maxLength={L.price} onChange={(e) => edit(i, { price: e.target.value })} placeholder="from ₱200" style={inpS} />
@@ -203,7 +203,7 @@ export function HomeCardsEditor({ mob }: { mob: boolean }) {
               <Textarea id={`hc-details-${i}`} value={d.detailsText} rows={4} onChange={(e) => edit(i, { detailsText: e.target.value })} placeholder={"Shared: ₱200 per guest\nExclusive (up to 30): ₱6,000"} style={{ ...inpS, resize: "vertical" }} />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 10 }}>
               <div>
                 <Label htmlFor={`hc-btn-${i}`} style={lbl}>BUTTON (OPTIONAL)</Label>
                 <Input id={`hc-btn-${i}`} value={d.buttonLabel} maxLength={L.buttonLabel} onChange={(e) => edit(i, { buttonLabel: e.target.value })} placeholder="VIEW ROOMS" style={inpS} />

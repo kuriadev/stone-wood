@@ -50,7 +50,8 @@ export const INIT_ROOMS: Room[] = [
     capacity: 4,
     price: 2000,
     desc: "A cozy, intimate room for small groups.",
-    img: "https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?w=800&q=85",
+    // The resort's own photo of the room (public/images/rooms).
+    img: "/images/rooms/cozy-double.jpg",
   },
 ];
 

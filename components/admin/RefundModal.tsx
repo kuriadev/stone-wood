@@ -84,7 +84,7 @@ export function RefundModal({ booking, onClose }: { booking: Booking; onClose: (
         <p style={{ background: soft, borderRadius: 10, padding: "12px 16px", margin: 0, color: C.textB, fontSize: 13, lineHeight: 1.6 }}>
           <strong style={{ color: C.textH }}>{fmt(owed)}</strong> is owed to {booking.name}. Send it first (their number, {booking.contact}, is often their GCash), then record it here.
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
           <div>
             <Label htmlFor="rf-amount">Amount sent</Label>
             <Input id="rf-amount" type="number" min={0} value={amount === "" ? String(owed) : amount} onChange={(e) => setAmount(e.target.value)} style={inp} />

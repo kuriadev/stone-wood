@@ -47,7 +47,7 @@ export function Footer({ setPage }: FooterProps) {
           maxWidth: 1100,
           margin: "0 auto",
           display: "grid",
-          gridTemplateColumns: mob ? "1fr" : "2fr 1fr 1fr 1.4fr",
+          gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr)",
           gap: mob ? 32 : 48,
           marginBottom: 36,
         }}

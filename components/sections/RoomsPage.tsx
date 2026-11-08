@@ -89,7 +89,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
             const added = inCart.includes(r.id);
             return (
               <Reveal key={r.id} delay={i * REVEAL_STEP}>
-                <article className={`sw-room${flip ? " is-flip" : ""}`} style={{ gridTemplateColumns: mob ? "1fr" : flip ? "minmax(0,1fr) minmax(0,1.15fr)" : "minmax(0,1.15fr) minmax(0,1fr)" }}>
+                <article className={`sw-room${flip ? " is-flip" : ""}`} style={{ gridTemplateColumns: mob ? "minmax(0, 1fr)" : flip ? "minmax(0,1fr) minmax(0,1.15fr)" : "minmax(0,1.15fr) minmax(0,1fr)" }}>
                   <button type="button" className="sw-room__photo" onClick={() => setActiveRoom(r)} aria-label={`See ${r.name}`}
                     style={{ order: flip ? 2 : 0 }}>
                     <img

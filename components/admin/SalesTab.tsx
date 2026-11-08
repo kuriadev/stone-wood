@@ -121,7 +121,7 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
 
       {/* Headline figures: the colour is on the icon and the edge, so the
           label says what each one is. Styles: Sales.css. */}
-      <div className="sw-sales__kpis" style={{ gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4,minmax(0,1fr))" }}>
+      <div className="sw-sales__kpis" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(4,minmax(0,1fr))" }}>
         {kpi("cash", "Collected today", fmt(collectedToday), `${todayCount} payment${todayCount === 1 ? "" : "s"}`, "#2e9e4e")}
         {kpi("calendar", "Collected this month", fmt(collectedMonth), monthName, gold)}
         {kpi("trending-up", "Net income this month", fmt(round2(collectedMonth - spentMonth)), `after ${fmt(spentMonth)} in expenses`, collectedMonth - spentMonth < 0 ? "#e5484d" : gold)}
@@ -751,7 +751,7 @@ export function ExpenseModal({ onClose, initialDate }: { onClose: () => void; in
         <ActionButton onClick={onClose}>Cancel</ActionButton>
         <ActionButton kind="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save expense"}</ActionButton>
       </div>}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
         <div style={{ gridColumn: "1/-1" }}>
           <Label htmlFor="ex-desc">What was it for?</Label>
           <Input id="ex-desc" value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="e.g. Chlorine tablets, 2 kg" style={inp} />
@@ -1007,7 +1007,7 @@ export function Closing({ onAct, initialDate }: {
               <p style={{ color: C.textS, fontSize: 12.5, lineHeight: 1.6, margin: "0 0 12px" }}>
                 Count the money in the resort&apos;s cash box (wherever the cash guests pay is kept) and enter the total below. The system checks it against what should be there, so missing or extra cash shows up the same day.
               </p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, marginBottom: 12 }}>
                 <div>
                   <Label htmlFor="float">Cash at the start (optional)</Label>
                   <Input id="float" type="number" min={0} value={openingFloat} onChange={(e) => setOpeningFloat(e.target.value)} placeholder="0" style={inp} aria-describedby="float-hint" />

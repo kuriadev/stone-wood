@@ -92,7 +92,7 @@ export function EmailGuestModal({ booking, onClose }: { booking: Booking; onClos
             borderRadius: 10,
             padding: "12px 14px",
             display: "grid",
-            gridTemplateColumns: "auto 1fr",
+            gridTemplateColumns: "auto minmax(0, 1fr)",
             columnGap: 16,
             rowGap: 8,
           }}

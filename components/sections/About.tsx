@@ -336,7 +336,7 @@ export function About({
       <section
         style={{
           display: "grid",
-          gridTemplateColumns: mob ? "1fr" : "1fr 1fr",
+          gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(0, 1fr)",
           alignItems: "stretch",
           margin: mob ? "0 0 48px" : "0 0 72px",
           background: C.bgCard,

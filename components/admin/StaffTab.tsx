@@ -270,7 +270,7 @@ export function StaffTab({ mob }: { mob: boolean }) {
       )}
 
       {/* What each role is for, with how many people have it. */}
-      <div className="sw-staff__roles" style={{ gridTemplateColumns: mob ? "1fr" : "repeat(3, minmax(0,1fr))" }}>
+      <div className="sw-staff__roles" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(3, minmax(0,1fr))" }}>
         {STAFF_ROLES.map((r) => (
           <div key={r} className="sw-staff__role" style={{ borderColor: cBr, background: cBg }}>
             <span className="sw-staff__roleicon" style={{ color: ROLE_COLOR[r], background: `${ROLE_COLOR[r]}1f` }}><Icon name={ROLE_ICON[r]} size={16} /></span>

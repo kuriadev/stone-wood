@@ -101,7 +101,7 @@ export function EventPackages({ kind, packages, mob, onBook }: EventPackagesProp
       <ul
         style={{
           listStyle: "none", margin: 0, padding: 0, display: "grid",
-          gridTemplateColumns: mob ? "1fr" : "repeat(3,minmax(0,1fr))",
+          gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(3,minmax(0,1fr))",
           gap: 16,
         }}
       >

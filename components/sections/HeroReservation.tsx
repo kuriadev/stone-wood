@@ -427,7 +427,7 @@ export function HeroReservation({
                 </p>
               </div>
             ) : (
-              <div role="radiogroup" aria-label="Pool access" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div role="radiogroup" aria-label="Pool access" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 8 }}>
                 {(["Shared", "Exclusive"] as const).map((opt) => {
                   const on = tier === opt;
                   const unavailable = !!date && !fits(opt).ok;

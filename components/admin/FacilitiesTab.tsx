@@ -461,7 +461,7 @@ function FacilityModal({ facility, mob, onClose }: { facility: Facility | null; 
         <ActionButton kind="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : isNew ? "Add amenity" : "Save"}</ActionButton>
       </div>}>
       {!isRoom && (
-        <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, marginBottom: 16 }}>
           <div>
             <Label htmlFor="f-name">Name</Label>
             <Input id="f-name" value={name} disabled={core} onChange={(e) => setName(e.target.value)} placeholder="e.g. Kiddie Pool, Cottage 3" style={inp} />

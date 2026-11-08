@@ -134,7 +134,7 @@ const submit = handleSubmit(async (values) => {
         </Reveal>
 
         {/* Contact cards */}
-        <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3,1fr)", gap: 12, marginBottom: 36 }}>
+        <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(3,1fr)", gap: 12, marginBottom: 36 }}>
           {[
             ["phone", "Call Us", RESORT_CONTACT.phone, "For urgent booking assistance"],
             ["mail", "Email Us", RESORT_CONTACT.email, "Replies typically arrive within one business day"],
@@ -235,7 +235,7 @@ const submit = handleSubmit(async (values) => {
                 <div
                   role="radiogroup"
                   aria-labelledby="cs-type-label"
-                  style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, minmax(0,1fr))", gap: 8, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, background: C.bgCard2 }}
+                  style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 8, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, background: C.bgCard2 }}
                 >
                   {([
                     ["Question", "Inquiry"],

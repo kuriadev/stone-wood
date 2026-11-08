@@ -691,9 +691,9 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
               {finishStep(b) === "complete" && <ActionButton kind="primary" icon="check" onClick={() => { setViewId(null); setFinish({ kind: "complete", id: b.id }); }}>Complete stay{m.due > 0 ? ` · collect ${fmt(m.due)}` : ""}</ActionButton>}
               {finishStep(b) === "settle" && <ActionButton kind="primary" icon="receipt" onClick={() => { setViewId(null); setFinish({ kind: "settle", id: b.id }); }}>Settle{m.due > 0 ? ` · ${fmt(m.due)}` : ""}</ActionButton>}
             </div>}>
-            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(0, 1fr)", gap: 20 }}>
               <div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 8, marginBottom: 16 }}>
                   {[["Date", stayLabel(b)], ["Time", `${s.label} · ${s.hours}`], ["Email", b.email || "—"], ["Contact", b.contact], ["Guests", `${b.guests}`], ["Status", bookingStatusLabel(b)],
                     ...(b.checkedInAt ? [["Checked in", `${fmtDate(manilaDate(b.checkedInAt))}, ${manilaTime(b.checkedInAt)}`]] : []),
                     ...(b.checkedOutAt ? [["Checked out", `${fmtDate(manilaDate(b.checkedOutAt))}, ${manilaTime(b.checkedOutAt)}`]] : []),

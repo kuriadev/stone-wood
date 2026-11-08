@@ -325,7 +325,7 @@ export function ChoiceButtons<V extends string>({
   const longest = words.reduce((n, w) => Math.max(n, w.length), 0) || 10;
   const minCol = Math.max(72, Math.round(longest * (size === "sm" ? 7.2 : 7.6) + (size === "sm" ? 22 : 34)));
   return (
-    <div role="radiogroup" aria-label={label} style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(min(${minCol}px, 100%), 1fr))`, gap: SPACE.xs }}>
+    <div role="radiogroup" aria-label={label} style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(min(${minCol}px, 100%), minmax(0, 1fr)))`, gap: SPACE.xs }}>
       {options.map((o) => {
         const on = o.value === value;
         return (

@@ -399,7 +399,7 @@ export function ManageBooking(_props: ManageBookingProps) {
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr auto", gap: 16, alignItems: "end" }}>
+            <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(0, 1fr) auto", gap: 16, alignItems: "end" }}>
               <div>
                 <Label htmlFor="mb-ref" className="mb-2 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>
                   BOOKING REFERENCE
@@ -455,7 +455,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                 <span style={{ color: "#4caf50", fontSize: 11, fontWeight: 700, letterSpacing: 2 }}>BOOKING FOUND</span>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "auto 1.4fr repeat(3, minmax(0,1fr)) auto", gap: mob ? 16 : 20, alignItems: "center" }}>
+              <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "auto minmax(0, 1.4fr) repeat(3, minmax(0,1fr)) auto", gap: mob ? 16 : 20, alignItems: "center" }}>
                 <span
                   aria-hidden="true"
                   style={{ width: 84, height: 62, borderRadius: 10, background: `linear-gradient(135deg, ${gold}26, ${gold}0d)`, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", color: C.goldInk, flexShrink: 0 }}
@@ -495,7 +495,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                 </div>
               </div>
 
-              <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 24, paddingTop: 20, display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4, minmax(0,1fr))", gap: 20 }}>
+              <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 24, paddingTop: 20, display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(4, minmax(0,1fr))", gap: 20 }}>
                 {([
                   ["TOTAL AMOUNT", fmt(found.total)],
                   ["PAID SO FAR", fmt(Math.max(0, paidNet))],
@@ -780,7 +780,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                 </p>
               ) : (
                 <>
-                  <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(3, minmax(0,1fr))", gap: 16 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(3, minmax(0,1fr))", gap: 16 }}>
                     {actions.map((a) => {
                       const on = action === a.key;
                       return (
@@ -899,7 +899,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                       <p style={{ color: C.textS, fontSize: 13, margin: "0 0 16px" }}>
                         Help us understand why your plans changed. This step is optional.
                       </p>
-                      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(4, minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(4, minmax(0,1fr))", gap: 12, marginBottom: 20 }}>
                         {CANCEL_REASONS.map((r) => {
                           const on = cancelReason === r;
                           return (

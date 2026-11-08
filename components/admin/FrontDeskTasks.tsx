@@ -178,7 +178,7 @@ export function FrontDeskTasks({ mob, onGoTab }: { mob: boolean; onGoTab?: (t: A
       <AdminPageHeader title="My Tasks" mob={mob}
         subtitle="The counter's work: money to collect, days to close, arrivals to check in. Preparing and inspecting are the caretakers'." />
 
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : "repeat(3, 1fr)", gap: 12, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(3, minmax(0, 1fr))", gap: 12, marginBottom: 28 }}>
         {(Object.keys(GROUP) as Group[]).map((g) => (
           <StatCard key={g} label={GROUP[g].stat} value={of(g).length} color={of(g).length ? GROUP[g].color : undefined} />
         ))}
@@ -197,7 +197,7 @@ export function FrontDeskTasks({ mob, onGoTab }: { mob: boolean; onGoTab?: (t: A
             </h2>
             <span style={{ color: C.textS, fontSize: 12.5 }}>{GROUP[g].hint}</span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "repeat(auto-fill,minmax(320px,1fr))", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(auto-fill,minmax(320px,1fr))", gap: 12 }}>
             {of(g).map(card)}
           </div>
         </section>

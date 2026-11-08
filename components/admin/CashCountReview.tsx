@@ -197,7 +197,7 @@ export function CashCountReview({ closing: given, closedBy, onClose, onReviewed,
 
         <div style={{ border: `1px solid ${cBr}`, borderRadius: 8, padding: "12px 14px" }}>
           <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600, marginBottom: 8 }}>Correct the float or the count</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
             <div>
               <Label htmlFor="review-float">Opening float (₱)</Label>
               <Input id="review-float" type="number" min={0} step="0.01" value={float} onChange={(e) => setFloat(e.target.value)} style={inp} />

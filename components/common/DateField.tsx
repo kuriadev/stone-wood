@@ -192,7 +192,7 @@ export function DateField({
           </div>
 
           {months ? (
-            <div role="grid" aria-label={`Months of ${cursor.y}`} style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, padding: "4px 0" }}>
+            <div role="grid" aria-label={`Months of ${cursor.y}`} style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, padding: "4px 0" }}>
               {MONTHS.map((name, m) => {
                 const key = `${cursor.y}-${pad(m + 1)}`;
                 const chosen = sel && sel.y === cursor.y && sel.m === m;
@@ -217,10 +217,10 @@ export function DateField({
             </div>
           ) : (
             <div ref={gridRef} role="grid" aria-label={`${MONTHS_LONG[cursor.m]} ${cursor.y}`} onKeyDown={onGridKey}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", marginBottom: 4 }}>
                 {DAYS.map((d) => <span key={d} style={{ textAlign: "center", color: C.textXS, fontSize: 11, fontWeight: 700, letterSpacing: 0.6, padding: "4px 0" }}>{d.toUpperCase()}</span>)}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 3 }}>
                 {cells.map((c) => {
                   const chosen = value === c.s;
                   const isToday = c.s === today;
