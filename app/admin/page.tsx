@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { Admin } from "@/components/sections/Admin";
@@ -30,14 +30,36 @@ export default function AdminPage() {
     setPackages,
   } = useApp();
 
-  // Guard: redirect to login if not authenticated
+  // Guard. `adminAuth` lives in memory, so a reload starts it at false even
+  // though the httpOnly session cookie is still valid. Before sending anyone
+  // to /login, ask the server whether that cookie still names an active
+  // account; it enforces the 8-hour and idle limits, so an expired session
+  // still lands on the sign-in page.
+  //
+  // Only on first load: once this page has been signed in, a later false
+  // (Log out, a deactivated account) must go straight to /login, not race
+  // the logout request and quietly sign back in.
+  const restoreTried = useRef(false);
   useEffect(() => {
-    if (!adminAuth) {
-      router.replace("/login");
-    }
-  }, [adminAuth, router]);
+    if (adminAuth) { restoreTried.current = true; return; }
+    if (restoreTried.current) { router.replace("/login"); return; }
+    restoreTried.current = true;
+    let live = true;
+    let answered = false;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((res) => {
+        if (!live) return;
+        answered = true;
+        if (res.ok) setAdminAuth(true);
+        else router.replace("/login");
+      })
+      .catch(() => { if (live) { answered = true; router.replace("/login"); } });
+    // Cancelled before an answer (e.g. dev StrictMode re-running effects):
+    // let the next run ask again instead of treating it as signed out.
+    return () => { live = false; if (!answered) restoreTried.current = false; };
+  }, [adminAuth, router, setAdminAuth]);
 
-  // Don't render Admin UI while redirecting
+  // Nothing renders while the session is checked or the redirect happens
   if (!adminAuth) return null;
 
   return (

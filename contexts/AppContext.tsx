@@ -108,8 +108,9 @@ const NO_INVENTORY: InventoryItem[] = [];
 const INIT_GALLERY_PHOTOS: GalleryPhoto[] = INIT_GALLERY.map(toGalleryPhoto);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  // Not persisted on purpose — admin login should require signing in again
-  // each session rather than silently staying authenticated forever.
+  // Not persisted in the browser. The httpOnly session cookie is the real
+  // sign-in (8-hour cap, 30-minute idle limit, checked by the server);
+  // app/admin/page.tsx restores this flag from it after a reload.
   const [adminAuth, setAdminAuth] = useState(false);
 
   // Every collection now reads from Supabase through the API routes, with
