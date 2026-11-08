@@ -39,6 +39,7 @@ import { gold } from "@/lib/styles";
 import { Icon } from "@/components/common/Icon";
 import { Modal, Label, ChoiceButtons, ActionButton, AmountRow, ErrorNote, useAdminStyle, FullSelect } from "@/components/admin/ui";
 import { DateField } from "@/components/common/DateField";
+import { EmailTypoHint } from "@/components/common/EmailTypoHint";
 import "@/components/admin/WalkInModal.css";
 
 type PayChoice = "Full" | "Downpayment" | "None";
@@ -286,6 +287,12 @@ export function WalkInModal({
           <div>
             <Label htmlFor="wi-email">Email (optional)</Label>
             <Input id="wi-email" value={wf.email} onChange={(e) => set("email", e.target.value)} placeholder="example@email.com" style={inp} />
+            {/* Staff type this, so the guest is asked to confirm it out
+                loud; a misspelt provider also gets a one-tap fix. */}
+            <EmailTypoHint email={wf.email} onUse={(v) => set("email", v)} textColor={C.textS} accent={C.goldInk} />
+            {wf.email.trim() !== "" && (
+              <p style={{ color: C.textS, fontSize: 12.5, lineHeight: 1.5, margin: "6px 0 0" }}>Read the email back to the guest to make sure it&apos;s right.</p>
+            )}
           </div>
           <div>
             <Label htmlFor="wi-date">First day</Label>

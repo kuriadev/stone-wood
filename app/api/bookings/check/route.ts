@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const result = await quoteBooking((body as { draft?: unknown })?.draft);
+    // The email must have been confirmed with a code before payment.
+    const result = await quoteBooking((body as { draft?: unknown })?.draft, { requireEmailProof: true });
     if (!result.ok) {
       return NextResponse.json({ success: false, error: result.error, step: result.step }, { status: result.status });
     }

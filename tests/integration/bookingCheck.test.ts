@@ -12,6 +12,14 @@ const mockDb = new FakeDb();
 jest.mock("@/lib/supabase", () => ({ ...jest.requireActual("@/lib/supabase"), getSupabaseAdmin: () => mockDb }));
 
 import { POST as check } from "@/app/api/bookings/check/route";
+import { newEmailCode, checkEmailCode } from "@/lib/emailCode.server";
+
+/** What a guest who typed the emailed code holds for `email`. */
+const proofFor = (email: string) => {
+  const { code, challenge } = newEmailCode(email);
+  const r = checkEmailCode(challenge, email, code);
+  return r.ok ? r.proof : "";
+};
 
 beforeAll(() => {
   jest.useFakeTimers({
@@ -32,11 +40,15 @@ const ask = async (draft: Record<string, unknown>) => {
 };
 
 const DATE = "2026-10-27";
-const draft = (o: Record<string, unknown> = {}) => ({
-  resource: "Pool", tier: "Shared", slot: "Night", guests: 2, overtime: 0, rooms: [],
-  date: DATE, endDate: DATE, name: "christian", email: "christian@example.com",
-  contact: "09171234567", notes: "", payFull: false, ...o,
-});
+const draft = (o: Record<string, unknown> = {}) => {
+  const d: Record<string, unknown> = {
+    resource: "Pool", tier: "Shared", slot: "Night", guests: 2, overtime: 0, rooms: [],
+    date: DATE, endDate: DATE, name: "christian", email: "christian@example.com",
+    contact: "09171234567", notes: "", payFull: false, ...o,
+  };
+  // The guest confirmed this email with a code, unless a test says otherwise.
+  return "emailProof" in o ? d : { ...d, emailProof: proofFor(String(d.email)) };
+};
 const existing = (o: Record<string, unknown>) => ({
   id: "SW-10189", name: "christian", contact: "09171234567", email: "christian@example.com",
   date: DATE, end_date: DATE, guests: 2, package: "Night Tour", rooms: [], overtime: 0,

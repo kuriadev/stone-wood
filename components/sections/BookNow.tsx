@@ -21,6 +21,8 @@
   import type { Room } from "@/types/room";
   import type { Facility } from "@/types/facility";
   import { Icon, type IconName } from "@/components/common/Icon";
+  import { EmailTypoHint } from "@/components/common/EmailTypoHint";
+  import { suggestEmail } from "@/lib/emailTypos";
   import { RoomCartDock } from "@/components/common/RoomCartDock";
   import { useRoomCart, roomCart } from "@/hooks/useRoomCart";
   import { GuestInput, useHoldStep } from "@/components/common/GuestCount";
@@ -243,6 +245,87 @@
 
     const setF = (k: string, v: string) => setFormState((f) => ({ ...f, [k]: v }));
 
+    /* ── Email code ── The guest proves they can read the address they
+       typed: a 6-digit code is emailed and typed back, and the server's
+       proof goes with the booking (lib/emailCode.server.ts). Both are tied
+       to one address, so editing the email asks for a new code. */
+    const emailKey = form.email.trim().toLowerCase();
+    const [codeSent, setCodeSent] = useState<{ email: string; challenge: string } | null>(null);
+    const [codeInput, setCodeInput] = useState("");
+    const [emailProof, setEmailProof] = useState<{ email: string; token: string } | null>(null);
+    const [codeBusy, setCodeBusy] = useState<"send" | "verify" | null>(null);
+    const [codeMsg, setCodeMsg] = useState<{ email: string; text: string; bad?: boolean } | null>(null);
+    const [resendAt, setResendAt] = useState(0);
+    const [clock, setClock] = useState(() => Date.now());
+    const emailVerified = !!emailProof && emailProof.email === emailKey;
+    const codeSentHere = !!codeSent && codeSent.email === emailKey;
+    const resendIn = codeSentHere ? Math.max(0, Math.ceil((resendAt - clock) / 1000)) : 0;
+    // Ticks only while the resend countdown runs.
+    useEffect(() => {
+      if (resendAt <= Date.now()) return;
+      const t = setInterval(() => {
+        setClock(Date.now());
+        if (Date.now() >= resendAt) clearInterval(t);
+      }, 1000);
+      return () => clearInterval(t);
+    }, [resendAt]);
+    const sendEmailCode = async () => {
+      const to = form.email.trim();
+      setCodeBusy("send");
+      setCodeMsg(null);
+      try {
+        const res = await fetch("/api/email-code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: to }),
+        });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.success) {
+          if (typeof json?.retryAfter === "number") { setResendAt(Date.now() + json.retryAfter * 1000); setClock(Date.now()); }
+          setCodeMsg({ email: to.toLowerCase(), text: json?.error ?? "We couldn't send the code. Please try again.", bad: true });
+          return;
+        }
+        // Only the newest code works: the page keeps the newest challenge.
+        const again = codeSent?.email === to.toLowerCase();
+        setCodeSent({ email: to.toLowerCase(), challenge: json.challenge });
+        setCodeInput("");
+        setResendAt(Date.now() + (Number(json.resendIn) || 60) * 1000);
+        setClock(Date.now());
+        setCodeMsg({
+          email: to.toLowerCase(),
+          text: again
+            ? `We sent a new code to ${to}. Only the code in the newest email works now, for 10 minutes.`
+            : `We sent a 6-digit code to ${to}. It works for 10 minutes. Not in your inbox? Check Spam or Promotions.`,
+        });
+      } catch {
+        setCodeMsg({ email: to.toLowerCase(), text: "We couldn't reach the server. Check your connection and try again.", bad: true });
+      } finally {
+        setCodeBusy(null);
+      }
+    };
+    const verifyEmailCode = async (code: string) => {
+      if (!codeSent || codeSent.email !== emailKey) return;
+      setCodeBusy("verify");
+      try {
+        const res = await fetch("/api/email-code/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: form.email.trim(), challenge: codeSent.challenge, code }),
+        });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.success) {
+          setCodeMsg({ email: emailKey, text: json?.error ?? "That code didn't work. Please try again.", bad: true });
+          return;
+        }
+        setEmailProof({ email: emailKey, token: json.proof });
+        setCodeMsg(null);
+      } catch {
+        setCodeMsg({ email: emailKey, text: "We couldn't reach the server. Check your connection and try again.", bad: true });
+      } finally {
+        setCodeBusy(null);
+      }
+    };
+
     const closedSet = new Set(closedDates);
     // A Venue-only booking is always exclusive to the venue by definition —
     // there's no "sharing" a rented hall. Otherwise, the guest's explicit
@@ -418,6 +501,8 @@
       endDate: lastDay,
       name: form.name, email: form.email, contact: form.contact, notes: form.notes,
       payFull,
+      // The server's proof that this email was confirmed with a code.
+      emailProof: emailVerified ? emailProof!.token : undefined,
     };
     // What the QR charges and what is left for arrival. Once the QR exists
     // the server's figures win, so the screen always matches the QR.
@@ -432,7 +517,7 @@
        date and now booking the venue alone. That used to appear on the QR
        screen. Now the guest is sent back to the step that fixes it, and it
        stays blocked there until they change what made it fail. */
-    const pickKey = JSON.stringify([date, lastDay, slot, resource, tier, guests, selRooms, form.email, form.contact]);
+    const pickKey = JSON.stringify([date, lastDay, slot, resource, tier, guests, selRooms, form.email, form.contact, emailVerified]);
     const blockedNow = blocked && blocked.key === pickKey ? blocked : null;
     const checkBeforePayment = async () => {
       setChecking(true);
@@ -1757,13 +1842,92 @@
                       aria-invalid={Boolean(form.email) && !isValidEmail(form.email)}
                       style={okField(Boolean(form.email) && isValidEmail(form.email))}
                     />
-                    {form.email && !isValidEmail(form.email) && (
+                    {form.email && !isValidEmail(form.email) && !suggestEmail(form.email) && (
                       <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 4 }}>⚠ Please enter a valid email address</p>
+                    )}
+                    {/* A misspelt provider gets a one-tap fix; otherwise a
+                        reminder of what this address is for, since nobody
+                        is there to read it back to the guest. */}
+                    <EmailTypoHint email={form.email} onUse={(v) => setF("email", v)} textColor={C.textS} accent={C.goldInk} />
+                    {!suggestEmail(form.email) && (!form.email || isValidEmail(form.email)) && (
+                      <p style={{ color: C.textS, fontSize: 12.5, lineHeight: 1.5, marginTop: 6 }}>
+                        Check it&apos;s spelled right: your code and booking details are sent here.
+                      </p>
                     )}
 
                   </div>
 
-                  <div>
+                  {/* The email code, right under the email field: in the
+                      second column on wide screens (row 2), and next in
+                      line on a phone. Contact number takes the first column
+                      of row 2, so the pair still lines up. */}
+                  <div className="md:col-start-2 md:row-start-2" aria-live="polite">
+                    <Label htmlFor={codeSentHere && !emailVerified ? "bn-code" : undefined} className="mb-2 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>CONFIRM YOUR EMAIL</Label>
+                    {emailVerified ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 46, padding: "0 14px", borderRadius: 8, border: "1px solid rgba(76,175,80,0.45)", background: "rgba(76,175,80,0.08)", color: "#4caf50", fontSize: 14, fontWeight: 600 }}>
+                        <Icon name="check-circle" size={16} /> Email confirmed
+                      </div>
+                    ) : codeSentHere ? (
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <Input
+                          id="bn-code"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          maxLength={6}
+                          value={codeInput}
+                          placeholder="6-digit code"
+                          disabled={codeBusy === "verify"}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/\D/g, "").slice(0, 6);
+                            setCodeInput(v);
+                            // A full code is checked straight away.
+                            if (v.length === 6) void verifyEmailCode(v);
+                          }}
+                          style={{ flex: 1, minWidth: 0, letterSpacing: 6, fontFamily: "monospace", fontSize: 18 }}
+                        />
+                        <button
+                          type="button"
+                          className="sw-btn-out"
+                          onClick={() => void verifyEmailCode(codeInput)}
+                          disabled={codeInput.length !== 6 || codeBusy !== null}
+                          style={{ ...outBtn, flexShrink: 0, padding: "0 18px", fontSize: 12, letterSpacing: 1.5, opacity: codeInput.length !== 6 || codeBusy !== null ? 0.5 : 1, cursor: codeInput.length !== 6 || codeBusy !== null ? "not-allowed" : "pointer" }}
+                        >
+                          {codeBusy === "verify" ? "CHECKING…" : "VERIFY"}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="sw-btn-out"
+                        onClick={() => void sendEmailCode()}
+                        disabled={!isValidEmail(form.email) || codeBusy !== null}
+                        style={{ ...outBtn, width: "100%", minHeight: 46, fontSize: 12, letterSpacing: 1.5, color: C.goldInk, opacity: !isValidEmail(form.email) || codeBusy !== null ? 0.5 : 1, cursor: !isValidEmail(form.email) || codeBusy !== null ? "not-allowed" : "pointer" }}
+                      >
+                        {codeBusy === "send" ? "SENDING…" : "SEND A CODE TO MY EMAIL"}
+                      </button>
+                    )}
+                    {!emailVerified && (
+                      <p role={codeMsg?.email === emailKey && codeMsg.bad ? "alert" : undefined} style={{ color: codeMsg?.email === emailKey && codeMsg.bad ? C.dangerInk : C.textS, fontSize: 12.5, lineHeight: 1.55, marginTop: 6 }}>
+                        {codeMsg?.email === emailKey
+                          ? codeMsg.text
+                          : !isValidEmail(form.email)
+                            ? "Enter your email above. We'll send a 6-digit code to make sure it's yours."
+                            : "We'll email you a 6-digit code to make sure this address is yours."}
+                      </p>
+                    )}
+                    {codeSentHere && !emailVerified && (
+                      <button
+                        type="button"
+                        onClick={() => void sendEmailCode()}
+                        disabled={resendIn > 0 || codeBusy !== null}
+                        style={{ background: "none", border: "none", padding: 0, marginTop: 4, fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, color: resendIn > 0 ? C.textS : C.goldInk, cursor: resendIn > 0 ? "default" : "pointer" }}
+                      >
+                        {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="md:col-start-1 md:row-start-2">
                     <Label htmlFor="bn-contact" className="mb-2 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>CONTACT NUMBER</Label>
                     <div style={{ position: "relative" }}>
                       <Input
@@ -1820,7 +1984,8 @@
                   {
                     label: checking ? "CHECKING…" : "REVIEW PAYMENT POLICY",
                     onClick: () => void checkBeforePayment(),
-                    disabled: checking || !!validateBookingForm(form) || !dateOk || !roomsFree || !!blockedNow,
+                    disabled: checking || !!validateBookingForm(form) || !emailVerified || !dateOk || !roomsFree || !!blockedNow,
+                    reason: !validateBookingForm(form) && !emailVerified ? "Confirm your email with the code we send you to continue." : undefined,
                   },
                 )}
               </div>
