@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
   if (!bookingId) return NextResponse.json({ success: false, error: "Choose the booking this payment is for." }, { status: 400 });
   if (!TYPES.includes(type)) return NextResponse.json({ success: false, error: "Unknown payment type." }, { status: 400 });
-  if (!MANUAL_METHODS.includes(method)) return NextResponse.json({ success: false, error: "Choose Cash, GCash or Bank Transfer." }, { status: 400 });
+  if (!MANUAL_METHODS.includes(method)) return NextResponse.json({ success: false, error: "Choose Cash or QR Ph." }, { status: 400 });
   if (amount === null) return NextResponse.json({ success: false, error: "Enter an amount greater than zero." }, { status: 400 });
   if (method !== "Cash" && !cleanText(body.reference, 80)) {
     return NextResponse.json({ success: false, error: `Enter the ${method} reference number.` }, { status: 400 });

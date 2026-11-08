@@ -70,7 +70,7 @@ export function RefundRequest({ setPage }: { setPage: (p: string) => void }) {
             {reference
               ? <>Please have your booking reference <strong style={{ color: C.textH, fontFamily: "monospace" }}>{reference}</strong> ready.</>
               : <>Please have your booking reference ready (it starts with DT-, NT-, SC- or SW-).</>}
-            {" "}We send refunds by GCash, so we&rsquo;ll also ask for the number to send it to.
+            {" "}We send refunds to your e-wallet (GCash, Maya or ShopeePay), so we&rsquo;ll also ask for the number to send it to.
           </p>
 
           <ResortContact mailSubject={reference ? `Refund request – ${reference}` : "Refund request"} />

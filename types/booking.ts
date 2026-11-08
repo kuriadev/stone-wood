@@ -163,7 +163,7 @@ export interface Booking {
    *  ledger; it is never stored on the booking itself. */
   initialPayment?: {
     type: "Downpayment" | "Full";
-    method: "Cash" | "GCash" | "Bank Transfer";
+    method: "Cash" | "GCash";
     amount: number;
     reference?: string;
   };

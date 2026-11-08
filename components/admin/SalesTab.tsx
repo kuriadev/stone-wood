@@ -279,7 +279,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
             </Cell>
             <Cell style={td}><StatusBadge color={TYPE_COLOR[p.type]}>{payTypeLabel(p.type)}</StatusBadge></Cell>
             <Cell style={{ ...td, color: C.textB }}>
-              <span className="sw-sales__method"><Icon name={p.method === "Cash" ? "cash" : p.method === "PayMongo" ? "grid" : p.method === "Bank Transfer" ? "folder" : "phone"} size={14} style={{ color: C.goldInk }} />{payMethodLabel(p.method)}</span>
+              <span className="sw-sales__method"><Icon name={p.method === "Cash" ? "cash" : p.method === "PayMongo" ? "grid" : "phone"} size={14} style={{ color: C.goldInk }} />{payMethodLabel(p.method)}</span>
             </Cell>
             <Cell style={{ ...td, color: C.textS, fontSize: 12 }}>{p.reference || "—"}</Cell>
             <Cell style={{ ...td, color: p.type === "Refund" ? "#e5484d" : C.textH, fontWeight: 600, whiteSpace: "nowrap", textDecoration: p.voided ? "line-through" : "none" }}>
@@ -816,10 +816,9 @@ export function Closing({ onAct, initialDate }: {
   const dayExp = liveExpenses(ops.expenses).filter((e) => e.spentOn === date);
   const byMethod = (m: string) => round2(dayPays.filter((p) => p.method === m).reduce((s, p) => s + signedAmount(p), 0));
   const cashIn = byMethod("Cash");
-  /* Anything that is neither QR Ph nor cash: GCash and Bank Transfer rows
-     from before the resort settled on those two methods. Kept out of the
-     named lines but still counted, so the day's total is never short. */
-  const otherIn = round2(dayPays.filter((p) => p.method !== "PayMongo" && p.method !== "Cash").reduce((s, p) => s + signedAmount(p), 0));
+  /* Cash and QR Ph are the only methods: everything that is not cash is
+     QR Ph (the online checkout, or a code scanned at the desk). */
+  const qrIn = round2(dayPays.filter((p) => p.method !== "Cash").reduce((s, p) => s + signedAmount(p), 0));
   const cashOut = round2(dayExp.filter((e) => e.method === "Cash").reduce((s, e) => s + e.amount, 0));
   const income = round2(dayPays.reduce((s, p) => s + signedAmount(p), 0));
   const spent = round2(dayExp.reduce((s, e) => s + e.amount, 0));
@@ -979,14 +978,10 @@ export function Closing({ onAct, initialDate }: {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 16, marginBottom: 24 }}>
         <div style={{ background: soft, borderRadius: 10, padding: "16px 20px" }}>
           <div style={{ color: C.textH, fontWeight: 600, marginBottom: 8 }}>Income and expenses</div>
-          {/* The resort takes money two ways: QR Ph (the online checkout and
-              any QR Ph wallet, recorded as "PayMongo") and cash at the desk.
-              Older rows entered as GCash or Bank Transfer are folded into one
-              "Other" line, shown only when it is not zero, so the lines above
-              always add up to Total received. */}
-          <AmountRow label="Received by QR Ph" value={fmt(byMethod("PayMongo"))} />
+          {/* The resort takes money two ways: QR Ph (online or scanned at
+              the desk) and cash. The two lines add up to Total received. */}
+          <AmountRow label="Received by QR Ph" value={fmt(qrIn)} />
           <AmountRow label="Received by Cash" value={fmt(cashIn)} />
-          {otherIn !== 0 && <AmountRow label="Received by other (older records)" value={fmt(otherIn)} />}
           <AmountRow label="Total received" value={fmt(income)} strong />
           <AmountRow label="Expenses" value={`− ${fmt(spent)}`} color="#e5484d" />
           <div style={{ borderTop: "1px solid rgba(150,130,100,0.25)", marginTop: 8, paddingTop: 4 }}>

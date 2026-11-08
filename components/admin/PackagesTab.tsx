@@ -782,14 +782,14 @@ export function PackagesTab({ packages, setPackages, rooms = [], mob }: Packages
                   <p style={{ color: C.textS, fontSize: 12, margin: "0 0 8px" }}>
                     One or two sentences under the package title, on the card the guest sees.
                   </p>
-                  <Textarea id="pkg-blurb" value={form.blurb} onChange={(e) => setF("blurb", e.target.value)} rows={2} className="sw-input" style={{ ...inpS, resize: "none" }} />
+                  <Textarea id="pkg-blurb" value={form.blurb} onChange={(e) => setF("blurb", e.target.value)} rows={2} className="sw-input" style={{ ...inpS }} />
                 </div>
                 <div className="sm:col-span-12">
                   <Label htmlFor="pkg-includes" className={LABEL}>INCLUDES (one per line)</Label>
                   <p style={{ color: C.textS, fontSize: 12, margin: "0 0 8px" }}>
                     The checklist on the card. Discounts above show on their own, so they don&apos;t need a line here.
                   </p>
-                  <Textarea id="pkg-includes" value={form.includes} onChange={(e) => setF("includes", e.target.value)} rows={3} className="sw-input" style={{ ...inpS, resize: "none" }} />
+                  <Textarea id="pkg-includes" value={form.includes} onChange={(e) => setF("includes", e.target.value)} rows={3} className="sw-input" style={{ ...inpS }} />
                 </div>
                 <div className="sm:col-span-12">
                   <Label htmlFor="pkg-note" className={LABEL}>EXTRA NOTE (optional)</Label>

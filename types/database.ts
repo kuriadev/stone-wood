@@ -219,7 +219,7 @@ export interface ExpenseRow {
   category: import("./finance").ExpenseCategory;
   description: string;
   amount: number;
-  method: "Cash" | "GCash" | "Bank Transfer";
+  method: "Cash" | "GCash";
   spent_on: string;
   voided: boolean;
   void_reason: string | null;

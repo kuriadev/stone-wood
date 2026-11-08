@@ -134,17 +134,15 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
   const collected = round2(pays.reduce((s, p) => s + signedAmount(p), 0));
   const spent = round2(exps.reduce((s, e) => s + e.amount, 0));
   const owed = round2(kept.reduce((s, b) => s + bookingMoney(b, ops.payments, ops.damages).due, 0));
-  // The resort takes two ways to pay: QR Ph (the online checkout, recorded
-  // as "PayMongo") and cash at the desk. Anything older that was entered as
-  // GCash or Bank Transfer is shown as one "Other" line, and only when it is
-  // not zero, so the two methods still add up to Money received.
+  // The resort takes exactly two ways to pay: cash, and QR Ph — the online
+  // checkout (stored as "PayMongo") or a QR Ph code scanned at the desk
+  // (stored as "GCash"). Everything that is not cash is QR Ph, so the two
+  // lines always add up to Money received.
   const methodTotal = (match: (m: string) => boolean) =>
     round2(pays.filter((p) => match(p.method)).reduce((s, p) => s + signedAmount(p), 0));
-  const otherMethods = methodTotal((m) => m !== "PayMongo" && m !== "Cash");
   const byMethod: (readonly [string, number])[] = [
-    ["QR Ph", methodTotal((m) => m === "PayMongo")],
+    ["QR Ph", methodTotal((m) => m !== "Cash")],
     ["Cash", methodTotal((m) => m === "Cash")],
-    ...(otherMethods !== 0 ? [["Other (GCash, bank)", otherMethods] as const] : []),
   ];
 
   // Summary: what came in, by what it paid for. Zero rows are left out, so
@@ -512,8 +510,8 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
       {/* The period controls (Month / Year / Custom and the picker). */}
       {showPeriod && (
         <div className="sw-rep__bar" style={{ background: cBg, borderColor: cBr }}>
-          <div style={{ width: 280, maxWidth: "100%" }}>
-            <ChoiceButtons value={period} onChange={setPeriod} size="sm" options={[
+          <div style={{ flex: "0 1 260px", minWidth: 210 }}>
+            <ChoiceButtons segmented label="Report period" value={period} onChange={setPeriod} size="sm" options={[
               { value: "Month", label: "Month" }, { value: "Year", label: "Year" }, { value: "Custom", label: "Custom" },
             ]} />
           </div>
@@ -538,8 +536,8 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
       {showFilters && (
         <div className="sw-rep__bar" style={{ background: cBg, borderColor: cBr }}>
           <span className="sw-rep__barlabel" style={{ color: C.textS }}>Bookings from</span>
-          <div style={{ width: 300, maxWidth: "100%" }}>
-            <ChoiceButtons value={source} onChange={setSource} size="sm" options={[
+          <div style={{ flex: "0 1 260px", minWidth: 210 }}>
+            <ChoiceButtons segmented label="Bookings from" value={source} onChange={setSource} size="sm" options={[
               { value: "All", label: "All" }, { value: "Online", label: "Online" }, { value: "Walk-In", label: "Walk-in" },
             ]} />
           </div>

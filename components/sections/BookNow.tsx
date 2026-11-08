@@ -5,6 +5,7 @@
   import "./BookNow.css";
   import { useWidth } from "@/hooks/useWidth";
   import { T } from "@/lib/theme";
+  import { QRPH_WALLETS } from "@/lib/labels";
   import { gold, goldBtn, outBtn } from "@/lib/styles";
   import { fmt, fmtTimer, fmtDate, getPackageTier, checkRangeAvailability, datesBetween, daysInRange, getSharedPoolUsage, isRoomOpen, isPoolOpen, isVenueOpen, roomsTakenInRange, stayLabel, SLOT_ICON } from "@/lib/utils";
   import { roomShots } from "@/lib/gallery";
@@ -1049,7 +1050,7 @@
               <div style={{ width: 16, height: 16, border: "2px solid rgba(0,169,82,0.25)", borderTopColor: "#00a952", borderRadius: "50%", flexShrink: 0, animation: "sw-spin .8s linear infinite" }} />
               <div>
                 <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600 }}>Waiting for your payment…</div>
-                <div style={{ color: C.textS, fontSize: 12.5 }}>This page updates by itself once GCash confirms.</div>
+                <div style={{ color: C.textS, fontSize: 12.5 }}>This page updates by itself once the payment confirms.</div>
               </div>
             </div>
           )}
@@ -2071,7 +2072,7 @@
                         <img
                           loading="lazy" decoding="async"
                           src={qrData.qrImageUrl}
-                          alt="GCash QRPh payment code"
+                          alt="QR Ph payment code"
                           width={mob ? 200 : 220}
                           height={mob ? 200 : 220}
                           style={{ display: "block", width: mob ? 200 : 220, height: mob ? 200 : 220, imageRendering: "pixelated", opacity: paid ? 0.25 : 1, transition: "opacity .3s ease" }}
@@ -2079,8 +2080,15 @@
                       )}
                     </div>
                     <p style={{ color: C.textS, fontSize: 13, textAlign: "center", margin: 0, lineHeight: 1.6 }}>
-                      Open GCash and scan the code
+                      Scan this QR Ph code with your e-wallet app
                     </p>
+                    {/* QR Ph is the gateway: any e-wallet that accepts it can pay. */}
+                    <div aria-label="E-wallets that can pay" style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 6 }}>
+                      {QRPH_WALLETS.map((w) => (
+                        <span key={w} style={{ fontSize: 11.5, fontWeight: 600, color: C.textB, border: `1px solid ${isDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.12)"}`, borderRadius: 999, padding: "3px 10px" }}>{w}</span>
+                      ))}
+                      <span style={{ fontSize: 11.5, color: C.textS, padding: "3px 4px" }}>or any QR Ph e-wallet</span>
+                    </div>
                     <div style={{ width: "100%", background: "rgba(0,169,82,0.10)", border: "1px solid rgba(0,169,82,0.35)", borderRadius: 10, padding: "12px 16px", textAlign: "center" }}>
                       <div style={{ color: "#4caf50", fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>AMOUNT DUE NOW</div>
                       <div style={{ color: isDark ? "#fff" : "#111", fontSize: mob ? 24 : 28, fontWeight: 700, fontFamily: "'Satoshi',system-ui,sans-serif" }}>{fmt(dueNow)}</div>

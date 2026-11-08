@@ -190,7 +190,7 @@ export function OwnerRequestsPanel({ reschedules = 0, onReviewReschedules, inRow
           <div>
             <Label htmlFor="decline-note">Why? (optional — front desk sees this)</Label>
             <Textarea id="decline-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} rows={3} style={{ ...inp, width: "100%" }}
-              placeholder="e.g. The guest already got their money back by GCash." />
+              placeholder="e.g. The guest already got their money back by QR Ph." />
           </div>
         </ConfirmDialog>
       )}

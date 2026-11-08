@@ -850,8 +850,9 @@ export function Admin({
                             id="sw-msg-reply"
                             value={draft.text}
                             onChange={(e) => setCsDraft({ id: open.id, mode: draft.mode, text: e.target.value })}
-                            rows={5}
-                            style={{ resize: "vertical", padding: 14, borderRadius: 10, border: `1px solid ${cBr}`, background: "transparent", color: C.textB, fontSize: 14.5, lineHeight: 1.7 }}
+                            rows={8}
+                            placeholder="Write your reply to the guest…"
+                            style={{ padding: 14, borderRadius: 10, border: `1px solid ${cBr}`, background: "transparent", color: C.textB, fontSize: 14.5, lineHeight: 1.7 }}
                           />
                           <div className="sw-msgs__actions">
                             <span style={{ color: C.textXS, fontSize: 12 }}>To {open.email}</span>
@@ -1827,7 +1828,6 @@ export function Admin({
                           }
                           rows={6}
                           style={{
-                            resize: "none",
                             height: "auto",
                             padding: "16px",
                             borderRadius: 8,
@@ -1970,7 +1970,7 @@ export function Admin({
                   rows={2}
                   placeholder="e.g. Queen bed and its own bathroom, a few steps from the pool."
                   onChange={(e) => setCaptionEdit((c) => (c ? { ...c, description: e.target.value } : c))}
-                  style={{ ...inpS, height: "auto", resize: "vertical" }}
+                  style={{ ...inpS, height: "auto" }}
                 />
                 <p style={{ color: C.textXS, fontSize: 11.5, margin: "6px 0 0", textAlign: "right" }}>
                   {captionEdit.description.length} / {GALLERY_TEXT_MAX}
@@ -2036,7 +2036,7 @@ export function Admin({
                   value={rf.desc}
                   onChange={(e) => setRf((f) => ({ ...f, desc: e.target.value }))}
                   rows={3}
-                  style={{ ...inpS, resize: "vertical", height: "auto" }}
+                  style={{ ...inpS, height: "auto" }}
                 />
               </div>
             </div>

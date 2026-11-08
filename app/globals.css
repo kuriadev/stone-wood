@@ -1897,3 +1897,35 @@ tr.sw-spot > td:first-child { box-shadow: inset 4px 0 0 #e6c76a; }
 .sw-thinscroll::-webkit-scrollbar-thumb { background: rgba(150, 130, 100, 0.45); border-radius: 999px; }
 .sw-thinscroll::-webkit-scrollbar-thumb:hover { background: rgba(201, 168, 76, 0.75); }
 .sw-thinscroll::-webkit-scrollbar-button { display: none; height: 0; }
+
+/* Text boxes are a fixed size and scroll inside (components/ui/textarea.tsx).
+   A thin gold-tinted scrollbar shows there is more text without crowding it. */
+.sw-textarea { scrollbar-width: thin; scrollbar-color: rgba(201,168,76,.55) transparent; }
+
+/* Admin pop-up footers (components/admin/ui.tsx Modal). On a wide pop-up the
+   buttons sit in one row on the right. When the pop-up is narrow — a phone,
+   or a small window — a wrapped row left them ragged (one alone on the left,
+   two squeezed on the next line). Below 520px of footer width every button
+   becomes a full-width row of its own, labels centred, in the same order, so
+   they always line up. Measured on the footer itself, so it follows the
+   pop-up's width rather than the screen's. The !important beats the inline
+   flex/margin the footers set for the wide layout. */
+.sw-modal-foot { container-type: inline-size; }
+@container (max-width: 520px) {
+  .sw-modal-foot > div {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+  /* Direct items: no wide-layout margins (the "push left" auto margin),
+     centred text for a total or a note. A group of buttons inside stacks the
+     same way. Badges keep their own size, centred. */
+  .sw-modal-foot > div > * { margin: 0 !important; text-align: center; }
+  .sw-modal-foot > div > div { display: grid !important; grid-template-columns: minmax(0, 1fr) !important; gap: 8px !important; flex: none !important; }
+  .sw-modal-foot > div > :not(div):not(button):not(a) { justify-self: center; }
+  .sw-modal-foot > div > :is(button, a),
+  .sw-modal-foot > div > div > :is(button, a) {
+    width: 100% !important; margin: 0 !important; justify-content: center;
+    white-space: normal; height: auto; min-height: 40px;
+  }
+}

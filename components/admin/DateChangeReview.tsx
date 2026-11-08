@@ -113,7 +113,7 @@ export function DateChangeReview({ request, booking, onClose }: { request: DateC
         {declining && (
           <div>
             <Label htmlFor="dc-note">Why are you declining? (optional, the guest reads this)</Label>
-            <Textarea id="dc-note" rows={2} autoFocus value={note} onChange={(e) => setNote(e.target.value)} style={{ ...inp, resize: "none" }}
+            <Textarea id="dc-note" rows={2} autoFocus value={note} onChange={(e) => setNote(e.target.value)} style={{ ...inp }}
               placeholder="e.g. We have a private event that weekend." />
           </div>
         )}

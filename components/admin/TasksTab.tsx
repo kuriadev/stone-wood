@@ -327,7 +327,7 @@ function FinishWithSupplies({ title, subtitle, defaults, inventory, doneLabel, o
       <div style={{ marginTop: 16 }}>
         <Label htmlFor="task-note">Note (optional)</Label>
         <Textarea id="task-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300}
-          placeholder="e.g. Filter needs replacing soon" style={{ ...inp, width: "100%", resize: "none" }} />
+          placeholder="e.g. Filter needs replacing soon" style={{ ...inp, width: "100%" }} />
       </div>
       <ErrorNote>{error}</ErrorNote>
     </Modal>

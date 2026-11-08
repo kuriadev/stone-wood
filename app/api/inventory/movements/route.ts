@@ -33,7 +33,7 @@ import type { InventoryRow, ExpenseRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
-const METHODS = ["Cash", "GCash", "Bank Transfer"] as const;
+const METHODS = ["Cash", "GCash"] as const;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export async function GET(req: NextRequest) {

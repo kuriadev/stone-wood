@@ -50,7 +50,7 @@ export function About({
     { icon: "mail", label: "Email", value: RESORT_CONTACT.email, href: `mailto:${RESORT_CONTACT.email}` },
   ];
   const faqs: { q: string; a: string }[] = [
-    { q: "How much do I pay to book?", a: "Half of the total, paid online by QR Ph — scan it with GCash or any QR Ph wallet. The other half is paid when you arrive. You can also pay the full amount at once." },
+    { q: "How much do I pay to book?", a: "Half of the total, paid online by QR Ph — scan the code with GCash, Maya, ShopeePay or any e-wallet that accepts QR Ph. The other half is paid when you arrive. You can also pay the full amount at once." },
     { q: "What if I need to cancel?", a: `If you cancel, payments are not refunded — but you can move your booking to another free date once, at no charge, if you ask at least ${notice} before your visit.` },
     { q: "What if the resort has to cancel?", a: "You choose: a free new date, or a full refund. The same goes for a PAGASA storm signal or a travel restriction. The resort contacts you." },
     { q: "Do I have to sleep over for a stay of several days?", a: `A booking of more than one date is a ${stay.label}: the resort stays yours from ${stay.start} on the first day until ${stay.end} after the last night.` },

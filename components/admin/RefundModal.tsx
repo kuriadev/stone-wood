@@ -9,6 +9,7 @@
 // reference and the receipt on their own booking page, and gets an email;
 // the next screen texts them.
 
+import { payMethodLabel } from "@/lib/labels";
 import { useState } from "react";
 import { compressImage } from "@/lib/image";
 import { Input } from "@/components/ui/input";
@@ -82,7 +83,7 @@ export function RefundModal({ booking, onClose }: { booking: Booking; onClose: (
       </div>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <p style={{ background: soft, borderRadius: 10, padding: "12px 16px", margin: 0, color: C.textB, fontSize: 13, lineHeight: 1.6 }}>
-          <strong style={{ color: C.textH }}>{fmt(owed)}</strong> is owed to {booking.name}. Send it first (their number, {booking.contact}, is often their GCash), then record it here.
+          <strong style={{ color: C.textH }}>{fmt(owed)}</strong> is owed to {booking.name}. Send it first (their number, {booking.contact}, is often their e-wallet), then record it here.
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
           <div>
@@ -98,7 +99,7 @@ export function RefundModal({ booking, onClose }: { booking: Booking; onClose: (
         </div>
         <div>
           <Label>Sent by</Label>
-          <ChoiceButtons label="Sent by" value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: m }))} />
+          <ChoiceButtons label="Sent by" value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: payMethodLabel(m) }))} />
         </div>
         <div>
           <Label htmlFor="rf-receipt">Receipt photo (recommended)</Label>

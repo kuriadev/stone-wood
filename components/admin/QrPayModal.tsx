@@ -1,6 +1,6 @@
 "use client";
 
-/* Pay a walk-in by QR Ph (GCash or any QR Ph wallet).
+/* Pay a walk-in by QR Ph (GCash, Maya, ShopeePay or any QR Ph e-wallet).
  *
  * The page behind blurs; the QR sits on the left with the amount and a
  * countdown, the booking it pays for on the right. It checks every few
@@ -96,7 +96,7 @@ export function QrPayModal({ amount, description, summary, onPaid, onCancel }: {
         <div className="sw-qrpay__grid">
           {/* ── The code ── */}
           <section className="sw-qrpay__left">
-            <div className="sw-qrpay__brand"><Icon name="cash" size={15} /> QR Ph · GCash or any QR Ph wallet</div>
+            <div className="sw-qrpay__brand"><Icon name="cash" size={15} /> QR Ph · GCash, Maya, ShopeePay or any QR Ph e-wallet</div>
             <DialogTitle className="sw-qrpay__amount">{fmt(amount)}</DialogTitle>
             <DialogDescription className="sw-qrpay__sub">Ask the guest to scan this with their app and pay. It saves by itself when the payment arrives.</DialogDescription>
             <div className={`sw-qrpay__qr is-${phase}`}>

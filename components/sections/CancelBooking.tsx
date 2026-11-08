@@ -744,7 +744,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                 {payments.map((p, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "12px 0", borderTop: i ? `1px solid ${C.border}` : "none" }}>
                     <div>
-                      <div style={{ color: C.textH, fontSize: 14 }}>{PAYMENT_LABEL[p.type] ?? p.type} · {p.method === "PayMongo" ? "Online (GCash QR)" : p.method}</div>
+                      <div style={{ color: C.textH, fontSize: 14 }}>{PAYMENT_LABEL[p.type] ?? p.type} · {p.method === "PayMongo" ? "Online (QR Ph)" : p.method === "GCash" ? "QR Ph" : p.method}</div>
                       <div style={{ color: C.textS, fontSize: 12 }}>
                         {new Date(p.receivedAt).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })}
                         {p.reference && p.method !== "PayMongo" ? <> · ref <span style={{ fontFamily: "monospace" }}>{p.reference}</span></> : null}

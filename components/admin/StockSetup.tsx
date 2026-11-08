@@ -229,7 +229,7 @@ function UpkeepModal({ task, items, facilities, onClose, onDone }: {
           <Label>USES EACH TIME</Label>
           <SupplyLines value={supplies} onChange={setSupplies} inventory={items} emptyText="No supplies — add the chemicals or cleaning items it uses." />
         </div>
-        <div><Label htmlFor="up-notes">Instructions (optional)</Label><Textarea id="up-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={300} style={{ ...field, resize: "none" }} placeholder="e.g. Test the pH first; add reducer only if above 7.6" /></div>
+        <div><Label htmlFor="up-notes">Instructions (optional)</Label><Textarea id="up-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={300} style={{ ...field }} placeholder="e.g. Test the pH first; add reducer only if above 7.6" /></div>
         <ErrorNote>{error}</ErrorNote>
       </div>
     </Modal>

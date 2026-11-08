@@ -43,7 +43,7 @@ describe("the confirmation email", () => {
     expect(html).toContain("Exclusive Day Tour");
     expect(html).toContain("Date of Reservation");
     expect(html).not.toContain("Date of Visit");
-    expect(html).toContain("GCash (Online Payment)");
+    expect(html).toContain("QR Ph (Online Payment)");
     expect(html).toContain("Manage My Booking");
   });
 

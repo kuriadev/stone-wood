@@ -5,6 +5,7 @@
 // amount against the real balance again; the limits here are for the
 // admin's convenience, not for safety.
 
+import { payMethodLabel } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { useMemo, useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
@@ -147,7 +148,7 @@ export function RecordPaymentModal({
             <div>
               <Label>Method</Label>
               <ChoiceButtons value={method} onChange={setMethod} size="sm"
-                options={MANUAL_METHODS.map((m) => ({ value: m, label: m }))} />
+                options={MANUAL_METHODS.map((m) => ({ value: m, label: payMethodLabel(m) }))} />
             </div>
           </div>
 

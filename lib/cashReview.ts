@@ -95,11 +95,11 @@ export function cashClues({ date, difference, openingFloat, payments, expenses }
       }
       if (over && p.method === "Cash" && refund) {
         clues.push({ kind: "match", bookingId: p.bookingId ?? undefined,
-          text: `A ${fmt(p.amount)} cash refund to ${who(p)} was recorded. If it was never handed over, or was sent by GCash, the money is still in the box.` });
+          text: `A ${fmt(p.amount)} cash refund to ${who(p)} was recorded. If it was never handed over, or was sent by QR Ph, the money is still in the box.` });
       }
       if (!over && p.method === "Cash" && !refund) {
         clues.push({ kind: "match", bookingId: p.bookingId ?? undefined,
-          text: `${fmt(p.amount)} from ${who(p)} was recorded as cash on ${day}. If they actually paid by GCash or QR, hadn't paid yet, or the cash went into the box on another day, that is the missing money.` });
+          text: `${fmt(p.amount)} from ${who(p)} was recorded as cash on ${day}. If they actually paid by QR Ph, hadn't paid yet, or the cash went into the box on another day, that is the missing money.` });
       }
     }
     if (over && p.voided && p.method === "Cash" && !refund && onDay(p, date)) {
@@ -135,7 +135,7 @@ export function cashClues({ date, difference, openingFloat, payments, expenses }
   } else {
     clues.push({ kind: "check", text: `Something was paid from the box and never recorded: supplies, a refund, a delivery. Record it below as an expense dated ${day}.` });
     if (openingFloat > 0) clues.push({ kind: "check", text: `The opening float was entered as ${fmt(openingFloat)}. If the box actually started with less, correct it below.` });
-    clues.push({ kind: "check", text: "A guest was given too much change, or cash was taken out for the bank or the owner without a record." });
+    clues.push({ kind: "check", text: "A guest was given too much change, or cash was taken out for the owner without a record." });
   }
   return clues;
 }

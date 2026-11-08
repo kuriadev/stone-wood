@@ -514,7 +514,7 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
                   // Walk-ins pay at the counter. This used to look for a
                   // package named "On-Site Reservation", which nothing
                   // creates, so every walk-in's receipt said GCash.
-                  ["Payment Method", booking.source === "Walk-In" ? "At the front desk" : "GCash (Online Payment)"],
+                  ["Payment Method", booking.source === "Walk-In" ? "At the front desk" : "QR Ph (Online Payment)"],
                 ].map(([label, value]) => `
                 <tr>
                   <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#8a6d3b;font-size:12px;width:40%;">${escapeHtml(label)}</td>

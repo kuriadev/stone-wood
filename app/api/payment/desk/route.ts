@@ -2,7 +2,7 @@
 // ── GET    /api/payment/desk?id=                      → has it been paid?
 // ── DELETE /api/payment/desk?id=                      → cancel it (the code stops working)
 //
-// The front desk's GCash QR: the guest scans it with any QR Ph wallet and
+// The front desk's QR Ph code: the guest scans it with any QR Ph e-wallet and
 // the walk-in saves itself once PayMongo says it was paid. The walk-in
 // route checks the payment again with PayMongo before it records anything
 // (lib/walkIn.server.ts), so the amount on screen is the amount received.

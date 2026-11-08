@@ -129,7 +129,7 @@ export function Modal({
             : <DialogDescription className="sr-only">Details</DialogDescription>}
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">{children}</div>
-        {footer && <DialogFooter className="shrink-0 border-t px-4 py-3 sm:justify-stretch sm:px-6 [&>*]:w-full">{footer}</DialogFooter>}
+        {footer && <DialogFooter className="sw-modal-foot shrink-0 border-t px-4 py-3 sm:justify-stretch sm:px-6 [&>*]:w-full">{footer}</DialogFooter>}
       </DialogContent>
     </Dialog>
   );
@@ -306,13 +306,16 @@ export function Label({ children, htmlFor }: { children: ReactNode; htmlFor?: st
 
 /** A choice between a few options inside a form (payment method, slot…). */
 export function ChoiceButtons<V extends string>({
-  value, options, onChange, size = "md", label,
+  value, options, onChange, size = "md", label, segmented = false,
 }: {
   value: V;
   options: { value: V; label: ReactNode; hint?: ReactNode; disabled?: boolean }[];
   onChange: (v: V) => void;
   size?: "sm" | "md";
   label?: string;
+  /** One short row that never wraps (Month / Year / Custom): equal columns,
+   *  a slimmer 36px height. For a few one-word options only. */
+  segmented?: boolean;
 }) {
   const { C, cBr } = useAdminStyle();
   /* An even grid, not one squeezed row. Each column is at least as wide as
@@ -325,13 +328,13 @@ export function ChoiceButtons<V extends string>({
   const longest = words.reduce((n, w) => Math.max(n, w.length), 0) || 10;
   const minCol = Math.max(72, Math.round(longest * (size === "sm" ? 7.2 : 7.6) + (size === "sm" ? 22 : 34)));
   return (
-    <div role="radiogroup" aria-label={label} style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(min(${minCol}px, 100%), minmax(0, 1fr)))`, gap: SPACE.xs }}>
+    <div role="radiogroup" aria-label={label} style={{ display: "grid", gridTemplateColumns: segmented ? `repeat(${options.length}, minmax(0, 1fr))` : `repeat(auto-fit, minmax(min(${minCol}px, 100%), minmax(0, 1fr)))`, gap: SPACE.xs }}>
       {options.map((o) => {
         const on = o.value === value;
         return (
           <button key={o.value} type="button" role="radio" aria-checked={on} disabled={o.disabled} onClick={() => onChange(o.value)}
             style={{
-              minWidth: 0, minHeight: TAP_MIN, padding: size === "sm" ? "8px 10px" : "12px 16px", fontSize: 12.5, fontWeight: 600,
+              minWidth: 0, minHeight: segmented ? 36 : TAP_MIN, padding: segmented ? "6px 8px" : size === "sm" ? "8px 10px" : "12px 16px", fontSize: 12.5, fontWeight: 600,
               lineHeight: 1.25, overflowWrap: "break-word",
               borderRadius: 10, cursor: o.disabled ? "not-allowed" : "pointer", opacity: o.disabled ? 0.4 : 1,
               background: on ? `${gold}1c` : "transparent", color: on ? C.goldInk : C.textS,

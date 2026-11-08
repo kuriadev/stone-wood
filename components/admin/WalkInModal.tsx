@@ -13,6 +13,7 @@
 // the desk is recorded in the payments ledger (see /api/bookings POST),
 // instead of a "payment collected" checkbox that recorded nothing.
 
+import { payMethodLabel } from "@/lib/labels";
 import { QrPayModal } from "@/components/admin/QrPayModal";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -319,7 +320,7 @@ export function WalkInModal({
           </div>
           <div>
             <Label htmlFor="wi-notes">Notes (optional)</Label>
-            <Textarea id="wi-notes" value={wf.notes} onChange={(e) => set("notes", e.target.value)} rows={3} placeholder="Special requests" style={{ ...inp, resize: "none" }} />
+            <Textarea id="wi-notes" value={wf.notes} onChange={(e) => set("notes", e.target.value)} rows={3} placeholder="Special requests" style={{ ...inp }} />
           </div>
         </div>
 
@@ -515,7 +516,7 @@ export function WalkInModal({
             <>
               <div>
                 <Label>Paid with</Label>
-                <ChoiceButtons value={method} onChange={setMethod} size="sm" options={DESK_METHODS.map((m) => ({ value: m, label: m }))} />
+                <ChoiceButtons value={method} onChange={setMethod} size="sm" options={DESK_METHODS.map((m) => ({ value: m, label: payMethodLabel(m) }))} />
               </div>
               {method === "GCash" && (
                 <div>

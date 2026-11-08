@@ -21,6 +21,7 @@
 // (lib/facilityUsage.ts), so the owner never has to remember which
 // amenities or rooms a group used.
 
+import { payMethodLabel } from "@/lib/labels";
 import { bookingStatusLabel, paymentLine } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -453,7 +454,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
           {used.length === 0 && <p style={{ color: C.textS }}>This booking doesn&apos;t use any listed facility.</p>}
           <div>
             <Label htmlFor="co-notes">Inspection notes (optional)</Label>
-            <Textarea id="co-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} style={{ ...inp, resize: "none" }}
+            <Textarea id="co-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} style={{ ...inp }}
               placeholder="e.g. Group left the area clean" />
           </div>
         </div>
@@ -487,7 +488,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
               </div>
               <div>
                 <Label>Paid with</Label>
-                <ChoiceButtons value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: m }))} />
+                <ChoiceButtons value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: payMethodLabel(m) }))} />
               </div>
               {method !== "Cash" && paying > 0 && (
                 <div>
@@ -507,7 +508,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
                   {closeUnpaid && (
                     <div>
                       <Label htmlFor="co-unpaid">Why is it left unpaid?</Label>
-                      <Textarea id="co-unpaid" rows={2} value={unpaidNote} onChange={(e) => setUnpaidNote(e.target.value)} style={{ ...inp, resize: "none" }} placeholder="e.g. Will send the rest by GCash tomorrow" />
+                      <Textarea id="co-unpaid" rows={2} value={unpaidNote} onChange={(e) => setUnpaidNote(e.target.value)} style={{ ...inp }} placeholder="e.g. Will send the rest by QR Ph tomorrow" />
                     </div>
                   )}
                 </>
@@ -657,7 +658,7 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
               </div>
               <div>
                 <Label>Paid with</Label>
-                <ChoiceButtons value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: m }))} />
+                <ChoiceButtons value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: payMethodLabel(m) }))} />
               </div>
               {method !== "Cash" && (
                 <div>
@@ -674,7 +675,7 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
               {left > 0 && closeUnpaid && (
                 <div>
                   <Label htmlFor="st-note">Why is it left unpaid?</Label>
-                  <Textarea id="st-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} style={{ ...inp, resize: "none" }} placeholder="e.g. Will send the rest by GCash tomorrow" />
+                  <Textarea id="st-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} style={{ ...inp }} placeholder="e.g. Will send the rest by QR Ph tomorrow" />
                 </div>
               )}
               <p style={{ color: C.textS, fontSize: 12.5, margin: 0 }}>

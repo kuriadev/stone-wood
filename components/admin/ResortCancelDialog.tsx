@@ -100,7 +100,7 @@ export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onC
           <div>
             <Label htmlFor="cancel-reason">Reason</Label>
             <Textarea id="cancel-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. The group decided not to stay." style={{ ...inp, resize: "none" }} />
+              placeholder="e.g. The group decided not to stay." style={{ ...inp }} />
           </div>
           <p style={{ color: C.textB, fontSize: 13, margin: 0, lineHeight: 1.6 }}>
             Nothing was paid, so there is no new date or refund to offer. The date opens up for other guests.
@@ -128,7 +128,7 @@ export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onC
             ))}
           </div>
           <Textarea id="cancel-reason" rows={3} value={reason} onChange={(e) => setReason(e.target.value)}
-            placeholder="e.g. An emergency at the resort means we can't host your group on that date." style={{ ...inp, resize: "none" }} />
+            placeholder="e.g. An emergency at the resort means we can't host your group on that date." style={{ ...inp }} />
         </div>
 
         <div style={{ background: soft, borderRadius: 10, padding: "12px 16px", fontSize: 13, color: C.textB, lineHeight: 1.6 }}>

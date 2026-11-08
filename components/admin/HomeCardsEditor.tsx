@@ -184,7 +184,7 @@ export function HomeCardsEditor({ mob }: { mob: boolean }) {
 
             <div>
               <Label htmlFor={`hc-desc-${i}`} style={lbl}>SHORT DESCRIPTION</Label>
-              <Textarea id={`hc-desc-${i}`} value={d.description} maxLength={L.description} rows={2} onChange={(e) => edit(i, { description: e.target.value })} placeholder="Resort use 7:00 AM — 5:00 PM." style={{ ...inpS, resize: "vertical" }} />
+              <Textarea id={`hc-desc-${i}`} value={d.description} maxLength={L.description} rows={2} onChange={(e) => edit(i, { description: e.target.value })} placeholder="Resort use 7:00 AM — 5:00 PM." style={{ ...inpS }} />
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr)", gap: 10 }}>
@@ -200,7 +200,7 @@ export function HomeCardsEditor({ mob }: { mob: boolean }) {
 
             <div>
               <Label htmlFor={`hc-details-${i}`} style={lbl}>WHAT&apos;S LISTED (ONE PER LINE, UP TO {L.details})</Label>
-              <Textarea id={`hc-details-${i}`} value={d.detailsText} rows={4} onChange={(e) => edit(i, { detailsText: e.target.value })} placeholder={"Shared: ₱200 per guest\nExclusive (up to 30): ₱6,000"} style={{ ...inpS, resize: "vertical" }} />
+              <Textarea id={`hc-details-${i}`} value={d.detailsText} rows={4} onChange={(e) => edit(i, { detailsText: e.target.value })} placeholder={"Shared: ₱200 per guest\nExclusive (up to 30): ₱6,000"} style={{ ...inpS }} />
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 10 }}>

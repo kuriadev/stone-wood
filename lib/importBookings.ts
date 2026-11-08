@@ -24,8 +24,8 @@ export const IMPORT_COLUMNS: { key: ImportKey; header: string; width: number; hi
   { key: "guests", header: "Guests", width: 8, hint: "Required. How many are coming." },
   { key: "rooms", header: "Rooms", width: 22, hint: "Optional. Room names, separated by commas." },
   { key: "amount", header: "Amount paid", width: 13, hint: "Optional. Pesos taken; leave blank if nothing was paid." },
-  { key: "method", header: "Paid by", width: 14, hint: "Cash, GCash or Bank Transfer." },
-  { key: "reference", header: "Reference no.", width: 16, hint: "For GCash and bank transfers." },
+  { key: "method", header: "Paid by", width: 14, hint: "Cash or QR Ph." },
+  { key: "reference", header: "Reference no.", width: 16, hint: "For QR Ph payments." },
   { key: "notes", header: "Notes", width: 30, hint: "Optional." },
 ];
 
@@ -40,7 +40,7 @@ export const BOOKING_CHOICES: { label: string; resource: BookingResource }[] = [
 export const tourChoices = (): { label: string; slot: BookingSlot }[] =>
   (["Day", "Night", "WholeDay"] as BookingSlot[]).map((s) => ({ label: SLOTS[s].label, slot: s }));
 export const POOL_CHOICES: BookingTier[] = ["Shared", "Exclusive"];
-export const METHOD_CHOICES = ["Cash", "GCash", "Bank Transfer"] as const;
+export const METHOD_CHOICES = ["Cash", "GCash"] as const;
 
 /** What one line becomes. */
 export interface ImportBody {
@@ -197,8 +197,8 @@ export function readImportSheet(grid: unknown[][], rooms: { id: number; name: st
     const amount = amountText ? Number(amountText) : 0;
     if (amountText && (!Number.isFinite(amount) || amount < 0)) return fail("Amount paid must be a number of pesos.");
     const methodText = norm(text("method"));
-    const method = METHOD_CHOICES.find((m) => norm(m) === methodText) ?? (methodText === "bank" ? "Bank Transfer" : undefined);
-    if (amount > 0 && methodText && !method) return fail("Paid by must be Cash, GCash or Bank Transfer.");
+    const method = METHOD_CHOICES.find((m) => norm(m) === methodText) ?? (["qr ph", "qrph", "qr"].includes(methodText) ? "GCash" : undefined);
+    if (amount > 0 && methodText && !method) return fail("Paid by must be Cash or QR Ph.");
 
     lines.push({
       line,

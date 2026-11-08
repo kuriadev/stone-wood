@@ -23,7 +23,7 @@ const RESOURCES: BookingResource[] = ["Pool", "Venue", "Pool+Venue"];
 const TIERS: BookingTier[] = ["Shared", "Exclusive"];
 const SOURCES: BookingSource[] = ["Online", "Walk-In"];
 const SLOTS: BookingSlot[] = ["Day", "Night", "WholeDay"];
-const PAY_METHODS = ["Cash", "GCash", "Bank Transfer"];
+const PAY_METHODS = ["Cash", "GCash"];
 
 export interface WalkInPlan {
   /** The bookings row to insert. */

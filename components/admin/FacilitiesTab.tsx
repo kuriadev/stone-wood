@@ -539,11 +539,11 @@ function FacilityModal({ facility, mob, onClose }: { facility: Facility | null; 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
         <div>
           <Label htmlFor="f-before">Before-use checklist (one per line)</Label>
-          <Textarea id="f-before" rows={6} value={before} onChange={(e) => setBefore(e.target.value)} placeholder={"e.g. Sweep the cottage\nWipe the table\nCheck the lights"} style={{ ...inp, resize: "vertical" }} />
+          <Textarea id="f-before" rows={6} value={before} onChange={(e) => setBefore(e.target.value)} placeholder={"e.g. Sweep the cottage\nWipe the table\nCheck the lights"} style={{ ...inp }} />
         </div>
         <div>
           <Label htmlFor="f-after">After-use checklist (one per line)</Label>
-          <Textarea id="f-after" rows={6} value={after} onChange={(e) => setAfter(e.target.value)} placeholder={"e.g. Count the chairs\nNo damage to the table\nTrash cleared"} style={{ ...inp, resize: "vertical" }} />
+          <Textarea id="f-after" rows={6} value={after} onChange={(e) => setAfter(e.target.value)} placeholder={"e.g. Count the chairs\nNo damage to the table\nTrash cleared"} style={{ ...inp }} />
         </div>
       </div>
       <ErrorNote>{error}</ErrorNote>

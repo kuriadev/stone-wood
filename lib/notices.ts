@@ -34,7 +34,7 @@ export const notices = {
         paragraphs: [
           `A reminder that your ${s.label} at Stonewood Garden is tomorrow, ${visit(b)}: ${s.hours}.`,
           balance > 0
-            ? `The balance of ${fmt(balance)} is paid when you arrive — cash or GCash.`
+            ? `The balance of ${fmt(balance)} is paid when you arrive — cash or QR Ph.`
             : "Your booking is fully paid. Just bring yourselves.",
           "If anything has changed, open your booking or call us.",
         ],
@@ -116,7 +116,7 @@ export const notices = {
         name: b.name,
         paragraphs: [
           `Your booking has moved from ${fmtDate(oldDate)} to ${visit(b)}. What you paid carries over.`,
-          balance > 0 ? `The balance of ${fmt(balance)} is paid when you arrive — cash or GCash.` : "Your booking is fully paid.",
+          balance > 0 ? `The balance of ${fmt(balance)} is paid when you arrive — cash or QR Ph.` : "Your booking is fully paid.",
         ],
         rows: [["Booking", b.id], ["New date", visit(b)], ...(balance > 0 ? [["Balance on arrival", fmt(balance)] as [string, string]] : [])],
         button: button(link),

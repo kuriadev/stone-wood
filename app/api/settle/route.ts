@@ -43,11 +43,11 @@ export async function POST(req: NextRequest) {
     const amount = parseAmount(x.amount);
     if (amount !== null) {
       if (!MANUAL_METHODS.includes(x.method as Method)) {
-        return NextResponse.json({ success: false, error: "Choose Cash, GCash or Bank Transfer." }, { status: 400 });
+        return NextResponse.json({ success: false, error: "Choose Cash or QR Ph." }, { status: 400 });
       }
       const reference = cleanText(x.reference, 80);
       if (x.method !== "Cash" && !reference) {
-        return NextResponse.json({ success: false, error: `Enter the ${x.method} reference number.` }, { status: 400 });
+        return NextResponse.json({ success: false, error: "Enter the QR Ph reference number." }, { status: 400 });
       }
       pay = { amount, method: x.method as Method, reference };
     }
