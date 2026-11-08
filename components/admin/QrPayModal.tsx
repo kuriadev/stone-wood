@@ -13,7 +13,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ActionButton, useAdminStyle } from "@/components/admin/ui";
 import { Icon } from "@/components/common/Icon";
-import { fmt } from "@/lib/utils";
+import { fmt, stayLabel } from "@/lib/utils";
+import { packageAvailed } from "@/lib/pricing";
+import type { Booking } from "@/types/booking";
 import "./QrPayModal.css";
 
 export interface QrSummary {
@@ -24,6 +26,31 @@ export interface QrSummary {
   total: number;
   dueLabel: string;       // "Due now (full)" / "Due now (half)"
   note?: string;
+}
+
+/** The right-hand summary for money collected on an existing booking
+ *  (check-out, settle, record payment). */
+export function qrSummaryForBooking(b: Booking, amount: number, what: string): QrSummary {
+  return {
+    title: packageAvailed(b),
+    lines: [`${stayLabel(b)} · ${b.guests} guest${b.guests === 1 ? "" : "s"}`],
+    guest: [b.name, b.contact].filter(Boolean).join(" · "),
+    items: [{ label: what, sub: b.id, amount }],
+    total: amount,
+    dueLabel: "Due now",
+  };
+}
+
+/** Shown in place of a reference field when QR Ph is picked: nobody types
+ *  a reference, the guest scans a code. */
+export function QrPhHint({ amount, text }: { amount: number; text: string }) {
+  const { C } = useAdminStyle();
+  return (
+    <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(62,142,208,0.35)", background: "rgba(62,142,208,0.08)" }}>
+      <Icon name="cash" size={16} style={{ color: "#3e8ed0", flexShrink: 0 }} />
+      <span style={{ flex: 1, color: C.textB, fontSize: 12.5, lineHeight: 1.45 }}>{text.replace("{amount}", fmt(amount))}</span>
+    </div>
+  );
 }
 
 type Phase = "making" | "waiting" | "paid" | "expired" | "error";

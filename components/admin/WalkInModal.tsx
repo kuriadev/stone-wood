@@ -165,17 +165,15 @@ export function WalkInModal({
   const [payChoice, setPayChoice] = useState<PayChoice>("Full");
   const [method, setMethod] = useState<(typeof DESK_METHODS)[number]>("Cash");
   const [reference, setReference] = useState("");
-  /* GCash: a reference number typed in, or a QR Ph code the guest scans
-     (QrPayModal) -- then the walk-in saves itself once it's paid. */
-  const [gcashMode, setGcashMode] = useState<"ref" | "qr">("ref");
+  /* QR Ph: the guest scans a code (QrPayModal) and the walk-in saves itself
+     once it's paid. Nobody types a reference. */
   const [qrOpen, setQrOpen] = useState(false);
   const payNow = payChoice === "Full" ? total : payChoice === "Downpayment" ? down : 0;
 
   const roomOk = !requiresRoom || wf.rooms.length > 0;
   const roomsFree = wf.rooms.every((r) => !takenRooms.has(r));
   const emailOk = !wf.email.trim() || isValidEmail(wf.email);
-  const byQr = payChoice !== "None" && method === "GCash" && gcashMode === "qr";
-  const refOk = payChoice === "None" || method === "Cash" || byQr || reference.trim().length > 0;
+  const byQr = payChoice !== "None" && method === "GCash";
 
   const problems: string[] = [];
   if (!isValidName(wf.name)) problems.push("Enter the guest's name.");
@@ -188,14 +186,13 @@ export function WalkInModal({
   if (overLimit && !overCap) problems.push(`That's more than ${resource === "Venue" ? "what the events venue holds" : "the resort's capacity"} (${guestCap}). Tick "Allow more than ${guestCap} guests" to book it anyway.`);
   if (guests > OVERRIDE_GUESTS_MAX) problems.push(`The most for one booking is ${OVERRIDE_GUESTS_MAX} guests.`);
   if (!capacity.ok) problems.push(capacity.reason ?? "That date and slot is not available.");
-  if (!refOk) problems.push(`Enter the ${method} reference number.`);
   const [tried, setTried] = useState(false);
 
   const save = () => {
     setTried(true);
     if (problems.length) return;
     if (byQr) {
-      if (payNow < 20) return toast("A QR payment has to be at least ₱20. Use Cash or a reference number.", "warning");
+      if (payNow < 20) return toast("A QR payment has to be at least ₱20. Take it in cash instead.", "warning");
       setQrOpen(true);
       return;
     }
@@ -274,7 +271,7 @@ export function WalkInModal({
           <div style={{ color: C.textS, fontSize: 13.5 }}>
             <strong style={{ color: C.textH, fontSize: 16 }}>{fmt(total)}</strong> total
             {" · "}
-            {payChoice === "None" ? "nothing collected yet" : <>collecting <strong style={{ color: "#2e9e4e" }}>{fmt(payNow)}</strong> now by {method}</>}
+            {payChoice === "None" ? "nothing collected yet" : <>collecting <strong style={{ color: "#2e9e4e" }}>{fmt(payNow)}</strong> now by {payMethodLabel(method)}</>}
           </div>
           <ActionButton kind="primary" icon="check" onClick={save} disabled={stayTooLong || stayVenueOnly || !!tourTooLong}>{byQr ? "Generate QR & save" : "Save reservation"}</ActionButton>
         </div>
@@ -521,21 +518,6 @@ export function WalkInModal({
                 <Label>Paid with</Label>
                 <ChoiceButtons value={method} onChange={setMethod} size="sm" options={DESK_METHODS.map((m) => ({ value: m, label: payMethodLabel(m) }))} />
               </div>
-              {method === "GCash" && (
-                <div>
-                  <Label>How they pay</Label>
-                  <ChoiceButtons value={gcashMode} onChange={setGcashMode} size="sm" options={[
-                    { value: "ref", label: "Reference number" },
-                    { value: "qr", label: "QR Ph code" },
-                  ]} />
-                </div>
-              )}
-              {method !== "Cash" && !byQr && (
-                <div>
-                  <Label htmlFor="wi-ref">{method} reference number</Label>
-                  <Input id="wi-ref" value={reference} onChange={(e) => setReference(e.target.value)} style={inp} />
-                </div>
-              )}
               {byQr && (
                 <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(62,142,208,0.35)", background: "rgba(62,142,208,0.08)" }}>
                   <Icon name="cash" size={16} style={{ color: "#3e8ed0", flexShrink: 0 }} />

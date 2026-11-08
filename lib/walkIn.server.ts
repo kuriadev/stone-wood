@@ -8,7 +8,8 @@
 // it: checkWalkIn validates, prices and checks availability without
 // writing; saveWalkIn writes the booking and the money taken.
 
-import { getPaymentStatus } from "@/lib/paymongo";
+import { payMethodLabel } from "@/lib/labels";
+import { checkDeskQr, isDeskQrRef } from "@/lib/deskQr.server";
 import { getSupabaseAdmin, rowToBooking, bookingToRow, missingNewColumn, withoutNewColumns } from "@/lib/supabase";
 import { isValidEmail, isValidPHNumber, sanitizeName, sanitizeNotes, NAME_MIN, NAME_MAX, OVERTIME_MAX, MAX_STAY_DAYS, isInStaffWindow, staffDateWindow, GUESTS_MAX, OVERRIDE_GUESTS_MAX, guestLimitFor } from "@/lib/validators";
 import { logActivity } from "@/lib/activity.server";
@@ -152,21 +153,17 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
     return bad(payAmount > total ? `The amount paid is more than the total of ${fmt(total)}.` : "The payment taken is not valid.");
   }
   const reference = String(payIn?.reference ?? "").replace(/[<>]/g, "").trim().slice(0, 80);
-  if (payIn && payIn.method !== "Cash" && !reference) return bad(`Enter the ${payIn.method} reference number.`);
+  if (payIn && payIn.method !== "Cash" && !reference) return bad("Enter the QR Ph reference number.");
   const pay = payIn ? { method: payIn.method, amount: payAmount, reference } : null;
   // Paid by the desk's QR Ph code (reference = the PayMongo payment): only
   // if PayMongo says it went through, for exactly this amount, and it
   // hasn't already been used for another booking.
-  if (pay && /^pi_[A-Za-z0-9]+$/.test(pay.reference)) {
-    try {
-      const st = await getPaymentStatus(pay.reference);
-      if (st.status !== "succeeded") return bad("That QR payment hasn't gone through yet.", 409);
-      if (Math.round(st.amountCentavos) !== Math.round(pay.amount * 100)) return bad("The QR payment was for a different amount. Make a new code.", 409);
-    } catch {
-      return bad("Couldn't confirm the QR payment with PayMongo. Try again in a moment.", 502);
-    }
-    const used = await getSupabaseAdmin().from("payments").select("id").eq("reference", pay.reference).limit(1);
-    if (used.data && used.data.length > 0) return bad("That QR payment is already recorded on another booking.", 409);
+  // Every QR Ph payment at the desk is a scanned code (no typed references).
+  // A booking taken offline and imported later (fromToday) keeps the
+  // reference written down at the time: there was no code to scan.
+  if (pay && pay.method !== "Cash" && (!opts.fromToday || isDeskQrRef(pay.reference))) {
+    const qr = await checkDeskQr(pay.reference, pay.amount);
+    if (qr) return bad(qr.error, qr.status);
   }
   const status = pay ? "Confirmed" : "Pending";
 
@@ -234,7 +231,7 @@ export async function saveWalkIn(plan: WalkInPlan, opts: { imported?: boolean } 
   }
   await logActivity({
     actor: "Admin", action: "booking.created", bookingId: saved.id, entity: "booking", entityId: saved.id,
-    summary: `${opts.imported ? "Imported a booking taken offline" : "Encoded a walk-in"}: ${saved.name}, ${packageAvailed(saved)}, ${fmtDate(saved.date)}. ${pay ? `${fmt(pay.amount)} received by ${pay.method}; confirmed.` : "Nothing paid yet; pending."}`,
+    summary: `${opts.imported ? "Imported a booking taken offline" : "Encoded a walk-in"}: ${saved.name}, ${packageAvailed(saved)}, ${fmtDate(saved.date)}. ${pay ? `${fmt(pay.amount)} received by ${payMethodLabel(pay.method)}; confirmed.` : "Nothing paid yet; pending."}`,
     details: { total, paid: pay?.amount ?? 0, method: pay?.method ?? null, imported: !!opts.imported },
   });
   return saved;

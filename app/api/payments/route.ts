@@ -17,6 +17,7 @@
 // penalty payment cannot exceed the unpaid penalty, and a refund cannot
 // exceed what was paid.
 
+import { payMethodLabel } from "@/lib/labels";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToPayment } from "@/lib/supabase";
 import { requirePermission, ownerGate } from "@/lib/auth";
@@ -29,6 +30,7 @@ import { notices } from "@/lib/notices";
 import { buildNoticeEmail } from "@/lib/emailTemplate";
 import { trySendMail } from "@/lib/mailer";
 import { MANUAL_METHODS, type PaymentType } from "@/types/finance";
+import { checkDeskQr } from "@/lib/deskQr.server";
 import type { PaymentRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -52,7 +54,7 @@ export async function POST(req: NextRequest) {
   if (!MANUAL_METHODS.includes(method)) return NextResponse.json({ success: false, error: "Choose Cash or QR Ph." }, { status: 400 });
   if (amount === null) return NextResponse.json({ success: false, error: "Enter an amount greater than zero." }, { status: 400 });
   if (method !== "Cash" && !cleanText(body.reference, 80)) {
-    return NextResponse.json({ success: false, error: `Enter the ${method} reference number.` }, { status: 400 });
+    return NextResponse.json({ success: false, error: "Enter the QR Ph reference number." }, { status: 400 });
   }
   // Money going back to a guest is the owner's call. Front desk's refund
   // waits for the owner as a request, with everything they typed.
@@ -81,6 +83,14 @@ export async function POST(req: NextRequest) {
       if (amount > money.balance) {
         return NextResponse.json({ success: false, error: `Only ${fmt(money.balance)} is still owed on this booking.` }, { status: 409 });
       }
+    }
+
+    // QR Ph money coming in is the code the guest scanned at the desk,
+    // confirmed with PayMongo first. (A refund going out keeps the
+    // reference of the transfer the owner sent.)
+    if (method !== "Cash" && type !== "Refund") {
+      const bad = await checkDeskQr(cleanText(body.reference, 80), amount);
+      if (bad) return NextResponse.json({ success: false, error: bad.error }, { status: bad.status });
     }
 
     const received = typeof body.receivedAt === "string" && !Number.isNaN(Date.parse(body.receivedAt))
@@ -165,8 +175,8 @@ export async function POST(req: NextRequest) {
       action: type === "Refund" ? (refundDone ? "refund.sent" : "payment.refund") : "payment.recorded",
       bookingId: booking.id, entity: "payment", entityId: (data as PaymentRow).id,
       summary: type === "Refund"
-        ? `Refunded ${fmt(amount)} to ${booking.name} (${booking.id}) by ${method}${reference ? `, ref ${reference}` : ""}.${refundDone ? " The refund owed is now fully sent." : ""}`
-        : `Recorded ${fmt(amount)} ${type.toLowerCase()} from ${booking.name} (${booking.id}, ${fmtDate(booking.date)}) by ${method}${reference ? `, ref ${reference}` : ""}.${completed ? " Nothing is owed now, so the booking is completed." : ""}`,
+        ? `Refunded ${fmt(amount)} to ${booking.name} (${booking.id}) by ${payMethodLabel(method)}${reference ? `, ref ${reference}` : ""}.${refundDone ? " The refund owed is now fully sent." : ""}`
+        : `Recorded ${fmt(amount)} ${type.toLowerCase()} from ${booking.name} (${booking.id}, ${fmtDate(booking.date)}) by ${payMethodLabel(method)}${reference ? `, ref ${reference}` : ""}.${completed ? " Nothing is owed now, so the booking is completed." : ""}`,
       details: { type, method, amount, reference, completed },
     });
 
@@ -198,7 +208,7 @@ export async function PATCH(req: NextRequest) {
     const p = rowToPayment(data as PaymentRow);
     await logActivity({
       actor: "Admin", action: "payment.voided", bookingId: p.bookingId ?? null, entity: "payment", entityId: p.id,
-      summary: `Voided a ${fmt(p.amount)} ${p.type.toLowerCase()} (${p.method}) from ${p.guestName || "a guest"}. Reason: ${reason}`,
+      summary: `Voided a ${fmt(p.amount)} ${p.type.toLowerCase()} (${payMethodLabel(p.method)}) from ${p.guestName || "a guest"}. Reason: ${reason}`,
       details: { amount: p.amount, type: p.type, method: p.method, reference: p.reference, reason },
     });
     return NextResponse.json({ success: true, payment: p });

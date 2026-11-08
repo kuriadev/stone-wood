@@ -11,6 +11,7 @@ import type { Notice } from "@/lib/emailTemplate";
 import { fmt, fmtDate, getBookingSlot } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
 import { fmtDeadline } from "@/lib/rebooking";
+import { payMethodLabel } from "@/lib/labels";
 
 export interface NoticeText {
   email: Notice;
@@ -254,13 +255,13 @@ export const notices = {
       email: {
         subject: `Refund sent: ${fmt(amount)} – ${b.id}`,
         title: "Your refund has been sent",
-        tagline: `${fmt(amount)} by ${method}`,
+        tagline: `${fmt(amount)} by ${payMethodLabel(method)}`,
         name: b.name,
-        paragraphs: [`We sent your refund of ${fmt(amount)} for booking ${b.id}.${reference ? ` The ${method} reference number is ${reference}.` : ""} The receipt is on your booking page.`],
+        paragraphs: [`We sent your refund of ${fmt(amount)} for booking ${b.id}.${reference ? ` The ${payMethodLabel(method)} reference number is ${reference}.` : ""} The receipt is on your booking page.`],
         rows: [["Booking", b.id], ["Refund", fmt(amount)], ["Sent by", method], ...(reference ? [["Reference", reference] as [string, string]] : [])],
         button: button(link, "See the receipt"),
       },
-      sms: `Stonewood Garden Private Resort: We sent your ${fmt(amount)} refund for ${b.id} by ${method}${reference ? `, ref ${reference}` : ""}. Receipt: ${link}`,
+      sms: `Stonewood Garden Private Resort: We sent your ${fmt(amount)} refund for ${b.id} by ${payMethodLabel(method)}${reference ? `, ref ${reference}` : ""}. Receipt: ${link}`,
     };
   },
 };

@@ -11,6 +11,7 @@
  *    that passed; the rest stay in the file to fix and import again.
  */
 
+import { payMethodLabel } from "@/lib/labels";
 import { useRef, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { useOps } from "@/contexts/OpsContext";
@@ -174,7 +175,7 @@ export function ImportBookingsModal({ onClose, onPrintOffline }: { onClose: () =
                     <div style={{ color: good ? C.textS : "#e5484d", fontSize: 12.5, marginTop: 2 }}>
                       {good
                         ? <>{l.id ? <><strong style={{ fontFamily: "monospace" }}>{l.id}</strong> · </> : null}{l.total !== undefined ? fmt(l.total) : ""}
-                            {l.body?.initialPayment ? ` · ${fmt(l.body.initialPayment.amount)} paid by ${l.body.initialPayment.method}` : " · nothing paid yet"}</>
+                            {l.body?.initialPayment ? ` · ${fmt(l.body.initialPayment.amount)} paid by ${payMethodLabel(l.body.initialPayment.method)}` : " · nothing paid yet"}</>
                         : l.note ?? "Not imported."}
                     </div>
                   </div>

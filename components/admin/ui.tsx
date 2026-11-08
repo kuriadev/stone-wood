@@ -128,7 +128,10 @@ export function Modal({
             ? <DialogDescription style={{ color: C.textS, fontSize: 13 }}>{subtitle}</DialogDescription>
             : <DialogDescription className="sr-only">Details</DialogDescription>}
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">{children}</div>
+        {/* break-word: a long unbroken note (or email, or reference) wraps inside
+            the pop-up instead of pushing it sideways; overflow-x-hidden so a
+            pop-up never scrolls left and right. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden [overflow-wrap:break-word] px-4 py-4 sm:px-6">{children}</div>
         {footer && <DialogFooter className="sw-modal-foot shrink-0 border-t px-4 py-3 sm:justify-stretch sm:px-6 [&>*]:w-full">{footer}</DialogFooter>}
       </DialogContent>
     </Dialog>

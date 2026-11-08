@@ -245,7 +245,7 @@ describe("a group nobody checked in on the day", () => {
     // Long over: nobody used the pool today, so it isn't flagged dirty.
     expect(facilityStatus(POOL)).toBe("Available");
 
-    const res = await settle(call("FrontDesk", "/api/settle", { bookingId: "SW-2", payment: { amount: 1000, method: "GCash", reference: "1234567890" } }));
+    const res = await settle(call("FrontDesk", "/api/settle", { bookingId: "SW-2", payment: { amount: 1000, method: "Cash", reference: "" } }));
     expect(await json(res)).toMatchObject({ completed: true, leftOwing: 0 });
     expect(booking("SW-2").status).toBe("Completed");
   });
@@ -281,5 +281,15 @@ describe("a same-day walk-in", () => {
     expect((await prepare(call("Caretaker", "/api/inspections", { bookingId: "SW-3", items: allTicked([POOL, PARKING]) }))).status).toBe(201);
     expect((await checkIn(call("FrontDesk", "/api/checkin", { bookingId: "SW-3" }))).status).toBe(200);
     expect(caretakerList()).toEqual([expect.objectContaining({ kind: "inspect", key: "inspect:SW-3" })]);
+  });
+});
+
+describe("QR Ph at the desk is always a scanned code", () => {
+  beforeAll(() => freshResort([bookingRow({ id: "SW-9", name: "Typed Ref", date: "2026-11-09", slot: "Day", package: "Day Tour" })]));
+
+  it("refuses a typed QR Ph reference: staff press Generate QR code instead", async () => {
+    const res = await settle(call("FrontDesk", "/api/settle", { bookingId: "SW-9", payment: { amount: 1000, method: "GCash", reference: "1234567890" } }));
+    expect(res.status).toBe(400);
+    expect((await json(res)).error).toMatch(/Generate QR code/);
   });
 });

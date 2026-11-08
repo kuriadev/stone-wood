@@ -712,7 +712,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                   {bookedRooms.map((r) => <AmountRow key={r.id} label={r.name} value="included" />)}
                   <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}><AmountRow label="Total" value={fmt(b.total)} strong /></div>
                 </div>
-                {b.notes && <p style={{ color: C.textS, fontSize: 13, marginTop: 12 }}>Notes: {b.notes}</p>}
+                {b.notes && <p style={{ color: C.textS, fontSize: 13, marginTop: 12, overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}>Notes: {b.notes}</p>}
                 {(b.status === "Cancelled" || b.status === "ResortCancelled") && b.cancelReason && <p style={{ color: "#e5484d", fontSize: 13, marginTop: 12 }}>{isNoShow(b) ? noShowLine(b.cancelReason) : `Cancelled: ${b.cancelReason}`}</p>}
                 {/* Where the no-show guest's new-date window stands (lib/noShow.server.ts). */}
                 {isNoShow(b) && (

@@ -16,6 +16,7 @@
 // waits in "To settle" for the rest.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { payMethodLabel } from "@/lib/labels";
 import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { requirePermission, ownerGate } from "@/lib/auth";
@@ -24,6 +25,7 @@ import { cleanText, parseAmount } from "@/lib/money";
 import { round2 } from "@/lib/finance";
 import { fmt } from "@/lib/utils";
 import { MANUAL_METHODS } from "@/types/finance";
+import { checkDeskQr, isDeskQrRef } from "@/lib/deskQr.server";
 
 export const dynamic = "force-dynamic";
 
@@ -46,8 +48,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: "Choose Cash or QR Ph." }, { status: 400 });
       }
       const reference = cleanText(x.reference, 80);
-      if (x.method !== "Cash" && !reference) {
-        return NextResponse.json({ success: false, error: "Enter the QR Ph reference number." }, { status: 400 });
+      // QR Ph is always a code the guest scanned (its PayMongo id), never typed.
+      if (x.method !== "Cash" && !isDeskQrRef(reference)) {
+        return NextResponse.json({ success: false, error: "Collect QR Ph with the Generate QR code button, so the guest scans the code." }, { status: 400 });
       }
       pay = { amount, method: x.method as Method, reference };
     }
@@ -70,6 +73,11 @@ export async function POST(req: NextRequest) {
     const owed = round2(money.balance + money.penaltyDue);
     if (pay && pay.amount > owed) {
       return NextResponse.json({ success: false, error: `Only ${fmt(owed)} is owed on this booking.` }, { status: 409 });
+    }
+    // QR Ph: the code the guest scanned, confirmed with PayMongo first.
+    if (pay && pay.method !== "Cash") {
+      const bad = await checkDeskQr(pay.reference, pay.amount);
+      if (bad) return NextResponse.json({ success: false, error: bad.error }, { status: bad.status });
     }
     const paidNow = pay?.amount ?? 0;
     const leftOwing = round2(owed - paidNow);
@@ -132,8 +140,8 @@ export async function POST(req: NextRequest) {
     await logActivity({
       actor: "Admin", action: completing ? "stay.settled" : "payment.recorded", bookingId: booking.id, entity: "booking", entityId: booking.id,
       summary: completing
-        ? `Settled ${booking.name} (${booking.id})${paidNow > 0 ? `, collecting ${fmt(paidNow)} by ${pay?.method}` : ""}. ${leftOwing > 0 ? `Completed with ${fmt(leftOwing)} unpaid: ${note}` : "Completed, fully paid."}`
-        : `Collected ${fmt(paidNow)} from ${booking.name} (${booking.id}) by ${pay?.method}; ${fmt(leftOwing)} still owed.`,
+        ? `Settled ${booking.name} (${booking.id})${paidNow > 0 ? `, collecting ${fmt(paidNow)} by ${payMethodLabel(pay?.method)}` : ""}. ${leftOwing > 0 ? `Completed with ${fmt(leftOwing)} unpaid: ${note}` : "Completed, fully paid."}`
+        : `Collected ${fmt(paidNow)} from ${booking.name} (${booking.id}) by ${payMethodLabel(pay?.method)}; ${fmt(leftOwing)} still owed.`,
       details: { collected: paidNow, method: pay?.method ?? null, reference: pay?.reference ?? "", leftOwing: Math.max(0, leftOwing), note },
     });
     return NextResponse.json({ success: true, completed: completing, collected: round2(paidNow), leftOwing: Math.max(0, leftOwing) });

@@ -52,7 +52,7 @@ export function RefundModal({ booking, onClose }: { booking: Booking; onClose: (
   const save = async () => {
     setError("");
     if (value <= 0) return setError("Enter the amount you sent.");
-    if (method !== "Cash" && !reference.trim()) return setError(`Enter the ${method} reference number.`);
+    if (method !== "Cash" && !reference.trim()) return setError(`Enter the ${payMethodLabel(method)} reference number.`);
     setBusy(true);
     const r = await ops.recordPayment({
       bookingId: booking.id, type: "Refund", amount: value, method, reference: reference.trim(),
@@ -92,7 +92,7 @@ export function RefundModal({ booking, onClose }: { booking: Booking; onClose: (
           </div>
           {method !== "Cash" && (
             <div>
-              <Label htmlFor="rf-ref">{method} reference</Label>
+              <Label htmlFor="rf-ref">{payMethodLabel(method)} reference</Label>
               <Input id="rf-ref" value={reference} onChange={(e) => setReference(e.target.value)} style={inp} />
             </div>
           )}

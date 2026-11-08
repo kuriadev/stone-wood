@@ -16,6 +16,7 @@
 // Pure: the bell (components/admin/NotificationBell.tsx) filters, counts and
 // remembers what was seen.
 
+import { payMethodLabel } from "@/lib/labels";
 import type { Booking } from "@/types/booking";
 import type { CustomerMessage, OwnerRequest, AdminTab } from "@/types/admin";
 import type { DateChange, Inspection, Payment } from "@/types/finance";
@@ -185,7 +186,7 @@ export function buildNotes(input: {
     notes.push({
       id: `pay-${p.id}`, action: false, tone: refund ? "warn" : "good", icon: "wallet",
       title: refund ? `Refund of ${fmt(p.amount)} sent` : `${fmt(p.amount)} received`,
-      body: `${p.type} by ${p.method} from ${p.guestName}${p.bookingId ? ` · ${p.bookingId}` : ""}`,
+      body: `${p.type} by ${payMethodLabel(p.method)} from ${p.guestName}${p.bookingId ? ` · ${p.bookingId}` : ""}`,
       at: p.receivedAt, perm: "payments.record", tabs: p.bookingId ? ["Bookings", "Sales"] : ["Sales"], bookingId: p.bookingId ?? undefined,
     });
   }

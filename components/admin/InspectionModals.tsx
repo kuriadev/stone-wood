@@ -44,6 +44,7 @@ import type { Facility } from "@/types/facility";
 import { Icon } from "@/components/common/Icon";
 import { Modal, Label, ChoiceButtons, ActionButton, AmountRow, ErrorNote, StatusBadge, useAdminStyle, FullSelect, STATUS_COLOR, useConfirm } from "@/components/admin/ui";
 import { BookingHistory } from "@/components/admin/BookingHistory";
+import { QrPayModal, QrPhHint, qrSummaryForBooking } from "@/components/admin/QrPayModal";
 
 const iconOf = facilityIcon;
 
@@ -248,22 +249,27 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
   // is added, so "collect everything" needs no typing at all.
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<(typeof MANUAL_METHODS)[number]>("Cash");
-  const [reference, setReference] = useState("");
+  // QR Ph: the guest scans a code (QrPayModal); its payment id is the reference.
+  const [qrOpen, setQrOpen] = useState(false);
   const [closeUnpaid, setCloseUnpaid] = useState(false);
   const [unpaidNote, setUnpaidNote] = useState("");
   const paying = amount === "" ? toCollect : Math.min(toCollect, Math.max(0, round2(Number(amount) || 0)));
   const left = round2(toCollect - paying);
   const completes = left <= 0 || closeUnpaid;
 
-  const save = async () => {
+  const save = async (qrRef?: string) => {
     setError("");
     if (allDamages.some((x) => x.custom && (x.itemName.trim().length < 2 || x.unitRate < 0))) return setError("Name each item that isn't on the rate list, and give it a price.");
     if (allDamages.some((x) => x.adjusting && x.adjustment !== 0 && x.adjustmentReason.trim().length < 3)) return setError("Give a reason for every adjusted penalty.");
-    if (paying > 0 && method !== "Cash" && !reference.trim()) return setError(`Enter the ${method} reference number.`);
     if (left > 0 && closeUnpaid && unpaidNote.trim().length < 3) return setError("Say why the guest is leaving with money still owed.");
 
     if (!booking.checkedInAt && !staff.can("bookings.edit")) {
       return setError("Front desk hasn't checked this group in yet. Ask them to check the group in first.");
+    }
+    // QR Ph: show the code first; once the guest has paid, this runs again with its id.
+    if (handlesMoney && paying > 0 && method !== "Cash" && !qrRef) {
+      if (paying < 20) return setError("A QR payment has to be at least ₱20. Take it in cash instead.");
+      return setQrOpen(true);
     }
     setBusy(true);
     if (!booking.checkedInAt) {
@@ -298,7 +304,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
     }
     const s = await ops.settle({
       bookingId: booking.id,
-      payment: paying > 0 ? { amount: paying, method, reference: reference.trim() } : null,
+      payment: paying > 0 ? { amount: paying, method, reference: method === "Cash" ? "" : qrRef ?? "" } : null,
       closeUnpaid: left > 0 && closeUnpaid,
       note: unpaidNote.trim(),
     });
@@ -337,7 +343,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
               ? <strong style={{ color: "#f5a524" }}>{fmt(left)} {closeUnpaid ? "left unpaid" : "still owed after this"}</strong>
               : "Fully paid after this"}
           </span>
-          <ActionButton kind="primary" icon={completes ? "check" : "logout"} disabled={busy} onClick={save}>{buttonLabel}</ActionButton>
+          <ActionButton kind="primary" icon={completes ? "check" : "logout"} disabled={busy} onClick={() => void save()}>{buttonLabel}</ActionButton>
         </div>
       }>
       {!wasCheckedIn && (
@@ -490,10 +496,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
                 <ChoiceButtons value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: payMethodLabel(m) }))} />
               </div>
               {method !== "Cash" && paying > 0 && (
-                <div>
-                  <Label htmlFor="co-ref">{method} reference number</Label>
-                  <Input id="co-ref" value={reference} onChange={(e) => setReference(e.target.value)} style={inp} />
-                </div>
+                <QrPhHint amount={paying} text="Press the button below: a QR Ph code for {amount} comes up for the guest to scan with GCash, Maya or any QR Ph e-wallet. It saves by itself once they pay." />
               )}
               {left > 0 && (
                 <>
@@ -535,6 +538,11 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
         </div>
       </div>
     </Modal>
+    {qrOpen && (
+      <QrPayModal amount={paying} description={`${booking.name} · ${booking.id} · check-out`} summary={qrSummaryForBooking(booking, paying, "Balance at check-out")}
+        onCancel={() => setQrOpen(false)}
+        onPaid={(id) => { setQrOpen(false); void save(id); }} />
+    )}
     </>
   );
 }
@@ -596,7 +604,7 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
 
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<(typeof MANUAL_METHODS)[number]>("Cash");
-  const [reference, setReference] = useState("");
+  const [qrOpen, setQrOpen] = useState(false);
   const [closeUnpaid, setCloseUnpaid] = useState(false);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -606,15 +614,19 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
   const left = round2(owed - paying);
   const completes = left <= 0 || closeUnpaid;
 
-  const save = async () => {
+  const save = async (qrRef?: string) => {
     setError("");
-    if (paying > 0 && method !== "Cash" && !reference.trim()) return setError(`Enter the ${method} reference number.`);
     if (left > 0 && closeUnpaid && note.trim().length < 3) return setError("Say why it's being settled with money still owed.");
     if (paying <= 0 && !completes) return setError("Enter the amount received, or close it as unpaid with a reason.");
+    // QR Ph: show the code first; once the guest has paid, this runs again with its id.
+    if (paying > 0 && method !== "Cash" && !qrRef) {
+      if (paying < 20) return setError("A QR payment has to be at least ₱20. Take it in cash instead.");
+      return setQrOpen(true);
+    }
     setBusy(true);
     const r = await ops.settle({
       bookingId: booking.id,
-      payment: paying > 0 ? { amount: paying, method, reference: reference.trim() } : null,
+      payment: paying > 0 ? { amount: paying, method, reference: method === "Cash" ? "" : qrRef ?? "" } : null,
       closeUnpaid: left > 0 && closeUnpaid,
       note: note.trim(),
     });
@@ -636,11 +648,11 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
       footer={
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ color: C.textS, fontSize: 13.5 }}>
-            {paying > 0 ? <>Collecting <strong style={{ color: "#2e9e4e" }}>{fmt(paying)}</strong> by {method}</> : "Nothing to collect"}
+            {paying > 0 ? <>Collecting <strong style={{ color: "#2e9e4e" }}>{fmt(paying)}</strong> by {payMethodLabel(method)}</> : "Nothing to collect"}
             {left > 0 && <> · <strong style={{ color: "#e5484d" }}>{fmt(left)} {closeUnpaid ? "left unpaid" : "still owed"}</strong></>}
           </span>
-          <ActionButton kind="primary" icon={completes ? "check" : "cash"} disabled={busy} onClick={save}>
-            {busy ? "Saving…" : completes ? "Collect & close booking" : "Record payment"}
+          <ActionButton kind="primary" icon={completes ? "check" : "cash"} disabled={busy} onClick={() => void save()}>
+            {busy ? "Saving…" : method !== "Cash" && paying > 0 ? "Generate QR code" : completes ? "Collect & close booking" : "Record payment"}
           </ActionButton>
         </div>
       }>
@@ -659,11 +671,8 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
                 <Label>Paid with</Label>
                 <ChoiceButtons value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: payMethodLabel(m) }))} />
               </div>
-              {method !== "Cash" && (
-                <div>
-                  <Label htmlFor="st-ref">{method} reference number</Label>
-                  <Input id="st-ref" value={reference} onChange={(e) => setReference(e.target.value)} style={inp} />
-                </div>
+              {method !== "Cash" && paying > 0 && (
+                <QrPhHint amount={paying} text="Press Generate QR code: a QR Ph code for {amount} comes up for the guest to scan with GCash, Maya or any QR Ph e-wallet. It saves by itself once they pay." />
               )}
               {left > 0 && (
                 <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 8, alignItems: "flex-start" }}>
@@ -690,6 +699,11 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
           <ErrorNote>{error}</ErrorNote>
         </div>
       </div>
+    {qrOpen && (
+      <QrPayModal amount={paying} description={`${booking.name} · ${booking.id} · balance`} summary={qrSummaryForBooking(booking, paying, "Balance")}
+        onCancel={() => setQrOpen(false)}
+        onPaid={(id) => { setQrOpen(false); void save(id); }} />
+    )}
     </Modal>
   );
 }
@@ -790,7 +804,7 @@ export function VisitRecord({ booking, onClose }: { booking: Booking; onClose: (
           </div>
           {(b.notes || b.cancelReason || b.settlementNote) && (
             <div style={{ background: soft, borderRadius: 8, padding: "12px 12px", fontSize: 13, color: C.textB, display: "flex", flexDirection: "column", gap: 4 }}>
-              {b.notes && <div><span style={{ color: C.textS }}>Notes: </span>{b.notes}</div>}
+              {b.notes && <div style={{ overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}><span style={{ color: C.textS }}>Notes: </span>{b.notes}</div>}
               {b.status === "Cancelled" && b.cancelReason && <div style={{ color: "#e5484d" }}>Cancelled: {b.cancelReason}</div>}
               {b.settlementNote && <div style={{ color: "#f5a524" }}>Settled unpaid: {b.settlementNote}</div>}
             </div>

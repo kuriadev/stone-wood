@@ -21,6 +21,7 @@
 // Without a cost (a delivery already paid for, a donation, stock found in
 // the storeroom) only the count goes up.
 
+import { payMethodLabel } from "@/lib/labels";
 import { NextResponse, type NextRequest } from "next/server";
 import { requirePermission } from "@/lib/auth";
 import { getSupabaseAdmin, rowToInventoryItem } from "@/lib/supabase";
@@ -124,7 +125,7 @@ export async function POST(req: NextRequest) {
           if (exp.error) throw new Error(exp.error.message);
           expenseId = (exp.data as ExpenseRow).id;
           unitCost = round2(cost / qty);
-          summary = `Added ${qty} ${item.unit} of ${item.name}, bought for ${fmt(cost)} (${b.method}); recorded as an expense.`;
+          summary = `Added ${qty} ${item.unit} of ${item.name}, bought for ${fmt(cost)} (${payMethodLabel(String(b.method))}); recorded as an expense.`;
         }
       }
     }

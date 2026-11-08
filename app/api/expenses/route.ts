@@ -4,6 +4,7 @@
 // The "money out" half of liquidation. Like payments, an expense is voided
 // rather than deleted so the day's figures can always be traced.
 
+import { payMethodLabel } from "@/lib/labels";
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity } from "@/lib/activity.server";
 import { fmt } from "@/lib/utils";
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
       category: b.category, description, amount, method: b.method, spent_on: b.spentOn,
     }).select().single();
     if (error) throw new Error(error.message);
-    await logActivity({ actor: "Admin", action: "expense.added", entity: "expense", entityId: (data as ExpenseRow).id, summary: `Recorded an expense: ${description}, ${fmt(amount)} (${b.category}, ${b.method}).` });
+    await logActivity({ actor: "Admin", action: "expense.added", entity: "expense", entityId: (data as ExpenseRow).id, summary: `Recorded an expense: ${description}, ${fmt(amount)} (${b.category}, ${payMethodLabel(String(b.method))}).` });
     return NextResponse.json({ success: true, expense: rowToExpense(data as ExpenseRow) }, { status: 201 });
   } catch (err) {
     console.error("[/api/expenses POST]", err);
