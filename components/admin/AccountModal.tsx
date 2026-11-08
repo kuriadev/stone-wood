@@ -104,6 +104,10 @@ export function AccountModal({ onClose, onSignedOut, forced = false }: {
       title={forced ? "Choose your own password" : "Your account"}
       subtitle={me ? `${me.name} · ${ROLE_LABEL[me.role]}` : "Your sign-in for this panel"}
       onClose={forced ? onSignedOut : onClose}
+      // Forced: closing means signing out, so it takes the Sign out button.
+      // A stray click outside (or Esc, or the ✕) used to sign the person out
+      // and throw away the passwords they had typed.
+      dismissible={!forced}
       width={560}
       footer={
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
