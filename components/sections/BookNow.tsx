@@ -1818,7 +1818,11 @@
                 {/* Notes spans the pair above it, so the three short fields
                     stay side by side and the free-text box gets the full
                     width it actually needs. */}
-                <div className="mb-5 grid gap-4 md:grid-cols-2">
+                {/* minmax(0, …) holds each column to the card. A plain grid
+                    column grows to its widest unbreakable piece -- the
+                    send-code button's label, a long word typed into Notes --
+                    and pushed every field out past the card on a phone. */}
+                <div className="mb-5 grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                   <div>
                     <Label htmlFor="bn-name" className="mb-2 block text-[11.5px] tracking-[2px]" style={{ color: C.goldInk }}>FULL NAME</Label>
                     <div style={{ position: "relative" }}>
@@ -1914,7 +1918,7 @@
                         className="sw-btn-out"
                         onClick={() => void sendEmailCode()}
                         disabled={!isValidEmail(form.email) || codeBusy !== null}
-                        style={{ ...outBtn, width: "100%", minHeight: 46, fontSize: 12, letterSpacing: 1.5, color: C.goldInk, opacity: !isValidEmail(form.email) || codeBusy !== null ? 0.5 : 1, cursor: !isValidEmail(form.email) || codeBusy !== null ? "not-allowed" : "pointer" }}
+                        style={{ ...outBtn, width: "100%", minHeight: 46, padding: "12px 16px", fontSize: 12, letterSpacing: 1.5, lineHeight: 1.35, whiteSpace: "normal", textAlign: "center", color: C.goldInk, opacity: !isValidEmail(form.email) || codeBusy !== null ? 0.5 : 1, cursor: !isValidEmail(form.email) || codeBusy !== null ? "not-allowed" : "pointer" }}
                       >
                         {codeBusy === "send" ? "SENDING…" : "SEND A CODE TO MY EMAIL"}
                       </button>
@@ -1971,7 +1975,7 @@
                       maxLength={NOTES_MAX}
                       rows={3}
                       placeholder="Anything we should know? (optional)"
-                      className="min-h-[88px] resize-none"
+                      className="min-h-[88px] resize-none break-words"
                     />
                     <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
                       <span style={{ color: form.notes.length >= NOTES_MAX ? "#e55" : C.textS, fontSize: 11.5, fontFamily: "monospace" }}>
@@ -2370,7 +2374,7 @@
                 reader announces as decoration and which carried no meaning
                 for anyone who could not place the pictogram. */}
             <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : "24px 24px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)" }}>
-              <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2" style={{ margin: 0 }}>
+              <dl className="grid grid-cols-[minmax(0,1fr)] gap-x-8 gap-y-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" style={{ margin: 0 }}>
                 {checkoutPolicy(payFull, QUIET_HOURS_POLICY).map(([title, body]) => (
                   <div key={title}>
                     <dt style={{ color: C.textH, fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{title}</dt>

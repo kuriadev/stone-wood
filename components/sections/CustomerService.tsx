@@ -282,7 +282,7 @@ const submit = handleSubmit(async (values) => {
                     void messageField.onChange(e);
                   }}
                   rows={5}
-                  className="resize-y"
+                  className="resize-none"
                   aria-invalid={touched.message && !messageOk}
                   placeholder="Tell us how we can help..."
                 />
