@@ -538,9 +538,12 @@ function Stepper({
         touchAction: "manipulation",
         // 44x44, the HIG default control size.
         width: 44, height: 44, borderRadius: "50%",
-        background: "rgba(255,255,255,0.05)", border: "none",
-        color: disabled ? "rgba(238,232,220,0.3)" : "#fff",
-        fontSize: 19, cursor: disabled ? "not-allowed" : "pointer",
+        // Highlighted like Book Now's: gold circle and sign; grey at the limit.
+        background: disabled ? "rgba(255,255,255,0.04)" : "rgba(201,168,76,0.18)",
+        border: `1px solid ${disabled ? "transparent" : "rgba(201,168,76,0.45)"}`,
+        color: disabled ? "rgba(238,232,220,0.3)" : "#e8c56a",
+        fontSize: 20, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer",
+        transition: "background .2s ease, color .2s ease",
         display: "flex", alignItems: "center", justifyContent: "center",
       }}
     >

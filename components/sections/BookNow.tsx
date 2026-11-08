@@ -835,11 +835,18 @@
 
     /* Small gold section label for the right-hand column of step 1. */
     const sideLabel: React.CSSProperties = { color: C.goldInk, fontSize: 11, letterSpacing: 2, fontWeight: 700, margin: "0 0 10px" };
-    const guestBtn: React.CSSProperties = {
-      width: 40, height: 40, borderRadius: "50%", background: "transparent", border: "none",
-      color: C.textB, cursor: "pointer", fontSize: 18, touchAction: "manipulation",
+    /* The - / + buttons are highlighted: a gold-tinted circle with a gold
+       sign, so they read as buttons at a glance. At the limit (or locked)
+       they fade back to a quiet grey and can't be pressed. */
+    const guestBtn = (off: boolean): React.CSSProperties => ({
+      width: 40, height: 40, borderRadius: "50%",
+      background: off ? "transparent" : `${gold}26`,
+      border: `1px solid ${off ? "transparent" : `${gold}66`}`,
+      color: off ? C.textS : C.goldInk, opacity: off ? 0.45 : 1,
+      cursor: off ? "not-allowed" : "pointer", fontSize: 20, fontWeight: 600, touchAction: "manipulation",
       display: "flex", alignItems: "center", justifyContent: "center",
-    };
+      transition: "background .2s ease, color .2s ease, opacity .2s ease",
+    });
 
     const tileStyle = (selected: boolean): React.CSSProperties => ({
       background: selected ? `${gold}12` : C.bgCard2,
@@ -1552,7 +1559,7 @@
                               {...holdFewer}
                               disabled={guests <= GUESTS_MIN || guestsLocked}
                               aria-label="Fewer guests"
-                              style={guestBtn}
+                              style={guestBtn(guests <= GUESTS_MIN || guestsLocked)}
                             >
                               −
                             </button>
@@ -1570,7 +1577,7 @@
                               {...holdMore}
                               disabled={guests >= guestCap || guestsLocked}
                               aria-label="More guests"
-                              style={guestBtn}
+                              style={guestBtn(guests >= guestCap || guestsLocked)}
                             >
                               +
                             </button>
