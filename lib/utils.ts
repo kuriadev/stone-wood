@@ -28,7 +28,20 @@ export function buildPackageBookingUrl(pkg: PackageDeepLink, resource: BookingRe
   if (pkg.listPrice !== undefined) params.set("pkgListPrice", String(pkg.listPrice));
   if (pkg.requiresRoom) params.set("pkgRequiresRoom", "1");
   if (pkg.slotMode === "WholeDay") params.set("pkgSlotMode", "WholeDay");
+  // "percent-8", "amount-300": a deal running today on the room or on each
+  // extra day, for Book Now to show. The server charges from the package.
+  if (pkg.roomDeal) params.set("pkgRoomOff", `${pkg.roomDeal.type}-${pkg.roomDeal.value}`);
+  if (pkg.extraDayDeal) params.set("pkgDayOff", `${pkg.extraDayDeal.type}-${pkg.extraDayDeal.value}`);
   return `/book?${params.toString()}`;
+}
+
+/** A deal back out of a booking link ("percent-8"), or undefined. */
+export function parseLinkDeal(raw: string | null): { type: "percent" | "amount"; value: number } | undefined {
+  const m = /^(percent|amount)-(\d{1,6})$/.exec(raw ?? "");
+  if (!m) return undefined;
+  const value = Number(m[2]);
+  if (!(value > 0) || (m[1] === "percent" && value > 90)) return undefined;
+  return { type: m[1] as "percent" | "amount", value };
 }
 
 /** Format a countdown timer (seconds → MM:SS) */

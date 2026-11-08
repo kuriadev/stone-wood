@@ -1571,7 +1571,7 @@ export function Admin({
           )}
 
           {/* PACKAGES */}
-          {tab === "Packages" && <PackagesTab packages={packages} setPackages={setPackages} mob={mob} />}
+          {tab === "Packages" && <PackagesTab packages={packages} setPackages={setPackages} rooms={rooms} mob={mob} />}
 
           {/* FACILITIES */}
           {tab === "Facilities" && <FacilitiesTab facilities={facilities} setFacilities={setFacilities} bookings={bookings} mob={mob} />}

@@ -57,6 +57,10 @@ export interface PackageDeepLink {
   requiresRoom?: boolean;
   /** "Single": guest picks Day or Night. "WholeDay": fixed to both. */
   slotMode?: PackageSlotMode;
+  /** Discounts running today on the room and on each extra day, so Book
+   *  Now shows what the server will charge. The server re-prices anyway. */
+  roomDeal?: { type: "percent" | "amount"; value: number };
+  extraDayDeal?: { type: "percent" | "amount"; value: number };
 }
 
 /** Whether a package is booked for one slot of the guest's choice, or is

@@ -10,7 +10,7 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import type { PackageDeepLink } from "@/types/booking";
 import type { ResortPackage } from "@/types/package";
 import { isEventPackage } from "@/lib/packages";
-import { buildPackageBookingUrl } from "@/lib/utils";
+import { buildPackageBookingUrl, parseLinkDeal } from "@/lib/utils";
 import { packageLinkPrices } from "@/lib/pricing";
 import { manilaNow } from "@/lib/validators";
 import { GUESTS_MIN, GUESTS_MAX } from "@/lib/validators";
@@ -61,6 +61,8 @@ export default function BookPage() {
   const pkgListPrice = params.get("pkgListPrice");
   const pkgRequiresRoom = params.get("pkgRequiresRoom") === "1";
   const pkgSlotMode = params.get("pkgSlotMode") === "WholeDay" ? "WholeDay" : "Single";
+  const pkgRoomDeal = pkgRequiresRoom ? parseLinkDeal(params.get("pkgRoomOff")) : undefined;
+  const pkgDayDeal = pkgSlotMode === "WholeDay" ? parseLinkDeal(params.get("pkgDayOff")) : undefined;
   const initialPackage: PackageDeepLink | undefined =
     pkgCode && pkgTitle && pkgPrice && pkgCapacity
       ? {
@@ -71,6 +73,8 @@ export default function BookPage() {
           listPrice: pkgListPrice ? Number(pkgListPrice) : undefined,
           requiresRoom: pkgRequiresRoom || undefined,
           slotMode: pkgSlotMode,
+          roomDeal: pkgRoomDeal,
+          extraDayDeal: pkgDayDeal,
         }
       : undefined;
 

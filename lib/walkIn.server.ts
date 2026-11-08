@@ -13,8 +13,7 @@ import { getSupabaseAdmin, rowToBooking, bookingToRow, missingNewColumn, without
 import { isValidEmail, isValidPHNumber, sanitizeName, sanitizeNotes, NAME_MIN, NAME_MAX, OVERTIME_MAX, MAX_STAY_DAYS, isInStaffWindow, staffDateWindow, GUESTS_MAX, OVERRIDE_GUESTS_MAX } from "@/lib/validators";
 import { logActivity } from "@/lib/activity.server";
 import { daysInRange, fmt, fmtDate, getPackageTier } from "@/lib/utils";
-import { priceBooking, pricingProblem, packageAvailed, bookingLabel, packagePriceToday } from "@/lib/pricing";
-import type { PackageDiscount } from "@/types/package";
+import { priceBooking, pricingProblem, packageAvailed, bookingLabel, packagePricing, unpackDiscounts, type Deal } from "@/lib/pricing";
 import { checkFits } from "@/lib/rebooking.server";
 import { manilaDate } from "@/lib/finance";
 import type { BookingRow } from "@/types/database";
@@ -105,16 +104,20 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
   const isWalkInPackage = typeof b.walkInPackageCode === "string" && !!b.walkInPackageCode;
   const notOffered = pricingProblem(resourceIn, tierIn, slotIn, stayDays, isWalkInPackage);
   if (notOffered) return bad(notOffered);
-  let pkg: { price: number; requiresRoom: boolean } | null = null;
+  let pkg: { price: number; requiresRoom: boolean; roomDeal: Deal | null; extraDayDeal: Deal | null } | null = null;
   if (isWalkInPackage) {
     // select("*") so a promo is read when the column exists and simply
     // absent before its migration.
     const p = await db.from("packages").select("*").eq("code", b.walkInPackageCode).maybeSingle();
     if (p.error) throw new Error(p.error.message);
     if (!p.data || !(p.data as { active: boolean }).active) return bad("That package is no longer offered.", 409);
-    const row = p.data as { price: number; requires_room: boolean; discount?: PackageDiscount | null };
-    // The promo price while a promo runs, the same as online.
-    pkg = { price: packagePriceToday({ price: Number(row.price), discount: row.discount }, manilaDate()).pay, requiresRoom: !!row.requires_room };
+    const row = p.data as { price: number; requires_room: boolean; slot_mode?: string; discount?: unknown };
+    // The promo price while a promo runs, and any room or extra-day deal,
+    // the same as online.
+    pkg = packagePricing(
+      { price: Number(row.price), requiresRoom: !!row.requires_room, slotMode: row.slot_mode, ...unpackDiscounts(row.discount) },
+      manilaDate(),
+    );
   }
   const roomRows = roomIds.length ? await db.from("rooms").select("id, price").in("id", roomIds) : { data: [], error: null };
   if (roomRows.error) throw new Error(roomRows.error.message);

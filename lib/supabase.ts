@@ -22,6 +22,7 @@ import type { CustomerMessage } from "@/types/admin";
 import type { Facility } from "@/types/facility";
 import type { ResortPackage } from "@/types/package";
 import { withCurrentHours } from "@/lib/packages";
+import { packDiscounts, unpackDiscounts } from "@/lib/pricing";
 import type { GalleryPhoto } from "@/lib/gallery";
 import type {
   RoomRow,
@@ -287,7 +288,8 @@ export const rowToPackage = (p: PackageRow): ResortPackage => withCurrentHours({
   status: p.status,
   price: Number(p.price),
   listPrice: p.list_price === null ? undefined : Number(p.list_price),
-  discount: p.discount ?? undefined,
+  // The price promo, and the room and extra-day deals, from one column.
+  ...unpackDiscounts(p.discount),
   capacity: p.capacity,
   requiresRoom: p.requires_room || undefined,
   slotMode: p.slot_mode ?? "Single",
@@ -306,7 +308,7 @@ export const packageToRow = (p: ResortPackage): Omit<PackageRow, "id" | "created
   status: p.status,
   price: p.price,
   list_price: p.listPrice ?? null,
-  discount: p.discount ?? null,
+  discount: packDiscounts(p),
   capacity: p.capacity,
   requires_room: !!p.requiresRoom,
   slot_mode: p.slotMode ?? "Single",

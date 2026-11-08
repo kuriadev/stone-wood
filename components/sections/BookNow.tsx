@@ -11,7 +11,7 @@
   import { EventPackages } from "@/components/booking/EventPackages";
   import type { ResortPackage } from "@/types/package";
   import { MediaGallery } from "@/components/common/MediaGallery";
-  import { priceBooking, bookingLabel, labelWithTier } from "@/lib/pricing";
+  import { priceBooking, bookingLabel, labelWithTier, dealOff, dealText } from "@/lib/pricing";
   import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
   import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
   import { SLOTS, QUIET_HOURS_POLICY, TURNOVER_WINDOW, stayPatternNote, stayUnit, allowsMultiDay, MULTI_DAY_SLOT, slotStartedProblem, lateArrivalNote } from "@/lib/resort";
@@ -365,6 +365,12 @@
     const availedLabel = isPackage ? packageLabel : labelWithTier(packageLabel, tier, resource);
 
     const requiresRoom = !!initialPackage?.requiresRoom;
+    // A package's deals running today, carried in the link (the server
+    // charges from the package itself, so these only decide what is shown).
+    const roomDeal = isPackage && requiresRoom ? initialPackage?.roomDeal ?? null : null;
+    const extraDayDeal = isPackage ? initialPackage?.extraDayDeal ?? null : null;
+    /** A room's rate in this booking: less the package's room deal, if any. */
+    const roomRate = (price: number) => price - dealOff(roomDeal, price);
     // Rooms under maintenance are hidden; rooms already rented to another
     // guest on the chosen date are shown but can't be picked.
     const bookableRooms = rooms.filter((r) => isRoomOpen(r.id, facilities));
@@ -398,9 +404,9 @@
     // what's shown here is what gets charged. Named fields are unpacked
     // because the breakdown below displays each line.
     const {
-      tourBase, venueFee, total, down, slots: slotCount,
+      tourBase, venueFee, total, down, slots: slotCount, roomsOff, extraDaysOff,
     } = priceBooking({
-      pkg: isPackage ? { price: initialPackage!.price, requiresRoom } : null,
+      pkg: isPackage ? { price: initialPackage!.price, requiresRoom, roomDeal, extraDayDeal } : null,
       resource,
       tier,
       slot,
@@ -884,6 +890,8 @@
           {sumRow("Room", selRooms.length
             ? rooms.filter((r) => selRooms.includes(r.id)).map((r) => r.name).join(", ")
             : "No room add-on")}
+          {roomsOff > 0 && roomDeal && sumRow(`Room deal (${dealText(roomDeal)})`, `−${fmt(roomsOff)}`)}
+          {extraDaysOff > 0 && extraDayDeal && sumRow(`Extra days (${dealText(extraDayDeal)} each)`, `−${fmt(extraDaysOff)}`)}
           {sumHr}
           {/* How much to pay now. A radio group of two cards: the 50%
               deposit stays the default, and paying in full means nothing is
@@ -1294,6 +1302,8 @@
                         <strong style={{ color: C.textH }}>{initialPackage!.capacity} guests</strong>
                         {initialPackage!.slotMode === "WholeDay" ? <>, {SLOTS.WholeDay.hours}</> : " per tour"}.
                         {requiresRoom ? " Pick your room next." : ""}
+                        {roomDeal && <> Your room is <strong style={{ color: C.goldInk }}>{dealText(roomDeal)}</strong>.</>}
+                        {extraDayDeal && <> Staying longer? Each extra day is <strong style={{ color: C.goldInk }}>{dealText(extraDayDeal)}</strong>.</>}
                       </p>
                       {/* A single-slot package: the guest chooses when. Availability
                           above is checked for the slot picked here. */}
@@ -1654,7 +1664,10 @@
                             {taken && <span style={{ display: "block", color: "#e07a7a", fontSize: 12, marginTop: 4 }}>Already booked on {fmtDate(date)}</span>}
                           </span>
                           <span style={{ textAlign: mob ? "left" : "right", flexShrink: 0 }}>
-                            <span style={{ display: "block", color: C.goldInk, fontWeight: 700, fontSize: mob ? 17 : 15.5 }}>{fmt(r.price)}</span>
+                            <span style={{ display: "block", color: C.goldInk, fontWeight: 700, fontSize: mob ? 17 : 15.5 }}>{fmt(roomRate(r.price))}</span>
+                            {roomRate(r.price) < r.price && (
+                              <span style={{ display: "block", color: C.textXS, fontSize: 12, textDecoration: "line-through" }} aria-label={`was ${fmt(r.price)}`}>{fmt(r.price)}</span>
+                            )}
                           </span>
                         </button>
 
@@ -2080,10 +2093,13 @@
                     <div style={{ marginTop: "auto", borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
                       <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 16 }}>
                         <span style={{ color: C.goldInk, fontSize: 24, fontWeight: 700, lineHeight: 1 }}>
-                          {fmt(roomPhoto.price)}
+                          {fmt(roomRate(roomPhoto.price))}
                         </span>
                         <span style={{ color: C.textS, fontSize: 12.5 }}>per tour</span>
-                        {requiresRoom && (
+                        {/* Struck through only when the package's room deal
+                            really lowers it. It used to strike the same
+                            price through on every package with a room. */}
+                        {roomRate(roomPhoto.price) < roomPhoto.price && (
                           <span style={{ color: C.textXS, fontSize: 12, textDecoration: "line-through" }}>{fmt(roomPhoto.price)}</span>
                         )}
                       </div>

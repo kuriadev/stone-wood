@@ -6,7 +6,7 @@ import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
-import { packageValue, packagePriceToday, packageLinkPrices, promoUntilLabel } from "@/lib/pricing";
+import { packageValue, packagePriceToday, packageLinkPrices, promoUntilLabel, packageExtraDeals } from "@/lib/pricing";
 import { manilaNow } from "@/lib/validators";
 import { SLOTS } from "@/lib/resort";
 import { Icon, type IconName } from "@/components/common/Icon";
@@ -337,7 +337,9 @@ function TierCarousel({
   );
 }
 
-function PackageCard({
+/** One package as a guest sees it. Exported for the admin form's guest
+ *  view, which renders it with the form's unsaved values. */
+export function PackageCard({
   p, C, isDark, mob, onOpenGallery, onBook,
 }: {
   p: ResortPackage;
@@ -358,6 +360,8 @@ function PackageCard({
   const includes = p.includes.filter((inc) => ![SLOTS.Day.hours, SLOTS.Night.hours, SLOTS.WholeDay.hours].some((h) => inc.includes(h)));
   // A promo the owner set (Packages & Prices): what is charged today.
   const promo = packagePriceToday(p, manilaNow().date);
+  // Money off the room or each extra day, running today.
+  const extraDeals = packageExtraDeals(p, manilaNow().date);
 
   return (
     <article
@@ -488,6 +492,19 @@ function PackageCard({
               <p className="mt-2 text-[12.5px]" style={{ color: C.textS }}>
                 You save {fmt(promo.off)}{promo.until ? `, ${promoUntilLabel(promo.until)}` : ""}.
               </p>
+            )}
+            {extraDeals.length > 0 && (
+              <ul className="m-0 mt-3 flex list-none flex-wrap gap-2 p-0">
+                {extraDeals.map((d) => (
+                  <li
+                    key={d.part}
+                    className="rounded-full border px-3 py-1 text-[12px] font-semibold"
+                    style={{ background: "rgba(226,87,76,0.08)", color: "#e2574c", borderColor: "rgba(226,87,76,0.4)" }}
+                  >
+                    {d.text}{d.until ? `, ${promoUntilLabel(d.until)}` : ""}
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
 
