@@ -46,7 +46,7 @@ export function GuestTabBar() {
   if (hidden) return null;
 
   const go = (href: string) => {
-    // The same curtain and top bar as the Navbar's links (ClientShell).
+    // The same top bar as the Navbar's links (ClientShell).
     const loader = globalThis.loader?.current;
     if (loader) loader.start(href, () => router.push(href));
     else router.push(href);

@@ -1,6 +1,6 @@
 "use client";
 
-/* Pay a walk-in by QR Ph (GCash, Maya, ShopeePay or any QR Ph e-wallet).
+/* Pay a walk-in by QR Ph (GCash, Maya or any QR Ph e-wallet).
  *
  * The page behind blurs; the QR sits on the left with the amount and a
  * countdown, the booking it pays for on the right. It checks every few
@@ -8,6 +8,7 @@
  * payment id and the walk-in saves itself. "Cancel payment" voids the code
  * so a late scan can't take money. /api/payment/desk. */
 
+import { WalletBadges } from "@/components/common/WalletBadges";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ActionButton, useAdminStyle } from "@/components/admin/ui";
@@ -96,9 +97,10 @@ export function QrPayModal({ amount, description, summary, onPaid, onCancel }: {
         <div className="sw-qrpay__grid">
           {/* ── The code ── */}
           <section className="sw-qrpay__left">
-            <div className="sw-qrpay__brand"><Icon name="cash" size={15} /> QR Ph · GCash, Maya, ShopeePay or any QR Ph e-wallet</div>
+            <div className="sw-qrpay__brand"><Icon name="cash" size={15} /> QR Ph</div>
             <DialogTitle className="sw-qrpay__amount">{fmt(amount)}</DialogTitle>
             <DialogDescription className="sw-qrpay__sub">Ask the guest to scan this with their app and pay. It saves by itself when the payment arrives.</DialogDescription>
+            <div style={{ margin: "10px 0 4px" }}><WalletBadges muted="rgba(150,140,120,0.95)" line="rgba(150,140,120,0.35)" /></div>
             <div className={`sw-qrpay__qr is-${phase}`}>
               {qr?.image && phase !== "error"
                 // eslint-disable-next-line @next/next/no-img-element -- PayMongo's QR, a data URL

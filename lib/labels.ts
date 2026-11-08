@@ -60,9 +60,12 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
  *  These are the e-wallets that pay a PayMongo QR Ph code (PayMongo's own
  *  list, paymongo.com/qrph). Banks are not listed: the resort takes cash
  *  and QR Ph e-wallets only. */
-export const QRPH_WALLETS = ["GCash", "Maya", "ShopeePay"] as const;
-/** "GCash, Maya, ShopeePay or any e-wallet that accepts QR Ph" */
-export const QRPH_WALLETS_TEXT = `${QRPH_WALLETS.join(", ")} or any e-wallet that accepts QR Ph`;
+export const QRPH_WALLETS = [
+  { name: "GCash", icon: "/images/wallets/gcash.png" },
+  { name: "Maya", icon: "/images/wallets/maya.png" },
+] as const;
+/** "GCash, Maya or any e-wallet that accepts QR Ph" */
+export const QRPH_WALLETS_TEXT = `${QRPH_WALLETS.map((w) => w.name).join(", ")} or any e-wallet that accepts QR Ph`;
 
 /** Label for any stored value; falls back to the value itself. */
 export function labelOf<K extends string>(map: Record<K, string>, value: string | null | undefined): string {

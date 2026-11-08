@@ -2,13 +2,12 @@
 
 import { subscribeSettingsVersion, getSettingsVersion } from "@/lib/settingsLive";
 import { useToast } from "@/contexts/ToastContext";
-import { useRef, useEffect, useState, useCallback, useSyncExternalStore } from "react";
+import { useRef, useEffect, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { TopLoader, LoaderRef } from "@/components/layout/TopLoader";
 import { GuestTabBar } from "@/components/layout/GuestTabBar";
 import { useApp } from "@/contexts/AppContext";
 import { MaintenanceGate } from "@/components/layout/MaintenanceGate";
-import { PageCurtain, CURTAIN_PAGES, type CurtainPhase } from "@/components/layout/PageCurtain";
 
 export function ClientShell({ children }: { children: React.ReactNode }) {
   const loaderRef = useRef<LoaderRef>(null);
@@ -44,66 +43,26 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
      after the click, nothing navigated and the bar completes itself. */
   const sameRoute = useRef<number | null>(null);
 
-  /* The curtain between pages (PageCurtain.tsx). A nav click that names
-     its destination fades it in, and the push waits until it covers the
-     screen, so the old page never cuts to the new one. It fades out once
-     the new page has really rendered (its data in, the route skeleton
-     gone), and never before the page name has had time to be read.
-
-     Once per page per visit: the first trip to Rooms shows "Rooms", later
-     ones just switch (with the page's own fade). Remembered in
-     sessionStorage, like the first-load intro. */
-  const [curtain, setCurtain] = useState<{ phase: CurtainPhase; path: string | null }>({ phase: "idle", path: null });
-  const curtainAt = useRef(0);
-  const curtainTimers = useRef<number[]>([]);
-  const clearCurtainTimers = useCallback(() => { curtainTimers.current.forEach(clearTimeout); curtainTimers.current = []; }, []);
-  const seenCurtain = (path: string): boolean => {
-    try { return (JSON.parse(sessionStorage.getItem("sw_curtains") ?? "[]") as string[]).includes(path); } catch { return false; }
-  };
-  const markCurtain = (path: string) => {
-    try {
-      const seen = JSON.parse(sessionStorage.getItem("sw_curtains") ?? "[]") as string[];
-      if (!seen.includes(path)) sessionStorage.setItem("sw_curtains", JSON.stringify([...seen, path]));
-    } catch { /* private mode: it may show again, nothing breaks */ }
-  };
-  // The curtain's state as of now, for start() (which never re-renders).
-  const curtainRef = useRef(curtain);
-  useEffect(() => { curtainRef.current = curtain; }, [curtain]);
-  const liftCurtain = useCallback(() => {
-    clearCurtainTimers();
-    setCurtain((c) => (c.phase === "in" ? { ...c, phase: "out" } : c));
-    curtainTimers.current.push(window.setTimeout(() => setCurtain({ phase: "idle", path: null }), 760));
-  }, [clearCurtainTimers]);
+  /* No curtain between pages: a nav click switches straight to the page
+     (with its own fade and the top bar). The full-screen intro shows only
+     when the site is first opened (IntroSplash.tsx). */
 
   // expose globally (for nav control)
   useEffect(() => {
     globalThis.loader = {
       get current() {
         return {
-          /** `target` and `push`, when given, let the curtain run: it rises,
-              then `push` navigates. Without them it is just the bar. */
+          /** Starts the top bar, then `push` (when given) navigates.
+              `target` is accepted for the callers; it no longer changes anything. */
           start(target?: string, push?: () => void) {
             const from = pathRef.current;
-            // A second click while it is already on its way there: nothing
-            // new to show, and the push is already queued.
-            if (target && curtainRef.current.phase === "in" && curtainRef.current.path === target) return;
-            const curtained = !!(target && push && CURTAIN_PAGES[target] && target !== from && !seenCurtain(target));
             loaderRef.current?.start();
             if (sameRoute.current !== null) clearTimeout(sameRoute.current);
             sameRoute.current = window.setTimeout(() => {
               sameRoute.current = null;
               if (pathRef.current === from) loaderRef.current?.finish();
-            }, curtained ? 1400 : 700);
-            if (!curtained) { push?.(); return; }
-            clearCurtainTimers();
-            markCurtain(target!);
-            curtainAt.current = Date.now();
-            setCurtain({ phase: "in", path: target! });
-            curtainTimers.current.push(
-              window.setTimeout(push!, 430),
-              // Whatever goes wrong, the curtain never stays down.
-              window.setTimeout(liftCurtain, 6000),
-            );
+            }, 700);
+            push?.();
           },
           finish() {
             if (sameRoute.current !== null) { clearTimeout(sameRoute.current); sameRoute.current = null; }
@@ -114,29 +73,12 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
     };
     return () => {
       if (sameRoute.current !== null) clearTimeout(sameRoute.current);
-      clearCurtainTimers();
     };
-  }, [clearCurtainTimers, liftCurtain]);
-
-  // Lift the curtain once its page is in, has its data, and the route
-  // skeleton (app/loading.tsx) has given way to the real page -- checked
-  // every few frames, since nothing announces that. Then one more frame so
-  // the page has painted before the fade starts.
-  useEffect(() => {
-    if (curtain.phase !== "in" || pathname !== curtain.path || loading.content) return;
-    let t = 0;
-    const check = () => {
-      if (document.querySelector("[data-sw-route-loading]")) { t = window.setTimeout(check, 80); return; }
-      t = window.setTimeout(() => requestAnimationFrame(liftCurtain), 0);
-    };
-    t = window.setTimeout(check, Math.max(0, 1100 - (Date.now() - curtainAt.current)));
-    return () => clearTimeout(t);
-  }, [curtain, pathname, loading.content, liftCurtain]);
+  }, []);
 
   // Finish the bar when the new route has actually rendered.
   //
-  // Each link handler calls loader.start() and pushes (after the curtain
-  // rises, when there is one); this
+  // Each link handler calls loader.start() and pushes; this
   // effect fires once React has committed the new page, which is the real
   // end of the navigation. Previously every handler called finish() itself
   // *before* router.push, so the bar completed while the next page had not
@@ -162,7 +104,6 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <TopLoader ref={loaderRef} />
-      <PageCurtain phase={curtain.phase} path={curtain.path} />
       {/* Phones: the bottom tabs, in the first HTML of every guest page
           (hidden by CSS above 760px; never on the admin or sign-in). */}
       <GuestTabBar />
