@@ -2,9 +2,9 @@
 
 /* Tomorrow's arrivals, with a reminder for each — on the Dashboard.
  *
- * Most guests here read texts, not email, so each arrival gets a one-tap
- * "Text reminder" from the owner's own phone (the same TextGuest every
- * other notice uses). The day-before email goes out by itself: opening the
+ * The resort doesn't send text messages; everything goes by email. Each
+ * arrival has an Email button to write to the guest, and the day-before
+ * reminder email goes out by itself: opening the
  * Dashboard runs /api/reminders once a day, and that route emails each
  * booking once. The row says when it did.
  */
@@ -13,8 +13,7 @@ import { useEffect, useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
 import { useStaff } from "@/contexts/StaffContext";
 import { ActionButton, StatusBadge, useAdminStyle } from "@/components/admin/ui";
-import { TextGuest } from "@/components/admin/TextGuest";
-import { notices } from "@/lib/notices";
+import { EmailGuestModal } from "@/components/admin/EmailGuestModal";
 import { bookingMoney, manilaDate } from "@/lib/finance";
 import { fmt, getBookingSlot } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
@@ -25,8 +24,9 @@ export function TomorrowPanel({ bookings }: { bookings: Booking[] }) {
   const { C, cBr, cBg } = useAdminStyle();
   const ops = useOps();
   const staff = useStaff();
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [link, setLink] = useState<string | null>(null);
+  // Write to a guest by email (the day-before reminder itself goes out
+  // automatically; texts are not sent any more).
+  const [emailing, setEmailing] = useState<Booking | null>(null);
   const [shown, toggleShown] = useFold("tomorrow");
   const today = manilaDate();
   const tomorrow = manilaDate(new Date(Date.now() + 86_400_000));
@@ -52,12 +52,6 @@ export function TomorrowPanel({ bookings }: { bookings: Booking[] }) {
     .sort((a, b) => (a.arrivalTime ?? "99").localeCompare(b.arrivalTime ?? "99"));
   if (arriving.length === 0) return null;
 
-  const open = async (b: Booking) => {
-    if (openId === b.id) { setOpenId(null); return; }
-    setOpenId(b.id);
-    setLink(null);
-    setLink(await ops.guestLink(b.id));
-  };
 
   return (
     <section aria-labelledby="tomorrow" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, padding: shown ? "16px 20px 8px" : "16px 20px", marginBottom: 20 }}>
@@ -82,20 +76,14 @@ export function TomorrowPanel({ bookings }: { bookings: Booking[] }) {
                 </div>
                 {b.status === "Pending" && <StatusBadge color="#f5a524">Not confirmed</StatusBadge>}
                 {b.remindedAt ? <StatusBadge color="#2e9e4e">Emailed</StatusBadge> : b.email ? null : <StatusBadge color="#888">No email</StatusBadge>}
-                <ActionButton size="sm" icon="message" onClick={() => void open(b)}>{openId === b.id ? "Close" : "Text reminder"}</ActionButton>
+                <ActionButton size="sm" icon="mail" onClick={() => setEmailing(b)}>Email</ActionButton>
               </div>
-              {openId === b.id && (
-                <div style={{ marginTop: 10 }}>
-                  {link
-                    ? <TextGuest booking={b} message={notices.reminder(b, link, Math.max(0, m.balance)).sms} about="the reminder for tomorrow" />
-                    : <p style={{ color: C.textS, fontSize: 12.5, margin: 0 }}>Preparing the message…</p>}
-                </div>
-              )}
             </li>
           );
         })}
       </ul>
       </div>)}
+      {emailing && <EmailGuestModal booking={emailing} onClose={() => setEmailing(null)} />}
     </section>
   );
 }

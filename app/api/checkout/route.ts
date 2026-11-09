@@ -31,7 +31,7 @@ import { recordMovements, missingStockTable } from "@/lib/stock.server";
 import { actingStaff } from "@/lib/staff.server";
 import { loadBookingLedger } from "@/lib/ledger.server";
 import { cleanItems } from "@/lib/inspection.server";
-import { facilitiesForBooking } from "@/lib/facilityUsage";
+import { facilitiesForBooking, checklistFor } from "@/lib/facilityUsage";
 import { cleanText } from "@/lib/money";
 import { round2 } from "@/lib/finance";
 import type { FacilityRow, DamageRateRow } from "@/types/database";
@@ -72,7 +72,21 @@ export async function POST(req: NextRequest) {
     const usedIds = new Set(used.map((f) => f.id));
     const rates = new Map((rs.data as DamageRateRow[]).map(rowToDamageRate).map((r) => [r.id, r]));
 
-    const items = cleanItems(b.items, usedIds);
+    // Every facility the group used, with its full after-use list rebuilt
+    // here, so a shortened list from the screen can't skip a check. An item
+    // counts as done only if it was sent ticked; ALL must be.
+    const sent = cleanItems(b.items, usedIds);
+    const items = used.map((f) => {
+      const got = sent.find((x) => x.facilityId === f.id);
+      return {
+        facilityId: f.id, facilityName: f.name, condition: got?.condition ?? ("OK" as const),
+        checklist: checklistFor(f, "after").map((label) => ({ label, done: !!got?.checklist.find((c) => c.label === label)?.done })),
+      };
+    });
+    const unchecked = items.reduce((n, x) => n + x.checklist.filter((c) => !c.done).length, 0);
+    if (unchecked > 0) {
+      return NextResponse.json({ success: false, error: `${unchecked} check${unchecked === 1 ? " isn't" : "s aren't"} ticked yet. Inspect and tick every item before checking out.` }, { status: 400 });
+    }
 
     // ── Damages, priced on the server ────────────────────────────────
     const rawDamages = Array.isArray(b.damages) ? b.damages.slice(0, 50) : [];

@@ -20,7 +20,6 @@ import { fmtDate, getBookingSlot } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
 import type { Booking } from "@/types/booking";
 import type { DateChange } from "@/types/finance";
-import { TextGuest } from "@/components/admin/TextGuest";
 import { ActionButton, ConfirmDialog, ErrorNote, Label, AmountRow, Modal, useAdminStyle } from "@/components/admin/ui";
 
 export function DateChangeReview({ request, booking, onClose }: { request: DateChange; booking: Booking; onClose: () => void }) {
@@ -66,7 +65,6 @@ export function DateChangeReview({ request, booking, onClose }: { request: DateC
         <p style={{ color: C.textB, fontSize: 13.5, marginTop: 0 }}>
           {done.approved ? "The preparation checklist was reset for the new date. " : ""}They were emailed{booking.email ? "" : " (no email on file)"}. Text them too:
         </p>
-        {done.sms && <TextGuest booking={booking} message={done.sms} about={done.approved ? "the new date" : rebook ? "picking another date" : "the declined date change"} />}
       </Modal>
     );
   }

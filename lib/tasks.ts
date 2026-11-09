@@ -23,7 +23,7 @@ import type { Facility } from "@/types/facility";
 import type { Inspection } from "@/types/finance";
 import type { UpkeepRun, UpkeepTask } from "@/types/tasks";
 import { prepBlocked } from "@/lib/operations";
-import { facilitiesForBooking } from "@/lib/facilityUsage";
+import { preparedBookingIds, facilitiesForBooking } from "@/lib/facilityUsage";
 import { bookingEndDate } from "@/lib/utils";
 import { getOccupancyWindow, departureDate } from "@/lib/occupancy";
 
@@ -94,7 +94,8 @@ export function caretakerTasks(input: {
   today: string;
 }): CaretakerTask[] {
   const { bookings, facilities, inspections, upkeep, runs, today } = input;
-  const prepared = new Set(inspections.filter((i) => i.stage === "Preparation").map((i) => i.bookingId));
+  // Prepared for this group, or covered by another group on the same tour.
+  const prepared = preparedBookingIds(bookings, inspections, facilities);
   const live = bookings.filter((b) =>
     !b.archived && !b.id.startsWith("TMP-") && (b.status === "Confirmed" || b.status === "Pending"));
   const tasks: CaretakerTask[] = [];

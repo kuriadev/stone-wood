@@ -7,7 +7,7 @@
 // tests/unit/bookingIndicator.test.ts.
 
 import type { Booking } from "@/types/booking";
-import { isNoShow } from "@/lib/labels";
+import { isNoShow, isRefunded } from "@/lib/labels";
 import { bookingEndDate } from "@/lib/utils";
 
 export type IndicatorSignal = "urgent" | "attention" | "progress" | "done" | "guest" | "closed";
@@ -29,6 +29,8 @@ const daysBetween = (from: string, to: string) =>
  */
 export function bookingIndicator(b: Booking, today: string, due: number, asksMove = false): Indicator {
   if (isNoShow(b)) return { label: "No-show", signal: "closed", icon: "user-x" };
+  if (isRefunded(b)) return { label: "Refunded", signal: "done", icon: "cash" };
+  if (b.status === "Cancelled" && b.refundStatus === "Owed") return { label: "Refund owed", signal: "urgent", icon: "cash" };
   if (b.status === "Cancelled") return { label: "Cancelled", signal: "closed", icon: "x" };
   if (b.status === "ResortCancelled") return { label: "Waiting for the guest to choose", signal: "guest", icon: "history" };
   if (b.status === "Completed") {

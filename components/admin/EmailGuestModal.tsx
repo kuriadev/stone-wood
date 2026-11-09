@@ -20,12 +20,19 @@ import { Modal, ActionButton, Label, useAdminStyle } from "@/components/admin/ui
 import { useToast } from "@/contexts/ToastContext";
 import { defaultGuestSubject, GUEST_MESSAGE_MAX, GUEST_SUBJECT_MAX } from "@/lib/emailTemplate";
 import { stayLabel } from "@/lib/utils";
+import { guestEmailDraft } from "@/lib/guestEmailDraft";
+import { bookingMoney, manilaDate } from "@/lib/finance";
+import { useOps } from "@/contexts/OpsContext";
 import type { Booking } from "@/types/booking";
 
 export function EmailGuestModal({ booking, onClose }: { booking: Booking; onClose: () => void }) {
   const { C } = useAdminStyle();
   const { toast } = useToast();
-  const [subject, setSubject] = useState(defaultGuestSubject(booking));
+  const ops = useOps();
+  // The subject and the example message fit where this booking stands
+  // (lib/guestEmailDraft.ts), worked out once when the window opens.
+  const [draft] = useState(() => guestEmailDraft(booking, bookingMoney(booking, ops.payments, ops.damages).due, manilaDate()));
+  const [subject, setSubject] = useState(draft.subject);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -121,7 +128,6 @@ export function EmailGuestModal({ booking, onClose }: { booking: Booking; onClos
             value={message}
             maxLength={GUEST_MESSAGE_MAX}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="e.g. Your room is ready early if you'd like to come at 1 PM."
             className="resize-none"
           />
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 6 }}>

@@ -29,7 +29,6 @@ import { GUEST_CHOICE_DAYS } from "@/lib/rebooking";
 import { fmt, fmtDate } from "@/lib/utils";
 import type { Booking } from "@/types/booking";
 import type { RejectionMoney } from "@/lib/emailTemplate";
-import { TextGuest } from "@/components/admin/TextGuest";
 import { ActionButton, ConfirmDialog, ErrorNote, Label, Modal, useAdminStyle } from "@/components/admin/ui";
 
 export type UpdateStatus = (
@@ -86,7 +85,6 @@ export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onC
           {done.emailed ? `An email went to ${booking.email}. ` : booking.email ? "The email couldn't be sent. " : "This guest has no email. "}
           Most guests read texts sooner, so send them this too:
         </p>
-        {done.sms && <TextGuest booking={booking} message={done.sms} about="the cancellation" />}
       </Modal>
     );
   }

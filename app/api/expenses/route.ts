@@ -4,14 +4,13 @@
 // The "money out" half of liquidation. Like payments, an expense is voided
 // rather than deleted so the day's figures can always be traced.
 
-import { payMethodLabel } from "@/lib/labels";
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity } from "@/lib/activity.server";
 import { fmt } from "@/lib/utils";
 import { getSupabaseAdmin, rowToExpense } from "@/lib/supabase";
 import { requirePermission } from "@/lib/auth";
 import { parseAmount, cleanText, isDateStr } from "@/lib/money";
-import { EXPENSE_CATEGORIES, MANUAL_METHODS } from "@/types/finance";
+import { EXPENSE_CATEGORIES, EXPENSE_MAX } from "@/types/finance";
 import type { ExpenseRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -23,20 +22,21 @@ export async function POST(req: NextRequest) {
   const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!b) return NextResponse.json({ success: false, error: "Invalid request." }, { status: 400 });
 
-  const amount = parseAmount(b.amount);
+  const amount = parseAmount(b.amount, EXPENSE_MAX);
   const description = cleanText(b.description, 200);
   if (!EXPENSE_CATEGORIES.includes(b.category as never)) return NextResponse.json({ success: false, error: "Choose a category." }, { status: 400 });
-  if (!MANUAL_METHODS.includes(b.method as never)) return NextResponse.json({ success: false, error: "Choose how it was paid." }, { status: 400 });
   if (description.length < 2) return NextResponse.json({ success: false, error: "Describe what the money was spent on." }, { status: 400 });
-  if (amount === null) return NextResponse.json({ success: false, error: "Enter an amount greater than zero." }, { status: 400 });
+  if (amount === null) return NextResponse.json({ success: false, error: `Enter an amount greater than zero, up to ${fmt(EXPENSE_MAX)}.` }, { status: 400 });
   if (!isDateStr(b.spentOn)) return NextResponse.json({ success: false, error: "Enter the date it was spent." }, { status: 400 });
 
   try {
     const { data, error } = await getSupabaseAdmin().from("expenses").insert({
-      category: b.category, description, amount, method: b.method, spent_on: b.spentOn,
+      // Every expense is paid out of the cash box: Close the day expects
+      // that much less cash. (There is no "paid with" choice any more.)
+      category: b.category, description, amount, method: "Cash", spent_on: b.spentOn,
     }).select().single();
     if (error) throw new Error(error.message);
-    await logActivity({ actor: "Admin", action: "expense.added", entity: "expense", entityId: (data as ExpenseRow).id, summary: `Recorded an expense: ${description}, ${fmt(amount)} (${b.category}, ${payMethodLabel(String(b.method))}).` });
+    await logActivity({ actor: "Admin", action: "expense.added", entity: "expense", entityId: (data as ExpenseRow).id, summary: `Recorded an expense: ${description}, ${fmt(amount)} (${b.category}, from the cash box).` });
     return NextResponse.json({ success: true, expense: rowToExpense(data as ExpenseRow) }, { status: 201 });
   } catch (err) {
     console.error("[/api/expenses POST]", err);

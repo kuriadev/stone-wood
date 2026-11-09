@@ -438,6 +438,58 @@ export function buildGuestMessageEmail(
   return { subject: clean, html };
 }
 
+/**
+ * A reply to a message the guest sent from the Customer Service form, on the
+ * resort's letterhead. The text is the reply as staff wrote it (greeting and
+ * sign-off included), escaped and given its line breaks back.
+ */
+export function buildMessageReplyEmail(subject: string, reply: string): { subject: string; html: string } {
+  const clean = (subject || "").trim().slice(0, GUEST_SUBJECT_MAX) || "Re: your message to Stonewood Garden";
+  const body = escapeHtml((reply || "").trim().slice(0, GUEST_MESSAGE_MAX))
+    .split(/\r?\n/)
+    .map((line) => (line.trim() ? line : "&nbsp;"))
+    .join("<br />");
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(clean)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f1eb;font-family:'Georgia',serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1eb;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">
+          <tr>
+            <td style="background:linear-gradient(135deg,#1a1108 0%,#2d1f0a 60%,#1a1108 100%);border-radius:12px 12px 0 0;padding:32px;text-align:center;">
+              <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:4px;text-transform:uppercase;">Stonewood Garden Private Resort</p>
+              <h1 style="margin:0;color:#f0e6cc;font-size:22px;font-weight:400;letter-spacing:1px;">A reply to your message</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#ffffff;padding:32px 36px;">
+              <div style="margin:0 0 24px;color:#4a3a28;font-size:14.5px;line-height:1.8;">${body}</div>
+              <p style="margin:0;color:#6b5a44;font-size:13px;line-height:1.7;">
+                Just reply to this email if you have more questions, or call us on ${escapeHtml(RESORT_CONTACT.phone)}.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#1a1108;border-radius:0 0 12px 12px;padding:22px 36px;text-align:center;">
+              <p style="margin:0;color:#8a7a5a;font-size:11px;line-height:1.8;">Stonewood Garden Private Resort · ${escapeHtml(RESORT_CONTACT.phone)}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+  return { subject: clean, html };
+}
+
 export function buildReceiptEmail(booking: Booking): { subject: string; html: string } {
   const subject = `✅ Booking Confirmed – ${sanitizeHeaderValue(booking.id, 40)} | Stonewood Garden Private Resort`;
 
@@ -640,7 +692,13 @@ export interface Notice {
    *  and email, for a next step that is a conversation rather than a
    *  click: a refund after a resort cancellation is arranged that way.
    *  `mailSubject` pre-fills the email link. */
-  contact?: { title: string; note: string; mailSubject?: string };
+  contact?: {
+    title: string; note: string; mailSubject?: string;
+    /** Shown large at the top of the panel, so the two facts the guest
+     *  needs (how much, and what to quote) can't be missed. */
+    amount?: { label: string; value: string };
+    reference?: { label: string; value: string };
+  };
 }
 
 export function buildNoticeEmail(n: Notice): { subject: string; html: string } {
@@ -683,16 +741,28 @@ export function buildNoticeEmail(n: Notice): { subject: string; html: string } {
                 </tr>
               </table>` : ""}
               ${n.contact ? `
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 4px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 4px;">
                 <tr>
-                  <td style="background:#faf5e8;border:1px solid #e2d5b0;border-radius:8px;padding:20px 24px;">
-                    <p style="margin:0 0 6px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;">${escapeHtml(n.contact.title)}</p>
-                    <p style="margin:0 0 12px;color:#4a3a28;font-size:13px;line-height:1.7;">${escapeHtml(n.contact.note)}</p>
-                    <table width="100%" cellpadding="0" cellspacing="0">${contactChannels(n.contact.mailSubject).map((c) => `
+                  <td style="background:#fff8e6;border:2px solid #c9a84c;border-radius:10px;padding:22px 24px;">
+                    <p style="margin:0 0 8px;color:#2a1f0e;font-size:19px;font-weight:700;line-height:1.3;">${escapeHtml(n.contact.title)}</p>
+                    ${n.contact.amount || n.contact.reference ? `
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 14px;">
                       <tr>
-                        <td style="padding:7px 0;border-top:1px solid #ece2c8;color:#8a6d3b;font-size:12px;width:40%;">${escapeHtml(c.label)}</td>
-                        <td style="padding:7px 0;border-top:1px solid #ece2c8;font-size:13px;font-weight:600;">${c.href
-                          ? `<a href="${escapeHtml(c.href)}" style="color:#2a1f0e;text-decoration:underline;">${escapeHtml(c.value)}</a>`
+                        ${[n.contact.amount, n.contact.reference].filter((x): x is { label: string; value: string } => !!x).map((x, i) => `
+                        <td valign="top" style="width:50%;${i === 0 ? "padding-right:6px;" : "padding-left:6px;"}">
+                          <div style="background:#2a1f0e;border-radius:8px;padding:12px 14px;">
+                            <div style="color:#c9a84c;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">${escapeHtml(x.label)}</div>
+                            <div style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:${i === 0 ? "0" : "1px"};${i === 0 ? "" : "font-family:'Courier New',monospace;"}">${escapeHtml(x.value)}</div>
+                          </div>
+                        </td>`).join("")}
+                      </tr>
+                    </table>` : ""}
+                    <p style="margin:0 0 14px;color:#2a1f0e;font-size:14.5px;line-height:1.7;">${escapeHtml(n.contact.note)}</p>
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;">${contactChannels(n.contact.mailSubject).map((c, i) => `
+                      <tr>
+                        <td style="padding:11px 14px;${i ? "border-top:1px solid #f0e6cc;" : ""}color:#8a6d3b;font-size:12.5px;width:36%;">${escapeHtml(c.label)}</td>
+                        <td style="padding:11px 14px;${i ? "border-top:1px solid #f0e6cc;" : ""}font-size:15px;font-weight:700;">${c.href
+                          ? `<a href="${escapeHtml(c.href)}" style="color:#8a5a00;text-decoration:underline;">${escapeHtml(c.value)}</a>`
                           : `<span style="color:#2a1f0e;">${escapeHtml(c.value)}</span>`}</td>
                       </tr>`).join("")}
                     </table>

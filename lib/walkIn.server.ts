@@ -11,12 +11,13 @@
 import { payMethodLabel } from "@/lib/labels";
 import { checkDeskQr, isDeskQrRef } from "@/lib/deskQr.server";
 import { getSupabaseAdmin, rowToBooking, bookingToRow, missingNewColumn, withoutNewColumns } from "@/lib/supabase";
-import { isValidEmail, isValidPHNumber, sanitizeName, sanitizeNotes, NAME_MIN, NAME_MAX, OVERTIME_MAX, MAX_STAY_DAYS, isInStaffWindow, staffDateWindow, GUESTS_MAX, OVERRIDE_GUESTS_MAX, guestLimitFor } from "@/lib/validators";
+import { isValidEmail, isValidPHNumber, sanitizeName, WALKIN_NOTES_MAX, NAME_MIN, NAME_MAX, OVERTIME_MAX, MAX_STAY_DAYS, isInStaffWindow, staffDateWindow, GUESTS_MAX, OVERRIDE_GUESTS_MAX, guestLimitFor } from "@/lib/validators";
 import { logActivity } from "@/lib/activity.server";
 import { daysInRange, fmt, fmtDate, getPackageTier } from "@/lib/utils";
 import { priceBooking, pricingProblem, packageAvailed, bookingLabel, packagePricing, unpackDiscounts, type Deal } from "@/lib/pricing";
 import { checkFits } from "@/lib/rebooking.server";
 import { manilaDate } from "@/lib/finance";
+import { slotTiming, SLOTS as SLOT_INFO } from "@/lib/resort";
 import type { BookingRow } from "@/types/database";
 import type { Booking, BookingResource, BookingSlot, BookingSource, BookingTier } from "@/types/booking";
 
@@ -102,6 +103,11 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
   // payment is checked against, so it has to be the real one.
   const slotIn: BookingSlot = SLOTS.includes(b.slot as BookingSlot) ? (b.slot as BookingSlot) : "Day";
   const resourceIn: BookingResource = RESOURCES.includes(b.resource as BookingResource) ? (b.resource as BookingResource) : "Pool";
+  // Today's tour that has already ended can't be booked: the group would
+  // have no time left. (An import of an offline booking keeps its date.)
+  if (!opts.fromToday && slotTiming(startDate, slotIn, new Date(), resourceIn) === "ended") {
+    return bad(`Today's ${SLOT_INFO[slotIn].label} has already ended. Choose another tour or another date.`);
+  }
   const tierIn: BookingTier = TIERS.includes(b.tier as BookingTier) ? (b.tier as BookingTier) : getPackageTier(Math.round(guests), slotIn, resourceIn);
   const overtimeIn = slotIn === "Day" ? Math.min(OVERTIME_MAX, Math.max(0, Math.round(Number(b.overtime) || 0))) : 0;
   const roomIds = Array.isArray(b.rooms) ? b.rooms.map(Number).filter(Number.isFinite) : [];
@@ -148,6 +154,9 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
   // The booking itself stores the REQUIRED down payment (50%); what was
   // actually received goes into the payments ledger.
   const payIn = b.initialPayment;
+  // A walk-in pays at the desk as it is booked: in full or 50% down. (An
+  // offline booking being imported may have had nothing paid yet.)
+  if (!payIn && !opts.fromToday) return bad("Record the payment: in full or 50% down.");
   const payAmount = payIn ? Math.round(Number(payIn.amount) * 100) / 100 : 0;
   if (payIn && (!Number.isFinite(payAmount) || payAmount <= 0 || payAmount > total || !PAY_METHODS.includes(payIn.method))) {
     return bad(payAmount > total ? `The amount paid is more than the total of ${fmt(total)}.` : "The payment taken is not valid.");
@@ -184,7 +193,7 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
     rooms: roomIds,
     // Overtime is Day-only and capped (see OVERTIME_MAX).
     overtime: overtimeIn,
-    notes: sanitizeNotes(String(b.notes ?? "")),
+    notes: String(b.notes ?? "").slice(0, WALKIN_NOTES_MAX),
     // The walk-in window sends the label it shows; an imported row gets
     // the one the booking page would give it.
     package: typeof b.package === "string" && b.package ? b.package : bookingLabel({ resource: resourceIn, slot: slotIn, hasRoom: roomIds.length > 0 }),

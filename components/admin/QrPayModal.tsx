@@ -13,7 +13,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ActionButton, useAdminStyle } from "@/components/admin/ui";
 import { Icon } from "@/components/common/Icon";
-import { fmt, stayLabel } from "@/lib/utils";
+import { fmt, fmtDate, stayLabel, bookingSlotInfo } from "@/lib/utils";
+import { livePayments, manilaDate, round2 } from "@/lib/finance";
+import { paymentLine } from "@/lib/labels";
+import { OVERTIME_RATE } from "@/lib/validators";
+import type { Payment, DamageRecord } from "@/types/finance";
+import type { Room } from "@/types/room";
 import { packageAvailed } from "@/lib/pricing";
 import type { Booking } from "@/types/booking";
 import "./QrPayModal.css";
@@ -24,20 +29,49 @@ export interface QrSummary {
   guest: string;          // "Juan Dela Cruz · 0917…"
   items: { label: string; sub?: string; amount: number }[];
   total: number;
+  /** Payments already made, shown under the total (an existing booking). */
+  paid?: { label: string; amount: number }[];
+  /** What is still owed before this payment (an existing booking). */
+  balance?: number;
   dueLabel: string;       // "Due now (full)" / "Due now (half)"
   note?: string;
 }
 
 /** The right-hand summary for money collected on an existing booking
- *  (check-out, settle, record payment). */
-export function qrSummaryForBooking(b: Booking, amount: number, what: string): QrSummary {
+ *  (check-out, settle, record payment): the full price breakdown (the
+ *  booking, overtime, each damage), what was already paid, the balance,
+ *  and what is being paid now. `newDamage` is damage found at this
+ *  check-out that isn't saved yet. */
+export function qrSummaryForBooking(b: Booking, amount: number, ctx: {
+  payments: Payment[]; damages: DamageRecord[]; rooms?: Room[];
+  newDamage?: { label: string; amount: number }[];
+}): QrSummary {
+  const slot = bookingSlotInfo(b);
+  const overtimeFee = slot.id === "Day" ? (b.overtime || 0) * OVERTIME_RATE : 0;
+  const roomNames = (b.rooms ?? []).map((id) => ctx.rooms?.find((r) => r.id === id)?.name).filter(Boolean) as string[];
+  const damages = ctx.damages.filter((d) => d.bookingId === b.id && !d.voided);
+  const items: QrSummary["items"] = [
+    {
+      label: packageAvailed(b),
+      sub: [`${slot.label} · ${b.guests} guest${b.guests === 1 ? "" : "s"}`, roomNames.length ? `incl. ${roomNames.join(", ")}` : ""].filter(Boolean).join(" · "),
+      amount: round2(b.total - overtimeFee),
+    },
+    ...(overtimeFee > 0 ? [{ label: `Overtime (${b.overtime} hr)`, amount: overtimeFee }] : []),
+    ...damages.map((d) => ({ label: `Damage: ${d.itemName}${d.quantity > 1 ? ` × ${d.quantity}` : ""}`, sub: d.facilityName, amount: d.amount })),
+    ...(ctx.newDamage ?? []).map((d) => ({ label: `Damage: ${d.label}`, sub: "Found at check-out", amount: d.amount })),
+  ];
+  const total = round2(items.reduce((s, i) => s + i.amount, 0));
+  const paid = livePayments(ctx.payments).filter((p) => p.bookingId === b.id && p.type !== "Refund")
+    .sort((x, y) => x.receivedAt.localeCompare(y.receivedAt))
+    .map((p) => ({ label: `${paymentLine(p)} · ${fmtDate(manilaDate(p.receivedAt))}`, amount: p.amount }));
+  const refunded = livePayments(ctx.payments).filter((p) => p.bookingId === b.id && p.type === "Refund").reduce((s, p) => s + p.amount, 0);
+  const balance = round2(total - paid.reduce((s, p) => s + p.amount, 0) + refunded);
   return {
     title: packageAvailed(b),
     lines: [`${stayLabel(b)} · ${b.guests} guest${b.guests === 1 ? "" : "s"}`],
     guest: [b.name, b.contact].filter(Boolean).join(" · "),
-    items: [{ label: what, sub: b.id, amount }],
-    total: amount,
-    dueLabel: "Due now",
+    items, total, paid, balance,
+    dueLabel: amount < balance ? "Paying now (part of the balance)" : "Due now",
   };
 }
 
@@ -161,7 +195,13 @@ export function QrPayModal({ amount, description, summary, onPaid, onCancel }: {
             ))}
             <hr />
             <div className="sw-qrpay__total"><span>Total</span><span>{fmt(summary.total)}</span></div>
-            <div className="sw-qrpay__due"><span>{summary.dueLabel}</span><b>{fmt(amount)}</b></div>
+            {summary.paid?.map((p) => (
+              <div key={p.label} className="sw-qrpay__due"><span>{p.label}</span><span>−{fmt(p.amount)}</span></div>
+            ))}
+            {summary.balance !== undefined && summary.paid && summary.paid.length > 0 && (
+              <div className="sw-qrpay__due"><span>Balance</span><span>{fmt(summary.balance)}</span></div>
+            )}
+            <div className="sw-qrpay__due sw-qrpay__due--now"><span>{summary.dueLabel}</span><b>{fmt(amount)}</b></div>
             {summary.note && <p className="sw-qrpay__note" style={{ color: C.textS }}>{summary.note}</p>}
           </section>
         </div>

@@ -15,6 +15,7 @@
 import type { Booking } from "@/types/booking";
 import type { AmenityArea, Facility } from "@/types/facility";
 import { QUIET_HOURS_START } from "@/lib/resort";
+import { getBookingSlot, bookingEndDate } from "@/lib/utils";
 
 /** The two amenities booking availability is checked against by name
  *  (lib/utils.ts isPoolOpen / isVenueOpen). They can't be renamed or
@@ -83,4 +84,42 @@ export function checklistFor(f: Facility, stage: "before" | "after"): string[] {
   const custom = stage === "before" ? f.beforeUseChecklist : f.afterUseChecklist;
   if (custom && custom.length > 0) return custom;
   return (stage === "before" ? DEFAULT_BEFORE : DEFAULT_AFTER)[key(f)] ?? [];
+}
+
+// ── Preparation shared by groups on the same tour ─────────────────────
+//
+// Groups booked on the same date and tour (two shared Day Tours, say) use the
+// same pool, grill, parking and so on, and those are prepared once for all of
+// them. So a booking's facilities count as prepared when ANY preparation for
+// its tour covered them, even one saved for another group before this one
+// was booked. What only this group has (its own room) is covered only once
+// someone prepares it. Its own saved preparation always means it is done.
+
+type PrepInspection = { bookingId: string; stage: string; items: { facilityId: number }[] };
+type TourBooking = Booking;
+
+/** Same date, same tour (Day / Night / Staycation), same last day. */
+const tourKey = (b: Booking) => `${b.date}|${getBookingSlot(b)}|${bookingEndDate(b)}`;
+
+/** The facilities this booking uses that no preparation for its tour has
+ *  covered yet ([] means it is prepared and can be checked in). */
+export function stillToPrepare(
+  b: Booking, bookings: TourBooking[], inspections: PrepInspection[], facilities: Facility[],
+): Facility[] {
+  if (inspections.some((i) => i.stage === "Preparation" && i.bookingId === b.id)) return [];
+  const used = facilitiesForBooking(b, facilities);
+  const key = tourKey(b);
+  const sameTour = new Set(bookings
+    .filter((o) => o.id !== b.id && o.status !== "Cancelled" && o.status !== "ResortCancelled" && tourKey(o) === key)
+    .map((o) => o.id));
+  const covered = new Set<number>();
+  for (const i of inspections) {
+    if (i.stage === "Preparation" && sameTour.has(i.bookingId)) i.items.forEach((x) => covered.add(x.facilityId));
+  }
+  return used.filter((f) => !covered.has(f.id));
+}
+
+/** Ids of the bookings whose facilities are all prepared (stillToPrepare). */
+export function preparedBookingIds(bookings: Booking[], inspections: PrepInspection[], facilities: Facility[]): Set<string> {
+  return new Set(bookings.filter((b) => stillToPrepare(b, bookings, inspections, facilities).length === 0).map((b) => b.id));
 }

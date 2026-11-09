@@ -6,7 +6,7 @@ import { THEME_COLORS } from "@/lib/theme";
 import { goldBtn, outBtn } from "@/lib/styles";
 import { fmt } from "@/lib/utils";
 import type { Room } from "@/types/room";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { srcSetFor } from "@/lib/img";
 import { roomShots } from "@/lib/gallery";
 import { Icon } from "@/components/common/Icon";
@@ -29,6 +29,25 @@ interface RoomsPageProps {
 
 export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
   const inCart = useRoomCart();
+  /* Arriving from "View rooms" on a room in the home page's carousel: scroll
+     that room to the middle of the screen, so the guest lands on the one they
+     picked rather than the top of the list. No highlight, just the scroll. */
+  useEffect(() => {
+    if (rooms.length === 0) return;
+    let id: string | null = null;
+    try { id = sessionStorage.getItem("sw_room_focus"); sessionStorage.removeItem("sw_room_focus"); } catch { /* nothing to do */ }
+    if (!id) return;
+    const until = Date.now() + 4000;
+    let t = 0;
+    const look = () => {
+      const el = document.querySelector<HTMLElement>(`[data-room="${CSS.escape(id!)}"]`);
+      if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+      if (Date.now() < until) t = window.setTimeout(look, 90);
+    };
+    // After the page's first paint.
+    const raf = requestAnimationFrame(() => requestAnimationFrame(look));
+    return () => { cancelAnimationFrame(raf); clearTimeout(t); };
+  }, [rooms.length]);
   /* Add and remove with the same button: an added room's button takes it
      off again (the pill beside the theme button is the way on to Book
      Now). */
@@ -89,7 +108,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
             const added = inCart.includes(r.id);
             return (
               <Reveal key={r.id} delay={i * REVEAL_STEP}>
-                <article className={`sw-room${flip ? " is-flip" : ""}`} style={{ gridTemplateColumns: mob ? "minmax(0, 1fr)" : flip ? "minmax(0,1fr) minmax(0,1.15fr)" : "minmax(0,1.15fr) minmax(0,1fr)" }}>
+                <article data-room={r.id} className={`sw-room${flip ? " is-flip" : ""}`} style={{ gridTemplateColumns: mob ? "minmax(0, 1fr)" : flip ? "minmax(0,1fr) minmax(0,1.15fr)" : "minmax(0,1.15fr) minmax(0,1fr)" }}>
                   <button type="button" className="sw-room__photo" onClick={() => setActiveRoom(r)} aria-label={`See ${r.name}`}
                     style={{ order: flip ? 2 : 0 }}>
                     <img

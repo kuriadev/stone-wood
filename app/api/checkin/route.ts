@@ -15,6 +15,7 @@
 // stay is over, the facilities must have been prepared first.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { remainingToPrepare } from "@/lib/inspection.server";
 import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin, rowToBooking } from "@/lib/supabase";
 import { requirePermission } from "@/lib/auth";
@@ -55,11 +56,11 @@ export async function POST(req: NextRequest) {
       // last day has passed can't be prepared any more, so a late check-in
       // (a group nobody tapped through on the day) is let through.
       if (bookingEndDate(booking) >= manilaDate()) {
-        const prep = await db.from("facility_inspections").select("id")
-          .eq("booking_id", booking.id).eq("stage", "Preparation").limit(1);
-        if (prep.error) throw new Error(prep.error.message);
-        if (!prep.data?.length) {
-          return NextResponse.json({ success: false, error: "The facilities haven't been prepared for this group yet. It's on the caretakers' task list; check them in once it's done." }, { status: 409 });
+        // Prepared for this group, or covered by another group on the same
+        // tour; anything only this group has (its room) must be prepared.
+        const left = await remainingToPrepare(booking, facilities);
+        if (left.length > 0) {
+          return NextResponse.json({ success: false, error: `Not prepared yet: ${left.map((f) => f.name).join(", ")}. It's on the caretakers' task list; check them in once it's done.` }, { status: 409 });
         }
       }
       const now = new Date().toISOString();

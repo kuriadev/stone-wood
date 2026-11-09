@@ -11,9 +11,8 @@
 
 import { Icon, type IconName } from "@/components/common/Icon";
 import "./Reports.css";
-import { useToast } from "@/contexts/ToastContext";
 import { Checkbox } from "@/components/ui/checkbox";
-import { statusLabel, bookingStatusLabel, payTypeLabel, payMethodLabel, adminTabLabel, NO_SHOW, statusKey, isNoShow } from "@/lib/labels";
+import { statusLabel, bookingStatusLabel, payTypeLabel, payMethodLabel, adminTabLabel, NO_SHOW, REFUNDED, statusKey, isNoShow } from "@/lib/labels";
 import { useMemo, useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
 import { useApp } from "@/contexts/AppContext";
@@ -57,7 +56,6 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
   const [view, setView] = useState<"Overview" | "Money" | "Bookings">("Overview");
   const [showPeriod, setShowPeriod] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
-  const { toast } = useToast();
 
   const { from, to, label: periodLabel } = useMemo(() => {
     if (period === "Month") {
@@ -156,7 +154,7 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
     ["Refunds", -typeTotal("Refund")],
   ] as const).filter(([, v]) => v !== 0);
   const byCat = EXPENSE_CATEGORIES.map((c) => [c, round2(exps.filter((e) => e.category === c).reduce((s, e) => s + e.amount, 0))] as const).filter(([, v]) => v > 0);
-  const statusCount = (["Pending", "Confirmed", "Completed", "Cancelled", NO_SHOW, "ResortCancelled"] as const).map((s) => [s, bks.filter((b) => statusKey(b) === s).length] as const);
+  const statusCount = (["Pending", "Confirmed", "Completed", "Cancelled", REFUNDED, NO_SHOW, "ResortCancelled"] as const).map((s) => [s, bks.filter((b) => statusKey(b) === s).length] as const);
   const guests = kept.reduce((s, b) => s + b.guests, 0);
   const slotCount = (["Day", "Night", "WholeDay"] as BookingSlot[]).map((s) => [s, kept.filter((b) => getBookingSlot(b) === s).length] as const);
 
@@ -204,15 +202,15 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
   ]);
 
   const exportMoney = () => downloadCsv(`Stonewood_Sales_${fileTag}.csv`, [
-    ["Date", "Time", "Booking", "Guest", "Type", "Payment method", "Reference", "Amount (PHP)"],
-    ...pays.map((p) => [manilaDate(p.receivedAt), manilaTime(p.receivedAt), p.bookingId ?? "", p.guestName, p.type, p.method, p.reference, signedAmount(p)]),
+    ["Date", "Time", "Booking", "Guest", "Type", "Payment method", "Amount (PHP)"],
+    ...pays.map((p) => [manilaDate(p.receivedAt), manilaTime(p.receivedAt), p.bookingId ?? "", p.guestName, p.type, payMethodLabel(p.method), signedAmount(p)]),
     [],
-    ["Date", "Category", "Description", "Payment method", "", "", "", "Amount (PHP)"],
-    ...exps.map((e) => [e.spentOn, e.category, e.description, e.method, "", "", "", -e.amount]),
+    ["Date", "Category", "Description", "Payment method", "", "", "Amount (PHP)"],
+    ...exps.map((e) => [e.spentOn, e.category, e.description, payMethodLabel(e.method), "", "", -e.amount]),
     [],
-    ["", "", "", "", "", "", "Money received", collected],
-    ["", "", "", "", "", "", "Expenses", -spent],
-    ["", "", "", "", "", "", "Net income", round2(collected - spent)],
+    ["", "", "", "", "", "Money received", collected],
+    ["", "", "", "", "", "Expenses", -spent],
+    ["", "", "", "", "", "Net income", round2(collected - spent)],
   ]);
 
   const print = () => {
@@ -293,11 +291,11 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
           columns: [
             { header: "Date", key: "d", width: 12 }, { header: "Time", key: "t", width: 9 }, { header: "Booking", key: "b", width: 12 },
             { header: "Guest", key: "g", width: 22 }, { header: "Type", key: "type", width: 14 }, { header: "Payment method", key: "m", width: 17 },
-            { header: "Reference", key: "ref", width: 18 }, { header: "Amount", key: "amt", width: 13, money: true },
+            { header: "Amount", key: "amt", width: 13, money: true },
           ],
           rows: pays.map((p) => ({
             d: manilaDate(p.receivedAt), t: manilaTime(p.receivedAt), b: p.bookingId ?? "", g: p.guestName,
-            type: payTypeLabel(p.type), m: payMethodLabel(p.method), ref: p.reference, amt: signedAmount(p),
+            type: payTypeLabel(p.type), m: payMethodLabel(p.method), amt: signedAmount(p),
           })),
           footer: [["Money received", collected]],
         },
@@ -354,25 +352,6 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
         <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
-  };
-  /** Share: the period's headline figures as text, to a chat or the clipboard. */
-  const share = async () => {
-    const text = [
-      `Stonewood Garden report · ${label}`,
-      `Money received: ${fmt(now.collected)} (${now.payments} payments)`,
-      `Expenses: ${fmt(now.spent)}`,
-      `Net income: ${fmt(now.net)}`,
-      `Still owed: ${fmt(now.owed)}`,
-      `Bookings: ${now.bookings} (${now.kept} not cancelled) · Guests: ${now.guests} · Walk-ins: ${now.walkins}`,
-      `Cancellation rate: ${now.cancelRate}%`,
-    ].join("\n");
-    try {
-      if (typeof navigator.share === "function" && mob) { await navigator.share({ title: `Stonewood Garden report · ${label}`, text }); return; }
-      await navigator.clipboard.writeText(text);
-      toast("Report summary copied. Paste it into a chat or email.", "success");
-    } catch {
-      toast("Could not share from this browser. Use ••• to export instead.", "error");
-    }
   };
   const SLOT_ICON: Record<BookingSlot, IconName> = { Day: "sun", Night: "moon", WholeDay: "staycation" };
   /** A section heading: an icon, the name, and one line on what it is for. */
@@ -497,9 +476,6 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
               { label: "Bookings CSV", onSelect: exportBookings },
               { label: "Print / Save as PDF", icon: "printer", divider: true, onSelect: print },
             ]} />
-            <button type="button" className="sw-rep__btn" onClick={() => void share()} style={{ borderColor: cBr, color: C.textH }}>
-              <Icon name="upload" size={15} /> Share
-            </button>
             <button type="button" className={`sw-rep__btn${showFilters || source !== "All" ? " is-on" : ""}`} aria-expanded={showFilters} onClick={() => setShowFilters((v) => !v)}
               style={{ borderColor: cBr, color: C.textH }}>
               <Icon name="filter" size={15} /> Filters{source !== "All" && <span className="sw-rep__badge">1</span>}

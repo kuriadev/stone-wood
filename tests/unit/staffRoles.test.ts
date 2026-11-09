@@ -58,7 +58,7 @@ describe("who may do what", () => {
 describe("requests to the owner", () => {
   it("lets front desk ask for exactly the owner-only money and cancellation actions", () => {
     expect(requestableOf("FrontDesk").sort()).toEqual([
-      "bookings.cancel", "bookings.delete", "bookings.resortCancel", "calendar.manage",
+      "bookings.cancel", "bookings.delete", "bookings.resortCancel",
       "expenses.void", "facilities.delete", "inventory.delete", "payments.refund", "payments.void", "payments.writeOff",
     ]);
   });
@@ -166,5 +166,12 @@ describe("before the database update", () => {
     expect(missingStaffTable({ code: "42P01", message: 'relation "public.owner_requests" does not exist' })).toBe(true);
     expect(missingStaffTable({ message: "duplicate key value violates unique constraint" })).toBe(false);
     expect(missingStaffTable(null)).toBe(false);
+  });
+});
+
+describe("the booking calendar", () => {
+  it("front desk closes and reopens dates without asking the owner", () => {
+    expect(can("FrontDesk", "calendar.manage")).toBe(true);
+    expect(can("Caretaker", "calendar.manage")).toBe(false);
   });
 });

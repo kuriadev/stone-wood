@@ -8,7 +8,7 @@
 // collected like any balance, at Check out, Settle or Record a payment, so it
 // reaches Sales and the day's cash count.
 
-import { GUESTS_MAX } from "@/lib/validators";
+import { guestLimitFor, OVERRIDE_GUESTS_MAX } from "@/lib/validators";
 import { OverCapacityNote } from "@/components/admin/OverCapacityNote";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { chargeKindsFor, priceCharge, type ChargeKind } from "@/lib/charges";
 import { bookingMoney } from "@/lib/finance";
 import { SLOTS, TURNOVER_WINDOW } from "@/lib/resort";
-import { fmt, fmtDate, getBookingSlot, roomsTakenOn } from "@/lib/utils";
+import { fmt, fmtDate, getBookingSlot, getBookingResource, roomsTakenOn, bookingDays } from "@/lib/utils";
 import { OVERTIME_MAX, OVERTIME_RATE, sharedRateFor, EVENT_VENUE_RATE } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
 import { ActionButton, ErrorNote, FullSelect, Label, AmountRow, Modal, ChoiceButtons, useAdminStyle } from "@/components/admin/ui";
@@ -49,7 +49,17 @@ export function AddChargeModal({ booking, onClose, initialKind }: { booking: Boo
   // Going over the resort's capacity: staff may, with a warning.
   const [overCap, setOverCap] = useState(false);
   const newTotal = booking.guests + (Number(extra) || 0);
-  const overLimit = kind === "guests" && newTotal > GUESTS_MAX;
+  const guestLimit = guestLimitFor(getBookingResource(booking));
+  const overLimit = kind === "guests" && newTotal > guestLimit;
+  // The most one booking can ever have, so the field can't go past it.
+  const maxMore = Math.max(0, OVERRIDE_GUESTS_MAX - booking.guests);
+  const [capped, setCapped] = useState(false);
+  const onExtra = (raw: string) => {
+    const digits = raw.replace(/\D/g, "").slice(0, 3);
+    const n = Number(digits);
+    setCapped(n > maxMore);
+    setExtra(digits === "" ? "" : String(Math.min(n, maxMore)));
+  };
   const priced = priceCharge(booking, { kind, hours: Number(hours), guests: Number(extra), roomId: Number(roomId), overCapacity: overLimit && overCap }, rooms);
   const due = bookingMoney(booking, ops.payments, ops.damages).due;
 
@@ -99,10 +109,18 @@ export function AddChargeModal({ booking, onClose, initialKind }: { booking: Boo
         {kind === "guests" && !blocked.guests && (
           <div>
             <Label htmlFor="ch-guests">How many more guests came?</Label>
-            <Input id="ch-guests" type="number" min={1} value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="e.g. 3" style={inp} />
-            {overLimit && <OverCapacityNote capacity={GUESTS_MAX} guests={newTotal} checked={overCap} onChange={setOverCap} />}
+            <Input id="ch-guests" type="number" inputMode="numeric" min={1} max={maxMore} value={extra} onChange={(e) => onExtra(e.target.value)} placeholder="e.g. 3" style={inp}
+              aria-invalid={capped || undefined} aria-describedby="ch-guests-max" disabled={maxMore === 0} />
+            <p id="ch-guests-max" role={capped ? "alert" : undefined} style={{ color: capped || maxMore === 0 ? C.dangerInk : C.textS, fontSize: 12.5, margin: "6px 0 0" }}>
+              {maxMore === 0
+                ? `This booking already has ${OVERRIDE_GUESTS_MAX} guests, the most one booking can have.`
+                : capped
+                  ? `The most for one booking is ${OVERRIDE_GUESTS_MAX} guests, so at most ${maxMore} more.`
+                  : `Up to ${maxMore} more (${OVERRIDE_GUESTS_MAX} guests in all).`}
+            </p>
+            {overLimit && <OverCapacityNote capacity={guestLimit} guests={newTotal} checked={overCap} onChange={setOverCap} />}
             <p style={{ color: C.textS, fontSize: 12.5, margin: "8px 0 0" }}>
-              {fmt(sharedRateFor(getBookingSlot(booking)))} each. Booked for {booking.guests}.
+              {fmt(sharedRateFor(getBookingSlot(booking)))} per extra guest{bookingDays(booking) > 1 ? `, for each of the ${bookingDays(booking)} days` : ""}. Booked for {booking.guests}{extra ? <>, so {newTotal} in all</> : null}.
             </p>
           </div>
         )}

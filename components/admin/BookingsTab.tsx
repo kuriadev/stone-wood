@@ -28,7 +28,7 @@ import { RetentionPanel } from "@/components/admin/RetentionPanel";
 import { spotlight } from "@/lib/spotlight";
 import { bookingIndicator } from "@/lib/bookingIndicator";
 import { SIGNAL } from "@/components/admin/signals";
-import { statusLabel, bookingStatusLabel, moneyLabel, paymentLine, adminTabLabel, NO_SHOW, statusKey, isNoShow, noShowLine } from "@/lib/labels";
+import { statusLabel, bookingStatusLabel, moneyLabel, paymentLine, adminTabLabel, NO_SHOW, REFUNDED, statusKey, isNoShow, noShowLine } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
@@ -52,11 +52,10 @@ import { RecordPaymentModal } from "@/components/admin/RecordPaymentModal";
 import { LiveStatus } from "@/components/admin/LiveStatus";
 import { CheckoutModal, SettleModal } from "@/components/admin/InspectionModals";
 import { ResortCancelDialog, type UpdateStatus } from "@/components/admin/ResortCancelDialog";
-import { RefundModal } from "@/components/admin/RefundModal";
+import { MarkRefundedModal } from "@/components/admin/MarkRefundedModal";
 import { AddChargeModal } from "@/components/admin/AddChargeModal";
 import { EditBookingHub } from "@/components/admin/EditBookingHub";
 import type { ChargeKind } from "@/lib/charges";
-import { ChooseRefundDialog } from "@/components/admin/ChooseRefundDialog";
 import { DateChangeReview } from "@/components/admin/DateChangeReview";
 import { MoveBookingModal } from "@/components/admin/MoveBookingModal";
 import { EditGuestModal } from "@/components/admin/EditGuestModal";
@@ -88,7 +87,7 @@ interface BookingsTabProps {
   facilities: Facility[];
 }
 
-const STATUSES = ["All", "Pending", "Confirmed", "Completed", "ResortCancelled", "Cancelled", NO_SHOW] as const;
+const STATUSES = ["All", "Pending", "Confirmed", "Completed", "ResortCancelled", "Cancelled", REFUNDED, NO_SHOW] as const;
 
 export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, packages, facilities, focusId, onFocusHandled, spotId, onSpotHandled }: BookingsTabProps) {
   /* Correcting a guest's own details on a booking that already exists. */
@@ -132,7 +131,6 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
   // booking (guest details, guests, overtime, a room, the venue, a payment,
   // the date), each opening the window that does it.
   const [hubId, setHubId] = useState<string | null>(null);
-  const [refundChoice, setRefundChoice] = useState<Booking | null>(null);
   /** "Set a new date": the date agreed with a guest the resort cancelled. */
   const [newDateFor, setNewDateFor] = useState<Booking | null>(null);
   const [reviewReq, setReviewReq] = useState<number | null>(null);
@@ -466,7 +464,10 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
               <Cell style={{ ...td, color: C.textH, fontWeight: 600, whiteSpace: "nowrap" }}>{fmt(b.total)}</Cell>
               <Cell style={{ ...td, whiteSpace: "nowrap" }}>
                 <span style={{ color: C.textB }}>{fmt(m.paid)}</span>
+                {/* The money line, unless it only repeats the status ("Refunded"). */}
+                {moneyLabel(m.state) !== bookingStatusLabel(b) && (
                 <div><span className="sw-ink" style={{ ["--ink-c" as string]: MONEY_COLOR[m.state], fontSize: 11.5 }}>{moneyLabel(m.state)}{m.due > 0 && b.status !== "Cancelled" ? ` · ${fmt(m.due)} owed` : ""}{b.refundStatus === "Owed" ? ` · ${fmt(b.refundAmount ?? 0)}` : ""}</span></div>
+                )}
               </Cell>
               <Cell style={td}>
                 {/* Where it stands, in the colour that says how soon to act
@@ -481,7 +482,13 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                     </span>
                   );
                 })()}
-                <div style={{ color: C.textS, fontSize: 11.5, marginTop: 4 }}>{bookingStatusLabel(b)}</div>
+                {/* The stored status under the badge, only when it adds something
+                    ("On site now" over "Confirmed booking"), not "Cancelled" twice. */}
+                {(() => {
+                  const ind = bookingIndicator(b, manilaDate(), m.due, ops.dateChanges.some((r) => r.bookingId === b.id && r.status === "Pending"));
+                  const sub = bookingStatusLabel(b);
+                  return sub.toLowerCase() === ind.label.toLowerCase() ? null : <div style={{ color: C.textS, fontSize: 11.5, marginTop: 4 }}>{sub}</div>;
+                })()}
               </Cell>
               <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                 <div style={{ display: "inline-flex", gap: 4 }}>
@@ -492,7 +499,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                   </>}
                   {finishStep(b) === "complete" && <IconAction icon="check" label="Complete" kind="blue" onClick={() => setFinish({ kind: "complete", id: b.id })} />}
                   {finishStep(b) === "settle" && <IconAction icon="receipt" label="Collect & close" kind="blue" onClick={() => setFinish({ kind: "settle", id: b.id })} />}
-                  {b.refundStatus === "Owed" && <IconAction icon="cash" label="Send refund" kind="red" onClick={() => setRefundFor(b)} />}
+                  {b.refundStatus === "Owed" && <IconAction icon="cash" label="Mark as refunded" kind="red" onClick={() => setRefundFor(b)} />}
                   {/* ── Manage this booking ──
                       Changing a booking was possible before but not findable:
                       editing a guest's details was a 15px pencil INSIDE the
@@ -679,9 +686,9 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
               {!b.archived && (b.status === "Confirmed" || b.status === "Pending") && !b.checkedInAt && (
                 <ActionButton kind="red" icon="x" onClick={() => { setViewId(null); setTurnDown(b); }} style={{ marginRight: "auto" }}>Cancel (resort can&apos;t host)</ActionButton>
               )}
-              {b.refundStatus === "Owed" && <ActionButton kind="primary" icon="cash" onClick={() => { setViewId(null); setRefundFor(b); }}>Send refund · {fmt(b.refundAmount ?? 0)}</ActionButton>}
-              {/* The guest asked the owner for their money back instead of a new date. */}
-              {b.status === "ResortCancelled" && <ActionButton kind="red" icon="cash" onClick={() => { setViewId(null); setRefundChoice(b); }}>Guest chose a refund</ActionButton>}
+              {/* Refunds are agreed with the guest by call or chat and returned
+                  outside the system; this marks it done (MarkRefundedModal). */}
+              {(b.refundStatus === "Owed" || b.status === "ResortCancelled") && <ActionButton kind="red" icon="cash" onClick={() => { setViewId(null); setRefundFor(b); }}>Mark as refunded</ActionButton>}
               {/* The date agreed with them by call or chat. A date they picked
                   themselves is answered with Review instead. */}
               {b.status === "ResortCancelled" && !request && <ActionButton kind="primary" icon="calendar" onClick={() => { setViewId(null); setNewDateFor(b); }}>Set a new date</ActionButton>}
@@ -772,7 +779,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                   <div key={p.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderBottom: `1px solid ${cBr}`, opacity: p.voided ? 0.5 : 1 }}>
                     <div>
                       <div style={{ color: C.textH, fontSize: 13 }}>{paymentLine(p)}{p.voided ? " · undone" : ""}</div>
-                      <div style={{ color: C.textS, fontSize: 11.5 }}>{fmtDate(manilaDate(p.receivedAt))}, {manilaTime(p.receivedAt)}{p.reference ? ` · ref ${p.reference}` : ""}</div>
+                      <div style={{ color: C.textS, fontSize: 11.5 }}>{fmtDate(manilaDate(p.receivedAt))}, {manilaTime(p.receivedAt)}</div>
                     </div>
                     <div style={{ color: p.type === "Refund" ? "#e5484d" : C.textH, fontWeight: 600, textDecoration: p.voided ? "line-through" : "none" }}>{p.type === "Refund" ? "−" : ""}{fmt(p.amount)}</div>
                   </div>
@@ -842,7 +849,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
         </ConfirmDialog>
       )}
       {turnDown && <ResortCancelDialog booking={turnDown} onClose={() => setTurnDown(null)} />}
-      {refundFor && <RefundModal booking={bookings.find((x) => x.id === refundFor.id) ?? refundFor} onClose={() => setRefundFor(null)} />}
+      {refundFor && <MarkRefundedModal booking={bookings.find((x) => x.id === refundFor.id) ?? refundFor} onClose={() => setRefundFor(null)} />}
       {chargeFor && <AddChargeModal booking={bookings.find((x) => x.id === chargeFor.id) ?? chargeFor} initialKind={chargeKind} onClose={() => { setChargeFor(null); setChargeKind(undefined); }} />}
       {hubId && bookings.find((x) => x.id === hubId) && (() => {
         const b = bookings.find((x) => x.id === hubId)!;
@@ -876,7 +883,6 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
           onMoved={(nb) => setBookings((prev) => prev.map((x) => (x.id === nb.id ? { ...x, ...nb } : x)))}
         />
       )}
-      {refundChoice && <ChooseRefundDialog booking={refundChoice} onClose={() => setRefundChoice(null)} onDone={(nb) => { setRefundChoice(null); setRefundFor(nb); }} />}
       {reviewing && bookings.find((x) => x.id === reviewing.bookingId) && (
         <DateChangeReview request={reviewing} booking={bookings.find((x) => x.id === reviewing.bookingId)!} onClose={() => setReviewReq(null)} />
       )}

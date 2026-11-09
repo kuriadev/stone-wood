@@ -42,7 +42,6 @@ const ROUTES: { method: string; pattern: RegExp; load: () => Promise<Handler> }[
   { method: "PATCH", pattern: /^\/api\/bookings\/([^/]+)$/, load: async () => (await import("@/app/api/bookings/[id]/route")).PATCH as unknown as Handler },
   { method: "DELETE", pattern: /^\/api\/bookings\/([^/]+)$/, load: async () => (await import("@/app/api/bookings/[id]/route")).DELETE as unknown as Handler },
   { method: "POST", pattern: /^\/api\/bookings\/([^/]+)\/resort-cancel$/, load: async () => (await import("@/app/api/bookings/[id]/resort-cancel/route")).POST as unknown as Handler },
-  { method: "POST", pattern: /^\/api\/bookings\/([^/]+)\/refund-request$/, load: async () => (await import("@/app/api/bookings/[id]/refund-request/route")).POST as unknown as Handler },
   { method: "DELETE", pattern: /^\/api\/inventory$/, load: async () => (await import("@/app/api/inventory/route")).DELETE as unknown as Handler },
   { method: "DELETE", pattern: /^\/api\/facilities$/, load: async () => (await import("@/app/api/facilities/route")).DELETE as unknown as Handler },
   { method: "PATCH", pattern: /^\/api\/facilities$/, load: async () => (await import("@/app/api/facilities/route")).PATCH as unknown as Handler },

@@ -21,6 +21,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
+import { stillToPrepare } from "@/lib/facilityUsage";
 import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useStaff } from "@/contexts/StaffContext";
@@ -101,7 +102,7 @@ function CaretakerTasks({ mob }: { mob: boolean }) {
   const listed = new Set(tasks.map((t) => t.booking?.id).filter(Boolean));
   const prepSoon = bookings
     .filter((b) => (b.status === "Confirmed" || b.status === "Pending") && !b.archived && !listed.has(b.id) &&
-      !b.checkedInAt && !ops.inspections.some((i) => i.stage === "Preparation" && i.bookingId === b.id) &&
+      !b.checkedInAt && stillToPrepare(b, bookings, ops.inspections, facilities).length > 0 &&
       !!prepBlocked(b, today) && b.date > tomorrow && b.date <= addDaysIso(today, 4))
     .sort((a, b) => a.date.localeCompare(b.date));
   const upkeepSoon = upcomingUpkeep(upkeep.tasks, upkeep.runs, today, 7);

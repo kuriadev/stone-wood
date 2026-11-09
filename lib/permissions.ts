@@ -57,11 +57,12 @@ export type Permission =
   | "expenses.record"
   | "messages.handle"       // guest messages and replies
   | "bookings.noshow"       // mark a no-show, and approve the new date the guest then picks
+  | "bookings.refunded"     // mark a resort-cancelled booking refunded, after arranging it with the guest
   // Owner's decisions — front desk may request these
   | "bookings.cancel"       // cancel a booking
   | "bookings.resortCancel" // "Cancel (resort can't host)"
   | "bookings.delete"
-  | "payments.refund"       // guest chose a refund, send a refund
+  | "payments.refund"       // retired: refunds are arranged with the guest and marked with bookings.refunded
   | "payments.void"
   | "expenses.void"
   | "payments.writeOff"     // settle a stay with money still unpaid
@@ -74,7 +75,7 @@ export type Permission =
   | "inventory.manage"      // items, minimums, upkeep schedule, supply defaults
   | "inventory.delete"      // remove a stock item (others request it)
   | "facilities.delete"     // remove or stop offering a facility (others request it)
-  | "calendar.manage"       // close or reopen dates (front desk requests it)
+  | "calendar.manage"       // close or reopen dates (front desk may, without asking)
   | "staff.manage"
   | "settings.manage"
   // The facilities
@@ -88,7 +89,7 @@ export type Permission =
 
 const ALL: Permission[] = [
   "ops.view", "bookings.view", "activity.viewAll",
-  "bookings.edit", "payments.record", "expenses.record", "messages.handle", "bookings.noshow",
+  "bookings.edit", "payments.record", "expenses.record", "messages.handle", "bookings.noshow", "bookings.refunded",
   "bookings.cancel", "bookings.resortCancel", "bookings.delete", "payments.refund",
   "payments.void", "expenses.void", "payments.writeOff", "day.close",
   "reschedules.decide", "requests.decide", "catalog.manage", "facilities.manage",
@@ -109,10 +110,16 @@ const DEFAULT_GRANTS: Record<StaffRole, ReadonlySet<Permission>> = {
     // The desk is who sees a group not turn up, so it marks the no-show and
     // handles the new date the guest picks, without waiting on the owner.
     "bookings.noshow",
+    // Refunds are agreed with the guest by call or chat; whoever did that
+    // marks the booking refunded, without waiting on the owner.
+    "bookings.refunded",
     // The counter handles the money, including counting the drawer at the
     // end of the day. The owner is told when a count comes out short or
     // over (their My Tasks), and every closing is in the activity log.
     "day.close",
+    // Closing or reopening a date on the Booking Calendar: the desk does it
+    // straight away, no request to the owner (it's in the activity log).
+    "calendar.manage",
     "facilities.view", "facilities.status", "inventory.view", "inventory.use", "inventory.buy",
   ]),
   Caretaker: new Set<Permission>([
@@ -128,7 +135,7 @@ const DEFAULT_REQUESTABLE: Record<StaffRole, ReadonlySet<Permission>> = {
   FrontDesk: new Set<Permission>([
     "bookings.cancel", "bookings.resortCancel", "bookings.delete",
     "payments.refund", "payments.void", "expenses.void", "payments.writeOff",
-    "inventory.delete", "facilities.delete", "calendar.manage",
+    "inventory.delete", "facilities.delete",
   ]),
   Caretaker: new Set<Permission>([
     "inventory.delete", "facilities.delete",
@@ -195,13 +202,13 @@ export const PERMISSION_INFO: { perm: Permission; group: string; label: string; 
   { perm: "bookings.edit", group: "Bookings", label: "Handle bookings", hint: "Dashboard, walk-ins, details, confirm, move, add charges, check in and out." },
   { perm: "messages.handle", group: "Bookings", label: "Answer guest messages", hint: "Customer Service and replies." },
   { perm: "bookings.noshow", group: "Bookings", label: "Mark a no-show", hint: "And approve the new date the guest picks within 20 days.", requestable: true },
+  { perm: "bookings.refunded", group: "Bookings", label: "Mark a booking refunded", hint: "After agreeing the refund with the guest by call or chat (resort cancellations only)." },
   { perm: "bookings.cancel", group: "Bookings", label: "Cancel a booking", hint: "", requestable: true },
   { perm: "bookings.resortCancel", group: "Bookings", label: "Cancel because the resort can't host", hint: "The guest then picks a new date or a refund.", requestable: true },
   { perm: "bookings.delete", group: "Bookings", label: "Delete a booking", hint: "", requestable: true },
   { perm: "payments.record", group: "Money", label: "Record payments", hint: "Down payments, balances, penalties and settling a stay." },
   { perm: "expenses.record", group: "Money", label: "Record expenses", hint: "Money spent." },
   { perm: "day.close", group: "Money", label: "Close the day", hint: "Count the cash box.", requestable: true },
-  { perm: "payments.refund", group: "Money", label: "Refund a guest", hint: "", requestable: true },
   { perm: "payments.void", group: "Money", label: "Void a payment", hint: "", requestable: true },
   { perm: "expenses.void", group: "Money", label: "Void an expense", hint: "", requestable: true },
   { perm: "payments.writeOff", group: "Money", label: "Close a stay with money unpaid", hint: "", requestable: true },

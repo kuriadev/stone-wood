@@ -24,8 +24,7 @@ import { useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
 import { useStaff } from "@/contexts/StaffContext";
 import { useToast } from "@/contexts/ToastContext";
-import { ActionButton, ConfirmDialog, Label, StatusBadge, useAdminStyle } from "@/components/admin/ui";
-import { Textarea } from "@/components/ui/textarea";
+import { ActionButton, ConfirmDialog, StatusBadge, useAdminStyle } from "@/components/admin/ui";
 import { Icon } from "@/components/common/Icon";
 import { manilaTime } from "@/lib/finance";
 import type { OwnerRequest } from "@/types/admin";
@@ -42,7 +41,7 @@ export function OwnerRequestsPanel({ reschedules = 0, onReviewReschedules, inRow
   reschedules?: number;
   onReviewReschedules?: () => void;
 }) {
-  const { C, cBr, cBg, inp } = useAdminStyle();
+  const { C, cBr, cBg } = useAdminStyle();
   const ops = useOps();
   const { can, staffEnabled } = useStaff();
   const { toast } = useToast();
@@ -53,7 +52,6 @@ export function OwnerRequestsPanel({ reschedules = 0, onReviewReschedules, inRow
   const [declining, setDeclining] = useState<OwnerRequest | null>(null);
   /* Approving carries out a refund, a void or a cancellation, so it asks. */
   const [approving, setApproving] = useState<OwnerRequest | null>(null);
-  const [note, setNote] = useState("");
 
   if (!staffEnabled) return null;
   const pending = ops.requests.filter((r) => r.status === "Pending");
@@ -101,7 +99,7 @@ export function OwnerRequestsPanel({ reschedules = 0, onReviewReschedules, inRow
           <>
             {/* Icons only, to keep the row short; each says what it does
                 on hover and to a screen reader. */}
-            <ActionButton size="sm" icon="x" onClick={() => { setDeclining(r); setNote(""); }} disabled={busy === r.id}
+            <ActionButton size="sm" icon="x" onClick={() => setDeclining(r)} disabled={busy === r.id}
               aria-label={`Decline: ${r.summary}`} title="Decline" style={{ width: 36, padding: 0, justifyContent: "center" }} />
             <ActionButton size="sm" kind="primary" icon={busy === r.id ? "clock" : "check"} onClick={() => setApproving(r)} disabled={busy === r.id}
               aria-label={busy === r.id ? "Working…" : `Approve: ${r.summary}`} title={busy === r.id ? "Working…" : "Approve"} style={{ width: 36, padding: 0, justifyContent: "center" }} />
@@ -180,19 +178,13 @@ export function OwnerRequestsPanel({ reschedules = 0, onReviewReschedules, inRow
           confirm={
             <ActionButton kind="red" disabled={busy === declining.id} onClick={async () => {
               setBusy(declining.id);
-              const res = await ops.decideRequest(declining.id, false, note.trim());
+              const res = await ops.decideRequest(declining.id, false, "");
               setBusy(null);
-              if (res.ok) { toast(note.trim() ? "Declined. Front desk will see your note." : "Declined.", "info"); setDeclining(null); }
+              if (res.ok) { toast("Declined.", "info"); setDeclining(null); }
               else toast(res.error, "error");
             }}>Decline</ActionButton>
           }
-        >
-          <div>
-            <Label htmlFor="decline-note">Why? (optional — front desk sees this)</Label>
-            <Textarea id="decline-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} rows={3} style={{ ...inp, width: "100%" }}
-              placeholder="e.g. The guest already got their money back by QR Ph." />
-          </div>
-        </ConfirmDialog>
+        />
       )}
     </section>
   );

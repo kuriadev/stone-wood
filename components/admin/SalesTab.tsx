@@ -36,16 +36,19 @@ import {
 } from "@/lib/finance";
 import { fmt, fmtDate } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
-import { EXPENSE_CATEGORIES, MANUAL_METHODS, PAYMENT_TYPES, PAYMENT_METHODS, type Payment, type Expense } from "@/types/finance";
+import { EXPENSE_CATEGORIES, EXPENSE_MAX, PAYMENT_TYPES, PAYMENT_METHODS, type Payment, type Expense } from "@/types/finance";
 import type { BookingMoney } from "@/lib/finance";
 import type { Booking } from "@/types/booking";
 import { gold } from "@/lib/styles";
 import { RecordPaymentModal } from "@/components/admin/RecordPaymentModal";
-import { RefundModal } from "@/components/admin/RefundModal";
+import { MarkRefundedModal } from "@/components/admin/MarkRefundedModal";
 import { InvoiceModal } from "@/components/admin/InvoiceModal";
-import { AdminPageHeader, StatCard, ChoiceButtons, TableShell, td, ActionButton, IconAction, StatusBadge, Modal, Label, AmountRow, ErrorNote, useAdminStyle, Row, Cell, STATUS_COLOR, FullSelect, ConfirmDialog, TotalRow, TOGGLE_CLEARANCE, usePaged, Pager, FilterSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
+import { AdminPageHeader, StatCard, TableShell, td, ActionButton, IconAction, StatusBadge, Modal, Label, AmountRow, ErrorNote, useAdminStyle, Row, Cell, STATUS_COLOR, FullSelect, ConfirmDialog, TotalRow, usePaged, Pager, FilterSelect, FilterBar, FilterField, DateRange } from "@/components/admin/ui";
 import { DateField } from "@/components/common/DateField";
 import { ExportMenu } from "@/components/admin/ExportMenu";
+import { downloadWorkbook } from "@/lib/excelReport";
+import { escapeHtml } from "@/lib/escapeHtml";
+import { SIGNAL } from "@/components/admin/signals";
 
 type View = "Transactions" | "Payments" | "Receivables" | "Settlements" | "Clients" | "Expenses" | "Closing";
 
@@ -57,7 +60,8 @@ const PAY_STATE_COLOR: Record<BookingMoney["state"], string> = {
   "Partially paid": "#f5a524",
   Unpaid: "#e5484d",
   Forfeited: "#8a7a66",
-  Refunded: "#3e8ed0",
+  // Grey, like the booking status beside it: the money went back, it's closed.
+  Refunded: SIGNAL.closed,
   "Held for guest": "#9a7bd0",
   "Refund owed": "#e07a3a",
 };
@@ -93,6 +97,87 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
 
   const { C, cBg, cBr } = useAdminStyle();
   const monthName = new Date(today).toLocaleString("en-PH", { month: "long", year: "numeric" });
+
+  /* ── Export (the page header): this month's money, the same month the
+     figures above show. Excel has a sheet per table; the CSVs are one table
+     each; Print opens a printable page the browser can save as a PDF. */
+  const [exporting, setExporting] = useState(false);
+  const monthPays = livePayments(ops.payments).filter((p) => { const d = manilaDate(p.receivedAt); return d >= month.from && d <= month.to; })
+    .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
+  const monthExps = liveExpenses(ops.expenses).filter((e) => e.spentOn >= month.from && e.spentOn <= month.to)
+    .sort((a, b) => a.spentOn.localeCompare(b.spentOn));
+  const tag = month.from.slice(0, 7);
+  const exportPaymentsCsv = () => downloadCsv(`Stonewood_Payments_${tag}.csv`, [
+    ["Date", "Time", "Booking", "Guest", "Type", "Payment method", "Amount (PHP)"],
+    ...monthPays.map((p) => [manilaDate(p.receivedAt), manilaTime(p.receivedAt), p.bookingId ?? "", p.guestName, payTypeLabel(p.type), payMethodLabel(p.method), signedAmount(p)]),
+    [], ["", "", "", "", "", "Total received", collectedMonth],
+  ]);
+  const exportExpensesCsv = () => downloadCsv(`Stonewood_Expenses_${tag}.csv`, [
+    ["Date", "Category", "Description", "Amount (PHP)"],
+    ...monthExps.map((e) => [e.spentOn, e.category, e.description, e.amount]),
+    [], ["", "", "Total spent", spentMonth],
+  ]);
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      await downloadWorkbook(`Stonewood_Payments_and_Expenses_${tag}`, `Stonewood Garden · Payments & Expenses · ${monthName}`, [
+        {
+          name: "Summary",
+          columns: [{ header: "What", key: "k", width: 30 }, { header: "Amount", key: "v", width: 18, money: true }],
+          rows: [
+            { k: "Money received", v: collectedMonth },
+            { k: "Expenses", v: -spentMonth },
+            { k: "Net income", v: round2(collectedMonth - spentMonth) },
+            { k: "Still to collect (all bookings)", v: owed },
+          ],
+        },
+        {
+          name: "Payments",
+          columns: [
+            { header: "Date", key: "d", width: 12 }, { header: "Time", key: "t", width: 10 }, { header: "Booking", key: "b", width: 12 },
+            { header: "Guest", key: "g", width: 24 }, { header: "Type", key: "type", width: 16 }, { header: "Method", key: "m", width: 10 },
+            { header: "Amount", key: "amt", width: 14, money: true },
+          ],
+          rows: monthPays.map((p) => ({ d: manilaDate(p.receivedAt), t: manilaTime(p.receivedAt), b: p.bookingId ?? "", g: p.guestName, type: payTypeLabel(p.type), m: payMethodLabel(p.method), amt: signedAmount(p) })),
+          footer: [["Total received", collectedMonth]],
+        },
+        {
+          name: "Expenses",
+          columns: [{ header: "Date", key: "d", width: 12 }, { header: "Category", key: "c", width: 16 }, { header: "Description", key: "desc", width: 36 }, { header: "Amount", key: "amt", width: 14, money: true }],
+          rows: monthExps.map((e) => ({ d: e.spentOn, c: e.category, desc: e.description, amt: e.amount })),
+          footer: [["Total spent", spentMonth]],
+        },
+        {
+          name: "Still to collect",
+          columns: [{ header: "Booking", key: "b", width: 12 }, { header: "Guest", key: "g", width: 24 }, { header: "Date", key: "d", width: 12 }, { header: "Owed", key: "due", width: 14, money: true }],
+          rows: receivables.map(({ b, m }) => ({ b: b.id, g: b.name, d: b.date, due: m.due })),
+          footer: [["Total still to collect", owed]],
+        },
+      ]);
+    } finally {
+      setExporting(false);
+    }
+  };
+  const printPage = () => {
+    const e = (v: unknown) => escapeHtml(String(v ?? ""));
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Payments & Expenses · ${e(monthName)}</title>
+<style>body{font:13px/1.5 system-ui,sans-serif;color:#2a2a2a;margin:32px}h1{font:400 26px Georgia,serif;margin:0}h2{font-size:15px;margin:22px 0 6px;border-bottom:1px solid #ccc;padding-bottom:4px}
+table{border-collapse:collapse;width:100%}td,th{padding:4px 6px;border-bottom:1px solid #eee;text-align:left}.n{text-align:right;font-variant-numeric:tabular-nums}.muted{color:#777}</style></head><body>
+<h1>Stonewood Garden Private Resort</h1><div class="muted">Payments &amp; Expenses · ${e(monthName)} · printed ${e(fmtDate(today))}</div>
+<h2>Summary</h2><table>
+<tr><td>Money received</td><td class="n">${e(fmt(collectedMonth))}</td></tr>
+<tr><td>Expenses</td><td class="n">${e(fmt(spentMonth))}</td></tr>
+<tr><td><strong>Net income</strong></td><td class="n"><strong>${e(fmt(round2(collectedMonth - spentMonth)))}</strong></td></tr>
+<tr><td>Still to collect (all bookings)</td><td class="n">${e(fmt(owed))}</td></tr></table>
+<h2>Payments</h2><table><tr><th>Date</th><th>Booking</th><th>Guest</th><th>Type</th><th>Method</th><th class="n">Amount</th></tr>
+${monthPays.map((p) => `<tr><td>${e(manilaDate(p.receivedAt))}</td><td>${e(p.bookingId ?? "")}</td><td>${e(p.guestName)}</td><td>${e(payTypeLabel(p.type))}</td><td>${e(payMethodLabel(p.method))}</td><td class="n">${e((p.type === "Refund" ? "−" : "") + fmt(p.amount))}</td></tr>`).join("") || "<tr><td class='muted' colspan='6'>No payments this month.</td></tr>"}</table>
+<h2>Expenses</h2><table><tr><th>Date</th><th>Category</th><th>Description</th><th class="n">Amount</th></tr>
+${monthExps.map((x) => `<tr><td>${e(x.spentOn)}</td><td>${e(x.category)}</td><td>${e(x.description)}</td><td class="n">${e(fmt(x.amount))}</td></tr>`).join("") || "<tr><td class='muted' colspan='4'>No expenses this month.</td></tr>"}</table>
+<script>window.onload=()=>window.print()</script></body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.open(); w.document.write(html); w.document.close();
+  };
   /** A headline figure: icon and coloured edge, the number in plain ink. */
   const kpi = (icon: IconName, label: string, value: string, note: string, accent: string) => (
     <div className="sw-sales__kpi" style={{ background: cBg, borderColor: cBr, ["--acc" as string]: accent }}>
@@ -113,6 +198,12 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
         mob={mob}
         action={
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <ExportMenu busy={exporting} ariaLabel={`Export ${monthName}'s payments and expenses`} items={[
+              { label: `Excel (.xlsx) · ${monthName}`, onSelect: () => void exportExcel() },
+              { label: "Payments CSV", onSelect: exportPaymentsCsv },
+              { label: "Expenses CSV", onSelect: exportExpensesCsv },
+              { label: "Print / Save as PDF", icon: "printer", divider: true, onSelect: printPage },
+            ]} />
             <ActionButton icon="minus" onClick={() => setAddExpense(true)}>Add expense</ActionButton>
             <ActionButton kind="primary" icon="plus" onClick={() => setPayFor({})}>Record payment</ActionButton>
           </div>
@@ -189,7 +280,7 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
 
       {payFor && <RecordPaymentModal bookings={bookings} bookingId={payFor.bookingId} onClose={() => setPayFor(null)} />}
       {refundFor && bookings.find((b) => b.id === refundFor) && (
-        <RefundModal booking={bookings.find((b) => b.id === refundFor)!} onClose={() => setRefundFor(null)} />
+        <MarkRefundedModal booking={bookings.find((b) => b.id === refundFor)!} onClose={() => setRefundFor(null)} />
       )}
       {addExpense && <ExpenseModal onClose={() => setAddExpense(false)} />}
       {invoiceOf && <InvoiceModal booking={invoiceOf} onClose={() => setInvoiceId(null)} />}
@@ -217,18 +308,11 @@ function Transactions({ payments }: { payments: Payment[] }) {
     if (method !== "All" && p.method !== method) return false;
     if (!showVoided && p.voided) return false;
     const s = q.toLowerCase().trim();
-    return !s || p.guestName.toLowerCase().includes(s) || (p.bookingId ?? "").toLowerCase().includes(s) || p.reference.toLowerCase().includes(s);
+    return !s || p.guestName.toLowerCase().includes(s) || (p.bookingId ?? "").toLowerCase().includes(s);
   });
   const paged = usePaged(rows);
   const net = round2(rows.filter((p) => !p.voided).reduce((s, p) => s + signedAmount(p), 0));
 
-  const exportCsv = () => downloadCsv(`Stonewood_Transactions_${from}_to_${to}.csv`, [
-    ["Date", "Time", "Booking", "Guest", "Type", "Payment method", "Reference", "Amount (PHP)", "Undone", "Undo reason", "Notes"],
-    ...rows.map((p) => [manilaDate(p.receivedAt), manilaTime(p.receivedAt), p.bookingId ?? "", p.guestName, p.type, p.method, p.reference,
-      signedAmount(p), p.voided ? "Yes" : "No", p.voidReason ?? "", p.notes]),
-    [],
-    ["", "", "", "", "", "", "Net total", net],
-  ]);
 
   const sel = { ...inp, padding: "8px 12px", width: "auto" } as const;
   return (
@@ -240,10 +324,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
         active={[from !== month.from || to !== month.to, type !== "All", method !== "All", showVoided].filter(Boolean).length}
         onClear={() => { setFrom(month.from); setTo(month.to); setType("All"); setMethod("All"); setShowVoided(false); }}
         search={
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Booking ID, email or guest" aria-label="Search transactions" style={{ ...sel, width: "100%", minWidth: 0, flex: 1 }} />
-            <ExportMenu size="sm" ariaLabel="Export the transactions" items={[{ label: "CSV", onSelect: exportCsv }]} />
-          </div>
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Booking ID, email or guest" aria-label="Search transactions" style={{ ...sel, width: "100%", minWidth: 0, flex: 1 }} />
         }
       >
         <FilterField label="Dates" wide>
@@ -268,7 +349,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
         </FilterField>
       </FilterBar>
 
-      <TableShell head={["Date", "Booking", "Guest", "Type", "Payment method", "Reference", "Amount", ""]} minWidth={860}
+      <TableShell head={["Date", "Booking", "Guest", "Type", "Payment method", "Amount", ""]} minWidth={760}
         empty={rows.length === 0 ? "No payments in this range." : undefined}>
         {paged.rows.map((p, i) => (
           <Row key={p.id} style={{ background: rowBg(i), opacity: p.voided ? 0.5 : 1 }}>
@@ -281,7 +362,6 @@ function Transactions({ payments }: { payments: Payment[] }) {
             <Cell style={{ ...td, color: C.textB }}>
               <span className="sw-sales__method"><Icon name={p.method === "Cash" ? "cash" : p.method === "PayMongo" ? "grid" : "phone"} size={14} style={{ color: C.goldInk }} />{payMethodLabel(p.method)}</span>
             </Cell>
-            <Cell style={{ ...td, color: C.textS, fontSize: 12 }}>{p.reference || "—"}</Cell>
             <Cell style={{ ...td, color: p.type === "Refund" ? "#e5484d" : C.textH, fontWeight: 600, whiteSpace: "nowrap", textDecoration: p.voided ? "line-through" : "none" }}>
               {p.type === "Refund" ? "−" : ""}{fmt(p.amount)}
             </Cell>
@@ -397,7 +477,7 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search reference, guest or phone"
+          placeholder="Search booking ID, guest or phone"
           aria-label="Search booking payments"
           style={{ ...inp, flex: 1, minWidth: 220 }}
         />
@@ -467,7 +547,7 @@ function Receivables({ rows, refunds, onPay, onRefund, onInvoice }: {
                 <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.email || b.contact}</div></Cell>
                 <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(b.date)}</Cell>
                 <Cell style={{ ...td, color: "#e07a3a", fontWeight: 700 }}>{fmt(b.refundAmount ?? 0)}</Cell>
-                <Cell style={{ ...td, textAlign: "right" }}><IconAction icon="cash" label="Send refund" kind="primary" onClick={() => onRefund(b.id)} /></Cell>
+                <Cell style={{ ...td, textAlign: "right" }}><IconAction icon="cash" label="Mark as refunded" kind="primary" onClick={() => onRefund(b.id)} /></Cell>
               </Row>
             ))}
           </TableShell>
@@ -542,7 +622,7 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
       <FilterBar
         active={[!!from || !!to, onlyUnpaid].filter(Boolean).length}
         onClear={() => { setFrom(""); setTo(""); setOnlyUnpaid(false); }}
-        search={<Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search reference, guest or phone" aria-label="Search settlements" style={{ ...sel, width: "100%" }} />}
+        search={<Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search booking ID, guest or phone" aria-label="Search settlements" style={{ ...sel, width: "100%" }} />}
       >
         <FilterField label="Settled" wide>
           <DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} fromLabel="Settled from" toLabel="Settled to" />
@@ -731,10 +811,22 @@ function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void 
 }
 
 export function ExpenseModal({ onClose, initialDate }: { onClose: () => void; initialDate?: string }) {
-  const { inp } = useAdminStyle();
+  const { C, inp } = useAdminStyle();
   const ops = useOps();
   const { toast } = useToast();
-  const [f, setF] = useState({ category: "Supplies", description: "", amount: "", method: "Cash" as (typeof MANUAL_METHODS)[number], spentOn: initialDate ?? manilaDate() });
+  // Every expense comes out of the cash box (method "Cash"), so there is no
+  // "Paid with" choice.
+  const [f, setF] = useState({ category: "Supplies", description: "", amount: "", method: "Cash" as const, spentOn: initialDate ?? manilaDate() });
+  const [capped, setCapped] = useState(false);
+  /** Digits and one decimal point (2 places), never more than EXPENSE_MAX. */
+  const onAmount = (raw: string) => {
+    let v = raw.replace(/[^\d.]/g, "");
+    const dot = v.indexOf(".");
+    if (dot >= 0) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, "").slice(0, 2);
+    const over = Number(v) > EXPENSE_MAX;
+    setCapped(over);
+    setF({ ...f, amount: over ? String(EXPENSE_MAX) : v });
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const save = async () => {
@@ -764,15 +856,15 @@ export function ExpenseModal({ onClose, initialDate }: { onClose: () => void; in
         </div>
         <div>
           <Label htmlFor="ex-amt">Amount (₱)</Label>
-          <Input id="ex-amt" type="number" min={0} step="0.01" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} style={inp} />
+          <Input id="ex-amt" inputMode="decimal" value={f.amount} onChange={(e) => onAmount(e.target.value)} placeholder="0.00" style={inp}
+            aria-invalid={capped || undefined} aria-describedby="ex-amt-max" />
+          <p id="ex-amt-max" role={capped ? "alert" : undefined} style={{ color: capped ? C.dangerInk : C.textS, fontSize: 11.5, margin: "4px 0 0" }}>
+            {capped ? `The most for one expense is ${fmt(EXPENSE_MAX)}.` : `Up to ${fmt(EXPENSE_MAX)}.`}
+          </p>
         </div>
         <div>
           <Label htmlFor="ex-date">Date</Label>
           <DateField id="ex-date" value={f.spentOn} onChange={(v) => setF({ ...f, spentOn: v })} style={inp} />
-        </div>
-        <div>
-          <Label>Paid with</Label>
-          <ChoiceButtons value={f.method} onChange={(m) => setF({ ...f, method: m })} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: m }))} />
         </div>
       </div>
       <ErrorNote>{error}</ErrorNote>
@@ -781,6 +873,13 @@ export function ExpenseModal({ onClose, initialDate }: { onClose: () => void; in
 }
 
 // ── Daily closing (liquidation) ───────────────────────────────────────
+/** What a money field keeps of what was typed: digits and one decimal point
+ *  with at most 2 places (no spinner arrows, no letters). */
+const money = (raw: string) => {
+  const v = raw.replace(/[^\d.]/g, "");
+  const dot = v.indexOf(".");
+  return (dot < 0 ? v : v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, "").slice(0, 2)).slice(0, 12);
+};
 //
 // Before the cash count, every reservation up to the chosen day has to be
 // finished (lib/operations.ts → closingBlockers; /api/closings enforces it
@@ -790,10 +889,12 @@ export function ExpenseModal({ onClose, initialDate }: { onClose: () => void; in
 /** What a closing checklist button asks Daily Operations to open. */
 export type CloseAction = "accept" | "reject" | "checkout" | "noshow" | "settle";
 
-export function Closing({ onAct, initialDate }: {
+export function Closing({ onAct, initialDate, onSaved }: {
   onAct?: (action: CloseAction, b: Booking) => void;
   /** Open on this day instead of today: a past day left unclosed. */
   initialDate?: string;
+  /** In a pop-up: called once the count is saved, so the pop-up closes. */
+  onSaved?: () => void;
 } = {}) {
   const { C, soft, rowBg, cBg, cBr, inp } = useAdminStyle();
   const ops = useOps();
@@ -806,9 +907,7 @@ export function Closing({ onAct, initialDate }: {
     .filter((d) => d !== date);
   const existing = ops.closings.find((c) => c.closingDate === date);
   const blockers = closingBlockers(bookings, date);
-  const [openingFloat, setOpeningFloat] = useState("");
   const [counted, setCounted] = useState("");
-  const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -828,18 +927,19 @@ export function Closing({ onAct, initialDate }: {
      recorded with "Cash" as the method, which is what the walk-in, Record
      payment, check-out, settle and expense windows start on. */
   const CASH_TYPE: Record<string, string> = {
-    Downpayment: "Down payment", Balance: "Balance", Full: "Paid in full", Penalty: "Damage penalty", Refund: "Refund paid out",
+    Downpayment: "Down payment", Balance: "Remaining balance paid", Full: "Paid in full", Penalty: "Damage fee", Refund: "Refund given back",
   };
   const cashEntries = [
     ...dayPays.filter((p) => p.method === "Cash").map((p) => ({
       key: `p${p.id}`, sortKey: p.receivedAt, when: manilaTime(p.receivedAt), amount: signedAmount(p),
       what: CASH_TYPE[p.type] ?? p.type,
       who: `${p.guestName}${p.bookingId ? ` · ${p.bookingId}` : ""}`,
-      note: p.notes,
+      // The automatic "Final payment at settlement." says nothing new here.
+      note: /at settlement\.$/.test(p.notes ?? "") ? "" : p.notes,
     })),
     ...dayExp.filter((e) => e.method === "Cash").map((e) => ({
       key: `e${e.id}`, sortKey: `${e.spentOn}T23:59:59`, when: "", amount: -e.amount,
-      what: `Expense · ${e.category}`, who: e.description, note: "",
+      what: `Spent on ${e.category.toLowerCase()}`, who: e.description, note: "",
     })),
   ].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
@@ -847,29 +947,31 @@ export function Closing({ onAct, initialDate }: {
      There is nothing to count, so the day closes without one (the server
      then expects ₱0 and records ₱0). */
   const noCash = !dayPays.some((p) => p.method === "Cash") && !dayExp.some((e) => e.method === "Cash");
-  const floatNum = noCash ? 0 : Number(openingFloat) || 0;
-  const expected = round2(floatNum + cashIn - cashOut);
+  // No "change money" step: the count is just today's cash in and out.
+  const floatNum = 0;
+  const expected = round2(cashIn - cashOut);
   const diff = noCash || counted === "" ? null : round2(Number(counted) - expected);
 
   const save = async () => {
     setError("");
     if (blockers.length > 0) return setError("Finish the bookings listed above first.");
     if (!noCash && (counted === "" || Number(counted) < 0)) {
-      return setError("Count the bills and coins in the cash box and enter the total in “Cash in the box now”.");
+      return setError("Count the cash in the box and type the total in “Cash you counted”.");
     }
     setBusy(true);
-    const r = await ops.closeDay({ date, openingFloat: floatNum, countedCash: noCash ? 0 : Number(counted), notes });
+    const r = await ops.closeDay({ date, openingFloat: floatNum, countedCash: noCash ? 0 : Number(counted), notes: "" });
     setBusy(false);
     if (!r.ok) {
       // Front desk counts; the owner approves the close (already said on screen).
-      if (r.requested) { setCounted(""); setNotes(""); return; }
+      if (r.requested) { setCounted(""); return; }
       return setError(r.error);
     }
     toast(`${fmtDate(date)} closed.`, "success");
-    setCounted(""); setNotes("");
+    setCounted("");
+    onSaved?.();
   };
 
-  const pick = (d: string) => { setDate(d); setCounted(""); setOpeningFloat(""); setNotes(""); setError(""); };
+  const pick = (d: string) => { setDate(d); setCounted(""); setError(""); };
 
   /* The daily report, worked out live for every day money moved: nothing has
      to be "closed" for it to exist. A closing adds only the cash count. The
@@ -917,10 +1019,10 @@ export function Closing({ onAct, initialDate }: {
     if (round2(c.openingFloat + d.cashIn - d.cashOut) !== c.expectedCash) return { text: "Changed since counted, count again", color: "#f5a524" };
     if (!hadCash && c.countedCash === 0) return { text: "No cash to count", color: C.textS };
     return c.difference === 0
-      ? { text: `Balanced · ${fmt(c.countedCash)}`, color: "#2e9e4e" }
+      ? { text: `Matches · ${fmt(c.countedCash)}`, color: "#2e9e4e" }
       : c.difference > 0
-        ? { text: `Over by ${fmt(c.difference)}`, color: "#3e8ed0" }
-        : { text: `Short by ${fmt(-c.difference)}`, color: "#e5484d" };
+        ? { text: `${fmt(c.difference)} extra`, color: "#3e8ed0" }
+        : { text: `${fmt(-c.difference)} missing`, color: "#e5484d" };
   };
   return (
     <div>
@@ -990,7 +1092,7 @@ export function Closing({ onAct, initialDate }: {
         </div>
 
         <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "16px 20px" }}>
-          <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Cash count</div>
+          <div style={{ color: C.textH, fontWeight: 600, marginBottom: 4 }}>Count the cash</div>
           {noCash ? (
             /* A count only means something when cash changed hands. */
             <p style={{ color: C.textS, fontSize: 13, lineHeight: 1.6, margin: "0 0 4px", display: "flex", gap: 8, alignItems: "flex-start" }}>
@@ -1000,18 +1102,15 @@ export function Closing({ onAct, initialDate }: {
           ) : (
             <>
               <p style={{ color: C.textS, fontSize: 12.5, lineHeight: 1.6, margin: "0 0 12px" }}>
-                Count the money in the resort&apos;s cash box (wherever the cash guests pay is kept) and enter the total below. The system checks it against what should be there, so missing or extra cash shows up the same day.
+                Count the cash in the cash box and type the total.
               </p>
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, marginBottom: 12 }}>
+              {/* Side by side when there is room, one under the other on a
+                  narrow card, so neither field is squeezed. */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))", gap: 12, marginBottom: 12, alignItems: "start" }}>
                 <div>
-                  <Label htmlFor="float">Cash at the start (optional)</Label>
-                  <Input id="float" type="number" min={0} value={openingFloat} onChange={(e) => setOpeningFloat(e.target.value)} placeholder="0" style={inp} aria-describedby="float-hint" />
-                  <p id="float-hint" style={{ color: C.textXS, fontSize: 11.5, margin: "4px 0 0", lineHeight: 1.5 }}>Change money already in the box that morning. Leave blank if it was empty.</p>
-                </div>
-                <div>
-                  <Label htmlFor="counted">Cash in the box now</Label>
-                  <Input id="counted" type="number" min={0} value={counted} onChange={(e) => setCounted(e.target.value)} style={inp} aria-describedby="counted-hint" />
-                  <p id="counted-hint" style={{ color: C.textXS, fontSize: 11.5, margin: "4px 0 0", lineHeight: 1.5 }}>Count every bill and coin and enter the total.</p>
+                  <Label htmlFor="counted">Cash you counted</Label>
+                  <Input id="counted" inputMode="decimal" value={counted} onChange={(e) => setCounted(money(e.target.value))} placeholder="₱0" style={inp} aria-describedby="counted-hint" />
+                  <p id="counted-hint" style={{ color: C.textXS, fontSize: 11.5, margin: "4px 0 0", lineHeight: 1.5 }}>Every bill and coin in the box right now, added up.</p>
                   {/* The usual case is a box that matches: one tap fills in
                       what the records expect, so the owner only types a
                       number when it's different. It is still the owner
@@ -1019,25 +1118,24 @@ export function Closing({ onAct, initialDate }: {
                       assuming it: filling this in by itself would make every
                       day balance and hide missing cash. */}
                   {counted === "" && (
-                    <ActionButton size="sm" icon="check" style={{ marginTop: 8 }} onClick={() => setCounted(String(expected))}>
-                      The box has exactly {fmt(expected)}
+                    <ActionButton size="sm" icon="check" style={{ marginTop: 8, width: "100%", justifyContent: "center", whiteSpace: "normal", height: "auto", minHeight: 40 }} onClick={() => setCounted(String(expected))}>
+                      I counted exactly {fmt(expected)}
                     </ActionButton>
                   )}
                 </div>
               </div>
-              <AmountRow label="Cash at the start" value={fmt(floatNum)} />
-              <AmountRow label="+ Cash received" value={fmt(cashIn)} />
-              <AmountRow label="− Cash spent" value={fmt(cashOut)} />
-              <AmountRow label="Should be in the box" value={fmt(expected)} strong />
+              <AmountRow label="+ Cash paid by guests" value={fmt(cashIn)} />
+              <AmountRow label="− Cash spent on expenses" value={fmt(cashOut)} />
+              <AmountRow label="Expected in the box" value={fmt(expected)} strong />
               {diff !== null && (
-                <AmountRow label={diff === 0 ? "Balanced" : diff > 0 ? "Over by" : "Short by"} value={fmt(Math.abs(diff))} strong
+                <AmountRow label={diff === 0 ? "Matches — nothing missing" : diff > 0 ? "Extra cash" : "Missing cash"} value={diff === 0 ? "✓" : fmt(Math.abs(diff))} strong
                   color={diff === 0 ? "#2e9e4e" : diff > 0 ? "#3e8ed0" : "#e5484d"} />
               )}
 
               {/* Every entry behind "Cash received" and "Cash spent". */}
               <details style={{ marginTop: 12, borderTop: `1px solid ${cBr}`, paddingTop: 8 }}>
                 <summary style={{ cursor: "pointer", color: C.textH, fontSize: 13, fontWeight: 600, padding: "4px 0" }}>
-                  Where the cash came from ({cashEntries.length} entr{cashEntries.length === 1 ? "y" : "ies"})
+                  See today&apos;s cash in and out ({cashEntries.length})
                 </summary>
                 <ul style={{ listStyle: "none", margin: "4px 0 0", padding: 0 }}>
                   {cashEntries.map((x) => (
@@ -1054,7 +1152,7 @@ export function Closing({ onAct, initialDate }: {
                   ))}
                 </ul>
                 <p style={{ color: C.textXS, fontSize: 11.5, margin: "8px 0 0", lineHeight: 1.5 }}>
-                  Recorded as Cash by mistake? Undo it under Transactions (or Expenses) and record it again with the right method.
+                  Something here wasn&apos;t really cash? Undo it in Transactions (or Expenses), then record it again the right way.
                 </p>
               </details>
             </>
@@ -1062,16 +1160,15 @@ export function Closing({ onAct, initialDate }: {
           {/* A day with no cash has nothing to close: its report is already
               in Daily reports below, so there is no count to save. */}
           {!noCash && <>
-            <div style={{ marginTop: 12 }}>
-              <Label htmlFor="close-notes">Notes (optional)</Label>
-              <Input id="close-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. ₱50 short, change given wrong" style={inp} />
-            </div>
             <ErrorNote>{error}</ErrorNote>
             {/* Same clearance: this is the page's last row, right-aligned,
                 and the toggle floats over that corner. */}
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12, paddingRight: TOGGLE_CLEARANCE }}>
+            {/* In a pop-up the button spans the card, lined up with the field
+                above. On the Sales page it sits flush with the card's right
+                edge, in line with the amounts and the fields above it. */}
+            <div className={onSaved ? "sw-close-actions sw-close-actions--full" : "sw-close-actions"} style={{ marginTop: 16 }}>
               <ActionButton kind="primary" disabled={busy || blockers.length > 0} onClick={save}>
-                {busy ? "Saving…" : blockers.length > 0 ? "Finish the bookings above first" : existing ? "Count again" : "Save the cash count"}
+                {busy ? "Saving…" : blockers.length > 0 ? "Finish the bookings above first" : existing ? "Save new count" : "Save count & close the day"}
               </ActionButton>
             </div>
           </>}

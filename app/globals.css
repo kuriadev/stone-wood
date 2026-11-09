@@ -1764,12 +1764,26 @@ button:focus-visible > .sw-ulink::after {
    nudge, then everything settles back. */
 .sw-spot {
   position: relative;
-  animation: sw-spot-nudge .6s cubic-bezier(.22, 1, .36, 1) both, sw-spot-ring 1.1s ease-in-out 3 both !important;
+  animation: sw-spot-nudge .6s cubic-bezier(.22, 1, .36, 1) both !important;
   scroll-margin: 96px;
+}
+/* The ring is its own layer ON TOP of the element's content. Drawn on the
+   element itself (an inset shadow), it sat behind the children: lighting
+   up a Dashboard column showed the ring only in the gaps between its cards.
+   pointer-events: none so it never blocks a click. */
+.sw-spot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 20;
+  animation: sw-spot-ring 1.1s ease-in-out 3 both;
 }
 /* Table rows: the cells flash gold instead (a row can't hold a ring), with
    a gold bar on the row's first cell. */
 tr.sw-spot { animation: none !important; }
+tr.sw-spot::after { content: none; }
 tr.sw-spot > td { animation: sw-spot-cell 1.1s ease-in-out 3 both; }
 tr.sw-spot > td:first-child { box-shadow: inset 4px 0 0 #e6c76a; }
 @keyframes sw-spot-cell {
@@ -1929,3 +1943,12 @@ tr.sw-spot > td:first-child { box-shadow: inset 4px 0 0 #e6c76a; }
     white-space: normal; height: auto; min-height: 40px;
   }
 }
+
+/* Close the day: the Save button. Right-aligned on a wide card; on a narrow
+   one it fills the row (clear of the floating theme toggle), so it lines up
+   with the fields above instead of hanging off-centre. */
+.sw-close-actions { container-type: inline-size; display: flex; justify-content: flex-end; }
+@container (max-width: 460px) {
+  .sw-close-actions > button { width: 100%; justify-content: center; white-space: normal; height: auto; min-height: 44px; }
+}
+.sw-close-actions--full > button { width: 100%; justify-content: center; }

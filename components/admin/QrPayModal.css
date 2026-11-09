@@ -44,4 +44,7 @@
 .sw-qrpay__total { display: flex; justify-content: space-between; font-size: 18px; font-weight: 700; color: #1a1610; }
 .sw-qrpay__due { display: flex; justify-content: space-between; margin-top: 8px; font-size: 13px; color: #6f6556; }
 .sw-qrpay__due b { color: #1a1610; font-size: 14.5px; }
+/* What the guest pays now: set apart under the breakdown. */
+.sw-qrpay__due--now { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #e6dcc6; font-weight: 700; color: #1a1610; }
+.sw-qrpay__due--now b { font-size: 18px; }
 .sw-qrpay__note { margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: #6f6556 !important; }

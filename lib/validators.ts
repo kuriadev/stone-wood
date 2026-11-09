@@ -15,6 +15,8 @@ import { dayjs, DATE_FMT } from "@/lib/dayjs";
 export const NAME_MIN = 2;
 export const NAME_MAX = 40;
 export const NOTES_MAX = 200;
+/** Notes the front desk types on a walk-in (special requests). */
+export const WALKIN_NOTES_MAX = 1000;
 
 /** The resort's actual physical ceiling — how many people can be on-site for
  *  the pool/amenities at once, full stop. One number now drives everything
@@ -138,7 +140,7 @@ export let OVERTIME_RATE = 500;
 /** The most guests staff may put on one booking when they override the
  *  resort's capacity (a group bigger than the website takes). Only staff
  *  can; the website stays at GUESTS_MAX. */
-export const OVERRIDE_GUESTS_MAX = 200;
+export const OVERRIDE_GUESTS_MAX = 100;
 
 /** How far ahead a guest may reserve. */
 export let BOOKING_WINDOW_MONTHS = 3;

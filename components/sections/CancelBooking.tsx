@@ -22,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useApp } from "@/contexts/AppContext";
 import { useWidth } from "@/hooks/useWidth";
-import { T } from "@/lib/theme";
+import { T, THEME_COLORS } from "@/lib/theme";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { fmt, fmtDate, getBookingSlot, getBookingResource, getBookingTier, stayLabel } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
@@ -325,7 +325,6 @@ export function ManageBooking(_props: ManageBookingProps) {
   const noShowTurnedDown = noShow && !noShowPending && found?.noShowNotifiedAt
     ? dateChanges.find((r) => r.requestedBy === "Resort" && Date.parse(r.createdAt) >= Date.parse(found.noShowNotifiedAt!) && (r.status === "Declined" || r.status === "Expired"))
     : undefined;
-  const lastRefund = [...payments].reverse().find((p) => p.type === "Refund");
   const choosing = !!found && choiceOpen(found);
   // The notice rule (Rates & Settings): date changes close a few days
   // before the visit, so the resort can still offer the date to someone.
@@ -545,9 +544,13 @@ export function ManageBooking(_props: ManageBookingProps) {
                           : <>The resort wasn&rsquo;t able to confirm {fmtDate(rebookTurnedDown.toDate)} in time, so the date wasn&rsquo;t kept. Please pick again.</>}
                       </p>
                     )}
-                    <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: "0 0 20px" }}>
-                      {(found.heldAmount ?? 0) > 0 && <>Your {fmt(found.heldAmount ?? 0)} is safe and stays with this booking. </>}
-                      Move it to any free date at no extra cost; the resort confirms the date you pick. Please choose by <strong style={{ color: C.textH }}>{fmtDeadline(found.choiceDeadline!)}</strong>. If none of the open dates work for you, contact us and we&rsquo;ll sort one out together.
+                    {/* The two facts that matter, large: what's kept for them and the deadline. */}
+                    <FactTiles tiles={[
+                      ...((found.heldAmount ?? 0) > 0 ? [{ label: "Your payment, kept safe", value: fmt(found.heldAmount ?? 0) }] : []),
+                      { label: "Pick a new date by", value: fmtDeadline(found.choiceDeadline!), urgent: true },
+                    ]} />
+                    <p style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.7, margin: "0 0 20px" }}>
+                      Move your booking to <strong style={{ color: C.textH }}>any free date at no extra cost</strong>. The resort confirms the date you pick. If none of the open dates work for you, contact us and we&rsquo;ll sort one out together.
                     </p>
                     {!picking ? (
                       <>
@@ -560,15 +563,17 @@ export function ManageBooking(_props: ManageBookingProps) {
                           chat, not issued by a button or a form. */}
                       {(found.heldAmount ?? 0) > 0 && (
                         <>
-                          <p style={{ display: "flex", gap: 10, alignItems: "flex-start", color: C.textS, fontSize: 13, lineHeight: 1.65, margin: "20px 0 12px" }}>
-                            <Icon name="info" size={14} strokeWidth={1.5} style={{ color: C.goldInk, marginTop: 3, flexShrink: 0 }} />
-                            <span>
-                              Would you rather have your money back? Because we cancelled this booking, you can have
-                              your {fmt(found.heldAmount ?? 0)} refunded instead. Call or message us with your
-                              reference <strong style={{ color: C.textH }}>{found.id}</strong> and we&rsquo;ll arrange it with you.
-                            </span>
-                          </p>
-                          <ResortContact mailSubject={`Refund request – ${found.id}`} />
+                          <div style={{ marginTop: 24, border: `2px solid ${gold}`, background: `${gold}14`, borderRadius: 12, padding: mob ? 16 : 20 }}>
+                            <p style={{ color: C.textH, fontSize: mob ? 18 : 20, fontWeight: 700, margin: "0 0 12px", fontFamily: serif }}>Prefer a refund instead?</p>
+                            <FactTiles tiles={[
+                              { label: "You can get back", value: fmt(found.heldAmount ?? 0) },
+                              { label: "Your booking reference", value: found.id, mono: true },
+                            ]} />
+                            <p style={{ color: C.textB, fontSize: 14, lineHeight: 1.7, margin: "0 0 12px" }}>
+                              Because we cancelled this booking, you can have your money back instead of a new date. Call or message us, give your booking reference, and we&rsquo;ll arrange it with you.
+                            </p>
+                            <ResortContact mailSubject={`Refund request – ${found.id}`} />
+                          </div>
                         </>
                       )}
                       </>
@@ -628,10 +633,14 @@ export function ManageBooking(_props: ManageBookingProps) {
                           : <>The resort wasn&rsquo;t able to confirm {fmtDate(noShowTurnedDown.toDate)} in time, so the date wasn&rsquo;t kept. Please pick again.</>}
                       </p>
                     )}
-                    <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.7, margin: "0 0 20px" }}>
+                    <FactTiles tiles={[
+                      ...(paidNet > 0 ? [{ label: "What you paid carries over", value: fmt(paidNet) }] : []),
+                      { label: "Pick a new date by", value: fmtDeadline(found.choiceDeadline!), urgent: true },
+                    ]} />
+                    <p style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.7, margin: "0 0 20px" }}>
                       You can still move this booking to another free date.
-                      {paidNet > 0 && <> The {fmt(paidNet)} you paid carries over{found.total - paidNet > 0 ? <>, and the remaining {fmt(found.total - paidNet)} is paid when you arrive</> : null}.</>}
-                      {" "}The resort confirms the date you pick. Please choose by <strong style={{ color: C.textH }}>{fmtDeadline(found.choiceDeadline!)}</strong>.
+                      {paidNet > 0 && found.total - paidNet > 0 ? <> The remaining {fmt(found.total - paidNet)} is paid when you arrive.</> : null}
+                      {" "}The resort confirms the date you pick.
                     </p>
                     {!picking ? (
                       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -677,9 +686,9 @@ export function ManageBooking(_props: ManageBookingProps) {
                 {found.refundStatus === "Sent" ? (
                   <>
                     <p style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.7, margin: "0 0 8px" }}>
-                      We sent your refund of <strong style={{ color: C.textH }}>{fmt(found.refundAmount ?? 0)}</strong>
+                      We returned your refund of <strong style={{ color: C.textH }}>{fmt(found.refundAmount ?? 0)}</strong>
                       {found.refundSentAt ? <> on {new Date(found.refundSentAt).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })}</> : null}
-                      {lastRefund ? <> by {lastRefund.method}{lastRefund.reference ? <>, reference <span style={{ fontFamily: "monospace" }}>{lastRefund.reference}</span></> : null}</> : null}.
+                      , as we agreed with you.
                     </p>
                     {found.refundReceipt && (
                       /* eslint-disable-next-line @next/next/no-img-element */
@@ -748,7 +757,6 @@ export function ManageBooking(_props: ManageBookingProps) {
                       <div style={{ color: C.textH, fontSize: 14 }}>{PAYMENT_LABEL[p.type] ?? p.type} · {p.method === "PayMongo" ? "Online (QR Ph)" : p.method === "GCash" ? "QR Ph" : p.method}</div>
                       <div style={{ color: C.textS, fontSize: 12 }}>
                         {new Date(p.receivedAt).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })}
-                        {p.reference && p.method !== "PayMongo" ? <> · ref <span style={{ fontFamily: "monospace" }}>{p.reference}</span></> : null}
                       </div>
                     </div>
                     <div style={{ color: p.type === "Refund" ? "#6ec071" : C.textB, fontWeight: 700, fontSize: 14.5, whiteSpace: "nowrap" }}>
@@ -1025,6 +1033,26 @@ export function ManageBooking(_props: ManageBookingProps) {
         </AlertDialogContent>
       </AlertDialog>
 
+    </div>
+  );
+}
+
+/** The facts a guest must not miss on a rebooking (the money kept for them,
+ *  the deadline, their reference), shown large in tiles above the text. */
+function FactTiles({ tiles }: { tiles: { label: string; value: string; urgent?: boolean; mono?: boolean }[] }) {
+  const C = THEME_COLORS;
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: 10, margin: "0 0 16px" }}>
+      {tiles.map((t) => (
+        <div key={t.label} style={{
+          borderRadius: 10, padding: "12px 16px",
+          background: t.urgent ? "rgba(232,160,112,0.12)" : `${gold}1a`,
+          border: `1px solid ${t.urgent ? "rgba(232,160,112,0.55)" : `${gold}66`}`,
+        }}>
+          <div style={{ color: t.urgent ? "#e8a070" : C.goldInk, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 4 }}>{t.label}</div>
+          <div style={{ color: C.textH, fontSize: 20, fontWeight: 700, lineHeight: 1.25, overflowWrap: "anywhere", ...(t.mono ? { fontFamily: "monospace", letterSpacing: 1 } : {}) }}>{t.value}</div>
+        </div>
+      ))}
     </div>
   );
 }

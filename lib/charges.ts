@@ -4,9 +4,12 @@
 //
 //   overtime      a Day Tour staying past 5 PM, ₱500/hr, at most
 //                 OVERTIME_MAX hours in all, only when the Night slot is free
-//   extra guests  more people than booked on a Shared pool booking, at the
-//                 per-guest rate (Exclusive already covers the whole resort,
-//                 and the venue is a flat rate)
+//   extra guests  more people than booked, on any booking (Shared,
+//                 Exclusive or venue-only): each extra guest pays the
+//                 per-guest rate, for every tour and day of the stay. Front
+//                 desk and the owner can always add them, and go over
+//                 capacity on purpose (with a warning), up to
+//                 OVERRIDE_GUESTS_MAX in all.
 //   a room        a room added to a booking that didn't have it, at the
 //                 room's own rate for each slot
 //   the venue     the events venue added to an Exclusive pool booking, at
@@ -28,7 +31,7 @@ import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
 import { SLOTS } from "@/lib/resort";
 import { getBookingSlot, getBookingResource, getBookingTier, bookingDays } from "@/lib/utils";
-import { OVERTIME_MAX, OVERTIME_RATE, sharedRateFor, GUESTS_MAX, OVERRIDE_GUESTS_MAX, EVENT_VENUE_RATE } from "@/lib/validators";
+import { OVERTIME_MAX, OVERTIME_RATE, sharedRateFor, OVERRIDE_GUESTS_MAX, EVENT_VENUE_RATE, guestLimitFor } from "@/lib/validators";
 
 export type ChargeKind = "overtime" | "guests" | "room" | "venue";
 
@@ -56,9 +59,8 @@ export function chargeKindsFor(b: Booking): Record<ChargeKind, string | null> {
     overtime: slot !== "Day" ? "Overtime is only for the Day Tour."
       : (b.overtime ?? 0) >= OVERTIME_MAX ? `It already has the most overtime allowed (${OVERTIME_MAX} hrs).`
       : null,
-    guests: !pool ? "The events venue is a flat rate, whatever the number of guests."
-      : getBookingTier(b) !== "Shared" ? `An Exclusive booking already covers up to ${GUESTS_MAX} guests at a flat rate.`
-      : null,
+    // Always possible: staff can raise the count on any booking.
+    guests: null,
     room: !pool ? "A venue-only booking doesn't include rooms." : null,
     venue: getBookingResource(b) !== "Pool" ? "This booking already has the events venue."
       : getBookingTier(b) !== "Exclusive" ? "The events venue can only be added to an Exclusive booking. A shared tour can't have it."
@@ -93,11 +95,12 @@ export function priceCharge(b: Booking, req: ChargeRequest, rooms: Room[]): Char
   if (req.kind === "guests") {
     const extra = Math.round(Number(req.guests) || 0);
     if (extra < 1) return no("Enter how many more guests came.");
-    const cap = req.overCapacity ? OVERRIDE_GUESTS_MAX : GUESTS_MAX;
+    const limit = guestLimitFor(getBookingResource(b));
+    const cap = req.overCapacity ? OVERRIDE_GUESTS_MAX : limit;
     if (keep.guests + extra > cap) {
       return no(req.overCapacity
         ? `That would make ${keep.guests + extra} guests; even over capacity the most for one booking is ${OVERRIDE_GUESTS_MAX}.`
-        : `That would make ${keep.guests + extra} guests, more than the resort's capacity of ${GUESTS_MAX}. Tick "Allow more than ${GUESTS_MAX} guests" to add them anyway.`);
+        : `That would make ${keep.guests + extra} guests, more than the capacity of ${limit}. Tick "Allow more than ${limit} guests" to add them anyway.`);
     }
     return {
       ok: true, amount: extra * sharedRateFor(getBookingSlot(b)) * days,

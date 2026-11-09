@@ -61,3 +61,31 @@ describe("the day-before reminder", () => {
     expect(n.email.paragraphs.join(" ")).toMatch(/fully paid/);
   });
 });
+
+describe("staff can change the number of guests on any booking", () => {
+  it("an Exclusive booking charges every extra guest, like a Shared one", () => {
+    const r = priceCharge(booking({ tier: "Exclusive", guests: 2 }), { kind: "guests", guests: 20 }, []);
+    expect(r.ok && r.amount).toBe(20 * 200 * 2); // guests × rate × the Whole Day's 2 tours
+    expect(r.ok && r.next.guests).toBe(22);
+  });
+
+  it("never goes past 100 guests, even with the override", () => {
+    const big = booking({ tier: "Exclusive", guests: 90 });
+    expect(priceCharge(big, { kind: "guests", guests: 10, overCapacity: true }, []).ok).toBe(true);   // 100
+    expect(priceCharge(big, { kind: "guests", guests: 11, overCapacity: true }, []).ok).toBe(false);  // 101
+  });
+
+  it("a venue-only booking goes up to the venue's capacity, then needs the override", () => {
+    const venue = booking({ resource: "Venue", tier: "Exclusive", guests: 45, slot: "Day", package: "Events Venue" });
+    expect(priceCharge(venue, { kind: "guests", guests: 5 }, []).ok).toBe(true);    // 50, the venue's capacity
+    expect(priceCharge(venue, { kind: "guests", guests: 6 }, []).ok).toBe(false);   // 51 without the override
+    expect(priceCharge(venue, { kind: "guests", guests: 6, overCapacity: true }, []).ok).toBe(true);
+  });
+
+  it("an Exclusive pool booking over 30 needs the override", () => {
+    const ex = booking({ tier: "Exclusive", guests: 30 });
+    expect(priceCharge(ex, { kind: "guests", guests: 2 }, []).ok).toBe(false);
+    const over = priceCharge(ex, { kind: "guests", guests: 2, overCapacity: true }, []);
+    expect(over.ok && over.next.guests).toBe(32);
+  });
+});

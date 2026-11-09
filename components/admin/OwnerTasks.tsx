@@ -22,11 +22,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
-import { AdminPageHeader, ActionButton, ConfirmDialog, Label, StatCard, StatusBadge, useAdminStyle } from "@/components/admin/ui";
+import { AdminPageHeader, ActionButton, ConfirmDialog, StatCard, StatusBadge, useAdminStyle } from "@/components/admin/ui";
 import { DateChangeReview } from "@/components/admin/DateChangeReview";
-import { RefundModal } from "@/components/admin/RefundModal";
+import { MarkRefundedModal } from "@/components/admin/MarkRefundedModal";
 import { CashCountReview } from "@/components/admin/CashCountReview";
-import { Textarea } from "@/components/ui/textarea";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { lowStock, unclosedDays } from "@/lib/operations";
 import { choiceExpired } from "@/lib/rebooking";
@@ -61,7 +60,7 @@ export function OwnerTasks({ mob, onGoTab, onOpenBooking }: {
   onGoTab?: (t: AdminTab) => void;
   onOpenBooking?: (id: string) => void;
 }) {
-  const { C, cBr, cBg, inp } = useAdminStyle();
+  const { C, cBr, cBg } = useAdminStyle();
   const { bookings, inventory } = useApp();
   const ops = useOps();
   const { toast } = useToast();
@@ -69,7 +68,6 @@ export function OwnerTasks({ mob, onGoTab, onOpenBooking }: {
   const [declining, setDeclining] = useState<OwnerRequest | null>(null);
   /* Approving carries out a refund, a void or a cancellation, so it asks. */
   const [approving, setApproving] = useState<OwnerRequest | null>(null);
-  const [note, setNote] = useState("");
   const [reviewing, setReviewing] = useState<DateChange | null>(null);
   const [refunding, setRefunding] = useState<Booking | null>(null);
   const [counting, setCounting] = useState<DailyClosing | null>(null);
@@ -109,7 +107,7 @@ export function OwnerTasks({ mob, onGoTab, onOpenBooking }: {
       meta: `${r.requestedByName} · ${manilaTime(r.requestedAt)}${r.reason ? ` · "${r.reason}"` : ""}`,
       badge: r.lastError ? { text: "Last try failed", color: "#e5484d" } : undefined,
       actions: <>
-        <ActionButton size="sm" disabled={busy === r.id} onClick={() => { setDeclining(r); setNote(""); }}>Decline</ActionButton>
+        <ActionButton size="sm" disabled={busy === r.id} onClick={() => setDeclining(r)}>Decline</ActionButton>
         <ActionButton size="sm" kind="primary" icon="check" disabled={busy === r.id} onClick={() => setApproving(r)}>{busy === r.id ? "Working…" : "Approve"}</ActionButton>
       </>,
     });
@@ -135,7 +133,7 @@ export function OwnerTasks({ mob, onGoTab, onOpenBooking }: {
       detail: `${fmt(owed)} owed after the resort cancelled.`,
       meta: b.id,
       badge: { text: fmt(owed), color: "#e5484d" },
-      actions: <ActionButton size="sm" kind="primary" onClick={() => setRefunding(b)}>Send refund</ActionButton>,
+      actions: <ActionButton size="sm" kind="primary" onClick={() => setRefunding(b)}>Mark as refunded</ActionButton>,
     });
   }
   const picked = new Set(ops.dateChanges.filter((r) => r.status === "Pending").map((r) => r.bookingId));
@@ -281,22 +279,17 @@ export function OwnerTasks({ mob, onGoTab, onOpenBooking }: {
           confirm={
             <ActionButton kind="red" disabled={busy === declining.id} onClick={async () => {
               setBusy(declining.id);
-              const res = await ops.decideRequest(declining.id, false, note.trim());
+              const res = await ops.decideRequest(declining.id, false, "");
               setBusy(null);
-              if (res.ok) { toast(note.trim() ? "Declined. They'll see your note." : "Declined.", "info"); setDeclining(null); }
+              if (res.ok) { toast("Declined.", "info"); setDeclining(null); }
               else toast(res.error, "error");
             }}>Decline</ActionButton>
-          }>
-          <div>
-            <Label htmlFor="owner-decline">Why? (optional — they see this)</Label>
-            <Textarea id="owner-decline" rows={3} maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} style={{ ...inp, width: "100%" }} />
-          </div>
-        </ConfirmDialog>
+          } />
       )}
       {reviewing && find(reviewing.bookingId) && (
         <DateChangeReview request={reviewing} booking={find(reviewing.bookingId)!} onClose={() => setReviewing(null)} />
       )}
-      {refunding && <RefundModal booking={refunding} onClose={() => setRefunding(null)} />}
+      {refunding && <MarkRefundedModal booking={refunding} onClose={() => setRefunding(null)} />}
       {counting && (
         <CashCountReview closing={counting} closedBy={closedBy(counting.closingDate)}
           onClose={() => setCounting(null)} onReviewed={() => void loadDayLog()}

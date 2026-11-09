@@ -11,6 +11,7 @@
 //     like the import template (All Bookings → Import), so typing them in
 //     afterwards is a straight copy
 
+import { preparedBookingIds } from "@/lib/facilityUsage";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { bookingMoney, manilaDate } from "@/lib/finance";
 import { fmt, fmtDate, getBookingSlot, holdsDate, bookingCoversDate } from "@/lib/utils";
@@ -45,7 +46,7 @@ export function offlineSheetHtml(input: OfflineSheetInput): string {
   const today = manilaDate();
   const tomorrow = addDaysIso(today, 1);
   const e = (s: unknown) => escapeHtml(String(s ?? ""));
-  const prepared = new Set(inspections.filter((i) => i.stage === "Preparation").map((i) => i.bookingId));
+  const prepared = preparedBookingIds(bookings, inspections, facilities);
   const live = bookings.filter((b) => !b.archived && holdsDate(b) && !b.id.startsWith("TMP-"));
   const roomNames = (b: Booking) => (b.rooms ?? []).map((id) => rooms.find((r) => r.id === id)?.name.split(" –")[0] ?? `#${id}`).join(", ");
 

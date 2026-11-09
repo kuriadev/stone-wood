@@ -74,8 +74,10 @@ export const notices = {
         ...(held > 0
           ? {
               contact: {
-                title: "Prefer a refund?",
-                note: `Because this cancellation was ours, you can have your ${fmt(held)} back instead of a new date. Call or message us with your booking reference ${b.id} and we'll arrange it with you.`,
+                title: "Prefer a refund instead?",
+                amount: { label: "You can get back", value: fmt(held) },
+                reference: { label: "Your booking reference", value: b.id },
+                note: `Because this cancellation was ours, you can have your money back instead of a new date. Call or message us below, give your booking reference, and we'll arrange it with you.`,
                 mailSubject: `Refund request – ${b.id}`,
               },
             }
@@ -250,18 +252,20 @@ export const notices = {
     };
   },
 
-  refundSent(b: Booking, amount: number, method: string, reference: string, link: string): NoticeText {
+  refundSent(b: Booking, amount: number, link: string): NoticeText {
     return {
       email: {
         subject: `Refund sent: ${fmt(amount)} – ${b.id}`,
         title: "Your refund has been sent",
-        tagline: `${fmt(amount)} by ${payMethodLabel(method)}`,
+        tagline: `${fmt(amount)} returned to you`,
         name: b.name,
-        paragraphs: [`We sent your refund of ${fmt(amount)} for booking ${b.id}.${reference ? ` The ${payMethodLabel(method)} reference number is ${reference}.` : ""} The receipt is on your booking page.`],
-        rows: [["Booking", b.id], ["Refund", fmt(amount)], ["Sent by", method], ...(reference ? [["Reference", reference] as [string, string]] : [])],
-        button: button(link, "See the receipt"),
+        // Not how it was sent: that is whatever the guest and the resort
+        // agreed between them.
+        paragraphs: [`We've returned your refund of ${fmt(amount)} for booking ${b.id}, as we agreed with you. Thank you for your patience, and we hope to welcome you another time.`],
+        rows: [["Booking", b.id], ["Refund", fmt(amount)]],
+        button: button(link, "View your booking"),
       },
-      sms: `Stonewood Garden Private Resort: We sent your ${fmt(amount)} refund for ${b.id} by ${payMethodLabel(method)}${reference ? `, ref ${reference}` : ""}. Receipt: ${link}`,
+      sms: `Stonewood Garden Private Resort: We've returned your ${fmt(amount)} refund for ${b.id}, as we agreed with you. Details: ${link}`,
     };
   },
 };

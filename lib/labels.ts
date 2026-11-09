@@ -74,7 +74,7 @@ export function labelOf<K extends string>(map: Record<K, string>, value: string 
 }
 
 export const statusLabel = (s: string | null | undefined) =>
-  s === NO_SHOW ? "No-show" : labelOf(BOOKING_STATUS_LABEL, s);
+  s === NO_SHOW ? "No-show" : s === REFUNDED ? "Refunded" : labelOf(BOOKING_STATUS_LABEL, s);
 
 /* ── No-show ──
  * Stored as Cancelled, so availability, money (what was paid is kept) and
@@ -88,14 +88,21 @@ export const noShowLine = (reason: string | null | undefined) => {
   const note = (reason ?? "").trim().replace(/^no[\s-]?show\b[\s:.,-]*/i, "").trim();
   return `No-show: ${note || "the group did not arrive."}`;
 };
+/* ── Refunded ──
+ * Stored as Cancelled with the refund marked sent ("Mark as refunded", after
+ * the refund was agreed with the guest). Shown and filtered as its own
+ * status so the list tells a refunded booking from a plain cancellation. */
+export const REFUNDED = "Refunded" as const;
+export const isRefunded = (b: { status: string; refundStatus?: string | null }) => b.status === "Cancelled" && b.refundStatus === "Sent";
 /** The status a booking is filtered and counted under: its stored status,
- *  or NO_SHOW for a no-show. */
-export const statusKey = (b: { status: string; noShow?: boolean }) => (isNoShow(b) ? NO_SHOW : b.status);
+ *  NO_SHOW for a no-show, or REFUNDED once its refund was returned. */
+export const statusKey = (b: { status: string; noShow?: boolean; refundStatus?: string | null }) =>
+  isNoShow(b) ? NO_SHOW : isRefunded(b) ? REFUNDED : b.status;
 /** The status label for one booking. "Pending" means two different waits:
  *  an online booking is already paid and waits for the admin to accept it,
  *  while a walk-in saved before any money came in waits for payment (it
  *  confirms itself on the first payment — app/api/payments). */
-export const bookingStatusLabel = (b: { status: string; source?: string | null; noShow?: boolean }) =>
+export const bookingStatusLabel = (b: { status: string; source?: string | null; noShow?: boolean; refundStatus?: string | null }) =>
   b.status === "Pending" && b.source === "Walk-In" ? "Awaiting payment" : statusLabel(statusKey(b));
 export const moneyLabel = (s: string | null | undefined) => labelOf(MONEY_STATE_LABEL, s);
 export const payTypeLabel = (s: string | null | undefined) => labelOf(PAYMENT_TYPE_LABEL, s);

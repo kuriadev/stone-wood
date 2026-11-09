@@ -16,14 +16,12 @@
 import { payMethodLabel } from "@/lib/labels";
 import { QrPayModal } from "@/components/admin/QrPayModal";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { useEffect, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
 import { fmt } from "@/lib/utils";
 import { getPackageTier, checkRangeAvailability, isRoomOpen, roomsTakenInRange, daysInRange, fmtDate } from "@/lib/utils";
 import { MAX_STAY_DAYS, staffDateWindow, OVERRIDE_GUESTS_MAX, guestLimitFor } from "@/lib/validators";
 import { OverCapacityNote } from "@/components/admin/OverCapacityNote";
-import { UNPAID_HOLD_HOURS } from "@/lib/rebooking";
 import { priceBooking, bookingLabel, packagePriceToday, packagePricing, dealText } from "@/lib/pricing";
 import { SLOTS, multiDayProblem, slotTiming, slotFor } from "@/lib/resort";
 import { manilaDate } from "@/lib/finance";
@@ -43,7 +41,8 @@ import { DateField } from "@/components/common/DateField";
 import { EmailTypoHint } from "@/components/common/EmailTypoHint";
 import "@/components/admin/WalkInModal.css";
 
-type PayChoice = "Full" | "Downpayment" | "None";
+/** A walk-in always pays something at the desk: in full or 50% down. */
+type PayChoice = "Full" | "Downpayment";
 
 export function WalkInModal({
   bookings, setBookings, rooms, packages, facilities, onClose, mob,
@@ -136,6 +135,15 @@ export function WalkInModal({
      2 hours before the end); the group just gets the hours that are left,
      and staying past the end is overtime. */
   const timing = wf.date ? slotTiming(wf.date, slot, now, resource) : "upcoming";
+  /* The picked tour ended (it's after 5 PM on today's Day Tour, say): move
+     to the first tour that still has time, since the ended one can't be
+     picked. A package that is Whole Day only has nothing to move to. */
+  const firstOpen = !wf.date || pkg?.slotMode === "WholeDay" ? null
+    : ((isPkg ? ["Day", "Night"] : ["Day", "Night", "WholeDay"]) as BookingSlot[]).find((t) => slotTiming(wf.date, t, now, resource) !== "ended") ?? null;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- follows the clock and the date
+    if (timing === "ended" && firstOpen && firstOpen !== slot) setWf((f) => ({ ...f, slot: firstOpen }));
+  }, [timing, firstOpen, slot]);
   /* More than the resort's capacity: staff may, on purpose, with a
      warning (the website never can). The date is still checked -- only
      the headcount stops counting against the limit. */
@@ -168,12 +176,12 @@ export function WalkInModal({
   /* QR Ph: the guest scans a code (QrPayModal) and the walk-in saves itself
      once it's paid. Nobody types a reference. */
   const [qrOpen, setQrOpen] = useState(false);
-  const payNow = payChoice === "Full" ? total : payChoice === "Downpayment" ? down : 0;
+  const payNow = payChoice === "Full" ? total : down;
 
   const roomOk = !requiresRoom || wf.rooms.length > 0;
   const roomsFree = wf.rooms.every((r) => !takenRooms.has(r));
   const emailOk = !wf.email.trim() || isValidEmail(wf.email);
-  const byQr = payChoice !== "None" && method === "GCash";
+  const byQr = method === "GCash";
 
   const problems: string[] = [];
   if (!isValidName(wf.name)) problems.push("Enter the guest's name.");
@@ -186,6 +194,7 @@ export function WalkInModal({
   if (overLimit && !overCap) problems.push(`That's more than ${resource === "Venue" ? "what the events venue holds" : "the resort's capacity"} (${guestCap}). Tick "Allow more than ${guestCap} guests" to book it anyway.`);
   if (guests > OVERRIDE_GUESTS_MAX) problems.push(`The most for one booking is ${OVERRIDE_GUESTS_MAX} guests.`);
   if (!capacity.ok) problems.push(capacity.reason ?? "That date and slot is not available.");
+  if (timing === "ended") problems.push(`Today's ${SLOTS[slot].label} has already ended. Choose another tour or another date.`);
   const [tried, setTried] = useState(false);
 
   const save = () => {
@@ -214,21 +223,19 @@ export function WalkInModal({
       slot,
       total,
       downpayment: down,
-      status: payChoice === "None" ? "Pending" : "Confirmed",
-      paymentProof: payChoice !== "None",
+      status: "Confirmed",
+      paymentProof: true,
       notes: wf.notes,
       source: "Walk-In",
       createdAt: Date.now(),
       resource,
       tier,
-      initialPayment: payChoice === "None" ? undefined : { type: payChoice, method, amount: payNow, reference: ref },
+      initialPayment: { type: payChoice, method, amount: payNow, reference: ref },
       // The server prices the walk-in itself; it needs to know the package.
       walkInPackageCode: pkg?.code,
       overCapacity: overriding || undefined,
     }]);
-    toast(payChoice === "None"
-      ? `Walk-in saved for ${wf.name}. It stays Pending until they pay, and the date is released if nothing is paid within ${UNPAID_HOLD_HOURS} hours.`
-      : `Walk-in saved for ${wf.name}. ${fmt(payNow)} ${ref.startsWith("pi_") ? "paid by QR and " : ""}recorded in Sales.`, "success");
+    toast(`Walk-in saved for ${wf.name}. ${fmt(payNow)} ${ref.startsWith("pi_") ? "paid by QR and " : ""}recorded in Sales.`, "success");
     onClose();
   };
 
@@ -271,7 +278,7 @@ export function WalkInModal({
           <div style={{ color: C.textS, fontSize: 13.5 }}>
             <strong style={{ color: C.textH, fontSize: 16 }}>{fmt(total)}</strong> total
             {" · "}
-            {payChoice === "None" ? "nothing collected yet" : <>collecting <strong style={{ color: "#2e9e4e" }}>{fmt(payNow)}</strong> now by {payMethodLabel(method)}</>}
+            <>collecting <strong style={{ color: "#2e9e4e" }}>{fmt(payNow)}</strong> now by {payMethodLabel(method)}</>
           </div>
           <ActionButton kind="primary" icon="check" onClick={save} disabled={stayTooLong || stayVenueOnly || !!tourTooLong}>{byQr ? "Generate QR & save" : "Save reservation"}</ActionButton>
         </div>
@@ -319,8 +326,52 @@ export function WalkInModal({
             </p>
           </div>
           <div>
-            <Label htmlFor="wi-notes">Notes (optional)</Label>
-            <Textarea id="wi-notes" value={wf.notes} onChange={(e) => set("notes", e.target.value)} rows={3} placeholder="Special requests" style={{ ...inp }} />
+            <Label>Tours</Label>
+            {pkg?.slotMode === "WholeDay" ? (
+              <p style={{ color: C.textH, fontSize: 13.5, margin: 0 }}>{SLOTS.WholeDay.label} · {slotFor("WholeDay", resource).hours}</p>
+            ) : (
+              <ChoiceButtons<BookingSlot> value={slot} size="sm"
+                onChange={(t) => set("slot", t)}
+                options={((isPkg ? ["Day", "Night"] : ["Day", "Night", "WholeDay"]) as BookingSlot[]).map((t) => {
+                  const st = wf.date ? slotTiming(wf.date, t, now, resource) : "upcoming";
+                  return {
+                    // A tour that has ended today can't be picked: no time left.
+                    value: t, label: SLOTS[t].label, disabled: st === "ended",
+                    hint: (
+                      <>
+                        {slotFor(t, resource).hours}
+                        {st !== "upcoming" && (
+                          <span className={`sw-wi-tag sw-wi-tag--${st}`}>{st === "started" ? "In progress" : "Ended"}</span>
+                        )}
+                      </>
+                    ),
+                  };
+                })} />
+            )}
+            {timing !== "upcoming" && (
+              <div className={`sw-wi-late sw-wi-late--${timing}`} role="note">
+                <Icon name={timing === "started" ? "clock" : "alert"} size={15} style={{ flexShrink: 0, marginTop: 2 }} />
+                <span>
+                  {timing === "started" ? (
+                    <>
+                      <strong>Today&apos;s {SLOTS[slot].label} started at {slotFor(slot, resource).start}</strong> (it&apos;s {clock} now).
+                      This group can stay from arrival until <strong>{slotFor(slot, resource).end}{slotFor(slot, resource).endsNextDay ? " the next morning" : ""}</strong> only, at the full price.
+                      Anything later is overtime.
+                    </>
+                  ) : (
+                    <>
+                      <strong>Today&apos;s {SLOTS[slot].label} ended at {slotFor(slot, resource).end}</strong> (it&apos;s {clock} now).
+                      The group would have no time left, so it can&apos;t be booked. Choose another tour or another date.
+                    </>
+                  )}
+                </span>
+              </div>
+            )}
+            {stayVenueOnly && (
+              <p style={{ color: "#e5484d", fontSize: 12, margin: "6px 0 0", lineHeight: 1.5 }}>
+                A {SLOTS.WholeDay.label} includes the resort. Choose the pool, or the pool + events venue.
+              </p>
+            )}
           </div>
         </div>
 
@@ -401,53 +452,6 @@ export function WalkInModal({
             </div>
           )}
 
-          <div>
-            <Label>When</Label>
-            {pkg?.slotMode === "WholeDay" ? (
-              <p style={{ color: C.textH, fontSize: 13.5, margin: 0 }}>{SLOTS.WholeDay.label} · {slotFor("WholeDay", resource).hours}</p>
-            ) : (
-              <ChoiceButtons<BookingSlot> value={slot} size="sm"
-                onChange={(t) => set("slot", t)}
-                options={((isPkg ? ["Day", "Night"] : ["Day", "Night", "WholeDay"]) as BookingSlot[]).map((t) => {
-                  const st = wf.date ? slotTiming(wf.date, t, now, resource) : "upcoming";
-                  return {
-                    value: t, label: SLOTS[t].label,
-                    hint: (
-                      <>
-                        {slotFor(t, resource).hours}
-                        {st !== "upcoming" && (
-                          <span className={`sw-wi-tag sw-wi-tag--${st}`}>{st === "started" ? "In progress" : "Ended"}</span>
-                        )}
-                      </>
-                    ),
-                  };
-                })} />
-            )}
-            {timing !== "upcoming" && (
-              <div className={`sw-wi-late sw-wi-late--${timing}`} role="note">
-                <Icon name={timing === "started" ? "clock" : "alert"} size={15} style={{ flexShrink: 0, marginTop: 2 }} />
-                <span>
-                  {timing === "started" ? (
-                    <>
-                      <strong>Today&apos;s {SLOTS[slot].label} started at {slotFor(slot, resource).start}</strong> (it&apos;s {clock} now).
-                      This group can stay from arrival until <strong>{slotFor(slot, resource).end}{slotFor(slot, resource).endsNextDay ? " the next morning" : ""}</strong> only, at the full price.
-                      Anything later is overtime.
-                    </>
-                  ) : (
-                    <>
-                      <strong>Today&apos;s {SLOTS[slot].label} ended at {slotFor(slot, resource).end}</strong> (it&apos;s {clock} now).
-                      You can still save it as a record, but the group has no tour time left. Choose the {SLOTS.Night.label} or another date for a stay.
-                    </>
-                  )}
-                </span>
-              </div>
-            )}
-            {stayVenueOnly && (
-              <p style={{ color: "#e5484d", fontSize: 12, margin: "6px 0 0", lineHeight: 1.5 }}>
-                A {SLOTS.WholeDay.label} includes the resort. Choose the pool, or the pool + events venue.
-              </p>
-            )}
-          </div>
 
           {showRooms && (
             <div>
@@ -509,11 +513,9 @@ export function WalkInModal({
             <ChoiceButtons<PayChoice> value={payChoice} onChange={setPayChoice} size="sm" options={[
               { value: "Full", label: "Full", hint: fmt(total) },
               { value: "Downpayment", label: "50% down", hint: fmt(down) },
-              { value: "None", label: "Not yet" },
             ]} />
           </div>
-          {payChoice !== "None" && (
-            <>
+          <>
               <div>
                 <Label>Paid with</Label>
                 <ChoiceButtons value={method} onChange={setMethod} size="sm" options={DESK_METHODS.map((m) => ({ value: m, label: payMethodLabel(m) }))} />
@@ -521,16 +523,13 @@ export function WalkInModal({
               {byQr && (
                 <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(62,142,208,0.35)", background: "rgba(62,142,208,0.08)" }}>
                   <Icon name="cash" size={16} style={{ color: "#3e8ed0", flexShrink: 0 }} />
-                  <span style={{ flex: 1, color: C.textB, fontSize: 12.5, lineHeight: 1.45 }}>The guest scans a QR code for {fmt(payNow)}. It saves by itself once they pay.</span>
-                  <ActionButton size="sm" kind="primary" onClick={save}>Generate QR code</ActionButton>
+                  {/* The QR comes up from "Generate QR & save" at the bottom. */}
+                  <span style={{ flex: 1, color: C.textB, fontSize: 12.5, lineHeight: 1.45 }}>Press <strong>Generate QR &amp; save</strong> below: the guest scans a QR code for {fmt(payNow)}, and it saves by itself once they pay.</span>
                 </div>
               )}
             </>
-          )}
           <p style={{ color: C.textS, fontSize: 12.5, margin: 0, lineHeight: 1.5 }}>
-            {payChoice === "None"
-              ? "Saved as Pending. It becomes Confirmed once a payment is recorded."
-              : payChoice === "Downpayment"
+            {payChoice === "Downpayment"
                 ? `Saved as Confirmed. The remaining ${fmt(total - down)} is collected at check-out.`
                 : "Saved as Confirmed and paid in full."}
           </p>

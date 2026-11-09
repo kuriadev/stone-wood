@@ -32,7 +32,7 @@ import { useStaff } from "@/contexts/StaffContext";
 import { compressImage } from "@/lib/image";
 import { useApp } from "@/contexts/AppContext";
 import { useToast } from "@/contexts/ToastContext";
-import { facilitiesForBooking, checklistFor } from "@/lib/facilityUsage";
+import { facilitiesForBooking, checklistFor, stillToPrepare } from "@/lib/facilityUsage";
 import { bookingMoney, round2, manilaDate, manilaTime, livePayments } from "@/lib/finance";
 import { fmt, fmtDate, bookingSlotInfo, getBookingResource, getBookingTier } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
@@ -72,13 +72,19 @@ function BookingSummary({ b }: { b: Booking }) {
 
 // ── Preparation ───────────────────────────────────────────────────────
 export function PrepModal({ booking, facilities, onClose }: { booking: Booking; facilities: Facility[]; onClose: () => void }) {
-  const { C, cBr, inp } = useAdminStyle();
+  const { C, cBr } = useAdminStyle();
   const ops = useOps();
   const { toast } = useToast();
-  const used = facilitiesForBooking(booking, facilities);
+  const { bookings } = useApp();
   // A booking has one preparation. Opening it again shows what was saved,
   // so the owner edits it rather than starting a blank list.
   const last = ops.inspections.find((i) => i.bookingId === booking.id && i.stage === "Preparation");
+  // Facilities another group on the same tour already had prepared don't
+  // need doing again: only what's left (this group's own room, say) is
+  // shown. Editing a saved preparation shows everything it covers.
+  const all_ = facilitiesForBooking(booking, facilities);
+  const [used] = useState(() => last ? all_ : stillToPrepare(booking, bookings, ops.inspections, facilities));
+  const shared = all_.filter((f) => !used.some((u) => u.id === f.id));
   const [items, setItems] = useState<InspectionItem[]>(() => used.map((f) => {
     const saved = last?.items.find((x) => x.facilityId === f.id);
     return {
@@ -86,23 +92,26 @@ export function PrepModal({ booking, facilities, onClose }: { booking: Booking; 
       checklist: checklistFor(f, "before").map((label) => ({ label, done: !!saved?.checklist.find((c) => c.label === label)?.done })),
     };
   }));
-  const [notes, setNotes] = useState(last?.notes ?? "");
+  // Notes aren't asked for any more; an earlier preparation keeps its own.
+  const notes = last?.notes ?? "";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const toggle = (fi: number, ci: number) => setItems((xs) => xs.map((x, i) => i !== fi ? x : { ...x, checklist: x.checklist.map((c, j) => j === ci ? { ...c, done: !c.done } : c) }));
+  // One press ticks every box (or unticks them all again).
   const all = items.every((x) => x.checklist.every((c) => c.done));
   const tickAll = () => setItems((xs) => xs.map((x) => ({ ...x, checklist: x.checklist.map((c) => ({ ...c, done: !all })) })));
   const left = items.reduce((s, x) => s + x.checklist.filter((c) => !c.done).length, 0);
 
   const save = async () => {
     setError("");
-    if (left > 0 && notes.trim().length < 3) return setError(`${left} check${left === 1 ? " isn't" : "s aren't"} ticked. Tick ${left === 1 ? "it" : "them"}, or say in the notes why not.`);
+    if (left > 0) return setError(`${left} check${left === 1 ? " isn't" : "s aren't"} ticked yet. Check and tick every item before saving.`);
     setBusy(true);
     const r = await ops.savePreparation({ bookingId: booking.id, items, notes });
     setBusy(false);
     if (!r.ok) return setError(r.error);
-    toast(last ? `Preparation for ${booking.name} updated.` : `Facilities prepared for ${booking.name}.`, "success");
+    const also = Array.isArray(r.data?.alsoPrepared) ? (r.data.alsoPrepared as string[]) : [];
+    toast(`${last ? `Preparation for ${booking.name} updated.` : `Facilities prepared for ${booking.name}.`}${also.length ? ` It also counts for ${also.join(", ")} on the same tour, so ${also.length === 1 ? "that group is" : "those groups are"} ready to check in.` : ""}`, "success");
     onClose();
   };
 
@@ -110,10 +119,10 @@ export function PrepModal({ booking, facilities, onClose }: { booking: Booking; 
     <Modal title={`Prepare for ${booking.name}`} subtitle={<BookingSummary b={booking} />} onClose={onClose} width={980}
       footer={
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <span style={{ color: left ? "#f5a524" : "#2e9e4e", fontSize: 13 }}>{left ? `${left} item${left === 1 ? "" : "s"} not ticked yet` : "Everything is ticked"}</span>
+          <span style={{ color: left ? "#f5a524" : "#2e9e4e", fontSize: 13 }}>{left ? `${left} item${left === 1 ? "" : "s"} left to check` : "Everything is checked"}</span>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <ActionButton onClick={tickAll}>{all ? "Untick all" : "Tick all"}</ActionButton>
-            <ActionButton kind="primary" icon="clipboard-check" disabled={busy} onClick={save}>{busy ? "Saving…" : last ? "Update preparation" : "Mark as prepared"}</ActionButton>
+            <ActionButton icon="check" onClick={tickAll}>{all ? "Untick all" : "Tick all"}</ActionButton>
+            <ActionButton kind="primary" icon="clipboard-check" disabled={busy || left > 0} onClick={save}>{busy ? "Saving…" : last ? "Update preparation" : "Mark as prepared"}</ActionButton>
           </div>
         </div>
       }>
@@ -121,6 +130,12 @@ export function PrepModal({ booking, facilities, onClose }: { booking: Booking; 
         <p style={{ color: "#2e9e4e", fontSize: 13, marginTop: 0 }}>
           <Icon name="check-circle" size={14} style={{ marginRight: 8, verticalAlign: -2 }} />
           Prepared on {fmtDate(manilaDate(last.inspectedAt))} at {manilaTime(last.inspectedAt)}. Changes here update that record.
+        </p>
+      )}
+      {shared.length > 0 && (
+        <p style={{ color: "#2e9e4e", fontSize: 13, marginTop: 0, lineHeight: 1.55 }}>
+          <Icon name="check-circle" size={14} style={{ marginRight: 8, verticalAlign: -2 }} />
+          Already prepared for another group on this tour: {shared.map((f) => f.name).join(", ")}. Only {used.length === 1 ? "this one is" : "these are"} left.
         </p>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(270px,100%),1fr))", gap: 12 }}>
@@ -138,10 +153,6 @@ export function PrepModal({ booking, facilities, onClose }: { booking: Booking; 
         })}
       </div>
       {used.length === 0 && <p style={{ color: C.textS }}>This booking doesn&apos;t use any listed facility.</p>}
-      <div style={{ marginTop: 16 }}>
-        <Label htmlFor="prep-notes">{left > 0 ? "Why isn't everything ticked?" : "Notes (optional)"}</Label>
-        <Input id="prep-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Extra chairs set up in the venue" style={inp} />
-      </div>
       <ErrorNote>{error}</ErrorNote>
     </Modal>
   );
@@ -176,6 +187,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
 }) {
   const { C, cBr, soft, inp } = useAdminStyle();
   const ops = useOps();
+  const { rooms } = useApp();
   const { toast } = useToast();
   const staff = useStaff();
   // Money is handled here only by someone who records payments, and not
@@ -214,8 +226,11 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
   };
 
   const toggle = (fi: number, ci: number) => setItems((xs) => xs.map((x, i) => i !== fi ? x : { ...x, checklist: x.checklist.map((c, j) => j === ci ? { ...c, done: !c.done } : c) }));
-  const allTicked = items.every((x) => x.checklist.every((c) => c.done));
-  const tickAll = () => setItems((xs) => xs.map((x) => ({ ...x, checklist: x.checklist.map((c) => ({ ...c, done: !allTicked })) })));
+  // No "Tick all": each after-use check is ticked on its own, and the group
+  // can't be checked out until every one is (the server checks again).
+  const unchecked = items.reduce((n, x) => n + x.checklist.filter((c) => !c.done).length, 0);
+  // One press ticks every after-use box (or unticks them all again).
+  const tickAllOut = () => setItems((xs) => xs.map((x) => ({ ...x, checklist: x.checklist.map((c) => ({ ...c, done: unchecked > 0 })) })));
   const setCondition = (fi: number, cond: "OK" | "Damaged") => {
     setItems((xs) => xs.map((x, i) => i === fi ? { ...x, condition: cond } : x));
     const id = used[fi].id;
@@ -259,8 +274,8 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
 
   const save = async (qrRef?: string) => {
     setError("");
+    if (unchecked > 0) return setError(`${unchecked} check${unchecked === 1 ? " isn't" : "s aren't"} ticked yet. Inspect and tick every item before checking out.`);
     if (allDamages.some((x) => x.custom && (x.itemName.trim().length < 2 || x.unitRate < 0))) return setError("Name each item that isn't on the rate list, and give it a price.");
-    if (allDamages.some((x) => x.adjusting && x.adjustment !== 0 && x.adjustmentReason.trim().length < 3)) return setError("Give a reason for every adjusted penalty.");
     if (left > 0 && closeUnpaid && unpaidNote.trim().length < 3) return setError("Say why the guest is leaving with money still owed.");
 
     if (!booking.checkedInAt && !staff.can("bookings.edit")) {
@@ -343,7 +358,10 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
               ? <strong style={{ color: "#f5a524" }}>{fmt(left)} {closeUnpaid ? "left unpaid" : "still owed after this"}</strong>
               : "Fully paid after this"}
           </span>
-          <ActionButton kind="primary" icon={completes ? "check" : "logout"} disabled={busy} onClick={() => void save()}>{buttonLabel}</ActionButton>
+          <ActionButton kind="primary" icon={completes ? "check" : "logout"} disabled={busy || unchecked > 0}
+            title={unchecked > 0 ? "Tick every item on the checklist first" : undefined} onClick={() => void save()}>
+            {unchecked > 0 ? `Tick all checks first (${unchecked} left)` : buttonLabel}
+          </ActionButton>
         </div>
       }>
       {!wasCheckedIn && (
@@ -359,7 +377,14 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
             <span style={{ color: C.textS, fontSize: 13 }}>
               Inspect each facility the group used. Mark it <strong style={{ color: C.textB }}>Damaged</strong> to add a penalty from the rate list.
             </span>
-            {items.some((x) => x.checklist.length > 0) && <ActionButton size="sm" onClick={tickAll}>{allTicked ? "Untick all" : "Tick all"}</ActionButton>}
+            {items.some((x) => x.checklist.length > 0) && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ color: unchecked ? "#f5a524" : "#2e9e4e", fontSize: 13, fontWeight: 600 }}>
+                  {unchecked ? `${unchecked} item${unchecked === 1 ? "" : "s"} left to check` : "Everything is checked"}
+                </span>
+                <ActionButton size="sm" icon="check" onClick={tickAllOut}>{unchecked ? "Tick all" : "Untick all"}</ActionButton>
+              </span>
+            )}
           </div>
           {items.map((x, fi) => {
             const f = used[fi];
@@ -432,16 +457,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
                         )}
                         <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
                           <Input value={d.description} onChange={(e) => patchDamage(f.id, d.key, { description: e.target.value })} placeholder="What happened (optional)" style={{ ...inp, padding: "8px 12px", flex: "1 1 220px", width: "auto" }} />
-                          <label style={{ color: C.textS, fontSize: 12.5, display: "flex", gap: 8, alignItems: "center" }}>
-                            <Checkbox checked={d.adjusting} onCheckedChange={(v) => patchDamage(f.id, d.key, { adjusting: v === true })} /> Adjust amount
-                          </label>
                         </div>
-                        {d.adjusting && (
-                          <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "140px minmax(0, 1fr)", gap: 8, marginTop: 8 }}>
-                            <Input type="number" value={d.adjustment || ""} onChange={(e) => patchDamage(f.id, d.key, { adjustment: Number(e.target.value) || 0 })} placeholder="− or + ₱" aria-label="Adjustment" style={{ ...inp, padding: "8px 12px" }} />
-                            <Input value={d.adjustmentReason} onChange={(e) => patchDamage(f.id, d.key, { adjustmentReason: e.target.value })} placeholder="Reason, e.g. only a small crack, repairable" style={{ ...inp, padding: "8px 12px" }} />
-                          </div>
-                        )}
                       </div>
                     ))}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -539,7 +555,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
       </div>
     </Modal>
     {qrOpen && (
-      <QrPayModal amount={paying} description={`${booking.name} · ${booking.id} · check-out`} summary={qrSummaryForBooking(booking, paying, "Balance at check-out")}
+      <QrPayModal amount={paying} description={`${booking.name} · ${booking.id} · check-out`} summary={qrSummaryForBooking(booking, paying, { payments: ops.payments, damages: ops.damages, rooms, newDamage: allDamages.map((x) => ({ label: `${x.itemName}${x.quantity > 1 ? ` × ${x.quantity}` : ""}`, amount: lineAmount(x) })).filter((x) => x.amount > 0) })}
         onCancel={() => setQrOpen(false)}
         onPaid={(id) => { setQrOpen(false); void save(id); }} />
     )}
@@ -575,7 +591,7 @@ export function BookingStatement({ booking }: { booking: Booking }) {
 
       <div style={sub}>PAYMENTS</div>
       {pays.map((p) => (
-        <AmountRow key={p.id} label={`${paymentLine(p)}${p.reference ? ` · ref ${p.reference}` : ""} · ${fmtDate(manilaDate(p.receivedAt))}`}
+        <AmountRow key={p.id} label={`${paymentLine(p)} · ${fmtDate(manilaDate(p.receivedAt))}`}
           value={`${p.type === "Refund" ? "+" : "−"} ${fmt(p.amount)}`} color={p.type === "Refund" ? "#e5484d" : "#2e9e4e"} />
       ))}
       {pays.length === 0 && <p style={{ color: C.textS, fontSize: 13, margin: "4px 0" }}>No payments yet.</p>}
@@ -598,6 +614,7 @@ export function BookingStatement({ booking }: { booking: Booking }) {
 export function SettleModal({ booking, onClose }: { booking: Booking; onClose: () => void }) {
   const { C, soft, inp } = useAdminStyle();
   const ops = useOps();
+  const { rooms } = useApp();
   const { toast } = useToast();
   const money = bookingMoney(booking, ops.payments, ops.damages);
   const owed = money.due;
@@ -700,7 +717,7 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
         </div>
       </div>
     {qrOpen && (
-      <QrPayModal amount={paying} description={`${booking.name} · ${booking.id} · balance`} summary={qrSummaryForBooking(booking, paying, "Balance")}
+      <QrPayModal amount={paying} description={`${booking.name} · ${booking.id} · balance`} summary={qrSummaryForBooking(booking, paying, { payments: ops.payments, damages: ops.damages, rooms })}
         onCancel={() => setQrOpen(false)}
         onPaid={(id) => { setQrOpen(false); void save(id); }} />
     )}

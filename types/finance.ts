@@ -20,6 +20,10 @@ export const MANUAL_METHODS: Exclude<PaymentMethod, "PayMongo">[] = ["Cash", "GC
 
 /** What the front desk can take from a guest standing there: cash, or a
  *  QR Ph code the guest scans. */
+/** The most one expense can be: up to the millions (₱999,999,999.99). The
+ *  database column holds it after 20261110120000_expense_amount_millions. */
+export const EXPENSE_MAX = 999_999_999.99;
+
 export const DESK_METHODS: Exclude<PaymentMethod, "PayMongo">[] = ["Cash", "GCash"];
 
 export interface Payment {

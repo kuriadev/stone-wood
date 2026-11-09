@@ -556,7 +556,11 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
             <Reveal>
               <RoomCoverflow
                 rooms={rooms}
-                onSelect={() => setPage("Rooms")}
+                onSelect={(r) => {
+                  // The Rooms page opens on this room (RoomsPage reads it once).
+                  try { sessionStorage.setItem("sw_room_focus", String(r.id)); } catch { /* private mode: lands at the top */ }
+                  setPage("Rooms");
+                }}
                 ctaLabel="VIEW ROOMS"
               />
             </Reveal>
@@ -589,9 +593,12 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
                 type="button"
                 className="sw-fac"
                 aria-haspopup="dialog"
-                onClick={(e) => {
-                  const r = e.currentTarget.getBoundingClientRect();
-                  setFacShot({ name: s.name, desc: s.desc, photo: s.photo, closed: s.closed, origin: { x: r.left + r.width / 2, y: r.top + r.height / 2 } });
+                /* Start loading the photo as soon as a finger or the pointer
+                   reaches the tile, so it's ready the moment the pop-up opens. */
+                onPointerEnter={() => { const im = new Image(); im.decoding = "async"; im.src = s.photo; }}
+                onPointerDown={() => { const im = new Image(); im.src = s.photo; }}
+                onClick={() => {
+                  setFacShot({ name: s.name, desc: s.desc, photo: s.photo, closed: s.closed, origin: null });
                   setFacOpen(true);
                 }}
               >

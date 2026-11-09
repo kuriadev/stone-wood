@@ -28,3 +28,21 @@ describe("bookingIndicator", () => {
     expect(bookingIndicator(at({ status: "ResortCancelled" }), T, 0).signal).toBe("guest");
   });
 });
+
+describe("refunds", () => {
+  it("a booking marked refunded reads Refunded, its own status", async () => {
+    const { statusKey, bookingStatusLabel, REFUNDED } = await import("@/lib/labels");
+    const b = { ...base, status: "Cancelled", refundStatus: "Sent" } as Booking;
+    expect(bookingIndicator(b, "2026-11-01", 0).label).toBe("Refunded");
+    expect(statusKey(b)).toBe(REFUNDED);
+    expect(bookingStatusLabel(b)).toBe("Refunded");
+  });
+
+  it("a refund still owed stands out; a plain cancellation stays Cancelled", async () => {
+    const { statusKey } = await import("@/lib/labels");
+    expect(bookingIndicator({ ...base, status: "Cancelled", refundStatus: "Owed" } as Booking, "2026-11-01", 0).label).toBe("Refund owed");
+    const plain = { ...base, status: "Cancelled" } as Booking;
+    expect(bookingIndicator(plain, "2026-11-01", 0).label).toBe("Cancelled");
+    expect(statusKey(plain)).toBe("Cancelled");
+  });
+});

@@ -97,9 +97,9 @@ interface OpsState extends OpsData {
   decideDateChange: (id: number, approve: boolean, note: string) => Promise<Result>;
   /** Overtime, extra guests or a room taken on the day: raises the total. */
   addCharge: (bookingId: string, c: { kind: string; hours?: number; guests?: number; roomId?: number; overCapacity?: boolean }) => Promise<Result>;
-  /** After a resort cancellation the guest asked for their money back: the
-   *  booking is cancelled and what was held becomes a refund to send. */
-  chooseRefund: (bookingId: string) => Promise<Result>;
+  /** A resort-cancelled booking whose refund was agreed with the guest and
+   *  returned outside the system: closes it and saves the refund. */
+  markRefunded: (bookingId: string, b: { method: string; note: string }) => Promise<Result>;
   /** The link that opens a guest's booking page, for a text message. */
   guestLink: (bookingId: string) => Promise<string | null>;
   /** Note in the activity log that the owner texted the guest. */
@@ -309,8 +309,8 @@ export function OpsProvider({ children }: { children: ReactNode }) {
       act(call(`/api/date-changes?id=${id}`, "PATCH", { action: approve ? "approve" : "decline", note }), { bookings: true }),
     addCharge: (bookingId, c) =>
       act(call(`/api/bookings/${encodeURIComponent(bookingId)}/charge`, "POST", c), { bookings: true, facilities: true }),
-    chooseRefund: (bookingId) =>
-      act(call(`/api/bookings/${encodeURIComponent(bookingId)}/refund-request`, "POST", {}), { bookings: true }),
+    markRefunded: (bookingId, b) =>
+      act(call(`/api/bookings/${encodeURIComponent(bookingId)}/mark-refunded`, "POST", b), { bookings: true }),
     guestLink: async (bookingId) => {
       const r = await call(`/api/guest-link?id=${encodeURIComponent(bookingId)}`, "GET");
       return r.ok && typeof r.data?.link === "string" ? r.data.link : null;

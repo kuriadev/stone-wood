@@ -335,6 +335,26 @@ export function Admin({
     }, [autoArchiveEnabled]);
 
     const [replyModal, setReplyModal] = useState<any | null>(null);
+    /* Send a reply to a guest message by email, from the resort's own Gmail
+       (POST /api/customer-service/reply). It used to open a mailto: link,
+       i.e. whatever email app the desk computer had, often none. */
+    const [replySending, setReplySending] = useState(false);
+    const sendGuestReply = async (id: CustomerMessage["id"], email: string, text: string): Promise<boolean> => {
+      if (!text.trim() || replySending) return false;
+      setReplySending(true);
+      try {
+        const res = await fetch("/api/customer-service/reply", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, message: text }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
+        if (!res.ok || !data.success) { toast(data.error ?? "The reply couldn't be sent.", "error"); return false; }
+        toast(`Reply emailed to ${email}.`, "success");
+        return true;
+      } finally {
+        setReplySending(false);
+      }
+    };
 
     const [replyMode, setReplyMode] = useState<
       "manual" | "automated"
@@ -860,12 +880,12 @@ export function Admin({
                           <div className="sw-msgs__actions">
                             <span style={{ color: C.textXS, fontSize: 12 }}>To {open.email}</span>
                             <Button className="sw-btn"
-                              disabled={!draft.text.trim()}
-                              onClick={() => {
-                                window.location.href = `mailto:${open.email}?subject=Customer Service Response&body=${encodeURIComponent(draft.text)}`;
+                              disabled={!draft.text.trim() || replySending}
+                              onClick={async () => {
+                                if (await sendGuestReply(open.id, open.email, draft.text)) setCsDraft({ id: open.id, mode: draft.mode, text: "" });
                               }}
                               style={{ ...goldBtn, padding: "11px 20px", height: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
-                              <Icon name="arrow-right" size={14} /> Send reply
+                              <Icon name="arrow-right" size={14} /> {replySending ? "Sending…" : "Send reply"}
                             </Button>
                           </div>
                         </div>
@@ -1852,15 +1872,13 @@ export function Admin({
                           CANCEL
                         </Button>
                         <Button className="sw-btn"
-                          onClick={() => {
-                            window.location.href = `mailto:${replyModal.email}?subject=Customer Service Response&body=${encodeURIComponent(
-                              replyMessage
-                            )}`;
-                            setReplyModal(null);
+                          disabled={!replyMessage.trim() || replySending}
+                          onClick={async () => {
+                            if (await sendGuestReply(replyModal.id, replyModal.email, replyMessage)) setReplyModal(null);
                           }}
                           style={{ ...goldBtn, padding: "12px 20px", height: "auto" }}
                         >
-                          SEND EMAIL
+                          {replySending ? "SENDING…" : "SEND EMAIL"}
                         </Button>
                       </DialogFooter>
                     </>

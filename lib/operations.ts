@@ -30,6 +30,8 @@ import { choiceOpen, choiceExpired, holdActive } from "@/lib/rebooking";
 import { manilaDate } from "@/lib/finance";
 import { getOccupancyWindow } from "@/lib/occupancy";
 import { fmtDate, bookingEndDate } from "@/lib/utils";
+import { preparedBookingIds } from "@/lib/facilityUsage";
+import type { Facility } from "@/types/facility";
 
 export type OpsStage = "confirm" | "prepare" | "arriving" | "onsite" | "settle" | "done";
 
@@ -141,9 +143,11 @@ export function opsStage(b: Booking, today: string): OpsStage | null {
   return null;
 }
 
-export function opsBoard(bookings: Booking[], inspections: Inspection[], now: Date): OpsCard[] {
+/** `facilities` lets a group count as prepared when another group on the
+ *  same tour already had everything it uses prepared (stillToPrepare). */
+export function opsBoard(bookings: Booking[], inspections: Inspection[], now: Date, facilities?: Facility[]): OpsCard[] {
   const today = manilaDate(now);
-  const prepared = new Set(inspections.filter((i) => i.stage === "Preparation").map((i) => i.bookingId));
+  const prepared = facilities ? preparedBookingIds(bookings, inspections, facilities) : new Set(inspections.filter((i) => i.stage === "Preparation").map((i) => i.bookingId));
   const cards: OpsCard[] = [];
   for (const b of bookings) {
     const stage = opsStage(b, today);

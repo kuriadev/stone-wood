@@ -9,6 +9,7 @@ import { payMethodLabel } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { useMemo, useState } from "react";
 import { useOps } from "@/contexts/OpsContext";
+import { useApp } from "@/contexts/AppContext";
 import { useToast } from "@/contexts/ToastContext";
 import { bookingMoney } from "@/lib/finance";
 import { fmt, fmtDate } from "@/lib/utils";
@@ -18,7 +19,7 @@ import type { Booking } from "@/types/booking";
 import { QrPayModal, QrPhHint, qrSummaryForBooking } from "@/components/admin/QrPayModal";
 import { Modal, Label, ChoiceButtons, ActionButton, AmountRow, ErrorNote, useAdminStyle } from "@/components/admin/ui";
 
-type Kind = "Stay" | "Penalty" | "Refund";
+type Kind = "Stay" | "Penalty";
 
 export function RecordPaymentModal({
   bookings, bookingId, onClose, defaultKind = "Stay", receivedOn,
@@ -33,6 +34,7 @@ export function RecordPaymentModal({
 }) {
   const { C, soft, cBr, inp } = useAdminStyle();
   const ops = useOps();
+  const { rooms } = useApp();
   const { toast } = useToast();
 
   const [pickedId, setPickedId] = useState(bookingId ?? "");
@@ -43,20 +45,17 @@ export function RecordPaymentModal({
   const [kind, setKind] = useState<Kind>(defaultKind);
   const [amount, setAmount] = useState<string>("");
   const [method, setMethod] = useState<(typeof MANUAL_METHODS)[number]>("Cash");
-  // A refund going out keeps the reference of the transfer sent. Money
-  // coming in by QR Ph is a code the guest scans (QrPayModal).
-  const [reference, setReference] = useState("");
+  // Money coming in by QR Ph is a code the guest scans (QrPayModal).
   const [qrOpen, setQrOpen] = useState(false);
-  const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const max = !money ? 0 : kind === "Stay" ? money.balance : kind === "Penalty" ? money.penaltyDue : money.paid;
+  const max = !money ? 0 : kind === "Stay" ? money.balance : money.penaltyDue;
   const shownAmount = amount === "" ? (max > 0 ? String(max) : "") : amount;
   const value = Number(shownAmount) || 0;
   const tooMuch = value > max;
 
-  const type: PaymentType = kind === "Penalty" ? "Penalty" : kind === "Refund" ? "Refund"
+  const type: PaymentType = kind === "Penalty" ? "Penalty"
     : money && money.paid <= 0 ? (value >= (booking?.total ?? 0) ? "Full" : "Downpayment") : "Balance";
 
   // Bookings worth picking: something still owed, or (for a refund) paid.
@@ -71,22 +70,21 @@ export function RecordPaymentModal({
       .slice(0, 8);
   }, [bookings, ops.payments, ops.damages, search]);
 
-  const byQr = method !== "Cash" && kind !== "Refund";
+  const byQr = method !== "Cash";
   const save = async (qrRef?: string) => {
     setError("");
     if (!booking) return setError("Choose the booking this payment is for.");
     if (value <= 0) return setError("Enter an amount greater than zero.");
     if (value > max) return setError(`The most you can record here is ${fmt(max)}.`);
-    if (kind === "Refund" && method !== "Cash" && !reference.trim()) return setError(`Enter the ${payMethodLabel(method)} reference number.`);
     if (byQr && !qrRef) {
       if (value < 20) return setError("A QR payment has to be at least ₱20. Take it in cash instead.");
       return setQrOpen(true);
     }
     setBusy(true);
-    const r = await ops.recordPayment({ bookingId: booking.id, type, amount: value, method, reference: byQr ? qrRef ?? "" : method === "Cash" ? "" : reference, notes, ...(receivedOn ? { receivedAt: `${receivedOn}T12:00:00+08:00` } : {}) });
+    const r = await ops.recordPayment({ bookingId: booking.id, type, amount: value, method, reference: byQr ? qrRef ?? "" : "", notes: "", ...(receivedOn ? { receivedAt: `${receivedOn}T12:00:00+08:00` } : {}) });
     setBusy(false);
     if (!r.ok) return setError(r.error);
-    toast(`${type === "Refund" ? "Refund" : "Payment"} of ${fmt(value)} recorded for ${booking.name}.`, "success");
+    toast(`Payment of ${fmt(value)} recorded for ${booking.name}.`, "success");
     onClose();
   };
 
@@ -100,7 +98,7 @@ export function RecordPaymentModal({
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <ActionButton onClick={onClose}>Cancel</ActionButton>
           <ActionButton kind="primary" onClick={() => void save()} disabled={busy || !booking || max <= 0 || tooMuch}>
-            {busy ? "Saving…" : kind === "Refund" ? `Record refund of ${fmt(value)}` : `Record ${fmt(value)}`}
+            {busy ? "Saving…" : `Record ${fmt(value)}`}
           </ActionButton>
         </div>
       }
@@ -139,11 +137,10 @@ export function RecordPaymentModal({
               options={[
                 { value: "Stay", label: "Stay payment", disabled: money.balance <= 0 },
                 { value: "Penalty", label: "Damage penalty", disabled: money.penaltyDue <= 0 },
-                { value: "Refund", label: "Refund", disabled: money.paid <= 0 },
               ]}
             />
             <p style={{ color: C.textS, fontSize: 12, margin: "8px 0 0" }}>
-              Saved as <strong style={{ color: C.textB }}>{payTypeLabel(type)}</strong>.{kind === "Refund" ? " Refunds are subtracted from money collected." : ""}
+              Saved as <strong style={{ color: C.textB }}>{payTypeLabel(type)}</strong>.
             </p>
           </div>
 
@@ -161,26 +158,16 @@ export function RecordPaymentModal({
             </div>
           </div>
 
-          {method !== "Cash" && kind === "Refund" && (
-            <div style={{ marginBottom: 16 }}>
-              <Label htmlFor="pay-ref">{payMethodLabel(method)} reference number</Label>
-              <Input id="pay-ref" value={reference} onChange={(e) => setReference(e.target.value)} style={inp} />
-            </div>
-          )}
           {byQr && value > 0 && (
             <div style={{ marginBottom: 16 }}>
               <QrPhHint amount={value} text="Press the button below: a QR Ph code for {amount} comes up for the guest to scan with GCash, Maya or any QR Ph e-wallet. It saves by itself once they pay." />
             </div>
           )}
-          <div>
-            <Label htmlFor="pay-notes">Notes (optional)</Label>
-            <Input id="pay-notes" value={notes} onChange={(e) => setNotes(e.target.value)} style={inp} />
-          </div>
         </>
       )}
       <ErrorNote>{error}</ErrorNote>
       {qrOpen && booking && (
-        <QrPayModal amount={value} description={`${booking.name} · ${booking.id} · payment`} summary={qrSummaryForBooking(booking, value, payTypeLabel(type))}
+        <QrPayModal amount={value} description={`${booking.name} · ${booking.id} · payment`} summary={qrSummaryForBooking(booking, value, { payments: ops.payments, damages: ops.damages, rooms })}
           onCancel={() => setQrOpen(false)}
           onPaid={(id) => { setQrOpen(false); void save(id); }} />
       )}

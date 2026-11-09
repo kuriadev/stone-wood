@@ -63,14 +63,11 @@ import { printOfflineSheet } from "@/components/admin/offlineSheet";
 import { RecordPaymentModal } from "@/components/admin/RecordPaymentModal";
 import { LiveStatus } from "@/components/admin/LiveStatus";
 import { ResortCancelDialog, type UpdateStatus } from "@/components/admin/ResortCancelDialog";
-import { RefundModal } from "@/components/admin/RefundModal";
+import { MarkRefundedModal } from "@/components/admin/MarkRefundedModal";
 import { AddChargeModal } from "@/components/admin/AddChargeModal";
-import { ChooseRefundDialog } from "@/components/admin/ChooseRefundDialog";
 import { DateChangeReview } from "@/components/admin/DateChangeReview";
 import { MoveBookingModal } from "@/components/admin/MoveBookingModal";
-import { TextGuest } from "@/components/admin/TextGuest";
 import { choiceOpen, choiceExpired, fmtDeadline, holdActive, isRebookRequest, withHolds, isNoShowRebook, NO_SHOW_CHOICE_DAYS } from "@/lib/rebooking";
-import { notices } from "@/lib/notices";
 import { Closing } from "@/components/admin/SalesTab";
 import { ActionButton, StatusBadge, Modal, ConfirmDialog, Label, AmountRow, ViewSwitcherTabs, useAdminStyle } from "@/components/admin/ui";
 import { BarChart } from "@/components/admin/charts";
@@ -110,7 +107,7 @@ interface OperationsTabProps {
 
 type Open =
   | { kind: "prep" | "checkout" | "settle" | "record" | "pay"; id: string }
-  | { kind: "accept" | "reject" | "noshow" | "refund" | "textagain" | "refundchoice"; id: string }
+  | { kind: "accept" | "reject" | "noshow" | "refund"; id: string }
   | { kind: "move"; id: string }
   | { kind: "datechange"; reqId: number }
   | { kind: "walkin" }
@@ -216,7 +213,7 @@ export function OperationsTab({
   const [closeDate, setCloseDate] = useState<string | undefined>(undefined);
   const openClosing = (date?: string) => { setCloseDate(date); setClosing(true); };
 
-  const cards = useMemo(() => opsBoard(bookings, ops.inspections, now), [bookings, ops.inspections, now]);
+  const cards = useMemo(() => opsBoard(bookings, ops.inspections, now, facilities), [bookings, ops.inspections, now, facilities]);
   const moneyById = useMemo(
     () => new Map(cards.map((c) => [c.b.id, bookingMoney(c.b, ops.payments, ops.damages)])),
     [cards, ops.payments, ops.damages],
@@ -391,14 +388,14 @@ export function OperationsTab({
     const who = <strong style={{ color: C.textH }}>{b.name}</strong>;
     if (b.refundStatus === "Owed") {
       attention.push({ key: `refund-${b.id}`, kind: "urgent", tone: "red", icon: "cash",
-        text: <>{who} is owed a refund of {fmt(b.refundAmount ?? 0)} ({b.id}). Send it and record the reference.</>,
-        actions: <ActionButton size="sm" kind="primary" onClick={() => go("refund", b)}>Send refund</ActionButton> });
+        text: <>{who} is owed a refund of {fmt(b.refundAmount ?? 0)} ({b.id}). Arrange it with them by call or chat, then mark it refunded.</>,
+        actions: <ActionButton size="sm" kind="primary" onClick={() => go("refund", b)}>Mark as refunded</ActionButton> });
     } else if (choiceOpen(b, now.getTime())) {
       attention.push({ key: `waiting-${b.id}`, kind: "reminder", tone: "blue", icon: "clock",
         text: <>{who} hasn&apos;t picked a new date yet for {ref(b.id)} (<em style={{ fontStyle: "normal", fontWeight: 700 }}>cancelled by the resort</em>). They have until {fmtDeadline(b.choiceDeadline!)}.</>,
         actions: <>
-          <ActionButton size="sm" onClick={() => go("textagain", b)}>Text them</ActionButton>
-          <ActionButton size="sm" kind="red" onClick={() => go("refundchoice", b)}>Refund instead</ActionButton>
+          <ActionButton size="sm" icon="mail" onClick={() => setEmailing(b)}>Email</ActionButton>
+          <ActionButton size="sm" kind="red" onClick={() => go("refund", b)}>Mark as refunded</ActionButton>
         </> });
     } else if (choiceExpired(b, ops.dateChanges.some((r) => r.bookingId === b.id && r.status === "Pending"), now.getTime())) {
       // Their time to pick online ran out. The booking waits on the owner
@@ -407,7 +404,7 @@ export function OperationsTab({
         text: <>{who} didn&apos;t pick a new date for {ref(b.id)} in time (<em style={{ fontStyle: "normal", fontWeight: 700 }}>cancelled by the resort</em>).{(b.heldAmount ?? 0) > 0 ? <> {fmt(b.heldAmount ?? 0)} is still held for them.</> : null} Contact them to agree a new date or a refund.</>,
         actions: <>
           <ActionButton size="sm" kind="primary" onClick={() => go("move", b)}>Set a new date</ActionButton>
-          <ActionButton size="sm" kind="red" onClick={() => go("refundchoice", b)}>Refund instead</ActionButton>
+          <ActionButton size="sm" kind="red" onClick={() => go("refund", b)}>Mark as refunded</ActionButton>
         </> });
     }
   }
@@ -538,15 +535,16 @@ export function OperationsTab({
           primary = <ActionButton kind="primary" icon="check" onClick={() => go("checkout", b)}>{completeLabel}</ActionButton>;
           secondary = <ActionButton kind="red" onClick={() => go("noshow", b)}>No-show</ActionButton>;
         } else {
-          /* Until the facilities are prepared, THAT is the next step, so
-             it takes the primary button. Check in stays on the card and
-             stays clickable — it just says what has to happen first. */
+          /* Until the caretaker has prepared the facilities (every item
+             on the checklist ticked), THAT is the next step, so it takes the
+             primary button. Check in stays on the card, greyed out, until
+             the preparation is saved. */
           primary = c.prepared
             ? <ActionButton kind="primary" icon="log-in" disabled={busy} onClick={() => askCheckIn(b, { prepared: true })}>{busy ? "Checking in…" : "Check in"}</ActionButton>
             : <ActionButton kind="primary" icon="clipboard-check" onClick={() => go("prep", b)}>Prepare for arrival</ActionButton>;
           secondary = c.prepared
             ? null
-            : <ActionButton icon="log-in" disabled={busy} onClick={() => askCheckIn(b, { prepared: false })}>{busy ? "Checking in…" : "Check in"}</ActionButton>;
+            : <ActionButton icon="log-in" disabled title="The caretaker has to finish preparing the facilities first">Check in</ActionButton>;
         }
         break;
       case "onsite":
@@ -1456,7 +1454,7 @@ export function OperationsTab({
       )}
       {closing && (
         <Modal title="Daily liquidation" subtitle="Finish the day's bookings, then count the cash box and close the day." onClose={() => setClosing(false)} width={1000}>
-          <Closing initialDate={closeDate} onAct={(action, b) => go(action, b)} />
+          <Closing initialDate={closeDate} onAct={(action, b) => go(action, b)} onSaved={() => setClosing(false)} />
         </Modal>
       )}
 
@@ -1471,7 +1469,7 @@ export function OperationsTab({
               {/* The payment check, in one place: what came in, against the total. */}
               <div style={{ background: soft, borderRadius: 10, padding: "8px 16px" }}>
                 {pays.map((p) => (
-                  <AmountRow key={p.id} label={`${paymentLine(p)}${p.reference ? ` · ref ${p.reference}` : ""}`} value={fmt(p.amount)} color="#2e9e4e" />
+                  <AmountRow key={p.id} label={paymentLine(p)} value={fmt(p.amount)} color="#2e9e4e" />
                 ))}
                 {pays.length === 0 && <p style={{ color: "#f5a524", fontSize: 13.5, margin: "4px 0" }}>No payment has been recorded for it yet.</p>}
                 <div style={{ borderTop: `1px solid ${cBr}`, marginTop: 4, paddingTop: 4 }}>
@@ -1513,7 +1511,7 @@ export function OperationsTab({
         );
       })()}
       {open?.kind === "reject" && current && <ResortCancelDialog booking={current} onClose={() => setOpen(null)} />}
-      {open?.kind === "refund" && current && <RefundModal booking={current} onClose={() => setOpen(null)} />}
+      {open?.kind === "refund" && current && <MarkRefundedModal booking={current} onClose={() => setOpen(null)} />}
       {open?.kind === "charge" && current && <AddChargeModal booking={current} initialKind={open.charge} onClose={() => setOpen(null)} />}
       {open?.kind === "edit" && current && (
         <EditBookingHub booking={current}
@@ -1530,10 +1528,6 @@ export function OperationsTab({
         <EditGuestModal booking={current} onClose={() => setOpen(null)}
           onSaved={(patch) => setBookings((prev) => prev.map((x) => (x.id === current.id ? { ...x, ...patch } : x)))} />
       )}
-      {open?.kind === "refundchoice" && current && (
-        <ChooseRefundDialog booking={current} onClose={() => setOpen(null)} onDone={(nb) => setOpen({ kind: "refund", id: nb.id })} />
-      )}
-      {open?.kind === "textagain" && current && <TextAgain booking={current} onClose={() => setOpen(null)} />}
       {emailing && <EmailGuestModal booking={emailing} onClose={() => setEmailing(null)} />}
       {open?.kind === "datechange" && reviewing && find(reviewing.bookingId) && (
         <DateChangeReview request={reviewing} booking={find(reviewing.bookingId)!} onClose={() => setOpen(null)} />
@@ -1575,30 +1569,5 @@ export function OperationsTab({
         </ConfirmDialog>
       )}
     </div>
-  );
-}
-
-/** Text a guest who hasn't answered a resort cancellation yet: the same
- *  message as the first time, with their link. */
-function TextAgain({ booking, onClose }: { booking: Booking; onClose: () => void }) {
-  const { C } = useAdminStyle();
-  const ops = useOps();
-  const [link, setLink] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    let live = true;
-    void ops.guestLink(booking.id).then((l) => { if (!live) return; if (l) setLink(l); else setFailed(true); });
-    return () => { live = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [booking.id]);
-  const msg = link && booking.choiceDeadline
-    ? notices.resortCancelled(booking, booking.cancelReason ?? "", link, booking.choiceDeadline, booking.heldAmount ?? 0).sms
-    : null;
-  return (
-    <Modal title="Remind the guest" subtitle={`${booking.name} · ${booking.id}`} onClose={onClose} width={560}
-      footer={<div style={{ display: "flex", justifyContent: "flex-end" }}><ActionButton kind="primary" onClick={onClose}>Done</ActionButton></div>}>
-      {msg ? <TextGuest booking={booking} message={msg} about="choosing a new date or a refund" />
-        : <p style={{ color: C.textS, fontSize: 13.5, margin: 0 }}>{failed ? "Couldn't make their link. Try again." : "Preparing the message…"}</p>}
-    </Modal>
   );
 }

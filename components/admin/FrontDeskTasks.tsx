@@ -20,6 +20,7 @@
 
 import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
+import { preparedBookingIds } from "@/lib/facilityUsage";
 import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { AdminPageHeader, ActionButton, Modal, StatCard, StatusBadge, useAdminStyle } from "@/components/admin/ui";
@@ -54,7 +55,7 @@ interface Task {
 
 export function FrontDeskTasks({ mob, onGoTab }: { mob: boolean; onGoTab?: (t: AdminTab) => void }) {
   const { C, cBr, cBg } = useAdminStyle();
-  const { bookings, customerMessages } = useApp();
+  const { bookings, customerMessages, facilities } = useApp();
   const ops = useOps();
   const { toast } = useToast();
   const [settling, setSettling] = useState<Booking | null>(null);
@@ -63,7 +64,8 @@ export function FrontDeskTasks({ mob, onGoTab }: { mob: boolean; onGoTab?: (t: A
   const [busy, setBusy] = useState<string | null>(null);
   const today = manilaDate();
   const live = bookings.filter((b) => !b.archived && !b.id.startsWith("TMP-"));
-  const prepared = new Set(ops.inspections.filter((i) => i.stage === "Preparation").map((i) => i.bookingId));
+  // Prepared for this group, or covered by another group on the same tour.
+  const prepared = preparedBookingIds(bookings, ops.inspections, facilities);
 
   const checkIn = async (b: Booking) => {
     setBusy(b.id);
@@ -207,7 +209,7 @@ export function FrontDeskTasks({ mob, onGoTab }: { mob: boolean; onGoTab?: (t: A
       {paying && <RecordPaymentModal bookings={bookings} bookingId={paying.id} onClose={() => setPaying(null)} />}
       {closingDay && (
         <Modal title="Daily liquidation" subtitle="Finish the day's bookings, then count the cash box and close the day." onClose={() => setClosingDay(null)} width={1000}>
-          <Closing initialDate={closingDay} onAct={(action, b) => {
+          <Closing initialDate={closingDay} onSaved={() => setClosingDay(null)} onAct={(action, b) => {
             // Collecting is done here; the rest happens on the Dashboard.
             if (action === "settle") { setClosingDay(null); setSettling(b); return; }
             setClosingDay(null);

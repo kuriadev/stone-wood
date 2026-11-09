@@ -34,8 +34,11 @@ import { POST as checkIn } from "@/app/api/checkin/route";
 import { POST as checkOut } from "@/app/api/checkout/route";
 import { POST as settle } from "@/app/api/settle/route";
 import { POST as cleaned } from "@/app/api/facilities/cleaned/route";
+import { POST as markRefunded } from "@/app/api/bookings/[id]/mark-refunded/route";
+import { POST as recordPayment } from "@/app/api/payments/route";
 import { rowToBooking, rowToFacility, rowToInspection } from "@/lib/supabase";
 import { caretakerTasks } from "@/lib/tasks";
+import { checklistFor, stillToPrepare } from "@/lib/facilityUsage";
 import { opsBoard, opsStage } from "@/lib/operations";
 import { manilaDate } from "@/lib/finance";
 import type { BookingRow, FacilityRow, InspectionRow } from "@/types/database";
@@ -115,11 +118,12 @@ const caretakerList = () => caretakerTasks({
 const stage = (id: string) => opsStage(booking(id), manilaDate());
 const facilityStatus = (id: number) => mockDb.rows("facilities").find((f) => f.id === id)?.status;
 
-/** The caretaker's ticked checklist for every facility the booking uses. */
-const allTicked = (ids: number[]) => ids.map((facilityId) => ({
-  facilityId, facilityName: String(mockDb.rows("facilities").find((f) => f.id === facilityId)?.name),
-  checklist: [{ label: "Checked", done: true }],
-}));
+/** The caretaker's checklist for every facility the booking uses, with
+ *  every real item ticked (the server rebuilds the list from the facility). */
+const allTicked = (ids: number[], stage: "before" | "after" = "before") => ids.map((facilityId) => {
+  const f = rowToFacility(mockDb.rows("facilities").find((x) => x.id === facilityId) as FacilityRow);
+  return { facilityId, facilityName: f.name, checklist: checklistFor(f, stage).map((label) => ({ label, done: true })) };
+});
 
 // ─────────────────────────────────────────────────────────────────────
 describe("a normal stay, day by day", () => {
@@ -136,7 +140,7 @@ describe("a normal stay, day by day", () => {
 
     const tooSoon = await checkIn(call("FrontDesk", "/api/checkin", { bookingId: "SW-1" }));
     expect(tooSoon.status).toBe(409);
-    expect((await json(tooSoon)).error).toMatch(/haven't been prepared/);
+    expect((await json(tooSoon)).error).toMatch(/Not prepared yet/);
   });
 
   it("the day before: the caretaker gets the task and prepares; front desk can't", async () => {
@@ -183,7 +187,7 @@ describe("a normal stay, day by day", () => {
     at("2026-11-06T17:05:00");
     const body = {
       bookingId: "SW-1",
-      items: allTicked([POOL, PARKING]),
+      items: allTicked([POOL, PARKING], "after"),
       damages: [{ facilityName: "Swimming Pool", rateId: null, itemName: "Broken lounge chair", unitRate: 300, quantity: 1 }],
     };
     expect((await checkOut(call("FrontDesk", "/api/checkout", body))).status).toBe(403);
@@ -241,7 +245,7 @@ describe("a group nobody checked in on the day", () => {
     const [task] = caretakerList();
     expect(task).toMatchObject({ kind: "inspect", key: "inspect:SW-2", overdue: true });
 
-    expect((await checkOut(call("Caretaker", "/api/checkout", { bookingId: "SW-2", items: allTicked([POOL, PARKING]) }))).status).toBe(200);
+    expect((await checkOut(call("Caretaker", "/api/checkout", { bookingId: "SW-2", items: allTicked([POOL, PARKING], "after") }))).status).toBe(200);
     // Long over: nobody used the pool today, so it isn't flagged dirty.
     expect(facilityStatus(POOL)).toBe("Available");
 
@@ -291,5 +295,130 @@ describe("QR Ph at the desk is always a scanned code", () => {
     const res = await settle(call("FrontDesk", "/api/settle", { bookingId: "SW-9", payment: { amount: 1000, method: "GCash", reference: "1234567890" } }));
     expect(res.status).toBe(400);
     expect((await json(res)).error).toMatch(/Generate QR code/);
+  });
+});
+
+describe("a refund is arranged with the guest, then marked", () => {
+  beforeAll(() => {
+    freshResort([bookingRow({ id: "SW-7", name: "Refund Group", date: "2026-11-20", status: "ResortCancelled", held_amount: 1000, choice_deadline: "2026-11-15T20:00:00+08:00" })]);
+    mockDb.seed("date_change_requests", []);
+  });
+
+  it("can't be recorded as a payment any more", async () => {
+    const res = await recordPayment(call("FrontDesk", "/api/payments", { bookingId: "SW-7", type: "Refund", amount: 1000, method: "Cash" }));
+    expect(res.status).toBe(400);
+    expect((await json(res)).error).toMatch(/Mark as refunded/);
+  });
+
+  it("front desk marks it refunded in one step: closed, and the money comes off the totals", async () => {
+    const res = await markRefunded(call("FrontDesk", "/api/bookings/SW-7/mark-refunded", { method: "GCash", note: "Agreed by phone" }), { params: Promise.resolve({ id: "SW-7" }) });
+    expect(res.status).toBe(200);
+    expect(await json(res)).toMatchObject({ success: true, amount: 1000 });
+    const b = booking("SW-7");
+    expect(b.status).toBe("Cancelled");
+    expect(b.refundStatus).toBe("Sent");
+    const refunds = mockDb.rows("payments").filter((p) => p.booking_id === "SW-7" && p.type === "Refund");
+    expect(refunds).toHaveLength(1);
+    expect(refunds[0]).toMatchObject({ amount: 1000, method: "GCash", reference: "" });
+  });
+
+  it("can't be marked twice", async () => {
+    const res = await markRefunded(call("FrontDesk", "/api/bookings/SW-7/mark-refunded", { method: "GCash" }), { params: Promise.resolve({ id: "SW-7" }) });
+    expect(res.status).toBe(409);
+  });
+
+  it("the caretaker can't mark a refund", async () => {
+    const res = await markRefunded(call("Caretaker", "/api/bookings/SW-7/mark-refunded", { method: "Cash" }), { params: Promise.resolve({ id: "SW-7" }) });
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("preparation can't skip a check", () => {
+  beforeAll(() => { at("2026-11-05T09:00"); freshResort([bookingRow({ id: "SW-8", name: "Careful Group", date: "2026-11-06" })]); });
+
+  it("refuses a checklist with an item left unticked, even with a note", async () => {
+    const items = allTicked([POOL, PARKING]);
+    items[0].checklist[0].done = false;
+    const res = await prepare(call("Caretaker", "/api/inspections", { bookingId: "SW-8", items, notes: "Will do it later" }));
+    expect(res.status).toBe(400);
+  });
+
+  it("refuses a shortened list that leaves items out", async () => {
+    const items = allTicked([POOL, PARKING]).map((x) => ({ ...x, checklist: x.checklist.slice(0, 1) }));
+    expect((await prepare(call("Caretaker", "/api/inspections", { bookingId: "SW-8", items }))).status).toBe(400);
+  });
+
+  it("front desk can't check the group in until it is prepared", async () => {
+    at("2026-11-06T08:00");
+    expect((await checkIn(call("FrontDesk", "/api/checkin", { bookingId: "SW-8" }))).status).toBe(409);
+  });
+});
+
+describe("check-out can't skip a check either", () => {
+  beforeAll(() => {
+    at("2026-11-06T16:00");
+    freshResort([bookingRow({ id: "SW-11", name: "Leaving Group", date: "2026-11-06", checked_in_at: "2026-11-06T08:00:00+08:00" })]);
+  });
+
+  it("refuses to check out with an after-use item unticked", async () => {
+    const items = allTicked([POOL, PARKING], "after");
+    items[0].checklist[0].done = false;
+    expect((await checkOut(call("Caretaker", "/api/checkout", { bookingId: "SW-11", items }))).status).toBe(400);
+    expect(booking("SW-11").checkedOutAt).toBeFalsy();
+  });
+
+  it("checks out once every item is ticked", async () => {
+    expect((await checkOut(call("Caretaker", "/api/checkout", { bookingId: "SW-11", items: allTicked([POOL, PARKING], "after") }))).status).toBe(200);
+  });
+});
+
+describe("groups on the same tour share one preparation", () => {
+  beforeAll(() => {
+    at("2026-11-05T09:00");
+    freshResort([
+      bookingRow({ id: "SW-21", name: "First Group", date: "2026-11-06" }),
+      bookingRow({ id: "SW-22", name: "Second Group", date: "2026-11-06" }),
+      bookingRow({ id: "SW-23", name: "Night Group", date: "2026-11-06", slot: "Night", package: "Night Tour" }),
+    ]);
+  });
+
+  it("preparing one Day Tour group also prepares the other, but not the Night Tour", async () => {
+    const res = await prepare(call("Caretaker", "/api/inspections", { bookingId: "SW-21", items: allTicked([POOL, PARKING]) }));
+    expect(res.status).toBe(201);
+    expect((await json(res)).alsoPrepared).toEqual(["SW-22"]);
+    const preps = inspections().filter((i) => i.stage === "Preparation").map((i) => i.bookingId).sort();
+    expect(preps).toEqual(["SW-21", "SW-22"]);
+  });
+
+  it("so the second group can be checked in on the day", async () => {
+    at("2026-11-06T08:00");
+    expect((await checkIn(call("FrontDesk", "/api/checkin", { bookingId: "SW-22" }))).status).toBe(200);
+    expect((await checkIn(call("FrontDesk", "/api/checkin", { bookingId: "SW-23" }))).status).toBe(409);
+  });
+});
+
+describe("a group booked after the tour was already prepared", () => {
+  beforeAll(() => {
+    at("2026-11-05T09:00");
+    freshResort([bookingRow({ id: "SW-31", name: "Early Group", date: "2026-11-06" })]);
+  });
+
+  it("needs nothing more when it uses only what was prepared", async () => {
+    expect((await prepare(call("Caretaker", "/api/inspections", { bookingId: "SW-31", items: allTicked([POOL, PARKING]) }))).status).toBe(201);
+    // Booked afterwards, same date and tour.
+    mockDb.rows("bookings").push(bookingRow({ id: "SW-32", name: "Late Group", date: "2026-11-06" }));
+    const bk = mockDb.rows("bookings").map((r) => rowToBooking(r as BookingRow));
+    const fs = facilities();
+    expect(stillToPrepare(booking("SW-32"), bk, inspections(), fs)).toEqual([]);
+    at("2026-11-06T08:00");
+    expect((await checkIn(call("FrontDesk", "/api/checkin", { bookingId: "SW-32" }))).status).toBe(200);
+  });
+
+  it("still needs its own room prepared when it booked one", () => {
+    const withRoom = { ...booking("SW-32"), id: "SW-33", rooms: [7], checkedInAt: undefined };
+    const room = { ...facilities()[0], id: 99, name: "Room 1", category: "Room" as const, roomId: 7 };
+    const bk = [...mockDb.rows("bookings").map((r) => rowToBooking(r as BookingRow)), withRoom];
+    const left = stillToPrepare(withRoom, bk, inspections(), [...facilities(), room]);
+    expect(left.map((f) => f.name)).toEqual(["Room 1"]);
   });
 });
