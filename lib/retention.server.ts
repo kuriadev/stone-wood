@@ -1,11 +1,14 @@
 // SERVER ONLY -- auto-archive and the scheduled archive clean-up (rules in
-// lib/retention.ts).
+// lib/retention.ts). A clean-up emails a CSV backup of what it is about to
+// delete first, and deletes nothing if that email doesn't go out.
 
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { manilaDate } from "@/lib/finance";
+import { manilaDate, toCsv } from "@/lib/finance";
+import { sendMail } from "@/lib/mailer";
+import { adminNotifyTo } from "@/lib/adminNotify";
 import { logActivity } from "@/lib/activity.server";
 import {
-  RETENTION_KEY, DEFAULT_RETENTION, validateRetention, retentionCutoff, isArchivable, isDeletableFromArchive, monthsLabel,
+  RETENTION_KEY, DEFAULT_RETENTION, DELETE_AFTER_MONTHS, validateRetention, retentionCutoff, isArchivable, isDeletableFromArchive, monthsLabel,
   type RetentionState,
 } from "@/lib/retention";
 
@@ -56,12 +59,50 @@ export async function findArchivable(months: number): Promise<{ cutoff: string; 
   return { cutoff, ids: ((data ?? []) as Row[]).filter((r) => isArchivable(asCandidate(r), cutoff)).map((r) => r.id) };
 }
 
-/** Archived bookings that a deletion would remove. */
-export async function findDeletable(): Promise<string[]> {
+/** Archived bookings that a deletion would remove: only those whose stay
+ *  ended more than a year ago. */
+export async function findDeletable(): Promise<{ cutoff: string; ids: string[] }> {
+  const cutoff = retentionCutoff(manilaDate(), DELETE_AFTER_MONTHS);
   const { data, error } = await getSupabaseAdmin().from("bookings").select(COLS)
-    .eq("archived", true).in("status", ["Completed", "Cancelled"]).order("date");
+    .eq("archived", true).in("status", ["Completed", "Cancelled"]).lt("date", cutoff).order("date");
   if (error) throw new Error(error.message);
-  return ((data ?? []) as Row[]).filter((r) => isDeletableFromArchive(asCandidate(r))).map((r) => r.id);
+  return { cutoff, ids: ((data ?? []) as Row[]).filter((r) => isDeletableFromArchive(asCandidate(r), cutoff)).map((r) => r.id) };
+}
+
+/** The backup email failed, so nothing was deleted. Its message is shown
+ *  to the owner as it is. */
+export class BackupError extends Error {}
+
+const cell = (v: unknown): string | number =>
+  v === null || v === undefined ? "" : typeof v === "number" ? v : typeof v === "object" ? JSON.stringify(v) : String(v);
+
+/** Every column of every booking about to be deleted, as CSV, emailed to
+ *  the resort. Throws BackupError if it can't be sent. */
+async function emailBackup(ids: string[], cutoff: string, dueOn: string | undefined): Promise<string> {
+  const db = getSupabaseAdmin();
+  const rows: Record<string, unknown>[] = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await db.from("bookings").select("*").in("id", ids.slice(i, i + 200)).order("date");
+    if (error) throw new BackupError(`Could not read the bookings for the backup, so nothing was deleted. (${error.message})`);
+    rows.push(...((data ?? []) as Record<string, unknown>[]));
+  }
+  const cols = Array.from(rows.reduce((set, r) => { Object.keys(r).forEach((k) => set.add(k)); return set; }, new Set<string>()));
+  const csv = toCsv([cols, ...rows.map((r) => cols.map((c) => cell(r[c])))]);
+  const today = manilaDate();
+  const to = adminNotifyTo();
+  try {
+    await sendMail({
+      to,
+      subject: `Backup before deleting ${rows.length} archived booking${rows.length === 1 ? "" : "s"} (${today})`,
+      html: `<p>Attached is a CSV backup of the ${rows.length} archived booking${rows.length === 1 ? "" : "s"} whose stay ended before ${cutoff}.</p>`
+        + `<p>${dueOn ? `The scheduled clean-up for ${dueOn}` : "A clean-up started by hand"} deletes them from the system right after this email is sent. Keep this file: it is the only copy of the guest details.</p>`
+        + `<p>Payments stay in Sales, without the guest's name.</p>`,
+      attachments: [{ filename: `Stonewood_Archive_Backup_${today}.csv`, content: csv, contentType: "text/csv; charset=utf-8" }],
+    });
+  } catch (err) {
+    throw new BackupError(`The backup email could not be sent, so nothing was deleted. (${err instanceof Error ? err.message : String(err)})`);
+  }
+  return to;
 }
 
 /** Move old finished bookings to the archive. Nothing is deleted. */
@@ -85,10 +126,12 @@ export async function archiveOld(months: number, how: "auto" | "manual"): Promis
   return { archived: ids.length, cutoff };
 }
 
-/** Delete everything deletable in the archive. Payments stay, anonymised. */
-export async function purgeArchive(how: "auto" | "manual", dueOn?: string): Promise<{ deleted: number }> {
+/** Delete archived bookings older than a year, after emailing a CSV
+ *  backup of them. Payments stay, anonymised. */
+export async function purgeArchive(how: "auto" | "manual", dueOn?: string): Promise<{ deleted: number; backupTo: string | null }> {
   const db = getSupabaseAdmin();
-  const ids = await findDeletable();
+  const { cutoff, ids } = await findDeletable();
+  const backupTo = ids.length > 0 ? await emailBackup(ids, cutoff, dueOn) : null;
   let deleted = 0;
   for (let i = 0; i < ids.length; i += 200) {
     const chunk = ids.slice(i, i + 200);
@@ -103,10 +146,10 @@ export async function purgeArchive(how: "auto" | "manual", dueOn?: string): Prom
     await logActivity({
       actor: how === "auto" ? "System" : "Admin", action: "data.retention", entity: "bookings", entityId: dueOn ?? manilaDate(),
       summary: deleted > 0
-        ? `${how === "auto" ? `Scheduled clean-up (${dueOn}) deleted` : "Deleted"} ${deleted} archived booking${deleted === 1 ? "" : "s"}. Their payments were kept, without the guest's name.`
-        : "Emptied the archive by hand: nothing to delete.",
-      details: { deleted, dueOn: dueOn ?? null, ids: ids.slice(0, 500) },
+        ? `${how === "auto" ? `Scheduled clean-up (${dueOn}) deleted` : "Deleted"} ${deleted} archived booking${deleted === 1 ? "" : "s"} whose stay ended before ${cutoff}, after emailing a CSV backup to ${backupTo}. Their payments were kept, without the guest's name.`
+        : `Archive clean-up by hand: nothing archived ended before ${cutoff}.`,
+      details: { deleted, cutoff, backupTo, dueOn: dueOn ?? null, ids: ids.slice(0, 500) },
     });
   }
-  return { deleted };
+  return { deleted, backupTo };
 }

@@ -1,7 +1,7 @@
 // ── GET  /api/retention → the settings, when it last ran, what would be archived / deleted now (settings.manage)
 // ── PUT  /api/retention { archiveEnabled, archiveMonths, enabled, schedule, day, month } → save (settings.manage)
 // ── POST /api/retention { action: "archive" } → archive old finished bookings now, by hand  (settings.manage)
-// ── POST /api/retention { action: "purge" }   → delete the archive now, by hand              (settings.manage)
+// ── POST /api/retention { action: "purge" }   → delete archived bookings over a year old now, by hand (settings.manage)
 // ── POST /api/retention { action: "auto" }    → the daily run: archive, and delete on the scheduled date (staff, or a scheduler)
 //
 // Auto-archive and data retention -- lib/retention.ts has the rules.
@@ -15,7 +15,7 @@ import { actingStaff } from "@/lib/staff.server";
 import { logActivity } from "@/lib/activity.server";
 import { manilaDate } from "@/lib/finance";
 import { validateRetention, monthsLabel, scheduleLabel, nextScheduledOn, purgeDueFor, type RetentionState } from "@/lib/retention";
-import { loadRetention, saveRetention, findArchivable, findDeletable, archiveOld, purgeArchive } from "@/lib/retention.server";
+import { loadRetention, saveRetention, findArchivable, findDeletable, archiveOld, purgeArchive, BackupError } from "@/lib/retention.server";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +28,7 @@ async function preview(state: RetentionState) {
   const [arch, del] = await Promise.all([findArchivable(state.archiveMonths), findDeletable()]);
   return {
     wouldArchive: arch.ids.length, archiveCutoff: arch.cutoff,
-    wouldDelete: del.length, nextDeleteOn: nextScheduledOn(manilaDate(), state),
+    wouldDelete: del.ids.length, deleteCutoff: del.cutoff, nextDeleteOn: nextScheduledOn(manilaDate(), state),
   };
 }
 
@@ -99,9 +99,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, archived });
     }
     if (action === "purge") {
-      const { deleted } = await purgeArchive("manual");
+      const { deleted, backupTo } = await purgeArchive("manual");
       await saveRetention({ ...state, lastDeleted: deleted, lastRunAt: new Date().toISOString() }, by);
-      return NextResponse.json({ success: true, deleted });
+      return NextResponse.json({ success: true, deleted, backupTo });
     }
 
     // The daily run: once a day.
@@ -122,6 +122,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, archived, deleted });
   } catch (err) {
     console.error("[/api/retention POST]", err);
+    if (err instanceof BackupError) return NextResponse.json({ success: false, error: err.message }, { status: 502 });
     return NextResponse.json({ success: false, error: "Could not finish. Nothing further was changed." }, { status: 500 });
   }
 }

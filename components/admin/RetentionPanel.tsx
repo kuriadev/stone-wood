@@ -2,9 +2,10 @@
 
 /* Auto-archive and data retention, behind the settings icon in All bookings
  * (owner only). Two steps: finished bookings move to the archive by
- * themselves N months after the stay (2 by default), and the archive can be
- * deleted for good on a date the owner sets -- a day of every month, or a
- * day of one month every year. Rules in lib/retention.ts; /api/retention.
+ * themselves N months after the stay (2 by default), and archived bookings
+ * over a year old can be deleted for good on a date the owner sets -- a day
+ * of every month, or a day of one month every year -- after a CSV backup of
+ * them is emailed to the resort. Rules in lib/retention.ts; /api/retention.
  * Saved on its own (not with the rates form), since deletion removes data. */
 
 import { useCallback, useEffect, useState } from "react";
@@ -25,7 +26,7 @@ type State = {
   archiveEnabled: boolean; archiveMonths: number;
   enabled: boolean; schedule: DeleteSchedule; day: number; month: number;
   lastRunAt?: string | null; lastDeleted?: number | null; lastArchived?: number | null; lastPurgeOn?: string | null;
-  wouldArchive: number; archiveCutoff: string; wouldDelete: number; nextDeleteOn: string;
+  wouldArchive: number; archiveCutoff: string; wouldDelete: number; deleteCutoff: string; nextDeleteOn: string;
 };
 
 export function RetentionPanel({ mob, bare = false, onChanged }: {
@@ -85,7 +86,7 @@ export function RetentionPanel({ mob, bare = false, onChanged }: {
     if (enabled && (!s?.enabled || schedule !== s.schedule || dd !== s.day || mm !== s.month)) {
       confirm({
         title: "Delete the archive automatically?",
-        body: `${scheduleLabel(plan).replace(/^./, (c) => c.toUpperCase())}, everything in the Archived list will be deleted for good — the guest's name, email, phone and notes. Payments stay in Sales without the guest's name. The first clean-up is on ${fmtDate(nextScheduledOn(manilaDate(), plan))}. This can't be undone.`,
+        body: `${scheduleLabel(plan).replace(/^./, (c) => c.toUpperCase())}, archived bookings whose stay ended over a year ago will be deleted for good — the guest's name, email, phone and notes. A CSV backup of them is emailed to the resort first; if it can't be sent, nothing is deleted. Payments stay in Sales without the guest's name. The first clean-up is on ${fmtDate(nextScheduledOn(manilaDate(), plan))}. This can't be undone.`,
         action: "Turn on",
         onConfirm: () => void doSave(),
       });
@@ -95,12 +96,12 @@ export function RetentionPanel({ mob, bare = false, onChanged }: {
   const post = async (action: "archive" | "purge") => {
     setBusy(true); setError("");
     const j = await fetch("/api/retention", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) })
-      .then((r) => r.json()).catch(() => null) as { success?: boolean; error?: string; deleted?: number; archived?: number } | null;
+      .then((r) => r.json()).catch(() => null) as { success?: boolean; error?: string; deleted?: number; archived?: number; backupTo?: string | null } | null;
     setBusy(false);
     if (!j?.success) return setError(j?.error ?? "Could not finish.");
     toast(action === "archive"
       ? `Archived ${j.archived ?? 0} booking${j.archived === 1 ? "" : "s"}.`
-      : `Deleted ${j.deleted ?? 0} archived booking${j.deleted === 1 ? "" : "s"}.`, "success");
+      : `Deleted ${j.deleted ?? 0} archived booking${j.deleted === 1 ? "" : "s"}${j.backupTo ? `. Backup emailed to ${j.backupTo}` : ""}.`, "success");
     onChanged?.();
     await load();
   };
@@ -116,10 +117,10 @@ export function RetentionPanel({ mob, bare = false, onChanged }: {
   };
   const deleteNow = () => {
     if (!s) return;
-    if (s.wouldDelete === 0) return toast("The archive has nothing that can be deleted.", "info");
+    if (s.wouldDelete === 0) return toast(`Nothing in the archive ended before ${fmtDate(s.deleteCutoff)} (over a year ago).`, "info");
     confirm({
       title: `Delete ${s.wouldDelete} archived booking${s.wouldDelete === 1 ? "" : "s"} now?`,
-      body: "Everything in the Archived list is deleted for good. Payments stay in Sales without the guest's name. This can't be undone.",
+      body: `Archived bookings whose stay ended before ${fmtDate(s.deleteCutoff)} are deleted for good. A CSV backup of them is emailed to the resort first; if it can't be sent, nothing is deleted. Payments stay in Sales without the guest's name. This can't be undone.`,
       action: "Delete now",
       onConfirm: () => void post("purge"),
     });
@@ -179,7 +180,7 @@ export function RetentionPanel({ mob, bare = false, onChanged }: {
             {heading("trash", "Delete the archive")}
             <label style={{ display: "flex", gap: 10, alignItems: "center", color: C.textH, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
               <Checkbox checked={enabled} onCheckedChange={(v) => setEnabled(v === true)} />
-              Delete everything in the archive on a set date
+              Delete archived bookings over a year old on a set date
             </label>
             <div style={{ marginTop: 12, opacity: enabled ? 1 : 0.55, display: "grid", gap: 10 }}>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -203,14 +204,14 @@ export function RetentionPanel({ mob, bare = false, onChanged }: {
             </div>
             <div style={note}>
               {enabled && validDay
-                ? <>The archive is deleted {scheduleLabel(plan)} (a short month uses its last day). Next: <strong>{fmtDate(nextScheduledOn(manilaDate(), plan))}</strong>.</>
+                ? <>Archived bookings over a year old are deleted {scheduleLabel(plan)} (a short month uses its last day), after a CSV backup is emailed to the resort. Next: <strong>{fmtDate(nextScheduledOn(manilaDate(), plan))}</strong>.</>
                 : <>The archive is kept until you delete it.</>}
               {" "}Payments always stay in Sales, without the guest&apos;s name.
-              <div style={{ marginTop: 4 }}>{s.wouldDelete > 0 ? <><strong>{s.wouldDelete}</strong> archived booking{s.wouldDelete === 1 ? "" : "s"} can be deleted.</> : "Nothing in the archive to delete right now."}</div>
+              <div style={{ marginTop: 4 }}>{s.wouldDelete > 0 ? <><strong>{s.wouldDelete}</strong> archived booking{s.wouldDelete === 1 ? "" : "s"} ended before {fmtDate(s.deleteCutoff)} and can be deleted.</> : <>Nothing in the archive ended before {fmtDate(s.deleteCutoff)}, so nothing can be deleted yet.</>}</div>
               {s.lastRunAt && <div style={{ color: C.textS, fontSize: 12, marginTop: 4 }}>Last run {fmtDate(manilaDate(s.lastRunAt))}, {manilaTime(s.lastRunAt)}: {s.lastArchived ?? 0} archived, {s.lastDeleted ?? 0} deleted.</div>}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
-              <ActionButton kind="red" icon="trash" disabled={busy} onClick={deleteNow}>Delete the archive now</ActionButton>
+              <ActionButton kind="red" icon="trash" disabled={busy} onClick={deleteNow}>Back up and delete old archive now</ActionButton>
             </div>
           </div>
 

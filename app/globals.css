@@ -1952,3 +1952,39 @@ tr.sw-spot > td:first-child { box-shadow: inset 4px 0 0 #e6c76a; }
   .sw-close-actions > button { width: 100%; justify-content: center; white-space: normal; height: auto; min-height: 44px; }
 }
 .sw-close-actions--full > button { width: 100%; justify-content: center; }
+
+/* Home page: the gallery row (Home.tsx). Same-size 4:3 cards with even gaps,
+   scrolled sideways (swipe on a phone), each snapping into place. */
+.sw-homegal {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: clamp(220px, 26vw, 300px);
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  padding: 4px 2px 14px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201, 168, 76, .45) transparent;
+}
+.sw-homegal__item {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--sw-border, rgba(201, 168, 76, .2));
+  padding: 0;
+  background: #0b0907;
+  cursor: pointer;
+  scroll-snap-align: start;
+}
+.sw-homegal__item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s cubic-bezier(.22, 1, .36, 1); }
+.sw-homegal__item:hover img { transform: scale(1.04); }
+.sw-homegal__item:focus-visible { outline: 2px solid #c9a84c; outline-offset: 2px; }
+.sw-homegal__cap {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 18px 12px 10px;
+  color: #fff; font-size: 13px; font-weight: 600; text-align: left;
+  background: linear-gradient(to top, rgba(0, 0, 0, .6), rgba(0, 0, 0, 0));
+}
+@media (max-width: 640px) { .sw-homegal { grid-auto-columns: 72vw; gap: 10px; } }

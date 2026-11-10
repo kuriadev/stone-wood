@@ -1,5 +1,5 @@
 import {
-  validateRetention, retentionCutoff, isPurgeable, isArchivable, isDeletableFromArchive, monthsLabel,
+  validateRetention, retentionCutoff, isPurgeable, isArchivable, isDeletableFromArchive, monthsLabel, DELETE_AFTER_MONTHS,
   lastScheduledOn, nextScheduledOn, purgeDueFor, scheduleLabel, DEFAULT_RETENTION,
 } from "@/lib/retention";
 
@@ -39,13 +39,24 @@ describe("auto-archive and data retention", () => {
     const cut = "2025-11-01";
     for (const status of ["Pending", "Confirmed", "ResortCancelled"]) {
       expect(isPurgeable({ status, date: "2024-01-01" }, cut)).toBe(false);
-      expect(isDeletableFromArchive({ status, date: "2024-01-01", archived: true })).toBe(false);
+      expect(isDeletableFromArchive({ status, date: "2024-01-01", archived: true }, cut)).toBe(false);
     }
     expect(isPurgeable({ status: "Cancelled", date: "2024-01-01", refundStatus: "Owed" }, cut)).toBe(false);
-    expect(isDeletableFromArchive({ status: "Cancelled", date: "2024-01-01", refundStatus: "Owed", archived: true })).toBe(false);
-    expect(isDeletableFromArchive({ status: "Cancelled", date: "2024-01-01", refundStatus: "Sent", archived: true })).toBe(true);
+    expect(isDeletableFromArchive({ status: "Cancelled", date: "2024-01-01", refundStatus: "Owed", archived: true }, cut)).toBe(false);
+    expect(isDeletableFromArchive({ status: "Cancelled", date: "2024-01-01", refundStatus: "Sent", archived: true }, cut)).toBe(true);
     // Deletion is for the archive only.
-    expect(isDeletableFromArchive({ status: "Completed", date: "2024-01-01" })).toBe(false);
+    expect(isDeletableFromArchive({ status: "Completed", date: "2024-01-01" }, cut)).toBe(false);
+  });
+
+  it("deletes from the archive only once the stay ended over a year ago", () => {
+    const cut = retentionCutoff("2026-11-10", DELETE_AFTER_MONTHS);
+    expect(cut).toBe("2025-11-10");
+    expect(isDeletableFromArchive({ status: "Completed", date: "2025-11-09", archived: true }, cut)).toBe(true);
+    // Less than a year: stays in the archive.
+    expect(isDeletableFromArchive({ status: "Completed", date: "2025-11-10", archived: true }, cut)).toBe(false);
+    expect(isDeletableFromArchive({ status: "Completed", date: "2026-06-01", archived: true }, cut)).toBe(false);
+    // A stay that started over a year ago but ended within it also stays.
+    expect(isDeletableFromArchive({ status: "Completed", date: "2025-11-08", endDate: "2025-11-11", archived: true }, cut)).toBe(false);
   });
 
   it("finds the last and next scheduled dates, monthly and yearly", () => {

@@ -26,10 +26,12 @@ export interface Mail {
   to: string;
   subject: string;
   html: string;
+  /** Files to attach, e.g. a CSV backup. */
+  attachments?: { filename: string; content: string; contentType?: string }[];
 }
 
 /** Send and throw on failure. Use where the caller reports the outcome. */
-export async function sendMail({ to, subject, html }: Mail): Promise<void> {
+export async function sendMail({ to, subject, html, attachments }: Mail): Promise<void> {
   if (!isMailConfigured()) {
     throw new Error("GMAIL_USER / GMAIL_APP_PASSWORD are not set.");
   }
@@ -38,6 +40,7 @@ export async function sendMail({ to, subject, html }: Mail): Promise<void> {
     to,
     subject,
     html,
+    attachments,
   });
 }
 

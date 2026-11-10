@@ -14,7 +14,7 @@ import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { fmt, fmtDate, holdsDate } from "@/lib/utils";
 import { Masonry } from "@/components/common/Masonry";
-import { galleryTiles, galleryColumns, toGalleryPhoto, cleanCaption, GALLERY_TITLE_MAX, GALLERY_TEXT_MAX, type GalleryPhoto } from "@/lib/gallery";
+import { galleryTiles, galleryColumns, toGalleryPhoto, cleanCaption, GALLERY_TITLE_MAX, GALLERY_TEXT_MAX, GALLERY_PAGE_MAX, type GalleryPhoto } from "@/lib/gallery";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { OperationsTab } from "@/components/admin/OperationsTab";
 import { PhotoSet } from "@/components/admin/PhotoSet";
@@ -599,10 +599,24 @@ export function Admin({
       })
       .catch((err: Error) => toast(err.message, "error"));
   };
+  /* Up to GALLERY_PAGE_MAX photos in all: extra files picked at once are
+     left out, and staff are told how many. */
   const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    Array.from(e.target.files || []).forEach((f) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    const room = Math.max(0, GALLERY_PAGE_MAX - galleryPhotos.length);
+    const take = files.slice(0, room);
+    if (files.length > take.length) {
+      toast(room === 0
+        ? `The gallery is full (${GALLERY_PAGE_MAX} photos). Remove one to add another.`
+        : `Only ${room} more photo${room === 1 ? "" : "s"} fit (${GALLERY_PAGE_MAX} in all), so ${files.length - room} weren't added.`, "warning");
+    }
+    take.forEach((f) => {
       void compressImage(f)
-        .then((src) => { setGalleryPhotos((g) => [...g, toGalleryPhoto(src)]); toast("Photo added.", "success"); })
+        .then((src) => {
+          setGalleryPhotos((g) => (g.length >= GALLERY_PAGE_MAX ? g : [...g, toGalleryPhoto(src)]));
+          toast("Photo added.", "success");
+        })
         .catch((err: Error) => toast(err.message, "error"));
     });
   };
@@ -1467,7 +1481,12 @@ export function Admin({
                 <div style={{ display: "flex", gap: 12 }}>
                   <input ref={galleryFileRef} type="file" accept="image/*" multiple onChange={handleGalleryUpload} style={{ display: "none" }} />
                   <input ref={galleryReplaceRef} type="file" accept="image/*" onChange={handleGalleryReplace} style={{ display: "none" }} />
-                  <button className="sw-btn" onClick={() => galleryFileRef.current?.click()} style={{ ...goldBtn, padding: "12px 20px", fontSize: 12.5, letterSpacing: 2 }}>+ ADD PHOTOS</button>
+                  <span style={{ alignSelf: "center", color: galleryPhotos.length >= GALLERY_PAGE_MAX ? "#f5a524" : C.textS, fontSize: 13 }}>
+                    {galleryPhotos.length} of {GALLERY_PAGE_MAX} photos
+                  </span>
+                  <button className="sw-btn" disabled={galleryPhotos.length >= GALLERY_PAGE_MAX} onClick={() => galleryFileRef.current?.click()}
+                    title={galleryPhotos.length >= GALLERY_PAGE_MAX ? `The gallery holds up to ${GALLERY_PAGE_MAX} photos` : undefined}
+                    style={{ ...goldBtn, padding: "12px 20px", fontSize: 12.5, letterSpacing: 2, opacity: galleryPhotos.length >= GALLERY_PAGE_MAX ? 0.5 : 1 }}>+ ADD PHOTOS</button>
                 </div>
               </div>
 

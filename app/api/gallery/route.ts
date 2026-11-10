@@ -15,12 +15,12 @@ import { cleanImageList } from "@/lib/image";
 import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin, rowsToGalleryPhotos } from "@/lib/supabase";
 import { requirePermission } from "@/lib/auth";
-import { cleanCaption, GALLERY_TITLE_MAX, GALLERY_TEXT_MAX } from "@/lib/gallery";
+import { cleanCaption, GALLERY_TITLE_MAX, GALLERY_TEXT_MAX, GALLERY_PAGE_MAX } from "@/lib/gallery";
 import type { GalleryRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
-const MAX_IMAGES = 200;
+const MAX_IMAGES = GALLERY_PAGE_MAX;
 
 /** The caption columns are missing: the migration has not run yet. */
 const noCaptionColumns = (err: { message?: string } | null | undefined) =>
@@ -62,7 +62,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ success: false, error: "photos must be an array." }, { status: 400 });
     }
     if (raw.length > MAX_IMAGES) {
-      return NextResponse.json({ success: false, error: `At most ${MAX_IMAGES} images.` }, { status: 400 });
+      return NextResponse.json({ success: false, error: `The gallery holds up to ${MAX_IMAGES} photos.` }, { status: 400 });
     }
     const given = raw.map((p) =>
       typeof p === "string"

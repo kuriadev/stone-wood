@@ -5,7 +5,7 @@ import type { HeroMedia } from "@/lib/heroMedia";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useWidth } from "@/hooks/useWidth";
 import { THEME_COLORS } from "@/lib/theme";
-import { gold, goldBtn } from "@/lib/styles";
+import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { HERO_BG } from "@/lib/constants";
 import { automaticHomeCards } from "@/lib/homeCards";
 import { useHomeCards } from "@/hooks/useHomeCards";
@@ -17,6 +17,8 @@ import { PackageTierScroll } from "@/components/sections/PackageTierScroll";
 import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
 import type { ResortPackage } from "@/types/package";
 import { imageAt } from "@/lib/img";
+import { GALLERY_PAGE_MAX } from "@/lib/gallery";
+import { useApp } from "@/contexts/AppContext";
 import { Icon } from "@/components/common/Icon";
 import { facilityIcon } from "@/lib/facilityUsage";
 import type { PublicAmenity } from "@/types/facility";
@@ -169,6 +171,7 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
   // after THIS page has hydrated or it mutates un-hydrated DOM.
 
   const C = THEME_COLORS;
+  const { galleryPhotos } = useApp();
   // The "Tours & Room Add-ons" cards: the ones staff saved, else the
   // automatic ones built from Rates & Settings and the real rooms.
   const savedRateCards = useHomeCards().cards;
@@ -638,6 +641,36 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
           <FacilityLightbox shot={facShot} open={facOpen} onOpenChange={setFacOpen} />
         </div>
       </div>
+
+      {/* ── GALLERY — every photo from the admin Gallery tab (up to 30), in a
+           row of same-size cards the guest can swipe or scroll through.
+           Tapping one opens the full Gallery page. ── */}
+      {galleryPhotos.length > 0 && (
+        <div className="sw-defer" style={{ background: C.bg, padding: bandPad(mob ? 20 : 24) }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            <Reveal style={{ textAlign: "center", marginBottom: headGap }}>
+              <p style={eyebrow}>Gallery</p>
+              <h2 style={h2}>A Look Around</h2>
+            </Reveal>
+            <div className="sw-homegal" role="list" aria-label="Photos of the resort">
+              {galleryPhotos.slice(0, GALLERY_PAGE_MAX).map((p, i) => (
+                <button key={`${i}-${p.url.slice(-24)}`} type="button" role="listitem" className="sw-homegal__item"
+                  onClick={() => setPage("Gallery")} aria-label={p.title ? `${p.title}, open the gallery` : `Photo ${i + 1}, open the gallery`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- staff photos, often data URLs */}
+                  <img src={imageAt(p.url, 600)} alt="" loading="lazy" decoding="async" />
+                  {p.title && <span className="sw-homegal__cap">{p.title}</span>}
+                </button>
+              ))}
+            </div>
+            <div style={{ textAlign: "center", marginTop: 24 }}>
+              <button type="button" className="sw-btn-out" onClick={() => setPage("Gallery")}
+                style={{ ...outBtn, color: C.goldInk, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                VIEW THE GALLERY <Icon name="arrow-right" size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── TESTIMONIALS — infinite marquee (unchanged) ── */}
       <div style={{ background: "var(--sw-band-sand)", padding: bandPad(0), overflow: "hidden" }}>

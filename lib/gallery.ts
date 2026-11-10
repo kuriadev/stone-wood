@@ -8,6 +8,10 @@ import type { MasonryItem } from "@/components/common/Masonry";
  */
 
 /** One gallery photo and the words a guest sees on it. */
+/** The most photos the site Gallery holds (the admin Gallery tab and
+ *  PUT /api/gallery). The home page shows them too. */
+export const GALLERY_PAGE_MAX = 30;
+
 export interface GalleryPhoto {
   url: string;
   /** Short name of what the photo shows, e.g. "Deluxe Room". May be blank. */
@@ -51,6 +55,11 @@ export function galleryTiles(photos: GalleryPhoto[], columns: number): MasonryIt
       srcSet: srcSetFor(p.url),
       sizes: `${vw}vw`,
       full: imageAt(p.url, 1600),
+      // Every tile the same 4:3 shape (photos are cropped to fit), so the
+      // columns line up in even rows with even gaps and no ragged bottom.
+      // The full photo still opens uncropped in the lightbox.
+      width: 4,
+      height: 3,
       title: p.title || undefined,
       description: p.description || undefined,
       alt: p.title ? `${p.title}${p.description ? `. ${p.description}` : ""}` : `Stonewood Garden Private Resort, photo ${i + 1} of ${rest.length}`,

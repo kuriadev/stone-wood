@@ -7,9 +7,12 @@
 //    `archiveMonths` months ago -- 2 by default. Archiving deletes nothing;
 //    it can be restored any time.
 //
-// 2. Delete the archive. Off by default. When on, everything in the
-//    Archived list is deleted for good on a date the owner sets: a day of
-//    every month, or a day of one month every year.
+// 2. Delete the archive. Off by default. When on, archived bookings whose
+//    stay ended more than DELETE_AFTER_MONTHS (1 year) ago are deleted for
+//    good on a date the owner sets: a day of every month, or a day of one
+//    month every year. Younger ones stay in the archive. Before anything is
+//    deleted, a CSV of those bookings is emailed to the resort as a backup;
+//    if that email fails, nothing is deleted.
 //
 // What a deletion removes: the booking and the guest details on it (name,
 // email, phone, notes), with its inspections, damage records and
@@ -52,6 +55,8 @@ export const DEFAULT_RETENTION: RetentionSettings = {
   archiveEnabled: true, archiveMonths: 2,
   enabled: false, schedule: "monthly", day: 1, month: 1,
 };
+/** Only archived bookings whose stay ended this long ago are deleted. */
+export const DELETE_AFTER_MONTHS = 12;
 export const ARCHIVE_MIN_MONTHS = 1;
 export const ARCHIVE_MAX_MONTHS = 24;
 /** The choices offered first; any whole number in range is accepted. */
@@ -150,10 +155,11 @@ export function isArchivable(b: PurgeCandidate, cutoff: string): boolean {
   return !b.archived && isPurgeable(b, cutoff);
 }
 
-/** In the archive and safe to delete for good (never one with a refund
- *  still owed, or one somebody restored to a live status). */
-export function isDeletableFromArchive(b: PurgeCandidate): boolean {
-  return !!b.archived && finished(b);
+/** In the archive, its stay ended before `cutoff` (a year ago -- see
+ *  DELETE_AFTER_MONTHS), and safe to delete for good: never one with a
+ *  refund still owed, or one somebody restored to a live status. */
+export function isDeletableFromArchive(b: PurgeCandidate, cutoff: string): boolean {
+  return !!b.archived && isPurgeable(b, cutoff);
 }
 
 /** "12 months" / "1 year" / "2 years 6 months", for the settings screen. */
