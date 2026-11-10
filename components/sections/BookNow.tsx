@@ -1738,14 +1738,14 @@
                         {kidsShown && (
                           <div style={{ marginTop: 14 }}>
                             {counterRow({
-                              id: "booknow-children-label", title: "CHILDREN", sub: `Under ${CHILD_FREE_AGE} years old`,
+                              id: "booknow-children-label", title: "CHILDREN", sub: `${CHILD_FREE_AGE} years old and below`,
                               value: kids, min: 0, max: kidCap, onChange: setChildren,
                               fewer: holdFewerKids, more: holdMoreKids, locked: !kidsAllowed, noun: "children",
                             })}
                             <p style={{ color: C.textS, fontSize: 12, margin: "8px 0 0" }}>
                               {tier === "Exclusive"
-                                ? `Your booking is Exclusive, so children under ${CHILD_FREE_AGE} are already free and not counted. No need to add them.`
-                                : `Children under ${CHILD_FREE_AGE} pay ${fmt(childRateFor(slot))} each and count toward the ${guestCap}-guest limit.`}
+                                ? `Your booking is Exclusive, so children ${CHILD_FREE_AGE} years old and below are already free and not counted. No need to add them.`
+                                : `Children ${CHILD_FREE_AGE} years old and below pay ${fmt(childRateFor(slot))} each and count toward the ${guestCap}-guest limit.`}
                             </p>
                             {kidsAllowed && date && onTour > 0 && kidCap < (tier === "Shared" ? Math.min(guestCap, CHILDREN_TOTAL_MAX) : CHILDREN_TOTAL_MAX) - adults && (
                               <p style={{ color: C.goldInk, fontSize: 12, margin: "4px 0 0" }}>

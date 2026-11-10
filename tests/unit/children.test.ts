@@ -23,8 +23,8 @@ describe("children under 3", () => {
 
   it("labels the head count", () => {
     expect(headcountLabel(1, 0)).toBe("1 guest");
-    expect(headcountLabel(3, 1)).toBe("3 guests · 1 child under 3");
-    expect(bookingHeadcount({ guests: 25, children: 30 })).toBe("25 guests · 30 children under 3");
+    expect(headcountLabel(3, 1)).toBe("3 guests · 1 child (3 years old and below)");
+    expect(bookingHeadcount({ guests: 25, children: 30 })).toBe("25 guests · 30 children (3 years old and below)");
     expect(bookingHeadcount({ guests: 5 })).toBe("5");
   });
 });

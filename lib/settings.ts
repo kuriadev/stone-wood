@@ -75,8 +75,8 @@ export interface BusinessSettings {
     noShowChoiceDays: number;
     /** Hours a guest waits between changes to their own details. */
     detailsCooldownHours: number;
-    /** Children younger than this are the "children" count (free in Exclusive,
-     *  the child rate in Shared). */
+    /** Children this age and below are the "children" count (free in
+     *  Exclusive, the child rate in Shared). */
     childFreeAge: number;
   };
   /** Whole hours, 24-hour clock. nightEnd past 24 is the next morning. */

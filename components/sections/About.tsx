@@ -376,7 +376,7 @@ export function About({
                         <span className="sw-about__ratelabel" style={{ color: C.textH }}>Shared pool</span>
                         <span className="sw-about__price" style={{ color: C.textH }}>{fmt(sharedRateFor(id))}<small style={{ color: C.textS }}> / guest</small></span>
                         <span className="sw-about__ratenote" style={{ color: C.textS }}>
-                          Children under {CHILD_FREE_AGE}: {kid > 0 ? `${fmt(kid)} each` : "free"}. Up to {GUESTS_MAX} guests share the pool.
+                          Children {CHILD_FREE_AGE} years old and below: {kid > 0 ? `${fmt(kid)} each` : "free"}. Up to {GUESTS_MAX} guests share the pool.
                         </span>
                       </div>
                     )}
@@ -384,7 +384,7 @@ export function About({
                       <span className="sw-about__ratelabel" style={{ color: C.textH }}>Exclusive pool</span>
                       <span className="sw-about__price" style={{ color: C.textH }}>{fmt(exclusiveRateFor(id))}<small style={{ color: C.textS }}>{stay ? " / day" : " flat"}</small></span>
                       <span className="sw-about__ratenote" style={{ color: C.textS }}>
-                        The pool and resort are your group&rsquo;s alone, up to {GUESTS_MAX} guests. Children under {CHILD_FREE_AGE} are free.
+                        The pool and resort are your group&rsquo;s alone, up to {GUESTS_MAX} guests. Children {CHILD_FREE_AGE} years old and below are free.
                       </span>
                     </div>
                     {id === "Day" && OVERTIME_MAX > 0 && (

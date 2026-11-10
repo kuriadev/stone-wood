@@ -461,8 +461,8 @@ export function HeroReservation({
           {counter({
             title: "CHILDREN",
             sub: goesExclusive
-              ? `Exclusive: children under ${CHILD_FREE_AGE} are already free, no need to add them`
-              : `Under ${CHILD_FREE_AGE} · ${fmt(childRateFor(slot))} each, counted in the ${GUESTS_MAX}`,
+              ? `Exclusive: children ${CHILD_FREE_AGE} years old and below are already free, no need to add them`
+              : `${CHILD_FREE_AGE} years old and below · ${fmt(childRateFor(slot))} each, counted in the ${GUESTS_MAX}`,
             value: kids, min: 0, max: kidCap, onChange: setChildren, noun: "children", locked: goesExclusive,
           })}
 

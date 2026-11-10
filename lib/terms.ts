@@ -46,8 +46,8 @@ export function termsDocs(): TermsDoc[] {
           title: "Tours, rates and guests",
           list: [
             `${SLOTS.Day.label}: ${SLOTS.Day.start} – ${SLOTS.Day.end}. ${SLOTS.Night.label}: ${SLOTS.Night.start} – ${SLOTS.Night.end} the next morning. ${SLOTS.WholeDay.label}: day and night together, up to ${days(MAX_STAY_DAYS)} in a row.`,
-            `Shared pool: ${fmt(sharedRateFor("Day"))} per guest for a Day Tour and ${fmt(sharedRateFor("Night"))} for a Night Tour, shared with other groups, up to ${GUESTS_MAX} guests in total. Children under ${CHILD_FREE_AGE} pay ${fmt(childRateFor("Day"))} each and count toward the ${GUESTS_MAX}.`,
-            `Exclusive pool: ${fmt(exclusiveRateFor("Day"))} flat for a Day Tour, ${fmt(exclusiveRateFor("Night"))} for a Night Tour and ${fmt(exclusiveRateFor("WholeDay"))} a day for a Staycation, up to ${GUESTS_MAX} guests. Children under ${CHILD_FREE_AGE} are free and not counted. A Staycation is Exclusive only.`,
+            `Shared pool: ${fmt(sharedRateFor("Day"))} per guest for a Day Tour and ${fmt(sharedRateFor("Night"))} for a Night Tour, shared with other groups, up to ${GUESTS_MAX} guests in total. Children ${CHILD_FREE_AGE} years old and below pay ${fmt(childRateFor("Day"))} each and count toward the ${GUESTS_MAX}.`,
+            `Exclusive pool: ${fmt(exclusiveRateFor("Day"))} flat for a Day Tour, ${fmt(exclusiveRateFor("Night"))} for a Night Tour and ${fmt(exclusiveRateFor("WholeDay"))} a day for a Staycation, up to ${GUESTS_MAX} guests. Children ${CHILD_FREE_AGE} years old and below are free and not counted. A Staycation is Exclusive only.`,
             `Events venue: ${fmt(EVENT_VENUE_RATE)} per tour, one event at a time, up to ${VENUE_CAPACITY} guests. It closes at ${venueCloseText()}.`,
             "Rooms are an add-on, priced per tour (twice for a Staycation). Without a room there are no beds; your group uses the pool and the resort's open areas.",
             `However many groups are booked, the resort holds no more than ${CHILDREN_TOTAL_MAX} people at once.`,

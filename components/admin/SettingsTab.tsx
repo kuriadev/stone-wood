@@ -147,12 +147,12 @@ export function SettingsTab({ mob }: { mob: boolean }) {
         <h3 style={{ gridColumn: "1 / -1", color: C.textH, fontSize: 13.5, fontWeight: 600, margin: "0 0 -4px", }}>Day Tour</h3>
         {num("rates", "sharedPerHead", "Shared pool, per guest", `For one Day Tour. ${r.sharedPerHead || 0 ? `A group of 10 pays ${fmt(10 * Number(r.sharedPerHead || 0))}.` : ""}`, "₱")}
         {num("rates", "exclusiveFlat", "Exclusive pool", "The whole pool for one Day Tour, whatever the group's size.", "₱")}
-        {num("rates", "childPerHead", `Shared pool, per child under ${Number(form.limits.childFreeAge) || 3}`, "Half the adult rate to start. Free in an Exclusive booking; 0 makes them free in Shared too.", "₱")}
+        {num("rates", "childPerHead", `Shared pool, per child ${Number(form.limits.childFreeAge) || 3} years old and below`, "Half the adult rate to start. Free in an Exclusive booking; 0 makes them free in Shared too.", "₱")}
         {num("rates", "overtimePerHour", "Overtime, per hour", "Added by staff on the day, only when the Night Tour is free.", "₱")}
         <h3 style={{ gridColumn: "1 / -1", color: C.textH, fontSize: 13.5, fontWeight: 600, margin: "8px 0 -4px", paddingTop: 12, borderTop: `1px solid ${cBr}` }}>Night Tour</h3>
         {num("rates", "sharedPerHeadNight", "Shared pool, per guest", "For one Night Tour.", "₱")}
         {num("rates", "exclusiveNight", "Exclusive pool", "The whole pool for one Night Tour.", "₱")}
-        {num("rates", "childPerHeadNight", `Shared pool, per child under ${Number(form.limits.childFreeAge) || 3}`, "For one Night Tour. Free in an Exclusive booking.", "₱")}
+        {num("rates", "childPerHeadNight", `Shared pool, per child ${Number(form.limits.childFreeAge) || 3} years old and below`, "For one Night Tour. Free in an Exclusive booking.", "₱")}
         <div aria-hidden="true" />
         <h3 style={{ gridColumn: "1 / -1", color: C.textH, fontSize: 13.5, fontWeight: 600, margin: "8px 0 -4px", paddingTop: 12, borderTop: `1px solid ${cBr}` }}>Staycation</h3>
         {num("rates", "sharedPerHeadStay", "Shared pool, per guest", "Day and Night together, for each day of the stay.", "₱")}
@@ -171,7 +171,7 @@ export function SettingsTab({ mob }: { mob: boolean }) {
         {num("limits", "bookingHistoryMonths", "Calendar shows, months back", "Guests and staff can page back to see past dates. They can't be booked. 0 starts the calendar at this month.", "")}
         {num("limits", "rescheduleNoticeDays", "Date changes close, days before the visit", "A guest can ask to move their booking only while the visit is at least this far away. 2 means a booking for tomorrow can't be moved today. Cancelling online closes at the same time.", "")}
         {num("limits", "peopleMax", "Most people at once", "Everyone at the resort in one tour, every group together, children included. Also the most staff can put on one booking.", "")}
-        {num("limits", "childFreeAge", "Children are under, years", "Younger than this counts as a child: free in an Exclusive booking, the child rate in a Shared one.", "")}
+        {num("limits", "childFreeAge", "Children are, years old and below", "This age and younger counts as a child: free in an Exclusive booking, the child rate in a Shared one.", "")}
         {num("limits", "lateBookingHours", "Same-day booking, hours after a tour starts", "Today's tour can be booked online until this long after it starts. 0 closes it when the tour starts.", "")}
         {num("limits", "holdHours", "A new date is held for, hours", "While staff approve a guest's date change, the new date stays held for them this long.", "")}
         {num("limits", "noShowChoiceDays", "After a no-show, days to pick a new date", "The guest is emailed a link the day after and can choose a new date within this many days.", "")}

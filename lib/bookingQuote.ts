@@ -232,7 +232,7 @@ export async function quoteBooking(raw: unknown, opts: { requireEmailProof?: boo
   // per its fixed count, so it takes none.
   // Exclusive takes no count: children under 3 are free there anyway.
   const children = tier !== "Shared" || d.children === undefined || d.children === null ? 0 : Math.round(Number(d.children));
-  if (children > 0 && pkg && tier === "Shared") return bad(`This package has a fixed number of guests. Contact us to bring a child under ${CHILD_FREE_AGE}.`);
+  if (children > 0 && pkg && tier === "Shared") return bad(`This package has a fixed number of guests. Contact us to bring a child ${CHILD_FREE_AGE} years old and below.`);
   const kidsShape = childrenProblem(guests, children, guestLimitFor(resource), 0, tier);
   if (kidsShape) return bad(kidsShape);
 

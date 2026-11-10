@@ -24,7 +24,7 @@
 import type { BookingTier } from "@/types/booking";
 import { OVERRIDE_GUESTS_MAX } from "@/lib/validators";
 
-/** Children younger than this are the "children" count (Rates & Settings). */
+/** Children this age and below are the "children" count (Rates & Settings). */
 export let CHILD_FREE_AGE = 3;
 export function applyChildValues(v: { freeAge: number }): void { CHILD_FREE_AGE = v.freeAge; }
 
@@ -56,7 +56,7 @@ export function childLimit(adults: number, cap: number, onTour = 0, tier: Bookin
 export function childrenProblem(adults: number, children: number, cap: number, onTour = 0, tier: BookingTier = "Shared"): string | null {
   if (!Number.isInteger(children) || children < 0) return "The number of children isn't valid.";
   if (children === 0) return null;
-  if (adults < 1) return `A child under ${CHILD_FREE_AGE} needs an adult with them.`;
+  if (adults < 1) return `A child ${CHILD_FREE_AGE} years old and below needs an adult with them.`;
   if (childrenCount(tier) && adults + children > cap) return `A shared booking holds up to ${cap} guests, adults and children together.`;
   if (onTour + adults + children > OVERRIDE_GUESTS_MAX) {
     const left = Math.max(0, OVERRIDE_GUESTS_MAX - onTour - adults);
@@ -72,11 +72,11 @@ export function childrenPay(tier: BookingTier): boolean {
   return tier === "Shared";
 }
 
-/** "4 adults · 1 child under 3", for summaries and staff screens. */
+/** "4 guests · 1 child (3 years old and below)", for summaries and staff screens. */
 export function headcountLabel(adults: number, children: number): string {
   const a = `${adults} ${adults === 1 ? "guest" : "guests"}`;
   if (!children) return a;
-  return `${a} · ${children} ${children === 1 ? "child" : "children"} under ${CHILD_FREE_AGE}`;
+  return `${a} · ${children} ${children === 1 ? "child" : "children"} (${CHILD_FREE_AGE} years old and below)`;
 }
 
 /** A stored booking's head count: `guests` is the adults. */

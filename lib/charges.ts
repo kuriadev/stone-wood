@@ -104,12 +104,12 @@ export function priceCharge(b: Booking, req: ChargeRequest, rooms: Room[]): Char
     // Shared children count toward the capacity; Exclusive ones don't.
     const countedKids = getBookingTier(b) === "Shared" ? kids : 0;
     if (keep.guests + extra + kids > OVERRIDE_GUESTS_MAX) {
-      return no(`That would make ${keep.guests + extra + kids} people with the ${kids} child${kids === 1 ? "" : "ren"} under ${CHILD_FREE_AGE}; the most for one booking is ${OVERRIDE_GUESTS_MAX}.`);
+      return no(`That would make ${keep.guests + extra + kids} people with the ${kids} child${kids === 1 ? "" : "ren"} ${CHILD_FREE_AGE} years old and below; the most for one booking is ${OVERRIDE_GUESTS_MAX}.`);
     }
     if (keep.guests + extra + countedKids > cap) {
       return no(req.overCapacity
         ? `That would make ${keep.guests + extra + countedKids} guests; even over capacity the most for one booking is ${OVERRIDE_GUESTS_MAX}.`
-        : `That would make ${keep.guests + extra + countedKids} guests${countedKids ? `, with the ${countedKids} child${countedKids === 1 ? "" : "ren"} under ${CHILD_FREE_AGE}` : ""}, more than the capacity of ${limit}. Tick "Allow more than ${limit} guests" to add them anyway.`);
+        : `That would make ${keep.guests + extra + countedKids} guests${countedKids ? `, with the ${countedKids} child${countedKids === 1 ? "" : "ren"} ${CHILD_FREE_AGE} years old and below` : ""}, more than the capacity of ${limit}. Tick "Allow more than ${limit} guests" to add them anyway.`);
     }
     return {
       ok: true, amount: extra * sharedRateFor(getBookingSlot(b)) * days,
