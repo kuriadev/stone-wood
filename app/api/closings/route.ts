@@ -24,8 +24,8 @@ import { cleanText, isDateStr } from "@/lib/money";
 import { manilaDate, round2, signedAmount } from "@/lib/finance";
 import { closingBlockers, CLOSE_NEED } from "@/lib/operations";
 import { logActivity } from "@/lib/activity.server";
-import { trySendMail } from "@/lib/mailer";
-import { buildDayClosedEmail, adminNotifyTo } from "@/lib/adminNotify";
+import { buildDayClosedEmail } from "@/lib/adminNotify";
+import { notifyStaff } from "@/lib/staffNotify.server";
 import { fmt } from "@/lib/utils";
 import type { DailyClosingRow, PaymentRow, ExpenseRow, BookingRow } from "@/types/database";
 
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
     const closedMail = buildDayClosedEmail({
       date, counted, expected, checkedOut: finished,
     });
-    void trySendMail({ to: adminNotifyTo(), subject: closedMail.subject, html: closedMail.html }, `admin-day-closed ${date}`);
+    void notifyStaff(["Owner"], closedMail, `day-closed ${date}`);
 
     return NextResponse.json({ success: true, closing: rowToClosing(data as DailyClosingRow) });
   } catch (err) {

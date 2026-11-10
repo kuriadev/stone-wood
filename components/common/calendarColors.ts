@@ -30,7 +30,7 @@ export const CAL_LINE = "#f2d98b";
 /** The guest calendars' legend. */
 export const GUEST_LEGEND: [string, string][] = [
   ["Available", CAL.available.bg],
-  ["Your dates", CAL.selected.bg],
-  ["Booked", CAL.booked.bg],
+  ["Selected", CAL.selected.bg],
+  ["Fully Booked", CAL.booked.bg],
   ["Closed", CAL.closed.bg],
 ];

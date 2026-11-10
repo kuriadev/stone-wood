@@ -36,6 +36,10 @@ export interface BookingRow {
    *  `date` when an insert leaves it out, so it is never null. */
   end_date: string;
   guests: number;
+  /** 20261111120000_booking_children.sql. */
+  children?: number;
+  /** 20261113120000_guest_details_cooldown.sql. */
+  details_updated_at?: string | null;
   package: string;
   rooms: number[];
   overtime: number;
@@ -130,6 +134,13 @@ export interface CustomerMessageRow {
   date: string;
   archived_at: string | null;
   created_at: string;
+  /** 20261112120000_emergency_requests.sql */
+  booking_id?: string | null;
+  attachment_count?: number | null;
+  resolution?: "Approved" | "Declined" | null;
+  resolution_note?: string | null;
+  resolved_at?: string | null;
+  resolved_by?: string | null;
 }
 
 export interface ClosedDateRow {

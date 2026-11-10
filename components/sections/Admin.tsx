@@ -1,5 +1,7 @@
 "use client";
 
+import { CLOSING_BG } from "@/lib/constants";
+import { EmergencyReview } from "@/components/admin/EmergencyReview";
 import { findRef } from "@/lib/bookingRef";
 import { ActionButton, ConfirmDialog, FilterSelect } from "@/components/admin/ui";
 import { statusLabel, bookingStatusLabel, ADMIN_NAV_GROUPS, ADMIN_TAB_LABEL } from "@/lib/labels";
@@ -242,14 +244,14 @@ export function Admin({
      /api/customer-service stores; "Question" on the guest form is saved as
      "Inquiry", and anything it does not recognise falls back to "Other", so
      Other is kept as a bucket rather than dropping those messages. */
-  const CS_TYPES = ["Inquiry", "Feedback", "Complaint", "Refund", "Suggestion", "Other"] as const;
+  const CS_TYPES = ["Inquiry", "Feedback", "Complaint", "Emergency", "Refund", "Suggestion", "Other"] as const;
   /* The stored values are what /api/customer-service writes; these are what
      the owner reads. "Inquiry" is what the guest form saves for "Question",
      and "Complaint" for "Concern", so the admin never sees a word the guest
      was not shown. */
   const CS_LABELS: Record<string, string> = {
     Inquiry: "Question", Feedback: "Feedback", Complaint: "Concern",
-    Refund: "Request for Refund", Suggestion: "Suggestion", Other: "Other",
+    Refund: "Request for Refund", Emergency: "Emergency request", Suggestion: "Suggestion", Other: "Other",
   };
   /* The three a guest can send from the Customer Service form. These always
      show, even at zero, so the row reads as a set of filters rather than
@@ -775,7 +777,8 @@ export function Admin({
                   const draft = csDraft && csDraft.id === open.id
                     ? csDraft
                     : { id: open.id, mode: "automated" as const, text: automatedDraft(open) };
-                  const linked = bookingForMessage(open);
+                  // An emergency request names its booking; others are matched.
+                  const linked = (open.bookingId && bookings.find((b) => b.id === open.bookingId)) || bookingForMessage(open);
                   const when = (m: CustomerMessage) => `${m.date}${m.createdAt ? ` · ${manilaTime(m.createdAt)}` : ""}`;
                   const typeLabel = (m: CustomerMessage) => CS_LABELS[m.type] ?? m.type;
                   return (
@@ -862,6 +865,16 @@ export function Admin({
                         </header>
 
                         <p className="sw-msgs__body" style={{ color: C.textB }}>{open.message}</p>
+
+                        {open.type === "Emergency" && (
+                          <EmergencyReview
+                            key={open.id}
+                            message={open}
+                            booking={linked}
+                            onOpenBooking={openBooking}
+                            onDecided={(patch) => setCustomerMessages((list) => list.map((m) => (m.id === open.id ? { ...m, ...patch } : m)))}
+                          />
+                        )}
 
                         {/* The reply: automated (a draft from the booking) or
                             written by hand, sent from the email app -- the
@@ -1491,6 +1504,7 @@ export function Admin({
               </div>
 
               <HeroMediaEditor mob={mob} />
+              <HeroMediaEditor mob={mob} slot="closing" fallback={CLOSING_BG} />
 
               {galleryImgs.length === 0 ? (
                 <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "40px 24px", textAlign: "center" }}>

@@ -134,6 +134,7 @@ export function AccountModal({ onClose, onSignedOut, forced = false }: {
         </div>
 
         <div style={{ borderTop: `1px solid ${cBr}`, paddingTop: 16 }}>
+          {!forced && <p style={{ color: C.textH, fontSize: 13.5, fontWeight: 600, margin: "0 0 10px" }}>Change my password</p>}
           <Label htmlFor="acc-new">NEW PASSWORD</Label>
           <p style={{ color: C.textS, fontSize: 12, margin: "0 0 8px" }}>
             At least {MIN_PASSWORD} characters.{forced ? "" : " Leave both boxes empty to keep your current password and only change the username."}

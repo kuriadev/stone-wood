@@ -144,6 +144,8 @@ export const rowToBooking = (b: BookingRow): Booking => ({
   date: b.date,
   endDate: b.end_date ?? b.date,
   guests: b.guests,
+  children: b.children ?? 0,
+  detailsUpdatedAt: b.details_updated_at ?? undefined,
   package: bookingName(b.package),
   rooms: b.rooms ?? [],
   overtime: b.overtime,
@@ -195,6 +197,8 @@ export const bookingToRow = (b: Booking): Omit<BookingRow,
   // write a range the availability checks would read backwards.
   end_date: b.endDate && b.endDate > b.date ? b.endDate : b.date,
   guests: b.guests,
+  // Only when there are any, so a database without the column still saves.
+  ...(b.children ? { children: b.children } : {}),
   package: b.package,
   rooms: b.rooms,
   overtime: b.overtime,
@@ -235,6 +239,12 @@ export const rowToCustomerMessage = (m: CustomerMessageRow): CustomerMessage => 
   date: m.date,
   createdAt: m.created_at,
   archivedAt: m.archived_at ?? undefined,
+  bookingId: m.booking_id ?? undefined,
+  attachmentCount: m.attachment_count ?? undefined,
+  resolution: m.resolution ?? undefined,
+  resolutionNote: m.resolution_note ?? undefined,
+  resolvedAt: m.resolved_at ?? undefined,
+  resolvedBy: m.resolved_by ?? undefined,
 });
 
 // ── Facilities / packages, added with the second migration ───

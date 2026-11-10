@@ -71,12 +71,14 @@ describe("guest limits by what is booked", () => {
 describe("tonight's venue, late in the evening", () => {
   afterEach(() => jest.setSystemTime(new Date("2026-10-20T09:00:00+08:00")));
 
-  it("stops online bookings two hours before the venue closes, while the pool night stays open", async () => {
+  it("stops online bookings of tonight's venue and pool 2 hours after the Night Tour starts", async () => {
+    jest.setSystemTime(new Date(`${DATE}T20:30:00+08:00`));
+    expect((await ask(draft({ guests: 20 }))).status).toBe(200);
     jest.setSystemTime(new Date(`${DATE}T22:30:00+08:00`));
     const venue = await ask(draft({ guests: 20 }));
     expect(venue.status).toBe(409);
-    expect(String(venue.body.error)).toMatch(/has closed \(it ends at 12:00 AM\)/);
+    expect(String(venue.body.error)).toMatch(/closed at 9:00 PM/);
     const pool = await ask(draft({ resource: "Pool", tier: "Shared", guests: 2 }));
-    expect(pool).toEqual({ status: 200, body: { success: true } });
+    expect(pool.status).toBe(409);
   });
 });

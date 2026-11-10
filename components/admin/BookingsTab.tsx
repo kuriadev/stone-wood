@@ -22,6 +22,7 @@
 // refund owed → sent), along with any date change the guest asked for and
 // the booking's full history.
 
+import { bookingHeadcount } from "@/lib/children";
 import { downloadWorkbook } from "@/lib/excelReport";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { RetentionPanel } from "@/components/admin/RetentionPanel";
@@ -701,7 +702,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
             <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(0, 1fr)", gap: 20 }}>
               <div>
                 <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 8, marginBottom: 16 }}>
-                  {[["Date", stayLabel(b)], ["Time", `${s.label} · ${s.hours}`], ["Email", b.email || "—"], ["Contact", b.contact], ["Guests", `${b.guests}`], ["Status", bookingStatusLabel(b)],
+                  {[["Date", stayLabel(b)], ["Time", `${s.label} · ${s.hours}`], ["Email", b.email || "—"], ["Contact", b.contact], ["Guests", bookingHeadcount(b)], ["Status", bookingStatusLabel(b)],
                     ...(b.checkedInAt ? [["Checked in", `${fmtDate(manilaDate(b.checkedInAt))}, ${manilaTime(b.checkedInAt)}`]] : []),
                     ...(b.checkedOutAt ? [["Checked out", `${fmtDate(manilaDate(b.checkedOutAt))}, ${manilaTime(b.checkedOutAt)}`]] : []),
                     ...(b.settledAt ? [["Settled", `${fmtDate(manilaDate(b.settledAt))}, ${manilaTime(b.settledAt)}`]] : []),

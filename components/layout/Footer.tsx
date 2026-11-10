@@ -86,7 +86,7 @@ export function Footer({ setPage }: FooterProps) {
               onMouseEnter={(e) => (e.currentTarget.style.color = gold)}
               onMouseLeave={(e) => (e.currentTarget.style.color = "#9a8d7a")}
             >
-              <span className="sw-ulink">{l}</span>
+              <span className="sw-ulink">{l === "About Us" ? "About" : l}</span>
             </button>
           ))}
         </div>

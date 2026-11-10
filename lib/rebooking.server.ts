@@ -13,6 +13,7 @@
 //   sweepExpired    deadlines that have passed, applied when something next
 //                   reads the data, since nothing runs in the background
 
+import { emailProofValid } from "@/lib/emailCode.server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { getSupabaseAdmin, rowToBooking, rowToFacility } from "@/lib/supabase";
 import {
@@ -63,17 +64,20 @@ function tokenMatches(b: Pick<Booking, "id" | "email">, token: string): boolean 
   return want.length === got.length && timingSafeEqual(want, got);
 }
 
-/** A booking the caller may see: its reference plus either the email on it
- *  or the token from their link. null for a wrong pair, the same as for a
- *  booking that doesn't exist, so a reference alone reveals nothing. */
-export async function loadGuestBooking(id: string, proof: { email?: string | null; token?: string | null }): Promise<Booking | null> {
+/** A booking the caller may see: its reference plus either the token from
+ *  their link, or the email on it AND proof they confirmed that email with
+ *  a 6-digit code (`emailProof`, lib/emailCode.server.ts), so knowing a
+ *  reference and someone's address isn't enough. null for a wrong pair,
+ *  the same as for a booking that doesn't exist, so a reference alone
+ *  reveals nothing. */
+export async function loadGuestBooking(id: string, proof: { email?: string | null; token?: string | null; emailProof?: string | null }): Promise<Booking | null> {
   const { data, error } = await getSupabaseAdmin().from("bookings").select("*").eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return null;
   const b = rowToBooking(data as BookingRow);
   if (proof.token && tokenMatches(b, proof.token)) return b;
   const email = (proof.email ?? "").trim().toLowerCase();
-  if (email && b.email && b.email.toLowerCase() === email) return b;
+  if (email && b.email && b.email.toLowerCase() === email && emailProofValid(proof.emailProof, email)) return b;
   return null;
 }
 

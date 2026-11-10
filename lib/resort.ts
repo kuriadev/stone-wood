@@ -204,28 +204,31 @@ export function stayPatternNote(id: BookingSlot, days: number, resource?: Bookin
   return `${unit}, one after another. You arrive at ${s.start} each morning and ${s.cycleEnd} — the resort is not yours overnight. Any room you book stays locked and held for you in between, so you can leave your things.`;
 }
 
-/** How long before today's tour ends online booking for it closes. */
-export const LATE_BOOKING_CUTOFF_HOURS = 2;
+/** How long after today's tour starts it can still be booked online. */
+export let LATE_BOOKING_GRACE_HOURS = 2;
 
-/** The hour (24-hour clock, Manila) from which today's tour can no longer
- *  be booked online. Past 24 means it never closes on the day itself. */
-export const lateBookingCloses = (slot: BookingSlot, resource?: BookingResource | null): number => slotFor(slot, resource).endHour - LATE_BOOKING_CUTOFF_HOURS;
+/** The hour (24-hour clock, Manila) at which online booking of today's
+ *  tour closes: 9 AM for the 7 AM Day Tour, 9 PM for the 7 PM Night Tour. */
+export const lateBookingCloses = (slot: BookingSlot): number => SLOTS[slot].startHour + LATE_BOOKING_GRACE_HOURS;
 
-/** Today's tour can be booked after it has started, up to
- *  LATE_BOOKING_CUTOFF_HOURS before it ends.
+/** Minutes past midnight in Manila (UTC+8 all year, no daylight saving). */
+const manilaMinutes = (at: Date): number => (at.getUTCHours() * 60 + at.getUTCMinutes() + 8 * 60) % (24 * 60);
+
+/** Today's tour can be booked online until LATE_BOOKING_GRACE_HOURS after
+ *  it starts (owner's rule, 2026-11-10): 9:00 AM is the last moment for
+ *  the 7 AM Day Tour, so a guest still gets most of the tour. Later than
+ *  that, the date is closed for that tour.
  *
- *  A late booking still ends at the tour's usual time and costs the same:
- *  booking the Day Tour at noon buys noon to 5 PM, not a full ten hours.
- *  Staying longer is overtime, asked for at the front desk. Online booking
- *  closes near the end so nobody pays for a tour with almost nothing left.
- *  Only the first date matters: the later days of a stay are all in the
- *  future. Walk-ins at the front desk are not held to this; the staff can
- *  see who is actually there. */
+ *  A late booking still ends at the tour's usual time and costs the same.
+ *  Staying longer is overtime, asked for at the front desk. Only the first
+ *  date matters: the later days of a stay are all in the future. Walk-ins
+ *  at the front desk are not held to this; the staff can see who is
+ *  actually there. */
 export function slotStartedProblem(date: string, slot: BookingSlot, at: Date = new Date(), resource?: BookingResource | null): string | null {
   const now = manilaNow(at);
-  if (date !== now.date || now.hour < lateBookingCloses(slot, resource)) return null;
+  if (date !== now.date || manilaMinutes(at) <= lateBookingCloses(slot) * 60) return null;
   const s = slotFor(slot, resource);
-  return `Online booking for today's ${s.label} has closed (it ends at ${s.end}). Choose another date, or visit the front desk.`;
+  return `Online booking for today's ${s.label} closed at ${hourLabel(lateBookingCloses(slot))}, 2 hours after it started. Choose another date, or visit the front desk.`;
 }
 
 /** The note shown when someone books today's tour after it has started:
@@ -235,7 +238,7 @@ export function lateArrivalNote(date: string, slot: BookingSlot, at: Date = new 
   const now = manilaNow(at);
   if (date !== now.date || now.hour < SLOTS[slot].startHour || slotStartedProblem(date, slot, at, resource)) return null;
   const s = slotFor(slot, resource);
-  return `Today's ${s.label} started at ${s.start}. You can still book it and arrive now, but it ends at ${s.end}${s.endsNextDay ? " the next morning" : ""} as usual, at the full price. To stay longer, ask the front desk for overtime.`;
+  return `Today's ${s.label} started at ${s.start}. You can book it until ${hourLabel(lateBookingCloses(slot))} and arrive now, but it ends at ${s.end}${s.endsNextDay ? " the next morning" : ""} as usual, at the full price. To stay longer, ask the front desk for overtime.`;
 }
 
 /** Where today's tour stands right now, for the front desk, which can book
@@ -260,7 +263,7 @@ export let MORNING_TURNOVER_WINDOW = "5:00 – 7:00 AM";
 
 /** Music, videoke and speakers off from this time — keeps the neighbours
  *  happy, and is the usual barangay quiet hour. */
-export const QUIET_HOURS_START = "10:00 PM";
+export let QUIET_HOURS_START = "10:00 PM";
 
 const quietHoursPolicy = () =>
   `Quiet hours start at ${QUIET_HOURS_START} — music, videoke and speakers off. The events venue closes at ${venueCloseText()}; a venue-only booking ends then and doesn't include the pool.`;
@@ -334,6 +337,10 @@ export interface ResortValues {
   nightEnd: number;
   /** When the events venue closes at night (24 = midnight). */
   venueEnd: number;
+  /** Quiet hours start (24-hour clock, past 24 = after midnight). */
+  quietStart?: number;
+  /** Same-day online booking, hours after the tour starts. */
+  lateBookingHours?: number;
   contact: { phone: string; viber: string; email: string; messenger: string };
 }
 
@@ -351,6 +358,8 @@ export function applyResortValues(v: ResortValues): void {
   TURNOVER_WINDOW = twoHours(v.dayEnd, v.nightStart);
   MORNING_TURNOVER_WINDOW = twoHours(v.nightEnd % 24, v.dayStart);
   VENUE_END_HOUR = v.venueEnd;
+  if (v.quietStart !== undefined) QUIET_HOURS_START = hourLabel(v.quietStart);
+  if (v.lateBookingHours !== undefined) LATE_BOOKING_GRACE_HOURS = v.lateBookingHours;
   QUIET_HOURS_POLICY = quietHoursPolicy();
   Object.assign(RESORT_CONTACT, v.contact);
 }

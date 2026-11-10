@@ -14,7 +14,9 @@ import { newEmailCode, EMAIL_CODE_TTL_MS, EMAIL_CODE_RESEND_S } from "@/lib/emai
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json().catch(() => ({}))) as { email?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { email?: unknown; purpose?: unknown };
+  // Only changes the email's wording (lib/emailTemplate.ts).
+  const purpose = body.purpose === "manage" || body.purpose === "staff" ? body.purpose : "booking";
   const email = String(body.email ?? "").trim().toLowerCase();
   if (!isValidEmail(email)) {
     return NextResponse.json({ success: false, error: "Enter a valid email address first." }, { status: 400 });
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
 
   const { code, challenge, expiresAt } = newEmailCode(email);
   try {
-    await sendMail({ to: email, ...buildEmailCodeEmail(code, Math.round(EMAIL_CODE_TTL_MS / 60000)) });
+    await sendMail({ to: email, ...buildEmailCodeEmail(code, Math.round(EMAIL_CODE_TTL_MS / 60000), purpose) });
   } catch (err) {
     console.error("[/api/email-code] send failed:", err);
     return NextResponse.json(

@@ -30,14 +30,19 @@ export function slotMarksLabel(slots?: Set<BookingSlot>): string {
   return names.length ? ` — ${names.join(", ")} booked` : "";
 }
 
-/** The key under a calendar: what each icon means. */
+/** The key under a calendar, on one line:
+ *  "Booked tour: Day ☀ – Night ☾ – Staycation ⛱". */
 export function SlotMarksKey({ color }: { color: string }) {
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center", alignItems: "center", marginTop: 8 }}>
-      {ORDER.map((s) => (
-        <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 5, color, fontSize: 12 }}>
-          <Icon name={SLOT_ICON[s]} size={13} />
-          {SLOTS[s].label} booked
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 8px", justifyContent: "center", alignItems: "center", marginTop: 8, color, fontSize: 12 }}>
+      <span style={{ fontWeight: 600 }}>Booked tour:</span>
+      {ORDER.map((s, i) => (
+        <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          {i > 0 && <span aria-hidden="true" style={{ opacity: 0.6 }}>–</span>}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            {SLOTS[s].label.replace(/ Tour$/, "")}
+            <Icon name={SLOT_ICON[s]} size={13} />
+          </span>
         </span>
       ))}
     </div>

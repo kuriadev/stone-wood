@@ -23,6 +23,19 @@ import { sanitizeName } from "@/lib/validators";
 import { staffPhotoUrls } from "@/lib/staffPhotos.server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { staffPhotoKey } from "@/lib/staffPhotos";
+import { isValidEmail } from "@/lib/validators";
+import { emailProofValid } from "@/lib/emailCode.server";
+
+/** A staff email is saved only with proof that the 6-digit code sent to it
+ *  was typed in (/api/email-code). "" or null removes it. Returns the
+ *  value to save, or an error. */
+function emailFrom(b: Record<string, unknown>): { ok: true; email: string | null } | { ok: false; error: string } {
+  const email = String(b.email ?? "").trim().toLowerCase();
+  if (!email) return { ok: true, email: null };
+  if (!isValidEmail(email)) return { ok: false, error: "Enter a valid email address." };
+  if (!emailProofValid(b.emailProof, email)) return { ok: false, error: "Confirm the email with the 6-digit code sent to it first." };
+  return { ok: true, email };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -64,8 +77,12 @@ export async function POST(req: NextRequest) {
   const pBad = passwordProblem(password);
   if (pBad) return NextResponse.json({ success: false, error: pBad }, { status: 400 });
 
+  const e = b.email !== undefined ? emailFrom(b) : { ok: true as const, email: null };
+  if (!e.ok) return NextResponse.json({ success: false, error: e.error }, { status: 400 });
+
   try {
-    const person = await createStaff({ name, username, role: b.role, password }, hashPassword, newSalt());
+    let person = await createStaff({ name, username, role: b.role, password }, hashPassword, newSalt());
+    if (e.email) person = await updateStaff(person.id, { email: e.email }, hashPassword, newSalt());
     await logActivity({
       actor: "Admin", action: "staff.created", entity: "staff", entityId: person.id,
       summary: `Added ${person.name} as ${ROLE_LABEL[person.role]} (username "${person.username}").`,
@@ -104,10 +121,16 @@ export async function PATCH(req: NextRequest) {
     patch.role = b.role;
   }
   if (b.active !== undefined) patch.active = !!b.active;
+  if (b.email !== undefined) {
+    const e = emailFrom(b);
+    if (!e.ok) return NextResponse.json({ success: false, error: e.error }, { status: 400 });
+    patch.email = e.email;
+  }
   if (b.password !== undefined) {
     const pBad = passwordProblem(String(b.password));
     if (pBad) return NextResponse.json({ success: false, error: pBad }, { status: 400 });
     patch.password = String(b.password);
+    if (b.mustChange !== undefined) patch.mustChange = !!b.mustChange;
   }
 
   try {
@@ -118,7 +141,8 @@ export async function PATCH(req: NextRequest) {
     if (patch.username && before && before.username !== person.username) said.push(`username now "${person.username}" (was "${before.username}")`);
     if (patch.role && before && before.role !== person.role) said.push(`now ${ROLE_LABEL[person.role]} (was ${ROLE_LABEL[before.role]})`);
     if (patch.active !== undefined && before && before.active !== person.active) said.push(person.active ? "reactivated" : "deactivated");
-    if (patch.password) said.push("password reset — they choose a new one at their next sign-in");
+    if (patch.password) said.push(patch.mustChange === false ? "password changed by the super admin" : "password reset — they choose a new one at their next sign-in");
+    if (patch.email !== undefined && before && before.email !== person.email) said.push(person.email ? `email confirmed: ${person.email}` : "email removed");
     if (said.length) {
       await logActivity({
         actor: "Admin", action: "staff.updated", entity: "staff", entityId: person.id,

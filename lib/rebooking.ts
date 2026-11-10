@@ -39,7 +39,7 @@ export const GUEST_CHOICE_DAYS = 7;
  * pick is held HOLD_HOURS for the front desk or the owner to approve, the
  * same queue as every other move. Their window doesn't pause while a pick
  * waits: a declined pick can be replaced while the window is open. */
-export const NO_SHOW_CHOICE_DAYS = 20;
+export let NO_SHOW_CHOICE_DAYS = 20;
 export const NO_SHOW_REBOOK_NOTE = "Picked by the guest after a no-show.";
 
 /** A no-show whose guest can still pick a new date. */
@@ -51,7 +51,12 @@ export function noShowChoiceOpen(b: Pick<Booking, "status" | "noShow" | "choiceD
 export function isNoShowRebook(r: Pick<DateChange, "status">, b: Pick<Booking, "status" | "noShow">): boolean {
   return r.status === "Pending" && b.status === "Cancelled" && b.noShow === true;
 }
-export const HOLD_HOURS = 48;
+export let HOLD_HOURS = 48;
+/** Rates & Settings sets these (lib/settings.ts). */
+export function applyRebookingValues(v: { holdHours: number; noShowChoiceDays: number }): void {
+  HOLD_HOURS = v.holdHours;
+  NO_SHOW_CHOICE_DAYS = v.noShowChoiceDays;
+}
 /** Date changes a guest may ask for on one booking. */
 export const GUEST_CHANGES_ALLOWED = 1;
 

@@ -56,6 +56,8 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   const isAdmin = requireAdmin(req) === null;
   const email = req.nextUrl.searchParams.get("email")?.trim().toLowerCase() || null;
   const token = req.nextUrl.searchParams.get("t")?.trim() || null;
+  // Proof the guest confirmed the email with a code (Manage booking).
+  const emailProof = req.nextUrl.searchParams.get("ep")?.trim() || null;
 
   if (!isAdmin) {
     const limited = rateLimit(req, { name: "booking-lookup", limit: 20, windowMs: 60 * 60 * 1000 });
@@ -74,7 +76,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       if (error) throw new Error(error.message);
       booking = data ? rowToBooking(data as BookingRow) : null;
     } else {
-      booking = await loadGuestBooking(id, { email, token });
+      booking = await loadGuestBooking(id, { email, token, emailProof });
     }
     if (!booking) {
       // Same response whether the reference is wrong or the email does not

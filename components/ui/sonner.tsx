@@ -13,29 +13,44 @@ import {
 import { useTheme } from "@/contexts/ThemeContext"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 
+/* Unstyled Sonner: the whole look is .sw-toast in app/globals.css
+   (contexts/ToastContext.tsx explains the system). */
 const Toaster = ({ ...props }: ToasterProps) => {
   const { isDark } = useTheme()
-  const theme = isDark ? "dark" : "light"
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
-      className="toaster group"
+      theme={isDark ? "dark" : "light"}
+      position="bottom-right"
+      // Clear of the floating theme toggle; on phones, of the bottom nav.
+      offset={{ bottom: 88, right: 24 }}
+      mobileOffset={{ bottom: 96, left: 12, right: 12 }}
+      gap={10}
+      visibleToasts={4}
+      closeButton
       icons={{
-        success: <CircleCheckIcon className="size-4" />,
-        info: <InfoIcon className="size-4" />,
-        warning: <TriangleAlertIcon className="size-4" />,
-        error: <OctagonXIcon className="size-4" />,
-        loading: <Loader2Icon className="size-4 animate-spin" />,
+        success: <CircleCheckIcon className="size-[18px]" strokeWidth={2} />,
+        info: <InfoIcon className="size-[18px]" strokeWidth={2} />,
+        warning: <TriangleAlertIcon className="size-[18px]" strokeWidth={2} />,
+        error: <OctagonXIcon className="size-[18px]" strokeWidth={2} />,
+        loading: <Loader2Icon className="size-[18px] animate-spin" />,
       }}
-      style={
-        {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius)",
-        } as React.CSSProperties
-      }
+      toastOptions={{
+        unstyled: true,
+        classNames: {
+          toast: "sw-toast",
+          content: "sw-toast__content",
+          title: "sw-toast__title",
+          description: "sw-toast__desc",
+          icon: "sw-toast__icon",
+          closeButton: "sw-toast__close",
+          actionButton: "sw-toast__action",
+          success: "sw-toast--success",
+          error: "sw-toast--error",
+          warning: "sw-toast--warning",
+          info: "sw-toast--info",
+        },
+      }}
       {...props}
     />
   )

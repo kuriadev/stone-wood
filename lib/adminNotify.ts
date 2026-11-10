@@ -32,6 +32,8 @@ import { RESORT_CONTACT } from "@/lib/resort";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { fmt, fmtDate, bookingSlotInfo, stayLabel, bookingEndDate } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
+import { getBookingResource } from "@/lib/utils";
+import { headcountLabel } from "@/lib/children";
 import type { Booking } from "@/types/booking";
 
 export interface MailOut { subject: string; html: string }
@@ -60,7 +62,7 @@ function shell(title: string, intro: string, blocks: string, accent = "#c9a84c")
         <p style="margin:0 0 20px;color:#4a3a28;font-size:14px;line-height:1.7;">${escapeHtml(intro)}</p>
         ${blocks}
         <p style="margin:24px 0 0;padding-top:16px;border-top:1px solid #e8e0cc;color:#8a7a5a;font-size:11.5px;line-height:1.7;">
-          Sent by the booking system to ${escapeHtml(adminNotifyTo())}. Open the admin panel to act on any of this.
+          Sent by the Stonewood booking system to the staff it concerns. Open the admin panel to act on any of this.
         </p>
       </td></tr>
     </table></td></tr>
@@ -242,6 +244,116 @@ export function buildDayClosedEmail({ date, counted, expected, checkedOut, outst
       section("Cash", cash, diff === 0 ? "#8a6d3b" : "#b02a2a") +
         section("Guests who finished today", checkedOut.map((b) => `${who(b)} · ${escapeHtml(bookingSlotInfo(b).label)} · ${b.guests} guest${b.guests === 1 ? "" : "s"}`)),
       diff === 0 ? "#c9a84c" : "#e06060",
+    ),
+  };
+}
+
+
+// ── 4. For the caretaker: who is coming, and what to get ready ───────────
+
+/** "YYYY-MM-DD" one day on, in UTC so it can't drift across a timezone. */
+function addDays(ds: string, n: number): string {
+  const [y, m, d] = ds.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+/** What a group uses, so the caretaker knows what to prepare. */
+function prepLine(b: Booking, roomName: (id: number) => string): string {
+  const r = getBookingResource(b);
+  const parts = [
+    r === "Venue" ? "events venue" : r === "Pool+Venue" ? "pool + events venue" : "pool",
+    ...(b.rooms?.length ? [b.rooms.map(roomName).join(", ")] : []),
+  ];
+  const head = b.children ? headcountLabel(b.guests, b.children) : `${b.guests} guest${b.guests === 1 ? "" : "s"}`;
+  return `${who(b)} · ${escapeHtml(bookingSlotInfo(b).label)} (${escapeHtml(bookingSlotInfo(b).hours)}) · ${escapeHtml(head)} · prepare: ${escapeHtml(parts.join(" · "))}`;
+}
+
+export interface CaretakerBriefingInput {
+  date: string;
+  bookings: Booking[];
+  rooms?: { id: number; name: string }[];
+}
+
+/** The caretaker's morning list: what to prepare today, what is coming
+ *  tomorrow, and who leaves today (the after-use check). Null on a day with
+ *  nothing in it. */
+export function buildCaretakerBriefing({ date, bookings, rooms = [] }: CaretakerBriefingInput): MailOut | null {
+  const roomName = (id: number) => rooms.find((r) => r.id === id)?.name ?? `Room ${id}`;
+  const live = bookings.filter((b) => !b.archived && (b.status === "Confirmed" || b.status === "Pending"));
+  const tomorrow = addDays(date, 1);
+  const today = live.filter((b) => b.date === date && !b.checkedInAt);
+  const next = live.filter((b) => b.date === tomorrow);
+  const leaving = live.filter((b) => bookingEndDate(b) === date && !!b.checkedInAt && !b.checkedOutAt);
+  if (!today.length && !next.length && !leaving.length) return null;
+  return {
+    subject: `Caretaker · ${fmtDate(date)}${today.length ? ` · ${today.length} to prepare today` : ""}${next.length ? ` · ${next.length} tomorrow` : ""}`,
+    html: shell(
+      `Getting ready — ${fmtDate(date)}`,
+      today.length
+        ? "Prepare these before the guests arrive, and tick the checklist in Tasks so the front desk can check them in."
+        : "Nothing to prepare for today. Here is what is coming.",
+      section("Prepare today", today.map((b) => prepLine(b, roomName))) +
+        section("Leaving today — after-use check", leaving.map((b) => `${who(b)} · ${escapeHtml(bookingSlotInfo(b).label)}`)) +
+        section("Coming tomorrow", next.map((b) => prepLine(b, roomName))),
+    ),
+  };
+}
+
+/** At once, for a booking made for today or tomorrow: the morning list may
+ *  already have gone out without it. */
+export function buildCaretakerArrivalAlert(b: Booking, today: string, rooms: { id: number; name: string }[] = []): MailOut {
+  const roomName = (id: number) => rooms.find((r) => r.id === id)?.name ?? `Room ${id}`;
+  const when = b.date === today ? "today" : "tomorrow";
+  return {
+    subject: `New arrival ${when} · ${b.id} · ${bookingSlotInfo(b).label}`,
+    html: shell(
+      `A group is coming ${when}`,
+      `A booking was just made for ${when === "today" ? "today" : fmtDate(b.date)}. Get these ready before they arrive.`,
+      section("Prepare", [prepLine(b, roomName)]),
+    ),
+  };
+}
+
+// ── 5. Guests asking the desk for something ──────────────────────────────
+
+/** A guest asked to move their date: it waits for an answer, and the new
+ *  date is held meanwhile. */
+export function buildDateChangeAlert(b: Booking, to: string, holdUntil: string): MailOut {
+  return {
+    subject: `Date change to approve · ${b.id} · ${fmtDate(b.date)} → ${fmtDate(to)}`,
+    html: shell(
+      "A guest wants to move their date",
+      `${b.name} asked to move ${b.id}. The new date is held for them until ${fmtDate(holdUntil.slice(0, 10))}; until you answer, the booking stays on its old date.`,
+      section(`Booking ${b.id}`, [`${who(b)}`, `${escapeHtml(fmtDate(b.date))} → <strong>${escapeHtml(fmtDate(to))}</strong> · ${escapeHtml(bookingSlotInfo(b).label)}`]) +
+        section("What to do", ["Open Daily Operations → Reschedules and approve or decline it."]),
+      "#e0a020",
+    ),
+  };
+}
+
+/** A message from the website's contact form. */
+export function buildGuestMessageAlert(m: { name: string; email: string; type: string; message: string }): MailOut {
+  return {
+    subject: `Guest message · ${m.type} · ${m.name}`,
+    html: shell(
+      "A guest sent a message",
+      `${m.name} (${m.email}) wrote in from the website.`,
+      section(m.type, [escapeHtml(m.message.slice(0, 600)).replace(/\n/g, "<br />")]) +
+        section("What to do", ["Open Guest Messages to reply. The reply is emailed to them from there."]),
+    ),
+  };
+}
+
+/** An emergency request with proof, from Manage booking. */
+export function buildEmergencyAlert(m: { id: string; name: string; email: string; date: string; message: string; files: number }): MailOut {
+  return {
+    subject: `Emergency request · ${m.id} · ${fmtDate(m.date)}`,
+    html: shell(
+      "A guest sent an emergency request",
+      `${m.name} (${m.email}) can't make ${m.id} on ${fmtDate(m.date)} and sent ${m.files} proof file${m.files === 1 ? "" : "s"}.`,
+      section("What happened", [escapeHtml(m.message.slice(0, 600))]) +
+        section("What to do", ["Open Guest Messages: look at the proof, then approve or decline it."]),
+      "#e0a020",
     ),
   };
 }

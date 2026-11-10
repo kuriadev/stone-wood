@@ -48,6 +48,9 @@ export interface StaffRecord {
   lastLoginAt: string | null;
   /** The owner can look this password up (the eye on Staff Accounts). */
   canReveal: boolean;
+  /** A confirmed email (20261114120000_staff_email.sql): where a code goes
+   *  to reset a forgotten password. Null until one is confirmed. */
+  email: string | null;
 }
 
 interface StaffRow {
@@ -64,6 +67,8 @@ interface StaffRow {
   /** The password, encrypted. Null until saved (older accounts, or the
    *  migration is not applied). See sealPassword. */
   password_reveal?: string | null;
+  email?: string | null;
+  email_verified_at?: string | null;
 }
 
 const toRecord = (r: StaffRow): StaffRecord => ({
@@ -76,6 +81,7 @@ const toRecord = (r: StaffRow): StaffRecord => ({
   createdAt: r.created_at,
   lastLoginAt: r.last_login_at,
   canReveal: !!r.password_reveal,
+  email: r.email && r.email_verified_at ? r.email : null,
 });
 
 export const identityOf = (r: StaffRecord): StaffIdentity => ({
@@ -150,6 +156,40 @@ async function findRowByUsername(username: string): Promise<StaffRow | null> {
   const { data, error } = await getSupabaseAdmin().from("staff").select("*").ilike("username", escapeLike(username)).limit(1);
   if (error) throw new Error(error.message);
   return ((data as StaffRow[] | null) ?? [])[0] ?? null;
+}
+
+/** A staff row by its confirmed email, case ignored. */
+async function findRowByEmail(email: string): Promise<StaffRow | null> {
+  const { data, error } = await getSupabaseAdmin().from("staff").select("*").ilike("email", escapeLike(email)).limit(1);
+  if (error) {
+    if (/email/.test(error.message)) return null;
+    throw new Error(error.message);
+  }
+  return ((data as StaffRow[] | null) ?? [])[0] ?? null;
+}
+
+/** For a forgotten password: the ACTIVE account a username or confirmed
+ *  email belongs to, with its email, or null (no account, no confirmed
+ *  email, or deactivated). */
+export async function findStaffForReset(login: string): Promise<{ rec: StaffRecord; email: string } | null> {
+  const v = login.trim();
+  if (!v || v.length > 120) return null;
+  const row = v.includes("@") ? await findRowByEmail(v) : await findRowByUsername(v);
+  if (!row || !row.active || !row.email || !row.email_verified_at) return null;
+  return { rec: toRecord(row), email: row.email };
+}
+
+/** A person setting a new password after confirming their email (the
+ *  forgotten-password flow): no current password needed. */
+export async function setOwnPassword(id: string, password: string, hash: Hasher, salt: string): Promise<void> {
+  const { error } = await withReveal(password, (extra) => getSupabaseAdmin().from("staff").update({
+    password_hash: hash(password, salt),
+    password_salt: salt,
+    must_change_password: false,
+    ...extra,
+  }).eq("id", id).select().single());
+  if (error) throw new Error(error.message);
+  forgetStaff(id);
 }
 
 /** ilike with the wildcards escaped, so "a_b" matches only "a_b". */
@@ -359,6 +399,11 @@ export interface StaffPatch {
   active?: boolean;
   /** A new password set by the owner (a reset). */
   password?: string;
+  /** With `password`: ask them to choose their own at the next sign-in
+   *  (a temporary password). Default true. */
+  mustChange?: boolean;
+  /** A confirmed email (the caller checked the code), or null to remove it. */
+  email?: string | null;
 }
 
 /** A refusal to show the owner as-is ("can't remove the last owner"). */
@@ -386,16 +431,28 @@ export async function updateStaff(id: string, patch: StaffPatch, hash: Hasher, s
   }
   if (patch.role !== undefined) row.role = patch.role;
   if (patch.active !== undefined) row.active = patch.active;
+  if (patch.email !== undefined) {
+    if (patch.email) {
+      const taken = await findRowByEmail(patch.email);
+      if (taken && taken.id !== id) throw new StaffError("That email is already on another staff account.");
+    }
+    row.email = patch.email;
+    row.email_verified_at = patch.email ? new Date().toISOString() : null;
+  }
   if (patch.password !== undefined) {
     row.password_hash = hash(patch.password, salt);
     row.password_salt = salt;
-    row.must_change_password = true;
+    row.must_change_password = patch.mustChange ?? true;
   }
   if (Object.keys(row).length === 0) return cur;
 
   const { data, error } = await withReveal(patch.password ?? "", (extra) =>
     getSupabaseAdmin().from("staff").update(patch.password === undefined ? row : { ...row, ...extra }).eq("id", id).select().single());
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (/email/.test(error.message) && /column|schema cache/i.test(error.message)) throw new StaffError("Staff emails switch on once the database update (20261114120000_staff_email.sql) is applied.");
+    if (error.code === "23505") throw new StaffError("That email is already on another staff account.");
+    throw new Error(error.message);
+  }
   forgetStaff(id);
   return toRecord(data as StaffRow);
 }

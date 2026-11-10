@@ -49,6 +49,8 @@ interface StaffMember {
   canReveal: boolean;
   /** Their profile photo's link, or null for initials. */
   photo?: string | null;
+  /** A confirmed email, for resetting a forgotten password. */
+  email?: string | null;
 }
 
 const ROLE_COLOR: Record<StaffRole, string> = { Owner: "#c9a84c", FrontDesk: "#3e8ed0", Caretaker: "#2e9e4e" };
@@ -197,6 +199,9 @@ export function StaffTab({ mob }: { mob: boolean }) {
               {self && <span className="sw-staff__you">You</span>}
             </div>
             <div className="sw-staff__user" style={{ color: C.textS }}>@{s.username}</div>
+            {s.email
+              ? <div style={{ color: C.textS, fontSize: 12, marginTop: 2, display: "flex", alignItems: "center", gap: 4, overflow: "hidden" }} title="Confirmed email"><Icon name="mail" size={11} /><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.email}</span></div>
+              : <div style={{ color: "#f5a524", fontSize: 12, marginTop: 2 }}>No email yet: can&rsquo;t reset a forgotten password</div>}
             <div style={{ marginTop: 6 }}><StatusBadge color={c}>{ROLE_LABEL[s.role]}</StatusBadge></div>
           </div>
           <DropdownMenu modal={false}>
@@ -208,7 +213,7 @@ export function StaffTab({ mob }: { mob: boolean }) {
             <DropdownMenuContent align="end" style={{ minWidth: 210 }}>
               {s.active ? <>
                 <DropdownMenuItem onSelect={() => setEditing(s)}><Icon name="edit" />Edit profile</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setResetting(s)}><Icon name="lock" />Reset password</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setResetting(s)}><Icon name="lock" />Change password</DropdownMenuItem>
                 {!self && <DropdownMenuItem onSelect={() => setToggling(s)}><Icon name="eye-off" />Deactivate</DropdownMenuItem>}
               </> : (
                 <DropdownMenuItem onSelect={() => setToggling(s)}><Icon name="refresh" />Reactivate</DropdownMenuItem>
@@ -288,7 +293,8 @@ export function StaffTab({ mob }: { mob: boolean }) {
       {enabled && (
         <>
           <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0 14px", flexWrap: "wrap" }}>
-            <h2 style={{ color: C.textH, fontSize: 15, fontWeight: 600, margin: 0, flex: 1 }}>Team <span style={{ color: C.textS, fontWeight: 400 }}>({list.filter((s) => s.active).length})</span></h2>
+            <h2 style={{ color: C.textH, fontSize: 15, fontWeight: 600, margin: 0 }}>Team <span style={{ color: C.textS, fontWeight: 400 }}>({list.filter((s) => s.active).length})</span></h2>
+            {/* The search sits on the left, right after the heading. */}
             <div style={{ position: "relative", width: mob ? "100%" : 280 }}>
               <Icon name="search" size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", opacity: 0.45, color: C.textH }} />
               <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find by name, username or role" aria-label="Find a staff member"
@@ -324,9 +330,13 @@ export function StaffTab({ mob }: { mob: boolean }) {
       )}
       {resetting && (
         <ResetPassword person={resetting} inp={inp} onClose={() => setResetting(null)}
-          onSave={async (password) => {
-            const err = await patch(resetting.id, { password });
-            if (!err) { await load(); toast(`${resetting.name}'s password was reset. They choose a new one when they sign in.`, "success"); setResetting(null); }
+          onSave={async (password, mustChange) => {
+            const err = await patch(resetting.id, { password, mustChange });
+            if (!err) {
+              await load();
+              toast(mustChange ? `${resetting.name}'s password was changed. They choose their own when they sign in.` : `${resetting.name}'s password was changed.`, "success");
+              setResetting(null);
+            }
             return err;
           }} />
       )}
@@ -414,8 +424,78 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-/** Add a person, or edit one: photo, name, username, role (and on add, the
- *  temporary password). Problems show under each field as you type. */
+/** A staff email, confirmed with a 6-digit code sent to it (the same codes
+ *  as Book Now, /api/email-code) before it can be saved. It is where a
+ *  forgotten-password code goes (the sign-in page). */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
+function StaffEmailField({ confirmed, value, onChange, proofFor, onProof, inp }: {
+  confirmed: string | null;
+  value: string;
+  onChange: (v: string) => void;
+  /** The email the current proof is for. */
+  proofFor: string | null;
+  onProof: (email: string, token: string) => void;
+  inp: React.CSSProperties;
+}) {
+  const { C } = useAdminStyle();
+  const email = value.trim().toLowerCase();
+  const changed = email !== (confirmed ?? "").toLowerCase();
+  const ok = !email || EMAIL_RE.test(email);
+  const done = !changed || (!!email && proofFor === email);
+  const [challenge, setChallenge] = useState<{ email: string; c: string } | null>(null);
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState<"send" | "verify" | null>(null);
+  const [msg, setMsg] = useState<{ text: string; bad?: boolean } | null>(null);
+  const sentHere = !!challenge && challenge.email === email;
+
+  const send = async () => {
+    setBusy("send"); setMsg(null);
+    try {
+      const res = await fetch("/api/email-code", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, purpose: "staff" }) });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) { setMsg({ text: json?.error ?? "The code couldn't be sent.", bad: true }); return; }
+      setChallenge({ email, c: json.challenge }); setCode("");
+      setMsg({ text: `A 6-digit code was sent to ${email}. Ask them for it, or check that inbox.` });
+    } catch { setMsg({ text: "Could not reach the server.", bad: true }); } finally { setBusy(null); }
+  };
+  const verify = async (typed: string) => {
+    if (!challenge) return;
+    setBusy("verify");
+    try {
+      const res = await fetch("/api/email-code/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, challenge: challenge.c, code: typed }) });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) { setMsg({ text: json?.error ?? "That code didn't work.", bad: true }); return; }
+      onProof(email, json.proof); setMsg(null); setChallenge(null);
+    } catch { setMsg({ text: "Could not reach the server.", bad: true }); } finally { setBusy(null); }
+  };
+
+  return (
+    <Field id="st-email" label="Email" error={!ok ? "Enter a valid email address." : null}
+      hint={!email ? "Optional. With a confirmed email, they can reset a forgotten password from the sign-in page."
+        : done ? <span style={{ color: "#2e9e4e", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="check" size={12} /> Confirmed</span>
+        : "Confirm it with a code before saving."}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <Input id="st-email" type="email" value={value} maxLength={120} autoComplete="off" placeholder="e.g. ana@gmail.com" style={{ ...inp, width: "100%" }}
+          onChange={(e) => { onChange(e.target.value); setMsg(null); }} />
+        {email && ok && !done && (
+          <ActionButton icon="mail" disabled={!!busy} onClick={() => void send()}>{busy === "send" ? "Sending…" : sentHere ? "Resend" : "Send code"}</ActionButton>
+        )}
+      </div>
+      {sentHere && !done && (
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <Input aria-label="6-digit code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code}
+            style={{ ...inp, width: 140, textAlign: "center", letterSpacing: 6, fontWeight: 600 }}
+            onChange={(e) => { const v = e.target.value.replace(/\D/g, "").slice(0, 6); setCode(v); if (v.length === 6) void verify(v); }} />
+          <ActionButton kind="primary" icon="check" disabled={code.length !== 6 || !!busy} onClick={() => void verify(code)}>{busy === "verify" ? "Checking…" : "Confirm"}</ActionButton>
+        </div>
+      )}
+      {msg && <p role={msg.bad ? "alert" : "status"} style={{ color: msg.bad ? "#e5484d" : C.textS, fontSize: 12, margin: "6px 0 0" }}>{msg.text}</p>}
+    </Field>
+  );
+}
+
+/** Add a person, or edit one: photo, name, username, role, email (and on
+ *  add, the temporary password). Problems show under each field as you type. */
 function PersonForm({ mode, person, onClose, onDone, patch, inp }: {
   mode: "add" | "edit";
   person?: StaffMember;
@@ -432,6 +512,8 @@ function PersonForm({ mode, person, onClose, onDone, patch, inp }: {
   const [password, setPassword] = useState(tempPassword);
   const [photo, setPhoto] = useState<string | null>(person?.photo ?? null);
   const [photoChanged, setPhotoChanged] = useState(false);
+  const [email, setEmail] = useState(person?.email ?? "");
+  const [emailProof, setEmailProof] = useState<{ email: string; token: string } | null>(null);
   const [tried, setTried] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -443,7 +525,12 @@ function PersonForm({ mode, person, onClose, onDone, patch, inp }: {
     password: mode === "add" ? passwordProblem(password) : null,
   };
   const show = (k: keyof typeof errs, v: string) => (tried || v.length > 0 ? errs[k] : null);
-  const invalid = Object.values(errs).some(Boolean);
+  // A new email must be confirmed before it is saved.
+  const emailKey = email.trim().toLowerCase();
+  const emailChanged = emailKey !== (person?.email ?? "").toLowerCase();
+  const emailUnconfirmed = emailChanged && !!emailKey && emailProof?.email !== emailKey;
+  const invalid = Object.values(errs).some(Boolean) || emailUnconfirmed;
+  const emailBody = emailChanged ? { email: emailKey, ...(emailKey ? { emailProof: emailProof?.token } : {}) } : {};
 
   const savePhoto = async (id: string): Promise<string | null> => {
     if (!photoChanged) return null;
@@ -457,6 +544,7 @@ function PersonForm({ mode, person, onClose, onDone, patch, inp }: {
   const save = async () => {
     setTried(true);
     setError("");
+    if (emailUnconfirmed) { setError("Confirm the email with the code sent to it, or clear it, before saving."); return; }
     if (invalid) return;
     setBusy(true);
     try {
@@ -464,7 +552,7 @@ function PersonForm({ mode, person, onClose, onDone, patch, inp }: {
       if (mode === "add") {
         const res = await fetch("/api/staff", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: name.trim(), username: username.trim(), role, password }),
+          body: JSON.stringify({ name: name.trim(), username: username.trim(), role, password, ...emailBody }),
         });
         const json = await res.json().catch(() => null);
         if (!res.ok || !json?.success) { setError(json?.error ?? "Could not add that person."); return; }
@@ -474,6 +562,7 @@ function PersonForm({ mode, person, onClose, onDone, patch, inp }: {
         if (name.trim() !== person.name) body.name = name.trim();
         if (username.trim() !== person.username) body.username = username.trim();
         if (role !== person.role) body.role = role;
+        Object.assign(body, emailBody);
         if (Object.keys(body).length) {
           const err = await patch(person.id, body);
           if (err) { setError(err); return; }
@@ -491,7 +580,7 @@ function PersonForm({ mode, person, onClose, onDone, patch, inp }: {
 
   return (
     <Modal title={mode === "add" ? "Add a person" : `Edit ${person?.name}`}
-      subtitle={mode === "add" ? "They choose their own password the first time they sign in." : "Their photo, name, username and role."}
+      subtitle={mode === "add" ? "They choose their own password the first time they sign in." : "Their photo, name, username, email and role."}
       onClose={onClose} width={600}
       footer={
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
@@ -516,6 +605,8 @@ function PersonForm({ mode, person, onClose, onDone, patch, inp }: {
             </div>
           </Field>
         </div>
+        <StaffEmailField confirmed={person?.email ?? null} value={email} onChange={setEmail}
+          proofFor={emailProof?.email ?? null} onProof={(e, t) => setEmailProof({ email: e, token: t })} inp={inp} />
         <Field label="Role" hint={ROLE_HINT[role]}>
           <ChoiceButtons value={role} onChange={setRole} label="Role" options={STAFF_ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} />
         </Field>
@@ -536,38 +627,45 @@ function PersonForm({ mode, person, onClose, onDone, patch, inp }: {
 }
 
 function ResetPassword({ person, onClose, onSave, inp }: {
-  person: StaffMember; onClose: () => void; onSave: (pw: string) => Promise<string | null>; inp: React.CSSProperties;
+  person: StaffMember; onClose: () => void; onSave: (pw: string, mustChange: boolean) => Promise<string | null>; inp: React.CSSProperties;
 }) {
   const { C } = useAdminStyle();
   const [password, setPassword] = useState(tempPassword);
+  // On: a temporary password they replace at sign-in. Off: this becomes their password.
+  const [mustChange, setMustChange] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const bad = passwordProblem(password);
   return (
-    <Modal title={`Reset ${person.name}'s password`} subtitle="For someone who forgot theirs." onClose={onClose} width={540}
+    <Modal title={`Change ${person.name}'s password`} subtitle="Set a new password for their account. Their current one stops working." onClose={onClose} width={540}
       footer={
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <ActionButton onClick={onClose}>Cancel</ActionButton>
           <ActionButton kind="primary" icon="lock" disabled={busy || !!bad} onClick={async () => {
             setBusy(true);
-            const err = await onSave(password);
+            const err = await onSave(password, mustChange);
             setBusy(false);
             if (err) setError(err);
-          }}>Reset password</ActionButton>
+          }}>Change password</ActionButton>
         </div>
       }>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
         <StaffAvatar name={person.name} role={person.role} photo={person.photo} size={44} />
         <div><div style={{ color: C.textH, fontWeight: 600 }}>{person.name}</div><div style={{ color: C.textS, fontSize: 12.5, fontFamily: "monospace" }}>@{person.username}</div></div>
       </div>
-      <Field id="rs-pw" label="New temporary password" error={bad}
-        hint="Tell them this password. They'll be asked to choose their own as soon as they sign in.">
+      <Field id="rs-pw" label={mustChange ? "New temporary password" : "New password"} error={bad}
+        hint={mustChange ? "Tell them this password. They'll be asked to choose their own as soon as they sign in." : "Tell them this password. It stays their password until they change it."}>
         <div style={{ display: "flex", gap: 8 }}>
           <Input id="rs-pw" value={password} onChange={(e) => setPassword(e.target.value)} maxLength={128} style={{ ...inp, width: "100%", fontFamily: "monospace" }} />
           <ActionButton icon="refresh" onClick={() => setPassword(tempPassword())} aria-label="Make a new temporary password" />
           <CopyButton text={password} />
         </div>
       </Field>
+      <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 14, color: C.textB, fontSize: 13, cursor: "pointer", lineHeight: 1.5 }}>
+        <input type="checkbox" checked={mustChange} onChange={(e) => setMustChange(e.target.checked)} style={{ marginTop: 3 }} />
+        <span>Ask them to choose their own password the next time they sign in
+          <span style={{ display: "block", color: C.textS, fontSize: 12 }}>Recommended: then only they know their password.</span></span>
+      </label>
       <ErrorNote>{error}</ErrorNote>
     </Modal>
   );

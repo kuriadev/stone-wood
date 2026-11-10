@@ -50,6 +50,8 @@ class Query implements PromiseLike<Result> {
 
   eq(c: string, v: any) { this.filters.push((r) => r[c] === v); return this; }
   neq(c: string, v: any) { this.filters.push((r) => r[c] !== v); return this; }
+  /** Case-insensitive match; enough for the exact (wildcard-escaped) lookups the app makes. */
+  ilike(c: string, v: string) { const want = String(v).replace(/\\([\\%_])/g, "$1").toLowerCase(); this.filters.push((r) => typeof r[c] === "string" && r[c].toLowerCase() === want); return this; }
   gt(c: string, v: any) { this.filters.push((r) => r[c] > v); return this; }
   gte(c: string, v: any) { this.filters.push((r) => r[c] >= v); return this; }
   lt(c: string, v: any) { this.filters.push((r) => r[c] < v); return this; }

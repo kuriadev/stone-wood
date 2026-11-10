@@ -40,6 +40,10 @@ export default function BookPage() {
   const initialGuests = Number.isFinite(guestsParam) && guestsParam > 0
     ? Math.min(guestLimitFor(linkResource === "Venue" ? "Venue" : "Pool"), Math.max(GUESTS_MIN, Math.round(guestsParam)))
     : undefined;
+  // ?children=N, children under 3 (lib/children.ts). Book Now holds it to
+  // what the tier allows.
+  const childrenParam = Number(params.get("children"));
+  const initialChildren = Number.isFinite(childrenParam) && childrenParam > 0 ? Math.min(100, Math.round(childrenParam)) : undefined;
   // Support ?resource=Venue&tier=Exclusive from a Home page package card —
   // lets a package deep-link straight into the matching Book Now setup
   // instead of a separate checkout flow.
@@ -163,6 +167,7 @@ export default function BookPage() {
         initialResource={initialResource}
         initialSlot={initialSlot}
         initialGuests={initialGuests}
+        initialChildren={initialChildren}
         initialTier={initialTier}
         initialPackage={initialPackage}
         eventPackages={eventPackages}

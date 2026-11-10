@@ -20,6 +20,8 @@ import { rescheduleProblem } from "@/lib/validators";
 import { notices } from "@/lib/notices";
 import { buildNoticeEmail } from "@/lib/emailTemplate";
 import { trySendMail } from "@/lib/mailer";
+import { notifyStaff } from "@/lib/staffNotify.server";
+import { buildDateChangeAlert } from "@/lib/adminNotify";
 import { logActivity } from "@/lib/activity.server";
 import { fmtDate } from "@/lib/utils";
 import type { DateChangeRow } from "@/types/database";
@@ -42,7 +44,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   try {
     await sweepExpired(true);
-    const b = await loadGuestBooking(id, { email: body.email as string, token: body.t as string });
+    const b = await loadGuestBooking(id, { email: body.email as string, token: body.t as string, emailProof: body.ep as string });
     if (!b) return no("No booking found for those details.", 404);
     if (b.status !== "Confirmed") return no("Only a confirmed booking can be moved.");
     if (b.checkedInAt) return no("Date changes close on your reserved date. Please contact the resort.");
@@ -75,6 +77,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       const n = notices.dateChangeRequested(b, date, holdUntil, guestLinkFor(b));
       await trySendMail({ to: b.email, ...buildNoticeEmail(n.email) }, `date-change-requested ${b.id}`);
     }
+    void notifyStaff(["Owner", "FrontDesk"], buildDateChangeAlert(b, date, holdUntil), `date-change ${b.id}`);
     await logActivity({
       actor: "Guest", action: "date_change.requested", bookingId: b.id, entity: "date_change", entityId: request.id,
       summary: `${b.name} asked to move ${b.id} from ${fmtDate(b.date)} to ${fmtDate(date)}. Date held for ${HOLD_HOURS} hours.`,

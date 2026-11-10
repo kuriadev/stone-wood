@@ -15,8 +15,8 @@
 import type { NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToBooking } from "@/lib/supabase";
 import { logActivity } from "@/lib/activity.server";
-import { trySendMail } from "@/lib/mailer";
-import { adminNotifyTo, buildOwnerRequestAlert } from "@/lib/adminNotify";
+import { buildOwnerRequestAlert } from "@/lib/adminNotify";
+import { notifyStaff } from "@/lib/staffNotify.server";
 import { fmt, fmtDate } from "@/lib/utils";
 import { payMethodLabel, payTypeLabel } from "@/lib/labels";
 import { REQUEST_LABEL, type Permission } from "@/lib/permissions";
@@ -245,7 +245,7 @@ export async function createOwnerRequest(input: {
   });
   if (EMAILED.has(perm)) {
     const mail = buildOwnerRequestAlert({ label: REQUEST_LABEL[perm] ?? perm, summary, reason, by: who.name });
-    void trySendMail({ to: adminNotifyTo(), subject: mail.subject, html: mail.html }, `owner-request ${id}`);
+    void notifyStaff(["Owner"], mail, `owner-request ${id}`);
   }
   return { ok: true, id, duplicate: false, summary };
 }

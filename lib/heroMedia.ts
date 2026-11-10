@@ -10,6 +10,17 @@ export type HeroMedia = { kind: "image" | "video"; src: string };
 export const HERO_MEDIA_KEY = "hero_media";
 export const SITE_MEDIA_BUCKET = "site-media";
 
+/** The home page backgrounds staff can change in Website Photos: the hero
+ *  at the top (photo or video), and the closing band at the bottom ("Your
+ *  day at Stonewood Garden", a photo). Each is its own site_content row. */
+export type SiteMediaSlot = "hero" | "closing";
+export const SITE_MEDIA_SLOTS: Record<SiteMediaSlot, { key: string; video: boolean; label: string }> = {
+  hero: { key: HERO_MEDIA_KEY, video: true, label: "hero background" },
+  closing: { key: "closing_media", video: false, label: "closing background" },
+};
+/** ?slot= from a request; anything else is the hero. */
+export const slotOf = (raw: string | null | undefined): SiteMediaSlot => (raw === "closing" ? "closing" : "hero");
+
 /** What may be uploaded, and how big. A hero video should be short and
  *  compressed: it plays for every visitor, phones included. */
 export const HERO_UPLOAD = {
@@ -39,7 +50,7 @@ export function heroUploadProblem(kind: HeroMedia["kind"], type: string, bytes: 
 
 /** Where an upload is stored: one folder, a fresh name each time so a new
  *  hero never shows a browser's cached copy of the old one. */
-export function heroUploadPath(kind: HeroMedia["kind"], type: string, stamp: number): string {
+export function heroUploadPath(kind: HeroMedia["kind"], type: string, stamp: number, slot: SiteMediaSlot = "hero"): string {
   const ext = type === "video/mp4" ? "mp4" : type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
-  return `hero/${kind}-${stamp}.${ext}`;
+  return `${slot}/${kind}-${stamp}.${ext}`;
 }

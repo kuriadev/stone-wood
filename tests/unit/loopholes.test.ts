@@ -28,20 +28,26 @@ describe("today is Manila's today, whatever the machine's time zone", () => {
   });
 });
 
-describe("today's tour can be booked late, until 2 hours before it ends", () => {
-  it("allows today's Day Tour after 7 AM and closes it from 3 PM", () => {
+const at = (h: number, m: number) => new Date(Date.UTC(2026, 9, 20, h - 8, m));
+describe("today's tour can be booked late, up to 2 hours after it starts", () => {
+  it("keeps today's Day Tour open until 9:00 AM", () => {
     expect(slotStartedProblem("2026-10-20", "Day", manila(6))).toBeNull();
-    expect(slotStartedProblem("2026-10-20", "Day", manila(12))).toBeNull();
-    expect(slotStartedProblem("2026-10-20", "Day", manila(14))).toBeNull();
-    expect(slotStartedProblem("2026-10-20", "Day", manila(15))).not.toBeNull();
+    expect(slotStartedProblem("2026-10-20", "Day", manila(8))).toBeNull();
+    expect(slotStartedProblem("2026-10-20", "Day", at(9, 0))).toBeNull();
+    expect(slotStartedProblem("2026-10-20", "Day", at(9, 1))).toMatch(/closed at 9:00 AM/);
+    expect(slotStartedProblem("2026-10-20", "Day", manila(10))).not.toBeNull();
     expect(slotStartedProblem("2026-10-20", "Day", manila(21))).not.toBeNull();
   });
-  it("keeps tonight's Night Tour open all evening (it ends at 5 AM)", () => {
+  it("keeps tonight's Night Tour open until 9:00 PM", () => {
     expect(slotStartedProblem("2026-10-20", "Night", manila(15))).toBeNull();
-    expect(slotStartedProblem("2026-10-20", "Night", manila(23))).toBeNull();
+    expect(slotStartedProblem("2026-10-20", "Night", manila(20))).toBeNull();
+    expect(slotStartedProblem("2026-10-20", "Night", at(21, 0))).toBeNull();
+    expect(slotStartedProblem("2026-10-20", "Night", manila(21))).toMatch(/closed at 9:00 PM/);
+    expect(slotStartedProblem("2026-10-20", "Night", manila(23))).not.toBeNull();
   });
-  it("keeps today's Staycation open (it ends the next morning)", () => {
-    expect(slotStartedProblem("2026-10-20", "WholeDay", manila(16))).toBeNull();
+  it("closes today's Staycation 2 hours after 7 AM too", () => {
+    expect(slotStartedProblem("2026-10-20", "WholeDay", manila(8))).toBeNull();
+    expect(slotStartedProblem("2026-10-20", "WholeDay", manila(16))).not.toBeNull();
   });
   it("never blocks a future date", () => {
     expect(slotStartedProblem("2026-10-21", "Day", manila(23))).toBeNull();
@@ -54,7 +60,7 @@ describe("a late booking is told it still ends at the usual time", () => {
     expect(lateArrivalNote("2026-10-21", "Day", manila(12))).toBeNull();
   });
   it("names the end time and overtime once the tour has started", () => {
-    const note = lateArrivalNote("2026-10-20", "Day", manila(12));
+    const note = lateArrivalNote("2026-10-20", "Day", manila(8));
     expect(note).toContain("5:00 PM");
     expect(note).toContain("overtime");
   });

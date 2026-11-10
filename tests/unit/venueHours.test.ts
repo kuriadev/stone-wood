@@ -54,11 +54,10 @@ describe("the venue's own closing time", () => {
     expect(stayWindowLabel({ date: "2026-11-20", slot: "Night", resource: "Venue" })!.depart).toMatch(/12:00 AM$/);
   });
 
-  it("closes online booking of tonight's venue two hours before it shuts, not two hours before dawn", () => {
-    const at = new Date("2026-11-20T22:30:00+08:00");
-    expect(slotStartedProblem("2026-11-20", "Night", at, "Venue")).toMatch(/has closed \(it ends at 12:00 AM\)/);
-    expect(slotStartedProblem("2026-11-20", "Night", at, "Pool")).toBeNull();
-    expect(slotStartedProblem("2026-11-20", "Night", new Date("2026-11-20T21:30:00+08:00"), "Venue")).toBeNull();
+  it("closes online booking of tonight's venue 2 hours after the Night Tour starts, like the pool", () => {
+    expect(slotStartedProblem("2026-11-20", "Night", new Date("2026-11-20T20:30:00+08:00"), "Venue")).toBeNull();
+    expect(slotStartedProblem("2026-11-20", "Night", new Date("2026-11-20T21:30:00+08:00"), "Venue")).toMatch(/closed at 9:00 PM/);
+    expect(slotStartedProblem("2026-11-20", "Night", new Date("2026-11-20T21:30:00+08:00"), "Pool")).not.toBeNull();
   });
 
   it("doesn't describe a venue stay of several days as one unbroken stay", () => {

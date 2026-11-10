@@ -5,20 +5,19 @@ import type { HeroMedia } from "@/lib/heroMedia";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useWidth } from "@/hooks/useWidth";
 import { THEME_COLORS } from "@/lib/theme";
-import { gold, goldBtn, outBtn } from "@/lib/styles";
+import { gold, goldBtn } from "@/lib/styles";
 import { HERO_BG } from "@/lib/constants";
 import { automaticHomeCards } from "@/lib/homeCards";
 import { useHomeCards } from "@/hooks/useHomeCards";
 import { TiltedCard } from "@/components/common/TiltedCard";
 import { PackagesSkeleton } from "@/components/common/PageSkeletons";
-import { SLOTS, QUIET_HOURS_POLICY } from "@/lib/resort";
+import { SLOTS, QUIET_HOURS_START, venueCloseText } from "@/lib/resort";
+import { RESCHEDULE_NOTICE_DAYS } from "@/lib/validators";
 import { HeroReservation } from "@/components/sections/HeroReservation";
 import { PackageTierScroll } from "@/components/sections/PackageTierScroll";
 import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
 import type { ResortPackage } from "@/types/package";
 import { imageAt } from "@/lib/img";
-import { GALLERY_PAGE_MAX } from "@/lib/gallery";
-import { useApp } from "@/contexts/AppContext";
 import { Icon } from "@/components/common/Icon";
 import { facilityIcon } from "@/lib/facilityUsage";
 import type { PublicAmenity } from "@/types/facility";
@@ -36,7 +35,7 @@ interface HomeProps {
   /** Shown as a coverflow deck. Empty while the first fetch is in flight, and
    *  the whole section is skipped then rather than rendering an empty deck. */
   rooms: Room[];
-  onBookWithDate: (d: string, opts?: { slot?: BookingSlot; guests?: number; endDate?: string; tier?: BookingTier }) => void;
+  onBookWithDate: (d: string, opts?: { slot?: BookingSlot; guests?: number; children?: number; endDate?: string; tier?: BookingTier }) => void;
   bookings: Booking[];
   closedDates: string[];
   /** True while that package list is still on its first fetch and nothing
@@ -171,7 +170,6 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
   // after THIS page has hydrated or it mutates un-hydrated DOM.
 
   const C = THEME_COLORS;
-  const { galleryPhotos } = useApp();
   // The "Tours & Room Add-ons" cards: the ones staff saved, else the
   // automatic ones built from Rates & Settings and the real rooms.
   const savedRateCards = useHomeCards().cards;
@@ -259,6 +257,8 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
   const [facOpen, setFacOpen] = useState(false);
   // The hero background staff chose (Website Photos), or the built-in one.
   const { media: heroMedia } = useHeroMedia(initialHero);
+  // The closing band's photo, set in Website Photos (built-in until then).
+  const { media: closingMedia } = useHeroMedia(undefined, "closing");
 
   /* Every 6 seconds one facility, picked at random (never the same twice
      running), lights up for a moment -- a hint that the tiles open. Done
@@ -543,7 +543,25 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
 
           </div>
 
-          <p style={{ color: C.textXS, fontSize: 14.5, marginTop: 8, lineHeight: 1.8 }}>Pay a 50% down payment to book, or pay in full. If the resort has to cancel, you choose a free new date or a full refund; if you cancel, payments aren&apos;t refunded, but you can move your booking once. {QUIET_HOURS_POLICY}</p>
+          {/* The booking rules as four short cards instead of one paragraph. */}
+          <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 0", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12, textAlign: "left" }}>
+            {([
+              ["wallet", "50% down to book", "Or pay in full. The rest is paid at the resort."],
+              ["calendar-clock", "Move your date once", `Free, if you ask at least ${RESCHEDULE_NOTICE_DAYS} day${RESCHEDULE_NOTICE_DAYS === 1 ? "" : "s"} before your visit. Cancelling isn't refunded.`],
+              ["shield-alert", "If the resort cancels", "You choose a free new date or a full refund."],
+              ["moon", `Quiet from ${QUIET_HOURS_START}`, `Music, videoke and speakers off. The events venue closes at ${venueCloseText()}.`],
+            ] as const).map(([icon, title, text]) => (
+              <li key={title} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "14px 16px", borderRadius: 14, border: `1px solid ${C.border}`, background: C.bgCard }}>
+                <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center", background: `${gold}1f`, color: C.goldInk }}>
+                  <Icon name={icon} size={16} strokeWidth={1.75} />
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: "block", color: C.textH, fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{title}</span>
+                  <span style={{ display: "block", color: C.textS, fontSize: 12.5, lineHeight: 1.5 }}>{text}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
 
@@ -642,36 +660,6 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
         </div>
       </div>
 
-      {/* ── GALLERY — every photo from the admin Gallery tab (up to 30), in a
-           row of same-size cards the guest can swipe or scroll through.
-           Tapping one opens the full Gallery page. ── */}
-      {galleryPhotos.length > 0 && (
-        <div className="sw-defer" style={{ background: C.bg, padding: bandPad(mob ? 20 : 24) }}>
-          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-            <Reveal style={{ textAlign: "center", marginBottom: headGap }}>
-              <p style={eyebrow}>Gallery</p>
-              <h2 style={h2}>A Look Around</h2>
-            </Reveal>
-            <div className="sw-homegal" role="list" aria-label="Photos of the resort">
-              {galleryPhotos.slice(0, GALLERY_PAGE_MAX).map((p, i) => (
-                <button key={`${i}-${p.url.slice(-24)}`} type="button" role="listitem" className="sw-homegal__item"
-                  onClick={() => setPage("Gallery")} aria-label={p.title ? `${p.title}, open the gallery` : `Photo ${i + 1}, open the gallery`}>
-                  {/* eslint-disable-next-line @next/next/no-img-element -- staff photos, often data URLs */}
-                  <img src={imageAt(p.url, 600)} alt="" loading="lazy" decoding="async" />
-                  {p.title && <span className="sw-homegal__cap">{p.title}</span>}
-                </button>
-              ))}
-            </div>
-            <div style={{ textAlign: "center", marginTop: 24 }}>
-              <button type="button" className="sw-btn-out" onClick={() => setPage("Gallery")}
-                style={{ ...outBtn, color: C.goldInk, display: "inline-flex", alignItems: "center", gap: 8 }}>
-                VIEW THE GALLERY <Icon name="arrow-right" size={14} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── TESTIMONIALS — infinite marquee (unchanged) ── */}
       <div style={{ background: "var(--sw-band-sand)", padding: bandPad(0), overflow: "hidden" }}>
         <Reveal style={{ textAlign: "center", marginBottom: headGap, padding: "0 20px" }}>
@@ -709,7 +697,7 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
       >
         {/* The last section on the page: fetched as it is scrolled toward,
             not at load. */}
-        <LazyBackground src={RESORT_WIDE} style={{ position: "absolute", inset: 0, backgroundSize: "cover", backgroundPosition: "center" }} />
+        <LazyBackground src={closingMedia?.kind === "image" ? closingMedia.src : RESORT_WIDE} style={{ position: "absolute", inset: 0, backgroundSize: "cover", backgroundPosition: "center" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(6,5,3,0.82),rgba(6,5,3,0.9))" }} />
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(to right,transparent,${gold}66,transparent)` }} />
 

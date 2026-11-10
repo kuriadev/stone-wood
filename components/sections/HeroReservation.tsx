@@ -5,12 +5,13 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { gold, goldBtn } from "@/lib/styles";
 import { fmt, fmtDate, SLOT_ICON } from "@/lib/utils";
-import { daysInRange, stayLabel, checkRangeAvailability, isPoolOpen } from "@/lib/utils";
+import { daysInRange, stayLabel, checkRangeAvailability, isPoolOpen, peopleOnTour } from "@/lib/utils";
 import { SLOTS, stayPatternNote, allowsMultiDay, MULTI_DAY_SLOT, slotStartedProblem } from "@/lib/resort";
 import { useApp } from "@/contexts/AppContext";
 import { priceBooking } from "@/lib/pricing";
+import { childLimit, cappedHeadcount, CHILD_FREE_AGE } from "@/lib/children";
 import {
-  GUESTS_MIN, GUESTS_MAX, sharedRateFor, MAX_STAY_DAYS,
+  GUESTS_MIN, GUESTS_MAX, sharedRateFor, childRateFor, MAX_STAY_DAYS,
 } from "@/lib/validators";
 import { AvailabilityCalendar } from "@/components/common/AvailabilityCalendar";
 import { GuestInput, useHoldStep } from "@/components/common/GuestCount";
@@ -39,7 +40,7 @@ const SLOT_ORDER: BookingSlot[] = ["Day", "Night", "WholeDay"];
 /** The pool-access description, for one tier and one reservation type. */
 const poolNote = (exclusive: boolean, slotLabel: string): string =>
   exclusive
-    ? `The pool and resort are your group's alone for your ${slotLabel} — no other group, up to ${GUESTS_MAX} guests. The events venue isn't included and another group may rent it; you can add it.`
+    ? `The pool and resort are your group's alone for your ${slotLabel} — no other group, up to ${GUESTS_MAX} guests.`
     : `Pool shared with other groups in your ${slotLabel} — billed per guest, up to ${GUESTS_MAX} guests in total.`;
 
 const poolNoteStyle: CSSProperties = { fontSize: 12, color: "rgba(238,232,220,0.5)", margin: 0, lineHeight: 1.5 };
@@ -70,7 +71,7 @@ const stayNoteStyle: CSSProperties = {
 interface HeroReservationProps {
   bookings: Booking[];
   closedDates: string[];
-  onBookWithDate: (date: string, opts?: { slot?: BookingSlot; guests?: number; endDate?: string; tier?: BookingTier }) => void;
+  onBookWithDate: (date: string, opts?: { slot?: BookingSlot; guests?: number; children?: number; endDate?: string; tier?: BookingTier }) => void;
   onBrowseRooms: () => void;
   onManageBooking: () => void;
 }
@@ -89,14 +90,23 @@ export function HeroReservation({
   const lastDay = endDate && endDate > date ? endDate : date;
   const stayDays = date ? Math.max(1, daysInRange(date, lastDay)) : 1;
   const [slot, setSlot] = useState<BookingSlot>("Day");
-  const [guests, setGuests] = useState(2);
+  // Adults and children under 3, as on Book Now (lib/children.ts): free
+  // and uncounted in Exclusive, billed and counted like any guest in Shared.
+  const [adults, setAdults] = useState(2);
+  const [children, setChildren] = useState(0);
+  // Children come on top of the adults (lib/children.ts).
+  // Everyone already booked into that tour counts too.
+  const onTour = date ? peopleOnTour(date, lastDay, slot, bookings) : 0;
+  // Per tier: Shared children share the 30; Exclusive ones aren't counted.
+  // Exclusive takes no count: children under 3 are free there.
+  const kidsFor = (t: BookingTier) => (t === "Shared" ? Math.min(children, childLimit(adults, GUESTS_MAX, onTour, t)) : 0);
 
   /* Priced with the same function the booking page and the server use.
      This card used to do its own arithmetic — one slot's rate times the
      days — which ignored that a Whole Day is two slots, so a three-day
      Whole Day was advertised at well under what Book Now then charged. */
   const quote = (tier: "Shared" | "Exclusive") =>
-    priceBooking({ resource: "Pool", tier, slot, guests, overtime: 0, roomPrices: [], days: stayDays }).total;
+    priceBooking({ resource: "Pool", tier, slot, guests: adults, children: kidsFor(tier), overtime: 0, roomPrices: [], days: stayDays }).total;
   const sharedTotal = quote("Shared");
   const exclusiveTotal = quote("Exclusive");
   /* Pool access. A Staycation is Exclusive only (lib/pricing.ts); a tour
@@ -118,7 +128,7 @@ export function HeroReservation({
     if (!date) return { ok: true };
     const started = slotStartedProblem(date, slot);
     if (started) return { ok: false, reason: started };
-    return checkRangeAvailability(date, lastDay, slot, guests, t, "Pool", bookings);
+    return checkRangeAvailability(date, lastDay, slot, cappedHeadcount(adults, kidsFor(t), t), t, "Pool", bookings);
   };
   const fitting = allowed.filter((t) => fits(t).ok);
   const pool = fitting.length ? fitting : allowed;
@@ -127,6 +137,11 @@ export function HeroReservation({
     : sharedTotal >= exclusiveTotal ? "Exclusive" : "Shared";
   const tier: BookingTier = slot === "WholeDay" ? "Exclusive" : (tierChoice ?? suggested);
   const goesExclusive = tier === "Exclusive";
+  const kids = kidsFor(tier);
+  const kidCap = childLimit(adults, GUESTS_MAX, onTour, tier);
+  // Shared: adults and children share the guest limit.
+  const adultCap = Math.max(GUESTS_MIN, GUESTS_MAX - (tier === "Shared" ? kids : 0));
+  const guests = adults + kids;
 
   /* The calendar shows a date open when the chosen tier fits it, or when
      either does while the guest hasn't chosen. Same check as Book Now. */
@@ -134,7 +149,8 @@ export function HeroReservation({
     () => (slot === "WholeDay" ? ["Exclusive"] : tierChoice ? [tierChoice] : ["Shared", "Exclusive"]),
     [slot, tierChoice],
   );
-  const request = useMemo(() => ({ slot, guests, tiers }), [slot, guests, tiers]);
+  const headcount = tier === "Shared" ? adults + kids : adults;
+  const request = useMemo(() => ({ slot, guests: headcount, tiers }), [slot, headcount, tiers]);
   const tierFit = fits(tier);
   const dateOk = tierFit.ok;
   const dateProblem = dateOk ? null : tierFit;
@@ -145,6 +161,32 @@ export function HeroReservation({
 
   const rule = { height: 1, background: `rgba(201,168,76,${isDark ? "0.14" : "0.2"})` };
   const label = { fontSize: 11, letterSpacing: 2.5, color: "rgba(238,232,220,0.6)" };
+
+  const counter = (o: { title: string; sub: string; value: number; min: number; max: number; onChange: (n: number) => void; noun: string; locked?: boolean }) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+      <div>
+        <p style={{ ...label, margin: "0 0 4px" }}>{o.title}</p>
+        <p style={{ fontSize: 12, color: "rgba(238,232,220,0.55)", margin: 0 }}>{o.sub}</p>
+      </div>
+      <div
+        role="group"
+        aria-label={`Number of ${o.noun}`}
+        style={{
+          display: "flex", alignItems: "center", gap: 4, flexShrink: 0,
+          background: "rgba(255,255,255,0.04)",
+          border: `1px solid rgba(201,168,76,${isDark ? "0.18" : "0.26"})`,
+          borderRadius: 999, padding: 4,
+        }}
+      >
+        <Stepper label={`Fewer ${o.noun}`} glyph="−" disabled={o.locked || o.value <= o.min}
+          step={() => o.onChange(Math.max(o.min, Math.min(o.value, o.max) - 1))} />
+        <GuestInput value={o.value} onChange={o.onChange} min={o.min} max={o.max} label={`Number of ${o.noun}`} disabled={o.locked}
+          style={{ width: 36, fontSize: 16, color: "#fff", fontWeight: 500 }} />
+        <Stepper label={`More ${o.noun}`} glyph="+" disabled={o.locked || o.value >= o.max}
+          step={() => o.onChange(Math.min(o.max, o.value + 1))} />
+      </div>
+    </div>
+  );
 
   return (
     <div
@@ -212,6 +254,39 @@ export function HeroReservation({
               adds beyond it is shared above and below, so nothing inside the
               month moves when the visit type changes. */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          {/* How many people are already booked into the resort for the
+              picked tour (every group, guests and children, lib/utils.ts
+              peopleOnTour). On a wide screen it pops up in the space above
+              the calendar without taking room, so the calendar never moves.
+              A phone has no space there, so the card is always in place and
+              asks for a date until one is picked. */}
+          {(date || mob) && (
+            <div style={{ position: "relative", height: mob ? undefined : 0 }}>
+              <div
+                key={mob ? "card" : `${date}-${slot}`}
+                role="status"
+                aria-live="polite"
+                className={mob ? undefined : "sw-reserved-pop"}
+                style={{
+                  display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 14,
+                  background: "rgba(201,168,76,0.08)", border: `1px solid rgba(201,168,76,${isDark ? "0.22" : "0.32"})`,
+                  ...(mob ? { marginBottom: 16 } : { position: "absolute", left: 0, right: 0, bottom: 14, backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }),
+                }}
+              >
+                <span aria-hidden="true" style={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center", background: "rgba(201,168,76,0.16)", color: gold }}>
+                  <Icon name="users" size={18} strokeWidth={1.75} />
+                </span>
+                <span style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 28, lineHeight: 1, color: "#fff", fontWeight: 500, fontVariantNumeric: "tabular-nums", minWidth: 18 }}>{date ? onTour : "–"}</span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: "block", fontSize: 13, color: "rgba(238,232,220,0.9)", fontWeight: 600 }}>Number of guests reserved</span>
+                  <span style={{ display: "block", fontSize: 11.5, color: "rgba(238,232,220,0.55)", marginTop: 2 }}>
+                    {!date ? "Pick a date to see it"
+                      : <>{onTour === 0 ? "No one booked yet · " : ""}{SLOTS[slot].label} · {lastDay > date ? `${fmtDate(date)} – ${fmtDate(lastDay)}, busiest day` : fmtDate(date)}</>}
+                  </span>
+                </span>
+              </div>
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
             <p style={{ fontSize: 14, color: "rgba(238,232,220,0.88)", margin: 0, fontWeight: 500 }}>
               Choose an available date
@@ -235,24 +310,25 @@ export function HeroReservation({
               setDate(from);
               setEndDate(to === from ? "" : to);
             } : undefined}
-          />
-          {/* Hidden, not removed, under Staycation: the line keeps its room so
-              the calendar above it does not shift when the visit type changes.
-              (The reservation side already explains how to pick a stay.) */}
-          <p
-            aria-hidden={allowsMultiDay(slot) || undefined}
-            style={{ fontSize: 12.5, color: "rgba(238,232,220,0.6)", margin: "12px 0 0", textAlign: "center", visibility: allowsMultiDay(slot) ? "hidden" : "visible" }}
-          >
-            Staying more than one day?{" "}
-            <button className="sw-ulink"
-              type="button"
-              tabIndex={allowsMultiDay(slot) ? -1 : undefined}
-              onClick={() => setSlot(MULTI_DAY_SLOT)}
-              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: gold, fontSize: 12.5 }}
+            /* Above the legend. Hidden, not removed, under Staycation, so the
+               calendar keeps its height when the visit type changes. */
+            aboveLegend={
+            <p
+              aria-hidden={allowsMultiDay(slot) || undefined}
+              style={{ fontSize: 12.5, color: "rgba(238,232,220,0.6)", margin: "12px 0 0", textAlign: "center", visibility: allowsMultiDay(slot) ? "hidden" : "visible" }}
             >
-              Choose {SLOTS[MULTI_DAY_SLOT].label}
-            </button>
-          </p>
+              Staying more than one day?{" "}
+              <button className="sw-ulink"
+                type="button"
+                tabIndex={allowsMultiDay(slot) ? -1 : undefined}
+                onClick={() => setSlot(MULTI_DAY_SLOT)}
+                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: gold, fontSize: 12.5 }}
+              >
+                Choose {SLOTS[MULTI_DAY_SLOT].label}
+              </button>
+            </p>
+            }
+          />
           </div>
         </div>
 
@@ -376,43 +452,19 @@ export function HeroReservation({
 
           <div style={rule} />
 
-          {/* Guests */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-            <div>
-              <p style={{ ...label, margin: "0 0 4px" }}>GUESTS</p>
-              <p style={{ fontSize: 12, color: "rgba(238,232,220,0.55)", margin: 0 }}>
-                {`${fmt(sharedRateFor(slot))} per guest${slot === "WholeDay" ? ", Day and Night together" : ", per tour"}`}
-              </p>
-            </div>
-            <div
-              style={{
-                display: "flex", alignItems: "center", gap: 4,
-                background: "rgba(255,255,255,0.04)",
-                border: `1px solid rgba(201,168,76,${isDark ? "0.18" : "0.26"})`,
-                borderRadius: 999, padding: 4,
-              }}
-            >
-              <Stepper
-                label="Fewer guests"
-                glyph="−"
-                disabled={guests <= GUESTS_MIN}
-                step={() => setGuests((g) => Math.max(GUESTS_MIN, g - 1))}
-              />
-              <GuestInput
-                value={guests}
-                onChange={setGuests}
-                min={GUESTS_MIN}
-                max={GUESTS_MAX}
-                style={{ width: 36, fontSize: 16, color: "#fff", fontWeight: 500 }}
-              />
-              <Stepper
-                label="More guests"
-                glyph="+"
-                disabled={guests >= GUESTS_MAX}
-                step={() => setGuests((g) => Math.min(GUESTS_MAX, g + 1))}
-              />
-            </div>
-          </div>
+          {/* Adults, then children under 3 */}
+          {counter({
+            title: "GUESTS",
+            sub: `${fmt(sharedRateFor(slot))} per guest${slot === "WholeDay" ? ", Day and Night together" : ", per tour"}`,
+            value: adults, min: GUESTS_MIN, max: adultCap, onChange: setAdults, noun: "guests",
+          })}
+          {counter({
+            title: "CHILDREN",
+            sub: goesExclusive
+              ? `Exclusive: children under ${CHILD_FREE_AGE} are already free, no need to add them`
+              : `Under ${CHILD_FREE_AGE} · ${fmt(childRateFor(slot))} each, counted in the ${GUESTS_MAX}`,
+            value: kids, min: 0, max: kidCap, onChange: setChildren, noun: "children", locked: goesExclusive,
+          })}
 
           {/* Pool access, as on Book Now. A Staycation is never shared. */}
           <div>
@@ -504,7 +556,7 @@ export function HeroReservation({
           )}
 
           <Button
-            onClick={() => onBookWithDate(date, { slot, guests, endDate: lastDay, tier })}
+            onClick={() => onBookWithDate(date, { slot, guests: adults, children: kids, endDate: lastDay, tier })}
             disabled={!date || !dateOk}
             className="sw-btn h-auto w-full disabled:opacity-40"
             style={goldBtn}

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { THEME_BOOT_SCRIPT } from "@/lib/themeBoot";
 import localFont from "next/font/local";
 import "./globals.css";
 import "./intro.css";
@@ -82,6 +83,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
        covers this element's own attributes only. */
     <html lang="en" className={`${satoshi.variable} sw-dark`} suppressHydrationWarning>
       <head>
+        {/* Light or dark like the device, before the first paint
+            (lib/themeBoot.ts), so the page never flashes the other theme. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         {/* Every page shows Unsplash photos. The home page's hero preload is
             in app/page.tsx, so other pages don't download it. */}
         <link rel="preconnect" href="https://images.unsplash.com" />

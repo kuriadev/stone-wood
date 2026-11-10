@@ -37,6 +37,9 @@ const daysApart = (from: string, to: string) =>
   Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 
 interface BookingDatePickerProps {
+  /** Shown just above the legend, under the dividing line (Book Now's
+   *  "Staying more than one day?"). */
+  aboveLegend?: React.ReactNode;
   bookings: Booking[];
   closedDates?: string[];
   /** First day of the stay. */
@@ -86,6 +89,7 @@ export function BookingDatePicker({
   tier = "Shared",
   slot = "Day",
   rangeSlot,
+  aboveLegend,
 }: BookingDatePickerProps) {
   // Bookable range: today → min(today + 3 months, 31 Dec of this year).
   // This component only mounts at step 2, after interaction, so reading the
@@ -421,8 +425,9 @@ export function BookingDatePicker({
         })}
       </div>
 
-      {/* ── What to do next, and what is picked ── */}
-      <p
+      {/* ── What to do next, and what is picked ── An empty singleHint
+           leaves the line out until a date is picked. */}
+      {(!single || selectedDate || singleHint) && <p
         aria-live="polite"
         style={{
           color: stayDays > 1 ? C.goldInk : C.textS,
@@ -441,8 +446,11 @@ export function BookingDatePicker({
           : stayDays > 1
           ? <><strong>{stayDays} days</strong> booked: {fmtDate(selectedDate)} to {fmtDate(stayEnd)}. Click any of them to clear.</>
           : <>{fmtDate(selectedDate)} — one day. Click it again to clear, or another date to stay up to {MAX_STAY_DAYS} days.</>}
-      </p>
+      </p>}
 
+      {/* A thin line between the days and the key. */}
+      <div aria-hidden="true" style={{ height: 1, margin: "16px 0 0", background: `linear-gradient(to right, transparent, ${C.border}, transparent)` }} />
+      {aboveLegend}
       <div
         style={{
           display: "flex",

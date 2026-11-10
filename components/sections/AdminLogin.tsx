@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { gold, goldBtn } from "@/lib/styles";
 import { GoldParticles } from "@/components/common/GoldParticles";
+import { ForgotPassword } from "@/components/admin/ForgotPassword";
 import "./AdminLogin.css";
 
 interface AdminLoginProps {
@@ -25,6 +26,8 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
   const [show, setShow] = useState(false);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  // "Forgot password?": a code to the account's email (ForgotPassword.tsx).
+  const [forgot, setForgot] = useState(false);
   const { toast } = useToast();
   const { isDark } = useTheme();
   const C = T(isDark);
@@ -220,6 +223,14 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
             </div>
           </div>
 
+          {/* A code to the account's confirmed email, then a new password. */}
+          <div style={{ display: "flex", justifyContent: "flex-end", margin: "-18px 0 22px" }}>
+            <button type="button" className="sw-ulink" onClick={() => setForgot(true)}
+              style={{ background: "none", border: "none", padding: 0, color: labelCol, fontSize: 12.5, cursor: "pointer" }}>
+              Forgot password?
+            </button>
+          </div>
+
           {err && (
             <Alert
               variant="destructive"
@@ -261,6 +272,8 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
 
       </div>
 
+      <ForgotPassword open={forgot} onOpenChange={setForgot} initialLogin={user} C={C}
+        onSignedIn={(name) => { onLogin(); toast(`Welcome back${name ? `, ${name}` : ""}!`, "success"); }} />
       <ThemeToggle />
     </div>
   );

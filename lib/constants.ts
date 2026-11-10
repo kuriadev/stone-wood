@@ -219,6 +219,9 @@ const ROOM_PHOTO = "https://images.unsplash.com/photo-1631049307264-da0ec9d70304
 const POOL_PHOTO_1 = "https://images.unsplash.com/photo-1536745511564-a5fa6e596e7b?q=80&w=1200&auto=format&fit=crop";
 const POOL_PHOTO_2 = "https://images.unsplash.com/photo-1540541338287-41700207dee6?q=80&w=1200&auto=format&fit=crop";
 const RESORT_WIDE_PHOTO = "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?q=80&w=1200&auto=format&fit=crop";
+/** The home page's closing band ("Your day at Stonewood Garden") until staff
+ *  set their own in Website Photos (lib/heroMedia.ts, slot "closing"). */
+export const CLOSING_BG = RESORT_WIDE_PHOTO;
 const VENUE_PHOTO = "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?q=80&w=1200&auto=format&fit=crop";
 
 type PackageSeed = Omit<ResortPackage, "price" | "listPrice">;

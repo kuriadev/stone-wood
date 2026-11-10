@@ -14,6 +14,8 @@ import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { sanitizeName, sanitizeNotes, isValidEmail, NAME_MIN, NAME_MAX } from "@/lib/validators";
 import type { CustomerMessageRow } from "@/types/database";
 import { ensureSettings } from "@/lib/settings.server";
+import { notifyStaff } from "@/lib/staffNotify.server";
+import { buildGuestMessageAlert } from "@/lib/adminNotify";
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +30,16 @@ export async function GET(req: NextRequest) {
   const denied = await requirePermission(req, "messages.handle");
   if (denied) return denied;
   try {
-    const { data, error } = await getSupabaseAdmin()
-      .from("customer_messages").select("*").order("created_at", { ascending: false });
+    // Every column but the proof files, which can be large: staff load
+    // those when they open an emergency request (./emergency). A database
+    // without the emergency columns yet falls back to the plain list.
+    const db = getSupabaseAdmin();
+    let { data, error } = await db.from("customer_messages")
+      .select("id,name,email,type,message,date,archived_at,created_at,booking_id,attachment_count,resolution,resolution_note,resolved_at,resolved_by")
+      .order("created_at", { ascending: false });
+    if (error && /column/i.test(error.message)) {
+      ({ data, error } = await db.from("customer_messages").select("*").order("created_at", { ascending: false }));
+    }
     if (error) throw new Error(error.message);
     return NextResponse.json((data as CustomerMessageRow[]).map(rowToCustomerMessage));
   } catch (err) {
@@ -73,6 +83,7 @@ export async function POST(req: NextRequest) {
     });
     if (error) throw new Error(error.message);
     await logActivity({ actor: "Guest", action: "message.received", entity: "customer_message", summary: `${name} sent a ${type.toLowerCase()} message from the website.` });
+    void notifyStaff(["Owner", "FrontDesk"], buildGuestMessageAlert({ name, email, type, message }), "guest-message");
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[/api/customer-service POST]", err);

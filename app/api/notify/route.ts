@@ -27,8 +27,9 @@ import { getSupabaseAdmin, rowToBooking } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { logActivity } from "@/lib/activity.server";
-import { trySendMail, isMailConfigured } from "@/lib/mailer";
-import { buildMorningBriefing, adminNotifyTo } from "@/lib/adminNotify";
+import { isMailConfigured } from "@/lib/mailer";
+import { buildMorningBriefing, buildCaretakerBriefing } from "@/lib/adminNotify";
+import { notifyStaff } from "@/lib/staffNotify.server";
 import { manilaDate } from "@/lib/finance";
 import type { BookingRow } from "@/types/database";
 import { ensureSettings } from "@/lib/settings.server";
@@ -85,6 +86,11 @@ export async function POST(req: NextRequest) {
 
     const mail = buildMorningBriefing({ date, bookings });
 
+    // The caretaker's own list: what to prepare today and tomorrow.
+    const roomRows = await db.from("rooms").select("id, name");
+    const care = buildCaretakerBriefing({ date, bookings, rooms: (roomRows.data ?? []) as { id: number; name: string }[] });
+    const careTo = care ? await notifyStaff(["Caretaker"], care, `caretaker-briefing ${date}`) : [];
+
     // Nothing worth saying. Logged all the same, so a quiet day cannot be
     // mistaken for a broken scheduler when someone checks Activity.
     if (!mail) {
@@ -96,13 +102,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, sent: false, reason: "Nothing to report." });
     }
 
-    const to = adminNotifyTo();
-    const sent = await trySendMail({ to, subject: mail.subject, html: mail.html }, `briefing ${date}`);
+    const reached = await notifyStaff(["Owner", "FrontDesk"], mail, `briefing ${date}`);
+    const sent = reached.length > 0;
 
     await logActivity({
       actor: "System", action: ACTION, entity: "notify", entityId: date,
-      summary: sent ? `Emailed the daily briefing for ${date} to ${to}.` : `Could not email the briefing for ${date}.`,
-      details: { sent, to, subject: mail.subject },
+      summary: sent
+        ? `Emailed the daily briefing for ${date} to ${reached.join(", ")}${careTo.length ? `, and the caretaker's list to ${careTo.join(", ")}` : ""}.`
+        : `Could not email the briefing for ${date}.`,
+      details: { sent, to: reached, caretaker: careTo, subject: mail.subject },
     });
 
     return NextResponse.json({ success: true, sent });

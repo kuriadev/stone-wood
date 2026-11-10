@@ -15,6 +15,8 @@ export interface AvailabilitySlot {
    *  migration, when every booking was a single day. */
   end_date?: string | null;
   guests: number;
+  /** Children under 3 (lib/children.ts); absent before that migration. */
+  children?: number | null;
   status: BookingStatus;
   rooms: number[];
   resource: BookingResource | null;
@@ -54,6 +56,7 @@ export function slotToBooking(s: AvailabilitySlot, i: number): Booking {
     // calendar offers the rest of it as free.
     endDate: s.end_date ?? s.date,
     guests: s.guests,
+    children: s.children ?? 0,
     // Only whether it starts with "Night" matters (older rows have no
     // slot); nothing personal is in a package label.
     package: s.package ?? "",

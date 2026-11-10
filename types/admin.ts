@@ -30,6 +30,14 @@ export interface CustomerMessage {
   date: string;
   createdAt?: string;
   archivedAt?: string;
+  /** An emergency request (lib/emergency.ts): the booking it is about, how
+   *  many proof files it has (loaded on open), and staff's answer. */
+  bookingId?: string;
+  attachmentCount?: number;
+  resolution?: "Approved" | "Declined";
+  resolutionNote?: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
 }
 
 /** Something front desk asked the owner to do (lib/ownerRequests.server.ts):

@@ -47,6 +47,10 @@ export async function GET(req: NextRequest) {
        column and every booking is a single day, so the start date is the
        last day and the old query is exactly right. */
     const currentBookings = async () => {
+      // With children (lib/children.ts) when the column is there.
+      const withKids = await db.from("bookings").select(`${SLOT_COLUMNS}, end_date, children`)
+        .not("status", "in", FREED_STATUS_LIST).gte("end_date", fromStr).order("date");
+      if (!withKids.error || !/children|end_date/i.test(withKids.error.message)) return withKids;
       const ranged = await db.from("bookings").select(`${SLOT_COLUMNS}, end_date`)
         .not("status", "in", FREED_STATUS_LIST).gte("end_date", fromStr).order("date");
       if (!ranged.error || !/end_date/i.test(ranged.error.message)) return ranged;
@@ -66,7 +70,7 @@ export async function GET(req: NextRequest) {
     // calendar never offers a date someone is already waiting on. A hold
     // covers the whole stay it would move, so it carries its end date too.
     const holds: AvailabilitySlot[] = (await heldBookings({ fromDate: fromStr })).map((b) => ({
-      date: b.date, end_date: b.endDate ?? b.date, guests: b.guests, status: b.status, rooms: b.rooms,
+      date: b.date, end_date: b.endDate ?? b.date, guests: b.guests, children: b.children ?? 0, status: b.status, rooms: b.rooms,
       resource: b.resource ?? null, tier: b.tier ?? null, slot: b.slot ?? null, overtime: b.overtime, package: b.package,
     }));
 

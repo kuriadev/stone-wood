@@ -21,6 +21,7 @@
 // (lib/facilityUsage.ts), so the owner never has to remember which
 // amenities or rooms a group used.
 
+import { bookingHeadcount } from "@/lib/children";
 import { payMethodLabel } from "@/lib/labels";
 import { bookingStatusLabel, paymentLine } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
@@ -747,7 +748,7 @@ export function VisitRecord({ booking, onClose }: { booking: Booking; onClose: (
     ["Date", b.date ? fmtDate(b.date) : "—"],
     ["Time", `${slot.label} · ${slot.hours}${b.arrivalTime ? ` · arrives ${b.arrivalTime}` : ""}`],
     ["Package", packageAvailed(b)],
-    ["Guests", String(b.guests)],
+    ["Guests", bookingHeadcount(b)],
     ["Uses", resource === "Pool+Venue" ? "Pool + events venue" : resource === "Venue" ? "Events venue" : `Pool (${getBookingTier(b)})`],
     ["Rooms", roomNames.length ? roomNames.join(", ") : "None"],
     ...(slot.id === "Day" && b.overtime ? [["Overtime", `${b.overtime} hr`] as [string, string]] : []),

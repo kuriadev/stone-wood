@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
@@ -8,8 +8,16 @@ import { gold, goldBtn } from "@/lib/styles";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
 // The owner's phone and email from Rates & Settings, not a typed-in copy.
-import { RESORT_CONTACT, SLOTS, QUIET_HOURS_START, venueCloseText } from "@/lib/resort";
-import { RESCHEDULE_NOTICE_DAYS, GUESTS_MAX, VENUE_CAPACITY } from "@/lib/validators";
+import { RESORT_CONTACT, SLOTS, QUIET_HOURS_START, venueCloseText, slotFor } from "@/lib/resort";
+import {
+  RESCHEDULE_NOTICE_DAYS, GUESTS_MAX, VENUE_CAPACITY,
+  sharedRateFor, exclusiveRateFor, childRateFor, EVENT_VENUE_RATE, OVERTIME_RATE, OVERTIME_MAX, MAX_STAY_DAYS,
+} from "@/lib/validators";
+import { useApp } from "@/contexts/AppContext";
+import { fmt } from "@/lib/utils";
+import { facilityIcon } from "@/lib/facilityUsage";
+import { CHILD_FREE_AGE } from "@/lib/children";
+import type { PublicAmenity } from "@/types/facility";
 import "./About.css";
 
 /** Where the resort is. The footer prints the same line. */
@@ -27,8 +35,6 @@ interface AboutProps {
 export function About({
   setPage,
   photo,
-  onBookWithDate,
-  checkDate,
 }: AboutProps) {
   const { isDark } = useTheme();
   const C = T(isDark);
@@ -37,6 +43,19 @@ export function About({
   // Policies and questions: one answer open at a time. Opening another
   // closes the last; tapping the open one closes it.
   const [openQ, setOpenQ] = useState<number | null>(null);
+  // Rooms and their own rates, for the rates section.
+  const { rooms } = useApp();
+  // The amenities from Facility Management, as on the home page.
+  const [amenities, setAmenities] = useState<PublicAmenity[]>([]);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/amenities")
+      .then((res) => (res.ok ? res.json() : null))
+      // The events venue is a paid add-on (its own card above), not included.
+      .then((j) => { if (live && j?.success && Array.isArray(j.amenities)) setAmenities((j.amenities as PublicAmenity[]).filter((a) => !/venue/i.test(a.name))); })
+      .catch(() => { /* the section just stays hidden */ });
+    return () => { live = false; };
+  }, []);
 
   // Built at render, so the numbers follow Rates & Settings (the notice
   // days) and lib/resort (the hours) -- the same rules the guest agrees to
@@ -329,6 +348,133 @@ export function About({
             </div>
           </Reveal>
         </div>
+
+        {/* RATES — every price comes from Rates & Settings and the rooms
+            the owner set up, so this always matches what Book Now charges. */}
+        <div className="sw-about__rates">
+          <Reveal>
+            <div style={{ textAlign: "center", marginBottom: 28 }}>
+              <h3 className="sw-about__faqtitle" style={{ color: C.textH, fontSize: mob ? 24 : 28 }}>Rates</h3>
+              <p className="sw-about__faqsub" style={{ color: C.textS }}>
+                What each tour costs. Book with a 50% deposit; the rest is paid at the resort.
+              </p>
+            </div>
+          </Reveal>
+          <div className="sw-about__rategrid">
+            {(["Day", "Night", "WholeDay"] as const).map((id, i) => {
+              const stay = id === "WholeDay";
+              const kid = childRateFor(id);
+              return (
+                <Reveal key={id} delay={i * REVEAL_STEP}>
+                  <div className="sw-about__ratecard" style={{ background: C.bgCard, borderColor: C.border }}>
+                    <p className="sw-about__ratename" style={{ color: C.goldInk }}>{SLOTS[id].label}</p>
+                    <p className="sw-about__ratehours" style={{ color: C.textS }}>
+                      {slotFor(id).hours}{stay ? ` · up to ${MAX_STAY_DAYS} days` : ""}
+                    </p>
+                    {!stay && (
+                      <div className="sw-about__ratebox" style={{ background: isDark ? "rgba(255,255,255,0.03)" : "#ffffff", borderColor: C.border }}>
+                        <span className="sw-about__ratelabel" style={{ color: C.textH }}>Shared pool</span>
+                        <span className="sw-about__price" style={{ color: C.textH }}>{fmt(sharedRateFor(id))}<small style={{ color: C.textS }}> / guest</small></span>
+                        <span className="sw-about__ratenote" style={{ color: C.textS }}>
+                          Children under {CHILD_FREE_AGE}: {kid > 0 ? `${fmt(kid)} each` : "free"}. Up to {GUESTS_MAX} guests share the pool.
+                        </span>
+                      </div>
+                    )}
+                    <div className="sw-about__ratebox" style={{ background: isDark ? "rgba(255,255,255,0.03)" : "#ffffff", borderColor: C.border }}>
+                      <span className="sw-about__ratelabel" style={{ color: C.textH }}>Exclusive pool</span>
+                      <span className="sw-about__price" style={{ color: C.textH }}>{fmt(exclusiveRateFor(id))}<small style={{ color: C.textS }}>{stay ? " / day" : " flat"}</small></span>
+                      <span className="sw-about__ratenote" style={{ color: C.textS }}>
+                        The pool and resort are your group&rsquo;s alone, up to {GUESTS_MAX} guests. Children under {CHILD_FREE_AGE} are free.
+                      </span>
+                    </div>
+                    {id === "Day" && OVERTIME_MAX > 0 && (
+                      <p className="sw-about__ratenote" style={{ color: C.textS, margin: "4px 2px 0" }}>
+                        Overtime: {fmt(OVERTIME_RATE)} an hour, up to {OVERTIME_MAX} hours, when no Night group is booked.
+                      </p>
+                    )}
+                    {stay && (
+                      <p className="sw-about__ratenote" style={{ color: C.textS, margin: "4px 2px 0" }}>
+                        A Staycation is Exclusive only: day and night with no break between tours.
+                      </p>
+                    )}
+                  </div>
+                </Reveal>
+              );
+            })}
+          </div>
+
+          {/* Add-ons: the events venue and the rooms. */}
+          <div className="sw-about__rategrid sw-about__rategrid--two" style={{ marginTop: 16 }}>
+            <Reveal>
+              <div className="sw-about__ratecard" style={{ background: C.bgCard, borderColor: C.border }}>
+                <p className="sw-about__ratename" style={{ color: C.goldInk }}>Events venue</p>
+                <p className="sw-about__ratehours" style={{ color: C.textS }}>Open until {venueCloseText()} on a Night Tour or Staycation</p>
+                <div className="sw-about__ratebox" style={{ background: isDark ? "rgba(255,255,255,0.03)" : "#ffffff", borderColor: C.border }}>
+                  <span className="sw-about__ratelabel" style={{ color: C.textH }}>Per tour</span>
+                  <span className="sw-about__price" style={{ color: C.textH }}>{fmt(EVENT_VENUE_RATE)}</span>
+                  <span className="sw-about__ratenote" style={{ color: C.textS }}>
+                    One event at a time, up to {VENUE_CAPACITY} guests. Book it on its own, or with the resort and pool. A Staycation pays it for both tours.
+                  </span>
+                </div>
+              </div>
+            </Reveal>
+            <Reveal delay={REVEAL_STEP}>
+              <div className="sw-about__ratecard" style={{ background: C.bgCard, borderColor: C.border }}>
+                <p className="sw-about__ratename" style={{ color: C.goldInk }}>Rooms</p>
+                <p className="sw-about__ratehours" style={{ color: C.textS }}>An add-on to any tour, priced per tour (twice for a Staycation)</p>
+                {rooms.length === 0 ? (
+                  <p className="sw-about__ratenote" style={{ color: C.textS }}>Room rates are shown when you book.</p>
+                ) : (
+                  <ul className="sw-about__roomlist">
+                    {rooms.map((rm) => (
+                      <li key={rm.id} style={{ borderColor: C.border }}>
+                        <span style={{ minWidth: 0 }}>
+                          <span style={{ display: "block", color: C.textH, fontSize: 14, fontWeight: 600 }}>{rm.name}</span>
+                          <span style={{ display: "block", color: C.textS, fontSize: 12 }}>{rm.beds} · up to {rm.capacity} guests</span>
+                        </span>
+                        <span style={{ color: C.textH, fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(rm.price)}<small style={{ color: C.textS, fontWeight: 400 }}> / tour</small></span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </Reveal>
+          </div>
+
+          {/* What every tour with the pool includes: the amenities the owner
+              lists in Facility Management. */}
+          {amenities.length > 0 && (
+            <Reveal>
+              <div className="sw-about__ratecard" style={{ background: C.bgCard, borderColor: C.border, marginTop: 16, height: "auto" }}>
+                <p className="sw-about__ratename" style={{ color: C.goldInk }}>Included with your tour</p>
+                <p className="sw-about__ratehours" style={{ color: C.textS }}>Free to use on every Day Tour, Night Tour and Staycation with the resort &amp; pool</p>
+                <ul className="sw-about__amen">
+                  {amenities.map((a) => (
+                    <li key={a.id} style={{ borderColor: C.border, background: isDark ? "rgba(255,255,255,0.03)" : "#ffffff", opacity: a.underMaintenance ? 0.6 : 1 }}>
+                      <span aria-hidden="true" className="sw-about__amenico" style={{ background: `${gold}1f`, color: C.goldInk }}>
+                        <Icon name={facilityIcon({ icon: a.icon, category: "Amenity" })} size={16} strokeWidth={1.75} />
+                      </span>
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: "block", color: C.textH, fontSize: 13.5, fontWeight: 600 }}>{a.name}</span>
+                        {a.underMaintenance
+                          ? <span style={{ display: "block", color: C.textS, fontSize: 11.5 }}>Under maintenance for now</span>
+                          : a.description && <span style={{ display: "block", color: C.textS, fontSize: 11.5, lineHeight: 1.45 }}>{a.description}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Reveal>
+          )}
+
+          <Reveal>
+            <div style={{ textAlign: "center", marginTop: 24 }}>
+              <button type="button" className="sw-btn" onClick={() => setPage("Book Now")} style={{ ...goldBtn, padding: "14px 32px" }}>
+                CHECK A DATE
+              </button>
+            </div>
+          </Reveal>
+        </div>
       </section>
 
       {/* FIND US — photo on one side, the address and a way to act on the
@@ -361,7 +507,7 @@ export function About({
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
-            padding: mob ? "36px 24px" : "64px 72px",
+            padding: mob ? "36px 24px" : "56px 64px",
           }}
         >
           <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.6, fontWeight: 700, margin: "0 0 20px" }}>
@@ -379,9 +525,19 @@ export function About({
           >
             Stonewood Garden<br />Private Resort
           </h2>
-          <p style={{ color: C.textS, fontSize: 14, lineHeight: 1.8, margin: "0 0 28px", maxWidth: 360 }}>
+          <p style={{ color: C.textS, fontSize: 14, lineHeight: 1.8, margin: "0 0 20px", maxWidth: 420 }}>
             {ADDRESS}
           </p>
+          {/* The map, in the card beside the photo. */}
+          <iframe
+            title="Stonewood Garden Private Resort on Google Maps"
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3247.696684191124!2d121.16214595325307!3d14.531465178389032!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397c6d1d76ebad3%3A0x23993af9734ba069!2sStonewood%20Garden%20Private%20Pool!5e0!3m2!1sen!2sph!4v1776880886519!5m2!1sen!2sph"
+            width="100%"
+            height={mob ? 220 : 260}
+            style={{ border: 0, borderRadius: 14, margin: "0 0 24px", display: "block", filter: isDark ? "grayscale(0.2) brightness(0.85)" : "none" }}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
           <button
             onClick={() => setPage("Book Now")}
             className="sw-btn"
@@ -392,58 +548,6 @@ export function About({
         </div>
       </section>
 
-      {/* MAP */}
-      <section style={{ maxWidth: 1000, margin: "0 auto 72px" }}>
-        <iframe
-          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3247.696684191124!2d121.16214595325307!3d14.531465178389032!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397c6d1d76ebad3%3A0x23993af9734ba069!2sStonewood%20Garden%20Private%20Pool!5e0!3m2!1sen!2sph!4v1776880886519!5m2!1sen!2sph"
-          width="100%"
-          height="350"
-          style={{
-            border: 0,
-            borderRadius: 14,
-            filter: isDark ? "grayscale(0.2) brightness(0.85)" : "none",
-          }}
-          loading="lazy"
-        />
-      </section>
-
-      {/* CONTACT + CTA */}
-      <section
-        style={{
-          textAlign: "center",
-          padding: "60px 20px",
-          background: isDark ? "#0a0805" : "#f7f3ea",
-        }}
-      >
-        <h3
-          style={{
-            fontFamily: "'Satoshi',system-ui,sans-serif",
-            fontSize: 26,
-            marginBottom: 20,
-            color: C.textH,
-          }}
-        >
-          Plan Your Escape
-        </h3>
-
-        <div style={{ marginBottom: 20 }}>
-          <p style={{ color: C.textB }}><Icon name="phone" size={14} style={{ marginRight: 8 }} />{RESORT_CONTACT.phone}</p>
-          <p style={{ color: C.textB }}><Icon name="mail" size={14} style={{ marginRight: 8 }} />{RESORT_CONTACT.email}</p>
-        </div>
-
-        {/* CTA BUTTON (FIXED LOGIC) */}
-        <button
-          className="sw-btn sw-hero-cta-glow"
-          onClick={() =>
-            checkDate && onBookWithDate
-              ? onBookWithDate(checkDate)
-              : setPage("Book Now")
-          }
-          style={goldBtn}
-        >
-          {checkDate ? "CONTINUE BOOKING" : "BOOK YOUR STAY"}
-        </button>
-      </section>
     </div>
   );
 }

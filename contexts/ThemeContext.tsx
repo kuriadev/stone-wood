@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { flushSync } from "react-dom";
+import { resolveTheme, rememberTheme } from "@/lib/themeBoot";
 
 /** Light and Dark. There was briefly a third, Dim, between them; the
  *  owner asked for two, so it is gone. Anyone who had picked Dim is moved
@@ -28,9 +29,6 @@ export const ThemeCtx = createContext<ThemeContextValue>({
   setMode: () => {},
 });
 
-const STORE_KEY = "sw-theme";
-const isMode = (v: unknown): v is ThemeMode => v === "light" || v === "dark";
-
 /** Mirror the theme onto <html> as sw-dark / sw-light.
  *
  *  A whole family of hover styles in globals.css is written as
@@ -52,21 +50,27 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>("dark");
   /** The theme being switched to, ahead of the state while a fade runs. */
   const latest = useRef<ThemeMode>("dark");
+  /** The newest setMode, for the device listener set up once below. */
+  const setModeRef = useRef<(m: ThemeMode, remember?: boolean) => void>(() => {});
 
-  // The viewer's last choice, from this browser only. Read after mount so
-  // the server's first paint and the browser's agree; a private window, or
-  // storage turned off, just starts dark.
+  /* Light or dark like the device (lib/themeBoot.ts): the head script has
+     already painted it, and this brings React's state in line after
+     mount, so the server's HTML and the browser's first render agree. The
+     old "sw-theme" key (a choice kept forever) is dropped: from now on a
+     tap on the button lasts until the device's own setting changes. */
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORE_KEY);
-      // Dim was a dark theme, so whoever chose it is closest to Dark.
-      const saved = raw === "dim" ? "dark" : raw;
-      if (isMode(saved)) {
-        latest.current = saved;
-        setModeState(saved);
-        if (raw !== saved) window.localStorage.setItem(STORE_KEY, saved);
-      }
-    } catch { /* no storage: keep the default */ }
+    try { window.localStorage.removeItem("sw-theme"); } catch { /* fine */ }
+    const m = resolveTheme();
+    latest.current = m;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the device's setting is only readable after mount
+    setModeState(m);
+    // The device switching light/dark (a phone at sunset, a desktop
+    // schedule) while the site is open: follow it.
+    let mq: MediaQueryList | null = null;
+    try { mq = window.matchMedia("(prefers-color-scheme: light)"); } catch { /* old browser */ }
+    const onChange = () => setModeRef.current(resolveTheme(), false);
+    mq?.addEventListener?.("change", onChange);
+    return () => mq?.removeEventListener?.("change", onChange);
   }, []);
 
   useEffect(() => { paint(mode); }, [mode]);
@@ -77,12 +81,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
      the old page, the new theme is applied inside the callback (so the
      snapshot of the new page already has it), and the two fade. Without
      them the colours themselves are eased for the length of the switch. */
-  const setMode = (next: ThemeMode) => {
+  /** `remember`: a tap on the button (kept until the device's setting
+   *  changes); false when following the device itself. */
+  const setMode = (next: ThemeMode, remember = true) => {
+    if (remember) rememberTheme(next);
     if (next === latest.current) return;
     // Recorded at once, not when the fade lands: a second tap during the
     // fade moves on from THIS theme instead of repeating the last switch.
     latest.current = next;
-    try { window.localStorage.setItem(STORE_KEY, next); } catch { /* not remembered, still switched */ }
     // Applies the LATEST choice, not this tap's: overlapping fades can run
     // their callbacks out of order, and the last tap must win.
     const apply = () => {
@@ -116,8 +122,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     apply();
   };
 
+  // The device listener (set up once) always calls the newest setMode.
+  useEffect(() => { setModeRef.current = setMode; });
+
   return (
-    <ThemeCtx.Provider value={{ isDark: mode === "dark", mode, toggle: () => setMode(nextTheme(latest.current)), setMode }}>
+    <ThemeCtx.Provider value={{ isDark: mode === "dark", mode, toggle: () => setMode(nextTheme(latest.current)), setMode: (m: ThemeMode) => setMode(m) }}>
       {children}
     </ThemeCtx.Provider>
   );

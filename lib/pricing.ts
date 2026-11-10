@@ -27,6 +27,7 @@ import type { PackageDiscount, PackageDealPart } from "@/types/package";
 import {
   exclusiveRateFor,
   sharedRateFor,
+  childRateFor,
   EVENT_VENUE_RATE,
   OVERTIME_RATE,
   RESORT_MAX_CAPACITY,
@@ -46,6 +47,10 @@ export interface PriceInput {
   tier: BookingTier;
   slot: BookingSlot;
   guests: number;
+  /** Children under 3 (lib/children.ts), on top of `guests` (the adults).
+   *  In a Shared tour each pays the child rate; in an Exclusive one they
+   *  are free, so this changes nothing. */
+  children?: number;
   /** Day overtime hours — only ever set by staff. */
   overtime: number;
   /** The chosen rooms' own per-slot prices. */
@@ -423,7 +428,9 @@ export function priceBooking(input: PriceInput): PriceBreakdown {
 
   // Each kind of booking at its own rate (Rates & Settings): a Staycation's
   // rate already covers both tours, so it isn't doubled here.
-  const poolFee = !usesPool ? 0 : exclusivePool ? exclusiveRateFor(slot) : guests * sharedRateFor(slot);
+  const kids = Math.max(0, Math.floor(input.children ?? 0));
+  const poolFee = !usesPool ? 0 : exclusivePool ? exclusiveRateFor(slot)
+    : guests * sharedRateFor(slot) + kids * childRateFor(slot);
   const venueFee = usesVenue ? EVENT_VENUE_RATE * slots : 0;
 
   // Overtime exists only on a Day booking.

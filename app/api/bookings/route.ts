@@ -27,7 +27,8 @@ import { getSupabaseAdmin, rowToBooking, bookingToRow, missingNewColumn, without
 import { requirePermission, isAdminRequest } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { buildBookingReceivedEmail, buildReceiptEmail } from "@/lib/emailTemplate";
-import { buildNewBookingAlert, adminNotifyTo } from "@/lib/adminNotify";
+import { buildNewBookingAlert } from "@/lib/adminNotify";
+import { notifyStaff, alertCaretakerIfSoon } from "@/lib/staffNotify.server";
 import { logActivity } from "@/lib/activity.server";
 import { fmtDate } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
@@ -143,6 +144,7 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
       date: d.date,
       endDate: d.endDate,
       guests: d.guests,
+      ...(d.children ? { children: d.children } : {}),
       package: quote.packageLabel,
       rooms: d.rooms,
       overtime: d.overtime,
@@ -205,7 +207,8 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
        one held for review does. trySendMail, so a slow Gmail cannot turn a
        saved, paid booking into an error. */
     const alert = buildNewBookingAlert(saved, paidPesos);
-    void trySendMail({ to: adminNotifyTo(), subject: alert.subject, html: alert.html }, `admin-new-booking ${saved.id}`);
+    void notifyStaff(["Owner", "FrontDesk"], alert, `new-booking ${saved.id}`);
+    void alertCaretakerIfSoon(saved);
 
     await logActivity([
       {
@@ -236,6 +239,8 @@ async function createWalkIn(body: Record<string, unknown>) {
     const checked = await checkWalkIn(body);
     if (!checked.ok) return NextResponse.json({ success: false, error: checked.error }, { status: checked.status });
     const saved = await saveWalkIn(checked.plan);
+    // A walk-in is usually for today: the caretaker gets it ready.
+    void alertCaretakerIfSoon(saved);
     return NextResponse.json({ success: true, booking: saved }, { status: 201 });
   } catch (err) {
     console.error("[/api/bookings POST walk-in]", err);

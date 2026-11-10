@@ -26,7 +26,7 @@ export function reschedulePolicy(): string[] {
  *  when the resort itself has to close. */
 export function emergencyPolicy(): string[] {
   return [
-    `A real emergency — illness or injury, a death in the family, an accident — contact the resort as soon as you can, even on the day. With proof (for example a medical certificate), the resort moves your booking to a free date at no charge, even inside the ${days(RESCHEDULE_NOTICE_DAYS)} notice.`,
+    `A real emergency — illness or injury, a death in the family, an accident — send the resort what happened from your booking page (Manage booking), with proof such as a medical certificate, even on the day. If it's approved, the resort moves your booking to a free date at no charge, even inside the ${days(RESCHEDULE_NOTICE_DAYS)} notice.`,
     `Bad weather or a disaster: if PAGASA raises a storm signal for the area, or the government restricts travel, the resort contacts you. You choose a free new date or a full refund.`,
     `If the resort has to cancel for any reason (a repair, a power or water outage, safety), you choose a free new date or a full refund.`,
     `Payments are carried to the new date, not refunded, when a guest's own plans change. A refund is given only when the resort cancels.`,

@@ -22,6 +22,9 @@ interface NavbarProps {
 }
 
 const LINKS = ["Home", "Rooms", "Packages", "Gallery", "About Us"];
+/** What each link reads. The page keys stay as they are ("About Us"
+ *  is the route name everywhere); only the label is shorter. */
+const linkLabel = (l: string) => (l === "About Us" ? "About" : l);
 
 export function Navbar({ page, setPage }: NavbarProps) {
   const { isDark } = useTheme();
@@ -217,7 +220,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
                     onMouseEnter={(e) => { e.currentTarget.style.color = linkActive; }}
                     onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = linkColor; }}
                   >
-                    {l.toUpperCase()}
+                    {linkLabel(l).toUpperCase()}
                     {/* Underline grows from centre — marks position, and on
                         hover fades in to say where a click goes. */}
                     <span
@@ -330,7 +333,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
                       animationDuration: "300ms",
                     }}
                   >
-                    {l}
+                    {linkLabel(l)}
                   </button>
                 );
               })}

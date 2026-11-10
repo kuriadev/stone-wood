@@ -38,6 +38,9 @@ interface AvailabilityCalendarProps {
    *  choose Shared or Exclusive on the next step. Without a request a date
    *  is shown taken once any slot is full. */
   request?: { slot: BookingSlot; guests: number; tiers: readonly BookingTier[] };
+  /** Shown just above the legend, under the dividing line (the home card's
+   *  "Staying more than one day?"). */
+  aboveLegend?: React.ReactNode;
 }
 
 export function AvailabilityCalendar({
@@ -48,6 +51,7 @@ export function AvailabilityCalendar({
   endDate = "",
   onSelectRange,
   request,
+  aboveLegend,
 }: AvailabilityCalendarProps) {
   /* Range mode is opt-in: the home page picks a stay, the admin's move
      window picks one new date. */
@@ -449,13 +453,16 @@ export function AvailabilityCalendar({
           )}
       </div>
 
-      {/* Legend — centered together */}
+      {/* Legend — centered together, under a thin line that sets it apart
+          from the days. */}
+      <div aria-hidden="true" style={{ height: 1, margin: "18px 0 0", background: "linear-gradient(to right, transparent, rgba(201,168,76,0.35), transparent)" }} />
+      {aboveLegend}
       <div
         style={{
           display: "flex",
           flexWrap: "wrap",
           gap: 16,
-          marginTop: 16,
+          marginTop: 14,
           justifyContent: "center",
           alignItems: "center",
         }}

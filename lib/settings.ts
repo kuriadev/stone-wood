@@ -24,6 +24,9 @@
 
 import { applyLimitValues } from "@/lib/validators";
 import { applyResortValues } from "@/lib/resort";
+import { applyRebookingValues } from "@/lib/rebooking";
+import { applyDetailsValues } from "@/lib/guestDetails";
+import { applyChildValues } from "@/lib/children";
 
 export interface BusinessSettings {
   rates: {
@@ -39,6 +42,10 @@ export interface BusinessSettings {
     /** Staycation (both tours, per stay day): Shared per guest, and the whole pool. */
     sharedPerHeadStay: number;
     exclusiveStay: number;
+    /** A child under 3 in a Shared Day or Night Tour, per child.
+     *  Exclusive (and so every Staycation) lets them in free. */
+    childPerHead: number;
+    childPerHeadNight: number;
     /** Day Tour overtime, per hour. */
     overtimePerHour: number;
   };
@@ -57,6 +64,20 @@ export interface BusinessSettings {
     bookingHistoryMonths: number;
     /** A guest's date change must be at least this many days before the visit. */
     rescheduleNoticeDays: number;
+    /** Everyone at the resort at once in a tour, every group together, and
+     *  the most staff can put on one booking (lib/children.ts). */
+    peopleMax: number;
+    /** Today's tour can be booked online until this many hours after it starts. */
+    lateBookingHours: number;
+    /** A guest's new date is held this long while staff approve it. */
+    holdHours: number;
+    /** After a no-show, the guest has this many days to pick a new date. */
+    noShowChoiceDays: number;
+    /** Hours a guest waits between changes to their own details. */
+    detailsCooldownHours: number;
+    /** Children younger than this are the "children" count (free in Exclusive,
+     *  the child rate in Shared). */
+    childFreeAge: number;
   };
   /** Whole hours, 24-hour clock. nightEnd past 24 is the next morning. */
   hours: {
@@ -69,6 +90,8 @@ export interface BusinessSettings {
      *  does: a venue-only booking ends here, and a pool + venue group moves
      *  to the pool until nightEnd (owner's rule, 2026-11-08). */
     venueEnd: number;
+    /** Music, videoke and speakers off from this hour. */
+    quietStart: number;
   };
   contact: {
     phone: string;
@@ -80,9 +103,9 @@ export interface BusinessSettings {
 
 /** What the code has always used. An empty settings row means these. */
 export const DEFAULT_SETTINGS: BusinessSettings = {
-  rates: { sharedPerHead: 200, exclusiveFlat: 6000, venue: 5000, overtimePerHour: 500, sharedPerHeadNight: 200, exclusiveNight: 6000, sharedPerHeadStay: 400, exclusiveStay: 12000 },
-  limits: { resortCapacity: 30, venueCapacity: 50, exclusiveDefaultGuests: 5, overtimeMaxHours: 2, maxStayDays: 3, bookingWindowMonths: 3, bookingHistoryMonths: 3, rescheduleNoticeDays: 2 },
-  hours: { dayStart: 7, dayEnd: 17, nightStart: 19, nightEnd: 29, venueEnd: 24 },
+  rates: { sharedPerHead: 200, exclusiveFlat: 6000, venue: 5000, overtimePerHour: 500, sharedPerHeadNight: 200, exclusiveNight: 6000, sharedPerHeadStay: 400, exclusiveStay: 12000, childPerHead: 100, childPerHeadNight: 100 },
+  limits: { resortCapacity: 30, venueCapacity: 50, exclusiveDefaultGuests: 5, overtimeMaxHours: 2, maxStayDays: 3, bookingWindowMonths: 3, bookingHistoryMonths: 3, rescheduleNoticeDays: 2, peopleMax: 100, lateBookingHours: 2, holdHours: 48, noShowChoiceDays: 20, detailsCooldownHours: 12, childFreeAge: 3 },
+  hours: { dayStart: 7, dayEnd: 17, nightStart: 19, nightEnd: 29, venueEnd: 24, quietStart: 22 },
   contact: {
     phone: "+63 912 345 6789",
     viber: "+63 912 345 6789",
@@ -102,6 +125,9 @@ const NUMS: { [G in keyof Omit<BusinessSettings, "contact">]: { [K in keyof Busi
     exclusiveNight: { min: 1, max: 1_000_000, whole: true, label: "Night Tour Exclusive rate" },
     sharedPerHeadStay: { min: 1, max: 100_000, whole: true, label: "Staycation Shared rate per guest" },
     exclusiveStay: { min: 1, max: 2_000_000, whole: true, label: "Staycation Exclusive rate" },
+    // 0 makes children under 3 free in a Shared tour too.
+    childPerHead: { min: 0, max: 50_000, whole: true, label: "Day Tour child rate" },
+    childPerHeadNight: { min: 0, max: 50_000, whole: true, label: "Night Tour child rate" },
   },
   limits: {
     resortCapacity: { min: 1, max: 500, whole: true, label: "Capacity" },
@@ -112,6 +138,12 @@ const NUMS: { [G in keyof Omit<BusinessSettings, "contact">]: { [K in keyof Busi
     bookingWindowMonths: { min: 1, max: 24, whole: true, label: "How far ahead guests can book" },
     bookingHistoryMonths: { min: 0, max: 12, whole: true, label: "How far back the calendar shows" },
     rescheduleNoticeDays: { min: 1, max: 30, whole: true, label: "Days' notice for a date change" },
+    peopleMax: { min: 1, max: 2000, whole: true, label: "Most people at once" },
+    lateBookingHours: { min: 0, max: 12, whole: true, label: "Same-day booking window" },
+    holdHours: { min: 1, max: 168, whole: true, label: "New date held for" },
+    noShowChoiceDays: { min: 1, max: 90, whole: true, label: "Days to rebook after a no-show" },
+    detailsCooldownHours: { min: 0, max: 168, whole: true, label: "Wait between detail changes" },
+    childFreeAge: { min: 1, max: 12, whole: true, label: "Child age" },
   },
   hours: {
     dayStart: { min: 4, max: 12, whole: true, label: "Day Tour starts" },
@@ -119,6 +151,7 @@ const NUMS: { [G in keyof Omit<BusinessSettings, "contact">]: { [K in keyof Busi
     nightStart: { min: 14, max: 23, whole: true, label: "Night Tour starts" },
     nightEnd: { min: 20, max: 35, whole: true, label: "Night Tour ends" },
     venueEnd: { min: 16, max: 35, whole: true, label: "Events venue closes" },
+    quietStart: { min: 18, max: 35, whole: true, label: "Quiet hours start" },
   },
 };
 
@@ -160,6 +193,10 @@ export function settingsFieldErrors(raw: unknown): Record<string, string> {
   for (const [ex, sh] of [["rates.exclusiveFlat", "rates.sharedPerHead"], ["rates.exclusiveNight", "rates.sharedPerHeadNight"], ["rates.exclusiveStay", "rates.sharedPerHeadStay"]]) {
     if (has(ex, sh) && n[ex] <= n[sh]) errs[ex] = "The whole pool should cost more than one Shared guest.";
   }
+  // A child under 3 never costs more than an adult.
+  for (const [ch, sh] of [["rates.childPerHead", "rates.sharedPerHead"], ["rates.childPerHeadNight", "rates.sharedPerHeadNight"]]) {
+    if (has(ch, sh) && n[ch] > n[sh]) errs[ch] = `Can't be more than an adult pays (₱${n[sh].toLocaleString()}).`;
+  }
   if (has("limits.overtimeMaxHours", "rates.overtimePerHour") && n["limits.overtimeMaxHours"] > 0 && n["rates.overtimePerHour"] === 0) {
     errs["rates.overtimePerHour"] = "Set a price per hour, or turn overtime off with 0 hours.";
   }
@@ -172,6 +209,19 @@ export function settingsFieldErrors(raw: unknown): Record<string, string> {
   }
   if (has("limits.rescheduleNoticeDays", "limits.bookingWindowMonths") && n["limits.rescheduleNoticeDays"] >= n["limits.bookingWindowMonths"] * 28) {
     errs["limits.rescheduleNoticeDays"] = "That would close date changes for every booking. Use fewer days.";
+  }
+  // Everyone at once has to fit a full booking.
+  if (has("limits.peopleMax", "limits.resortCapacity") && n["limits.peopleMax"] < n["limits.resortCapacity"]) {
+    errs["limits.peopleMax"] = `At least the guest capacity (${n["limits.resortCapacity"]}).`;
+  }
+  if (has("limits.peopleMax", "limits.venueCapacity") && n["limits.peopleMax"] < n["limits.venueCapacity"]) {
+    errs["limits.peopleMax"] = `At least the events venue capacity (${n["limits.venueCapacity"]}).`;
+  }
+  if (has("limits.lateBookingHours", "hours.dayStart", "hours.dayEnd") && n["limits.lateBookingHours"] >= n["hours.dayEnd"] - n["hours.dayStart"]) {
+    errs["limits.lateBookingHours"] = "Shorter than the Day Tour, or nobody could arrive in time.";
+  }
+  if (has("hours.quietStart", "hours.nightStart", "hours.nightEnd") && (n["hours.quietStart"] < n["hours.nightStart"] || n["hours.quietStart"] > n["hours.nightEnd"])) {
+    errs["hours.quietStart"] = "Between the Night Tour's start and end.";
   }
   // The day has to work as a timetable.
   if (has("hours.dayStart", "hours.dayEnd") && n["hours.dayEnd"] - n["hours.dayStart"] < 4) errs["hours.dayEnd"] = "The Day Tour needs at least 4 hours.";
@@ -221,6 +271,11 @@ export function validateSettings(raw: unknown, opts: { strict?: boolean } = {}):
       if (blank("sharedPerHeadNight")) filled.sharedPerHeadNight = day;
       if (blank("sharedPerHeadStay")) filled.sharedPerHeadStay = day * 2;
     }
+    // Saved before children had a rate: half of what an adult pays, from
+    // the owner's own adult rates.
+    const half = (k: string) => { const a = Number(filled[k]); return Number.isFinite(a) && a > 0 ? Math.round(a / 2) : undefined; };
+    if (blank("childPerHead")) filled.childPerHead = half("sharedPerHead");
+    if (blank("childPerHeadNight")) filled.childPerHeadNight = half("sharedPerHeadNight");
     if (Number.isFinite(ex) && ex > 0) {
       if (blank("exclusiveNight")) filled.exclusiveNight = ex;
       if (blank("exclusiveStay")) filled.exclusiveStay = ex * 2;
@@ -266,6 +321,9 @@ export function validateSettings(raw: unknown, opts: { strict?: boolean } = {}):
   if (h.venueEnd > h.nightEnd || h.venueEnd - h.nightStart < 2) h.venueEnd = h.nightEnd;
 
   if (out.limits.exclusiveDefaultGuests > out.limits.resortCapacity) out.limits.exclusiveDefaultGuests = out.limits.resortCapacity;
+  // Saved before these existed, or the hours moved since: keep them sensible.
+  if (out.limits.peopleMax < Math.max(out.limits.resortCapacity, out.limits.venueCapacity)) out.limits.peopleMax = Math.max(out.limits.resortCapacity, out.limits.venueCapacity);
+  if (h.quietStart < h.nightStart || h.quietStart > h.nightEnd) h.quietStart = Math.min(Math.max(22, h.nightStart), h.nightEnd);
   return { ok: true, settings: out };
 }
 
@@ -288,14 +346,20 @@ export function applySettings(s: BusinessSettings): void {
     exclusiveNightRate: s.rates.exclusiveNight,
     sharedStayRate: s.rates.sharedPerHeadStay,
     exclusiveStayRate: s.rates.exclusiveStay,
+    childDayRate: s.rates.childPerHead,
+    childNightRate: s.rates.childPerHeadNight,
     overtimeMax: s.limits.overtimeMaxHours,
     overtimeRate: s.rates.overtimePerHour,
     bookingWindowMonths: s.limits.bookingWindowMonths,
     bookingHistoryMonths: s.limits.bookingHistoryMonths,
     rescheduleNoticeDays: s.limits.rescheduleNoticeDays,
     maxStayDays: s.limits.maxStayDays,
+    peopleMax: s.limits.peopleMax,
   });
-  applyResortValues({ ...s.hours, contact: { ...s.contact } });
+  applyRebookingValues({ holdHours: s.limits.holdHours, noShowChoiceDays: s.limits.noShowChoiceDays });
+  applyDetailsValues({ cooldownHours: s.limits.detailsCooldownHours });
+  applyChildValues({ freeAge: s.limits.childFreeAge });
+  applyResortValues({ ...s.hours, lateBookingHours: s.limits.lateBookingHours, contact: { ...s.contact } });
 }
 
 /** "7:00 AM", "5:00 AM (next day)" — for the settings form. */

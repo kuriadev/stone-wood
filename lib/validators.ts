@@ -112,6 +112,18 @@ export let EXCLUSIVE_NIGHT_RATE = 6000;
 export let SHARED_STAY_RATE = 400;
 export let EXCLUSIVE_STAY_RATE = 12000;
 
+/* A child under 3 in a Shared tour (lib/children.ts): half the adult
+   rate until the owner sets their own in Rates & Settings. Exclusive
+   lets them in free, so there is no Exclusive child rate. */
+export let CHILD_DAY_RATE = 100;
+export let CHILD_NIGHT_RATE = 100;
+
+/** A Shared child under 3's price for one booking of this kind (one day of it). */
+export function childRateFor(slot: "Day" | "Night" | "WholeDay"): number {
+  // A Staycation is Exclusive only, so it never has a child rate of its own.
+  return slot === "Night" ? CHILD_NIGHT_RATE : slot === "WholeDay" ? CHILD_DAY_RATE + CHILD_NIGHT_RATE : CHILD_DAY_RATE;
+}
+
 /** A Shared guest's price for one booking of this kind (one day of it). */
 export function sharedRateFor(slot: "Day" | "Night" | "WholeDay"): number {
   return slot === "Night" ? SHARED_NIGHT_RATE : slot === "WholeDay" ? SHARED_STAY_RATE : SHARED_PER_HEAD_RATE;
@@ -140,7 +152,7 @@ export let OVERTIME_RATE = 500;
 /** The most guests staff may put on one booking when they override the
  *  resort's capacity (a group bigger than the website takes). Only staff
  *  can; the website stays at GUESTS_MAX. */
-export const OVERRIDE_GUESTS_MAX = 100;
+export let OVERRIDE_GUESTS_MAX = 100;
 
 /** How far ahead a guest may reserve. */
 export let BOOKING_WINDOW_MONTHS = 3;
@@ -439,12 +451,15 @@ export interface LimitValues {
   exclusiveNightRate: number;
   sharedStayRate: number;
   exclusiveStayRate: number;
+  childDayRate: number;
+  childNightRate: number;
   overtimeMax: number;
   overtimeRate: number;
   bookingWindowMonths: number;
   bookingHistoryMonths: number;
   rescheduleNoticeDays: number;
   maxStayDays: number;
+  peopleMax: number;
 }
 
 export function applyLimitValues(v: LimitValues): void {
@@ -461,10 +476,13 @@ export function applyLimitValues(v: LimitValues): void {
   EXCLUSIVE_NIGHT_RATE = v.exclusiveNightRate;
   SHARED_STAY_RATE = v.sharedStayRate;
   EXCLUSIVE_STAY_RATE = v.exclusiveStayRate;
+  CHILD_DAY_RATE = v.childDayRate;
+  CHILD_NIGHT_RATE = v.childNightRate;
   OVERTIME_MAX = v.overtimeMax;
   OVERTIME_RATE = v.overtimeRate;
   BOOKING_WINDOW_MONTHS = v.bookingWindowMonths;
   BOOKING_HISTORY_MONTHS = v.bookingHistoryMonths;
   RESCHEDULE_NOTICE_DAYS = v.rescheduleNoticeDays;
   MAX_STAY_DAYS = v.maxStayDays;
+  OVERRIDE_GUESTS_MAX = v.peopleMax;
 }

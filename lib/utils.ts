@@ -218,6 +218,24 @@ export const daysInRange = (from: string, to: string): number => datesBetween(fr
 const liveOn = (date: string, bookings: Booking[]) =>
   bookings.filter((b) => bookingCoversDate(b, date) && holdsDate(b));
 
+/** Everyone already booked into the resort during this tour on any day of
+ *  the range -- adults and children under 3, every group, pool or venue --
+ *  at the busiest day. Children are capped by what's left of
+ *  CHILDREN_TOTAL_MAX (lib/children.ts), so the resort is never packed.
+ *  `exceptId` leaves out the booking being changed. */
+export function peopleOnTour(from: string, to: string, slot: BookingSlot, bookings: Booking[], exceptId?: string): number {
+  const wanted = occupiedSlots(slot);
+  let most = 0;
+  for (const d of datesBetween(from, to || from)) {
+    const n = liveOn(d, bookings)
+      .filter((b) => !exceptId || b.id !== exceptId)
+      .filter((b) => bookingHeldSlots(b).some((s) => wanted.includes(s)))
+      .reduce((sum, b) => sum + (b.guests ?? 0) + (b.children ?? 0), 0);
+    most = Math.max(most, n);
+  }
+  return most;
+}
+
 /** Live pool-capacity readout for one slot of a date — e.g. "Shared: 22 of
  *  30 spots taken". Only counts Shared, pool-using bookings in that slot. */
 export function getSharedPoolUsage(
@@ -227,7 +245,8 @@ export function getSharedPoolUsage(
 ): { used: number; max: number } {
   const used = liveOn(date, bookings)
     .filter((b) => usesPool(b) && getBookingTier(b) === "Shared" && bookingHeldSlots(b).includes(slot))
-    .reduce((sum, b) => sum + b.guests, 0);
+    // Children under 3 take a spot like anyone (lib/children.ts).
+    .reduce((sum, b) => sum + b.guests + (b.children ?? 0), 0);
   return { used, max: RESORT_SHARED_CAPACITY };
 }
 

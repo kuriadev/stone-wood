@@ -14,7 +14,7 @@ import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin, rowToBooking, missingNewColumn, withoutNewColumns } from "@/lib/supabase";
 import { loadGuestBooking } from "@/lib/rebooking.server";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
-import { sanitizeNotes, startOfToday, toDateStr } from "@/lib/validators";
+import { sanitizeNotes, startOfToday, toDateStr, rescheduleProblem, RESCHEDULE_NOTICE_DAYS } from "@/lib/validators";
 import type { BookingRow } from "@/types/database";
 import { ensureSettings } from "@/lib/settings.server";
 
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
   const { id } = await params;
-  const body = (await req.json().catch(() => null)) as { email?: unknown; t?: unknown; reason?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { email?: unknown; t?: unknown; ep?: unknown; reason?: unknown } | null;
   const email = String(body?.email ?? "").trim().toLowerCase();
   const token = String(body?.t ?? "").trim();
   const reason = sanitizeNotes(String(body?.reason ?? "")).slice(0, 200) || null;
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   try {
     const db = getSupabaseAdmin();
     // The email on the booking, or the signed link the resort sent them.
-    const b = await loadGuestBooking(id, { email, token });
+    const b = await loadGuestBooking(id, { email, token, emailProof: String(body?.ep ?? "") });
     if (!b) {
       return NextResponse.json({ success: false, error: "No booking found for those details." }, { status: 404 });
     }
@@ -58,6 +58,15 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }
     if (b.date < toDateStr(startOfToday())) {
       return NextResponse.json({ success: false, error: "This booking's date has already passed." }, { status: 409 });
+    }
+    // Inside the notice window (Rates & Settings) the guest can neither
+    // move nor cancel online: an emergency goes to the resort by email,
+    // with proof, and staff decide (owner's rule, 2026-11-10).
+    if (rescheduleProblem(b.date)) {
+      return NextResponse.json({
+        success: false,
+        error: `Bookings can't be cancelled online within ${RESCHEDULE_NOTICE_DAYS} day${RESCHEDULE_NOTICE_DAYS === 1 ? "" : "s"} of the visit. If it's an emergency, email the resort with proof.`,
+      }, { status: 409 });
     }
 
     // The status guard in the WHERE clause means two cancel clicks, or a

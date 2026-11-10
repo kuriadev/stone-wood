@@ -95,6 +95,12 @@ export interface Booking {
    *  every record written before this existed is. */
   endDate?: string;
   guests: number;
+  /** Children under 3 (lib/children.ts): inside `guests` on a Shared
+   *  booking, free and on top of it on an Exclusive one. */
+  children?: number;
+  /** When the guest last changed their own name, email or number from
+   *  Manage booking (lib/guestDetails.ts): once every 12 hours. */
+  detailsUpdatedAt?: string;
   package: BookingPackage | string;
   rooms: number[];
   overtime: number;

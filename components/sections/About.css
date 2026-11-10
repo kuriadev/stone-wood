@@ -44,3 +44,27 @@ a.sw-about__frow:hover { background: rgba(201, 168, 76, 0.07); }
   .sw-about__faq { margin-top: 44px; gap: 18px; }
   .sw-about__eyebrow { margin-top: 0; }
 }
+
+/* Rates, under Policies and questions. */
+.sw-about__rates { margin-top: 72px; }
+.sw-about__rategrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+.sw-about__rategrid--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sw-about__rategrid > * { height: 100%; }
+.sw-about__ratecard { height: 100%; border: 1px solid; border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 10px; }
+.sw-about__ratename { margin: 0; font-family: 'Satoshi', system-ui, sans-serif; font-size: 19px; font-weight: 600; }
+.sw-about__ratehours { margin: 0 0 6px; font-size: 12.5px; line-height: 1.5; }
+.sw-about__ratebox { border: 1px solid; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.sw-about__ratelabel { font-size: 12.5px; font-weight: 600; }
+.sw-about__price { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.sw-about__price small { font-size: 12.5px; font-weight: 400; }
+.sw-about__ratenote { font-size: 12px; line-height: 1.55; }
+.sw-about__roomlist { list-style: none; margin: 0; padding: 0; }
+.sw-about__roomlist li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid; }
+.sw-about__roomlist li:first-child { border-top: 0; padding-top: 4px; }
+.sw-about__amen { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.sw-about__amen li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid; border-radius: 12px; }
+.sw-about__amenico { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; }
+@media (max-width: 900px) {
+  .sw-about__rates { margin-top: 52px; }
+  .sw-about__rategrid, .sw-about__rategrid--two { grid-template-columns: 1fr; }
+}

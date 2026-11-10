@@ -134,3 +134,17 @@
 }
 .sw-roomnote__title { margin: 0 0 4px; font-size: 14.5px; font-weight: 700; line-height: 1.4; }
 .sw-roomnote__body { margin: 0; font-size: 13px; line-height: 1.6; }
+
+/* The Terms and Privacy Policy in "Before you continue" (TermsPolicy.tsx). */
+.sw-terms { max-height: min(44vh, 380px); overflow-y: auto; border: 1px solid; border-radius: 12px; padding: 20px 22px; scrollbar-width: thin; outline: none; }
+.sw-terms:focus-visible { box-shadow: 0 0 0 2px var(--sw-gold); }
+.sw-terms__doc + .sw-terms__doc { margin-top: 28px; }
+.sw-terms__title { margin: 0 0 2px; font-family: 'Satoshi', system-ui, sans-serif; font-size: 18px; font-weight: 600; }
+.sw-terms__meta { margin: 0 0 14px; font-size: 12px; }
+.sw-terms__sec { margin-top: 14px; }
+.sw-terms__sec h4 { margin: 0 0 6px; font-size: 13.5px; font-weight: 700; }
+.sw-terms__sec p { margin: 0 0 8px; font-size: 12.5px; line-height: 1.65; }
+.sw-terms__sec ul { margin: 0 0 8px; padding-left: 18px; }
+.sw-terms__sec li { font-size: 12.5px; line-height: 1.65; margin-bottom: 4px; }
+.sw-terms__end { margin: 22px 0 0; padding-top: 12px; border-top: 1px solid; font-size: 12px; text-align: center; }
+@media (max-width: 767px) { .sw-terms { padding: 16px; max-height: 46vh; } }

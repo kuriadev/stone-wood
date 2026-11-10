@@ -28,6 +28,7 @@
 // works it out again from the database before saving, so the two agree.
 
 import type { Booking } from "@/types/booking";
+import { CHILD_FREE_AGE } from "@/lib/children";
 import type { Room } from "@/types/room";
 import { SLOTS } from "@/lib/resort";
 import { getBookingSlot, getBookingResource, getBookingTier, bookingDays } from "@/lib/utils";
@@ -97,10 +98,18 @@ export function priceCharge(b: Booking, req: ChargeRequest, rooms: Room[]): Char
     if (extra < 1) return no("Enter how many more guests came.");
     const limit = guestLimitFor(getBookingResource(b));
     const cap = req.overCapacity ? OVERRIDE_GUESTS_MAX : limit;
-    if (keep.guests + extra > cap) {
+    // Children under 3 sit outside the capacity, but adults and children
+    // together never pass OVERRIDE_GUESTS_MAX (lib/children.ts).
+    const kids = b.children ?? 0;
+    // Shared children count toward the capacity; Exclusive ones don't.
+    const countedKids = getBookingTier(b) === "Shared" ? kids : 0;
+    if (keep.guests + extra + kids > OVERRIDE_GUESTS_MAX) {
+      return no(`That would make ${keep.guests + extra + kids} people with the ${kids} child${kids === 1 ? "" : "ren"} under ${CHILD_FREE_AGE}; the most for one booking is ${OVERRIDE_GUESTS_MAX}.`);
+    }
+    if (keep.guests + extra + countedKids > cap) {
       return no(req.overCapacity
-        ? `That would make ${keep.guests + extra} guests; even over capacity the most for one booking is ${OVERRIDE_GUESTS_MAX}.`
-        : `That would make ${keep.guests + extra} guests, more than the capacity of ${limit}. Tick "Allow more than ${limit} guests" to add them anyway.`);
+        ? `That would make ${keep.guests + extra + countedKids} guests; even over capacity the most for one booking is ${OVERRIDE_GUESTS_MAX}.`
+        : `That would make ${keep.guests + extra + countedKids} guests${countedKids ? `, with the ${countedKids} child${countedKids === 1 ? "" : "ren"} under ${CHILD_FREE_AGE}` : ""}, more than the capacity of ${limit}. Tick "Allow more than ${limit} guests" to add them anyway.`);
     }
     return {
       ok: true, amount: extra * sharedRateFor(getBookingSlot(b)) * days,

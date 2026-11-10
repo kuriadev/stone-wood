@@ -17,6 +17,7 @@ import {
   getPackageTier,
   splitBookingMatch,
   isRoomOpen,
+  peopleOnTour,
   roomsTakenInRange,
 } from "@/lib/utils";
 import { priceBooking, bookingLabel, pricingProblem, packagePricing, type Deal, type PriceBreakdown } from "@/lib/pricing";
@@ -31,6 +32,7 @@ import { multiDayProblem, slotStartedProblem } from "@/lib/resort";
 import type { FacilityRow, PackageRow, RoomRow } from "@/types/database";
 import type { BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 import { ensureSettings } from "@/lib/settings.server";
+import { childrenProblem, cappedHeadcount, CHILD_FREE_AGE } from "@/lib/children";
 import { emailProofValid } from "@/lib/emailCode.server";
 
 /** What Book Now sends. Every field is re-checked here. */
@@ -42,6 +44,9 @@ export interface BookingDraft {
   /** Day, Night or WholeDay. A WholeDay package forces WholeDay. */
   slot: BookingSlot;
   guests: number;
+  /** Children under 3 (lib/children.ts). Already inside `guests` for a
+   *  Shared booking; free and not counted for an Exclusive one. */
+  children?: number;
   /** Always 0 from a guest: overtime is added by staff, not bought online. */
   overtime: number;
   rooms: number[];
@@ -220,6 +225,17 @@ export async function quoteBooking(raw: unknown, opts: { requireEmailProof?: boo
     if (resource === "Venue" && roomIds.length > 0) return bad("Rooms can't be added to a venue-only booking.", 400, "room");
   }
 
+  // ── Children under 3 ────────────────────────────────────────────
+  // On top of `guests` (the adults), not counted toward capacity; adults
+  // and children together at most CHILDREN_TOTAL_MAX. Shared children pay
+  // the child rate, Exclusive ones are free. A shared package's price is
+  // per its fixed count, so it takes none.
+  // Exclusive takes no count: children under 3 are free there anyway.
+  const children = tier !== "Shared" || d.children === undefined || d.children === null ? 0 : Math.round(Number(d.children));
+  if (children > 0 && pkg && tier === "Shared") return bad(`This package has a fixed number of guests. Contact us to bring a child under ${CHILD_FREE_AGE}.`);
+  const kidsShape = childrenProblem(guests, children, guestLimitFor(resource), 0, tier);
+  if (kidsShape) return bad(kidsShape);
+
   // ── Rooms, facilities and the date's other bookings ─────────────
   const [roomsRes, facRes, overlap] = await Promise.all([
     roomIds.length
@@ -241,6 +257,13 @@ export async function quoteBooking(raw: unknown, opts: { requireEmailProof?: boo
   // Everyone occupying any day of the stay, holds included.
   const sameDay = overlap.others;
 
+  // Children are capped by everyone already booked into that tour, so the
+  // resort is never packed (lib/children.ts).
+  if (children > 0) {
+    const crowd = childrenProblem(guests, children, guestLimitFor(resource), peopleOnTour(date, endDate, slot, sameDay), tier);
+    if (crowd) return bad(crowd);
+  }
+
   // Today's tour, once it has started (lib/resort.ts).
   const started = slotStartedProblem(date, slot, undefined, resource);
   if (started) return bad(started, 409);
@@ -250,7 +273,8 @@ export async function quoteBooking(raw: unknown, opts: { requireEmailProof?: boo
   let unavailableReason: string | undefined;
   let unavailableStep: QuoteStep | undefined;
 
-  const capacity = checkRangeAvailability(date, endDate, slot, guests, tier, resource, sameDay, facilities, overtime);
+  // Shared children take spots; Exclusive ones aren't counted.
+  const capacity = checkRangeAvailability(date, endDate, slot, cappedHeadcount(guests, children, tier), tier, resource, sameDay, facilities, overtime);
   if (!capacity.ok) {
     available = false;
     unavailableReason = capacity.reason;
@@ -295,6 +319,7 @@ export async function quoteBooking(raw: unknown, opts: { requireEmailProof?: boo
     tier,
     slot,
     guests,
+    children,
     overtime,
     roomPrices: rooms.map((r) => r.price),
     days: stayDays,
@@ -312,7 +337,7 @@ export async function quoteBooking(raw: unknown, opts: { requireEmailProof?: boo
     quote: {
       draft: {
         packageCode: pkg?.code,
-        resource, tier, slot, guests, overtime,
+        resource, tier, slot, guests, children, overtime,
         rooms: rooms.map((r) => r.id),
         date, endDate, name, email, contact, notes,
         payFull: d.payFull === true,

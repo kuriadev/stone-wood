@@ -23,6 +23,7 @@ import { buildNoticeEmail } from "@/lib/emailTemplate";
 import { trySendMail } from "@/lib/mailer";
 import { logActivity } from "@/lib/activity.server";
 import { fmtDate } from "@/lib/utils";
+import { ensureSettings } from "@/lib/settings.server";
 import type { BookingRow, DateChangeRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,8 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Ctx) {
+  // The hold time and no-show window come from Rates & Settings.
+  await ensureSettings();
   const limited = rateLimit(req, { name: "booking-rebook", limit: 20, windowMs: 60 * 60 * 1000 });
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
@@ -40,7 +43,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   try {
     await sweepExpired(true);
-    const b = await loadGuestBooking(id, { email: body.email as string, token: body.t as string });
+    const b = await loadGuestBooking(id, { email: body.email as string, token: body.t as string, emailProof: body.ep as string });
     if (!b) return no("No booking found for those details.", 404);
     // After a no-show the guest picks too, within their window. The window
     // doesn't pause while the pick waits, and the date they had stays.

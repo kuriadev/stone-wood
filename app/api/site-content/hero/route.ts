@@ -3,6 +3,9 @@
 // ── PUT    /api/site-content/hero  {kind, src}        → use it                  (catalog.manage)
 // ── DELETE /api/site-content/hero            → back to the built-in photo       (catalog.manage)
 //
+// ?slot=closing works the same for the home page's closing band ("Your day
+// at Stonewood Garden"), photos only (SITE_MEDIA_SLOTS).
+//
 // The home page's hero: a photo or an MP4 video (lib/heroMedia.ts). The file
 // goes straight from the admin's browser to the public "site-media" storage
 // bucket through a signed upload link, so a 50 MB video never passes through
@@ -16,7 +19,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { actingStaff } from "@/lib/staff.server";
 import { logActivity } from "@/lib/activity.server";
 import {
-  HERO_MEDIA_KEY, SITE_MEDIA_BUCKET, HERO_UPLOAD, validateHeroMedia, heroUploadProblem, heroUploadPath, type HeroMedia,
+  SITE_MEDIA_BUCKET, SITE_MEDIA_SLOTS, slotOf, HERO_UPLOAD, validateHeroMedia, heroUploadProblem, heroUploadPath, type HeroMedia,
 } from "@/lib/heroMedia";
 
 export const dynamic = "force-dynamic";
@@ -24,9 +27,10 @@ export const dynamic = "force-dynamic";
 const NOT_READY = "The hero background switches on once the database update (20261028130000_site_content.sql) is applied.";
 const missingTable = (msg: string | undefined) => /site_content/.test(msg ?? "");
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const slot = SITE_MEDIA_SLOTS[slotOf(req.nextUrl.searchParams.get("slot"))];
   try {
-    const { data, error } = await getSupabaseAdmin().from("site_content").select("data, updated_at").eq("key", HERO_MEDIA_KEY).maybeSingle();
+    const { data, error } = await getSupabaseAdmin().from("site_content").select("data, updated_at").eq("key", slot.key).maybeSingle();
     if (error) {
       if (missingTable(error.message)) return NextResponse.json({ success: true, media: null, ready: false });
       throw new Error(error.message);
@@ -43,9 +47,12 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
+  const slotName = slotOf(req.nextUrl.searchParams.get("slot"));
+  const slot = SITE_MEDIA_SLOTS[slotName];
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const kind = body.kind === "video" ? "video" : body.kind === "image" ? "image" : null;
   if (!kind) return NextResponse.json({ success: false, error: "Choose a photo or a video." }, { status: 400 });
+  if (kind === "video" && !slot.video) return NextResponse.json({ success: false, error: "This background takes a photo, not a video." }, { status: 400 });
   const type = String(body.type ?? "");
   const problem = heroUploadProblem(kind, type, Number(body.size));
   if (problem) return NextResponse.json({ success: false, error: problem }, { status: 400 });
@@ -61,7 +68,7 @@ export async function POST(req: NextRequest) {
       });
       if (made.error && !/exists/i.test(made.error.message)) throw new Error(made.error.message);
     }
-    const path = heroUploadPath(kind, type, Date.now());
+    const path = heroUploadPath(kind, type, Date.now(), slotName);
     const signed = await storage.from(SITE_MEDIA_BUCKET).createSignedUploadUrl(path);
     if (signed.error) throw new Error(signed.error.message);
     const publicUrl = storage.from(SITE_MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
@@ -75,12 +82,14 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
+  const slot = SITE_MEDIA_SLOTS[slotOf(req.nextUrl.searchParams.get("slot"))];
   const v = validateHeroMedia(await req.json().catch(() => null));
   if (!v.ok) return NextResponse.json({ success: false, error: v.error }, { status: 400 });
+  if (v.media.kind === "video" && !slot.video) return NextResponse.json({ success: false, error: "This background takes a photo, not a video." }, { status: 400 });
   try {
     const who = actingStaff();
     const { error } = await getSupabaseAdmin().from("site_content").upsert(
-      { key: HERO_MEDIA_KEY, data: v.media, updated_at: new Date().toISOString(), updated_by_name: who?.name ?? null },
+      { key: slot.key, data: v.media, updated_at: new Date().toISOString(), updated_by_name: who?.name ?? null },
       { onConflict: "key" },
     );
     if (error) {
@@ -89,8 +98,8 @@ export async function PUT(req: NextRequest) {
     }
     revalidatePath("/");
     await logActivity({
-      actor: "Admin", action: "site.hero", entity: "site_content", entityId: HERO_MEDIA_KEY,
-      summary: `Changed the home page's hero background to a ${v.media.kind === "video" ? "video" : "photo"}.`,
+      actor: "Admin", action: "site.hero", entity: "site_content", entityId: slot.key,
+      summary: `Changed the home page's ${slot.label} to a ${v.media.kind === "video" ? "video" : "photo"}.`,
     });
     return NextResponse.json({ success: true, media: v.media satisfies HeroMedia });
   } catch (err) {
@@ -102,16 +111,17 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
+  const slot = SITE_MEDIA_SLOTS[slotOf(req.nextUrl.searchParams.get("slot"))];
   try {
-    const { error } = await getSupabaseAdmin().from("site_content").delete().eq("key", HERO_MEDIA_KEY);
+    const { error } = await getSupabaseAdmin().from("site_content").delete().eq("key", slot.key);
     if (error) {
       if (missingTable(error.message)) return NextResponse.json({ success: false, error: NOT_READY }, { status: 409 });
       throw new Error(error.message);
     }
     revalidatePath("/");
     await logActivity({
-      actor: "Admin", action: "site.hero", entity: "site_content", entityId: HERO_MEDIA_KEY,
-      summary: "Put the home page's hero background back to the built-in photo.",
+      actor: "Admin", action: "site.hero", entity: "site_content", entityId: slot.key,
+      summary: `Put the home page's ${slot.label} back to the built-in photo.`,
     });
     return NextResponse.json({ success: true, media: null });
   } catch (err) {
