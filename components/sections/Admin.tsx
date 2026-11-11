@@ -17,7 +17,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
 import { fmt, fmtDate, holdsDate } from "@/lib/utils";
 import { Masonry } from "@/components/common/Masonry";
 import { galleryTiles, galleryColumns, toGalleryPhoto, cleanCaption, GALLERY_TITLE_MAX, GALLERY_TEXT_MAX, GALLERY_PAGE_MAX, type GalleryPhoto } from "@/lib/gallery";
-import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { ThemeIconButton } from "@/components/layout/ThemeToggle";
 import { OperationsTab } from "@/components/admin/OperationsTab";
 import { PhotoSet } from "@/components/admin/PhotoSet";
 import { draftReply } from "@/lib/autoReply";
@@ -85,6 +85,7 @@ function TabLoading() {
     </div>
   );
 }
+const MediaMover = dynamic(() => import("@/components/admin/MediaMover").then((m) => m.MediaMover));
 const HeroMediaEditor = dynamic(() => import("@/components/admin/HeroMediaEditor").then((m) => m.HeroMediaEditor), { loading: TabLoading });
 const BookingsTab = dynamic(() => import("@/components/admin/BookingsTab").then((m) => m.BookingsTab), { loading: TabLoading });
 const InventoryTab = dynamic(() => import("@/components/admin/InventoryTab").then((m) => m.InventoryTab), { loading: TabLoading });
@@ -328,15 +329,16 @@ export function Admin({
 
       // Only what is still in the inbox: the collection now carries archived
       // messages too, and re-stamping them would keep rewriting archivedAt.
-      const toArchive = customerMessages.filter((m) => !m.archivedAt && isOld(m));
-      if (toArchive.length === 0) return;
-      const ids = new Set(toArchive.map((m) => m.id));
+      // Read through the updater, so it always works on the latest list.
       const at = new Date().toISOString();
-      setCustomerMessages((prev) => prev.map((m) => (ids.has(m.id) ? { ...m, archivedAt: at } : m)));
+      setCustomerMessages((prev) => {
+        if (!prev.some((m) => !m.archivedAt && isOld(m))) return prev;
+        return prev.map((m) => (!m.archivedAt && isOld(m) ? { ...m, archivedAt: at } : m));
+      });
       // Runs when auto-archive is switched on, as before, not on every poll.
-    }, [autoArchiveEnabled]);
+    }, [autoArchiveEnabled, setCustomerMessages]);
 
-    const [replyModal, setReplyModal] = useState<any | null>(null);
+    const [replyModal, setReplyModal] = useState<CustomerMessage | null>(null);
     /* Send a reply to a guest message by email, from the resort's own Gmail
        (POST /api/customer-service/reply). It used to open a mailto: link,
        i.e. whatever email app the desk computer had, often none. */
@@ -1173,16 +1175,20 @@ export function Admin({
             {/* The signed-in admin. This was a bare SIGN OUT button, which
                 spent the sidebar's one permanent slot on the action you want
                 least often. The account menu holds sign-out along with the
-                username, password and theme. */}
-            {/* On a phone, lifted clear of the floating theme button (and the
-                iPhone home bar), which sat over this row and took the tap. */}
-            <div style={{ padding: mob ? "12px 16px calc(80px + env(safe-area-inset-bottom))" : mini ? "12px 10px" : "12px 16px", borderTop: `1px solid ${sideBorder}`, flexShrink: 0 }}>
-              <ProfileMenu
-                variant="sidebar"
-                compact={mini}
-                onAccountSettings={() => setShowAccount(true)}
-                onSignOut={() => setShowLogoutConfirm(true)}
-              />
+                username and password. */}
+            {/* The theme switch sits to the right of the account card (under
+                it when the sidebar is folded), instead of floating over the
+                page. On a phone, clear of the iPhone home bar. */}
+            <div style={{ padding: mob ? "12px 16px calc(12px + env(safe-area-inset-bottom))" : mini ? "12px 10px" : "12px 16px", borderTop: `1px solid ${sideBorder}`, flexShrink: 0, display: "flex", flexDirection: mini ? "column" : "row", alignItems: "center", gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 0, width: mini ? "100%" : undefined }}>
+                <ProfileMenu
+                  variant="sidebar"
+                  compact={mini}
+                  onAccountSettings={() => setShowAccount(true)}
+                  onSignOut={() => setShowLogoutConfirm(true)}
+                />
+              </div>
+              <ThemeIconButton size={44} />
             </div>
           </div>
           );
@@ -1503,6 +1509,8 @@ export function Admin({
                 </div>
               </div>
 
+              {/* Photos still saved inside records: move them to file storage. */}
+              <MediaMover mob={mob} onMoved={() => window.location.reload()} />
               <HeroMediaEditor mob={mob} />
               <HeroMediaEditor mob={mob} slot="closing" fallback={CLOSING_BG} />
 
@@ -1956,6 +1964,7 @@ export function Admin({
         <AlertDialogContent>
           {confirmRemoveRoom && (
             <>
+              {/* eslint-disable-next-line @next/next/no-img-element -- an admin's room photo, often a data: URL next/image can't optimise */}
               {confirmRemoveRoom.img && <img loading="lazy" decoding="async" src={confirmRemoveRoom.img} alt={confirmRemoveRoom.name} style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 8 }} />}
               <div style={{ width: 50, height: 50, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: C.dangerInk }}><Icon name="bed" size={22} /></div>
               <AlertDialogHeader>
@@ -2103,8 +2112,6 @@ export function Admin({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <ThemeToggle />
     </div>
   );
 }

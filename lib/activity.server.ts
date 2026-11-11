@@ -29,6 +29,20 @@ export interface ActivityInput {
   details?: Record<string, unknown>;
 }
 
+/** Photos inside an entry's details (a package's before and after, say)
+ *  become "(photo)": a log line doesn't need the picture, and one carried
+ *  half a megabyte into every load of the Activity screen. */
+export function scrubDetails<T>(v: T): T {
+  if (typeof v === "string") return (v.startsWith("data:") && v.length > 200 ? "(photo)" : v) as T;
+  if (Array.isArray(v)) return v.map(scrubDetails) as T;
+  if (v && typeof v === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(v as Record<string, unknown>)) out[k] = scrubDetails(x);
+    return out as T;
+  }
+  return v;
+}
+
 export async function logActivity(input: ActivityInput | ActivityInput[]): Promise<void> {
   const list = Array.isArray(input) ? input : [input];
   if (list.length === 0) return;
@@ -45,7 +59,7 @@ export async function logActivity(input: ActivityInput | ActivityInput[]): Promi
       booking_id: a.bookingId ?? null,
       entity: a.entity ?? a.action.split(".")[0],
       entity_id: a.entityId == null ? "" : String(a.entityId),
-      details: by ? { ...(a.details ?? {}), by: by.name, byRole: by.role } : (a.details ?? {}),
+      details: scrubDetails(by ? { ...(a.details ?? {}), by: by.name, byRole: by.role } : (a.details ?? {})),
       ...(by ? { staff_id: by.id, staff_name: by.name } : {}),
     };
   });

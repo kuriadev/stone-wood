@@ -73,7 +73,9 @@ export function AvailabilityCalendar({
 
   // Bookable range: today → min(today + 3 months, 31 Dec of this year).
   // Computed once per mount so a render mid-session cannot shift it.
-  const { min: minDate, max: maxDate } = useMemo(() => getBookingWindow(), [mounted]);
+  // Worked out again once mounted: the server render can't read the
+  // guest's clock, so the first value is replaced after mount.
+  const { min: minDate, max: maxDate } = useMemo(() => { void mounted; return getBookingWindow(); }, [mounted]);
 
   // "Booked" means at least one slot on the date can no longer take even a
   // single extra Shared guest — an Exclusive buyout of that slot, or a slot
@@ -172,7 +174,7 @@ export function AvailabilityCalendar({
 
   // Forward: as far as the bookable window. Back: a few months (Rates &
   // Settings), so a guest can see the dates just gone; they show as past.
-  const firstMonth = useMemo(() => firstViewableMonth(), [mounted]);
+  const firstMonth = useMemo(() => { void mounted; return firstViewableMonth(); }, [mounted]);
   const lastMonth = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
   const viewing = new Date(year, month, 1);
   const canGoPrev = mounted && viewing > firstMonth;

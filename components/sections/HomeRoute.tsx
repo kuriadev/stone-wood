@@ -28,6 +28,13 @@ const nav = (p: string) => {
     "Manage Booking": "/my-booking",
   };
 
+    // Already on the home page: Home (footer link, logo) glides back up
+    // to the hero instead of reloading the same route.
+    if (p === "Home") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     const target = routes[p] ?? "/";
 
     const loader = globalThis.loader?.current;

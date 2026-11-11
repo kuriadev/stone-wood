@@ -5,6 +5,7 @@
 //
 // Needs migration 20260923090000.
 
+import { storeImage } from "@/lib/mediaStore.server";
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server";
 import { fmt } from "@/lib/utils";
@@ -38,6 +39,10 @@ async function discountReady(): Promise<boolean> {
  *  yet, so the rest of the package still saves. */
 async function rowFor(b: Record<string, unknown>) {
   const row = build(b);
+  // Photos are stored as files; the package keeps their links
+  // (lib/mediaStore.server.ts).
+  row.cover = await storeImage(row.cover, "packages");
+  row.gallery = await Promise.all(row.gallery.map(async (g) => ({ ...g, src: await storeImage(g.src, "packages") })));
   if (await discountReady()) return { row, discountSaved: true };
   const { discount: _dropped, ...rest } = row;
   void _dropped;

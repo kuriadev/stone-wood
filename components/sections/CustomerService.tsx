@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { customerServiceForm, type CustomerServiceForm } from "@/lib/schemas";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,7 @@ export function CustomerService({ onSubmitMessage }: CustomerServiceProps) {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     formState: { touchedFields, isSubmitting },
   } = useForm<CustomerServiceForm>({
@@ -59,7 +59,8 @@ export function CustomerService({ onSubmitMessage }: CustomerServiceProps) {
 
   // Watched values keep the per-field hints below working unchanged — they
   // read `form.x` exactly as before, so only the plumbing moved.
-  const form = watch();
+  const watched = useWatch({ control });
+  const form: CustomerServiceForm = { name: "", email: "", type: "Inquiry", message: "", ...watched } as CustomerServiceForm;
   const touched = {
     name: Boolean(touchedFields.name),
     email: Boolean(touchedFields.email),

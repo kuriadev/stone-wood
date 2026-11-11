@@ -63,6 +63,7 @@ export function RoomCoverflow({ rooms, onSelect, ctaLabel }: RoomCoverflowProps)
           }}
         >
           <div style={{ position: "relative", flexShrink: 0 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- room photos are admin uploads (often data: URLs) with their own srcSet */}
             <img
               loading="lazy"
               decoding="async"

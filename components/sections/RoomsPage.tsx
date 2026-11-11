@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { srcSetFor } from "@/lib/img";
 import { roomShots } from "@/lib/gallery";
 import { Icon } from "@/components/common/Icon";
+import { GuestCapBadge } from "@/components/common/GuestCapBadge";
 import { useRoomCart, roomCart } from "@/hooks/useRoomCart";
 import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
 import { Button } from "@/components/ui/button";
@@ -111,6 +112,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
                 <article data-room={r.id} className={`sw-room${flip ? " is-flip" : ""}`} style={{ gridTemplateColumns: mob ? "minmax(0, 1fr)" : flip ? "minmax(0,1fr) minmax(0,1.15fr)" : "minmax(0,1.15fr) minmax(0,1fr)" }}>
                   <button type="button" className="sw-room__photo" onClick={() => setActiveRoom(r)} aria-label={`See ${r.name}`}
                     style={{ order: flip ? 2 : 0 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- room photos are admin uploads (often data: URLs) with their own srcSet */}
                     <img
                       loading="lazy" decoding="async"
                       src={r.img}
@@ -126,7 +128,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
                     <p className="sw-room__eyebrow" style={{ color: C.goldInk }}>{eyebrow}</p>
                     <h3 className="sw-room__title" style={{ color: C.textH }}>{title}</h3>
                     <p className="sw-room__beds" style={{ color: C.textB }}>
-                      <Icon name="bed" size={14} style={{ color: C.goldInk }} /> {r.beds} · Up to {r.capacity} guests
+                      <Icon name="bed" size={14} style={{ color: C.goldInk }} /> {r.beds} <GuestCapBadge n={r.capacity} />
                     </p>
                     <p className="sw-room__price" style={{ color: C.textH }}>{fmt(r.price)} <span style={{ color: C.textS }}>per tour</span></p>
                     {r.desc && <p className="sw-room__desc" style={{ color: C.textS }}>{r.desc}</p>}

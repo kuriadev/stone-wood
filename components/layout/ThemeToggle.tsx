@@ -7,6 +7,38 @@ import { RoomCartDock } from "@/components/common/RoomCartDock";
 /** The glyph of the theme a tap switches TO. */
 const NEXT_ICON: Record<ThemeMode, IconName> = { light: "sun", dark: "moon" };
 
+/** The same switch as a plain square button that sits in a bar (the admin
+ *  sidebar puts it beside the account card), not floating over the page. */
+export function ThemeIconButton({ size = 44 }: { size?: number }) {
+  const { isDark, mode, toggle } = useTheme();
+  const next = nextTheme(mode);
+  return (
+    <button
+      type="button"
+      className="sw-gold-hover"
+      onClick={toggle}
+      title={`${THEME_LABEL[mode]} theme · switch to ${THEME_LABEL[next]}`}
+      aria-label={`Switch to the ${THEME_LABEL[next].toLowerCase()} theme`}
+      style={{
+        width: size,
+        height: size,
+        flexShrink: 0,
+        borderRadius: 12,
+        border: `1px solid ${isDark ? "rgba(201,168,76,0.38)" : "#e2d9c8"}`,
+        background: "transparent",
+        color: isDark ? "#f2d98b" : "#2a2620",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transition: "border-color .3s ease, color .3s ease",
+      }}
+    >
+      <Icon name={NEXT_ICON[next]} size={18} strokeWidth={2} />
+    </button>
+  );
+}
+
 /** Flips between Light and Dark. */
 export function ThemeToggle() {
   const { isDark, mode, toggle } = useTheme();

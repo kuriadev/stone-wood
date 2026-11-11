@@ -11,7 +11,6 @@ import type { Notice } from "@/lib/emailTemplate";
 import { fmt, fmtDate, getBookingSlot } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
 import { fmtDeadline } from "@/lib/rebooking";
-import { payMethodLabel } from "@/lib/labels";
 
 export interface NoticeText {
   email: Notice;

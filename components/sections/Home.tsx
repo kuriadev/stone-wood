@@ -378,7 +378,7 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
           </h1>
 
           <p className="hero-sub" style={{ color: "rgba(246,241,232,0.94)", fontSize: mob ? 16 : 18, maxWidth: 520, margin: "0 auto", lineHeight: 1.8, fontWeight: 300, textShadow: "0 1px 16px rgba(0,0,0,0.4)" }}>
-            An exclusive private resort experience crafted for those who seek luxury, privacy, and nature.
+            A private pool resort in Angono, Rizal. Swim by day or night, share the pool or keep it all to your group.
           </p>
         </div>
 
@@ -441,7 +441,7 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
               Choose Your Stay
             </h2>
             <p style={{ ...lede, maxWidth: 520, margin: "0 auto" }}>
-              A few real ways to book — pool only, the events venue, or both together. Select a package to see the full details.
+              A swim day, a party, or both? Pick the package that fits your group: the pool, the events venue, or the two together.
             </p>
           </Reveal>
 

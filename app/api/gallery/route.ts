@@ -10,6 +10,7 @@
 // still save, without their words, and `captionsReady: false` tells the
 // admin Gallery tab to say so rather than lose the text quietly.
 
+import { storeImages } from "@/lib/mediaStore.server";
 import { NextResponse, type NextRequest } from "next/server";
 import { cleanImageList } from "@/lib/image";
 import { logActivity } from "@/lib/activity.server";
@@ -74,7 +75,10 @@ export async function PUT(req: NextRequest) {
     // 2000 characters stores a corrupt image behind a 200 OK (lib/image.ts).
     const checked = cleanImageList(given.map((p) => p.url), "photo");
     if (!checked.ok) return NextResponse.json({ success: false, error: checked.error }, { status: 413 });
-    const rows = checked.value.map((url, i) => ({
+    // Photos are stored as files; each row keeps a link (lib/mediaStore.server.ts).
+    // A photo already moved is a link and is saved as it is.
+    const urls = await storeImages(checked.value, "gallery");
+    const rows = urls.map((url, i) => ({
       url,
       sort_order: i,
       title: cleanCaption(given[i]?.title, GALLERY_TITLE_MAX),

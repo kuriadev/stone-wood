@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
@@ -21,7 +22,7 @@ interface NavbarProps {
   setPage: (p: string) => void;
 }
 
-const LINKS = ["Home", "Rooms", "Packages", "Gallery", "About Us"];
+const LINKS = ["Home", "Rooms", "Packages", "Gallery", "About Us", "Manage Booking"];
 /** What each link reads. The page keys stay as they are ("About Us"
  *  is the route name everywhere); only the label is shorter. */
 const linkLabel = (l: string) => (l === "About Us" ? "About" : l);
@@ -102,7 +103,10 @@ export function Navbar({ page, setPage }: NavbarProps) {
 
   useEffect(() => { setOpen(false); }, [page]);
 
-  const go = (p: string) => { setOpen(false); setPage(p); };
+  const router = useRouter();
+  // Manage Booking is its own route (/my-booking); not every page's
+  // setPage map lists it, so it is opened here directly.
+  const go = (p: string) => { setOpen(false); if (p === "Manage Booking") router.push("/my-booking"); else setPage(p); };
 
   // `overlay` strips the bar's own background so whatever is behind shows
   // through. The header is `position: sticky`, which keeps it in document
@@ -194,8 +198,10 @@ export function Navbar({ page, setPage }: NavbarProps) {
 
           {/* Desktop links */}
           {!mob && (
-            <nav aria-label="Main" style={{ display: "flex", alignItems: "center", gap: 44 }}>
-              {LINKS.map((l) => {
+            <nav aria-label="Main" style={{ display: "flex", alignItems: "center", gap: "clamp(18px, 2.6vw, 44px)" }}>
+              {/* No HOME here: the Stonewood logo already goes home. The
+                  phone menu keeps it. */}
+              {LINKS.filter((l) => l !== "Home").map((l) => {
                 const active = page === l;
                 // On the home page itself the underline under HOME says
                 // nothing new, so it isn't drawn there.
@@ -348,13 +354,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
             </button>
 
             <div style={{ marginTop: "auto", paddingTop: 24, borderTop: `1px solid ${C.borderLight}` }}>
-              <button className="sw-ulink"
-                onClick={() => go("Manage Booking")}
-                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: C.textS, fontSize: 13.5, letterSpacing: 1 }}
-              >
-                Manage a reservation
-              </button>
-              <p style={{ color: C.textXS, fontSize: 12.5, marginTop: 12, lineHeight: 1.7 }}>
+              <p style={{ color: C.textXS, fontSize: 12.5, margin: 0, lineHeight: 1.7 }}>
                 Angono, Rizal · Day {SLOTS.Day.hours} · Night {SLOTS.Night.hours}
               </p>
             </div>

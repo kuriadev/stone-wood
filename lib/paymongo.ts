@@ -106,7 +106,7 @@ export async function createQrPayment(opts: {
     );
   }
 
-  const intent = await call<any>("/payment_intents", {
+  const intent = await call<PmIntent>("/payment_intents", {
     method: "POST",
     body: JSON.stringify({
       data: {
@@ -124,12 +124,12 @@ export async function createQrPayment(opts: {
     }),
   });
 
-  const method = await call<any>("/payment_methods", {
+  const method = await call<{ data: { id: string } }>("/payment_methods", {
     method: "POST",
     body: JSON.stringify({ data: { attributes: { type: "qrph" } } }),
   });
 
-  const attached = await call<any>(
+  const attached = await call<PmIntent>(
     `/payment_intents/${intent.data.id}/attach`,
     {
       method: "POST",
@@ -159,7 +159,7 @@ export async function createQrPayment(opts: {
   return {
     paymentIntentId: intent.data.id,
     clientKey: intent.data.attributes.client_key,
-    qrImageUrl: code.image_url,
+    qrImageUrl: code.image_url!,
     expiresAt,
     expiresInSeconds,
     amountCentavos: amount,
@@ -189,11 +189,25 @@ export async function cancelPayment(paymentIntentId: string): Promise<boolean> {
   }
 }
 
+/** The parts of a PayMongo payment intent this file reads. */
+interface PmIntent {
+  data: {
+    id: string;
+    attributes: {
+      client_key: string;
+      status?: string;
+      amount?: number;
+      payments?: { attributes?: { paid_at?: number } }[];
+      next_action?: { type?: string; code?: { image_url?: string; expires_at?: string; test_url?: string } } | null;
+    };
+  };
+}
+
 /** Current status of a payment intent, read straight from PayMongo. */
 export async function getPaymentStatus(
   paymentIntentId: string
 ): Promise<{ status: PaymentStatus; paidAt: number | null; amountCentavos: number }> {
-  const res = await call<any>(`/payment_intents/${paymentIntentId}`);
+  const res = await call<PmIntent>(`/payment_intents/${paymentIntentId}`);
   const attrs = res.data.attributes;
   const payment = attrs.payments?.[0];
 

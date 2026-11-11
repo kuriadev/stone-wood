@@ -5,6 +5,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
 import { T } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
+import { GuestCapBadge } from "@/components/common/GuestCapBadge";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
 // The owner's phone and email from Rates & Settings, not a typed-in copy.
@@ -368,22 +369,22 @@ export function About({
                 <Reveal key={id} delay={i * REVEAL_STEP}>
                   <div className="sw-about__ratecard" style={{ background: C.bgCard, borderColor: C.border }}>
                     <p className="sw-about__ratename" style={{ color: C.goldInk }}>{SLOTS[id].label}</p>
-                    <p className="sw-about__ratehours" style={{ color: C.textS }}>
-                      {slotFor(id).hours}{stay ? ` · up to ${MAX_STAY_DAYS} days` : ""}
+                    <p className="sw-about__ratehours" style={{ color: C.textB }}>
+                      <Icon name="clock" size={15} style={{ color: C.goldInk }} />{slotFor(id).hours}{stay ? ` · up to ${MAX_STAY_DAYS} days` : ""}
                     </p>
                     {!stay && (
                       <div className="sw-about__ratebox" style={{ background: isDark ? "rgba(255,255,255,0.03)" : "#ffffff", borderColor: C.border }}>
-                        <span className="sw-about__ratelabel" style={{ color: C.textH }}>Shared pool</span>
+                        <span className="sw-about__ratelabel" style={{ color: C.goldInk }}>Shared pool</span>
                         <span className="sw-about__price" style={{ color: C.textH }}>{fmt(sharedRateFor(id))}<small style={{ color: C.textS }}> / guest</small></span>
-                        <span className="sw-about__ratenote" style={{ color: C.textS }}>
+                        <span className="sw-about__ratenote" style={{ color: C.textB }}>
                           Children {CHILD_FREE_AGE} years old and below: {kid > 0 ? `${fmt(kid)} each` : "free"}. Up to {GUESTS_MAX} guests share the pool.
                         </span>
                       </div>
                     )}
                     <div className="sw-about__ratebox" style={{ background: isDark ? "rgba(255,255,255,0.03)" : "#ffffff", borderColor: C.border }}>
-                      <span className="sw-about__ratelabel" style={{ color: C.textH }}>Exclusive pool</span>
+                      <span className="sw-about__ratelabel" style={{ color: C.goldInk }}>Exclusive pool</span>
                       <span className="sw-about__price" style={{ color: C.textH }}>{fmt(exclusiveRateFor(id))}<small style={{ color: C.textS }}>{stay ? " / day" : " flat"}</small></span>
-                      <span className="sw-about__ratenote" style={{ color: C.textS }}>
+                      <span className="sw-about__ratenote" style={{ color: C.textB }}>
                         The pool and resort are your group&rsquo;s alone, up to {GUESTS_MAX} guests. Children {CHILD_FREE_AGE} years old and below are free.
                       </span>
                     </div>
@@ -408,11 +409,11 @@ export function About({
             <Reveal>
               <div className="sw-about__ratecard" style={{ background: C.bgCard, borderColor: C.border }}>
                 <p className="sw-about__ratename" style={{ color: C.goldInk }}>Events venue</p>
-                <p className="sw-about__ratehours" style={{ color: C.textS }}>Open until {venueCloseText()} on a Night Tour or Staycation</p>
+                <p className="sw-about__ratehours" style={{ color: C.textB }}><Icon name="clock" size={15} style={{ color: C.goldInk }} />Open until {venueCloseText()} on a Night Tour or Staycation</p>
                 <div className="sw-about__ratebox" style={{ background: isDark ? "rgba(255,255,255,0.03)" : "#ffffff", borderColor: C.border }}>
-                  <span className="sw-about__ratelabel" style={{ color: C.textH }}>Per tour</span>
+                  <span className="sw-about__ratelabel" style={{ color: C.goldInk }}>Per tour</span>
                   <span className="sw-about__price" style={{ color: C.textH }}>{fmt(EVENT_VENUE_RATE)}</span>
-                  <span className="sw-about__ratenote" style={{ color: C.textS }}>
+                  <span className="sw-about__ratenote" style={{ color: C.textB }}>
                     One event at a time, up to {VENUE_CAPACITY} guests. Book it on its own, or with the resort and pool. A Staycation pays it for both tours.
                   </span>
                 </div>
@@ -421,7 +422,7 @@ export function About({
             <Reveal delay={REVEAL_STEP}>
               <div className="sw-about__ratecard" style={{ background: C.bgCard, borderColor: C.border }}>
                 <p className="sw-about__ratename" style={{ color: C.goldInk }}>Rooms</p>
-                <p className="sw-about__ratehours" style={{ color: C.textS }}>An add-on to any tour, priced per tour (twice for a Staycation)</p>
+                <p className="sw-about__ratehours" style={{ color: C.textB }}><Icon name="bed" size={15} style={{ color: C.goldInk }} />An add-on to any tour, priced per tour (twice for a Staycation)</p>
                 {rooms.length === 0 ? (
                   <p className="sw-about__ratenote" style={{ color: C.textS }}>Room rates are shown when you book.</p>
                 ) : (
@@ -429,10 +430,10 @@ export function About({
                     {rooms.map((rm) => (
                       <li key={rm.id} style={{ borderColor: C.border }}>
                         <span style={{ minWidth: 0 }}>
-                          <span style={{ display: "block", color: C.textH, fontSize: 14, fontWeight: 600 }}>{rm.name}</span>
-                          <span style={{ display: "block", color: C.textS, fontSize: 12 }}>{rm.beds} · up to {rm.capacity} guests</span>
+                          <span style={{ display: "block", color: C.textH, fontSize: 15.5, fontWeight: 600 }}>{rm.name}</span>
+                          <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px 8px", marginTop: 4, color: C.textS, fontSize: 13.5 }}>{rm.beds} <GuestCapBadge n={rm.capacity} size={12} /></span>
                         </span>
-                        <span style={{ color: C.textH, fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(rm.price)}<small style={{ color: C.textS, fontWeight: 400 }}> / tour</small></span>
+                        <span style={{ color: C.textH, fontSize: 19, fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(rm.price)}<small style={{ color: C.textS, fontSize: 13, fontWeight: 400 }}> / tour</small></span>
                       </li>
                     ))}
                   </ul>
@@ -447,18 +448,18 @@ export function About({
             <Reveal>
               <div className="sw-about__ratecard" style={{ background: C.bgCard, borderColor: C.border, marginTop: 16, height: "auto" }}>
                 <p className="sw-about__ratename" style={{ color: C.goldInk }}>Included with your tour</p>
-                <p className="sw-about__ratehours" style={{ color: C.textS }}>Free to use on every Day Tour, Night Tour and Staycation with the resort &amp; pool</p>
+                <p className="sw-about__ratehours" style={{ color: C.textB }}><Icon name="check-circle" size={15} style={{ color: C.goldInk }} />Free to use on every Day Tour, Night Tour and Staycation with the resort &amp; pool</p>
                 <ul className="sw-about__amen">
                   {amenities.map((a) => (
                     <li key={a.id} style={{ borderColor: C.border, background: isDark ? "rgba(255,255,255,0.03)" : "#ffffff", opacity: a.underMaintenance ? 0.6 : 1 }}>
                       <span aria-hidden="true" className="sw-about__amenico" style={{ background: `${gold}1f`, color: C.goldInk }}>
-                        <Icon name={facilityIcon({ icon: a.icon, category: "Amenity" })} size={16} strokeWidth={1.75} />
+                        <Icon name={facilityIcon({ icon: a.icon, category: "Amenity" })} size={19} strokeWidth={1.9} />
                       </span>
                       <span style={{ minWidth: 0 }}>
-                        <span style={{ display: "block", color: C.textH, fontSize: 13.5, fontWeight: 600 }}>{a.name}</span>
+                        <span style={{ display: "block", color: C.textH, fontSize: 15, fontWeight: 600 }}>{a.name}</span>
                         {a.underMaintenance
-                          ? <span style={{ display: "block", color: C.textS, fontSize: 11.5 }}>Under maintenance for now</span>
-                          : a.description && <span style={{ display: "block", color: C.textS, fontSize: 11.5, lineHeight: 1.45 }}>{a.description}</span>}
+                          ? <span style={{ display: "block", color: C.textS, fontSize: 13, marginTop: 2 }}>Under maintenance for now</span>
+                          : a.description && <span style={{ display: "block", color: C.textB, fontSize: 13, lineHeight: 1.5, marginTop: 2 }}>{a.description}</span>}
                       </span>
                     </li>
                   ))}

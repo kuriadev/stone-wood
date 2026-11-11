@@ -3,6 +3,7 @@
 // ── PATCH  /api/rooms?id=  → update a room   (admin only)
 // ── DELETE /api/rooms?id=  → delete a room   (admin only)
 
+import { storeImage, storeImages } from "@/lib/mediaStore.server";
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity, changes, listFields, loadRow } from "@/lib/activity.server";
 import { fmt } from "@/lib/utils";
@@ -82,14 +83,17 @@ export async function POST(req: NextRequest) {
     const gallery = cleanGallery(b.gallery, cover.value);
     if (!gallery.ok) return NextResponse.json({ success: false, error: gallery.error }, { status: 413 });
 
+    // Photos are stored as files; the room keeps their links (lib/mediaStore.server.ts).
+    const coverUrl = await storeImage(cover.value, "rooms");
+    const galleryUrls = await storeImages(gallery.value, "rooms");
     const row = roomToRow({
       name: sanitizeLabel(String(b.name)),
       beds: String(b.beds ?? "").slice(0, 60),
       capacity: Math.round(Number(b.capacity)),
       price: Number(b.price),
       desc: sanitizeNotes(String(b.desc ?? "")),
-      img: cover.value,
-      gallery: gallery.value,
+      img: coverUrl,
+      gallery: galleryUrls,
     } as Room);
 
     let { data, error } = await getSupabaseAdmin().from("rooms").insert(row).select().single();
@@ -130,12 +134,12 @@ export async function PATCH(req: NextRequest) {
     if (b.img !== undefined) {
       const cover = cleanImageRef(b.img, "room photo");
       if (!cover.ok) return NextResponse.json({ success: false, error: cover.error }, { status: 413 });
-      patch.img = cover.value;
+      patch.img = await storeImage(cover.value, "rooms");
     }
     if (b.gallery !== undefined) {
       const g = cleanGallery(b.gallery, String(b.img ?? ""));
       if (!g.ok) return NextResponse.json({ success: false, error: g.error }, { status: 413 });
-      patch.gallery = g.value;
+      patch.gallery = await storeImages(g.value, "rooms");
       // The cover must stay the first photo, or the card and the gallery
       // would disagree about what this room looks like.
       if (patch.gallery.length && b.img === undefined) patch.img = patch.gallery[0];

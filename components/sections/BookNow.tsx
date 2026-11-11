@@ -21,7 +21,8 @@
   import { stayWindowLabel } from "@/lib/occupancy";
   import type { Room } from "@/types/room";
   import type { Facility } from "@/types/facility";
-  import { Icon, type IconName } from "@/components/common/Icon";
+  import { GuestCapBadge } from "@/components/common/GuestCapBadge";
+import { Icon, type IconName } from "@/components/common/Icon";
   import { EmailTypoHint } from "@/components/common/EmailTypoHint";
   import { suggestEmail } from "@/lib/emailTypos";
   import { RoomCartDock } from "@/components/common/RoomCartDock";
@@ -629,6 +630,11 @@
     const handleNotes = (v: string) => setF("notes", sanitizeNotes(v));
 
     // ── 1. Mint a real QR when the guest reaches step 6 ───────────────────
+    // The booking as it stands, for the QR below: a new QR is made when the
+    // guest reaches the payment step (or retries), not each time a value in
+    // the draft changes.
+    const draftRef = useRef(draft);
+    useEffect(() => { draftRef.current = draft; });
     // Each visit creates its own PayMongo payment intent, so every booking
     // (and every retry) gets a genuinely unique QR rather than a shared image.
     useEffect(() => {
@@ -651,7 +657,7 @@
             headers: { "Content-Type": "application/json" },
             // The booking itself, not an amount: the server prices it and
             // decides what the QR charges.
-            body: JSON.stringify({ draft }),
+            body: JSON.stringify({ draft: draftRef.current }),
           });
           const json = await res.json();
           if (cancelled) return;
@@ -1135,7 +1141,7 @@
           </div>
           {sumHr}
           {sumTotal("Total", fmt(total))}
-          {sumLine("Due now", fmt(payFull ? total : down))}
+          {sumLine("Pay now", fmt(payFull ? total : down))}
           {sumLine("Balance on arrival", fmt(payFull ? 0 : total - down))}
         </>
       ) : summaryKind === "order" ? (
@@ -1439,7 +1445,7 @@
                             their own. */}
                         <div role="radiogroup" aria-label="What you are booking" style={tileRow}>
                           {([
-                            { id: "Pool", title: "Resort & pool", sub: "All but the events hall", note: "" },
+                            { id: "Pool", title: "Resort & pool", sub: "Pools · no events venue", note: "" },
                             { id: "Pool+Venue", title: "Resort, pool & venue", sub: `Exclusive · +${fmt(EVENT_VENUE_RATE)}/tour`, note: slot !== "Day" ? `Venue until ${venueCloseText()}` : "" },
                             { id: "Venue", title: "Events venue only", sub: `No pool · ${fmt(EVENT_VENUE_RATE)}/tour`, note: slot !== "Day" ? `Up to ${VENUE_CAPACITY} · until ${venueCloseText()}` : `Up to ${VENUE_CAPACITY} guests` },
                           ] as const).map((opt) => {
@@ -1889,7 +1895,7 @@
                             {/* On a narrow screen the name is already on the
                                 top line with the circle. */}
                             {!mob && <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 600, marginBottom: 4 }}>{r.name}</span>}
-                            <span style={{ display: "block", color: C.textS, fontSize: 12.5 }}>{r.beds} · Up to {r.capacity} guests</span>
+                            <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px 8px", color: C.textS, fontSize: 12.5 }}>{r.beds} <GuestCapBadge n={r.capacity} size={12} /></span>
                             {taken && <span style={{ display: "block", color: "#e07a7a", fontSize: 12, marginTop: 4 }}>Already booked on {fmtDate(date)}</span>}
                           </span>
                           <span style={{ textAlign: mob ? "left" : "right", flexShrink: 0 }}>

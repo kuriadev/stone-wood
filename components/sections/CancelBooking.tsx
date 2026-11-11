@@ -1291,28 +1291,43 @@ export function ManageBooking(_props: ManageBookingProps) {
         <section aria-labelledby="mb-policies" style={{ marginTop: 48 }}>
           <h2 id="mb-policies" style={{ color: C.textH, fontFamily: serif, fontSize: mob ? 24 : 28, fontWeight: 400, textAlign: "center", margin: "0 0 24px" }}>Booking policies</h2>
           <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(3, minmax(0, 1fr))", gap: 16 }}>
+            {/* Each card: a coloured top edge, a one-glance tag (the rule in
+                two words), then each point with its key words bright and the
+                rest muted, so the rule reads before the detail. */}
             {([
-              ["calendar-clock", "Rescheduling", [
-                `Move your booking to another free date once, at no charge. Everything you paid carries over.`,
-                `Ask at least ${noticeDays} day${noticeDays === 1 ? "" : "s"} before your visit. The new date is held while the resort confirms it.`,
-              ]],
-              ["shield-alert", "Cancellation", [
-                `If you cancel, payments aren't refunded. Moving your date instead keeps them.`,
-                `Within ${noticeDays} day${noticeDays === 1 ? "" : "s"} of the visit, bookings can't be cancelled online. For an emergency, send the resort your proof from here.`,
-                `If the resort cancels, you choose a free new date or a full refund.`,
-              ]],
-              ["user", "Your details", [
-                `Change the name, email and mobile number on your booking yourself, under Update guest details.`,
-                `After a change, the next one is possible in ${DETAILS_COOLDOWN_HOURS} hours. A confirmation is emailed each time.`,
-              ]],
-            ] as const).map(([icon, title, lines]) => (
-              <div key={title} style={{ ...card, padding: 22 }}>
-                <span aria-hidden="true" style={{ width: 44, height: 44, borderRadius: "50%", display: "grid", placeItems: "center", background: `${gold}1f`, color: C.goldInk, marginBottom: 14 }}>
-                  <Icon name={icon} size={19} strokeWidth={1.75} />
-                </span>
-                <h3 style={{ color: C.textH, fontSize: 16, fontWeight: 600, margin: "0 0 8px" }}>{title}</h3>
-                <ul style={{ margin: 0, paddingLeft: 18, color: C.textS, fontSize: 13, lineHeight: 1.65, display: "grid", gap: 6 }}>
-                  {lines.map((l) => <li key={l}>{l}</li>)}
+              { icon: "calendar-clock", title: "Rescheduling", tag: "Free · once", tone: gold, ink: C.goldInk, mark: "check", lines: [
+                ["Move to another open date once, free.", "Everything you paid carries over."],
+                [`Ask at least ${noticeDays} day${noticeDays === 1 ? "" : "s"} before your visit.`, "The new date is held while the resort confirms it."],
+              ] },
+              { icon: "shield-alert", title: "Cancellation", tag: "No refunds", tone: "#e5484d", ink: C.dangerInk, mark: "alert", lines: [
+                ["If you cancel, payments aren't refunded.", "Moving your date instead keeps them."],
+                [`No online cancelling within ${noticeDays} day${noticeDays === 1 ? "" : "s"} of the visit.`, "For an emergency, send the resort your proof from here."],
+                ["If the resort cancels, you choose:", "a free new date or a full refund."],
+              ] },
+              { icon: "user", title: "Your details", tag: `Every ${DETAILS_COOLDOWN_HOURS} hrs`, tone: "#5b9bd5", ink: "#5b9bd5", mark: "check", lines: [
+                ["Change your name, email and mobile yourself,", "under Update guest details."],
+                [`One change every ${DETAILS_COOLDOWN_HOURS} hours.`, "A confirmation is emailed each time."],
+              ] },
+            ] as const).map(({ icon, title, tag, tone, ink, mark, lines }) => (
+              <div key={title} style={{ ...card, padding: 22, borderTop: `3px solid ${tone}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                  <span aria-hidden="true" style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: `${tone}22`, color: ink, flexShrink: 0 }}>
+                    <Icon name={icon} size={19} strokeWidth={1.9} />
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <h3 style={{ color: C.textH, fontSize: 16.5, fontWeight: 600, margin: 0 }}>{title}</h3>
+                    <span style={{ display: "inline-block", marginTop: 4, padding: "2px 9px", borderRadius: 999, background: `${tone}1f`, border: `1px solid ${tone}66`, color: ink, fontSize: 11.5, fontWeight: 600, letterSpacing: 0.3 }}>{tag}</span>
+                  </div>
+                </div>
+                <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 12 }}>
+                  {lines.map(([key, rest]) => (
+                    <li key={key} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13.5, lineHeight: 1.6 }}>
+                      <span aria-hidden="true" style={{ color: ink, lineHeight: 0, marginTop: 4, flexShrink: 0 }}>
+                        <Icon name={mark} size={15} strokeWidth={2.2} />
+                      </span>
+                      <span><strong style={{ color: C.textH, fontWeight: 600 }}>{key}</strong> <span style={{ color: C.textS }}>{rest}</span></span>
+                    </li>
+                  ))}
                 </ul>
               </div>
             ))}

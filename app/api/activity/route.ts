@@ -16,7 +16,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToActivity, rowToBooking } from "@/lib/supabase";
 import { requirePermission } from "@/lib/auth";
 import { cleanText, isDateStr } from "@/lib/money";
-import { logActivity } from "@/lib/activity.server";
+import { logActivity, scrubDetails } from "@/lib/activity.server";
 import { actingStaff } from "@/lib/staff.server";
 import { can } from "@/lib/permissions";
 import { fmt } from "@/lib/utils";
@@ -61,7 +61,8 @@ export async function GET(req: NextRequest) {
     const { data, error } = await q;
     if (error) throw new Error(error.message);
     const rows = (data as ActivityRow[]);
-    return NextResponse.json({ success: true, activity: rows.slice(0, limit).map(rowToActivity), more: rows.length > limit });
+    // Older entries can still carry photos in their details: send a note instead.
+    return NextResponse.json({ success: true, activity: rows.slice(0, limit).map(rowToActivity).map((a) => ({ ...a, details: scrubDetails(a.details) })), more: rows.length > limit });
   } catch (err) {
     console.error("[/api/activity GET]", err);
     return NextResponse.json({ success: false, error: "Could not load the audit log. Has the latest migration been run?" }, { status: 500 });

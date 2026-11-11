@@ -438,7 +438,7 @@ export function BookingDatePicker({
         }}
       >
         {single
-          ? (selectedDate ? <>{fmtDate(selectedDate)} selected. Click it again to clear.</> : <>{singleHint}</>)
+          ? (selectedDate ? <>Click it again to clear.</> : <>{singleHint}</>)
           : !selectedDate
           ? <>Click a date to start. You can book up to <strong>{MAX_STAY_DAYS} days</strong> in a row — click your first day, then your last.</>
           : picking
