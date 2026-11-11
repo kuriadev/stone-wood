@@ -55,14 +55,14 @@ function shell(title: string, intro: string, blocks: string, accent = "#c9a84c")
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1eb;padding:28px 0;">
     <tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
       <tr><td style="background:#1a1108;border-radius:12px 12px 0 0;padding:28px 32px;">
-        <p style="margin:0 0 4px;color:${accent};font-size:10px;letter-spacing:4px;text-transform:uppercase;">Stonewood Garden · Resort Desk</p>
+        <p style="margin:0 0 4px;color:${accent};font-size:10px;letter-spacing:4px;text-transform:uppercase;">Stonewood Garden · Staff only</p>
         <h1 style="margin:0;color:#f0e6cc;font-size:21px;font-weight:400;">${escapeHtml(title)}</h1>
       </td></tr>
       <tr><td style="background:#ffffff;padding:28px 32px;">
         <p style="margin:0 0 20px;color:#4a3a28;font-size:14px;line-height:1.7;">${escapeHtml(intro)}</p>
         ${blocks}
         <p style="margin:24px 0 0;padding-top:16px;border-top:1px solid #e8e0cc;color:#8a7a5a;font-size:11.5px;line-height:1.7;">
-          Sent by the Stonewood booking system to the staff it concerns. Open the admin panel to act on any of this.
+          For Stonewood staff only, not for guests. Sent by the booking system to the staff it concerns; open the admin panel to act on any of this.
         </p>
       </td></tr>
     </table></td></tr>
@@ -305,11 +305,11 @@ export function buildCaretakerArrivalAlert(b: Booking, today: string, rooms: { i
   const roomName = (id: number) => rooms.find((r) => r.id === id)?.name ?? `Room ${id}`;
   const when = b.date === today ? "today" : "tomorrow";
   return {
-    subject: `New arrival ${when} · ${b.id} · ${bookingSlotInfo(b).label}`,
+    subject: `[Staff] New arrival ${when} · ${b.id} · ${bookingSlotInfo(b).label}`,
     html: shell(
-      `A group is coming ${when}`,
-      `A booking was just made for ${when === "today" ? "today" : fmtDate(b.date)}. Get these ready before they arrive.`,
-      section("Prepare", [prepLine(b, roomName)]),
+      `Staff: a group arrives ${when}`,
+      `A guest just booked for ${when === "today" ? "today" : `tomorrow, ${fmtDate(b.date)}`}. Please have the following ready before they arrive.`,
+      section("To prepare", [prepLine(b, roomName)]),
     ),
   };
 }
@@ -325,7 +325,7 @@ export function buildDateChangeAlert(b: Booking, to: string, holdUntil: string):
       "A guest wants to move their date",
       `${b.name} asked to move ${b.id}. The new date is held for them until ${fmtDate(holdUntil.slice(0, 10))}; until you answer, the booking stays on its old date.`,
       section(`Booking ${b.id}`, [`${who(b)}`, `${escapeHtml(fmtDate(b.date))} → <strong>${escapeHtml(fmtDate(to))}</strong> · ${escapeHtml(bookingSlotInfo(b).label)}`]) +
-        section("What to do", ["Open Daily Operations → Reschedules and approve or decline it."]),
+        section("What to do", ["Open the Dashboard → Reschedules and approve or decline it."]),
       "#e0a020",
     ),
   };

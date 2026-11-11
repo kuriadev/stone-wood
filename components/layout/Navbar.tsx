@@ -199,9 +199,7 @@ export function Navbar({ page, setPage }: NavbarProps) {
           {/* Desktop links */}
           {!mob && (
             <nav aria-label="Main" style={{ display: "flex", alignItems: "center", gap: "clamp(18px, 2.6vw, 44px)" }}>
-              {/* No HOME here: the Stonewood logo already goes home. The
-                  phone menu keeps it. */}
-              {LINKS.filter((l) => l !== "Home").map((l) => {
+              {LINKS.map((l) => {
                 const active = page === l;
                 // On the home page itself the underline under HOME says
                 // nothing new, so it isn't drawn there.

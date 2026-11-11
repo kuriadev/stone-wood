@@ -39,8 +39,8 @@ export function PackagesPage({ setPage, packages, onBookPackage }: PackagesPageP
         }}>
           Choose Your Package
         </h2>
-        <p style={{ color: C.textS, textAlign: "center", marginBottom: 48, fontSize: 14.5 }}>
-          From relaxed group days to private celebrations, find the experience that feels made for you.
+        <p style={{ color: C.textS, textAlign: "center", margin: "0 auto 48px", maxWidth: 520, fontSize: 15, lineHeight: 1.6 }}>
+          A pool day with the barkada, a party in the venue, or both. Pick yours and we&rsquo;ll have it ready.
         </p>
         </Reveal>
 

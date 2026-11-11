@@ -317,6 +317,41 @@ function Transactions({ payments }: { payments: Payment[] }) {
   const sel = { ...inp, padding: "8px 12px", width: "auto" } as const;
   return (
     <div>
+      {/* At the top: what the payments below add up to (following the
+          filters): money in, refunds out, and the net. */}
+      {(() => {
+        const live = rows.filter((p) => !p.voided);
+        const inSum = round2(live.filter((p) => p.type !== "Refund").reduce((n, p) => n + p.amount, 0));
+        const outSum = round2(live.filter((p) => p.type === "Refund").reduce((n, p) => n + p.amount, 0));
+        return (
+          <div className="sw-sales__totals">
+            {([
+              { icon: "receipt", label: "Payments", value: String(live.length), tone: "#8a8a8a" },
+              { icon: "trending-up", label: "Money in", value: fmt(inSum), tone: "#3fa66a" },
+              ...(outSum > 0 ? [{ icon: "refresh" as const, label: "Refunds", value: `−${fmt(outSum)}`, tone: "#e5484d" }] : []),
+            ] as { icon: IconName; label: string; value: string; tone: string }[]).map((t) => (
+              <div key={t.label} className="sw-sales__tile" style={{ background: C.bgCard, borderColor: C.border }}>
+                <span aria-hidden="true" className="sw-sales__tileico" style={{ color: t.tone, background: `${t.tone}1f` }}>
+                  <Icon name={t.icon} size={16} strokeWidth={2} />
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  <span className="sw-sales__tilelabel" style={{ color: C.textS }}>{t.label}</span>
+                  <strong className="sw-sales__tilevalue" style={{ color: t.label === "Refunds" ? "#e5484d" : C.textH }}>{t.value}</strong>
+                </span>
+              </div>
+            ))}
+            <div className="sw-sales__tile sw-sales__tile--net" style={{ borderColor: `${gold}80`, background: `linear-gradient(135deg, ${gold}26, ${gold}0a)` }}>
+              <span aria-hidden="true" className="sw-sales__tileico" style={{ color: C.goldInk, background: `${gold}2e` }}>
+                <Icon name="wallet" size={17} strokeWidth={2} />
+              </span>
+              <span style={{ minWidth: 0 }}>
+                <span className="sw-sales__tilelabel" style={{ color: C.goldInk }}>Net total</span>
+                <strong className="sw-sales__tilevalue sw-sales__tilevalue--net" style={{ color: C.textH }}>{fmt(net)}</strong>
+              </span>
+            </div>
+          </div>
+        );
+      })()}
       {/* Search beside the Filters button; the date range, type, method and
           voided switch behind it. It opens on this month, which counts as no
           filter. */}
@@ -374,20 +409,6 @@ function Transactions({ payments }: { payments: Payment[] }) {
         ))}
       </TableShell>
       <Pager {...paged} noun="payments" />
-      {/* What these rows add up to: money in, refunds out, and the net. */}
-      {(() => {
-        const live = rows.filter((p) => !p.voided);
-        const inSum = round2(live.filter((p) => p.type !== "Refund").reduce((n, p) => n + p.amount, 0));
-        const outSum = round2(live.filter((p) => p.type === "Refund").reduce((n, p) => n + p.amount, 0));
-        return (
-          <div className="sw-sales__totals" style={{ borderColor: C.border }}>
-            <span style={{ color: C.textS }}>{live.length} payment{live.length === 1 ? "" : "s"}</span>
-            <span style={{ color: C.textS }}>In <strong style={{ color: C.textH }}>{fmt(inSum)}</strong></span>
-            {outSum > 0 && <span style={{ color: C.textS }}>Refunds <strong style={{ color: "#e5484d" }}>−{fmt(outSum)}</strong></span>}
-            <span className="sw-sales__net" style={{ color: C.textS }}>Net total <strong style={{ color: C.textH }}>{fmt(net)}</strong></span>
-          </div>
-        );
-      })()}
       {voiding && <VoidModal what={`${voiding.type} of ${fmt(voiding.amount)} from ${voiding.guestName}`} kind="payment" id={voiding.id} onClose={() => setVoiding(null)} />}
     </div>
   );
@@ -451,6 +472,7 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
   const expected = sum((r) => r.b.total);
   const collected = sum((r) => r.m.paid);
   const outstanding = sum((r) => r.m.due);
+  const owing = shown.filter((r) => r.m.due > 0).length;
 
   return (
     <div>
@@ -459,9 +481,13 @@ function BookingPayments({ rows, onPay, onInvoice }: { rows: { b: Booking; m: Bo
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginBottom: 16 }}>
-        <StatCard label="Booked value" value={fmt(expected)} note={`${shown.length} booking${shown.length === 1 ? "" : "s"}`} />
-        <StatCard label="Collected" value={fmt(collected)} color="#2e9e4e" />
-        <StatCard label="Outstanding" value={fmt(outstanding)} color={outstanding > 0 ? "#f5a524" : undefined} />
+        <StatCard label="Booked value" value={fmt(expected)} note={`Total price of ${shown.length} booking${shown.length === 1 ? "" : "s"}`} />
+        <StatCard label="Collected" value={fmt(collected)} color="#2e9e4e" note="Paid by guests so far" />
+        {/* Was "Outstanding": the balance guests still have to pay. */}
+        <StatCard label="Still to collect" value={fmt(outstanding)} color={outstanding > 0 ? "#f5a524" : undefined}
+          note={outstanding > 0
+            ? `Unpaid balance of ${owing} booking${owing === 1 ? "" : "s"}, paid on arrival or at check-out`
+            : "Every booking here is fully paid"} />
       </div>
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>

@@ -67,13 +67,17 @@
 .sw-sales__method { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
 
 /* What the rows add up to */
-.sw-sales__totals { display: flex; justify-content: flex-end; align-items: baseline; gap: 18px; flex-wrap: wrap; margin-top: 14px; padding: 12px 4px 0; border-top: 1px dashed; font-size: 13px; }
-.sw-sales__totals strong { font-variant-numeric: tabular-nums; }
-.sw-sales__net { font-size: 14px; }
-.sw-sales__net strong { font-size: 18px; margin-left: 6px; }
+/* What the payments add up to: a tile each, the net one in gold. */
+.sw-sales__totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.sw-sales__tile { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid; border-radius: 12px; min-width: 0; }
+.sw-sales__tileico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; }
+.sw-sales__tilelabel { display: block; font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+.sw-sales__tilevalue { display: block; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.25; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sw-sales__tilevalue--net { font-size: 21px; }
 
 @media (max-width: 767px) {
   .sw-sales__kpival { font-size: 21px; }
   .sw-sales__kpi { padding: 14px 14px 13px; }
-  .sw-sales__totals { justify-content: flex-start; gap: 12px; }
+  .sw-sales__totals { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .sw-sales__tile--net { grid-column: 1 / -1; }
 }

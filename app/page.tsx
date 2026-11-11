@@ -15,7 +15,7 @@ export default async function HomePage() {
   if (hero?.kind !== "video") {
     const src = hero?.kind === "image" ? hero.src : HERO_BG;
     preload(imageAt(src, 1000), { as: "image", media: "(max-width: 900px)", fetchPriority: "high" });
-    preload(src, { as: "image", media: "(min-width: 901px)", fetchPriority: "high" });
+    preload(imageAt(src, 1920), { as: "image", media: "(min-width: 901px)", fetchPriority: "high" });
   }
   return <HomeRoute initialHero={hero} />;
 }

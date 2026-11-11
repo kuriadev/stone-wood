@@ -149,14 +149,14 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
   const fits = await checkFits(candidate, opts.alsoHeld ?? [], { overCapacity });
   if (!fits.ok) return bad(fits.error, 409);
 
-  // The money taken decides the status: any payment makes it a real
-  // reservation (Confirmed); none leaves it Pending until the guest pays.
+  // A walk-in is always paid at the desk as it is booked, in full or 50%
+  // down, so it is always saved Confirmed: there is no "not yet paid"
+  // walk-in left waiting for approval.
   // The booking itself stores the REQUIRED down payment (50%); what was
   // actually received goes into the payments ledger.
   const payIn = b.initialPayment;
-  // A walk-in pays at the desk as it is booked: in full or 50% down. (An
-  // offline booking being imported may have had nothing paid yet.)
-  if (!payIn && !opts.fromToday) return bad("Record the payment: in full or 50% down.");
+  // The same for an offline booking being imported.
+  if (!payIn) return bad("Record the payment: in full or 50% down.");
   const payAmount = payIn ? Math.round(Number(payIn.amount) * 100) / 100 : 0;
   if (payIn && (!Number.isFinite(payAmount) || payAmount <= 0 || payAmount > total || !PAY_METHODS.includes(payIn.method))) {
     return bad(payAmount > total ? `The amount paid is more than the total of ${fmt(total)}.` : "The payment taken is not valid.");
@@ -174,7 +174,7 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
     const qr = await checkDeskQr(pay.reference, pay.amount);
     if (qr) return bad(qr.error, qr.status);
   }
-  const status = pay ? "Confirmed" : "Pending";
+  const status = "Confirmed";
 
   const booking: Booking = {
     ...(b as Booking),

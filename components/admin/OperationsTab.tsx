@@ -28,6 +28,7 @@
 // so every module keeps its full record while the daily routine happens
 // here. Which step a booking is on is worked out in lib/operations.ts.
 
+import { ReviewReasonsNote } from "@/components/admin/ReviewReasonsNote";
 import { EditBookingHub } from "@/components/admin/EditBookingHub";
 import { EditGuestModal } from "@/components/admin/EditGuestModal";
 import type { ChargeKind } from "@/lib/charges";
@@ -226,7 +227,6 @@ export function OperationsTab({
 
   // ── At a glance ────────────────────────────────────────────────────
   const dueToday = bookings.filter((b) => b.date === today && !b.archived && holdsDate(b) && !b.id.startsWith("TMP-"));
-  const arrivedToday = dueToday.filter((b) => b.checkedInAt || b.status === "Completed").length;
   const onSite = cards.filter((c) => c.stage === "onsite");
   const headcount = onSite.reduce((n, c) => n + (c.b.guests || 0), 0);
   const collectedToday = collectedBetween(ops.payments, today);
@@ -972,6 +972,10 @@ export function OperationsTab({
   const arrivingNow = todayCards.filter((c) => c.column === "arriving");
   const readyToArrive = arrivingNow.filter((c) => c.prepared).length;
   const expectedGuests = dueToday.reduce((n, b) => n + (b.guests || 0), 0);
+  // Guests (not groups) who haven't checked in yet, and from how many groups.
+  const notArrived = dueToday.filter((b) => !(b.checkedInAt || b.status === "Completed"));
+  const guestsToCome = notArrived.reduce((n, b) => n + (b.guests || 0), 0);
+  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
   const owedToday = round2(todayCards.reduce((n, c) => n + money(c.b).due, 0));
   const owedTodayCount = todayCards.filter((c) => money(c.b).due > 0).length;
   const netToday = round2(collectedToday - spentToday);
@@ -1051,10 +1055,14 @@ export function OperationsTab({
     <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(4,minmax(0,1fr))", gap: mob ? 12 : 16, marginBottom: 20 }}>
       {dashStat({
         icon: "calendar", label: "Guests still to arrive",
-        value: dueToday.length - arrivedToday,
+        value: guestsToCome,
         badge: arrivingNow.length ? `${readyToArrive} prepared` : undefined,
         badgeColor: readyToArrive === arrivingNow.length ? "#2e9e4e" : "#f5a524",
-        note: dueToday.length ? `${expectedGuests} guest${expectedGuests === 1 ? "" : "s"} expected today` : "No bookings today",
+        // The number is guests not yet checked in; the note says how that
+        // compares with everyone booked for today.
+        note: !dueToday.length ? "No bookings today"
+          : guestsToCome === 0 ? `All ${plural(expectedGuests, "guest")} booked for today have checked in ✓`
+          : `${plural(expectedGuests, "guest")} booked for today: ${expectedGuests - guestsToCome} checked in, ${guestsToCome} still coming (${plural(notArrived.length, "group")})`,
         onOpen: () => goStat("today", ["ops-col-arriving"]), openLabel: "Show the arriving groups",
       })}
       {dashStat({
@@ -1141,7 +1149,10 @@ export function OperationsTab({
         <Icon name="flag" size={16} style={{ color: C.goldInk, flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3 id="dash-reminders" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Reminders</h3>
-          <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>Helpful notes for today</div>
+          {/* What lands here: who arrives today, a facility under repair, guests
+              still to pick a new date, supplies running low, bookings to
+              confirm. Worth knowing, not urgent (that's "Do these first"). */}
+          <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>Not urgent, but good to know today: arrivals, repairs, low supplies and bookings to check</div>
         </div>
         {reminders.length > 0 && (
           <span style={{ padding: "4px 8px", borderRadius: 10, fontSize: 11.5, background: `${gold}22`, color: C.goldInk }}>{reminders.length}</span>
@@ -1222,7 +1233,7 @@ export function OperationsTab({
           if (nextToCheckOut) go("checkout", nextToCheckOut.b);
           else toast("No group is on site to check out.", "info");
         })}
-        {quickTask("calendar", "Block dates", "Open the calendar", () => onGoTab?.("Occupancy"))}
+        {quickTask("calendar", "Booking calendar", "View the calendar", () => onGoTab?.("Occupancy"))}
         {/* On paper before the internet drops: today's and tomorrow's
             bookings, the caretaker's to-dos and blank forms to import
             later (components/admin/offlineSheet.ts). */}
@@ -1466,6 +1477,7 @@ export function OperationsTab({
             onCancel={() => setOpen(null)} cancelLabel="Go back" width={520}
             confirm={<ActionButton kind="green" onClick={() => { updateStatus(current.id, "Confirmed"); toast(`Booking accepted for ${current.name}.`, "success"); setOpen(null); }}>Accept booking</ActionButton>}>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <ReviewReasonsNote notes={current.notes} />
               {/* The payment check, in one place: what came in, against the total. */}
               <div style={{ background: soft, borderRadius: 10, padding: "8px 16px" }}>
                 {pays.map((p) => (

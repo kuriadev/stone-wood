@@ -41,7 +41,9 @@ const call = async (rows: unknown[], save: boolean, role: StaffRole = "FrontDesk
 
 const row = (o: Record<string, unknown> = {}) => ({
   name: "Juan Dela Cruz", contact: "09171234567", email: "", date: "2026-11-06", slot: "Day",
-  resource: "Pool", tier: "Shared", guests: 10, rooms: [], notes: "", ...o,
+  resource: "Pool", tier: "Shared", guests: 10, rooms: [], notes: "",
+  // Every walk-in is paid at the desk (in full or 50% down).
+  initialPayment: { type: "Downpayment", method: "Cash", amount: 1000, reference: "" }, ...o,
 });
 
 function fresh() {
@@ -58,10 +60,15 @@ describe("POST /api/bookings/import", () => {
     const r = await call([row(), row({ name: "Ana", tier: "Exclusive", slot: "Night" })], false);
     expect(r.body.success).toBe(true);
     expect(r.body.results).toEqual([
-      expect.objectContaining({ row: 0, ok: true, total: 2000, status: "Pending" }),
+      expect.objectContaining({ row: 0, ok: true, total: 2000, status: "Confirmed" }),
       expect.objectContaining({ row: 1, ok: true, total: 6000 }),
     ]);
     expect(mockDb.rows("bookings")).toHaveLength(0);
+  });
+
+  it("refuses an offline booking with nothing paid: no walk-in waits for approval", async () => {
+    const r = await call([row({ initialPayment: undefined })], false);
+    expect(r.body.results[0]).toMatchObject({ ok: false, error: "Record the payment: in full or 50% down." });
   });
 
   it("catches two offline bookings for the same slot before either is saved", async () => {

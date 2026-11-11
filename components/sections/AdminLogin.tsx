@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { T } from "@/lib/theme";
@@ -26,6 +26,21 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
   const [show, setShow] = useState(false);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  // Wrong tries: the server allows a few, then pauses sign-in for a minute
+  // (lib/loginLock.server.ts). `tries` is null until the first wrong one.
+  const [tries, setTries] = useState<{ left: number; of: number; pause: number } | null>(null);
+  const [pausedLeft, setPausedLeft] = useState(0);
+  // The pause counts down once a second, then the form opens again.
+  useEffect(() => {
+    if (pausedLeft <= 0) return;
+    const t = setTimeout(() => {
+      setPausedLeft((s) => s - 1);
+      if (pausedLeft === 1) { setErr(""); setTries((p) => (p ? { ...p, left: p.of } : p)); }
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [pausedLeft]);
+  const paused = pausedLeft > 0;
+  const clock = `${Math.floor(pausedLeft / 60)}:${String(pausedLeft % 60).padStart(2, "0")}`;
   // "Forgot password?": a code to the account's email (ForgotPassword.tsx).
   const [forgot, setForgot] = useState(false);
   const { toast } = useToast();
@@ -37,7 +52,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
   // client state walk straight past it. The server now decides, and answers
   // with an httpOnly cookie this code cannot read — which is the point.
   const handle = async () => {
-    if (loading) return;
+    if (loading || paused) return;
     setErr("");
     setLoading(true);
     try {
@@ -48,9 +63,16 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.success) {
+        setTries(null);
         onLogin();
         toast(`Welcome back, ${typeof data?.staff?.name === "string" ? data.staff.name : "Admin"}!`, "success");
+      } else if (res.status === 429 && typeof data?.lockedFor === "number") {
+        setPausedLeft(Math.max(1, Math.ceil(data.lockedFor)));
+        setTries({ left: 0, of: Number(data.tries) || 5, pause: Number(data.pauseSeconds) || 60 });
+        setErr("");
+        toast("Too many wrong tries. Sign-in is paused for a minute.", "warning");
       } else {
+        if (typeof data?.triesLeft === "number") setTries({ left: data.triesLeft, of: Number(data.tries) || 5, pause: Number(data.pauseSeconds) || 60 });
         setErr(typeof data?.error === "string" ? data.error : "Invalid username or password.");
         toast("Login failed.", "error");
       }
@@ -231,7 +253,36 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
             </button>
           </div>
 
-          {err && (
+          {/* Tries left: one gold bead per try, spent ones go dim red. After
+              the last, a pause that counts down instead of an error. */}
+          {tries && (
+            <div role="status" aria-live="polite" className={`sw-tries${paused ? " is-paused" : ""}`}
+              style={{ borderColor: paused ? "rgba(229,85,85,0.35)" : "rgba(201,168,76,0.35)", background: paused ? "rgba(229,85,85,0.07)" : "rgba(201,168,76,0.07)" }}>
+              <span aria-hidden="true" className="sw-tries__ico" style={{ color: paused ? "#e07070" : gold, background: paused ? "rgba(229,85,85,0.14)" : "rgba(201,168,76,0.16)" }}>
+                <Icon name={paused ? "lock" : "shield-alert"} size={16} strokeWidth={2} />
+              </span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: "block", color: paused ? "#e07070" : C.textH, fontSize: 13, fontWeight: 600 }}>
+                  {paused ? <>Sign-in paused &middot; {clock}</> : <>{tries.left} of {tries.of} tries left</>}
+                </span>
+                <span style={{ display: "block", color: C.textS, fontSize: 12, marginTop: 2 }}>
+                  {paused ? "Take a breath. You can try again when the timer ends." : `After ${tries.of} wrong tries, sign-in pauses for ${tries.pause >= 60 ? `${Math.round(tries.pause / 60)} minute${tries.pause >= 120 ? "s" : ""}` : `${tries.pause} seconds`}.`}
+                </span>
+                {!paused && (
+                  <span aria-hidden="true" className="sw-tries__beads">
+                    {Array.from({ length: tries.of }, (_, i) => (
+                      <i key={i} style={{ background: i < tries.left ? gold : "rgba(229,85,85,0.45)" }} />
+                    ))}
+                  </span>
+                )}
+                {paused && (
+                  <span aria-hidden="true" className="sw-tries__bar"><i style={{ width: `${(pausedLeft / tries.pause) * 100}%` }} /></span>
+                )}
+              </span>
+            </div>
+          )}
+
+          {err && !paused && (
             <Alert
               variant="destructive"
               style={{ background: "rgba(229,85,85,0.07)", border: "1px solid rgba(229,85,85,0.22)", borderRadius: 8, marginBottom: 20, color: "#e07070", fontSize: 13 }}
@@ -243,17 +294,17 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
 
           <Button className="sw-btn"
             onClick={() => void handle()}
-            disabled={loading || !user || !pass}
+            disabled={loading || paused || !user || !pass}
             style={{
               ...goldBtn,
               width: "100%",
               height: "auto",
               padding: 16,
-              opacity: !user || !pass ? 0.35 : 1,
+              opacity: paused || !user || !pass ? 0.35 : 1,
               fontSize: 12,
               letterSpacing: 2.6,
               borderRadius: 8,
-              cursor: loading || !user || !pass ? "not-allowed" : "pointer",
+              cursor: loading || paused || !user || !pass ? "not-allowed" : "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -266,7 +317,7 @@ export function AdminLogin({ onLogin, onGoHome }: AdminLoginProps) {
                 style={{ width: 13, height: 13, border: "2px solid rgba(0,0,0,0.25)", borderTopColor: "rgba(0,0,0,0.7)", borderRadius: "50%", display: "inline-block", animation: "sw-spin .7s linear infinite" }}
               />
             )}
-            {loading ? "SIGNING IN…" : "SIGN IN"}
+            {paused ? `TRY AGAIN IN ${clock}` : loading ? "SIGNING IN…" : "SIGN IN"}
           </Button>
         </div>
 

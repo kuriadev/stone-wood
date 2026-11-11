@@ -12,6 +12,7 @@
 // Frosted glass so it never reads as a solid block over the page, and kept
 // beside the theme button rather than across the content.
 
+import { imageAt } from "@/lib/img";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
@@ -65,7 +66,7 @@ export function RoomCartDock({ variant = "compact", note }: {
         <span className="sw-dock__thumbs" aria-hidden="true">
           {added.slice(0, 2).map((r, i) => (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={r.id} src={r.img} alt="" style={{ marginLeft: i ? -12 : 0, zIndex: 2 - i }} />
+            <img key={r.id} src={imageAt(r.img, 96)} alt="" style={{ marginLeft: i ? -12 : 0, zIndex: 2 - i }} />
           ))}
         </span>
         <button
@@ -103,7 +104,7 @@ export function RoomCartDock({ variant = "compact", note }: {
         {added.map((r) => (
           <li key={r.id} className="sw-dock__room">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={r.img} alt="" />
+            <img src={imageAt(r.img, 160)} alt="" />
             {/* Name and one short line; the beds are on the Room step. */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <p className="sw-dock__name" title={r.name}>{r.name}</p>

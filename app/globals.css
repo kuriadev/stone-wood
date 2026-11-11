@@ -1496,6 +1496,29 @@ html {
 .sw-dark { color-scheme: dark; }
 .sw-light { color-scheme: light; }
 
+/* ── Autofilled fields keep the site's own colours ──
+   When the browser fills a saved name, email or number it paints the field
+   its own grey-blue with light text, which in the light theme left the
+   words barely readable (and the red "did you mean" border unreadable on
+   top). The inset shadow covers that paint with the field's real colour,
+   and the text keeps the theme's heading ink. The long transition stops
+   the browser's colour from flashing back. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--sw-text-h);
+  caret-color: var(--sw-text-h);
+  -webkit-box-shadow: 0 0 0 1000px var(--sw-input-bg) inset;
+  box-shadow: 0 0 0 1000px var(--sw-input-bg) inset;
+  transition: background-color 600000s ease 0s, color 600000s ease 0s;
+}
+input:autofill {
+  -webkit-text-fill-color: var(--sw-text-h);
+  box-shadow: 0 0 0 1000px var(--sw-input-bg) inset;
+}
+
 
 /* ── The dashboard clock's icon ──
    One slow breath, not a spin or a blink. It sits beside a board staff

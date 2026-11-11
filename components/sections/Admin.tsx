@@ -1,5 +1,6 @@
 "use client";
 
+import { imageAt } from "@/lib/img";
 import { CLOSING_BG } from "@/lib/constants";
 import { EmergencyReview } from "@/components/admin/EmergencyReview";
 import { findRef } from "@/lib/bookingRef";
@@ -224,7 +225,8 @@ export function Admin({
   const galleryFileRef = useRef<HTMLInputElement>(null);
   const [calMonth, setCalMonth] = useState(new Date());
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [showAccount, setShowAccount] = useState(false);
+  // Which account window is open: My profile, or only the password change.
+  const [showAccount, setShowAccount] = useState<false | "profile" | "password">(false);
   const ops = useOps();
   const [opsNow, setOpsNow] = useState(() => new Date());
   useEffect(() => {
@@ -1179,16 +1181,17 @@ export function Admin({
             {/* The theme switch sits to the right of the account card (under
                 it when the sidebar is folded), instead of floating over the
                 page. On a phone, clear of the iPhone home bar. */}
-            <div style={{ padding: mob ? "12px 16px calc(12px + env(safe-area-inset-bottom))" : mini ? "12px 10px" : "12px 16px", borderTop: `1px solid ${sideBorder}`, flexShrink: 0, display: "flex", flexDirection: mini ? "column" : "row", alignItems: "center", gap: 8 }}>
+            <div style={{ padding: mob ? "12px 16px calc(12px + env(safe-area-inset-bottom))" : mini ? "12px 10px" : "12px 12px", borderTop: `1px solid ${sideBorder}`, flexShrink: 0, display: "flex", flexDirection: mini ? "column" : "row", alignItems: "center", gap: 8 }}>
               <div style={{ flex: 1, minWidth: 0, width: mini ? "100%" : undefined }}>
                 <ProfileMenu
                   variant="sidebar"
                   compact={mini}
-                  onAccountSettings={() => setShowAccount(true)}
+                  onAccountSettings={() => setShowAccount("profile")}
+                  onChangePassword={() => setShowAccount("password")}
                   onSignOut={() => setShowLogoutConfirm(true)}
                 />
               </div>
-              <ThemeIconButton size={44} />
+              <ThemeIconButton size={mini ? 40 : 44} />
             </div>
           </div>
           );
@@ -1400,7 +1403,7 @@ export function Admin({
 
                     <footer className="sw-bcal__legend" style={{ borderColor: cBr }}>
                       <div className="sw-bcal__legend-row">
-                        {[["Booked/Confirmed", CAL.available.bg], ["Pending", CAL.pending.bg], ["Completed", CAL.completed.bg], ["Closed", CAL.closed.bg]].map(([l, c]) => (
+                        {[["Booked/Confirmed", CAL.available.bg], [statusLabel("Pending"), CAL.pending.bg], ["Completed", CAL.completed.bg], ["Closed", CAL.closed.bg]].map(([l, c]) => (
                           <span key={l} className="sw-bcal__chip" style={{ color: C.textS, borderColor: cBr }}><i style={{ background: c }} />{l}</span>
                         ))}
                       </div>
@@ -1463,7 +1466,7 @@ export function Admin({
                   <div key={r.id} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, overflow: "hidden", boxShadow: C.shadowCard }}>
                     <div style={{ position: "relative", overflow: "hidden" }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img loading="lazy" decoding="async" src={r.img} alt={r.name} style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }} />
+                      <img loading="lazy" decoding="async" src={imageAt(r.img, 600)} alt={r.name} style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }} />
                       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top,rgba(0,0,0,0.5),transparent 60%)" }} />
                       <div style={{ position: "absolute", bottom: 10, left: 12, right: 12, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
                         <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 12.5, background: "rgba(0,0,0,0.4)", borderRadius: 4, padding: "4px 8px" }}><Icon name="users" size={11} style={{ marginRight: 4 }} />Up to {r.capacity}</span>
@@ -1537,7 +1540,7 @@ export function Admin({
                     style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: `1px solid ${gold}`, marginBottom: 28 }}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={galleryImgs[0]} alt="" style={{ display: "block", width: "100%", height: mob ? 150 : 230, objectFit: "cover" }} />
+                    <img src={imageAt(galleryImgs[0], 1000)} alt="" style={{ display: "block", width: "100%", height: mob ? 150 : 230, objectFit: "cover" }} />
                     <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0.05))" }} />
                     <button className="sw-btn"
                       onClick={() => { replaceGalleryAt.current = 0; galleryReplaceRef.current?.click(); }}
@@ -1935,6 +1938,7 @@ export function Admin({
       {(showAccount || mustChangePassword) && (
         <AccountModal
           forced={mustChangePassword}
+          mode={showAccount === "password" ? "password" : "profile"}
           onClose={() => setShowAccount(false)}
           onSignedOut={() => { setShowAccount(false); onLogout(); }}
         />

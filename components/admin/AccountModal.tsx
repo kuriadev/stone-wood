@@ -28,12 +28,17 @@ import { ROLE_LABEL } from "@/lib/permissions";
 const MIN_PASSWORD_ADMIN = 10;
 const MIN_PASSWORD_STAFF = 8;
 
-export function AccountModal({ onClose, onSignedOut, forced = false }: {
+export function AccountModal({ onClose, onSignedOut, forced = false, mode = "profile" }: {
   onClose: () => void;
   onSignedOut: () => void;
   /** A temporary password from the owner: a new one must be chosen. */
   forced?: boolean;
+  /** "profile": photo, name and username (My profile). "password": only
+   *  the password change (Change my password). A forced change is always
+   *  the password one. */
+  mode?: "profile" | "password";
 }) {
+  const pwOnly = forced || mode === "password";
   const { C, inp, cBr } = useAdminStyle();
   const { toast } = useToast();
   const { me } = useStaff();
@@ -43,7 +48,6 @@ export function AccountModal({ onClose, onSignedOut, forced = false }: {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false);
@@ -67,7 +71,7 @@ export function AccountModal({ onClose, onSignedOut, forced = false }: {
   if (username.trim().length < 3) problems.push("The username must be at least 3 characters.");
   if (/\s/.test(username.trim())) problems.push("The username cannot contain spaces.");
   if (!currentPassword) problems.push("Enter your current password to confirm this change.");
-  if (forced && !changingPassword) problems.push("Choose a new password of your own.");
+  if (pwOnly && !changingPassword) problems.push(forced ? "Choose a new password of your own." : "Enter your new password.");
   if (changingPassword && newPassword.length < MIN_PASSWORD) problems.push(`The new password must be at least ${MIN_PASSWORD} characters.`);
   if (changingPassword && confirm !== newPassword) problems.push("The two new passwords do not match.");
 
@@ -79,14 +83,14 @@ export function AccountModal({ onClose, onSignedOut, forced = false }: {
       const res = await fetch("/api/admin/account", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim(), currentPassword, newPassword }),
+        body: JSON.stringify({ username: username.trim(), currentPassword, newPassword: pwOnly ? newPassword : "" }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.success) {
         setError(json?.error ?? "Could not save the account.");
         return;
       }
-      toast("Sign-in updated. Please sign in again.", "success");
+      toast(pwOnly ? "Password changed. Please sign in with your new password." : "Sign-in updated. Please sign in again.", "success");
       // The server cleared the cookie: the credentials behind this session
       // just changed, so it has to be re-established.
       onSignedOut();
@@ -101,7 +105,7 @@ export function AccountModal({ onClose, onSignedOut, forced = false }: {
 
   return (
     <Modal
-      title={forced ? "Choose your own password" : "Your account"}
+      title={forced ? "Choose your own password" : pwOnly ? "Change my password" : "My profile"}
       subtitle={me ? `${me.name} · ${ROLE_LABEL[me.role]}` : "Your sign-in for this panel"}
       onClose={forced ? onSignedOut : onClose}
       // Forced: closing means signing out, so it takes the Sign out button.
@@ -113,48 +117,43 @@ export function AccountModal({ onClose, onSignedOut, forced = false }: {
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <ActionButton onClick={forced ? onSignedOut : onClose}>{forced ? "Sign out" : "Cancel"}</ActionButton>
           <ActionButton kind="primary" icon="check" disabled={busy || !loaded} onClick={() => void save()}>
-            {busy ? "Saving…" : "Save changes"}
+            {busy ? "Saving…" : pwOnly ? "Change password" : "Save changes"}
           </ActionButton>
         </div>
       }
     >
       <div style={{ display: "grid", gap: 16 }}>
         {/* Your name and photo: saved on their own, no password needed. */}
-        {!forced && me?.id && <ProfileSection />}
+        {!pwOnly && me?.id && <ProfileSection />}
         {forced && (
           <p style={{ color: C.textB, fontSize: 13.5, margin: 0, lineHeight: 1.6 }}>
             The owner gave you a temporary password. Pick one only you know before you start — the temporary one stops working when you save.
           </p>
         )}
-        <div style={!forced && me?.id ? { borderTop: `1px solid ${cBr}`, paddingTop: 16 } : undefined}>
-          {!forced && me?.id && <p style={{ color: C.textH, fontSize: 13.5, fontWeight: 600, margin: "0 0 10px" }}>Sign-in <span style={{ color: C.textS, fontWeight: 400, fontSize: 12 }}>· asks for your current password, then signs you out</span></p>}
+        {/* My profile: the username (sign-in name). The password has its
+            own window, "Change my password". */}
+        {!pwOnly && (
+        <div style={me?.id ? { borderTop: `1px solid ${cBr}`, paddingTop: 16 } : undefined}>
+          {me?.id && <p style={{ color: C.textH, fontSize: 13.5, fontWeight: 600, margin: "0 0 10px" }}>Sign-in <span style={{ color: C.textS, fontWeight: 400, fontSize: 12 }}>· asks for your current password, then signs you out</span></p>}
           <Label htmlFor="acc-username">USERNAME</Label>
           <Input id="acc-username" value={username} onChange={(e) => setUsername(e.target.value)}
             autoComplete="username" maxLength={64} style={field} />
         </div>
+        )}
 
-        <div style={{ borderTop: `1px solid ${cBr}`, paddingTop: 16 }}>
-          {!forced && <p style={{ color: C.textH, fontSize: 13.5, fontWeight: 600, margin: "0 0 10px" }}>Change my password</p>}
+        {pwOnly && (<>
+        <div>
           <Label htmlFor="acc-new">NEW PASSWORD</Label>
-          <p style={{ color: C.textS, fontSize: 12, margin: "0 0 8px" }}>
-            At least {MIN_PASSWORD} characters.{forced ? "" : " Leave both boxes empty to keep your current password and only change the username."}
-          </p>
-          <Input id="acc-new" type={show ? "text" : "password"} value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password"
-            maxLength={128} style={field} />
+          <p style={{ color: C.textS, fontSize: 12, margin: "0 0 8px" }}>At least {MIN_PASSWORD} characters.</p>
+          <PasswordField id="acc-new" value={newPassword} onChange={setNewPassword} autoComplete="new-password" style={field} />
         </div>
 
         <div>
           <Label htmlFor="acc-confirm">CONFIRM NEW PASSWORD</Label>
-          <Input id="acc-confirm" type={show ? "text" : "password"} value={confirm}
-            onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password"
-            maxLength={128} style={field} />
+          <PasswordField id="acc-confirm" value={confirm} onChange={setConfirm} autoComplete="new-password" style={field} />
         </div>
 
-        <label style={{ display: "flex", gap: 8, alignItems: "center", color: C.textS, fontSize: 12.5, cursor: "pointer" }}>
-          <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} />
-          Show the passwords I type
-        </label>
+        </>)}
 
         {/* Last, and visually separated: this is the gate, not another field
             to fill in on the way past. */}
@@ -166,9 +165,7 @@ export function AccountModal({ onClose, onSignedOut, forced = false }: {
             </span>
             Required for any change here, even though you are already signed in.
           </p>
-          <Input id="acc-current" type="password" value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password"
-            maxLength={128} style={field} />
+          <PasswordField id="acc-current" value={currentPassword} onChange={setCurrentPassword} autoComplete="current-password" style={field} />
         </div>
 
         {error && <ErrorNote>{error}</ErrorNote>}
@@ -178,6 +175,25 @@ export function AccountModal({ onClose, onSignedOut, forced = false }: {
         </p>
       </div>
     </Modal>
+  );
+}
+
+/** A password box with an eye to show or hide what was typed. */
+function PasswordField({ id, value, onChange, autoComplete, style }: {
+  id: string; value: string; onChange: (v: string) => void; autoComplete: string; style: React.CSSProperties;
+}) {
+  const { C } = useAdminStyle();
+  const [show, setShow] = useState(false);
+  return (
+    <div style={{ position: "relative" }}>
+      <Input id={id} type={show ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)}
+        autoComplete={autoComplete} maxLength={128} style={{ ...style, paddingRight: 44 }} />
+      <button type="button" onClick={() => setShow((v) => !v)}
+        aria-label={show ? "Hide password" : "Show password"} aria-pressed={show} title={show ? "Hide password" : "Show password"}
+        style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", width: 36, height: 36, display: "grid", placeItems: "center", background: "none", border: "none", borderRadius: 8, cursor: "pointer", color: show ? C.goldInk : C.textS }}>
+        <Icon name={show ? "eye-off" : "eye"} size={17} strokeWidth={1.9} />
+      </button>
+    </div>
   );
 }
 

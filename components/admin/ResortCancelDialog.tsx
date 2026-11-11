@@ -30,6 +30,8 @@ import { fmt, fmtDate } from "@/lib/utils";
 import type { Booking } from "@/types/booking";
 import type { RejectionMoney } from "@/lib/emailTemplate";
 import { ActionButton, ConfirmDialog, ErrorNote, Label, Modal, useAdminStyle } from "@/components/admin/ui";
+import { ReviewReasonsNote } from "@/components/admin/ReviewReasonsNote";
+import { reviewReasons } from "@/lib/reviewReasons";
 
 export type UpdateStatus = (
   id: string,
@@ -43,7 +45,7 @@ const PRESETS: { label: string; text: string }[] = [
   { label: "Emergency", text: "An emergency at the resort means we can't host your group on that date." },
   { label: "Bad weather", text: "The resort is closed on that date because of bad weather." },
   { label: "Facility repair", text: "A facility in your booking is under repair on that date." },
-  { label: "Double booking", text: "That date was booked twice by mistake on our side." },
+  { label: "Double booking", text: "Another group booked and paid for the same tour at almost the same moment as you did, so that date ended up booked twice (a double booking). It stays with the booking that was completed first, so please choose a new date. Everything you paid carries over to it." },
 ];
 
 export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onClose: () => void }) {
@@ -54,7 +56,10 @@ export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onC
   const paid = Math.max(0, bookingMoney(booking, ops.payments, ops.damages).paid);
   const unpaidWalkIn = booking.source === "Walk-In" && booking.status === "Pending" && paid === 0;
 
-  const [reason, setReason] = useState("");
+  // A booking awaiting approval already says why (lib/reviewReasons.ts):
+  // that becomes the suggested reason the guest reads, still editable.
+  const why = booking.status === "Pending" ? reviewReasons(booking.notes) : [];
+  const [reason, setReason] = useState(why.length ? why.map((r) => r.cancelText).filter((t, i, a) => a.indexOf(t) === i).join(" ") : "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState<{ sms: string; emailed: boolean } | null>(null);
@@ -115,6 +120,7 @@ export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onC
       onCancel={onClose} cancelLabel="Go back" width={560}
       confirm={<ActionButton kind="red" disabled={busy} onClick={confirm}>{busy ? "Saving…" : "Cancel booking"}</ActionButton>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <ReviewReasonsNote notes={booking.notes} />
         <div>
           <Label htmlFor="cancel-reason">Reason the guest reads</Label>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>

@@ -29,6 +29,7 @@ import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { buildBookingReceivedEmail, buildReceiptEmail } from "@/lib/emailTemplate";
 import { buildNewBookingAlert } from "@/lib/adminNotify";
 import { notifyStaff, alertCaretakerIfSoon } from "@/lib/staffNotify.server";
+import { remindGuestIfTomorrow } from "@/lib/guestReminder.server";
 import { logActivity } from "@/lib/activity.server";
 import { fmtDate } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
@@ -209,6 +210,9 @@ async function createGuestBooking(req: NextRequest, body: Record<string, unknown
     const alert = buildNewBookingAlert(saved, paidPesos);
     void notifyStaff(["Owner", "FrontDesk"], alert, `new-booking ${saved.id}`);
     void alertCaretakerIfSoon(saved);
+    // Booked for tomorrow: the guest's "see you tomorrow" email now, as
+    // that day's reminder run may already be done.
+    void remindGuestIfTomorrow(saved);
 
     await logActivity([
       {
@@ -241,6 +245,7 @@ async function createWalkIn(body: Record<string, unknown>) {
     const saved = await saveWalkIn(checked.plan);
     // A walk-in is usually for today: the caretaker gets it ready.
     void alertCaretakerIfSoon(saved);
+    void remindGuestIfTomorrow(saved);
     return NextResponse.json({ success: true, booking: saved }, { status: 201 });
   } catch (err) {
     console.error("[/api/bookings POST walk-in]", err);

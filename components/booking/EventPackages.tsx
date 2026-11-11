@@ -15,6 +15,7 @@
  * quote validates it the way it already validates every package booking.
  */
 
+import { imageAt } from "@/lib/img";
 import { useState } from "react";
 import { packagePriceToday, packageExtraDeals } from "@/lib/pricing";
 import { manilaNow } from "@/lib/validators";
@@ -124,7 +125,7 @@ export function EventPackages({ kind, packages, mob, onBook }: EventPackagesProp
                 <img
                   loading="lazy"
                   decoding="async"
-                  src={p.cover}
+                  src={imageAt(p.cover, 800)}
                   alt=""
                   style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }}
                 />

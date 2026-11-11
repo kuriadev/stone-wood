@@ -114,8 +114,8 @@ export function Gallery({ photos }: GalleryProps) {
               textShadow: "0 2px 30px rgba(0,0,0,0.45)",
             }}
           >
-            Seventeen hours,<br />
-            <span style={{ fontStyle: "italic", color: C.goldInk }}>told in order</span>
+            From morning swims<br />
+            <span style={{ fontStyle: "italic", color: C.goldInk }}>to midnight lights</span>
           </h1>
           <p style={{ color: "rgba(246,241,232,0.9)", fontSize: mob ? 15 : 17, lineHeight: 1.75, maxWidth: 540, margin: 0, fontWeight: 300 }}>
             Tap any photo to see it full size.

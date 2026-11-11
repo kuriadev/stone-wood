@@ -20,3 +20,14 @@
   animation: sw-login-up .9s cubic-bezier(.22, 1, .36, 1) .25s both;
 }
 @keyframes sw-login-up { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+
+/* Tries left / sign-in paused (AdminLogin.tsx). */
+.sw-tries { display: flex; gap: 12px; align-items: flex-start; border: 1px solid; border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; animation: sw-tries-in .35s ease; }
+.sw-tries__ico { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; }
+.sw-tries__beads { display: flex; gap: 6px; margin-top: 9px; }
+.sw-tries__beads i { width: 18px; height: 5px; border-radius: 999px; transition: background .4s ease; }
+.sw-tries__bar { display: block; height: 4px; border-radius: 999px; background: rgba(229,85,85,0.15); margin-top: 9px; overflow: hidden; }
+.sw-tries__bar i { display: block; height: 100%; background: #e07070; border-radius: 999px; transition: width 1s linear; }
+.sw-tries.is-paused .sw-tries__ico { animation: sw-tries-pulse 1.6s ease-in-out infinite; }
+@keyframes sw-tries-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes sw-tries-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }

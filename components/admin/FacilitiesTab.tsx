@@ -35,7 +35,7 @@ import type { Booking } from "@/types/booking";
 import type { AmenityArea, Facility, FacilityStatus } from "@/types/facility";
 import type { DamageRate } from "@/types/finance";
 import { gold } from "@/lib/styles";
-import { Icon } from "@/components/common/Icon";
+import { Icon, type IconName } from "@/components/common/Icon";
 import { VisitRecord } from "@/components/admin/InspectionModals";
 import {
   AdminPageHeader, ChoiceButtons, TableShell, td, ActionButton, IconAction, StatusBadge, Modal, Label, ErrorNote, useAdminStyle, Row, Cell, FullSelect, ViewSwitcherTabs, ConfirmDialog, usePaged, Pager,
@@ -85,10 +85,20 @@ export function FacilitiesTab({ facilities, bookings, mob }: FacilitiesTabProps)
       <AdminPageHeader title={adminTabLabel("Facilities")} mob={mob}
         subtitle="The resort's amenities and rooms, their condition, and every inspection and damage record. Preparing, inspecting and cleaning are on the caretakers' My Tasks." />
 
-      <p style={{ color: C.textS, fontSize: 13, margin: "-10px 0 20px" }}>
-        {needsClean > 0 ? `${needsClean} need${needsClean === 1 ? "s" : ""} cleaning. ` : "Nothing waiting for cleaning. "}
-        {down > 0 ? `${down} under maintenance (can't be booked).` : ""}
-      </p>
+      {/* At a glance: what needs cleaning and what is out of use, as
+          coloured pills rather than a line of grey text. */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "-6px 0 20px" }}>
+        {([
+          needsClean > 0
+            ? { icon: "alert", text: `${needsClean} facilit${needsClean === 1 ? "y needs" : "ies need"} cleaning`, tone: "#f5a524" }
+            : { icon: "check-circle", text: "Everything is clean", tone: "#2e9e4e" },
+          ...(down > 0 ? [{ icon: "toolbox", text: `${down} under maintenance · can't be booked`, tone: "#e5484d" }] : []),
+        ] as { icon: IconName; text: string; tone: string }[]).map((p) => (
+          <span key={p.text} role="status" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "7px 14px", borderRadius: 999, border: `1px solid ${p.tone}66`, background: `${p.tone}1a`, color: p.tone, fontSize: 13.5, fontWeight: 600 }}>
+            <Icon name={p.icon} size={15} strokeWidth={2.2} />{p.text}
+          </span>
+        ))}
+      </div>
 
       <ViewSwitcherTabs<View> value={view} onChange={setView} views={[
         { value: "Facilities", label: "Facilities", content: <FacilityList facilities={facilities} bookings={bookings} mob={mob} /> },
@@ -574,9 +584,10 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
   const pagedChk = usePaged(shown);
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+      {/* The search on the left, under the line saying what the list is. */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10, marginBottom: 12 }}>
         <p style={{ color: C.textS, fontSize: 13, margin: 0 }}>Every booking&apos;s preparation and check-out inspection. Click one to see the checklists, damage and payments.</p>
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search booking ID, email, guest or phone" aria-label="Search inspection records" style={{ ...inp, width: 260, padding: "8px 12px" }} />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search booking ID, email, guest or phone" aria-label="Search inspection records" style={{ ...inp, width: 320, maxWidth: "100%", padding: "8px 12px" }} />
       </div>
       <TableShell head={["Guest", "Date", "Facilities", "Prepared", "Inspected by", "Damage", "Settlement", ""]} minWidth={1000}
         empty={shown.length === 0 ? (q ? "No bookings match." : "No bookings checked out yet.") : undefined}>
@@ -639,11 +650,24 @@ function Damages({ bookings }: { bookings: Booking[] }) {
   const pagedDmg = usePaged(rows);
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-        <p style={{ color: C.textS, fontSize: 13, margin: 0 }}>
-          {rows.length} damaged item{rows.length === 1 ? "" : "s"} recorded · {fmt(total)} in penalties. Penalty = quantity × the rate list (+ any adjustment, with its reason).
+      {/* The two figures as pills, how a penalty is worked out underneath,
+          and the search on the left (as on Inspection records). */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10, marginBottom: 12 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {([
+            { icon: "alert", text: `${rows.length} damaged item${rows.length === 1 ? "" : "s"} recorded`, tone: rows.length ? "#e5484d" : "#2e9e4e" },
+            { icon: "cash", text: `${fmt(total)} in penalties`, tone: total > 0 ? "#f5a524" : "#2e9e4e" },
+          ] as { icon: IconName; text: string; tone: string }[]).map((p) => (
+            <span key={p.icon} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "7px 14px", borderRadius: 999, border: `1px solid ${p.tone}66`, background: `${p.tone}1a`, color: p.tone, fontSize: 13.5, fontWeight: 600 }}>
+              <Icon name={p.icon} size={15} strokeWidth={2.2} />{p.text}
+            </span>
+          ))}
+        </div>
+        <p style={{ color: C.textS, fontSize: 12.5, margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon name="info" size={13} style={{ color: C.goldInk, flexShrink: 0 }} />
+          How a penalty is worked out: quantity × the item&apos;s rate in Damage rates, plus any adjustment staff noted with a reason.
         </p>
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search item, facility or guest" aria-label="Search damage records" style={{ ...inp, width: 260, padding: "8px 12px" }} />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search item, facility or guest" aria-label="Search damage records" style={{ ...inp, width: 320, maxWidth: "100%", padding: "8px 12px" }} />
       </div>
       <TableShell head={["Date", "Guest", "Facility", "Item", "Qty × rate", "Penalty"]} minWidth={860}
         empty={rows.length === 0 ? (q ? "No damage records match." : "No damage recorded yet.") : undefined}>

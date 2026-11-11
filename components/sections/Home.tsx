@@ -258,7 +258,7 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
   // The hero background staff chose (Website Photos), or the built-in one.
   const { media: heroMedia } = useHeroMedia(initialHero);
   // The closing band's photo, set in Website Photos (built-in until then).
-  const { media: closingMedia } = useHeroMedia(undefined, "closing");
+  const { media: closingMedia, loaded: closingLoaded } = useHeroMedia(undefined, "closing");
 
   /* Every 6 seconds one facility, picked at random (never the same twice
      running), lights up for a moment -- a hint that the tiles open. Done
@@ -342,7 +342,7 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
             position: "absolute",
             inset: 0,
             ["--hero-sm" as string]: `url(${imageAt(heroMedia?.kind === "image" ? heroMedia.src : HERO_BG, 1000)})`,
-            ["--hero-lg" as string]: `url(${heroMedia?.kind === "image" ? heroMedia.src : HERO_BG})`,
+            ["--hero-lg" as string]: `url(${imageAt(heroMedia?.kind === "image" ? heroMedia.src : HERO_BG, 1920)})`,
             backgroundSize: "cover",
             backgroundPosition: "center 60%",
           }}
@@ -697,7 +697,9 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
       >
         {/* The last section on the page: fetched as it is scrolled toward,
             not at load. */}
-        <LazyBackground src={closingMedia?.kind === "image" ? closingMedia.src : RESORT_WIDE} style={{ position: "absolute", inset: 0, backgroundSize: "cover", backgroundPosition: "center" }} />
+        {/* The stock photo only once we know none was set, so a refresh
+            doesn't flash it before the resort's own. */}
+        {(closingMedia?.kind === "image" || closingLoaded) && <LazyBackground src={closingMedia?.kind === "image" ? closingMedia.src : RESORT_WIDE} style={{ position: "absolute", inset: 0, backgroundSize: "cover", backgroundPosition: "center" }} />}
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(6,5,3,0.82),rgba(6,5,3,0.9))" }} />
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(to right,transparent,${gold}66,transparent)` }} />
 

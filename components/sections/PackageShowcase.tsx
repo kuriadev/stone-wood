@@ -1,5 +1,6 @@
 "use client";
 
+import { imageAt } from "@/lib/img";
 import { useEffect, useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
@@ -665,7 +666,7 @@ function GalleryLightbox({
 
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={shots[Math.min(idx, shots.length - 1)].src}
+          src={imageAt(shots[Math.min(idx, shots.length - 1)].src, 1600)}
           alt={`${pkg.title}, photo ${idx + 1} of ${shots.length}`}
           className="max-h-[82vh] max-w-[90vw] rounded-lg object-contain shadow-[0_32px_80px_rgba(0,0,0,0.8)]"
         />

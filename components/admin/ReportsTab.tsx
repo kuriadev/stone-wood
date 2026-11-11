@@ -333,7 +333,9 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
    *  red when the bad way; the arrow says which way it moved. */
   const delta = (cur: number, prev: number, up = true) => {
     if (cur === prev) return <span className="sw-rep__delta is-flat">— 0%</span>;
-    if (prev === 0) return <span className={`sw-rep__delta ${(cur > 0) === up ? "is-good" : "is-bad"}`}>{cur > 0 ? "↗ New" : "↘ New"}</span>;
+    // Nothing in the period before, so there is no percentage to show: say
+    // it rose (or fell) from zero instead of the vague "New" it used to.
+    if (prev === 0) return <span className={`sw-rep__delta ${(cur > 0) === up ? "is-good" : "is-bad"}`} title="There was none in the period before, so there is no percentage">{cur > 0 ? "↗ Up from 0" : "↘ Down from 0"}</span>;
     const pct = ((cur - prev) / Math.abs(prev)) * 100;
     const rising = pct > 0;
     const shown = Math.abs(pct) >= 100 ? Math.round(Math.abs(pct)).toLocaleString() : Math.abs(pct).toFixed(1).replace(/\.0$/, "");
@@ -557,8 +559,8 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
               {([
                 ["Money received", fmt(now.collected), now.collected, before.collected, true],
                 ["Net income", fmt(now.net), now.net, before.net, true],
-                ["Bookings", String(now.bookings), now.bookings, before.bookings, true],
-                ["Guests", String(now.guests), now.guests, before.guests, true],
+                ["Total bookings", String(now.bookings), now.bookings, before.bookings, true],
+                ["Total guests", String(now.guests), now.guests, before.guests, true],
               ] as const).map(([l, v, cur, prev, up]) => (
                 <div key={l} className="sw-rep__summarycell" style={{ borderColor: cBr }}>
                   <span className="sw-rep__dotted" style={{ color: C.textS }}>{l}</span>
@@ -630,8 +632,8 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
       {/* ── Bookings ── */}
       {section("calendar", "Bookings and guests", "Who came, how they booked, and which tours.")}
       <div className="sw-rep__kpis" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(4,minmax(0,1fr))" }}>
-        {kpi({ icon: "calendar", label: "Bookings", value: String(bks.length), note: `${kept.length} not cancelled`, accent: gold, cur: now.bookings, prev: before.bookings, trend: series.map((x) => x.bookings) })}
-        {kpi({ icon: "users", label: "Guests", value: String(guests), accent: gold, cur: now.guests, prev: before.guests, trend: series.map((x) => x.guests) })}
+        {kpi({ icon: "calendar", label: "Total bookings", value: String(bks.length), note: bks.length > kept.length ? `${kept.length} going ahead · ${bks.length - kept.length} cancelled` : "None cancelled", accent: gold, cur: now.bookings, prev: before.bookings, trend: series.map((x) => x.bookings) })}
+        {kpi({ icon: "users", label: "Total guests", value: String(guests), note: `In the ${kept.length} booking${kept.length === 1 ? "" : "s"} going ahead`, accent: gold, cur: now.guests, prev: before.guests, trend: series.map((x) => x.guests) })}
         {kpi({ icon: "log-in", label: "Walk-ins", value: String(kept.filter((b) => b.source === "Walk-In").length), accent: gold, cur: now.walkins, prev: before.walkins })}
         {kpi({ icon: "x", label: "Cancellation rate", value: `${bks.length ? Math.round((statusCount[3][1] / bks.length) * 100) : 0}%`, accent: "#9a8f80", cur: now.cancelRate, prev: before.cancelRate, up: false,
           meter: bks.length ? { pct: statusCount[3][1] / bks.length, text: `${statusCount[3][1]} of ${bks.length} bookings` } : undefined })}

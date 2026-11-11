@@ -7,9 +7,6 @@ import { useMaintenance } from "@/hooks/useMaintenance";
 import type { MaintenanceState } from "@/types/maintenance";
 import { COLLECTIONS } from "@/lib/collections";
 import {
-  INIT_ROOMS,
-  INIT_GALLERY,
-  INIT_PACKAGES,
 } from "@/lib/constants";
 
 import type { Booking } from "@/types/booking";
@@ -18,7 +15,7 @@ import type { CustomerMessage } from "@/types/admin";
 import type { Facility } from "@/types/facility";
 import type { InventoryItem } from "@/types/inventory";
 import type { ResortPackage } from "@/types/package";
-import { toGalleryPhoto, type GalleryPhoto } from "@/lib/gallery";
+import type { GalleryPhoto } from "@/lib/gallery";
 
 interface AppState {
   /** Signed-in admin: every booking, editable.
@@ -105,7 +102,12 @@ const NO_BOOKINGS: Booking[] = [];
 const NO_FACILITIES: Facility[] = [];
 const NO_INVENTORY: InventoryItem[] = [];
 // Module-level so the initial value keeps one identity across renders.
-const INIT_GALLERY_PHOTOS: GalleryPhoto[] = INIT_GALLERY.map(toGalleryPhoto);
+// Rooms, packages and gallery start EMPTY too, never with the built-in
+// sample photos: a refresh showed those stock pictures until the resort's
+// own arrived. Pages show a skeleton (or nothing) for that moment instead.
+const NO_ROOMS: Room[] = [];
+const NO_GALLERY: GalleryPhoto[] = [];
+const NO_PACKAGES: ResortPackage[] = [];
 
 export function AppProvider({ children }: { children: ReactNode }) {
   // Not persisted in the browser. The httpOnly session cookie is the real
@@ -129,8 +131,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const publicAvailability = usePublicAvailability(!adminAuth);
   const { maintenance, refreshMaintenance, applyMaintenance } = useMaintenance();
   const bookings = adminAuth ? adminBookings : publicAvailability.bookings;
-  const [rooms, setRooms, roomsMeta] = useDbCollection<Room>(COLLECTIONS.rooms, INIT_ROOMS);
-  const [galleryPhotos, setGalleryPhotos, galleryMeta] = useDbCollection<GalleryPhoto>(COLLECTIONS.gallery, INIT_GALLERY_PHOTOS);
+  const [rooms, setRooms, roomsMeta] = useDbCollection<Room>(COLLECTIONS.rooms, NO_ROOMS);
+  const [galleryPhotos, setGalleryPhotos, galleryMeta] = useDbCollection<GalleryPhoto>(COLLECTIONS.gallery, NO_GALLERY);
   const galleryImgs = useMemo(() => galleryPhotos.map((p) => p.url), [galleryPhotos]);
   const [closedDates, setClosedDates] = useDbCollection<string>(COLLECTIONS.closedDates, []);
   const [customerMessages, setCustomerMessages] = useDbCollection<CustomerMessage>(COLLECTIONS.customerMessages, [], adminAuth);
@@ -142,7 +144,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // and a room set to Under Maintenance was still bookable publicly.
   const facilities = adminAuth ? adminFacilities : publicAvailability.facilities;
   const [inventory, setInventory, inventoryMeta] = useDbCollection<InventoryItem>(COLLECTIONS.inventory, NO_INVENTORY, adminAuth);
-  const [packages, setPackages, packagesMeta] = useDbCollection<ResortPackage>(COLLECTIONS.packages, INIT_PACKAGES);
+  const [packages, setPackages, packagesMeta] = useDbCollection<ResortPackage>(COLLECTIONS.packages, NO_PACKAGES);
 
   return (
     <AppCtx.Provider value={{

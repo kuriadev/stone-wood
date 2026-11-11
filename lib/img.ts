@@ -11,14 +11,29 @@
 
 const UNSPLASH = "images.unsplash.com";
 
+/** The resort's own photos, stored as files (lib/mediaStore.server.ts).
+ *  Saved full size, so they are resized by Next.js's image optimizer
+ *  (/_next/image), which also serves WebP/AVIF and caches the result. */
+const OWN_PHOTO = "/storage/v1/object/public/site-media/";
+
+/** The widths /_next/image accepts: next.config.ts images.deviceSizes and
+ *  imageSizes, together. A width in between is rounded up to the next. */
+export const OPTIMIZER_WIDTHS = [96, 160, 240, 400, 600, 800, 1000, 1200, 1600, 1920] as const;
+
+const isOwnPhoto = (url: string) => typeof url === "string" && url.startsWith("https://") && url.includes(".supabase.co" + OWN_PHOTO);
+
 /** True when this URL supports on-the-fly resizing. */
 export function isResizable(url: string): boolean {
-  return typeof url === "string" && url.includes(UNSPLASH);
+  return typeof url === "string" && (url.includes(UNSPLASH) || isOwnPhoto(url));
 }
 
-/** The same Unsplash image at a given pixel width. */
+/** The same image at a given pixel width. */
 export function imageAt(url: string, width: number): string {
   if (!isResizable(url)) return url;
+  if (isOwnPhoto(url)) {
+    const w = OPTIMIZER_WIDTHS.find((x) => x >= width) ?? OPTIMIZER_WIDTHS[OPTIMIZER_WIDTHS.length - 1];
+    return `/_next/image?url=${encodeURIComponent(url)}&w=${w}&q=75`;
+  }
   try {
     const u = new URL(url);
     u.searchParams.set("w", String(width));

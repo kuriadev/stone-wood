@@ -22,12 +22,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requirePermission } from "@/lib/auth";
 import { getSupabaseAdmin, rowToBooking } from "@/lib/supabase";
 import { ensureSettings } from "@/lib/settings.server";
-import { guestLinkFor } from "@/lib/rebooking.server";
-import { loadBookingLedger } from "@/lib/ledger.server";
-import { notices } from "@/lib/notices";
-import { buildNoticeEmail } from "@/lib/emailTemplate";
-import { isMailConfigured, trySendMail } from "@/lib/mailer";
-import { logActivity } from "@/lib/activity.server";
+import { isMailConfigured } from "@/lib/mailer";
+import { sendGuestReminder } from "@/lib/guestReminder.server";
 import { manilaDate } from "@/lib/finance";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import type { BookingRow } from "@/types/database";
@@ -56,8 +52,7 @@ export async function POST(req: NextRequest) {
   await ensureSettings();
   const tomorrow = manilaDate(new Date(Date.now() + 86_400_000));
   try {
-    const db = getSupabaseAdmin();
-    const { data, error } = await db.from("bookings").select("*")
+    const { data, error } = await getSupabaseAdmin().from("bookings").select("*")
       .eq("date", tomorrow).eq("status", "Confirmed").eq("archived", false).is("reminded_at", null);
     if (error) {
       if (/reminded_at/.test(error.message)) return NextResponse.json({ success: true, sent: 0, noShowOffers, enabled: false });
@@ -67,26 +62,7 @@ export async function POST(req: NextRequest) {
     let sent = 0;
     for (const row of (data ?? []) as BookingRow[]) {
       const b = rowToBooking(row);
-      if (!b.email) continue;
-      // Claim it first, so two Dashboards opening at once can't both send.
-      const claim = await db.from("bookings").update({ reminded_at: new Date().toISOString() })
-        .eq("id", b.id).is("reminded_at", null).select("id").maybeSingle();
-      if (claim.error || !claim.data) continue;
-
-      const ledger = await loadBookingLedger(b.id);
-      const balance = ledger ? Math.max(0, ledger.money.balance) : 0;
-      const { subject, html } = buildNoticeEmail(notices.reminder(b, guestLinkFor(b), balance).email);
-      const ok = await trySendMail({ to: b.email, subject, html }, `reminder ${b.id}`);
-      if (!ok) {
-        // Let the next run try again.
-        await db.from("bookings").update({ reminded_at: null }).eq("id", b.id);
-        continue;
-      }
-      sent++;
-      await logActivity({
-        actor: "System", action: "guest.reminded", bookingId: b.id, entity: "booking", entityId: b.id,
-        summary: `Emailed ${b.name} a reminder for tomorrow (${b.id}).`,
-      });
+      if (await sendGuestReminder(b)) sent++;
     }
     return NextResponse.json({ success: true, sent, noShowOffers, enabled: true });
   } catch (err) {

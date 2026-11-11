@@ -97,6 +97,12 @@ export function DateChangeReview({ request, booking, onClose }: { request: DateC
           <AmountRow label={rebook ? "Picked instead" : "Asks to move to"} value={`${fmtDate(request.toDate)} · ${slot.label}`} strong />
           <AmountRow label="Guests" value={String(booking.guests)} />
         </div>
+        {rebook && booking.cancelReason && (
+          <div style={{ border: "1px solid rgba(245,165,36,0.4)", background: "rgba(245,165,36,0.07)", borderRadius: 10, padding: "10px 14px" }}>
+            <p style={{ margin: "0 0 4px", color: "#f5a524", fontSize: 11.5, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>Why the resort cancelled</p>
+            <p style={{ margin: 0, color: C.textB, fontSize: 13, lineHeight: 1.55 }}>{booking.cancelReason}</p>
+          </div>
+        )}
         <p style={{ color: held ? C.textS : "#f5a524", fontSize: 13, margin: 0 }}>
           {!held
             ? rebook || noShow

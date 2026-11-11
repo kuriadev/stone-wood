@@ -155,7 +155,10 @@ export function useDbCollection<T>(
     try {
       localStorage.setItem(key, JSON.stringify(state));
     } catch {
-      // Quota or private mode. In-memory state still works for this session.
+      // Quota or private mode. In-memory state still works for this session,
+      // but an OLDER copy must not stay behind: it would be painted on the
+      // next refresh (old photos coming back) until the server answered.
+      try { localStorage.removeItem(key); } catch { /* private mode */ }
     }
 
     if (applyingRef.current) {

@@ -66,6 +66,19 @@ const nextConfig: NextConfig = {
   // known-vulnerable Next.js releases.
   poweredByHeader: false,
 
+  // The resort's own photos (Supabase Storage, bucket site-media) are saved
+  // full size; lib/img.ts asks /_next/image for the width each spot needs,
+  // in WebP/AVIF. The widths must match OPTIMIZER_WIDTHS in lib/img.ts.
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/site-media/**" }],
+    deviceSizes: [400, 600, 800, 1000, 1200, 1600, 1920],
+    imageSizes: [96, 160, 240],
+    formats: ["image/avif", "image/webp"],
+    qualities: [75],
+    // A year: a stored photo's name is a hash of its bytes, so it never changes.
+    minimumCacheTTL: 31536000,
+  },
+
   // The food menu was removed. Anyone with an old /menu link or bookmark
   // lands on Packages instead of a 404.
   async redirects() {

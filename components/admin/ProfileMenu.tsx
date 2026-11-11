@@ -43,6 +43,8 @@ const STROKE = 1.75;
 
 interface ProfileMenuProps {
   onAccountSettings: () => void;
+  /** Opens only the password change. */
+  onChangePassword: () => void;
   onSignOut: () => void;
   /** "sidebar": a full-width card at the foot of the nav. "bar": a compact
    *  pill for a page header. */
@@ -52,7 +54,7 @@ interface ProfileMenuProps {
 }
 
 /** Under the name: the person's role, e.g. "Front desk". */
-export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar", compact = false }: ProfileMenuProps) {
+export function ProfileMenu({ onAccountSettings, onChangePassword, onSignOut, variant = "bar", compact = false }: ProfileMenuProps) {
   const { isDark } = useTheme();
   const C = T(isDark);
 
@@ -125,9 +127,9 @@ export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar", com
         display: "flex",
         alignItems: "center",
         justifyContent: compact ? "center" : undefined,
-        gap: SPACE.sm,
+        gap: 10,
         minHeight: TAP_MIN,
-        padding: compact ? 4 : `${SPACE.xs}px ${SPACE.sm}px`,
+        padding: compact ? 4 : "6px 8px 6px 6px",
         borderRadius: 12,
         border: compact ? "1px solid transparent" : `1px solid ${C.border}`,
         background: "transparent",
@@ -136,7 +138,7 @@ export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar", com
         textAlign: "left",
       }}
     >
-      {avatar(34)}
+      {avatar(32)}
       {!compact && <>
       <span style={{ minWidth: 0, flex: 1 }}>
         <span
@@ -153,9 +155,9 @@ export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar", com
         >
           {username}
         </span>
-        <span style={{ display: "block", color: C.textS, fontSize: 11.5, letterSpacing: 0 }}>{ROLE}</span>
+        <span style={{ display: "block", color: C.textS, fontSize: 11.5, letterSpacing: 0, lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ROLE}</span>
       </span>
-      <Icon name="chevron-down" size={15} strokeWidth={STROKE} style={{ flexShrink: 0 }} />
+      <Icon name="chevron-down" size={14} strokeWidth={STROKE} style={{ flexShrink: 0, color: C.textS }} />
       </>}
     </button>
   );
@@ -246,7 +248,7 @@ export function ProfileMenu({ onAccountSettings, onSignOut, variant = "bar", com
         <DropdownMenuSeparator style={{ background: C.borderLight }} />
 
         {item("user", "My profile", onAccountSettings)}
-        {item("lock", "Change my password", onAccountSettings)}
+        {item("lock", "Change my password", onChangePassword)}
         {item("home", "View public site", () => window.open("/", "_blank", "noopener"))}
 
         <DropdownMenuSeparator style={{ background: C.borderLight }} />

@@ -22,6 +22,8 @@
 // refund owed → sent), along with any date change the guest asked for and
 // the booking's full history.
 
+import { reviewReasons } from "@/lib/reviewReasons";
+import { ReviewReasonsNote } from "@/components/admin/ReviewReasonsNote";
 import { bookingHeadcount } from "@/lib/children";
 import { downloadWorkbook } from "@/lib/excelReport";
 import { escapeHtml } from "@/lib/escapeHtml";
@@ -490,6 +492,13 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                   const sub = bookingStatusLabel(b);
                   return sub.toLowerCase() === ind.label.toLowerCase() ? null : <div style={{ color: C.textS, fontSize: 11.5, marginTop: 4 }}>{sub}</div>;
                 })()}
+                {/* Awaiting approval: why, in a word or two (lib/reviewReasons.ts). */}
+                {b.status === "Pending" && reviewReasons(b.notes).length > 0 && (
+                  <div style={{ color: "#f5a524", fontSize: 11.5, fontWeight: 600, marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                    <Icon name="alert" size={12} strokeWidth={2.2} />
+                    {[...new Set(reviewReasons(b.notes).map((r) => r.title))].join(" · ")}
+                  </div>
+                )}
               </Cell>
               <Cell style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                 <div style={{ display: "inline-flex", gap: 4 }}>
@@ -612,7 +621,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
       {/* Today at a glance, as on the Dashboard: tap one to list only those. */}
       <div className="sw-bkstrip" role="group" aria-label="Today's bookings by stage">
         {([
-          ["arriving", "Arriving", "calendar", "#3e8ed0", "Due today, not checked in"],
+          ["arriving", "Arriving", "calendar", "#3e8ed0", "Guests today, not checked in"],
           ["onsite", "On site", "users", "#2e9e4e", "Checked in now"],
           ["settle", "Balance to collect", "cash", "#e07a3a", "Checked out, still owing"],
         ] as const).map(([k, label, icon, color, hint]) => {
@@ -843,10 +852,13 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
           onCancel={() => setConfirm(null)}
           cancelLabel="Go back"
           confirm={<ActionButton kind="green" onClick={accept}>Accept booking</ActionButton>}
-          width={500}>
-          <p style={{ color: C.textS, fontSize: 14, margin: 0 }}>
-            {confirm.email ? `A confirmation email goes to ${confirm.email}.` : "This guest has no email, so no confirmation is sent."}
-          </p>
+          width={520}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <ReviewReasonsNote notes={confirm.notes} />
+            <p style={{ color: C.textS, fontSize: 14, margin: 0 }}>
+              {confirm.email ? `A confirmation email goes to ${confirm.email}.` : "This guest has no email, so no confirmation is sent."}
+            </p>
+          </div>
         </ConfirmDialog>
       )}
       {turnDown && <ResortCancelDialog booking={turnDown} onClose={() => setTurnDown(null)} />}

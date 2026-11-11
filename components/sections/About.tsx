@@ -1,5 +1,6 @@
 "use client";
 
+import { imageAt } from "@/lib/img";
 import { useEffect, useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
@@ -157,19 +158,6 @@ export function About({
       maxWidth: 720,
     }}
   >
-    {/* TAG */}
-    <div
-      style={{
-        letterSpacing: 4,
-        fontSize: 12.5,
-        color: C.goldInk,
-        marginBottom: 16,
-        opacity: 0.8,
-      }}
-    >
-      OUR STORY
-    </div>
-
     {/* TITLE */}
 <h1
   style={{
@@ -496,7 +484,7 @@ export function About({
             <img
               loading="lazy"
               decoding="async"
-              src={photo}
+              src={imageAt(photo, 1000)}
               alt=""
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
             />

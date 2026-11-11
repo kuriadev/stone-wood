@@ -7,17 +7,30 @@ import { NextResponse, type NextRequest } from "next/server";
 import { logActivity } from "@/lib/activity.server";
 import { authenticate, createSessionToken, sessionCookie, currentAdminUsername } from "@/lib/auth";
 import { enterStaff, staffTableReady, type StaffIdentity } from "@/lib/staff.server";
-import { rateLimit, tooManyRequests, resetRateLimit } from "@/lib/rateLimit";
+import { rateLimit, resetRateLimit, clientKey } from "@/lib/rateLimit";
+import { LOGIN_TRIES, LOGIN_PAUSE_SECONDS, lockedFor, recordFailure, clearFailures } from "@/lib/loginLock.server";
 
 export const dynamic = "force-dynamic";
 
-const LIMIT = { name: "login", limit: 8, windowMs: 10 * 60 * 1000 };
+const LIMIT = { name: "login", limit: 30, windowMs: 10 * 60 * 1000 };
+
+/** Sign-in paused: how long, so the card can count it down. */
+function paused(seconds: number) {
+  return NextResponse.json(
+    { success: false, error: "Too many wrong tries. Sign-in is paused for a moment.", lockedFor: seconds, tries: LOGIN_TRIES, pauseSeconds: LOGIN_PAUSE_SECONDS },
+    { status: 429, headers: { "Retry-After": String(seconds) } },
+  );
+}
 
 export async function POST(req: NextRequest) {
-  // Brute force is the whole threat model for a login route, so this one is
-  // limited hard: eight attempts per ten minutes per IP.
+  // Brute force is the whole threat model for a login route: LOGIN_TRIES
+  // wrong passwords pause sign-in for a minute (lib/loginLock.server.ts),
+  // and thirty attempts per ten minutes per IP is the outer guard.
+  const addr = clientKey(req);
+  const wait = lockedFor(addr);
+  if (wait > 0) return paused(wait);
   const limited = rateLimit(req, LIMIT);
-  if (!limited.ok) return tooManyRequests(limited.retryAfter);
+  if (!limited.ok) return paused(limited.retryAfter);
 
   let username = "";
   let password = "";
@@ -66,10 +79,12 @@ export async function POST(req: NextRequest) {
   const who: StaffIdentity | null = await authenticate(username, password);
   if (!who) {
     await logActivity({ actor: "Guest", action: "security.login_failed", entity: "admin", summary: `A failed admin sign-in attempt (username "${username.slice(0, 40)}", from ${ip}).`, details: { ip } });
+    const fail = recordFailure(addr);
+    if (fail.lockedFor > 0) return paused(fail.lockedFor);
     // One message for both wrong username and wrong password — naming which
     // one was wrong confirms valid usernames to an attacker.
     return NextResponse.json(
-      { success: false, error: "Invalid username or password." },
+      { success: false, error: "Invalid username or password.", triesLeft: fail.triesLeft, tries: LOGIN_TRIES, pauseSeconds: LOGIN_PAUSE_SECONDS },
       { status: 401 }
     );
   }
@@ -97,5 +112,6 @@ export async function POST(req: NextRequest) {
   });
   res.cookies.set(sessionCookie(token));
   resetRateLimit(req, LIMIT.name);
+  clearFailures(addr);
   return res;
 }

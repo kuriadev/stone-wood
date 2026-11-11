@@ -1,4 +1,5 @@
 import { escapeHtml, sanitizeHeaderValue } from "@/lib/escapeHtml";
+import { reviewReasons } from "@/lib/reviewReasons";
 import { QUIET_HOURS_POLICY, RESORT_CONTACT, contactChannels, stayPatternNote, venueClosesNote } from "@/lib/resort";
 import { stayWindowLabel } from "@/lib/occupancy";
 import { bookingSlotInfo, bookingDays, getBookingResource } from "@/lib/utils";
@@ -156,8 +157,11 @@ export function buildBookingReceivedEmail(booking: Booking): { subject: string; 
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
                 <tr>
                   <td style="background:#fffaf0;border:1px solid #e2d5b0;border-left:4px solid #c9a84c;border-radius:0 8px 8px 0;padding:20px;">
+                    ${reviewReasons(booking.notes).length ? `
+                    <p style="margin:0 0 8px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;">Why We're Checking It</p>
+                    ${[...new Set(reviewReasons(booking.notes).map((r) => r.guest))].map((t) => `<p style="margin:0 0 12px;color:#4a3a28;font-size:13px;line-height:1.7;">${escapeHtml(t)}</p>`).join("")}` : ""}
                     <p style="margin:0 0 8px;color:#8a6d3b;font-size:10px;letter-spacing:3px;text-transform:uppercase;">What Happens Next</p>
-                    <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">Our team reviews your reservation and confirms your date.</p>
+                    <p style="margin:0 0 6px;color:#4a3a28;font-size:13px;line-height:1.7;">Our team reviews your reservation and confirms your date. If it can't go ahead, you'll choose a new date and what you paid carries over.</p>
                     <p style="margin:0;color:#4a3a28;font-size:13px;line-height:1.7;">You will get a second email once it is confirmed. <strong>This email is not a confirmation</strong>, so please wait for that one before travelling.</p>
                   </td>
                 </tr>
@@ -772,7 +776,13 @@ export function buildNoticeEmail(n: Notice): { subject: string; html: string } {
             </td>
           </tr>
           <tr>
-            <td style="background:#1a1108;border-radius:0 0 12px 12px;padding:18px 36px;text-align:center;">
+            <td style="background:#1a1108;border-radius:0 0 12px 12px;padding:20px 36px;text-align:center;">
+              <p style="margin:0 0 8px;color:#c9a84c;font-size:10px;letter-spacing:3px;text-transform:uppercase;">Contact the resort</p>
+              <p style="margin:0 0 10px;color:#e8dcc0;font-size:13px;line-height:1.9;">
+                ${contactChannels(n.subject).filter((c) => c.kind !== "viber").map((c) => c.href
+                  ? `${escapeHtml(c.label)}: <a href="${escapeHtml(c.href)}" style="color:#f0d98b;text-decoration:underline;">${escapeHtml(c.value)}</a>`
+                  : `${escapeHtml(c.label)}: ${escapeHtml(c.value)}`).join("<br />")}
+              </p>
               <p style="margin:0;color:#8a7a5a;font-size:11.5px;">Stonewood Garden Private Resort · Angono, Rizal</p>
             </td>
           </tr>

@@ -36,7 +36,7 @@ const STATUSES = ["Pending", "Confirmed", "Completed", "Cancelled", "ResortCance
  *  "Completed" while Sales still shows its balance owed and its facilities
  *  still read "In Use". */
 function statusChangeError(from: string, to: string, checkedIn: boolean): string | null {
-  if (to === "Completed") return "A stay is completed by checking the group out and collecting what's owed, so the payment and the inspection are recorded. Use Complete in Bookings or Check out in Daily Operations.";
+  if (to === "Completed") return "A stay is completed by checking the group out and collecting what's owed, so the payment and the inspection are recorded. Use Complete in All Bookings or Check out in the Dashboard.";
   if (from === "ResortCancelled") return "This booking is waiting for the guest to choose a new date or a refund.";
   if (to === "ResortCancelled") return "Use \"Cancel (resort can't host)\", which tells the guest and holds their payment.";
   if (from === "Completed" || from === "Cancelled") return `This booking is already ${from.toLowerCase()} and can't be changed.`;

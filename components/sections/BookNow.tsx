@@ -22,6 +22,7 @@
   import type { Room } from "@/types/room";
   import type { Facility } from "@/types/facility";
   import { GuestCapBadge } from "@/components/common/GuestCapBadge";
+import { imageAt } from "@/lib/img";
 import { Icon, type IconName } from "@/components/common/Icon";
   import { EmailTypoHint } from "@/components/common/EmailTypoHint";
   import { suggestEmail } from "@/lib/emailTypos";
@@ -1890,7 +1891,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
                           {/* alt="" because the room name sits right beside it: a
                               screen reader would otherwise read it twice. */}
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img loading="lazy" decoding="async" src={r.img} alt="" style={{ width: mob ? "100%" : 76, height: mob ? 150 : 50, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
+                          <img loading="lazy" decoding="async" src={imageAt(r.img, mob ? 800 : 160)} alt="" style={{ width: mob ? "100%" : 76, height: mob ? 150 : 50, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
                           <span style={{ flex: 1, minWidth: 0 }}>
                             {/* On a narrow screen the name is already on the
                                 top line with the circle. */}
@@ -2266,7 +2267,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
                       <WalletBadges muted={C.textS} />
                     </div>
                     <div style={{ width: "100%", background: "rgba(0,169,82,0.10)", border: "1px solid rgba(0,169,82,0.35)", borderRadius: 10, padding: "12px 16px", textAlign: "center" }}>
-                      <div style={{ color: "#4caf50", fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>AMOUNT DUE NOW</div>
+                      <div style={{ color: "#4caf50", fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>PAY NOW</div>
                       <div style={{ color: isDark ? "#fff" : "#111", fontSize: mob ? 24 : 28, fontWeight: 700, fontFamily: "'Satoshi',system-ui,sans-serif" }}>{fmt(dueNow)}</div>
                     </div>
                   </div>

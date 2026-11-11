@@ -23,7 +23,7 @@ export const IMPORT_COLUMNS: { key: ImportKey; header: string; width: number; hi
   { key: "pool", header: "Pool", width: 11, hint: "Shared or Exclusive. Blank means Shared (Exclusive for a Staycation)." },
   { key: "guests", header: "Guests", width: 8, hint: "Required. How many are coming." },
   { key: "rooms", header: "Rooms", width: 22, hint: "Optional. Room names, separated by commas." },
-  { key: "amount", header: "Amount paid", width: 13, hint: "Optional. Pesos taken; leave blank if nothing was paid." },
+  { key: "amount", header: "Amount paid", width: 13, hint: "Pesos taken: in full or 50% down. Required." },
   { key: "method", header: "Paid by", width: 14, hint: "Cash or QR Ph." },
   { key: "reference", header: "Reference no.", width: 16, hint: "For QR Ph payments." },
   { key: "notes", header: "Notes", width: 30, hint: "Optional." },

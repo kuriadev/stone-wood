@@ -232,8 +232,8 @@ export function OpsProvider({ children }: { children: ReactNode }) {
     if (online.length === 0) return;
     setFreshIds((s) => new Set([...s, ...online.map((b) => b.id)]));
     toast(online.length === 1
-      ? `New booking: ${online[0].name}, ${fmtDate(online[0].date)}. It's waiting in Daily Operations.`
-      : `${online.length} new bookings came in. They're waiting in Daily Operations.`, "info");
+      ? `New booking: ${online[0].name}, ${fmtDate(online[0].date)}. It's waiting in the Dashboard.`
+      : `${online.length} new bookings came in. They're waiting in the Dashboard.`, "info");
   }, [adminAuth, bookings, syncedAt, toast]);
 
   // ── A caretaker's inspection found damage ────────────────────────────
