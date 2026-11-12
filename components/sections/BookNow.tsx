@@ -955,8 +955,8 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
           </div>
           {sumHr}
           {sumTotal("Total", fmt(total))}
-          {sumLine(payFull ? "Pay Full" : "To Pay First", fmt(payFull ? total : down))}
-          {sumLine("Balance on arrival", fmt(payFull ? 0 : total - down))}
+          {sumLine(payFull ? "Pay Full" : "To Pay First (50% Down Payment)", fmt(payFull ? total : down))}
+          {sumLine("Remaining Balance", fmt(payFull ? 0 : total - down))}
         </>
       ) : summaryKind === "order" ? (
         <>
@@ -969,8 +969,19 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
           {sumRow("Guests", kids ? headcountLabel(adults, kids) : String(guests))}
           {sumHr}
           {sumTotal("Full total", fmt(total))}
-          <p className="sw-bsum__foot" style={{ color: C.textS, margin: "14px 0 0" }}>
-            {paidInFull ? "Pay Full" : "To Pay First"}: <strong style={{ color: C.textH }}>{fmt(dueNow)}</strong>{paidInFull ? "" : ` · ${fmt(total - dueNow)} on arrival`}. We confirm your booking by email once we see it in our GCash.
+          <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 10, border: `1px solid ${C.border}` }}>
+            <p style={{ color: C.textH, fontSize: 15, fontWeight: 700, margin: "0 0 10px" }}>{paidInFull ? "Pay Full" : "To Pay First"}</p>
+            <div className="sw-bsum__row">
+              <span style={{ color: C.textS }}>{paidInFull ? "Full Payment" : "50% Down Payment"}</span>
+              <strong style={{ color: C.dangerInk }}>{fmt(dueNow)}</strong>
+            </div>
+            <div className="sw-bsum__row">
+              <span style={{ color: C.textS }}>Remaining Balance</span>
+              <strong style={{ color: C.textH }}>{fmt(total - dueNow)}</strong>
+            </div>
+          </div>
+          <p className="sw-bsum__foot" style={{ color: C.textS, margin: "12px 0 0" }}>
+            {paidInFull ? "Nothing more to pay on arrival." : "The remaining balance is paid at the resort on arrival."} We confirm your booking by email once we see your payment in our GCash.
           </p>
         </>
       ) : null;
