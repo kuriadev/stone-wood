@@ -35,8 +35,8 @@
 .sw-staff__iconbtn {
   width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
   display: inline-grid; place-items: center;
-  border: 1px solid rgba(150,130,100,.3); background: transparent; color: inherit; cursor: pointer;
-  transition: background-color .2s ease, border-color .2s ease;
+  border: 1px solid rgba(150,130,100,.3); background: transparent; color: var(--sw-text-b); cursor: pointer;
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease;
 }
 .sw-staff__iconbtn:hover { background: rgba(201,168,76,.12); border-color: rgba(201,168,76,.45); }
 .sw-staff__iconbtn:disabled { opacity: .5; cursor: default; }

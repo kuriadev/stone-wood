@@ -1,7 +1,7 @@
 /* Supplies & Equipment as a shop page -- see InventoryTab.tsx.
    Categories and filters on the left, a sort bar, and each item a card. */
 
-.sw-shop { display: grid; gap: 20px; align-items: start; }
+.sw-shop { display: grid; gap: 20px; align-items: start; color: var(--sw-text-b); }
 
 /* ── Left column ── */
 .sw-shop__side { min-width: 0; }
