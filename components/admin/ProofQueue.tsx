@@ -29,6 +29,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { fmt, fmtDate, bookingSlotInfo } from "@/lib/utils";
 import { headcountLabel } from "@/lib/children";
 import { reviewReasons } from "@/lib/reviewReasons";
+import { sameReference } from "@/lib/receiptOcr";
 import { gold } from "@/lib/styles";
 import type { Booking } from "@/types/booking";
 
@@ -38,7 +39,7 @@ interface PendingProof {
   booking: Booking;
   payChoice: "Downpayment" | "Full";
   amountDue: number;
-  ocr: { reference?: string | null; date?: string | null; amounts?: number[]; amountMatch?: boolean; nameFound?: boolean; confidence?: number };
+  ocr: { reference?: string | null; ocrReference?: string | null; senderName?: string | null; senderAccount?: string | null; date?: string | null; amounts?: number[]; amountMatch?: boolean; nameFound?: boolean; confidence?: number };
   reference: string | null;
   submittedAt: string;
   imageUrl: string | null;
@@ -155,9 +156,14 @@ export function ProofQueue({ mob }: { mob: boolean }) {
                   <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textS }}>Amount to be paid</span><strong style={{ color: C.textH, fontSize: 16 }}>{fmt(p.amountDue)}</strong></div>
                   <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textS }}>Guest chose</span><span style={{ color: C.textB }}>{p.payChoice === "Full" ? "Full payment" : "50% down payment"}</span></div>
                   <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textS }}>Booking total</span><span style={{ color: C.textB }}>{fmt(b.total)}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><span style={{ color: C.textS }}>Sender name</span><span style={{ color: C.textH, textAlign: "right", overflowWrap: "anywhere" }}>{read.senderName ?? "—"}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><span style={{ color: C.textS }}>Sender account</span><span style={{ color: C.textH, fontFamily: "monospace" }}>{read.senderAccount ?? "—"}</span></div>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><span style={{ color: C.textS }}>Reference</span><span style={{ color: C.textH, fontFamily: "monospace", overflowWrap: "anywhere" }}>{p.reference ?? "—"}</span></div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
                     {[
+                      ...(read.ocrReference !== undefined && p.reference
+                        ? [[sameReference(read.ocrReference, p.reference), sameReference(read.ocrReference, p.reference) ? "Reference matches receipt" : `Receipt shows ${read.ocrReference ?? "no reference"}`] as [boolean, string]]
+                        : []),
                       [!!read.date, read.date ? `Dated ${fmtDate(read.date)}` : "No date read"],
                       [!!read.amountMatch, read.amountMatch ? "Amount matches" : `Amount read: ${(read.amounts ?? []).map(fmt).join(" / ") || "none"}`],
                       [!!read.nameFound, read.nameFound ? "Name found" : "Name not read"],

@@ -23,7 +23,7 @@ import { T } from "@/lib/theme";
 import { fmt, fmtDate } from "@/lib/utils";
 import { gold, goldBtn, outBtn } from "@/lib/styles";
 import { RESORT_CONTACT } from "@/lib/resort";
-import { checkReceipt, type ReceiptCheck } from "@/lib/receiptOcr";
+import { checkReceipt, cleanAccount, cleanReference, sameReference, validAccount, validReference, validSenderName, type ReceiptCheck } from "@/lib/receiptOcr";
 import { readReceipt, warmUpReceiptReader, BLUR_LIMIT, CONFIDENCE_LIMIT, RECEIPT_TYPES } from "@/lib/receiptImage";
 import { Icon } from "@/components/common/Icon";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -33,7 +33,12 @@ import { GCASH_QR_DEFAULT } from "@/lib/heroMedia";
 const SAMPLE_RECEIPT_SRC = "/images/payments/sample-gcash-receipt.webp";
 
 export interface ProofOcrResult {
+  /** The reference number the guest typed (checked against the receipt). */
   reference: string | null;
+  /** The reference number read off the receipt. */
+  ocrReference: string | null;
+  senderName: string;
+  senderAccount: string;
   date: string | null;
   amounts: number[];
   amountMatch: boolean;
@@ -68,6 +73,15 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
   const [confirming, setConfirming] = useState(false);
   const [copied, setCopied] = useState(false);
   const [sampleOpen, setSampleOpen] = useState(false);
+  const [sender, setSender] = useState({ name: "", account: "", reference: "" });
+  const [touched, setTouched] = useState({ name: false, account: false, reference: false });
+  const fieldErr = {
+    name: !sender.name.trim() ? "Enter the name on the GCash account you paid from." : !validSenderName(sender.name) ? "Use letters and name punctuation. No numbers or emojis." : "",
+    account: !sender.account ? "Enter the GCash number you paid from." : !validAccount(sender.account) ? "Enter an 11-digit mobile number starting with 09." : "",
+    reference: !sender.reference ? "Enter the reference number on your receipt." : !validReference(sender.reference) ? "8–20 digits." : "",
+  };
+  const fieldsOk = !fieldErr.name && !fieldErr.account && !fieldErr.reference;
+  const refMismatch = !!check?.reference && validReference(sender.reference) && !sameReference(check.reference, sender.reference);
   // The resort's GCash QR (Admin → Website Photos), or the one it ships with.
   const { media: qrMedia } = useHeroMedia(undefined, "gcash");
   const qrSrc = qrMedia?.kind === "image" ? qrMedia.src : GCASH_QR_DEFAULT;
@@ -118,7 +132,9 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
   };
 
   const ocr = (): ProofOcrResult => ({
-    reference: check?.reference ?? null, date: check?.date ?? null, amounts: check?.amounts ?? [],
+    reference: sender.reference, ocrReference: check?.reference ?? null,
+    senderName: sender.name.trim().replace(/\s+/g, " "), senderAccount: sender.account,
+    date: check?.date ?? null, amounts: check?.amounts ?? [],
     amountMatch: !!check?.amountMatch, nameFound: !!check?.nameFound, confidence: check?.confidence ?? 0, sharpness: Math.round(check?.sharpness ?? 0),
   });
 
@@ -194,6 +210,31 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
             See a sample receipt
           </button>
         </p>
+        <div style={{ display: "grid", gap: 14, marginBottom: 16 }}>
+          {([
+            ["name", "Sender Name", "Use letters and name punctuation. No numbers or emojis.", { autoComplete: "name", maxLength: 60 }],
+            ["account", "Your Account Number", "The GCash mobile number you paid from, e.g. 0917 123 4567.", { inputMode: "tel", autoComplete: "tel", maxLength: 16 }],
+            ["reference", "Reference Number", "8–20 digits only. Leading zeroes are kept; pasted spaces and hyphens are removed.", { inputMode: "numeric", maxLength: 20 }],
+          ] as const).map(([k, label, hint, extra]) => {
+            const err = touched[k] ? fieldErr[k] : "";
+            return (
+              <div key={k}>
+                <label htmlFor={`pp-${k}`} style={{ display: "block", color: C.textB, fontSize: 13.5, marginBottom: 6 }}>
+                  {label} <span aria-hidden="true" style={{ color: C.dangerInk }}>*</span>
+                </label>
+                <input id={`pp-${k}`} {...extra} required value={sender[k]} aria-invalid={!!err} aria-describedby={`pp-${k}-hint`}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setSender((s) => ({ ...s, [k]: k === "reference" ? cleanReference(v) : k === "account" ? cleanAccount(v) : v }));
+                  }}
+                  onBlur={() => setTouched((t) => ({ ...t, [k]: true }))}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 10, fontSize: 14.5, color: C.textH, background: C.bgCard,
+                    border: `1px solid ${err ? C.dangerInk : C.border}`, outline: "none", fontFamily: k === "name" ? "inherit" : "monospace", letterSpacing: k === "name" ? 0 : 0.5 }} />
+                <p id={`pp-${k}-hint`} style={{ color: err ? C.dangerInk : C.textS, fontSize: 11.5, margin: "5px 0 0", lineHeight: 1.5 }}>{err || hint}</p>
+              </div>
+            );
+          })}
+        </div>
         <input ref={fileRef} type="file" accept={RECEIPT_TYPES.join(",")} hidden onChange={(e) => void onFile(e.target.files?.[0])} />
 
         {reading ? (
@@ -210,10 +251,15 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
                 <Icon name="check-circle" size={15} /> Receipt read
               </p>
               <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 6 }}>
-                {tick(!!check.reference, "Reference no.", check.reference ?? "—")}
+                {tick(!!check.reference && !refMismatch, "Reference no.", check.reference ?? "—")}
                 {tick(!!check.date, "Date", check.date ? fmtDate(check.date) : "—")}
                 {tick(check.amountMatch, "Amount", check.amountMatch ? fmt(due) : check.amounts.length ? check.amounts.map(fmt).join(" / ") : "not read")}
               </ul>
+              {refMismatch && (
+                <p role="alert" style={{ color: "#f5a524", fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.5 }}>
+                  The reference number you typed ({sender.reference}) isn&apos;t the one on this receipt. Please check it.
+                </p>
+              )}
               <button type="button" onClick={pick} style={{ ...outBtn, marginTop: 12, padding: "8px 14px", fontSize: 12, color: C.goldInk }}>
                 <Icon name="image" size={14} /> CHANGE PICTURE
               </button>
@@ -229,7 +275,11 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
 
       {error && <p role="alert" style={{ color: C.dangerInk, fontSize: 13, margin: 0 }}>{error}</p>}
 
-      <button type="button" className="sw-btn" disabled={!photo || !check || busy || reading} onClick={() => setConfirming(true)}
+      <button type="button" className="sw-btn" disabled={!photo || !check || busy || reading}
+        onClick={() => {
+          if (!fieldsOk) { setTouched({ name: true, account: true, reference: true }); document.getElementById(`pp-${fieldErr.name ? "name" : fieldErr.account ? "account" : "reference"}`)?.focus(); return; }
+          setConfirming(true);
+        }}
         style={{ ...goldBtn, width: "100%", opacity: !photo || !check || busy || reading ? 0.45 : 1, cursor: !photo || !check || busy ? "not-allowed" : "pointer" }}>
         {busy ? "SENDING…" : submitLabel.toUpperCase()}
       </button>
@@ -293,7 +343,9 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
               <img src={photo} alt="" style={{ width: 90, height: 120, objectFit: "contain", borderRadius: 8, border: `1px solid ${C.border}`, background: "#fff" }} />
               <div style={{ fontSize: 13.5, lineHeight: 1.8, color: C.textB }}>
                 <div>Amount: <strong style={{ color: C.textH }}>{fmt(due)}</strong></div>
-                <div>Reference: <strong style={{ color: C.textH, fontFamily: "monospace" }}>{check?.reference}</strong></div>
+                <div>Sender: <strong style={{ color: C.textH }}>{sender.name.trim()}</strong></div>
+                <div>Account: <strong style={{ color: C.textH, fontFamily: "monospace" }}>{sender.account}</strong></div>
+                <div>Reference: <strong style={{ color: C.textH, fontFamily: "monospace" }}>{sender.reference}</strong></div>
                 {check?.date && <div>Date: <strong style={{ color: C.textH }}>{fmtDate(check.date)}</strong></div>}
               </div>
             </div>

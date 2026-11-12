@@ -829,10 +829,9 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
         <span style={{ color: C.goldInk }}>{v}</span>
       </div>
     );
-    const summaryBody =
-      summaryKind === "selected" ? (() => {
-        /* A billing summary: when, what, then every peso line by line
-           from the same breakdown the server charges (priceBooking). */
+    /* Every peso line by line, from the same breakdown the server charges
+       (priceBooking). Shown before checkout and again on the payment step. */
+    const priceLines = (() => {
         const per = stayDays > 1 ? ` × ${stayDays} days` : "";
         const lines: [string, string][] = [];
         if (isPackage) {
@@ -853,7 +852,17 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
           if (roomsOff > 0 && roomDeal) lines.push([`Room deal (${dealText(roomDeal)})`, `−${fmt(roomsOff)}`]);
         }
         if (extraDaysOff > 0 && extraDayDeal) lines.push([`Extra days (${dealText(extraDayDeal)} each)`, `−${fmt(extraDaysOff)}`]);
-        const head = (t: string) => <p style={{ color: C.textH, fontSize: 12.5, fontWeight: 700, letterSpacing: 0.4, margin: "0 0 6px" }}>{t}</p>;
+        return lines;
+    })();
+    const priceRows = priceLines.map(([l, v]) => (
+      <div key={l} className="sw-bsum__row" style={{ padding: "4px 0", fontSize: 12.5 }}>
+        <span style={{ color: C.textS }}>{l}</span>
+        <span style={{ color: v.startsWith("−") ? "#6ec071" : C.textB, fontWeight: 500 }}>{v}</span>
+      </div>
+    ));
+    const summaryBody =
+      summaryKind === "selected" ? (() => {
+        const head =(t: string) => <p style={{ color: C.textH, fontSize: 12.5, fontWeight: 700, letterSpacing: 0.4, margin: "0 0 6px" }}>{t}</p>;
         return (
         <>
           <p className="sw-bsum__eyebrow" style={{ color: C.goldInk }}>BILLING SUMMARY</p>
@@ -876,12 +885,7 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
 
           {/* How much */}
           {head("Price")}
-          {lines.map(([l, v]) => (
-            <div key={l} className="sw-bsum__row" style={{ padding: "4px 0", fontSize: 12.5 }}>
-              <span style={{ color: C.textS }}>{l}</span>
-              <span style={{ color: v.startsWith("−") ? "#6ec071" : C.textB, fontWeight: 500 }}>{v}</span>
-            </div>
-          ))}
+          {priceRows}
           {sumHr}
           {sumTotal("Total", fmt(total))}
 
@@ -962,11 +966,19 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
         <>
           <p className="sw-bsum__eyebrow" style={{ color: C.goldInk }}>BILLING SUMMARY</p>
           {sumRow("Guest", form.name || "\u2014")}
+          {form.email && sumRow("Email", form.email)}
+          {form.contact && sumRow("Mobile", form.contact)}
+          {sumHr}
           {sumRow(stayDays > 1 ? "Dates" : "Date", date ? stayLabel({ date, endDate: lastDay }) : "\u2014")}
           {sumRow("Check in", stayWin ? stayWin.arrive : "\u2014")}
           {sumRow("Check out", stayWin ? stayWin.depart : "\u2014")}
           {sumRow("Package availed", availedLabel)}
+          {resource !== "Venue" && sumRow("Pool access", tier)}
           {sumRow("Guests", kids ? headcountLabel(adults, kids) : String(guests))}
+          {sumRow("Room", selectedRoomDetails.length ? selectedRoomDetails.map((rm) => rm.name).join(", ") : "No room add-on")}
+          {sumHr}
+          <p style={{ color: C.textH, fontSize: 12.5, fontWeight: 700, letterSpacing: 0.4, margin: "0 0 6px" }}>Price</p>
+          {priceRows}
           {sumHr}
           {sumTotal("Full total", fmt(total))}
           <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 10, border: `1px solid ${C.border}` }}>

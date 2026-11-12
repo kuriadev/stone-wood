@@ -19,8 +19,7 @@ import { getSupabaseAdmin, rowToBooking, bookingToRow, missingNewColumn, without
 import { requirePermission } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { quoteBooking } from "@/lib/bookingQuote";
-import { checkProofImage, cleanOcr, saveProofImage, proofUrl, proofsTableMissing, type ProofRow } from "@/lib/paymentProofs.server";
-import { isSampleReceipt } from "@/lib/receiptOcr";
+import { checkProofImage, cleanOcr, saveProofImage, senderProblem, proofUrl, proofsTableMissing, type ProofRow } from "@/lib/paymentProofs.server";
 import { buildNoticeEmail } from "@/lib/emailTemplate";
 import { notices } from "@/lib/notices";
 import { guestLinkFor } from "@/lib/rebooking.server";
@@ -45,8 +44,8 @@ export async function POST(req: NextRequest) {
   const img = checkProofImage(body.proof);
   if (!img.ok) return no(img.error);
   const ocr = cleanOcr(body.ocr);
-  if (!ocr.reference) return no("We couldn't find the reference number on your receipt. Please upload a clear screenshot that shows it.");
-  if (isSampleReceipt(ocr.reference)) return no("That's the sample receipt. Please upload the receipt from your own GCash payment.");
+  const missing = senderProblem(ocr);
+  if (missing || !ocr.reference) return no(missing ?? "Enter the reference number from your receipt.");
 
   const db = getSupabaseAdmin();
   try {

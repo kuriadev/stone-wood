@@ -6,6 +6,7 @@
 // The table is supabase/migrations/20261115120000_payment_proofs.sql.
 
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { cleanAccount, cleanReference, isSampleReceipt, validAccount, validReference, validSenderName } from "@/lib/receiptOcr";
 
 export const PROOF_BUCKET = "payment-proofs";
 /** A JPEG made by the browser (lib/receiptImage.ts) is well under this. */
@@ -16,7 +17,12 @@ export type ProofStatus = "Submitted" | "Approved" | "Rejected" | "Replaced";
 export type PayChoice = "Downpayment" | "Full";
 
 export interface ProofOcr {
+  /** The reference number the guest typed. */
   reference?: string | null;
+  /** The reference number read off the receipt. */
+  ocrReference?: string | null;
+  senderName?: string | null;
+  senderAccount?: string | null;
   date?: string | null;
   amounts?: number[];
   amountMatch?: boolean;
@@ -83,13 +89,29 @@ export async function proofUrl(path: string): Promise<string | null> {
   return data?.signedUrl ?? null;
 }
 
+/** The sender's details and reference are filled in and real; null when fine,
+ *  else what the guest has to fix. */
+export function senderProblem(o: ProofOcr): string | null {
+  if (!o.senderName) return "Enter the sender name: letters and name punctuation only.";
+  if (!o.senderAccount) return "Enter the GCash number you paid from (11 digits, starting with 09).";
+  if (!o.reference) return "Enter the reference number from your receipt (8–20 digits).";
+  if (isSampleReceipt(o.reference) || isSampleReceipt(o.ocrReference)) return "That's the sample receipt. Please upload the receipt from your own GCash payment.";
+  return null;
+}
+
 /** What the browser read off the receipt, kept small and typed. */
 export function cleanOcr(raw: unknown): ProofOcr {
   const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const str = (v: unknown, n: number) => (typeof v === "string" ? v.replace(/[<>]/g, "").trim().slice(0, n) || null : null);
   const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.round(v * 100) / 100 : undefined);
+  const ref = cleanReference(typeof o.reference === "string" ? o.reference : "");
+  const name = typeof o.senderName === "string" ? o.senderName.trim().replace(/\s+/g, " ").slice(0, 60) : "";
+  const account = cleanAccount(typeof o.senderAccount === "string" ? o.senderAccount : "");
   return {
-    reference: str(o.reference, 40),
+    reference: validReference(ref) ? ref : null,
+    ocrReference: str(o.ocrReference, 40),
+    senderName: validSenderName(name) ? name : null,
+    senderAccount: validAccount(account) ? account : null,
     date: typeof o.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(o.date) ? o.date : null,
     amounts: Array.isArray(o.amounts) ? o.amounts.map(num).filter((n): n is number => n !== undefined).slice(0, 8) : [],
     amountMatch: o.amountMatch === true,

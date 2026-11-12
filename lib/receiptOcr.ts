@@ -38,6 +38,23 @@ export interface ReceiptCheck extends ReceiptRead {
 export const SAMPLE_RECEIPT_REF = "8047192533045";
 export const isSampleReceipt = (ref: string | null | undefined) => (ref ?? "").replace(/[\s-]/g, "") === SAMPLE_RECEIPT_REF;
 
+// ── What the guest types beside the receipt ────────────────────────────
+/** Reference number: digits only, 8 to 20 of them; pasted spaces and
+ *  hyphens are dropped, leading zeroes kept. */
+export const cleanReference = (s: string) => s.replace(/\D/g, "").slice(0, 20);
+export const validReference = (s: string) => /^\d{8,20}$/.test(s);
+/** The sender's name: letters and name punctuation, no numbers or emoji. */
+export const validSenderName = (s: string) => /^\p{L}[\p{L}\p{M} .,'-]{1,59}$/u.test(s.trim());
+/** The GCash mobile number they paid from, as 09XXXXXXXXX. */
+export function cleanAccount(s: string): string {
+  const d = s.replace(/\D/g, "");
+  return d.startsWith("63") && d.length === 12 ? `0${d.slice(2)}` : d.slice(0, 11);
+}
+export const validAccount = (s: string) => /^09\d{9}$/.test(s);
+/** Same reference, ignoring anything but digits. */
+export const sameReference = (a: string | null | undefined, b: string | null | undefined) =>
+  !!a && !!b && a.replace(/\D/g, "") === b.replace(/\D/g, "");
+
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
 /** OCR mixes up O/0, l/1, S/5 inside numbers; fix them where digits belong. */

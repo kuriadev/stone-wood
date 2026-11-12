@@ -1,7 +1,7 @@
 /* The receipt check: a real GCash receipt passes, a random photo, an old
  * screenshot and the wrong amount don't. */
 
-import { checkReceipt, findReference, findDate, findAmounts } from "@/lib/receiptOcr";
+import { checkReceipt, findReference, findDate, findAmounts, cleanReference, validReference, validSenderName, cleanAccount, validAccount, sameReference } from "@/lib/receiptOcr";
 
 const NOW = new Date("2026-11-12T10:00:00+08:00");
 const GCASH = `GCash
@@ -59,6 +59,20 @@ it("turns away the sample receipt shown to guests", () => {
   const now = new Date("2026-11-13T09:00:00+08:00");
   const sample = REAL.replace("1234 567 890123", "8047 192 533045").replace(/25\.00/g, "10.00");
   expect(checkReceipt(sample, { due: 10, names: ["Stonewood"], now })).toMatchObject({ ok: false, problem: "sample" });
+});
+
+it("checks the sender's name, account number and reference as typed", () => {
+  expect(cleanReference(" 0047-192 533045 ")).toBe("0047192533045");
+  expect(validReference("0047192533045")).toBe(true);
+  expect(validReference("1234567")).toBe(false);
+  expect(validReference("1".repeat(21))).toBe(false);
+  expect(validSenderName("Ma. Clara D'Souza-Reyes")).toBe(true);
+  expect(validSenderName("Juan 2")).toBe(false);
+  expect(validSenderName("Juan 🙂")).toBe(false);
+  expect(cleanAccount("+63 917 123 4567")).toBe("09171234567");
+  expect(validAccount(cleanAccount("0917-123-4567"))).toBe(true);
+  expect(validAccount("0817123456")).toBe(false);
+  expect(sameReference("8047 192 533045", "8047192533045")).toBe(true);
 });
 
 it("reads Maya and numeric dates, and fixes OCR letters in amounts", () => {

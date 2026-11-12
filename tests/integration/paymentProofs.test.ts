@@ -48,7 +48,7 @@ afterAll(() => jest.useRealTimers());
 
 // A JPEG-ish payload big enough to pass the size check.
 const IMG = `data:image/jpeg;base64,${Buffer.alloc(5000, 7).toString("base64")}`;
-const OCR = (ref: string) => ({ reference: ref, date: "2026-11-12", amounts: [200], amountMatch: true, nameFound: true, confidence: 88, sharpness: 300 });
+const OCR = (ref: string) => ({ reference: ref, ocrReference: ref, senderName: "Juan Dela Cruz", senderAccount: "0917 123 4567", date: "2026-11-12", amounts: [200], amountMatch: true, nameFound: true, confidence: 88, sharpness: 300 });
 const EMAIL = "juan@example.com";
 const draft = (o: Record<string, unknown> = {}) => ({
   resource: "Pool", tier: "Shared", slot: "Day", guests: 2, overtime: 0, rooms: [],
@@ -135,6 +135,13 @@ describe("booking with a GCash receipt", () => {
     expect(dup.body.error).toMatch(/already used/);
     const noRef = await book(req("http://localhost/api/payment-proofs", { draft: draft(), proof: IMG, ocr: { ...OCR("x"), reference: null } }));
     expect(noRef.status).toBe(400);
+    const noSender = await json(await book(req("http://localhost/api/payment-proofs", { draft: draft(), proof: IMG, ocr: { ...OCR("5012345678901"), senderName: "Juan 2" } })));
+    expect(noSender.status).toBe(400);
+    expect(noSender.body.error).toMatch(/sender name/);
+    const badAccount = await json(await book(req("http://localhost/api/payment-proofs", { draft: draft(), proof: IMG, ocr: { ...OCR("5012345678901"), senderAccount: "12345" } })));
+    expect(badAccount.status).toBe(400);
+    const sample = await json(await book(req("http://localhost/api/payment-proofs", { draft: draft(), proof: IMG, ocr: OCR("8047 192 533045") })));
+    expect(sample.status).toBe(400);
     expect(mockDb.rows("bookings")).toHaveLength(1);
   });
 });
