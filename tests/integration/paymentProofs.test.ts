@@ -90,9 +90,18 @@ describe("booking with a GCash receipt", () => {
     expect(q.body.proofs[0]).toMatchObject({ bookingId: id, amountDue: 200, imageUrl: `https://signed.example/${id}/receipt.jpg` });
 
     const proofId = mockDb.rows("payment_proofs")[0].id;
+    sent.length = 0;
     const d = await json(await decide(req(`http://localhost/api/payment-proofs/${proofId}`, { action: "Downpayment" }, admin()), { params: Promise.resolve({ id: String(proofId) }) }));
     expect(d.status).toBe(200);
     expect(d.body.amount).toBe(200);
+    // The guest gets the confirmation, with the Booking ID and the balance left.
+    expect(d.body.emailed).toBe(true);
+    const conf = sent.find((m) => /Booking Confirmed/.test(m.subject)) as { to: string; subject: string; html: string } | undefined;
+    expect(conf).toBeDefined();
+    expect(conf!.to).toBe(EMAIL);
+    expect(conf!.subject).toContain(id);
+    expect(conf!.html).toContain(id);
+    expect(conf!.html).toMatch(/remaining balance of ₱/);
     expect(mockDb.rows("bookings")[0]).toMatchObject({ status: "Confirmed", payment_proof: true, downpayment: 200 });
     expect(mockDb.rows("payments")[0]).toMatchObject({ booking_id: id, method: "GCash", amount: 200, type: "Downpayment", reference: "1012345678901" });
     expect(mockDb.rows("payment_proofs")[0]).toMatchObject({ status: "Approved", approved_as: "Downpayment", reviewed_by: "Bea" });
@@ -105,7 +114,12 @@ describe("booking with a GCash receipt", () => {
     const r = await json(await book(req("http://localhost/api/payment-proofs", { draft: draft({ payFull: true }), proof: IMG, ocr: OCR("2012345678901") })));
     const proofId = mockDb.rows("payment_proofs")[0].id;
     expect(mockDb.rows("payment_proofs")[0]).toMatchObject({ pay_choice: "Full", amount_due: r.body.booking.total });
-    await decide(req(`http://localhost/api/payment-proofs/${proofId}`, { action: "Full" }, admin()), { params: Promise.resolve({ id: String(proofId) }) });
+    sent.length = 0;
+    const d = await json(await decide(req(`http://localhost/api/payment-proofs/${proofId}`, { action: "Full" }, admin()), { params: Promise.resolve({ id: String(proofId) }) }));
+    expect(d.body.emailed).toBe(true);
+    const conf = sent.find((m) => /Booking Confirmed/.test(m.subject)) as { to: string; html: string } | undefined;
+    expect(conf?.to).toBe(EMAIL);
+    expect(conf?.html).toMatch(/fully paid/);
     expect(mockDb.rows("payments")[0]).toMatchObject({ type: "Full", amount: r.body.booking.total });
     expect(mockDb.rows("bookings")[0].downpayment).toBe(r.body.booking.total);
   });

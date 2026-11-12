@@ -102,9 +102,15 @@ export function ProofQueue({ mob }: { mob: boolean }) {
       if (!res.ok || !j?.success) throw new Error(j?.error ?? "Could not save the decision.");
       setProofs((list) => (list ?? []).filter((x) => x.id !== p.id));
       setConfirm(null); setRejecting(null); setReason("");
-      toast(action === "Reject"
-        ? `Payment rejected. ${p.booking.name} was emailed to send a new receipt.`
-        : `${fmt(j.amount ?? 0)} confirmed. ${p.booking.id} is now confirmed and ${p.booking.name} was emailed.`, action === "Reject" ? "warning" : "success");
+      if (j.emailed === false) {
+        toast(action === "Reject"
+          ? `Payment rejected, but the email to ${p.booking.name} didn't send. Tell them by phone (${p.booking.contact}) or email them from the booking.`
+          : `${fmt(j.amount ?? 0)} confirmed and ${p.booking.id} is confirmed, but the confirmation email to ${p.booking.name} didn't send. Use "Email guest" on the booking.`, "warning");
+      } else {
+        toast(action === "Reject"
+          ? `Payment rejected. ${p.booking.name} was emailed to send a new receipt.`
+          : `${fmt(j.amount ?? 0)} confirmed. ${p.booking.id} is now confirmed and the confirmation was emailed to ${p.booking.email || p.booking.name}.`, action === "Reject" ? "warning" : "success");
+      }
       void reloadBookings(); void ops.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save the decision.");
