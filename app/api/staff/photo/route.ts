@@ -13,6 +13,7 @@ import { parseImageDataUrl } from "@/lib/facilityPhotos";
 import { staffPhotoKey, staffPhotoUrl } from "@/lib/staffPhotos";
 import { logActivity } from "@/lib/activity.server";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const NOT_READY = "Profile photos switch on once the database update (20261028130000_site_content.sql) is applied.";
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const body = (await req.json().catch(() => null)) as { id?: string; photo?: unknown } | null;
+  const body = (await readJson(req).catch(() => null)) as { id?: string; photo?: unknown } | null;
   const id = String(body?.id ?? "");
   if (!isId(id)) return NextResponse.json({ success: false, error: "Which person?" }, { status: 400 });
   const w = await who(req, id);

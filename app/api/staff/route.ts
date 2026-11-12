@@ -26,6 +26,7 @@ import { staffPhotoKey } from "@/lib/staffPhotos";
 import { isValidEmail } from "@/lib/validators";
 import { emailProofValid } from "@/lib/emailCode.server";
 
+import { readJson } from "@/lib/readJson";
 /** A staff email is saved only with proof that the 6-digit code sent to it
  *  was typed in (/api/email-code). "" or null removes it. Returns the
  *  value to save, or an error. */
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
   if (denied) return denied;
   if (!(await staffTableReady())) return notReady();
 
-  const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const b = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const name = cleanName(b.name);
   const username = String(b.username ?? "").trim();
   const password = String(b.password ?? "");
@@ -102,7 +103,7 @@ export async function PATCH(req: NextRequest) {
 
   const id = req.nextUrl.searchParams.get("id") ?? "";
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ success: false, error: "Which person?" }, { status: 400 });
-  const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const b = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
 
   const patch: Parameters<typeof updateStaff>[1] = {};
   if (b.name !== undefined) {

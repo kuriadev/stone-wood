@@ -73,7 +73,20 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => mq?.removeEventListener?.("change", onChange);
   }, []);
 
-  useEffect(() => { paint(mode); }, [mode]);
+  /* Not before the first effect has read the device: the state starts
+     "dark" (the server's render), and painting that would undo the head
+     script's light for a frame. */
+  const synced = useRef(false);
+  useEffect(() => {
+    if (!synced.current) {
+      if (mode !== latest.current) return;
+      synced.current = true;
+    }
+    paint(mode);
+    // The page is drawn in this theme now: show it (lib/themeBoot.ts).
+    const root = document.documentElement;
+    if (root.classList.contains("sw-boot")) requestAnimationFrame(() => root.classList.remove("sw-boot"));
+  }, [mode]);
 
   /* Switching used to be a cut: every colour changed in one frame, which
      from dark to light is a flashbang. Now the page cross-fades over most

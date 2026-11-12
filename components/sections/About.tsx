@@ -11,9 +11,9 @@ import { GuestCapBadge } from "@/components/common/GuestCapBadge";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { Reveal, REVEAL_STEP } from "@/components/common/Reveal";
 // The owner's phone and email from Rates & Settings, not a typed-in copy.
-import { RESORT_CONTACT, SLOTS, QUIET_HOURS_START, venueCloseText, slotFor } from "@/lib/resort";
+import { RESORT_CONTACT, SLOTS, venueCloseText, slotFor } from "@/lib/resort";
 import {
-  RESCHEDULE_NOTICE_DAYS, GUESTS_MAX, VENUE_CAPACITY,
+  GUESTS_MAX, VENUE_CAPACITY,
   sharedRateFor, exclusiveRateFor, childRateFor, EVENT_VENUE_RATE, OVERTIME_RATE, OVERTIME_MAX, MAX_STAY_DAYS,
 } from "@/lib/validators";
 import { useApp } from "@/contexts/AppContext";
@@ -22,6 +22,7 @@ import { facilityIcon } from "@/lib/facilityUsage";
 import { CHILD_FREE_AGE } from "@/lib/children";
 import type { PublicAmenity } from "@/types/facility";
 import "./About.css";
+import { Faq } from "@/components/common/Faq";
 
 /** Where the resort is. The footer prints the same line. */
 const ADDRESS = "22 Yakal cor. Ipil St. Doña Justa Village Phase, 2nd St, Angono, Rizal";
@@ -45,7 +46,6 @@ export function About({
   const mob = w < 768;
   // Policies and questions: one answer open at a time. Opening another
   // closes the last; tapping the open one closes it.
-  const [openQ, setOpenQ] = useState<number | null>(null);
   // Rooms and their own rates, for the rates section.
   const { rooms } = useApp();
   // The amenities from Facility Management, as on the home page.
@@ -60,29 +60,11 @@ export function About({
     return () => { live = false; };
   }, []);
 
-  // Built at render, so the numbers follow Rates & Settings (the notice
-  // days) and lib/resort (the hours) -- the same rules the guest agrees to
-  // on Book Now (lib/policies.ts).
-  const notice = `${RESCHEDULE_NOTICE_DAYS} day${RESCHEDULE_NOTICE_DAYS === 1 ? "" : "s"}`;
-  const stay = SLOTS.WholeDay;
   const facts: { icon: IconName; label: string; value: string; href?: string }[] = [
     { icon: "pin", label: "Address", value: ADDRESS },
     { icon: "clock", label: "Hours", value: `${SLOTS.Day.label} ${SLOTS.Day.start} – ${SLOTS.Day.end} · ${SLOTS.Night.label} ${SLOTS.Night.start} – ${SLOTS.Night.end} · Events venue until ${venueCloseText()}` },
     { icon: "phone", label: "Call or text", value: RESORT_CONTACT.phone, href: `tel:${RESORT_CONTACT.phone.replace(/[^\d+]/g, "")}` },
     { icon: "mail", label: "Email", value: RESORT_CONTACT.email, href: `mailto:${RESORT_CONTACT.email}` },
-  ];
-  // The questions guests ask before booking (tester feedback, 2026-11-12):
-  // times, parking, outside food, then payment and cancelling.
-  const faqs: { q: string; a: string }[] = [
-    { q: "What time is check-in and check-out?", a: `${SLOTS.Day.label}: check in from ${SLOTS.Day.start}, check out by ${SLOTS.Day.end}. ${SLOTS.Night.label}: check in from ${SLOTS.Night.start}, check out by ${SLOTS.Night.end} the next morning. ${stay.label}: from ${stay.start} on your first day until ${stay.end} after your last night.` },
-    { q: "Is there parking?", a: "Yes. Free, secure parking is on-site for all guests, included with your booking." },
-    { q: "Can we bring our own food and drinks?", a: "Yes, free of charge. You're welcome to bring your own food and drinks, and the BBQ / grilling area is yours to use. Please keep the resort clean and take your trash with you or use the bins." },
-    { q: "How much do I pay to book?", a: "Half of the total, sent to the resort's GCash when you book (scan our QR or use our GCash number). Then upload a photo or screenshot of your receipt as proof of payment. Our staff check that the payment arrived before your booking is confirmed, and we email you once it is. The other half is paid when you arrive. You can also pay the full amount at once." },
-    { q: "What if I need to cancel?", a: `If you cancel, payments are not refunded — but you can move your booking to another free date once, at no charge, if you ask at least ${notice} before your visit.` },
-    { q: "What if the resort has to cancel?", a: "You choose: a free new date, or a full refund. The same goes for a PAGASA storm signal or a travel restriction. The resort contacts you." },
-    { q: "Do I have to sleep over for a stay of several days?", a: `A booking of more than one date is a ${stay.label}: the resort stays yours from ${stay.start} on the first day until ${stay.end} after the last night.` },
-    { q: "Are there quiet hours?", a: `Music, videoke and speakers go off at ${QUIET_HOURS_START} so our neighbours can rest. The events venue closes at ${venueCloseText()}: a venue-only booking ends then, and a group that also booked the pool moves to the pool until the Night Stay ends.` },
-    { q: "How many guests can we bring?", a: `Up to ${GUESTS_MAX} with the pool, which is what the pool area holds. An event in the venue only, without the pool, can have up to ${VENUE_CAPACITY}.` },
   ];
 
 
@@ -310,39 +292,7 @@ export function About({
           </Reveal>
         </div>
 
-        <div className="sw-about__faq" id="faq" style={{ scrollMarginTop: 96 }}>
-          <Reveal>
-            <div>
-              <h3 className="sw-about__faqtitle" style={{ color: C.textH }}>Frequently asked questions</h3>
-              <p className="sw-about__faqsub" style={{ color: C.textS }}>Times, parking, food, payment and cancelling: the same rules you agree to when you book.</p>
-            </div>
-          </Reveal>
-          <Reveal delay={REVEAL_STEP}>
-            <div className="sw-about__acc" style={{ background: C.bgCard, borderColor: C.border }}>
-              {faqs.map((f, i) => {
-                const open = openQ === i;
-                return (
-                  <div key={f.q} className={`sw-about__item${open ? " is-open" : ""}`} style={{ borderColor: C.border }}>
-                    <button
-                      type="button"
-                      className="sw-about__q"
-                      aria-expanded={open}
-                      aria-controls={`sw-faq-${i}`}
-                      onClick={() => setOpenQ(open ? null : i)}
-                      style={{ color: C.textH }}
-                    >
-                      <span>{f.q}</span>
-                      <Icon name="chevron-down" size={18} className="sw-about__chev" />
-                    </button>
-                    <div id={`sw-faq-${i}`} className="sw-about__a" role="region" aria-hidden={!open}>
-                      <div><p style={{ color: C.textB }}>{f.a}</p></div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Reveal>
-        </div>
+        <Faq id="faq" />
 
         {/* RATES — every price comes from Rates & Settings and the rooms
             the owner set up, so this always matches what Book Now charges. */}

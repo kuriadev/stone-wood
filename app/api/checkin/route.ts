@@ -26,13 +26,14 @@ import { manilaDate } from "@/lib/finance";
 import { bookingEndDate } from "@/lib/utils";
 import type { BookingRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "bookings.edit");
   if (denied) return denied;
 
-  const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const b = (await readJson(req).catch(() => null)) as Record<string, unknown> | null;
   const bookingId = cleanText(b?.bookingId, 40);
   if (!bookingId) return NextResponse.json({ success: false, error: "Choose a booking." }, { status: 400 });
   const undo = !!b?.undo;

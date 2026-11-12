@@ -22,6 +22,7 @@ import { can } from "@/lib/permissions";
 import { fmt } from "@/lib/utils";
 import type { ActivityRow, BookingRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "ops.view");
   if (denied) return denied;
 
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const action = String(body.action ?? "");
   if (!OUTSIDE_ACTIONS.has(action)) return NextResponse.json({ success: false, error: "Unknown action." }, { status: 400 });
   const bookingId = cleanText(body.bookingId, 40);

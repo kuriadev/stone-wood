@@ -17,6 +17,7 @@ import { GALLERY_MAX, sanitizeLabel, sanitizeNotes } from "@/lib/validators";
 import type { PackageRow } from "@/types/database";
 import type { BookingResource, BookingTier } from "@/types/booking";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const RESOURCES: BookingResource[] = ["Pool", "Venue", "Pool+Venue"];
@@ -143,7 +144,7 @@ export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
   try {
-    const b = await req.json().catch(() => ({}));
+    const b = await readJson(req).catch(() => ({}));
     // The capacity limit is the owner's (Rates & Settings), not the default.
     await ensureSettings();
     const problem = problemWith(b);
@@ -170,7 +171,7 @@ export async function PATCH(req: NextRequest) {
   const id = Number(req.nextUrl.searchParams.get("id"));
   if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "A numeric package id is required." }, { status: 400 });
   try {
-    const b = await req.json().catch(() => ({}));
+    const b = await readJson(req).catch(() => ({}));
     // The capacity limit is the owner's (Rates & Settings), not the default.
     await ensureSettings();
     const problem = problemWith(b);

@@ -15,6 +15,7 @@ import type { RoomRow } from "@/types/database";
 import type { Room } from "@/types/room";
 import { cleanImageRef, cleanImageList } from "@/lib/image";
 
+import { readJson } from "@/lib/readJson";
 /** Strings only, no blanks, no duplicates, cover first, capped at
  *  GALLERY_MAX. The admin UI enforces the same cap, but a request does not
  *  have to come from the admin UI.
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
   try {
-    const b = await req.json().catch(() => ({}));
+    const b = await readJson(req).catch(() => ({}));
     const problem = problemWith(b, false);
     if (problem) return NextResponse.json({ success: false, error: problem }, { status: 400 });
 
@@ -120,7 +121,7 @@ export async function PATCH(req: NextRequest) {
   if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "A numeric room id is required." }, { status: 400 });
 
   try {
-    const b = await req.json().catch(() => ({}));
+    const b = await readJson(req).catch(() => ({}));
     const problem = problemWith(b, true);
     if (problem) return NextResponse.json({ success: false, error: problem }, { status: 400 });
 

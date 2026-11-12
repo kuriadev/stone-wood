@@ -20,6 +20,7 @@ import { ensureSettings } from "@/lib/settings.server";
 import { fmtDate } from "@/lib/utils";
 import { EMERGENCY_TYPE } from "@/lib/emergency";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const idOf = (req: NextRequest) => Number(req.nextUrl.searchParams.get("id"));
@@ -45,7 +46,7 @@ export async function PATCH(req: NextRequest) {
   if (denied) return denied;
   await ensureSettings();
   const id = idOf(req);
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const decision = body.decision === "Approved" || body.decision === "Declined" ? body.decision : null;
   const note = sanitizeNotes(String(body.note ?? "")).slice(0, 600).trim();
   const no = (error: string, status = 400) => NextResponse.json({ success: false, error }, { status });

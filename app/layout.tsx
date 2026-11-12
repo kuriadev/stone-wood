@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     template: `%s · ${SITE.name}`,
   },
   description: SITE.description,
-  keywords: ["resort", "private resort", "Angono", "Rizal", "swimming pool", "day stay", "events venue", "Philippines"],
+  keywords: ["resort", "private resort", "Angono", "Rizal", "swimming pool", "day stay", "night stay", "staycation", "events venue", "Philippines"],
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",

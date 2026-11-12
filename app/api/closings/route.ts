@@ -29,13 +29,14 @@ import { notifyStaff } from "@/lib/staffNotify.server";
 import { fmt } from "@/lib/utils";
 import type { DailyClosingRow, PaymentRow, ExpenseRow, BookingRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "day.close");
   if (denied) return denied;
 
-  const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const b = (await readJson(req).catch(() => null)) as Record<string, unknown> | null;
   if (!b || !isDateStr(b.date)) return NextResponse.json({ success: false, error: "Choose the day to close." }, { status: 400 });
   if (b.date > manilaDate()) return NextResponse.json({ success: false, error: "A day can't be closed before it happens." }, { status: 400 });
 

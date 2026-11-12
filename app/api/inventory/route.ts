@@ -17,6 +17,7 @@ import { recordMovements, missingStockTable } from "@/lib/stock.server";
 import { guessKind } from "@/types/inventory";
 import type { InventoryRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "inventory.manage");
   if (denied) return denied;
   try {
-    const parsed = parseInput(inventoryItemInput, await req.json().catch(() => ({})));
+    const parsed = parseInput(inventoryItemInput, await readJson(req).catch(() => ({})));
     if (!parsed.ok) return NextResponse.json({ success: false, error: parsed.error }, { status: 400 });
     const item = parsed.data;
 
@@ -88,7 +89,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: false, error: "A numeric item id is required." }, { status: 400 });
   }
   try {
-    const raw = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+    const raw = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
 
     // { restore: true } brings an archived item back: the owner's call, like
     // archiving it was.

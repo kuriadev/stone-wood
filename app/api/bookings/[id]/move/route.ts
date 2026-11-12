@@ -37,6 +37,7 @@ import { trySendMail } from "@/lib/mailer";
 import { logActivity } from "@/lib/activity.server";
 import { fmt, fmtDate } from "@/lib/utils";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (denied) return denied;
 
   const { id } = await params;
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const date = String(body.date ?? "");
   const note = sanitizeNotes(String(body.note ?? "")).slice(0, 300);
   const no = (error: string, status = 409) => NextResponse.json({ success: false, error }, { status });

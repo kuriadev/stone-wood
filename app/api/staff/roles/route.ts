@@ -16,6 +16,7 @@ import {
 } from "@/lib/permissions";
 import { ensureRolePermissions, forgetRolePermissions, ROLE_PERMISSIONS_KEY } from "@/lib/rolePermissions.server";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const ownerOnly = () => NextResponse.json({ success: false, error: "Only a super admin can change what each role may do." }, { status: 403 });
@@ -34,7 +35,7 @@ export async function PUT(req: NextRequest) {
   const denied = await requirePermission(req, "staff.manage");
   if (denied) return denied;
   if (actingStaff() && actingStaff()!.role !== "Owner") return ownerOnly();
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const before = await ensureRolePermissions();
   const next: RoleOverrides = body.reset === true ? {} : { ...before, ...validateRoleOverrides(body) };
   const { error } = await getSupabaseAdmin().from("site_content").upsert(

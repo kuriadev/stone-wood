@@ -30,6 +30,7 @@ import { logActivity } from "@/lib/activity.server";
 import { fmt, fmtDate } from "@/lib/utils";
 import type { BookingRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (denied) return denied;
 
   const { id } = await params;
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const reason = cleanText(body.reason, 300) || "Due to circumstances at the resort, we can no longer host your booking on that date.";
 
   try {

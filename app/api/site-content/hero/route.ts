@@ -22,6 +22,7 @@ import {
   SITE_MEDIA_BUCKET, SITE_MEDIA_SLOTS, slotOf, HERO_UPLOAD, validateHeroMedia, heroUploadProblem, heroUploadPath, type HeroMedia,
 } from "@/lib/heroMedia";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const NOT_READY = "The hero background switches on once the database update (20261028130000_site_content.sql) is applied.";
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
   if (denied) return denied;
   const slotName = slotOf(req.nextUrl.searchParams.get("slot"));
   const slot = SITE_MEDIA_SLOTS[slotName];
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const kind = body.kind === "video" ? "video" : body.kind === "image" ? "image" : null;
   if (!kind) return NextResponse.json({ success: false, error: "Choose a photo or a video." }, { status: 400 });
   if (kind === "video" && !slot.video) return NextResponse.json({ success: false, error: "This background takes a photo, not a video." }, { status: 400 });
@@ -83,7 +84,7 @@ export async function PUT(req: NextRequest) {
   const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
   const slot = SITE_MEDIA_SLOTS[slotOf(req.nextUrl.searchParams.get("slot"))];
-  const v = validateHeroMedia(await req.json().catch(() => null));
+  const v = validateHeroMedia(await readJson(req).catch(() => null));
   if (!v.ok) return NextResponse.json({ success: false, error: v.error }, { status: 400 });
   if (v.media.kind === "video" && !slot.video) return NextResponse.json({ success: false, error: "This background takes a photo, not a video." }, { status: 400 });
   try {

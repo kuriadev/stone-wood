@@ -27,6 +27,7 @@ import type { FacilityRow } from "@/types/database";
 import type { AmenityArea, FacilityStatus } from "@/types/facility";
 import { AMENITY_ICONS, CORE_AMENITIES } from "@/lib/facilityUsage";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const STATUSES: FacilityStatus[] = ["Available", "In Use", "Needs Cleaning", "Under Maintenance"];
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
   if (denied) return denied;
 
   try {
-    const b = await req.json().catch(() => ({}));
+    const b = await readJson(req).catch(() => ({}));
     const name = cleanName(b.name);
     if (name.length < 2) return NextResponse.json({ success: false, error: "Give the amenity a name." }, { status: 400 });
     if (!AREAS.includes(b.area)) return NextResponse.json({ success: false, error: "Choose which bookings use this amenity." }, { status: 400 });
@@ -110,7 +111,7 @@ export async function PATCH(req: NextRequest) {
   if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "A numeric facility id is required." }, { status: 400 });
 
   try {
-    const b = await req.json().catch(() => ({}));
+    const b = await readJson(req).catch(() => ({}));
     const patch: Partial<FacilityRow> = {};
 
     if (b.status !== undefined) {

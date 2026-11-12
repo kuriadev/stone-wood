@@ -15,6 +15,7 @@ import { actingStaff } from "@/lib/staff.server";
 import { logActivity } from "@/lib/activity.server";
 import { validateHomeCards } from "@/lib/homeCards";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const KEY = "home_rate_cards";
@@ -47,7 +48,7 @@ export async function GET() {
 export async function PUT(req: NextRequest) {
   const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
-  const body = await req.json().catch(() => null);
+  const body = await readJson(req).catch(() => null);
   const v = validateHomeCards(body?.cards);
   if (!v.ok) return NextResponse.json({ success: false, error: v.error }, { status: 400 });
   try {

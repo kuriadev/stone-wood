@@ -16,6 +16,7 @@ import {
   type MaintenanceState,
 } from "@/types/maintenance";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 interface SiteSettingsRow {
@@ -62,7 +63,7 @@ export async function PATCH(req: NextRequest) {
     // One schema covers the shape, the enum and the length cap. The database
     // column keeps its own CHECK on `maintenance_reason`, so a bad value is
     // still refused twice.
-    const parsed = parseInput(maintenanceInput, await req.json().catch(() => ({})));
+    const parsed = parseInput(maintenanceInput, await readJson(req).catch(() => ({})));
     if (!parsed.ok) {
       return NextResponse.json({ success: false, error: parsed.error }, { status: 400 });
     }

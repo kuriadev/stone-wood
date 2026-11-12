@@ -12,12 +12,13 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { parseSupplies, missingStockTable } from "@/lib/stock.server";
 import { logActivity } from "@/lib/activity.server";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function PUT(req: NextRequest) {
   const denied = await requirePermission(req, "inventory.manage");
   if (denied) return denied;
-  const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const b = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const facilityId = Number(b.facilityId);
   if (!Number.isInteger(facilityId) || facilityId <= 0) return NextResponse.json({ success: false, error: "Which facility?" }, { status: 400 });
   const supplies = parseSupplies(b.supplies);

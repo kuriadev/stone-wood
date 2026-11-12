@@ -642,6 +642,11 @@ optgroup {
    Home page, so light mode showed a black band across the header. Also
    visible on overscroll bounce. */
 :root.sw-light body { background: #faf7f2; }
+/* A light visitor's first moment: hidden on the light background until
+   React has drawn the light theme (lib/themeBoot.ts), instead of showing
+   the server's dark render. The first-load intro still shows. */
+html.sw-boot { background: #faf7f2; }
+html.sw-boot body > :not(#sw-intro) { visibility: hidden; }
 /* display:block is the important half here, not max-width.
    An <img> is display:inline by default, so it sits on the TEXT BASELINE and
    the line box reserves room underneath it for descenders (the tail of a "y").

@@ -36,6 +36,7 @@ import { cleanText } from "@/lib/money";
 import { round2 } from "@/lib/finance";
 import type { FacilityRow, DamageRateRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 /** Inspection photos: a few per facility, each a compressed image. */
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "facilities.inspect");
   if (denied) return denied;
 
-  const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const b = (await readJson(req).catch(() => null)) as Record<string, unknown> | null;
   const bookingId = cleanText(b?.bookingId, 40);
   if (!b || !bookingId) return NextResponse.json({ success: false, error: "Choose a booking." }, { status: 400 });
 

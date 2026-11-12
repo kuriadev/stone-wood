@@ -20,6 +20,7 @@ import { checkWalkIn, saveWalkIn } from "@/lib/walkIn.server";
 import { packageAvailed } from "@/lib/pricing";
 import type { Booking } from "@/types/booking";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 /** A day's offline bookings, with room to spare. */
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "bookings.edit");
   if (denied) return denied;
 
-  const body = (await req.json().catch(() => null)) as { rows?: unknown; save?: unknown } | null;
+  const body = (await readJson(req).catch(() => null)) as { rows?: unknown; save?: unknown } | null;
   const rows = Array.isArray(body?.rows) ? body.rows : null;
   if (!rows || rows.length === 0) return NextResponse.json({ success: false, error: "There are no bookings to import." }, { status: 400 });
   if (rows.length > MAX_ROWS) return NextResponse.json({ success: false, error: `Import at most ${MAX_ROWS} bookings at a time.` }, { status: 400 });

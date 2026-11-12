@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { quoteBooking } from "@/lib/bookingQuote";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = await readJson(req).catch(() => ({}));
     // The email must have been confirmed with a code before payment.
     const result = await quoteBooking((body as { draft?: unknown })?.draft, { requireEmailProof: true });
     if (!result.ok) {

@@ -48,5 +48,12 @@ export function rememberTheme(mode: ThemeMode): void {
   } catch { /* not remembered, still switched */ }
 }
 
-/** The same rule as resolveTheme, as a tiny script for <head>. */
-export const THEME_BOOT_SCRIPT = `(function(){try{var d=window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark",m=d;try{var c=JSON.parse(localStorage.getItem("${THEME_CHOICE_KEY}")||"null");if(c&&(c.mode==="light"||c.mode==="dark")&&c.device===d)m=c.mode}catch(e){}var r=document.documentElement;r.classList.toggle("sw-dark",m==="dark");r.classList.toggle("sw-light",m==="light");r.style.colorScheme=m}catch(e){}})();`;
+/** The same rule as resolveTheme, as a tiny script for <head>.
+ *
+ *  The server renders the dark palette (inline styles from T(isDark)), and
+ *  React only learns the device is light after it mounts, so a light visitor
+ *  used to see the whole page dark for a moment on every refresh. For a light
+ *  visitor the script adds `sw-boot`, which keeps the page hidden on the
+ *  light background (globals.css) until ThemeContext has drawn it light; a
+ *  timer takes it off anyway in case the app never starts. */
+export const THEME_BOOT_SCRIPT = `(function(){try{var d=window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark",m=d;try{var c=JSON.parse(localStorage.getItem("${THEME_CHOICE_KEY}")||"null");if(c&&(c.mode==="light"||c.mode==="dark")&&c.device===d)m=c.mode}catch(e){}var r=document.documentElement;r.classList.toggle("sw-dark",m==="dark");r.classList.toggle("sw-light",m==="light");r.style.colorScheme=m;if(m==="light"){r.classList.add("sw-boot");setTimeout(function(){r.classList.remove("sw-boot")},4000)}}catch(e){}})();`;

@@ -19,6 +19,7 @@ import { logActivity } from "@/lib/activity.server";
 import { cleanText } from "@/lib/money";
 import type { SupplyLine, UpkeepData, UpkeepRun, UpkeepTask } from "@/types/tasks";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 interface TaskRow { id: number; title: string; facility_id: number | null; every_days: number; start_date: string; notes: string; active: boolean }
@@ -112,7 +113,7 @@ async function saveSupplies(taskId: number, supplies: SupplyLine[]) {
 export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "inventory.manage");
   if (denied) return denied;
-  const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const b = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const parsed = parseTask(b, true);
   if (!parsed.ok) return NextResponse.json({ success: false, error: parsed.error }, { status: 400 });
   try {
@@ -139,7 +140,7 @@ export async function PATCH(req: NextRequest) {
   if (denied) return denied;
   const id = Number(req.nextUrl.searchParams.get("id"));
   if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ success: false, error: "Which task?" }, { status: 400 });
-  const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const b = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const parsed = parseTask(b, false);
   if (!parsed.ok) return NextResponse.json({ success: false, error: parsed.error }, { status: 400 });
   try {

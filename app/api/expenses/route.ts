@@ -13,13 +13,14 @@ import { parseAmount, cleanText, isDateStr } from "@/lib/money";
 import { EXPENSE_CATEGORIES, EXPENSE_MAX } from "@/types/finance";
 import type { ExpenseRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "expenses.record");
   if (denied) return denied;
 
-  const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const b = (await readJson(req).catch(() => null)) as Record<string, unknown> | null;
   if (!b) return NextResponse.json({ success: false, error: "Invalid request." }, { status: 400 });
 
   const amount = parseAmount(b.amount, EXPENSE_MAX);
@@ -50,7 +51,7 @@ export async function PATCH(req: NextRequest) {
 
   const id = Number(req.nextUrl.searchParams.get("id"));
   if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "An expense id is required." }, { status: 400 });
-  const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const b = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const reason = cleanText(b.reason, 300);
   if (reason.length < 3) return NextResponse.json({ success: false, error: "Say why this expense is being voided." }, { status: 400 });
 

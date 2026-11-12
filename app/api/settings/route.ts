@@ -19,6 +19,7 @@ import { loadSettings, forgetSettings, ensureSettings } from "@/lib/settings.ser
 import { validateSettings, settingsChanges } from "@/lib/settings";
 import { logActivity } from "@/lib/activity.server";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const denied = await requirePermission(req, "settings.manage");
   if (denied) return denied;
-  const body = await req.json().catch(() => null);
+  const body = await readJson(req).catch(() => null);
   const v = validateSettings(body, { strict: true });
   if (!v.ok) return NextResponse.json({ success: false, error: v.error }, { status: 400 });
 

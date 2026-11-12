@@ -11,10 +11,11 @@ import { isMailConfigured, sendMail } from "@/lib/mailer";
 import { buildEmailCodeEmail } from "@/lib/emailTemplate";
 import { newEmailCode, EMAIL_CODE_TTL_MS, EMAIL_CODE_RESEND_S } from "@/lib/emailCode.server";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json().catch(() => ({}))) as { email?: unknown; purpose?: unknown };
+  const body = (await readJson(req).catch(() => ({}))) as { email?: unknown; purpose?: unknown };
   // Only changes the email's wording (lib/emailTemplate.ts).
   const purpose = body.purpose === "manage" || body.purpose === "staff" ? body.purpose : "booking";
   const email = String(body.email ?? "").trim().toLowerCase();

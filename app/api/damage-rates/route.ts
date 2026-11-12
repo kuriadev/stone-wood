@@ -21,6 +21,7 @@ import { requirePermission } from "@/lib/auth";
 import { cleanText } from "@/lib/money";
 import type { DamageRateRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const rate = (v: unknown) => {
@@ -31,7 +32,7 @@ const rate = (v: unknown) => {
 export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "catalog.manage");
   if (denied) return denied;
-  const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const b = (await readJson(req).catch(() => null)) as Record<string, unknown> | null;
   const name = cleanText(b?.name, 80);
   const r = rate(b?.rate);
   if (name.length < 2) return NextResponse.json({ success: false, error: "Name the item." }, { status: 400 });
@@ -56,7 +57,7 @@ export async function PATCH(req: NextRequest) {
   if (denied) return denied;
   const id = Number(req.nextUrl.searchParams.get("id"));
   if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "An item id is required." }, { status: 400 });
-  const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const b = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const patch: Partial<DamageRateRow> = {};
   if (b.name !== undefined) {
     const name = cleanText(b.name, 80);

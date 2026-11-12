@@ -10,6 +10,7 @@ import { updateOwnName, staffTableReady } from "@/lib/staff.server";
 import { sanitizeName } from "@/lib/validators";
 import { logActivity } from "@/lib/activity.server";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function PATCH(req: NextRequest) {
@@ -18,7 +19,7 @@ export async function PATCH(req: NextRequest) {
   const me = await currentIdentity(session);
   if (!me || !me.id) return NextResponse.json({ success: false, error: "Only a staff account has a profile to edit." }, { status: 400 });
   if (!(await staffTableReady())) return NextResponse.json({ success: false, error: "Staff accounts aren't switched on yet." }, { status: 409 });
-  const body = (await req.json().catch(() => ({}))) as { name?: unknown };
+  const body = (await readJson(req).catch(() => ({}))) as { name?: unknown };
   const name = sanitizeName(String(body.name ?? "")).trim().slice(0, 60);
   if (name.length < 2) return NextResponse.json({ success: false, error: "Enter your name (at least 2 letters)." }, { status: 400 });
   try {

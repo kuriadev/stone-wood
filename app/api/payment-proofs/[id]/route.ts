@@ -28,6 +28,7 @@ import { fmt } from "@/lib/utils";
 import type { ProofRow } from "@/lib/paymentProofs.server";
 import type { BookingRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const denied = await requirePermission(req, "payments.record");
   if (denied) return denied;
   const { id } = await params;
-  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const body = (await readJson(req).catch(() => null)) as Record<string, unknown> | null;
   const action = String(body?.action ?? "");
   if (!["Downpayment", "Full", "Reject"].includes(action)) return no("Choose confirm partial, confirm full or reject.");
   const reason = String(body?.reason ?? "").replace(/[<>]/g, "").trim().slice(0, 300);

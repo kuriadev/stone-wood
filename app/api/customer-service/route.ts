@@ -17,6 +17,7 @@ import { ensureSettings } from "@/lib/settings.server";
 import { notifyStaff } from "@/lib/staffNotify.server";
 import { buildGuestMessageAlert } from "@/lib/adminNotify";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const MESSAGE_MAX = 2000;
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
   const limited = rateLimit(req, { name: "customer-service", limit: 10, windowMs: 60 * 60 * 1000 });
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
-  const body = await req.json().catch(() => null);
+  const body = await readJson(req).catch(() => null);
   if (!body || typeof body !== "object") {
     return NextResponse.json({ success: false, error: "Invalid request." }, { status: 400 });
   }
@@ -101,7 +102,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: false, error: "A numeric message id is required." }, { status: 400 });
   }
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = await readJson(req).catch(() => ({}));
     const archived = !!body.archived;
     const { data, error } = await getSupabaseAdmin()
       .from("customer_messages")

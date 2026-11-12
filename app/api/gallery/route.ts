@@ -19,6 +19,7 @@ import { requirePermission } from "@/lib/auth";
 import { cleanCaption, GALLERY_TITLE_MAX, GALLERY_TEXT_MAX, GALLERY_PAGE_MAX } from "@/lib/gallery";
 import type { GalleryRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const MAX_IMAGES = GALLERY_PAGE_MAX;
@@ -55,7 +56,7 @@ export async function PUT(req: NextRequest) {
   if (denied) return denied;
 
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = await readJson(req).catch(() => ({}));
     // `photos` ({url, title, description}[]) is the current shape; a bare
     // `gallery` url list is still accepted and saves with no captions.
     const raw: unknown = Array.isArray(body?.photos) ? body.photos : body?.gallery;

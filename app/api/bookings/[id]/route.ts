@@ -24,6 +24,7 @@ import { rowToPayment, rowToDateChange, missingNewColumn, withoutNewColumns } fr
 import type { BookingRow, PaymentRow, DateChangeRow } from "@/types/database";
 import type { Booking } from "@/types/booking";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const STATUSES = ["Pending", "Confirmed", "Completed", "Cancelled", "ResortCancelled"] as const;
@@ -123,7 +124,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
   const { id } = await params;
   try {
-    const body = await req.json().catch(() => null);
+    const body = await readJson(req).catch(() => null);
     if (!body || typeof body !== "object") {
       return NextResponse.json({ success: false, error: "Invalid request." }, { status: 400 });
     }

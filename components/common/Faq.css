@@ -1,0 +1,28 @@
+/* The FAQ (components/common/Faq.tsx): the title on top, the questions
+   under it, one column. */
+.sw-faq { max-width: 880px; margin: 56px auto 0; }
+.sw-faq__title { margin: 0 0 6px; font-family: 'Satoshi', system-ui, sans-serif; font-size: 22px; font-weight: 500; }
+.sw-faq__sub { margin: 0 0 18px; font-size: 13px; }
+
+.sw-faq__acc { border: 1px solid; border-radius: 16px; overflow: hidden; }
+.sw-faq__item + .sw-faq__item { border-top: 1px solid; }
+.sw-faq__q {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 18px 20px; background: none; border: 0; cursor: pointer; text-align: left;
+  font: inherit; font-size: 15.5px; font-weight: 600;
+}
+.sw-faq__q:hover { background: rgba(201, 168, 76, 0.06); }
+.sw-faq__q:focus-visible { outline: 2px solid var(--sw-gold); outline-offset: -2px; }
+.sw-faq__chev { flex-shrink: 0; transition: transform .3s cubic-bezier(.22, 1, .36, 1); }
+.sw-faq__item.is-open .sw-faq__chev { transform: rotate(180deg); }
+
+/* Open and close by animating the row height (0fr → 1fr). */
+.sw-faq__a { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .35s cubic-bezier(.22, 1, .36, 1); }
+.sw-faq__item.is-open .sw-faq__a { grid-template-rows: 1fr; }
+.sw-faq__a > div { overflow: hidden; }
+.sw-faq__a p { margin: 0; padding: 0 20px 18px; font-size: 14.5px; line-height: 1.75; max-width: 62ch; opacity: 0; transition: opacity .25s ease; }
+.sw-faq__item.is-open .sw-faq__a p { opacity: 1; transition-delay: .08s; }
+
+@media (max-width: 900px) {
+  .sw-faq { margin-top: 44px; }
+}

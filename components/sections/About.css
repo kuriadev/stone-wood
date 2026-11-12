@@ -15,33 +15,10 @@ a.sw-about__frow:hover { background: rgba(201, 168, 76, 0.07); }
 .sw-about__flabel { display: block; font-size: 15.5px; font-weight: 600; margin-bottom: 2px; }
 .sw-about__fvalue { display: block; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 
-.sw-about__faq { display: grid; grid-template-columns: minmax(0, 0.62fr) minmax(0, 1fr); gap: 48px; align-items: start; margin-top: 56px; }
-.sw-about__faqtitle { margin: 0 0 6px; font-family: 'Satoshi', system-ui, sans-serif; font-size: 22px; font-weight: 500; }
-.sw-about__faqsub { margin: 0; font-size: 13px; }
-
-.sw-about__acc { border: 1px solid; border-radius: 16px; overflow: hidden; }
-.sw-about__item + .sw-about__item { border-top: 1px solid; }
-.sw-about__q {
-  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 18px 20px; background: none; border: 0; cursor: pointer; text-align: left;
-  font: inherit; font-size: 15.5px; font-weight: 600;
-}
-.sw-about__q:hover { background: rgba(201, 168, 76, 0.06); }
-.sw-about__q:focus-visible { outline: 2px solid var(--sw-gold); outline-offset: -2px; }
-.sw-about__chev { flex-shrink: 0; transition: transform .3s cubic-bezier(.22, 1, .36, 1); }
-.sw-about__item.is-open .sw-about__chev { transform: rotate(180deg); }
-
-/* Height animates through grid rows 0fr -> 1fr, so no measuring. */
-.sw-about__a { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .35s cubic-bezier(.22, 1, .36, 1); }
-.sw-about__item.is-open .sw-about__a { grid-template-rows: 1fr; }
-.sw-about__a > div { overflow: hidden; }
-.sw-about__a p { margin: 0; padding: 0 20px 18px; font-size: 14.5px; line-height: 1.75; max-width: 62ch; opacity: 0; transition: opacity .25s ease; }
-.sw-about__item.is-open .sw-about__a p { opacity: 1; transition-delay: .08s; }
 
 @media (max-width: 900px) {
   .sw-about { padding: 44px 20px 56px; }
-  .sw-about__top, .sw-about__faq { grid-template-columns: 1fr; gap: 28px; }
-  .sw-about__faq { margin-top: 44px; gap: 18px; }
+  .sw-about__top { grid-template-columns: 1fr; gap: 28px; }
   .sw-about__eyebrow { margin-top: 0; }
 }
 

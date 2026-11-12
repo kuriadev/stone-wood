@@ -13,6 +13,7 @@ import { newResetToken } from "@/lib/passwordReset.server";
 import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const no = (error: string, status = 400) => NextResponse.json({ success: false, error }, { status });
@@ -20,7 +21,7 @@ const no = (error: string, status = 400) => NextResponse.json({ success: false, 
 export async function POST(req: NextRequest) {
   const all = rateLimit(req, { name: "pw-forgot-verify", limit: 30, windowMs: 60 * 60 * 1000 });
   if (!all.ok) return tooManyRequests(all.retryAfter);
-  const body = (await req.json().catch(() => ({}))) as { login?: unknown; challenge?: unknown; code?: unknown };
+  const body = (await readJson(req).catch(() => ({}))) as { login?: unknown; challenge?: unknown; code?: unknown };
   const id = challengeId(body.challenge);
   if (!id) return no("Ask for a code first.");
   const tries = rateLimit(req, { name: `pw-forgot-try:${id}`, limit: EMAIL_CODE_TRIES, windowMs: 15 * 60 * 1000 });

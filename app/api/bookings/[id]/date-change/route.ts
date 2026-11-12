@@ -27,6 +27,7 @@ import { fmtDate } from "@/lib/utils";
 import type { DateChangeRow } from "@/types/database";
 import { ensureSettings } from "@/lib/settings.server";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
   const { id } = await params;
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const date = String(body.date ?? "");
   const no = (error: string, status = 409) => NextResponse.json({ success: false, error }, { status });
 

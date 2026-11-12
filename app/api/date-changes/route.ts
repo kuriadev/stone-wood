@@ -35,6 +35,7 @@ import { fmtDate } from "@/lib/utils";
 import { manilaDate } from "@/lib/finance";
 import type { BookingRow, DateChangeRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function PATCH(req: NextRequest) {
@@ -45,7 +46,7 @@ export async function PATCH(req: NextRequest) {
 
   const id = Number(req.nextUrl.searchParams.get("id"));
   if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "A request id is required." }, { status: 400 });
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const approve = body.action === "approve";
   if (!approve && body.action !== "decline") return NextResponse.json({ success: false, error: "Approve or decline." }, { status: 400 });
   const note = cleanText(body.note, 300);

@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { challengeId, checkEmailCode, EMAIL_CODE_TRIES } from "@/lib/emailCode.server";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const no = (error: string, status = 400) => NextResponse.json({ success: false, error }, { status });
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
   const all = rateLimit(req, { name: "email-code-verify", limit: 40, windowMs: 60 * 60 * 1000 });
   if (!all.ok) return tooManyRequests(all.retryAfter);
 
-  const body = (await req.json().catch(() => ({}))) as { email?: unknown; challenge?: unknown; code?: unknown };
+  const body = (await readJson(req).catch(() => ({}))) as { email?: unknown; challenge?: unknown; code?: unknown };
   const id = challengeId(body.challenge);
   if (!id) return no("Send yourself a code first.");
 

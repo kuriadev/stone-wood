@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { HERO_BG } from "@/lib/constants";
 import { RESORT_CONTACT } from "@/lib/resort";
 import { publicOrigin } from "@/lib/siteUrl";
 
@@ -19,8 +18,11 @@ export const SITE = {
   url: publicOrigin(process.env.NEXT_PUBLIC_SITE_URL),
   locale: "en_PH",
   description:
-    "An exclusive private resort experience crafted for those who seek luxury, privacy, and nature. Located in Angono, Rizal, Philippines.",
-  image: HERO_BG,
+    "A family-run private resort in Angono, Rizal. Book a Day Stay, Night Stay or a 1–3 day Staycation, with a shared or private pool, rooms and an events venue. Free BBQ area, billiards, videoke and parking.",
+  /** The link preview's photo (Messenger, Facebook, Viber …): the resort's
+   *  own pool, 1200×630. A new file name, so apps that kept the old preview
+   *  fetch this one. */
+  image: "/images/og-cover.jpg",
 } as const;
 
 /** Flip to true once RESORT_CONTACT holds the owner's real number and email.
@@ -68,7 +70,7 @@ export function resortJsonLd() {
     name: SITE.name,
     description: SITE.description,
     url: SITE.url,
-    image: [SITE.image],
+    image: [`${SITE.url}${SITE.image}`],
     address: {
       "@type": "PostalAddress",
       addressLocality: "Angono",
@@ -76,7 +78,7 @@ export function resortJsonLd() {
       addressCountry: "PH",
     },
     ...(CONTACT_VERIFIED ? { telephone: RESORT_CONTACT.phone, email: RESORT_CONTACT.email } : {}),
-    amenityFeature: ["Private swimming pool", "Events venue", "Rooms", "Videoke", "Billiards", "Parking"].map((name) => ({
+    amenityFeature: ["Swimming pool (shared or private)", "Events venue", "Rooms", "BBQ / grilling area", "Videoke", "Billiards", "Free parking"].map((name) => ({
       "@type": "LocationFeatureSpecification",
       name,
       value: true,

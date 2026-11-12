@@ -30,6 +30,7 @@ import { logActivity } from "@/lib/activity.server";
 import { fmt, fmtDate } from "@/lib/utils";
 import type { BookingRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const no = (error: string, status = 400) => NextResponse.json({ success: false, error }, { status });
@@ -37,7 +38,7 @@ const no = (error: string, status = 400) => NextResponse.json({ success: false, 
 export async function POST(req: NextRequest) {
   const limited = rateLimit(req, { name: "proof-booking", limit: 10, windowMs: 60 * 60 * 1000 });
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
-  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const body = (await readJson(req).catch(() => null)) as Record<string, unknown> | null;
   if (!body) return no("Invalid request.");
 
   const img = checkProofImage(body.proof);

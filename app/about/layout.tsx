@@ -4,7 +4,7 @@ import { pageMetadata } from "@/lib/seo";
 // Server layout so this Client Component route can still declare its metadata.
 export const metadata = pageMetadata({
   title: "About",
-  description: "Stonewood Garden is a family-run private resort in Angono, Rizal — where stone meets the woods.",
+  description: "Stonewood Garden is a family-run private resort in Angono, Rizal: hours, rates, what's included with your stay, and answers to common questions.",
   path: "/about",
 });
 

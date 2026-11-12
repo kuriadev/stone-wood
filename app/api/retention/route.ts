@@ -17,6 +17,7 @@ import { manilaDate } from "@/lib/finance";
 import { validateRetention, monthsLabel, scheduleLabel, nextScheduledOn, purgeDueFor, type RetentionState } from "@/lib/retention";
 import { loadRetention, saveRetention, findArchivable, findDeletable, archiveOld, purgeArchive, BackupError } from "@/lib/retention.server";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 function schedulerAuthorised(req: NextRequest): boolean {
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const denied = await requirePermission(req, "settings.manage");
   if (denied) return denied;
-  const v = validateRetention(await req.json().catch(() => null));
+  const v = validateRetention(await readJson(req).catch(() => null));
   if (!v.ok) return NextResponse.json({ success: false, error: v.error }, { status: 400 });
   try {
     const { state } = await loadRetention();
@@ -74,7 +75,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json().catch(() => ({}))) as { action?: string };
+  const body = (await readJson(req).catch(() => ({}))) as { action?: string };
   const action = body.action === "run" ? "purge" : body.action;
   if (action === "archive" || action === "purge") {
     const denied = await requirePermission(req, "settings.manage");

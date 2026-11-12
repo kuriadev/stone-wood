@@ -14,6 +14,7 @@ import { parseDateStr, isInStaffWindow, staffDateWindow } from "@/lib/validators
 import { closeDateInput, parseInput } from "@/lib/schemas";
 import type { ClosedDateRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const isDateStr = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && parseDateStr(s) !== null;
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "calendar.manage");
   if (denied) return denied;
   try {
-    const parsed = parseInput(closeDateInput, await req.json().catch(() => ({})));
+    const parsed = parseInput(closeDateInput, await readJson(req).catch(() => ({})));
     if (!parsed.ok) {
       return NextResponse.json({ success: false, error: parsed.error }, { status: 400 });
     }

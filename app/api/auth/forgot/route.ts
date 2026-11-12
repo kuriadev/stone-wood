@@ -15,12 +15,13 @@ import { newEmailCode, EMAIL_CODE_TTL_MS, EMAIL_CODE_RESEND_S } from "@/lib/emai
 import { findStaffForReset, staffTableReady } from "@/lib/staff.server";
 import { logActivity } from "@/lib/activity.server";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const hourly = rateLimit(req, { name: "pw-forgot", limit: 6, windowMs: 60 * 60 * 1000 });
   if (!hourly.ok) return tooManyRequests(hourly.retryAfter);
-  const body = (await req.json().catch(() => ({}))) as { login?: unknown };
+  const body = (await readJson(req).catch(() => ({}))) as { login?: unknown };
   const login = String(body.login ?? "").trim().toLowerCase().slice(0, 120);
   if (!login) return NextResponse.json({ success: false, error: "Enter your username or email." }, { status: 400 });
 

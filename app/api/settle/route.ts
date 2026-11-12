@@ -27,6 +27,7 @@ import { fmt } from "@/lib/utils";
 import { MANUAL_METHODS } from "@/types/finance";
 import { checkDeskQr, isDeskQrRef, cleanDeskRef } from "@/lib/deskQr.server";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 type Method = (typeof MANUAL_METHODS)[number];
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "payments.record");
   if (denied) return denied;
 
-  const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const b = (await readJson(req).catch(() => null)) as Record<string, unknown> | null;
   const bookingId = cleanText(b?.bookingId, 40);
   if (!b || !bookingId) return NextResponse.json({ success: false, error: "Choose a booking." }, { status: 400 });
 

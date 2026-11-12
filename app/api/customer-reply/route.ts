@@ -14,6 +14,7 @@ import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { escapeHtml, sanitizeHeaderValue } from "@/lib/escapeHtml";
 import { isValidEmail } from "@/lib/validators";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = await readJson(req).catch(() => ({}));
     const customerEmail = typeof body?.customerEmail === "string" ? body.customerEmail.trim() : "";
     const customerName = sanitizeHeaderValue(body?.customerName, 100);
     const message = typeof body?.message === "string" ? body.message.slice(0, 5000) : "";

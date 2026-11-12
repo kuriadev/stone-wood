@@ -15,6 +15,7 @@ import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { isValidEmail } from "@/lib/validators";
 import type { CustomerMessageRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
   const limited = rateLimit(req, { name: "cs-reply", limit: 60, windowMs: 60 * 60 * 1000 });
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
-  const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const b = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const id = Number(b.id);
   const message = String(b.message ?? "").trim();
   if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "Which message?" }, { status: 400 });

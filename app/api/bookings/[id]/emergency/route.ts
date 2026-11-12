@@ -26,6 +26,7 @@ import {
   proofProblem, cleanProofName, type ProofFile,
 } from "@/lib/emergency";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
   const { id } = await params;
-  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const body = (await readJson(req).catch(() => null)) as Record<string, unknown> | null;
   const no = (error: string, status = 400) => NextResponse.json({ success: false, error }, { status });
   if (!body) return no("Invalid request.");
   const email = String(body.email ?? "").trim().toLowerCase();

@@ -16,6 +16,7 @@ import { remindGuestIfTomorrow } from "@/lib/guestReminder.server";
 import { checkWalkIn, saveWalkIn } from "@/lib/walkIn.server";
 import type { BookingRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const body = (await readJson(req).catch(() => null)) as Record<string, unknown> | null;
   if (!body || typeof body !== "object") {
     return NextResponse.json({ success: false, error: "Invalid request." }, { status: 400 });
   }

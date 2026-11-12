@@ -20,6 +20,7 @@ import { notifyStaff } from "@/lib/staffNotify.server";
 import { logActivity } from "@/lib/activity.server";
 import { fmt } from "@/lib/utils";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const limited = rateLimit(req, { name: "booking-proof", limit: 30, windowMs: 60 * 60 * 1000 });
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
   const { id } = await params;
-  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const body = (await readJson(req).catch(() => null)) as Record<string, unknown> | null;
   if (!body) return no("Invalid request.");
   const email = String(body.email ?? "").trim().toLowerCase();
   const token = String(body.t ?? "").trim();

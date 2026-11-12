@@ -16,6 +16,7 @@ import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { isValidEmail } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
       money?: RejectionMoney;
       subject?: string;
       message?: string;
-    } = await req.json();
+    } = await readJson(req);
 
     if (!booking?.email || !isValidEmail(booking.email)) {
       return NextResponse.json({ error: "A valid booking email is required." }, { status: 400 });

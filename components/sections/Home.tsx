@@ -22,6 +22,7 @@ import { Icon } from "@/components/common/Icon";
 import { facilityIcon } from "@/lib/facilityUsage";
 import type { PublicAmenity } from "@/types/facility";
 import { Reveal } from "@/components/common/Reveal";
+import { Faq } from "@/components/common/Faq";
 import { RoomCoverflow } from "@/components/sections/RoomCoverflow";
 import { FacilityLightbox, type FacilityShot } from "@/components/sections/FacilityLightbox";
 import { defaultFacilityPhoto } from "@/lib/facilityPhotos";
@@ -679,6 +680,8 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
             ))}
           </Reveal>
           <FacilityLightbox shot={facShot} open={facOpen} onOpenChange={setFacOpen} />
+          {/* The same FAQ as About, under the facilities. */}
+          <Faq id="home-faq" />
         </div>
       </div>
 

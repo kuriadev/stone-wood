@@ -18,6 +18,7 @@ import { sanitizeNotes, startOfToday, toDateStr, rescheduleProblem, RESCHEDULE_N
 import type { BookingRow } from "@/types/database";
 import { ensureSettings } from "@/lib/settings.server";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
   const { id } = await params;
-  const body = (await req.json().catch(() => null)) as { email?: unknown; t?: unknown; ep?: unknown; reason?: unknown } | null;
+  const body = (await readJson(req).catch(() => null)) as { email?: unknown; t?: unknown; ep?: unknown; reason?: unknown } | null;
   const email = String(body?.email ?? "").trim().toLowerCase();
   const token = String(body?.t ?? "").trim();
   const reason = sanitizeNotes(String(body?.reason ?? "")).slice(0, 200) || null;

@@ -27,13 +27,14 @@ import { recordMovements, parseSupplies, itemNames, describeSupplies } from "@/l
 import { cleanText } from "@/lib/money";
 import type { FacilityRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "facilities.clean");
   if (denied) return denied;
 
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const ids = Array.isArray(body.ids)
     ? [...new Set(body.ids.map(Number).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 200)
     : [];

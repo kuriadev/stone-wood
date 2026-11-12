@@ -28,6 +28,7 @@ import { MANUAL_METHODS } from "@/types/finance";
 import type { Booking } from "@/types/booking";
 import type { BookingRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (denied) return denied;
 
   const { id } = await params;
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const method = body.method as Method;
   if (!MANUAL_METHODS.includes(method)) return NextResponse.json({ success: false, error: "Say how the money went back: cash or an online transaction." }, { status: 400 });
   const note = cleanText(body.note, 300);

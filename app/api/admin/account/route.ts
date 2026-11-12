@@ -20,6 +20,7 @@ import { checkOwnPassword, updateOwnLogin, StaffError, usernameProblem, password
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { logActivity } from "@/lib/activity.server";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 /** Long enough to be worth hashing. Short minimums are the reason admin
@@ -55,7 +56,7 @@ export async function PATCH(req: NextRequest) {
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   try {
-    const b = await req.json().catch(() => ({}));
+    const b = await readJson(req).catch(() => ({}));
     const currentPassword = String(b.currentPassword ?? "");
     const username = String(b.username ?? "").trim();
     const newPassword = String(b.newPassword ?? "");

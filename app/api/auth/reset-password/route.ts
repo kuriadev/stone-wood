@@ -10,12 +10,13 @@ import { passwordProblem, setOwnPassword, findStaffById, enterStaff, identityOf 
 import { hashPassword, newSalt } from "@/lib/auth";
 import { logActivity } from "@/lib/activity.server";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const limited = rateLimit(req, { name: "pw-reset", limit: 10, windowMs: 60 * 60 * 1000 });
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
-  const body = (await req.json().catch(() => ({}))) as { resetToken?: unknown; password?: unknown };
+  const body = (await readJson(req).catch(() => ({}))) as { resetToken?: unknown; password?: unknown };
   const id = readResetToken(body.resetToken);
   if (!id) return NextResponse.json({ success: false, error: "This reset has expired. Sign in again with a new code." }, { status: 401 });
   const password = String(body.password ?? "");

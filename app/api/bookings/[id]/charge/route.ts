@@ -27,6 +27,7 @@ import { fmt, getBookingResource, getBookingSlot } from "@/lib/utils";
 import type { BookingRow, RoomRow } from "@/types/database";
 import type { BookingResource } from "@/types/booking";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (denied) return denied;
 
   const { id } = await params;
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const request: ChargeRequest = {
     kind: body.kind as ChargeRequest["kind"],
     hours: Number(body.hours) || undefined,

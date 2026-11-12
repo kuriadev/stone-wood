@@ -10,6 +10,7 @@ import { enterStaff, staffTableReady, type StaffIdentity } from "@/lib/staff.ser
 import { rateLimit, resetRateLimit, clientKey } from "@/lib/rateLimit";
 import { LOGIN_TRIES, LOGIN_PAUSE_SECONDS, lockedFor, recordFailure, clearFailures } from "@/lib/loginLock.server";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const LIMIT = { name: "login", limit: 30, windowMs: 10 * 60 * 1000 };
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
   let username = "";
   let password = "";
   try {
-    const body = await req.json();
+    const body = await readJson(req);
     username = typeof body?.username === "string" ? body.username : "";
     password = typeof body?.password === "string" ? body.password : "";
   } catch {

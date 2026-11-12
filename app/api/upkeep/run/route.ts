@@ -19,13 +19,14 @@ import { logActivity } from "@/lib/activity.server";
 import { cleanText } from "@/lib/money";
 import { manilaDate } from "@/lib/finance";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "facilities.clean");
   if (denied) return denied;
   const who = actingStaff();
-  const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const b = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const taskId = Number(b.taskId);
   const dueDate = String(b.dueDate ?? "");
   if (!Number.isInteger(taskId) || taskId <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {

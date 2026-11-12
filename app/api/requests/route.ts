@@ -27,6 +27,7 @@ import { rowToRequest, type OwnerRequestRow } from "@/lib/ownerRequests.server";
 import { missingStaffTable, actingStaff } from "@/lib/staff.server";
 import { logActivity } from "@/lib/activity.server";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 type Handler = (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
@@ -85,7 +86,7 @@ export async function PATCH(req: NextRequest) {
   const owner = actingStaff();
   const id = Number(req.nextUrl.searchParams.get("id"));
   if (!Number.isFinite(id) || id <= 0) return NextResponse.json({ success: false, error: "Which request?" }, { status: 400 });
-  const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const b = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const decision = b.decision === "approve" ? "approve" : b.decision === "decline" ? "decline" : null;
   if (!decision) return NextResponse.json({ success: false, error: "Approve or decline?" }, { status: 400 });
   const note = String(b.note ?? "").replace(/[<>]/g, "").trim().slice(0, 300);

@@ -32,6 +32,7 @@ import { fmt } from "@/lib/utils";
 import { manilaDate } from "@/lib/finance";
 import type { InventoryRow, ExpenseRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const METHODS = ["Cash", "GCash"] as const;
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, kind === "Bought" ? "inventory.buy" : "inventory.use");
   if (denied) return denied;
 
-  const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const b = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const itemId = Number(b.itemId);
   if (!Number.isInteger(itemId) || itemId <= 0) return NextResponse.json({ success: false, error: "Choose the item." }, { status: 400 });
   const note = cleanText(b.note, 300);

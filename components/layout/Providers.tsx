@@ -4,6 +4,7 @@ import { LazyMotion, MotionConfig, domAnimation } from "motion/react";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ToastProvider } from "@/contexts/ToastContext";
 import { AppProvider } from "@/contexts/AppContext";
+import { TextGuard } from "@/components/common/TextGuard";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -18,6 +19,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <MotionConfig reducedMotion="never">
     <ThemeProvider>
       <ToastProvider>
+        {/* No emoji or hidden characters in any field (lib/cleanText). */}
+        <TextGuard />
         <AppProvider>
           {children}
         </AppProvider>

@@ -25,6 +25,7 @@ import { MANUAL_METHODS, type PaymentType } from "@/types/finance";
 import { checkDeskQr, cleanDeskRef } from "@/lib/deskQr.server";
 import type { PaymentRow } from "@/types/database";
 
+import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 const TYPES: PaymentType[] = ["Downpayment", "Balance", "Full", "Penalty"];
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
   const denied = await requirePermission(req, "payments.record");
   if (denied) return denied;
 
-  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const body = (await readJson(req).catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ success: false, error: "Invalid request." }, { status: 400 });
 
   const bookingId = cleanText(body.bookingId, 40);
@@ -146,7 +147,7 @@ export async function PATCH(req: NextRequest) {
   const id = Number(req.nextUrl.searchParams.get("id"));
   if (!Number.isFinite(id)) return NextResponse.json({ success: false, error: "A payment id is required." }, { status: 400 });
 
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = (await readJson(req).catch(() => ({}))) as Record<string, unknown>;
   const reason = cleanText(body.reason, 300);
   if (reason.length < 3) return NextResponse.json({ success: false, error: "Say why this payment is being voided." }, { status: 400 });
 
