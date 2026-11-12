@@ -15,6 +15,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { loadGuestBooking } from "@/lib/rebooking.server";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { checkProofImage, cleanOcr, saveProofImage, proofsTableMissing, type ProofRow } from "@/lib/paymentProofs.server";
+import { isSampleReceipt } from "@/lib/receiptOcr";
 import { buildProofAlert } from "@/lib/adminNotify";
 import { notifyStaff } from "@/lib/staffNotify.server";
 import { logActivity } from "@/lib/activity.server";
@@ -61,6 +62,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (!img.ok) return no(img.error);
     const ocr = cleanOcr(body.ocr);
     if (!ocr.reference) return no("We couldn't find the reference number on your receipt. Please upload a clear screenshot that shows it.");
+    if (isSampleReceipt(ocr.reference)) return no("That's the sample receipt. Please upload the receipt from your own GCash payment.");
     const used = await db.from("payment_proofs").select("booking_id").ilike("reference", ocr.reference).not("status", "in", "(Rejected,Replaced)").neq("booking_id", b.id).limit(1);
     if (used.error) throw new Error(used.error.message);
     if (used.data?.length) return no(`This receipt (reference ${ocr.reference}) was already used for another booking.`, 409);

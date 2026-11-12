@@ -30,6 +30,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useHeroMedia } from "@/hooks/useHeroMedia";
 import { GCASH_QR_DEFAULT } from "@/lib/heroMedia";
 
+const SAMPLE_RECEIPT_SRC = "/images/payments/sample-gcash-receipt.webp";
+
 export interface ProofOcrResult {
   reference: string | null;
   date: string | null;
@@ -65,6 +67,7 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
   const [problem, setProblem] = useState<Problem>(null);
   const [confirming, setConfirming] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [sampleOpen, setSampleOpen] = useState(false);
   // The resort's GCash QR (Admin → Website Photos), or the one it ships with.
   const { media: qrMedia } = useHeroMedia(undefined, "gcash");
   const qrSrc = qrMedia?.kind === "image" ? qrMedia.src : GCASH_QR_DEFAULT;
@@ -90,7 +93,9 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
       const r = checkReceipt(scan.text, { due, names: [RESORT_CONTACT.gcashName, "Stonewood", guestName] });
       if (!r.ok) {
         setProblem(
-          r.problem === "wrong-amount"
+          r.problem === "sample"
+            ? { title: "That's the sample receipt", body: "Please upload the receipt from your own GCash payment, not the sample shown on this page." }
+            : r.problem === "wrong-amount"
             ? { title: "The amount doesn't match", body: `Your receipt shows ${r.amounts.map(fmt).join(" / ")}, but the amount to pay now is ${fmt(due)}. Please send exactly ${fmt(due)} and upload that receipt.` }
             : r.problem === "old-date"
               ? { title: "This receipt is too old", body: `The date on this receipt (${r.date ? fmtDate(r.date) : "unknown"}) isn't from this week. Please upload the receipt for the payment you just made.` }
@@ -152,7 +157,7 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
           </div>
           <div style={{ minWidth: 0 }}>
           <div style={{ background: "rgba(0,169,82,0.10)", border: "1px solid rgba(0,169,82,0.35)", borderRadius: 10, padding: "12px 16px", textAlign: "center", marginBottom: 14 }}>
-            <div style={{ color: "#4caf50", fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>PAY NOW</div>
+            <div style={{ color: "#4caf50", fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>{payFull ? "PAY FULL" : "TO PAY FIRST"}</div>
             <div style={{ color: C.textH, fontSize: mob ? 26 : 30, fontWeight: 700, fontFamily: "'Satoshi',system-ui,sans-serif" }}>{fmt(due)}</div>
             <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>{payFull ? "Paid in full" : `50% down payment · the other ${fmt(total - due)} is paid on arrival`}</div>
           </div>
@@ -183,7 +188,11 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
       <div style={box}>
         <p style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 6px", color: C.textH, fontSize: 15, fontWeight: 600 }}>{showPayDetails && stepNo(2)} Upload your proof of payment</p>
         <p style={{ color: C.textS, fontSize: 12.5, margin: "0 0 14px", lineHeight: 1.6 }}>
-          A screenshot of the receipt that shows the <strong style={{ color: C.textB }}>reference number</strong>, the <strong style={{ color: C.textB }}>date</strong> and the <strong style={{ color: C.textB }}>amount</strong>. JPG, PNG or WebP, up to 10 MB.
+          A screenshot of the receipt that shows the <strong style={{ color: C.textB }}>reference number</strong>, the <strong style={{ color: C.textB }}>date</strong> and the <strong style={{ color: C.textB }}>amount</strong>. JPG, PNG or WebP, up to 10 MB.{" "}
+          <button type="button" onClick={() => setSampleOpen(true)}
+            style={{ border: "none", background: "none", padding: 0, color: C.goldInk, fontSize: 12.5, fontWeight: 600, textDecoration: "underline", cursor: "pointer" }}>
+            See a sample receipt
+          </button>
         </p>
         <input ref={fileRef} type="file" accept={RECEIPT_TYPES.join(",")} hidden onChange={(e) => void onFile(e.target.files?.[0])} />
 
@@ -238,6 +247,33 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
           <DialogFooter>
             <button type="button" onClick={() => setProblem(null)} style={{ ...outBtn, color: C.goldInk }}>OK</button>
             <button type="button" className="sw-btn" onClick={() => { setProblem(null); setTimeout(pick, 50); }} style={{ ...goldBtn }}>CHOOSE ANOTHER PICTURE</button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={sampleOpen} onOpenChange={setSampleOpen}>
+        <DialogContent style={{ maxWidth: 560 }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: C.textH }}>What your GCash receipt looks like</DialogTitle>
+            <DialogDescription style={{ color: C.textS, fontSize: 14, lineHeight: 1.7 }}>
+              After you send the payment, GCash shows this screen. Take a screenshot of the whole receipt and upload it.
+            </DialogDescription>
+          </DialogHeader>
+          <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "200px minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- a fixed sample picture */}
+            <img src={SAMPLE_RECEIPT_SRC} alt="A sample GCash receipt, marked SAMPLE" width={480} height={1158}
+              style={{ width: mob ? 180 : 200, height: "auto", margin: mob ? "0 auto" : 0, borderRadius: 10, border: `1px solid ${C.border}` }} />
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 12, fontSize: 13.5, lineHeight: 1.6, color: C.textB }}>
+              <li><strong style={{ color: C.textH }}>Ref No.</strong> The 13-digit reference number, at the bottom left.</li>
+              <li><strong style={{ color: C.textH }}>Date and time</strong> Beside the reference number. It must be from the payment you just made.</li>
+              <li><strong style={{ color: C.textH }}>Total Amount Sent</strong> Exactly {fmt(due)}.</li>
+              <li><strong style={{ color: C.textH }}>Name</strong> The resort&apos;s GCash name, shown with some letters hidden.</li>
+              <li style={{ color: C.textS, fontSize: 12.5 }}>A screenshot works best. A photo of the screen is often too blurry to read.</li>
+            </ul>
+          </div>
+          <DialogFooter>
+            <button type="button" onClick={() => setSampleOpen(false)} style={{ ...outBtn, color: C.goldInk }}>CLOSE</button>
+            <button type="button" className="sw-btn" onClick={() => { setSampleOpen(false); setTimeout(pick, 50); }} style={{ ...goldBtn }}>CHOOSE YOUR RECEIPT</button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

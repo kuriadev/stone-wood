@@ -28,9 +28,15 @@ export interface ReceiptRead {
 export interface ReceiptCheck extends ReceiptRead {
   ok: boolean;
   /** Why it was turned away: what's missing, in the guest's words. */
-  problem: "not-receipt" | "wrong-amount" | "old-date" | null;
+  problem: "not-receipt" | "wrong-amount" | "old-date" | "sample" | null;
   missing: string[];
 }
+
+/** The sample receipt shown to guests on the payment step (public/images/
+ *  payments/sample-gcash-receipt.webp). It is a real, used payment, so it
+ *  can never prove a booking. */
+export const SAMPLE_RECEIPT_REF = "8047192533045";
+export const isSampleReceipt = (ref: string | null | undefined) => (ref ?? "").replace(/[\s-]/g, "") === SAMPLE_RECEIPT_REF;
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
@@ -44,8 +50,14 @@ export function findReference(text: string): string | null {
   const labelled = /(?:ref(?:erence)?\.?\s*(?:no\.?|number|num|id|#|code)?|transaction\s*(?:id|no\.?|number)|trace\s*no\.?|invoice\s*no\.?)\s*[:#.]?\s*([A-Z0-9][A-Z0-9 \-]{5,32})/i;
   const m = labelled.exec(text);
   if (m) {
-    const raw = m[1].trim().replace(/\s{2,}.*/, "");
-    const code = raw.replace(/[\s-]/g, "");
+    // The code ends where a word starts: GCash prints the date right after
+    // it on the same line ("8047 192 533045 Nov 13, 2026").
+    const parts: string[] = [];
+    for (const t of m[1].trim().replace(/\s{2,}.*/, "").split(/\s+/)) {
+      if (/^[A-Za-z]+$/.test(t)) break;
+      parts.push(t);
+    }
+    const code = parts.join("").replace(/-/g, "");
     if (code.length >= 6 && (code.match(/\d/g) ?? []).length >= 4) return code.toUpperCase().slice(0, 32);
   }
   // No label read: a GCash reference is 13 digits, often written 4-3-6.
@@ -58,8 +70,9 @@ export function findDate(text: string, now = new Date()): string | null {
   const y0 = now.getFullYear();
   const pad = (n: number) => String(n).padStart(2, "0");
   const ok = (y: number, mo: number, d: number) => (mo >= 1 && mo <= 12 && d >= 1 && d <= 31 && y >= y0 - 1 && y <= y0 + 1 ? `${y}-${pad(mo)}-${pad(d)}` : null);
-  // "Nov 12, 2026", "12 Nov 2026", "November 12 2026"
-  const named = /\b(?:(\d{1,2})\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s*(\d{1,2})?,?\s+(\d{4})\b/i.exec(text);
+  // "Nov 12, 2026", "12 Nov 2026", "November 12 2026"; OCR often drops the
+  // space after the comma ("Nov 13,2026").
+  const named = /\b(?:(\d{1,2})\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s*(\d{1,2})?\s*,?\s*(\d{4})\b/i.exec(text);
   if (named) {
     const mo = MONTHS.indexOf(named[2].toLowerCase().slice(0, 3)) + 1;
     const d = Number(named[3] ?? named[1]);
@@ -81,8 +94,8 @@ export function findDate(text: string, now = new Date()): string | null {
 
 export function findAmounts(text: string): number[] {
   const out = new Set<number>();
-  // "₱200.00", "PHP 1,250.00", "P200.00", "Amount 200.00"; OCR often reads ₱ as P or F.
-  const re = /(?:₱|php|p|f|amount|total|sent)\s*:?\s*([0-9OolI][0-9OolI,]*\.[0-9OolI]{2})\b/gi;
+  // "₱200.00", "PHP 1,250.00", "P200.00", "Amount 200.00"; OCR often reads ₱ as P, F or £.
+  const re = /(?:₱|£|php|p|f|amount|total|sent)\s*:?\s*([0-9OolI][0-9OolI,]*\.[0-9OolI]{2})\b/gi;
   for (const m of text.matchAll(re)) {
     const [whole, cents] = m[1].split(".");
     const n = Number(`${digitsOnly(whole)}.${digitsOnly(cents)}`);
@@ -120,6 +133,8 @@ export function checkReceipt(text: string, opts: { due: number; names: string[];
   const amountMatch = amounts.some((a) => Math.abs(a - opts.due) < 0.01);
   const nameFound = nameOnReceipt(text, opts.names);
   const read: ReceiptRead = { reference, date, amounts, amountMatch, nameFound };
+
+  if (isSampleReceipt(reference)) return { ...read, ok: false, problem: "sample", missing: [] };
 
   const missing: string[] = [];
   if (!reference) missing.push("the reference number");

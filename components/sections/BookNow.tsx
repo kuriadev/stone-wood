@@ -955,7 +955,7 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
           </div>
           {sumHr}
           {sumTotal("Total", fmt(total))}
-          {sumLine("Pay now", fmt(payFull ? total : down))}
+          {sumLine(payFull ? "Pay Full" : "To Pay First", fmt(payFull ? total : down))}
           {sumLine("Balance on arrival", fmt(payFull ? 0 : total - down))}
         </>
       ) : summaryKind === "order" ? (
@@ -970,7 +970,7 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
           {sumHr}
           {sumTotal("Full total", fmt(total))}
           <p className="sw-bsum__foot" style={{ color: C.textS, margin: "14px 0 0" }}>
-            Pay now: <strong style={{ color: C.textH }}>{fmt(dueNow)}</strong>{paidInFull ? " (in full)" : ` · ${fmt(total - dueNow)} on arrival`}. We confirm your booking by email once we see it in our GCash.
+            {paidInFull ? "Pay Full" : "To Pay First"}: <strong style={{ color: C.textH }}>{fmt(dueNow)}</strong>{paidInFull ? "" : ` · ${fmt(total - dueNow)} on arrival`}. We confirm your booking by email once we see it in our GCash.
           </p>
         </>
       ) : null;

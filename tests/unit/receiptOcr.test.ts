@@ -35,6 +35,32 @@ it("turns away the wrong amount and an old receipt", () => {
   expect(old).toMatchObject({ ok: false, problem: "old-date" });
 });
 
+// What tesseract read off a real GCash receipt: no space after the comma in
+// the date, the date on the same line as the reference, ₱ read as £.
+const REAL = `S—
+SEeN JEeeeO M.
++63 Qeeeee0677
+Sent via GCash
+
+Amount 25.00
+Total Amount Sent £25.00
+Ref No. 1234 567 890123 Nov 13,2026 1:12 AM
+Me fh Be Go DB DDB Oa Bd HB BD BB DE`;
+
+it("reads a real GCash receipt as OCR sees it", () => {
+  const now = new Date("2026-11-13T09:00:00+08:00");
+  expect(findReference(REAL)).toBe("1234567890123");
+  expect(findDate(REAL, now)).toBe("2026-11-13");
+  expect(findAmounts(REAL)).toContain(25);
+  expect(checkReceipt(REAL, { due: 25, names: ["SEAN JETHRO M.", "Stonewood", "Juan Dela Cruz"], now })).toMatchObject({ ok: true, problem: null });
+});
+
+it("turns away the sample receipt shown to guests", () => {
+  const now = new Date("2026-11-13T09:00:00+08:00");
+  const sample = REAL.replace("1234 567 890123", "8047 192 533045").replace(/25\.00/g, "10.00");
+  expect(checkReceipt(sample, { due: 10, names: ["Stonewood"], now })).toMatchObject({ ok: false, problem: "sample" });
+});
+
 it("reads Maya and numeric dates, and fixes OCR letters in amounts", () => {
   const maya = "Maya\nReference ID: 6A2B 91C4 77D1\nDate 11/12/2026\nP2,O00.0O";
   expect(findReference(maya)).toBe("6A2B91C477D1");
