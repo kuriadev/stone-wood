@@ -87,6 +87,33 @@ function TabLoading() {
     </div>
   );
 }
+/* A pop-up's placeholder while its code loads: the same centred window over
+   a dimmed page, not TabLoading's blocks, which rendered wherever the
+   pop-up sat in the page (at the bottom) and looked broken. */
+function ModalLoading() {
+  return (
+    <div role="status" aria-label="Loading" className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-2">
+      <div className="w-full rounded-lg border bg-background shadow-lg" style={{ maxWidth: "min(35rem, calc(100% - 1rem))" }}>
+        <div className="border-b px-4 py-4 sm:px-6" style={{ display: "grid", gap: 8 }}>
+          <div className="sk" style={{ height: 26, width: "55%" }} />
+          <div className="sk" style={{ height: 14, width: "30%" }} />
+        </div>
+        <div className="px-4 py-4 sm:px-6" style={{ display: "grid", gap: 12 }}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} style={{ display: "grid", gap: 8 }}>
+              <div className="sk" style={{ height: 13, width: "35%" }} />
+              <div className="sk" style={{ height: 44 }} />
+            </div>
+          ))}
+        </div>
+        <div className="border-t px-4 py-3 sm:px-6" style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+          <div className="sk" style={{ height: 40, width: 90 }} />
+          <div className="sk" style={{ height: 40, width: 170 }} />
+        </div>
+      </div>
+    </div>
+  );
+}
 const MediaMover = dynamic(() => import("@/components/admin/MediaMover").then((m) => m.MediaMover));
 const HeroMediaEditor = dynamic(() => import("@/components/admin/HeroMediaEditor").then((m) => m.HeroMediaEditor), { loading: TabLoading });
 const BookingsTab = dynamic(() => import("@/components/admin/BookingsTab").then((m) => m.BookingsTab), { loading: TabLoading });
@@ -97,7 +124,7 @@ const ActivityTab = dynamic(() => import("@/components/admin/ActivityTab").then(
 const FacilitiesTab = dynamic(() => import("@/components/admin/FacilitiesTab").then((m) => m.FacilitiesTab), { loading: TabLoading });
 const PackagesTab = dynamic(() => import("@/components/admin/PackagesTab").then((m) => m.PackagesTab), { loading: TabLoading });
 const MaintenanceTab = dynamic(() => import("@/components/admin/MaintenanceTab").then((m) => m.MaintenanceTab), { loading: TabLoading });
-const AccountModal = dynamic(() => import("@/components/admin/AccountModal").then((m) => m.AccountModal), { loading: TabLoading });
+const AccountModal = dynamic(() => import("@/components/admin/AccountModal").then((m) => m.AccountModal), { loading: ModalLoading });
 const StaffTab = dynamic(() => import("@/components/admin/StaffTab").then((m) => m.StaffTab), { loading: TabLoading });
 const TasksTab = dynamic(() => import("@/components/admin/TasksTab").then((m) => m.TasksTab), { loading: TabLoading });
 const SettingsTab = dynamic(() => import("@/components/admin/SettingsTab").then((m) => m.SettingsTab), { loading: TabLoading });
@@ -1408,7 +1435,7 @@ export function Admin({
 
                     <footer className="sw-bcal__legend" style={{ borderColor: cBr }}>
                       <div className="sw-bcal__legend-row">
-                        {[["Booked/Confirmed", CAL.available.bg], [statusLabel("Pending"), CAL.pending.bg], ["Completed", CAL.completed.bg], ["Closed", CAL.closed.bg]].map(([l, c]) => (
+                        {[["Booked/Confirmed", CAL.available.bg], [statusLabel("Pending"), CAL.pending.bg], ["Closed date", CAL.closed.bg]].map(([l, c]) => (
                           <span key={l} className="sw-bcal__chip" style={{ color: C.textS, borderColor: cBr }}><i style={{ background: c }} />{l}</span>
                         ))}
                       </div>
