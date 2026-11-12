@@ -1,7 +1,7 @@
 // ── The activity log (server only)
 //
 // Every route that changes something records it here: who did it (the
-// Admin, a Guest, or the System — PayMongo, a deadline passing), what
+// Admin, a Guest, or the System — a deadline passing), what
 // happened in one plain sentence, which record, and what changed. The
 // admin's Activity page and each booking's History read these rows.
 //

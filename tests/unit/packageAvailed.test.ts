@@ -1,7 +1,7 @@
 /* What the guest availed, as receipts and screens show it.
  *
  * The bug these tests pin: a self-built booking's label never said Shared
- * or Exclusive, so a 2-guest Exclusive Day Tour read "Day Tour" on a ₱5,700
+ * or Exclusive, so a 2-guest Exclusive Day Stay read "Day Stay" on a ₱5,700
  * receipt. A package keeps its own name.
  */
 
@@ -11,39 +11,39 @@ import { buildReceiptEmail } from "@/lib/emailTemplate";
 
 const booking = (over: Partial<Booking>): Booking => ({
   id: "SW-1", name: "Test", contact: "09171234567", email: "t@example.com", date: "2026-11-05",
-  guests: 2, package: "Day Tour", rooms: [], overtime: 0, total: 5700,
+  guests: 2, package: "Day Stay", rooms: [], overtime: 0, total: 5700,
   downpayment: 5700, status: "Confirmed", paymentProof: true, notes: "",
   slot: "Day", resource: "Pool", tier: "Exclusive",
   ...over,
 });
 
 describe("packageAvailed", () => {
-  it("puts the tier in front of a self-built tour", () => {
-    expect(packageAvailed(booking({}))).toBe("Exclusive Day Tour");
-    expect(packageAvailed(booking({ tier: "Shared", slot: "Night", package: "Night Tour + Room", rooms: [2] })))
-      .toBe("Shared Night Tour + Room");
-    expect(packageAvailed(booking({ slot: "WholeDay", package: "Staycation" }))).toBe("Exclusive Staycation");
-    expect(packageAvailed(booking({ resource: "Pool+Venue", package: "Day Tour + Event Venue" })))
-      .toBe("Exclusive Day Tour + Event Venue");
+  it("puts the tier in front of a self-built stay", () => {
+    expect(packageAvailed(booking({}))).toBe("Private Pool Day Stay");
+    expect(packageAvailed(booking({ tier: "Shared", slot: "Night", package: "Night Stay + Room", rooms: [2] })))
+      .toBe("Shared Pool Night Stay + Room");
+    expect(packageAvailed(booking({ slot: "WholeDay", package: "Staycation" }))).toBe("Private Pool Staycation");
+    expect(packageAvailed(booking({ resource: "Pool+Venue", package: "Day Stay + Event Venue" })))
+      .toBe("Private Pool Day Stay + Event Venue");
   });
 
   it("keeps a package's own name", () => {
-    expect(packageAvailed(booking({ package: "Private Pool (Day Tour)" }))).toBe("Private Pool (Day Tour)");
+    expect(packageAvailed(booking({ package: "Private Pool (Day Stay)" }))).toBe("Private Pool (Day Stay)");
   });
 
   it("leaves the venue on its own as it is", () => {
-    expect(packageAvailed(booking({ resource: "Venue", package: "Event Venue Rental (Day Tour)" })))
-      .toBe("Event Venue Rental (Day Tour)");
+    expect(packageAvailed(booking({ resource: "Venue", package: "Event Venue Rental (Day Stay)" })))
+      .toBe("Event Venue Rental (Day Stay)");
   });
 });
 
 describe("the confirmation email", () => {
   it("names the tier, the reservation date and how the guest paid", () => {
     const { html } = buildReceiptEmail(booking({}));
-    expect(html).toContain("Exclusive Day Tour");
+    expect(html).toContain("Private Pool Day Stay");
     expect(html).toContain("Date of Reservation");
     expect(html).not.toContain("Date of Visit");
-    expect(html).toContain("QR Ph (Online Payment)");
+    expect(html).toContain("GCash (proof of payment checked by our staff)");
     expect(html).toContain("Manage My Booking");
   });
 

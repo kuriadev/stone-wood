@@ -17,7 +17,7 @@ describe("old Whole Day booking names", () => {
   it("leaves the owner's package titles alone", () => {
     expect(rowToBooking(row("Whole Day Buyout")).package).toBe("Whole Day Buyout");
     expect(rowToBooking(row("Whole Day Staycation (Whole Day)")).package).toBe("Whole Day Staycation (Whole Day)");
-    expect(rowToBooking(row("Day Tour")).package).toBe("Day Tour");
+    expect(rowToBooking(row("Day Stay")).package).toBe("Day Stay");
   });
 });
 

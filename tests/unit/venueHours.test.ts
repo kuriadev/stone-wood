@@ -2,7 +2,7 @@
  * than the pool area (owner's rules, 2026-11-08).
  *
  * Events bring loud music, crowds and lights, so the hall shuts at the
- * owner's "Events venue closes" (midnight by default) while the Night Tour
+ * owner's "Events venue closes" (midnight by default) while the Night Stay
  * runs to 5 AM. A venue-only booking ends then; a pool + venue group keeps
  * the night and moves to the pool. A booking is capped by the smallest
  * space its guests use: the hall alone (50), or the pool area (30).
@@ -54,7 +54,7 @@ describe("the venue's own closing time", () => {
     expect(stayWindowLabel({ date: "2026-11-20", slot: "Night", resource: "Venue" })!.depart).toMatch(/12:00 AM$/);
   });
 
-  it("closes online booking of tonight's venue 2 hours after the Night Tour starts, like the pool", () => {
+  it("closes online booking of tonight's venue 2 hours after the Night Stay starts, like the pool", () => {
     expect(slotStartedProblem("2026-11-20", "Night", new Date("2026-11-20T20:30:00+08:00"), "Venue")).toBeNull();
     expect(slotStartedProblem("2026-11-20", "Night", new Date("2026-11-20T21:30:00+08:00"), "Venue")).toMatch(/closed at 9:00 PM/);
     expect(slotStartedProblem("2026-11-20", "Night", new Date("2026-11-20T21:30:00+08:00"), "Pool")).not.toBeNull();
@@ -112,8 +112,8 @@ describe("the settings that hold them", () => {
   });
 
   it("refuse a venue that closes after the night ends, or barely opens at night", () => {
-    expect(settingsFieldErrors(withChanges({ hours: { venueEnd: 30 } }))["hours.venueEnd"]).toBe("The venue can't close after the Night Tour ends.");
-    expect(settingsFieldErrors(withChanges({ hours: { venueEnd: 20 } }))["hours.venueEnd"]).toBe("Give the venue at least 2 hours after the Night Tour starts.");
+    expect(settingsFieldErrors(withChanges({ hours: { venueEnd: 30 } }))["hours.venueEnd"]).toBe("The venue can't close after the Night Stay ends.");
+    expect(settingsFieldErrors(withChanges({ hours: { venueEnd: 20 } }))["hours.venueEnd"]).toBe("Give the venue at least 2 hours after the Night Stay starts.");
     expect(settingsFieldErrors(withChanges({ hours: { venueEnd: 24 } }))["hours.venueEnd"]).toBeUndefined();
     expect(settingsFieldErrors(withChanges({ limits: { venueCapacity: 0 } }))["limits.venueCapacity"]).toBe("At least 1.");
   });

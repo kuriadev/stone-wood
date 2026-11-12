@@ -18,14 +18,14 @@ export const IMPORT_COLUMNS: { key: ImportKey; header: string; width: number; hi
   { key: "email", header: "Email", width: 26, hint: "Optional." },
   { key: "first", header: "First day", width: 13, hint: "Required. Today or later, e.g. 2026-11-05." },
   { key: "last", header: "Last day", width: 13, hint: "Staycation over several days only. Leave blank for one day." },
-  { key: "tour", header: "Tour", width: 13, hint: "Pick from the list." },
+  { key: "tour", header: "Stay", width: 13, hint: "Pick from the list." },
   { key: "booking", header: "Booking", width: 28, hint: "Pick from the list." },
-  { key: "pool", header: "Pool", width: 11, hint: "Shared or Exclusive. Blank means Shared (Exclusive for a Staycation)." },
+  { key: "pool", header: "Pool", width: 11, hint: "Shared pool or Private pool. Blank means a shared pool (private for a Staycation)." },
   { key: "guests", header: "Guests", width: 8, hint: "Required. How many are coming." },
   { key: "rooms", header: "Rooms", width: 22, hint: "Optional. Room names, separated by commas." },
   { key: "amount", header: "Amount paid", width: 13, hint: "Pesos taken: in full or 50% down. Required." },
-  { key: "method", header: "Paid by", width: 14, hint: "Cash or QR Ph." },
-  { key: "reference", header: "Reference no.", width: 16, hint: "For QR Ph payments." },
+  { key: "method", header: "Paid by", width: 14, hint: "Cash or GCash." },
+  { key: "reference", header: "Reference no.", width: 16, hint: "The GCash reference number, for GCash payments." },
   { key: "notes", header: "Notes", width: 30, hint: "Optional." },
 ];
 
@@ -128,7 +128,7 @@ function headerMap(header: unknown[]): Partial<Record<ImportKey, number>> {
           : /^e-?mail/.test(t) ? "email"
             : /^(first day|date)/.test(t) ? "first"
               : /^last day/.test(t) ? "last"
-                : /^tour/.test(t) ? "tour"
+                : /^(tour|stay)/.test(t) ? "tour"
                   : /^(booking|what)/.test(t) ? "booking"
                     : /^pool/.test(t) ? "pool"
                       : /^(guests|pax)/.test(t) ? "guests"
@@ -154,7 +154,7 @@ export function readImportSheet(grid: unknown[][], rooms: { id: number; name: st
   const missing = required.filter((k) => cols[k] === undefined).map((k) => IMPORT_COLUMNS.find((c) => c.key === k)!.header);
   if (missing.length) return { lines: [], missing };
 
-  const tours = tourChoices();
+  const stays = tourChoices();
   const lines: ImportLine[] = [];
   grid.slice(1).forEach((r, i) => {
     const at = (k: ImportKey) => (cols[k] === undefined ? undefined : r[cols[k]!]);
@@ -166,24 +166,27 @@ export function readImportSheet(grid: unknown[][], rooms: { id: number; name: st
     const lastRaw = text("last");
     const last = lastRaw ? readDate(at("last")) : null;
     const tourText = norm(text("tour"));
-    const tour = tours.find((t) => norm(t.label) === tourText || norm(t.slot) === tourText || (t.slot === "WholeDay" && /whole ?day/.test(tourText)));
+    const stay = stays.find((t) => norm(t.label) === tourText || norm(t.slot) === tourText || (t.slot === "WholeDay" && /whole ?day/.test(tourText)));
     const bookingText = norm(text("booking"));
     const booking = !bookingText ? BOOKING_CHOICES[0]
       : BOOKING_CHOICES.find((c) => norm(c.label) === bookingText)
         ?? (/venue only/.test(bookingText) ? BOOKING_CHOICES[2] : /venue/.test(bookingText) ? BOOKING_CHOICES[1] : /pool|resort/.test(bookingText) ? BOOKING_CHOICES[0] : undefined);
     const poolText = norm(text("pool"));
-    const tier = POOL_CHOICES.find((p) => norm(p) === poolText);
+    // "Shared pool" / "Private pool" (the dropdown), and the older "Shared" /
+    // "Exclusive" / "Private".
+    const tier = POOL_CHOICES.find((p) => norm(p) === poolText)
+      ?? (/^shared/.test(poolText) ? "Shared" : /^(private|exclusive)/.test(poolText) ? "Exclusive" : undefined);
     const guests = Number(text("guests"));
-    const summary = [name || "(no name)", first ?? (text("first") || "(no date)"), tour?.label ?? text("tour"), booking?.label ?? text("booking"), Number.isFinite(guests) && guests > 0 ? `${guests} guest${guests === 1 ? "" : "s"}` : ""]
+    const summary = [name || "(no name)", first ?? (text("first") || "(no date)"), stay?.label ?? text("tour"), booking?.label ?? text("booking"), Number.isFinite(guests) && guests > 0 ? `${guests} guest${guests === 1 ? "" : "s"}` : ""]
       .filter(Boolean).join(" · ");
     const fail = (error: string) => lines.push({ line, summary, error });
 
     if (!name) return fail("Add the guest's name.");
     if (!first) return fail("First day isn't a date. Write it like 2026-11-05.");
     if (lastRaw && !last) return fail("Last day isn't a date. Write it like 2026-11-07, or leave it blank.");
-    if (!tour) return fail(`Tour must be ${tours.map((t) => t.label).join(", ").replace(/, ([^,]*)$/, " or $1")}.`);
+    if (!stay) return fail(`Stay must be ${stays.map((t) => t.label).join(", ").replace(/, ([^,]*)$/, " or $1")}.`);
     if (!booking) return fail(`Booking must be ${BOOKING_CHOICES.map((c) => c.label).join(", ").replace(/, ([^,]*)$/, " or $1")}.`);
-    if (poolText && !tier) return fail("Pool must be Shared or Exclusive.");
+    if (poolText && !tier) return fail("Pool must be Shared pool or Private pool.");
     if (!Number.isFinite(guests) || guests < 1 || !Number.isInteger(guests)) return fail("Guests must be a whole number, 1 or more.");
 
     const roomIds: number[] = [];
@@ -197,8 +200,8 @@ export function readImportSheet(grid: unknown[][], rooms: { id: number; name: st
     const amount = amountText ? Number(amountText) : 0;
     if (amountText && (!Number.isFinite(amount) || amount < 0)) return fail("Amount paid must be a number of pesos.");
     const methodText = norm(text("method"));
-    const method = METHOD_CHOICES.find((m) => norm(m) === methodText) ?? (["qr ph", "qrph", "qr"].includes(methodText) ? "GCash" : undefined);
-    if (amount > 0 && methodText && !method) return fail("Paid by must be Cash or QR Ph.");
+    const method = METHOD_CHOICES.find((m) => norm(m) === methodText) ?? (["gcash", "qr", "qr ph", "qrph"].includes(methodText) ? "GCash" : undefined);
+    if (amount > 0 && methodText && !method) return fail("Paid by must be Cash or GCash.");
 
     lines.push({
       line,
@@ -209,7 +212,7 @@ export function readImportSheet(grid: unknown[][], rooms: { id: number; name: st
         email: text("email"),
         date: first,
         ...(last && last !== first ? { endDate: last } : {}),
-        slot: tour.slot,
+        slot: stay.slot,
         resource: booking.resource,
         ...(tier && booking.resource !== "Venue" ? { tier } : {}),
         guests,

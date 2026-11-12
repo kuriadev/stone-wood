@@ -13,13 +13,17 @@ export const SITE_MEDIA_BUCKET = "site-media";
 /** The home page backgrounds staff can change in Website Photos: the hero
  *  at the top (photo or video), and the closing band at the bottom ("Your
  *  day at Stonewood Garden", a photo). Each is its own site_content row. */
-export type SiteMediaSlot = "hero" | "closing";
+export type SiteMediaSlot = "hero" | "closing" | "gcash";
 export const SITE_MEDIA_SLOTS: Record<SiteMediaSlot, { key: string; video: boolean; label: string }> = {
   hero: { key: HERO_MEDIA_KEY, video: true, label: "hero background" },
   closing: { key: "closing_media", video: false, label: "closing background" },
+  // The resort's GCash QR, shown on Book Now's payment step for guests to scan.
+  gcash: { key: "gcash_qr", video: false, label: "GCash QR code" },
 };
+/** The QR the site ships with, until staff upload their own. */
+export const GCASH_QR_DEFAULT = "/images/payments/gcash-qr.png";
 /** ?slot= from a request; anything else is the hero. */
-export const slotOf = (raw: string | null | undefined): SiteMediaSlot => (raw === "closing" ? "closing" : "hero");
+export const slotOf = (raw: string | null | undefined): SiteMediaSlot => (raw === "closing" ? "closing" : raw === "gcash" ? "gcash" : "hero");
 
 /** What may be uploaded, and how big. A hero video should be short and
  *  compressed: it plays for every visitor, phones included. */

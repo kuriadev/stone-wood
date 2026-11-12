@@ -130,7 +130,7 @@ export function RoomsPage({ rooms, onAddToBooking }: RoomsPageProps) {
                     <p className="sw-room__beds" style={{ color: C.textB }}>
                       <Icon name="bed" size={14} style={{ color: C.goldInk }} /> {r.beds} <GuestCapBadge n={r.capacity} />
                     </p>
-                    <p className="sw-room__price" style={{ color: C.textH }}>{fmt(r.price)} <span style={{ color: C.textS }}>per tour</span></p>
+                    <p className="sw-room__price" style={{ color: C.textH }}>{fmt(r.price)} <span style={{ color: C.textS }}>per stay</span></p>
                     {r.desc && <p className="sw-room__desc" style={{ color: C.textS }}>{r.desc}</p>}
                     <div className="sw-room__actions">
                       {/* Added: says so; tapping again takes it off. */}

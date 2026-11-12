@@ -26,7 +26,7 @@ const msg = (over: Partial<CustomerMessage> = {}): CustomerMessage => ({
 const booking = (over: Partial<Booking> = {}): Booking => ({
   id: "SW-10141", name: "Juan Dela Cruz", contact: "09171234567",
   email: "juan@gmail.com", date: "2026-10-17", guests: 4,
-  package: "Day Tour", slot: "Day", rooms: [], overtime: 0, total: 0,
+  package: "Day Stay", slot: "Day", rooms: [], overtime: 0, total: 0,
   downpayment: 0, status: "Confirmed", paymentProof: true, notes: "",
   ...over,
 });
@@ -80,7 +80,7 @@ describe("it reads the message it is replying to", () => {
 
   it("names the booking's own dates when it can find it", () => {
     const out = draftReply(msg({ message: "About SW-10141" }), [booking()]);
-    expect(out).toContain("Day Tour");
+    expect(out).toContain("Day Stay");
     expect(out).toContain("October 17, 2026");
   });
 
@@ -114,13 +114,13 @@ describe("the refund draft does not promise a refund", () => {
   });
 
   it("reads as English when it names the booking", () => {
-    // "with about your Day Tour" - the description carries its own
+    // "with about your Day Stay" - the description carries its own
     // preposition, so the branch that adds one must not add a second.
     const named = draftReply(
       msg({ type: "Refund", message: "refund for SW-10141" }),
       [booking()],
     );
-    expect(named).toContain("with your Day Tour");
+    expect(named).toContain("with your Day Stay");
     expect(named).not.toContain("with about");
     expect(named).not.toMatch(/about about/);
   });

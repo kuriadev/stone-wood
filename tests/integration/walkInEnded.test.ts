@@ -1,5 +1,5 @@
-/* A walk-in can't be booked into today's tour once it has ended: the group
- * would have no time left (the walk-in window also greys that tour out). */
+/* A walk-in can't be booked into today's stay once it has ended: the group
+ * would have no time left (the walk-in window also greys that stay out). */
 
 import { FakeDb } from "../helpers/fakeDb";
 
@@ -10,7 +10,7 @@ import { checkWalkIn } from "@/lib/walkIn.server";
 
 const walkIn = (slot: string) => ({
   name: "Late Group", contact: "09171234567", email: "", date: "2026-11-09", guests: 4,
-  slot, resource: "Pool", tier: "Shared", package: "Day Tour", rooms: [], source: "Walk-In",
+  slot, resource: "Pool", tier: "Shared", package: "Day Stay", rooms: [], source: "Walk-In",
 });
 
 beforeAll(() => {
@@ -20,18 +20,18 @@ beforeAll(() => {
 });
 afterAll(() => jest.useRealTimers());
 
-it("refuses today's Day Tour after it ended at 5 PM", async () => {
+it("refuses today's Day Stay after it ended at 5 PM", async () => {
   const r = await checkWalkIn(walkIn("Day"));
   expect(r.ok).toBe(false);
   expect(!r.ok && r.error).toMatch(/already ended/);
 });
 
-it("still takes today's Night Tour, which is under way", async () => {
+it("still takes today's Night Stay, which is under way", async () => {
   const r = await checkWalkIn(walkIn("Night"));
   expect(r.ok ? "" : r.error).not.toMatch(/already ended/);
 });
 
-it("an offline booking being imported keeps its tour", async () => {
+it("an offline booking being imported keeps its stay", async () => {
   const r = await checkWalkIn(walkIn("Day"), { fromToday: true });
   expect(r.ok ? "" : r.error).not.toMatch(/already ended/);
 });

@@ -17,7 +17,7 @@ afterAll(() => jest.useRealTimers());
 
 const booking = (o: Partial<Booking>): Booking => ({
   id: "SW-1", name: "Juan", contact: "09171234567", email: "", date: "2026-11-04", guests: 10,
-  package: "Day Tour", rooms: [], overtime: 0, total: 2000, downpayment: 1000, status: "Confirmed",
+  package: "Day Stay", rooms: [], overtime: 0, total: 2000, downpayment: 1000, status: "Confirmed",
   paymentProof: true, notes: "", slot: "Day", resource: "Pool", tier: "Shared", ...o,
 });
 
@@ -52,12 +52,12 @@ describe("the offline sheet", () => {
   it("carries the rates, the hours and blank forms laid out like the import template", () => {
     const html = sheet([]);
     // Each booking type's own rates (Rates & Settings).
-    expect(html).toContain("Day Tour — Shared");
+    expect(html).toContain("Day Stay — Shared pool");
     expect(html).toContain("₱200 per guest");
-    expect(html).toContain("Night Tour — Exclusive");
-    expect(html).toContain("Staycation — Shared");
+    expect(html).toContain("Night Stay — Private pool");
+    expect(html).toContain("Staycation — Shared pool");
     expect(html).toContain("₱6,000");
-    expect(html).toContain("₱12,000"); // a Staycation, both tours
+    expect(html).toContain("₱12,000"); // a Staycation, both stays
     expect(html).toContain("7:00 AM – 5:00 PM");
     for (const c of IMPORT_COLUMNS.filter((c) => c.key !== "email" && c.key !== "notes")) expect(html).toContain(`<th>${c.header}</th>`);
   });

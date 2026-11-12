@@ -40,6 +40,10 @@ const COPY: Record<SiteMediaSlot, { title: string; about: string }> = {
     title: "Closing background",
     about: "The picture behind \u201cYour day at Stonewood Garden\u201d, the last band on the home page above the footer. A wide photo works best; it is shown darkened so the text stays readable.",
   },
+  gcash: {
+    title: "GCash QR code",
+    about: "The QR guests scan on Book Now's payment step to send their payment. In GCash, open your QR (Profile \u2192 My QR code), save it as a picture and upload it here. Keep the GCash number and account name in Rates & Settings the same as this QR.",
+  },
 };
 
 export function HeroMediaEditor({ mob, slot = "hero", fallback = HERO_BG }: { mob: boolean; slot?: SiteMediaSlot; fallback?: string }) {
@@ -73,7 +77,7 @@ export function HeroMediaEditor({ mob, slot = "hero", fallback = HERO_BG }: { mo
       }).then((r) => r.json()) as { success?: boolean; error?: string };
       if (!saved.success) throw new Error(saved.error ?? "Could not save the hero.");
       await reload();
-      toast(slot === "hero" ? `The home page now opens on your ${kind === "video" ? "video" : "photo"}.` : "The closing band now uses your photo.", "success");
+      toast(slot === "hero" ? `The home page now opens on your ${kind === "video" ? "video" : "photo"}.` : slot === "gcash" ? "Guests now scan your new GCash QR." : "The closing band now uses your photo.", "success");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
     } finally {
@@ -96,15 +100,15 @@ export function HeroMediaEditor({ mob, slot = "hero", fallback = HERO_BG }: { mo
   const busy = progress !== null;
   return (
     <section aria-labelledby={`${slot}-media-title`} style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 12, padding: mob ? 14 : 18, marginBottom: 28, display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0,320px) minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
-      <div style={{ position: "relative", aspectRatio: "16 / 9", borderRadius: 10, overflow: "hidden", background: "#000" }}>
+      <div style={{ position: "relative", aspectRatio: slot === "gcash" ? "3 / 4" : "16 / 9", maxWidth: slot === "gcash" ? 240 : undefined, borderRadius: 10, overflow: "hidden", background: slot === "gcash" ? "#fff" : "#000" }}>
         {media?.kind === "video" ? (
           <video src={media.src} autoPlay muted loop playsInline style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element -- a preview of a remote or uploaded photo
-          <img src={media?.src ?? fallback} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          <img src={media?.src ?? fallback} alt="" style={{ width: "100%", height: "100%", objectFit: slot === "gcash" ? "contain" : "cover", display: "block" }} />
         )}
         <span style={{ position: "absolute", left: 8, top: 8, padding: "3px 9px", borderRadius: 999, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>
-          {media ? (media.kind === "video" ? "YOUR VIDEO" : "YOUR PHOTO") : "BUILT-IN PHOTO"}
+          {slot === "gcash" ? (media ? "YOUR QR" : "CURRENT QR") : media ? (media.kind === "video" ? "YOUR VIDEO" : "YOUR PHOTO") : "BUILT-IN PHOTO"}
         </span>
       </div>
       <div style={{ minWidth: 0 }}>

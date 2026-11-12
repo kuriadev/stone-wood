@@ -2,7 +2,7 @@
 
 Booking and resort-management web app for **Stonewood Garden Private Resort**, Angono, Rizal, Philippines.
 
-Guests browse packages and rooms, check live availability and book online with a QR Ph down payment. Staff run the resort from one admin panel: today's arrivals and departures, walk-ins, check-in and check-out inspections, payments and expenses, reports, supplies, guest messages, the website's content, and staff accounts with role-based permissions.
+Guests browse packages and rooms, check live availability and book online by sending a GCash down payment and uploading the receipt as proof of payment, which staff check before the booking is confirmed. Staff run the resort from one admin panel: today's arrivals and departures, walk-ins, check-in and check-out inspections, payments and expenses, reports, supplies, guest messages, the website's content, and staff accounts with role-based permissions.
 
 ---
 
@@ -31,12 +31,12 @@ Guests browse packages and rooms, check live availability and book online with a
 
 | Page | What a guest can do |
 |---|---|
-| **Home** (`/`) | A hero photo or video set by staff; a quick availability card; the tour hours; packages on a wheel (Shared / Exclusive / Events) that turns as the page scrolls; rooms, amenities, reviews and the resort's location |
+| **Home** (`/`) | A hero photo or video set by staff; a quick availability card; the stay hours; packages on a wheel (Shared / Exclusive / Events) that turns as the page scrolls; rooms, amenities, reviews and the resort's location |
 | **Rooms** (`/rooms`) | See each room's photos, beds, capacity and rate, and add rooms to the booking with one button. Added rooms follow the guest to Book Now |
 | **Packages** (`/packages`) | Compare packages by kind, with promo prices and "until" dates where the owner set them, and start a booking from any package |
 | **Gallery** (`/gallery`) | Browse the resort's photos with captions |
 | **About** (`/about`) | The resort's story, address, hours and contacts, and a questions-and-answers list |
-| **Book Now** (`/book`) | A step-by-step booking: visit type and facility, Shared or Exclusive, guests, date on a live calendar, rooms, contact details, review, then payment by a QR Ph code (50% down or full). A summary card stays on screen until payment. The booking is saved automatically once paid, and a confirmation email is sent |
+| **Book Now** (`/book`) | A step-by-step booking: visit type and facility, Shared or Exclusive, guests, date on a live calendar, rooms, contact details, review, then payment by GCash (50% down or full): the guest scans the resort's GCash QR, sends the amount and uploads the receipt. The receipt is read in the browser (OCR) so blurry pictures and non-receipts are turned away. The booking is held as Pending; staff confirm or reject the payment on the Dashboard, and the guest is emailed either way |
 | **My booking** (`/my-booking`) | Look up a booking by reference and email, or open it from the link in any email. Ask to move it to a new date, see payments, and, after a resort cancellation or a no-show, pick a new date |
 | **Customer Service** (`/customer`) | Send a question, feedback or concern; an automatic reply is sent |
 
@@ -90,7 +90,7 @@ The panel signs a person out after 30 minutes without activity. The sidebar fold
 | Validation | `zod` | 4.6.7 |
 | Database | Supabase (PostgreSQL) with `@supabase/supabase-js` | 2.116.0 |
 | Email | `nodemailer` over Gmail SMTP | 10.3.1 |
-| Payments | PayMongo REST (QR Ph), no SDK | — |
+| Payments | GCash to the resort's own account, with proof of payment checked by staff; receipts read in the browser with tesseract.js | — |
 | Tests | Jest + ts-jest (unit and integration), Playwright (end-to-end) | 29.7 / 1.64 |
 | Font | Satoshi, self-hosted through `next/font/local` (`font-display: swap`) | — |
 | Hosting | Vercel | — |
@@ -135,8 +135,6 @@ Set these in `.env.local` for development and in the Vercel project settings for
 | `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Bypasses Row Level Security. Never expose it, never prefix it with `NEXT_PUBLIC_` |
 | `SESSION_SECRET` | server only | Signs the staff session cookie |
 | `ADMIN_USERNAME`, `ADMIN_PASSWORD` | server only | First super admin sign-in, used until accounts exist in the database |
-| `PAYMONGO_SECRET_KEY` | server only | PayMongo API key |
-| `PAYMONGO_API_BASE` | server only | Optional override of the PayMongo API URL |
 | `GMAIL_USER`, `GMAIL_APP_PASSWORD` | server only | The Gmail account and app password that send email |
 | `ADMIN_NOTIFY_EMAIL` | server only | Where the daily staff briefing goes (defaults to the resort's contact email) |
 | `NOTIFY_SECRET` | server only | Lets an external scheduler call `/api/reminders` and `/api/notify` with `Authorization: Bearer <secret>` |
@@ -197,17 +195,17 @@ stonewood/
 - **Pages.** Each route under `app/` renders a client component from `components/sections/`. The home page is a server component so it can read the staff-chosen hero and preload it. `ClientShell` adds the top loading bar, the page curtain and the phone tab bar.
 - **Site data.** `AppContext` loads rooms, packages, closed dates and settings once per visit and shares them. Collections go through `hooks/useDbCollection.ts`, which pairs a localStorage cache with the `load` and `sync` functions in `lib/collections.ts`. Edits in the admin are saved by sending only the fields that changed, so two staff members working at once don't overwrite each other.
 - **Admin live data.** `OpsContext` re-reads bookings, payments, inspections and facilities every 15 seconds while the tab is visible, and pauses in a background tab.
-- **Guests never load admin data.** The public calendar uses `/api/availability`, which returns dates, tours and capacity only, with no names, emails or amounts.
+- **Guests never load admin data.** The public calendar uses `/api/availability`, which returns dates, stays and capacity only, with no names, emails or amounts.
 
 ### Where the rules live (`lib/`)
 
 | Module | What it decides |
 |---|---|
-| `resort.ts` | Tour hours (`SLOTS`), late-booking cutoff, quiet hours, contacts |
+| `resort.ts` | Stay hours (`SLOTS`), late-booking cutoff, quiet hours, contacts |
 | `validators.ts` | Rates, capacities, the booking window, notice periods (editable in Rates & Settings) |
 | `pricing.ts` | `priceBooking()`, the single pricing function, plus package promos |
 | `bookingQuote.ts` | The server-side quote and availability check before payment |
-| `utils.ts` · `occupancy.ts` | Availability and capacity per date and tour |
+| `utils.ts` · `occupancy.ts` | Availability and capacity per date and stay |
 | `rebooking.ts` · `rebooking.server.ts` | Moving bookings: guest date changes, resort cancellations, no-show rebooking, 48-hour holds |
 | `noShow.server.ts` | The day-after email that offers a no-show guest a new date |
 | `finance.ts` · `ledger.server.ts` | Money: what each booking has paid and owes, from the payments ledger |
@@ -216,7 +214,7 @@ stonewood/
 | `retention.ts` | Auto-archive and scheduled archive deletion |
 | `labels.ts` | What staff read for each stored value (statuses, money states, screen names) |
 | `notices.ts` · `emailTemplate.ts` · `mailer.ts` | Every guest email and text message |
-| `paymongo.ts` | QR Ph payments |
+| `receiptOcr.ts` · `receiptImage.ts` · `paymentProofs.server.ts` | Reading GCash receipts, and storing them privately |
 
 **Pricing runs on both sides.** `lib/pricing.ts` has no React, no database and no network. The browser runs it to show the breakdown, and the server runs the same function to decide what's charged, so the two can't disagree and a total edited in the browser changes nothing.
 
@@ -235,7 +233,7 @@ stonewood/
 | Input | Zod schemas and sanitisers on every write; parameterised queries through the Supabase client; file uploads checked for type and size |
 | Abuse | Per-IP rate limits on public endpoints |
 | Browser | Content Security Policy, `X-Frame-Options: DENY`, `nosniff`, strict referrer policy, permissions policy and HSTS (`next.config.ts`) |
-| Payments | Confirmed by the server asking PayMongo directly; the browser's word is never trusted |
+| Payments | No payment gateway: every GCash payment is confirmed by staff against the resort's GCash. Receipts are kept in a private bucket and shown to staff through links that expire; one receipt reference can't pay for two bookings |
 | Secrets | Server-only environment variables; no source maps published; logs never print emails, passwords or tokens |
 
 ---
@@ -261,13 +259,14 @@ Access: **public** = no sign-in · **guest** = booking reference + email, or the
 | Endpoint | Methods | Access | Purpose |
 |---|---|---|---|
 | `/api/rooms` · `/api/packages` · `/api/gallery` · `/api/amenities` | GET | public | Website content (writes are staff only) |
-| `/api/availability` | GET | public | Which dates, tours and capacity are taken, with no guest details |
+| `/api/availability` | GET | public | Which dates, stays and capacity are taken, with no guest details |
 | `/api/closed-dates` | GET | public | Dates the resort is closed (POST and DELETE are staff only) |
 | `/api/settings` | GET | public | Rates, limits, hours, contacts (PATCH is staff only) |
 | `/api/maintenance` | GET | public | Whether the site is closed, and why (PATCH is staff only) |
 | `/api/site-content/hero` · `home-cards` · `facility-photo` | GET | public | Staff-set hero media, home page cards, facility photos |
 | `/api/bookings/check` | POST | public | Can this booking go ahead? |
-| `/api/payment` | POST · GET · DELETE | public | Price the booking and create its QR; poll its status; cancel an unpaid QR |
+| `/api/payment-proofs` | POST | public | Book with a GCash receipt: the booking is saved as Pending until staff check it |
+| `/api/bookings/[id]/proof` | POST | public | The guest's receipt status; send a new receipt after one was rejected |
 | `/api/bookings` | POST | public | Save a paid online booking (GET is staff only) |
 | `/api/customer-service` | POST | public | Send a message (GET, PATCH, DELETE are staff only) |
 
@@ -290,7 +289,8 @@ Access: **public** = no sign-in · **guest** = booking reference + email, or the
 | `/api/bookings/import` | POST | Import bookings taken while offline |
 | `/api/date-changes` | PATCH | Approve or decline a date change or new-date pick |
 | `/api/checkin` · `/api/checkout` · `/api/settle` | POST | Check a group in; inspect and check them out; collect the balance and close the booking |
-| `/api/payments` · `/api/payment/desk` · `/api/expenses` | POST · PATCH · GET · DELETE | Record or void payments and expenses; a QR for a walk-in |
+| `/api/payments` · `/api/expenses` | POST · PATCH · GET · DELETE | Record or void payments and expenses |
+| `/api/payment-proofs` · `/api/payment-proofs/[id]` | GET · POST | Receipts waiting to be checked; confirm partial, confirm full or reject |
 | `/api/closings` | POST | Close the day with a cash count |
 | `/api/ops` | GET | The ledger and facility records behind the Dashboard |
 | `/api/facilities` · `cleaned` · `supplies` · `/api/inspections` · `/api/damage-rates` | various | Facilities, cleaning, inspections, damage rates |
@@ -326,19 +326,19 @@ Supabase PostgreSQL, with Row Level Security on every table.
 
 ## Business rules
 
-### Tours
+### Stays
 
 Set in `lib/resort.ts` and editable in Rates & Settings.
 
-| Tour | Hours | Notes |
+| Stay | Hours | Notes |
 |---|---|---|
-| Day Tour | 7:00 AM – 5:00 PM | Shared or Exclusive; one date |
-| Night Tour | 7:00 PM – 5:00 AM next day | Shared or Exclusive; one date |
+| Day Stay | 7:00 AM – 5:00 PM | Shared or Exclusive; one date |
+| Night Stay | 7:00 PM – 5:00 AM next day | Shared or Exclusive; one date |
 | Staycation | 7:00 AM – 5:00 AM next day | Exclusive only; can run up to 3 days in a row |
 
-5:00–7:00 PM and 5:00–7:00 AM are turnover and cleaning. Quiet hours start at 10:00 PM. Exclusive buys out its own Day or Night tour; a Staycation blocks the whole date.
+5:00–7:00 PM and 5:00–7:00 AM are turnover and cleaning. Quiet hours start at 10:00 PM. Exclusive buys out its own Day or Night stay; a Staycation blocks the whole date.
 
-**Booking today:** guests can book today's tour after it has started, until 2 hours before it ends. It still ends at the usual time, at the full price, and staying longer is overtime. Staff can book any time; the walk-in form shows how long the group can stay.
+**Booking today:** guests can book today's stay after it has started, until 2 hours before it ends. It still ends at the usual time, at the full price, and staying longer is overtime. Staff can book any time; the walk-in form shows how long the group can stay.
 
 ### Rates
 
@@ -348,15 +348,15 @@ Plain rates, editable in Rates & Settings. There are **no automatic discounts**:
 |---|---|
 | Pool, Shared | ₱200 per guest (Day or Night); ₱400 per guest (Staycation) |
 | Pool, Exclusive | ₱6,000 (Day or Night); ₱12,000 (Staycation) |
-| Events venue | ₱5,000 per tour, always private |
-| Room | its own rate, per tour |
+| Events venue | ₱5,000 per stay, always private |
+| Room | its own rate, per stay |
 | Overtime | ₱500 per hour, up to 2 hours, staff only |
 
 A multi-day stay is charged for each day. A package's promo (a percentage or a peso amount, optionally until a date) is what's charged while it runs.
 
 ### Payments and cancellations
 
-- Online bookings pay **50% down or in full** by QR Ph. The rest is paid at the resort.
+- Online bookings pay **50% down or in full** by GCash and upload the receipt; staff check it before the booking is confirmed. The rest is paid at the resort.
 - **No refunds when a guest cancels or doesn't show**; what was paid is kept. Refunds happen **only when the resort cancels**.
 - **Resort cancellation:** the guest has 7 days to pick a new date (what they paid carries over) or arrange a refund with the owner.
 - **No-show:** marked by staff with **Mark no-show**, separate from an ordinary cancellation. The next day the guest is emailed a link and has **20 days** to pick a new date; what they paid carries over and any balance is still due. Staff approve the date.
@@ -374,7 +374,7 @@ A multi-day stay is charged for each day. A package's promo (a percentage or a p
 
 ## External services
 
-**PayMongo.** QR Ph, which GCash, Maya and Philippine bank apps can scan. Called over REST from `lib/paymongo.ts`; the booking page polls the payment status and saves the booking once it's paid. GCash as a named method isn't available on the account's business type, which is why QR Ph is used.
+**GCash (no gateway).** Guests pay into the resort's own GCash by scanning its QR (Admin → Website Photos) or using its number (Rates & Settings), then upload the receipt. Staff confirm each one in Dashboard → Pending proof of payment. At the front desk, staff type the reference number from the guest's receipt.
 
 **Gmail SMTP.** Sends:
 

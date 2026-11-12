@@ -3,12 +3,12 @@
 import { automaticHomeCards, validateHomeCards, HOME_CARDS_MAX } from "@/lib/homeCards";
 
 const card = (over: Record<string, unknown> = {}) => ({
-  id: "day", icon: "sun", title: "Day Tour", description: "Resort use", price: "from ₱200", unit: "/guest",
+  id: "day", icon: "sun", title: "Day Stay", description: "Resort use", price: "from ₱200", unit: "/guest",
   details: ["Shared: ₱200 per guest"], button: null, ...over,
 });
 
 describe("automaticHomeCards", () => {
-  it("builds the tour cards and a room card from the real rooms", () => {
+  it("builds the stay cards and a room card from the real rooms", () => {
     const cards = automaticHomeCards([{ price: 2000 }, { price: 2500 }]);
     expect(cards.map((c) => c.id)).toEqual(["day", "night", "wholeday", "room"]);
     const room = cards.find((c) => c.id === "room")!;
@@ -38,8 +38,8 @@ describe("validateHomeCards", () => {
   });
 
   it("cleans text: no tags, single spaces, blank lines dropped", () => {
-    const v = validateHomeCards([card({ title: "  Day   <b>Tour</b> ", details: ["  one ", "", "two"] })]);
-    expect(v.ok && v.cards[0].title).toBe("Day b Tour /b");
+    const v = validateHomeCards([card({ title: "  Day   <b>Stay</b> ", details: ["  one ", "", "two"] })]);
+    expect(v.ok && v.cards[0].title).toBe("Day b Stay /b");
     expect(v.ok && v.cards[0].details).toEqual(["one", "two"]);
   });
 

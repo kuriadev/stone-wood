@@ -46,10 +46,10 @@ import { LazyBackground } from "@/components/common/LazyBackground";
 export type TierKey = "SHARED" | "EXCLUSIVE" | "EVENTS";
 
 export const TIERS: { key: TierKey; label: string; icon: IconName; tagline: string; blurb: string }[] = [
-  { key: "SHARED", label: "Shared", icon: "pool", tagline: "Come together",
+  { key: "SHARED", label: "Shared pool", icon: "pool", tagline: "Come together",
     blurb: "Share the pool with other groups and pay per guest." },
-  { key: "EXCLUSIVE", label: "Exclusive", icon: "lock", tagline: "Make it entirely yours",
-    blurb: "The whole resort for your group alone — no other groups during your tour." },
+  { key: "EXCLUSIVE", label: "Private pool", icon: "lock", tagline: "Make it entirely yours",
+    blurb: "The whole resort for your group alone — no other groups during your stay." },
   { key: "EVENTS", label: "Events", icon: "gift", tagline: "Celebrate beautifully",
     blurb: "The events hall for parties, birthdays and celebrations." },
 ];
@@ -73,9 +73,9 @@ function packageMeaning(p: ResortPackage): string {
   if (p.status === "Exclusive") {
     return whole
       ? "The whole resort is your group's from morning through the night, with no other bookings that day."
-      : "The whole pool is your group's — no other group books your tour.";
+      : "The whole pool is your group's — no other group books your stay.";
   }
-  return "You share the pool with other groups booked on the same tour, and pay per guest.";
+  return "You share the pool with other groups booked on the same stay, and pay per guest.";
 }
 
 export const tierOf = (p: ResortPackage): TierKey =>
@@ -535,7 +535,7 @@ export function PackageCard({
             <p className="mb-1.5 text-[11px] tracking-[2.5px] md:mb-3" style={{ color: C.textXS }}>
               {p.slotMode === "WholeDay" ? "DURATION" : "CHOOSE WHEN YOU BOOK"}
             </p>
-            {/* Phones: the tours as chips side by side, two lines instead of a
+            {/* Phones: the stays as chips side by side, two lines instead of a
                 table. Wider screens keep the table. */}
             <ul className="m-0 flex list-none flex-wrap gap-2 p-0 md:hidden">
               {slots.map((sl) => (

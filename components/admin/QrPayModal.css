@@ -1,4 +1,4 @@
-/* The walk-in QR Ph pop-up -- see QrPayModal.tsx. The page behind blurs. */
+/* The front-desk GCash pop-up -- see QrPayModal.tsx. The page behind blurs. */
 
 .sw-qrpay__scrim { background: rgba(6, 5, 3, 0.55) !important; -webkit-backdrop-filter: blur(10px) saturate(120%); backdrop-filter: blur(10px) saturate(120%); }
 .sw-qrpay { border-radius: 18px !important; overflow: hidden; }

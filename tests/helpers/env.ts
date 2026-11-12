@@ -4,7 +4,7 @@
  *
  * Every value here is FAKE and local to the test process. Nothing in this
  * file should ever hold a real key — the repo is public, and the test suite
- * must not be able to reach the live Supabase project or PayMongo.
+ * must not be able to reach the live Supabase project.
  *
  * PLACEHOLDER: the QA pack ships its own tests/helpers/env.ts. Dropping that
  * folder in replaces this file, which exists so `npm test` is runnable (and
@@ -27,9 +27,6 @@ process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= "test-anon-key";
 process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??= "test-publishable-key";
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= "test-service-role-key";
 
-// PayMongo. Same idea: a base URL that cannot be reached by accident.
-process.env.PAYMONGO_SECRET_KEY ??= "sk_test_not_a_real_key";
-process.env.PAYMONGO_API_BASE ??= "http://paymongo.invalid";
 
 // Mail. lib/mailer.ts is mocked in the suite; these stop it throwing on import.
 process.env.GMAIL_USER ??= "test@example.com";

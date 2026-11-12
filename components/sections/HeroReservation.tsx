@@ -95,7 +95,7 @@ export function HeroReservation({
   const [adults, setAdults] = useState(2);
   const [children, setChildren] = useState(0);
   // Children come on top of the adults (lib/children.ts).
-  // Everyone already booked into that tour counts too.
+  // Everyone already booked into that stay counts too.
   const onTour = date ? peopleOnTour(date, lastDay, slot, bookings) : 0;
   // Per tier: Shared children share the 30; Exclusive ones aren't counted.
   // Exclusive takes no count: children under 3 are free there.
@@ -109,16 +109,16 @@ export function HeroReservation({
     priceBooking({ resource: "Pool", tier, slot, guests: adults, children: kidsFor(tier), overtime: 0, roomPrices: [], days: stayDays }).total;
   const sharedTotal = quote("Shared");
   const exclusiveTotal = quote("Exclusive");
-  /* Pool access. A Staycation is Exclusive only (lib/pricing.ts); a tour
+  /* Pool access. A Staycation is Exclusive only (lib/pricing.ts); a stay
      can be either, and the guest may choose. Until they do, the card
      SUGGESTS one: the cheaper of the two that fits the picked date.
-     Exclusive needs its tour empty, so 30 guests on a Night with a Shared
+     Exclusive needs its stay empty, so 30 guests on a Night with a Shared
      Night group already booked can only go Shared, even though Exclusive is
      cheaper. Picking the tier by price alone used to grey out every such
      date. */
   const [tierChoice, setTierChoice] = useState<BookingTier | null>(null);
   const allowed = useMemo<BookingTier[]>(() => (slot === "WholeDay" ? ["Exclusive"] : ["Shared", "Exclusive"]), [slot]);
-  /* The pool under maintenance, and today's tour once it has started,
+  /* The pool under maintenance, and today's stay once it has started,
      close the card the same way Book Now and the server do. The calendar
      used to stay green through both and Book Now then said "closed". */
   const { facilities } = useApp();
@@ -255,22 +255,21 @@ export function HeroReservation({
               month moves when the visit type changes. */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
           {/* How many people are already booked into the resort for the
-              picked tour (every group, guests and children, lib/utils.ts
-              peopleOnTour). On a wide screen it pops up in the space above
-              the calendar without taking room, so the calendar never moves.
-              A phone has no space there, so the card is always in place and
-              asks for a date until one is picked. */}
-          {(date || mob) && (
-            <div style={{ position: "relative", height: mob ? undefined : 0 }}>
+              picked stay (every group, guests and children, lib/utils.ts
+              peopleOnTour). It always has its own place above the calendar
+              and asks for a date until one is picked, so the calendar never
+              moves. It used to float in the gap above the calendar on a wide
+              screen, and covered the heading when that gap was small. */}
+          {(
+            <div style={{ position: "relative" }}>
               <div
-                key={mob ? "card" : `${date}-${slot}`}
+                key="card"
                 role="status"
                 aria-live="polite"
-                className={mob ? undefined : "sw-reserved-pop"}
                 style={{
                   display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 14,
                   background: "rgba(201,168,76,0.08)", border: `1px solid rgba(201,168,76,${isDark ? "0.22" : "0.32"})`,
-                  ...(mob ? { marginBottom: 16 } : { position: "absolute", left: 0, right: 0, bottom: 14, backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }),
+                  marginBottom: 16,
                 }}
               >
                 <span aria-hidden="true" style={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center", background: "rgba(201,168,76,0.16)", color: gold }}>
@@ -427,7 +426,7 @@ export function HeroReservation({
                 within Staycation fixed the second date click but not the
                 switch INTO it.
 
-                Every type gets a line rather than the tours getting an
+                Every type gets a line rather than the stays getting an
                 empty 64px gap: the space has to be held open regardless, so
                 it may as well say something. The hidden copies size the
                 cell to the tallest line any type can produce, at any width;
@@ -455,13 +454,13 @@ export function HeroReservation({
           {/* Adults, then children under 3 */}
           {counter({
             title: "GUESTS",
-            sub: `${fmt(sharedRateFor(slot))} per guest${slot === "WholeDay" ? ", Day and Night together" : ", per tour"}`,
+            sub: `${fmt(sharedRateFor(slot))} per guest${slot === "WholeDay" ? ", Day and Night together" : ", per stay"}`,
             value: adults, min: GUESTS_MIN, max: adultCap, onChange: setAdults, noun: "guests",
           })}
           {counter({
             title: "CHILDREN",
             sub: goesExclusive
-              ? `Exclusive: children ${CHILD_FREE_AGE} years old and below are already free, no need to add them`
+              ? `Private pool: children ${CHILD_FREE_AGE} years old and below are already free, no need to add them`
               : `${CHILD_FREE_AGE} years old and below · ${fmt(childRateFor(slot))} each, counted in the ${GUESTS_MAX}`,
             value: kids, min: 0, max: kidCap, onChange: setChildren, noun: "children", locked: goesExclusive,
           })}
@@ -470,7 +469,7 @@ export function HeroReservation({
           <div>
             <p style={{ ...label, margin: "0 0 10px" }}>POOL ACCESS</p>
             {slot === "WholeDay" ? (
-              /* The same 44px row the two tour buttons occupy. The pill on
+              /* The same 44px row the two stay buttons occupy. The pill on
                  its own is ~29px, so switching to a Staycation used to pull
                  everything below it up by the difference. */
               <div style={{ minHeight: 44, display: "flex", alignItems: "center" }}>
@@ -506,7 +505,7 @@ export function HeroReservation({
                       }}
                     >
                       <Icon name={opt === "Exclusive" ? "lock" : "handshake"} size={12} />
-                      {opt.toUpperCase()}{unavailable && !on ? " · NOT THIS DATE" : tierChoice === null && opt === suggested ? " (SUGGESTED)" : ""}
+                      {opt === "Exclusive" ? "PRIVATE POOL" : "SHARED POOL"}{unavailable && !on ? " · NOT AVAILABLE" : tierChoice === null && opt === suggested ? " (SUGGESTED)" : ""}
                     </button>
                   );
                 })}
@@ -531,7 +530,7 @@ export function HeroReservation({
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
             <div>
               <p style={{ fontSize: 14, color: "#fff", margin: "0 0 4px", fontWeight: 500 }}>
-                {goesExclusive ? "Exclusive use" : "Shared pool"}
+                {goesExclusive ? "Private pool" : "Shared pool"}
               </p>
               <p style={{ fontSize: 12, color: "rgba(238,232,220,0.55)", margin: 0 }}>
                 {goesExclusive ? "Private resort access" : `${guests} guest${guests === 1 ? "" : "s"}, pool shared`}

@@ -75,7 +75,7 @@ describe("POST /api/bookings/import", () => {
     const r = await call([row({ tier: "Exclusive" }), row({ name: "Ana", tier: "Exclusive" })], false);
     expect(r.body.results[0].ok).toBe(true);
     expect(r.body.results[1]).toMatchObject({ ok: false });
-    expect(r.body.results[1].error).toMatch(/Exclusive/);
+    expect(r.body.results[1].error).toMatch(/private pool/);
   });
 
   it("refuses a date already gone by", async () => {

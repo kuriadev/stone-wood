@@ -11,7 +11,7 @@
 // It also keeps the admin panel live. Every LIVE_MS while the tab is
 // visible, and whenever the window regains focus, bookings, facilities and
 // this ledger are re-read together, so a guest booking online or paying
-// through PayMongo shows up without a reload. `live` says when that last
+// with a GCash receipt shows up without a reload. `live` says when that last
 // worked, for the indicator on screen, and a new online booking raises a
 // notice the moment it arrives.
 

@@ -8,7 +8,7 @@
 //   • a booking the resort cancelled is closed (the guest can no longer pick
 //     a new date, and any date they had picked is withdrawn: chooseRefund);
 //   • one refund line is saved for what they paid, with how it went back
-//     (cash or QR Ph) and no reference or receipt, so Reports and Sales stop
+//     (cash or GCash) and no reference or receipt, so Reports and Sales stop
 //     counting that money as kept, and a cash refund comes out of the drawer;
 //   • the booking reads "Refunded", and the guest gets a short email.
 

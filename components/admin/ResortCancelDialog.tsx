@@ -45,7 +45,7 @@ const PRESETS: { label: string; text: string }[] = [
   { label: "Emergency", text: "An emergency at the resort means we can't host your group on that date." },
   { label: "Bad weather", text: "The resort is closed on that date because of bad weather." },
   { label: "Facility repair", text: "A facility in your booking is under repair on that date." },
-  { label: "Double booking", text: "Another group booked and paid for the same tour at almost the same moment as you did, so that date ended up booked twice (a double booking). It stays with the booking that was completed first, so please choose a new date. Everything you paid carries over to it." },
+  { label: "Double booking", text: "Another group booked and paid for the same stay at almost the same moment as you did, so that date ended up booked twice (a double booking). It stays with the booking that was completed first, so please choose a new date. Everything you paid carries over to it." },
 ];
 
 export function ResortCancelDialog({ booking, onClose }: { booking: Booking; onClose: () => void }) {

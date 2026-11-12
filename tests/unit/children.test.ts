@@ -29,14 +29,14 @@ describe("children under 3", () => {
   });
 });
 
-describe("children and everyone else on the tour", () => {
+describe("children and everyone else on the stay", () => {
   const bk = (o: Partial<Booking>): Booking => ({
-    id: "SW-1", name: "A", contact: "", email: "", date: "2026-11-20", guests: 20, package: "Day Tour", rooms: [], overtime: 0,
+    id: "SW-1", name: "A", contact: "", email: "", date: "2026-11-20", guests: 20, package: "Day Stay", rooms: [], overtime: 0,
     total: 0, downpayment: 0, status: "Confirmed", paymentProof: true, notes: "", slot: "Day", resource: "Pool", tier: "Shared", ...o,
   } as Booking);
   const day = [bk({ id: "A", guests: 20, children: 10 }), bk({ id: "B", guests: 10, slot: "Night" }), bk({ id: "C", guests: 15, status: "Cancelled" })];
 
-  it("counts adults and children of every live group in that tour", () => {
+  it("counts adults and children of every live group in that stay", () => {
     expect(peopleOnTour("2026-11-20", "2026-11-20", "Day", day)).toBe(30);
     expect(peopleOnTour("2026-11-20", "2026-11-20", "Night", day)).toBe(10);
     expect(peopleOnTour("2026-11-20", "2026-11-20", "WholeDay", day)).toBe(40);

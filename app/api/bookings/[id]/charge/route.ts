@@ -9,8 +9,8 @@
 // overbooking the shared pool, no room someone else has). The booking's
 // total goes up by the charge; the money is collected like any balance, so it
 // reaches Payments & Expenses and the day's cash count by the usual route.
-// A room or the events venue also renames a custom booking ("Day Tour" →
-// "Day Tour + Event Venue"), so the lists say what the group has now.
+// A room or the events venue also renames a custom booking ("Day Stay" →
+// "Day Stay + Event Venue"), so the lists say what the group has now.
 //
 // Allowed until the booking is settled (Completed): overtime is usually
 // noticed as the group checks out. Every charge is in the activity log.
@@ -21,7 +21,7 @@ import { requirePermission } from "@/lib/auth";
 import { checkFits } from "@/lib/rebooking.server";
 import { guestLimitFor } from "@/lib/validators";
 import { priceCharge, type ChargeRequest } from "@/lib/charges";
-import { bookingLabel } from "@/lib/pricing";
+import { bookingLabel, modernLabel } from "@/lib/pricing";
 import { logActivity } from "@/lib/activity.server";
 import { fmt, getBookingResource, getBookingSlot } from "@/lib/utils";
 import type { BookingRow, RoomRow } from "@/types/database";
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     // Only a name this system made up is redone; a package keeps its title.
     const slot = getBookingSlot(b);
     const made = (resource: BookingResource, rooms: unknown[]) => bookingLabel({ resource, slot, hasRoom: rooms.length > 0 });
-    const label = b.package === made(getBookingResource(b), b.rooms ?? [])
+    const label = modernLabel(b.package) === made(getBookingResource(b), b.rooms ?? [])
       ? made(priced.next.resource ?? getBookingResource(b), priced.next.rooms ?? [])
       : b.package;
     // Only if nothing changed the booking since it was read, so a double

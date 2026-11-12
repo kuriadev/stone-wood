@@ -2,8 +2,8 @@
 //
 // getOccupancyWindow gives a booking's hours; Daily Operations uses it to
 // flag a checked-in group whose booked time is over. A booking counts toward
-// occupancy only while the clock is inside its tour window — so guests drop
-// off by themselves when their tour ends, rather than lingering until
+// occupancy only while the clock is inside its stay window — so guests drop
+// off by themselves when their stay ends, rather than lingering until
 // midnight because the date still matches.
 //
 // Hours come from lib/resort.ts, the same place every page reads them from
@@ -13,8 +13,8 @@
 // ── Rooms are per SLOT. A slot may now run overnight; that is not the same
 // ── thing as selling an overnight stay, and the difference still matters.
 //
-// A room is a day-use room attached to a tour: the guest has it for their
-// slot and gives it back when that slot ends. The Night Tour's slot now
+// A room is a day-use room attached to a stay: the guest has it for their
+// slot and gives it back when that slot ends. The Night Stay's slot now
 // ends at 5 AM the following morning (lib/resort.ts), so a Night group
 // genuinely is on the premises after midnight — but the room is still tied
 // to the SLOT, not rented by the night:
@@ -22,7 +22,7 @@
 //   - a Night booking on the 10th holds its room for Night/10th only;
 //   - it is handed back at 5 AM on the 11th;
 //   - MORNING_TURNOVER_WINDOW (5–7 AM) cleans it;
-//   - the 11th's Day Tour takes it at 7 AM, unblocked.
+//   - the 11th's Day Stay takes it at 7 AM, unblocked.
 //
 // So `occupiedSlots` and `roomsTakenOn` are unchanged and still correct.
 // This was once rewritten to treat a room as a rented night running to an
@@ -64,12 +64,12 @@ export function getOccupancyWindow(booking: StayWindowInput): { start: Date; end
   const day = parseDateStr(booking.date ?? "");
   if (!day) return null;
   // A multi-day stay ends on its last date; a one-day booking ends on its
-  // own. The Night Tour's 5 AM finish is then an hour past 24, which
+  // own. The Night Stay's 5 AM finish is then an hour past 24, which
   // setHours rolls into the following morning by itself.
   const lastDay = parseDateStr(bookingEndDate(booking)) ?? day;
 
   // A venue-only booking ends when the hall closes (midnight by default),
-  // not at the end of the Night Tour (lib/resort.ts slotFor).
+  // not at the end of the Night Stay (lib/resort.ts slotFor).
   const slot = slotFor(getBookingSlot(booking as Booking), getBookingResource(booking as Booking));
 
   const start = new Date(day);
@@ -91,7 +91,7 @@ export function getOccupancyWindow(booking: StayWindowInput): { start: Date; end
 const isoDay = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-/** The date the group actually leaves: for a Night Tour, the morning after
+/** The date the group actually leaves: for a Night Stay, the morning after
  *  its last date. */
 export function departureDate(booking: StayWindowInput): string | null {
   const w = getOccupancyWindow(booking);
@@ -110,7 +110,7 @@ const clockLabel = (d: Date): string => {
  * moments a guest cares about, which for an overnight slot are NOT the
  * booking's first and last dates.
  *
- * A Night Tour booked for the 10th to the 12th runs to 5:00 AM on the
+ * A Night Stay booked for the 10th to the 12th runs to 5:00 AM on the
  * 13th, a date that appears nowhere on the booking. Showing "October 10 –
  * October 12" and the hours separately left the guest to do that sum
  * themselves, and they got it wrong. Derived from getOccupancyWindow so

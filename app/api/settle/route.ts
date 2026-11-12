@@ -25,7 +25,7 @@ import { cleanText, parseAmount } from "@/lib/money";
 import { round2 } from "@/lib/finance";
 import { fmt } from "@/lib/utils";
 import { MANUAL_METHODS } from "@/types/finance";
-import { checkDeskQr, isDeskQrRef } from "@/lib/deskQr.server";
+import { checkDeskQr, isDeskQrRef, cleanDeskRef } from "@/lib/deskQr.server";
 
 export const dynamic = "force-dynamic";
 
@@ -45,12 +45,12 @@ export async function POST(req: NextRequest) {
     const amount = parseAmount(x.amount);
     if (amount !== null) {
       if (!MANUAL_METHODS.includes(x.method as Method)) {
-        return NextResponse.json({ success: false, error: "Choose Cash or QR Ph." }, { status: 400 });
+        return NextResponse.json({ success: false, error: "Choose Cash or GCash." }, { status: 400 });
       }
-      const reference = cleanText(x.reference, 80);
-      // QR Ph is always a code the guest scanned (its PayMongo id), never typed.
+      // GCash: the reference number from the guest's receipt.
+      const reference = x.method === "Cash" ? cleanText(x.reference, 80) : cleanDeskRef(cleanText(x.reference, 80));
       if (x.method !== "Cash" && !isDeskQrRef(reference)) {
-        return NextResponse.json({ success: false, error: "Collect QR Ph with the Generate QR code button, so the guest scans the code." }, { status: 400 });
+        return NextResponse.json({ success: false, error: "Type the GCash reference number from the guest's receipt." }, { status: 400 });
       }
       pay = { amount, method: x.method as Method, reference };
     }
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     if (pay && pay.amount > owed) {
       return NextResponse.json({ success: false, error: `Only ${fmt(owed)} is owed on this booking.` }, { status: 409 });
     }
-    // QR Ph: the code the guest scanned, confirmed with PayMongo first.
+    // GCash: the reference must not have been recorded before.
     if (pay && pay.method !== "Cash") {
       const bad = await checkDeskQr(pay.reference, pay.amount);
       if (bad) return NextResponse.json({ success: false, error: bad.error }, { status: bad.status });

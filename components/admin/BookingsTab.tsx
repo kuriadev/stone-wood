@@ -376,17 +376,17 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
             <option value="All">All sources</option><option>Online</option><option>Walk-In</option>
           </FullSelect>
         </FilterField>
-        <FilterField label="Tour">
+        <FilterField label="Stay">
           <FullSelect value={slot} onChange={(e) => setSlot(e.target.value as typeof slot)} aria-label="Slot" style={{ ...sel, width: "100%", paddingRight: 40 }}>
-            <option value="All">All tours</option>
+            <option value="All">All stays</option>
             {(["Day", "Night", "WholeDay"] as BookingSlot[]).map((s) => <option key={s} value={s}>{SLOTS[s].label}</option>)}
           </FullSelect>
         </FilterField>
         <FilterField label="Pool access">
           <FullSelect value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} aria-label="What was booked" style={{ ...sel, width: "100%", paddingRight: 40 }}>
-            <option value="All">Shared &amp; Exclusive</option>
+            <option value="All">Shared &amp; private pool</option>
             <option value="Shared">Shared pool</option>
-            <option value="Exclusive">Exclusive pool</option>
+            <option value="Exclusive">Private pool</option>
             <option value="Venue">With the events venue</option>
           </FullSelect>
         </FilterField>

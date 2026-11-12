@@ -22,7 +22,7 @@ import { parseAmount, cleanText } from "@/lib/money";
 import { fmt, fmtDate } from "@/lib/utils";
 import { logActivity } from "@/lib/activity.server";
 import { MANUAL_METHODS, type PaymentType } from "@/types/finance";
-import { checkDeskQr } from "@/lib/deskQr.server";
+import { checkDeskQr, cleanDeskRef } from "@/lib/deskQr.server";
 import type { PaymentRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -48,10 +48,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Refunds are arranged with the guest. Use Mark as refunded on the booking." }, { status: 400 });
   }
   if (!TYPES.includes(type)) return NextResponse.json({ success: false, error: "Unknown payment type." }, { status: 400 });
-  if (!MANUAL_METHODS.includes(method)) return NextResponse.json({ success: false, error: "Choose Cash or QR Ph." }, { status: 400 });
+  if (!MANUAL_METHODS.includes(method)) return NextResponse.json({ success: false, error: "Choose Cash or GCash." }, { status: 400 });
   if (amount === null) return NextResponse.json({ success: false, error: "Enter an amount greater than zero." }, { status: 400 });
   if (method !== "Cash" && !cleanText(body.reference, 80)) {
-    return NextResponse.json({ success: false, error: "Enter the QR Ph reference number." }, { status: 400 });
+    return NextResponse.json({ success: false, error: "Enter the GCash reference number." }, { status: 400 });
   }
 
   try {
@@ -72,8 +72,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // QR Ph money coming in is the code the guest scanned at the desk,
-    // confirmed with PayMongo first.
+    // GCash: the reference from the guest's receipt, not used before.
     if (method !== "Cash") {
       const bad = await checkDeskQr(cleanText(body.reference, 80), amount);
       if (bad) return NextResponse.json({ success: false, error: bad.error }, { status: bad.status });
@@ -95,7 +94,7 @@ export async function POST(req: NextRequest) {
       type,
       method,
       amount,
-      reference: cleanText(body.reference, 80),
+      reference: method === "Cash" ? cleanText(body.reference, 80) : cleanDeskRef(cleanText(body.reference, 80)),
       notes: cleanText(body.notes, 300),
       received_at: received,
     }).select().single();

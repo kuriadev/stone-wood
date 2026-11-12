@@ -4,7 +4,7 @@ import type { NextConfig } from "next";
  * Content Security Policy.
  *
  * Tuned to what this app actually loads — Google Fonts, Unsplash images, the
- * Google Maps embed on the About page, and PayMongo for the QR.
+ * Google Maps embed on the About page, and the receipt reader's OCR engine.
  *
  * Two deliberate loosenings, written down rather than left to look accidental:
  *
@@ -21,13 +21,16 @@ import type { NextConfig } from "next";
  */
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  // cdn.jsdelivr.net: the receipt reader (tesseract.js) loads its OCR
+  // engine and English data from there, in a Web Worker made from a blob.
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",
+  "worker-src 'self' blob:",
   // Satoshi is self-hosted through next/font (app/fonts), so fonts and
   // styles come from this origin only.
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
   "img-src 'self' data: blob: https:",
-  "connect-src 'self' https://api.paymongo.com https://*.supabase.co wss://*.supabase.co",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net data:",
   "frame-src https://www.google.com",
   // Clickjacking: nothing may frame this site.
   "frame-ancestors 'none'",

@@ -12,7 +12,7 @@ const at = (h: number, m = 0, day = 14) => new Date(2026, 9, day, h, m, 0, 0);
 
 function booking(over: Partial<Booking> = {}): Booking {
   return {
-    id: "SW-1", name: "Test", date: "2026-10-14", guests: 4, package: "Day Tour",
+    id: "SW-1", name: "Test", date: "2026-10-14", guests: 4, package: "Day Stay",
     status: "Confirmed", slot: "Day", ...over,
   } as unknown as Booking;
 }
@@ -23,7 +23,7 @@ function card(column: OpsCard["column"], b: Booking, extra: Partial<OpsCard> = {
 
 describe("Arriving", () => {
   it("is blue before the arrival time and red once it has passed", () => {
-    const c = card("arriving", booking()); // Day Tour starts 7:00 AM
+    const c = card("arriving", booking()); // Day Stay starts 7:00 AM
     expect(cardTimer(c, at(6, 15))).toMatchObject({ tone: "blue" });
     expect(cardTimer(c, at(6, 15))!.label).toBe("Arrives in 45 min");
     expect(cardTimer(c, at(7, 0))).toMatchObject({ tone: "red" });

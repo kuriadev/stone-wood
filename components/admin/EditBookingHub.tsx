@@ -54,7 +54,7 @@ export function EditBookingHub({ booking: b, canMove, canPay, moveOff, chargeOff
       <div style={{ display: "grid", gap: 10 }}>
         {tile("user", "Guest details", "Name, phone number and email", () => onPick("details"))}
         {tile("users", "Number of guests", "More people came, charged per guest", () => onPick("charge", "guests"), blocked.guests || undefined)}
-        {tile("clock", "Overtime", "Extra hours on a Day Tour", () => onPick("charge", "overtime"), blocked.overtime || undefined)}
+        {tile("clock", "Overtime", "Extra hours on a Day Stay", () => onPick("charge", "overtime"), blocked.overtime || undefined)}
         {tile("bed", "Add a room", "A room for the group", () => onPick("charge", "room"), blocked.room || undefined)}
         {tile("tent", "Add the events venue", "The hall for their event", () => onPick("charge", "venue"), blocked.venue || undefined)}
         {canPay && tile("cash", "Record a payment", "Money received from the guest", () => onPick("pay"))}

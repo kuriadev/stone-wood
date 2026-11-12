@@ -36,7 +36,7 @@ afterAll(() => jest.useRealTimers());
 
 const row = (o: Record<string, unknown>) => ({
   id: "NT-1", name: "Ana Cruz", contact: "09171234567", email: "ana@example.com",
-  date: "2026-11-11", end_date: null, guests: 2, package: "Night Tour", rooms: [], overtime: 0,
+  date: "2026-11-11", end_date: null, guests: 2, package: "Night Stay", rooms: [], overtime: 0,
   total: 400, downpayment: 400, status: "Confirmed", payment_proof: true, notes: "", cancel_reason: null,
   created_at: "2026-11-01T10:00:00+08:00", source: "Online", resource: "Pool", tier: "Shared", archived: false,
   archived_at: null, payment_intent_id: null, slot: "Night", arrival_time: null, checked_in_at: null,

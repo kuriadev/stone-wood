@@ -25,7 +25,7 @@ export function OverCapacityNote({ capacity, guests, checked, onChange, venue = 
           <strong>{guests} guests is {guests - capacity} over {venue ? "what the events venue holds" : "the resort's capacity"} ({capacity}).</strong>{" "}
           {venue
             ? "Only staff can allow this. Make sure the hall, tables, chairs, food and staffing can take the larger group."
-            : "Only staff can allow this. Make sure the pool, chairs, food and staffing can take the larger group, and that other groups sharing the tour won't be crowded."}
+            : "Only staff can allow this. Make sure the pool, chairs, food and staffing can take the larger group, and that other groups sharing the stay won't be crowded."}
         </span>
       </p>
       <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, color: C.textH, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>

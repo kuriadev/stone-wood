@@ -20,7 +20,7 @@ const staff = (id: string, role: string, email: string | null, o: Record<string,
   id, name: id, username: id, role, active: true, email, email_verified_at: email ? "2026-11-01T00:00:00Z" : null, ...o,
 });
 const booking = (o: Partial<Booking>): Booking => ({
-  id: "SW-1", name: "Ana", contact: "", email: "ana@example.com", date: "2026-11-10", guests: 4, package: "Day Tour", rooms: [1],
+  id: "SW-1", name: "Ana", contact: "", email: "ana@example.com", date: "2026-11-10", guests: 4, package: "Day Stay", rooms: [1],
   overtime: 0, total: 800, downpayment: 400, status: "Confirmed", paymentProof: true, notes: "", slot: "Day", resource: "Pool", tier: "Shared", ...o,
 } as Booking);
 

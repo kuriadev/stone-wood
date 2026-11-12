@@ -80,14 +80,14 @@ th{background:#f3eee4}.n{text-align:right}.mono{font-family:monospace}.muted{col
 <div class="box"><strong>While offline:</strong> take bookings on the last page (or in the import template on a laptop). Write the amount and how it was paid.
 <strong>When the internet is back:</strong> All Bookings → Import, and enter any payments for existing bookings with Record payment.</div>
 <div class="grid"><div><h2>Rates</h2><table>
-<tr><td>Day Tour — Shared</td><td class="n">${e(fmt(SHARED_PER_HEAD_RATE))} per guest</td></tr>
-<tr><td>Day Tour — Exclusive (up to ${RESORT_MAX_CAPACITY})</td><td class="n">${e(fmt(EXCLUSIVE_FLAT_RATE))}</td></tr>
-<tr><td>Night Tour — Shared</td><td class="n">${e(fmt(SHARED_NIGHT_RATE))} per guest</td></tr>
-<tr><td>Night Tour — Exclusive (up to ${RESORT_MAX_CAPACITY})</td><td class="n">${e(fmt(EXCLUSIVE_NIGHT_RATE))}</td></tr>
-<tr><td>Staycation — Shared</td><td class="n">${e(fmt(SHARED_STAY_RATE))} per guest</td></tr>
-<tr><td>Staycation — Exclusive (up to ${RESORT_MAX_CAPACITY})</td><td class="n">${e(fmt(EXCLUSIVE_STAY_RATE))}</td></tr>
-<tr><td>Events venue</td><td class="n">${e(fmt(EVENT_VENUE_RATE))} per tour</td></tr>
-${OVERTIME_MAX > 0 ? `<tr><td>Day Tour overtime</td><td class="n">${e(fmt(OVERTIME_RATE))} per hour, up to ${OVERTIME_MAX}</td></tr>` : ""}
+<tr><td>Day Stay — Shared pool</td><td class="n">${e(fmt(SHARED_PER_HEAD_RATE))} per guest</td></tr>
+<tr><td>Day Stay — Private pool (up to ${RESORT_MAX_CAPACITY})</td><td class="n">${e(fmt(EXCLUSIVE_FLAT_RATE))}</td></tr>
+<tr><td>Night Stay — Shared pool</td><td class="n">${e(fmt(SHARED_NIGHT_RATE))} per guest</td></tr>
+<tr><td>Night Stay — Private pool (up to ${RESORT_MAX_CAPACITY})</td><td class="n">${e(fmt(EXCLUSIVE_NIGHT_RATE))}</td></tr>
+<tr><td>Staycation — Shared pool</td><td class="n">${e(fmt(SHARED_STAY_RATE))} per guest</td></tr>
+<tr><td>Staycation — Private pool (up to ${RESORT_MAX_CAPACITY})</td><td class="n">${e(fmt(EXCLUSIVE_STAY_RATE))}</td></tr>
+<tr><td>Events venue</td><td class="n">${e(fmt(EVENT_VENUE_RATE))} per stay</td></tr>
+${OVERTIME_MAX > 0 ? `<tr><td>Day Stay overtime</td><td class="n">${e(fmt(OVERTIME_RATE))} per hour, up to ${OVERTIME_MAX}</td></tr>` : ""}
 ${rooms.length ? `<tr><td>Rooms</td><td class="n">${e(rooms.map((r) => r.name.split(" –")[0]).join(", "))}</td></tr>` : ""}
 </table></div><div><h2>Hours and contact</h2><table>
 ${(["Day", "Night", "WholeDay"] as const).map((s) => `<tr><td>${e(SLOTS[s].label)}</td><td>${e(SLOTS[s].hours)}</td></tr>`).join("")}

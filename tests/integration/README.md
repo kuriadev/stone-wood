@@ -1,7 +1,7 @@
 # Integration tests
 
 The QA pack's `tests/integration/*.test.ts` go here. They run the real API
-route handlers against an in-memory stand-in for Supabase, with PayMongo and
+route handlers against an in-memory stand-in for Supabase, with storage and
 Gmail mocked.
 
 This file only exists to keep the folder in git: `jest.config.js` lists it in

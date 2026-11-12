@@ -2,8 +2,8 @@
  *
  *   - "today" followed the machine's time zone, so a UTC server thought it
  *     was still yesterday until 8 AM in Manila;
- *   - today's tour could be booked online after it had started (or ended);
- *   - one guest could book the venue and a shared pool tour separately and
+ *   - today's stay could be booked online after it had started (or ended);
+ *   - one guest could book the venue and a shared pool stay separately and
  *     get "Resort visit + Events Venue" without it being Exclusive;
  *   - an Exclusive group had no way to pay for the hall on the day.
  */
@@ -29,8 +29,8 @@ describe("today is Manila's today, whatever the machine's time zone", () => {
 });
 
 const at = (h: number, m: number) => new Date(Date.UTC(2026, 9, 20, h - 8, m));
-describe("today's tour can be booked late, up to 2 hours after it starts", () => {
-  it("keeps today's Day Tour open until 9:00 AM", () => {
+describe("today's stay can be booked late, up to 2 hours after it starts", () => {
+  it("keeps today's Day Stay open until 9:00 AM", () => {
     expect(slotStartedProblem("2026-10-20", "Day", manila(6))).toBeNull();
     expect(slotStartedProblem("2026-10-20", "Day", manila(8))).toBeNull();
     expect(slotStartedProblem("2026-10-20", "Day", at(9, 0))).toBeNull();
@@ -38,7 +38,7 @@ describe("today's tour can be booked late, up to 2 hours after it starts", () =>
     expect(slotStartedProblem("2026-10-20", "Day", manila(10))).not.toBeNull();
     expect(slotStartedProblem("2026-10-20", "Day", manila(21))).not.toBeNull();
   });
-  it("keeps tonight's Night Tour open until 9:00 PM", () => {
+  it("keeps tonight's Night Stay open until 9:00 PM", () => {
     expect(slotStartedProblem("2026-10-20", "Night", manila(15))).toBeNull();
     expect(slotStartedProblem("2026-10-20", "Night", manila(20))).toBeNull();
     expect(slotStartedProblem("2026-10-20", "Night", at(21, 0))).toBeNull();
@@ -55,11 +55,11 @@ describe("today's tour can be booked late, up to 2 hours after it starts", () =>
 });
 
 describe("a late booking is told it still ends at the usual time", () => {
-  it("says nothing before the tour starts or on another date", () => {
+  it("says nothing before the stay starts or on another date", () => {
     expect(lateArrivalNote("2026-10-20", "Day", manila(6))).toBeNull();
     expect(lateArrivalNote("2026-10-21", "Day", manila(12))).toBeNull();
   });
-  it("names the end time and overtime once the tour has started", () => {
+  it("names the end time and overtime once the stay has started", () => {
     const note = lateArrivalNote("2026-10-20", "Day", manila(8));
     expect(note).toContain("5:00 PM");
     expect(note).toContain("overtime");
@@ -71,7 +71,7 @@ describe("a late booking is told it still ends at the usual time", () => {
 
 const booking = (over: Partial<Booking>): Booking => ({
   id: "SW-1", name: "Ana Cruz", contact: "0917 123 4567", email: "ana@example.com", date: "2026-10-20",
-  guests: 10, package: "Day Tour", rooms: [], overtime: 0, total: 0,
+  guests: 10, package: "Day Stay", rooms: [], overtime: 0, total: 0,
   downpayment: 0, status: "Confirmed", paymentProof: true, notes: "",
   slot: "Day", resource: "Pool", tier: "Shared",
   ...over,
@@ -117,7 +117,7 @@ describe("the front desk can add the events venue to an Exclusive booking", () =
     const r = priceCharge(b, { kind: "venue" }, rooms);
     expect(r.ok && r.amount).toBe(EVENT_VENUE_RATE * 2 * 2);
   });
-  it("isn't offered on a shared tour or a booking that already has the venue", () => {
+  it("isn't offered on a shared stay or a booking that already has the venue", () => {
     expect(chargeKindsFor(booking({})).venue).not.toBeNull();
     expect(chargeKindsFor(booking({ resource: "Pool+Venue", tier: "Exclusive" })).venue).not.toBeNull();
     expect(chargeKindsFor(booking({ tier: "Exclusive" })).venue).toBeNull();

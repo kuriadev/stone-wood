@@ -203,7 +203,7 @@ export function PackagesTab({ packages, setPackages, rooms = [], mob }: Packages
           <>
             {roomsByPrice.slice(0, 3).map((r, i) => (
               <span key={r.id}>{i > 0 && " · "}{r.name} {strong(r.price - dealOff(d, r.price))} <s>{fmt(r.price)}</s></span>
-            ))}{" "}per tour{until}.
+            ))}{" "}per stay{until}.
           </>
         ),
       };
@@ -670,7 +670,7 @@ export function PackagesTab({ packages, setPackages, rooms = [], mob }: Packages
                           </span>
                           <span style={{ display: "block", color: C.textS, fontSize: 12.5, lineHeight: 1.5, marginTop: 2 }}>
                             {st === "Shared"
-                              ? "Other groups can book the pool on the same tour; this package takes its capacity in places."
+                              ? "Other groups can book the pool on the same stay; this package takes its capacity in places."
                               : "The group has the pool (and venue, if included) to themselves."}
                           </span>
                         </button>
@@ -686,7 +686,7 @@ export function PackagesTab({ packages, setPackages, rooms = [], mob }: Packages
                   <Input type="number" min={1} max={packageCapacityLimit(form.resource)} id="pkg-capacity" value={form.capacity} onChange={(e) => setF("capacity", e.target.value)} className="sw-input" style={inpS} />
                   <p style={{ color: C.textS, fontSize: 12, margin: "4px 0 0", lineHeight: 1.5 }}>
                     {form.status === "Shared" && form.resource !== "Venue"
-                      ? `Guests the package covers. They take that many of the ${RESORT_MAX_CAPACITY} shared places on the tour.`
+                      ? `Guests the package covers. They take that many of the ${RESORT_MAX_CAPACITY} shared places on the stay.`
                       : `Most guests the group can bring, up to ${packageCapacityLimit(form.resource)}${form.resource === "Venue" ? ", what the events venue holds" : ""}.`}
                   </p>
                 </div>

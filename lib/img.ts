@@ -6,7 +6,7 @@
 // previously asking every device for the same large file.
 //
 // These helpers only touch images.unsplash.com URLs. Anything else (an
-// uploaded data: URI, a PayMongo QR, a local file) is passed through
+// uploaded data: URI, a local file) is passed through
 // unchanged, so callers can use them unconditionally.
 
 const UNSPLASH = "images.unsplash.com";

@@ -3,7 +3,7 @@ import type { Booking } from "@/types/booking";
 
 const base = {
   id: "DT-10203", name: "Beamae Yabyabin", email: "b@example.com", contact: "09123545454",
-  date: "2026-11-20", guests: 2, package: "Day Tour", total: 400, downpayment: 200,
+  date: "2026-11-20", guests: 2, package: "Day Stay", total: 400, downpayment: 200,
   status: "Confirmed", paymentProof: true, notes: "", source: "Online",
 } as unknown as Booking;
 const today = "2026-11-10";

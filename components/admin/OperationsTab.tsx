@@ -28,6 +28,7 @@
 // so every module keeps its full record while the daily routine happens
 // here. Which step a booking is on is worked out in lib/operations.ts.
 
+import { ProofQueue } from "@/components/admin/ProofQueue";
 import { ReviewReasonsNote } from "@/components/admin/ReviewReasonsNote";
 import { EditBookingHub } from "@/components/admin/EditBookingHub";
 import { EditGuestModal } from "@/components/admin/EditGuestModal";
@@ -1369,6 +1370,9 @@ export function OperationsTab({
           inside. */}
       <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0,1fr) minmax(320px,380px)", gap: 16, alignItems: "start" }}>
         <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
+
+          {/* ── GCash receipts waiting to be checked (ProofQueue.tsx) ── */}
+          <ProofQueue mob={mob} />
 
           {/* ── Today's guests: the same three stages, in one place ── */}
           <section aria-labelledby="dash-bookings" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, overflow: "hidden" }}>

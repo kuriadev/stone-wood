@@ -15,7 +15,7 @@ import { clientKey } from "@/lib/finance";
 const guest = (over: Partial<Booking>): Booking => ({
   id: "B1", name: "Juan Dela Cruz", contact: "09171234567",
   email: "juan@gmail.com", date: "2026-10-20", guests: 4,
-  package: "Day Tour", rooms: [], overtime: 0, total: 0, downpayment: 0,
+  package: "Day Stay", rooms: [], overtime: 0, total: 0, downpayment: 0,
   status: "Confirmed", paymentProof: true, notes: "",
   ...over,
 });

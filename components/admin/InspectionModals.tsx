@@ -45,7 +45,7 @@ import type { Facility } from "@/types/facility";
 import { Icon } from "@/components/common/Icon";
 import { Modal, Label, ChoiceButtons, ActionButton, AmountRow, ErrorNote, StatusBadge, useAdminStyle, FullSelect, STATUS_COLOR, useConfirm } from "@/components/admin/ui";
 import { BookingHistory } from "@/components/admin/BookingHistory";
-import { QrPayModal, QrPhHint, qrSummaryForBooking } from "@/components/admin/QrPayModal";
+import { QrPayModal, GcashHint, qrSummaryForBooking } from "@/components/admin/QrPayModal";
 
 const iconOf = facilityIcon;
 
@@ -80,7 +80,7 @@ export function PrepModal({ booking, facilities, onClose }: { booking: Booking; 
   // A booking has one preparation. Opening it again shows what was saved,
   // so the owner edits it rather than starting a blank list.
   const last = ops.inspections.find((i) => i.bookingId === booking.id && i.stage === "Preparation");
-  // Facilities another group on the same tour already had prepared don't
+  // Facilities another group on the same stay already had prepared don't
   // need doing again: only what's left (this group's own room, say) is
   // shown. Editing a saved preparation shows everything it covers.
   const all_ = facilitiesForBooking(booking, facilities);
@@ -112,7 +112,7 @@ export function PrepModal({ booking, facilities, onClose }: { booking: Booking; 
     setBusy(false);
     if (!r.ok) return setError(r.error);
     const also = Array.isArray(r.data?.alsoPrepared) ? (r.data.alsoPrepared as string[]) : [];
-    toast(`${last ? `Preparation for ${booking.name} updated.` : `Facilities prepared for ${booking.name}.`}${also.length ? ` It also counts for ${also.join(", ")} on the same tour, so ${also.length === 1 ? "that group is" : "those groups are"} ready to check in.` : ""}`, "success");
+    toast(`${last ? `Preparation for ${booking.name} updated.` : `Facilities prepared for ${booking.name}.`}${also.length ? ` It also counts for ${also.join(", ")} on the same stay, so ${also.length === 1 ? "that group is" : "those groups are"} ready to check in.` : ""}`, "success");
     onClose();
   };
 
@@ -136,7 +136,7 @@ export function PrepModal({ booking, facilities, onClose }: { booking: Booking; 
       {shared.length > 0 && (
         <p style={{ color: "#2e9e4e", fontSize: 13, marginTop: 0, lineHeight: 1.55 }}>
           <Icon name="check-circle" size={14} style={{ marginRight: 8, verticalAlign: -2 }} />
-          Already prepared for another group on this tour: {shared.map((f) => f.name).join(", ")}. Only {used.length === 1 ? "this one is" : "these are"} left.
+          Already prepared for another group on this stay: {shared.map((f) => f.name).join(", ")}. Only {used.length === 1 ? "this one is" : "these are"} left.
         </p>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(270px,100%),1fr))", gap: 12 }}>
@@ -265,7 +265,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
   // is added, so "collect everything" needs no typing at all.
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<(typeof MANUAL_METHODS)[number]>("Cash");
-  // QR Ph: the guest scans a code (QrPayModal); its payment id is the reference.
+  // GCash: the guest scans the resort's QR (QrPayModal); staff type the receipt's reference.
   const [qrOpen, setQrOpen] = useState(false);
   const [closeUnpaid, setCloseUnpaid] = useState(false);
   const [unpaidNote, setUnpaidNote] = useState("");
@@ -282,9 +282,8 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
     if (!booking.checkedInAt && !staff.can("bookings.edit")) {
       return setError("Front desk hasn't checked this group in yet. Ask them to check the group in first.");
     }
-    // QR Ph: show the code first; once the guest has paid, this runs again with its id.
+    // GCash: show the resort's QR first; once the money is in, this runs again with the reference.
     if (handlesMoney && paying > 0 && method !== "Cash" && !qrRef) {
-      if (paying < 20) return setError("A QR payment has to be at least ₱20. Take it in cash instead.");
       return setQrOpen(true);
     }
     setBusy(true);
@@ -513,7 +512,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
                 <ChoiceButtons value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: payMethodLabel(m) }))} />
               </div>
               {method !== "Cash" && paying > 0 && (
-                <QrPhHint amount={paying} text="Press the button below: a QR Ph code for {amount} comes up for the guest to scan with GCash, Maya or any QR Ph e-wallet. It saves by itself once they pay." />
+                <GcashHint amount={paying} text="Press the button below: the resort's GCash QR comes up for the guest to scan and send {amount}. Once it shows in the resort's GCash, type the reference number from their receipt." />
               )}
               {left > 0 && (
                 <>
@@ -527,7 +526,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
                   {closeUnpaid && (
                     <div>
                       <Label htmlFor="co-unpaid">Why is it left unpaid?</Label>
-                      <Textarea id="co-unpaid" rows={2} value={unpaidNote} onChange={(e) => setUnpaidNote(e.target.value)} style={{ ...inp }} placeholder="e.g. Will send the rest by QR Ph tomorrow" />
+                      <Textarea id="co-unpaid" rows={2} value={unpaidNote} onChange={(e) => setUnpaidNote(e.target.value)} style={{ ...inp }} placeholder="e.g. Will send the rest by GCash tomorrow" />
                     </div>
                   )}
                 </>
@@ -636,9 +635,8 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
     setError("");
     if (left > 0 && closeUnpaid && note.trim().length < 3) return setError("Say why it's being settled with money still owed.");
     if (paying <= 0 && !completes) return setError("Enter the amount received, or close it as unpaid with a reason.");
-    // QR Ph: show the code first; once the guest has paid, this runs again with its id.
+    // GCash: show the resort's QR first; once the money is in, this runs again with the reference.
     if (paying > 0 && method !== "Cash" && !qrRef) {
-      if (paying < 20) return setError("A QR payment has to be at least ₱20. Take it in cash instead.");
       return setQrOpen(true);
     }
     setBusy(true);
@@ -670,7 +668,7 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
             {left > 0 && <> · <strong style={{ color: "#e5484d" }}>{fmt(left)} {closeUnpaid ? "left unpaid" : "still owed"}</strong></>}
           </span>
           <ActionButton kind="primary" icon={completes ? "check" : "cash"} disabled={busy} onClick={() => void save()}>
-            {busy ? "Saving…" : method !== "Cash" && paying > 0 ? "Generate QR code" : completes ? "Collect & close booking" : "Record payment"}
+            {busy ? "Saving…" : method !== "Cash" && paying > 0 ? "Show GCash QR" : completes ? "Collect & close booking" : "Record payment"}
           </ActionButton>
         </div>
       }>
@@ -690,7 +688,7 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
                 <ChoiceButtons value={method} onChange={setMethod} size="sm" options={MANUAL_METHODS.map((m) => ({ value: m, label: payMethodLabel(m) }))} />
               </div>
               {method !== "Cash" && paying > 0 && (
-                <QrPhHint amount={paying} text="Press Generate QR code: a QR Ph code for {amount} comes up for the guest to scan with GCash, Maya or any QR Ph e-wallet. It saves by itself once they pay." />
+                <GcashHint amount={paying} text="Press the button below: the resort's GCash QR comes up for the guest to scan and send {amount}. Once it shows in the resort's GCash, type the reference number from their receipt." />
               )}
               {left > 0 && (
                 <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 8, alignItems: "flex-start" }}>
@@ -701,7 +699,7 @@ export function SettleModal({ booking, onClose }: { booking: Booking; onClose: (
               {left > 0 && closeUnpaid && (
                 <div>
                   <Label htmlFor="st-note">Why is it left unpaid?</Label>
-                  <Textarea id="st-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} style={{ ...inp }} placeholder="e.g. Will send the rest by QR Ph tomorrow" />
+                  <Textarea id="st-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} style={{ ...inp }} placeholder="e.g. Will send the rest by GCash tomorrow" />
                 </div>
               )}
               <p style={{ color: C.textS, fontSize: 12.5, margin: 0 }}>

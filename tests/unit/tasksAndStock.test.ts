@@ -17,7 +17,7 @@ import { guessKind } from "@/types/inventory";
 
 const booking = (over: Partial<Booking>): Booking => ({
   id: "B1", name: "Test", contact: "", email: "", date: "2026-10-10",
-  guests: 10, package: "Day Tour", rooms: [], overtime: 0, total: 0,
+  guests: 10, package: "Day Stay", rooms: [], overtime: 0, total: 0,
   downpayment: 0, status: "Confirmed", paymentProof: true, notes: "",
   resource: "Pool", slot: "Day",
   ...over,

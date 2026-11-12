@@ -7,7 +7,7 @@
 // without creating a payment.
 //
 // Some problems can only be found once the guest has said who they are:
-// the same guest already holding a shared pool tour that date and now
+// the same guest already holding a shared pool stay that date and now
 // booking the events venue on its own (splitBookingMatch). Those used to
 // surface on the QR screen, after the guest had picked a payment. The
 // answer names the step to fix it on, so Book Now can send the guest

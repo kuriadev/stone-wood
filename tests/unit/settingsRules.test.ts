@@ -20,7 +20,7 @@ describe("Rates & Settings field rules", () => {
   });
 
   it("keeps prices sensible together", () => {
-    expect(settingsFieldErrors(withChange("rates", "exclusiveFlat", 200))["rates.exclusiveFlat"]).toMatch(/more than one Shared guest/);
+    expect(settingsFieldErrors(withChange("rates", "exclusiveFlat", 200))["rates.exclusiveFlat"]).toMatch(/more than one shared-pool guest/);
     expect(settingsFieldErrors(withChange("rates", "overtimePerHour", 0))["rates.overtimePerHour"]).toMatch(/turn overtime off/);
     const off = withChange("rates", "overtimePerHour", 0); off.limits.overtimeMaxHours = 0;
     expect(settingsFieldErrors(off)).toEqual({});

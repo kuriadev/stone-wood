@@ -1,27 +1,25 @@
-// ── A QR Ph payment taken at the front desk, checked before it is recorded ──
+// ── A GCash payment taken at the front desk, checked before it is recorded ──
 //
-// Staff never type a QR Ph reference: they press "Generate QR code", the
-// guest scans it (components/admin/QrPayModal.tsx, /api/payment/desk), and
-// the PayMongo payment id comes back as the reference. Before any route
-// records it, this asks PayMongo that it really went through, for exactly
-// the amount being recorded, and that no other payment already used it.
+// The guest scans the resort's own GCash QR (Admin → Website Photos) and
+// sends the money. Staff see it arrive in the resort's GCash app, then type
+// the reference number from the guest's receipt (components/admin/
+// QrPayModal.tsx). Before any route records it, this checks the reference
+// looks like one and that no other payment already used it, so one GCash
+// transfer can't be counted twice.
 
-import { getPaymentStatus } from "@/lib/paymongo";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
-export const isDeskQrRef = (ref: string) => /^pi_[A-Za-z0-9]+$/.test(ref);
+/** A GCash / InstaPay reference: letters and digits, at least 6. */
+export const isDeskQrRef = (ref: string) => /^[A-Za-z0-9-]{6,40}$/.test(ref.replace(/\s/g, ""));
 
-/** null when the QR payment checks out; otherwise what went wrong and the status to answer with. */
-export async function checkDeskQr(reference: string, amount: number): Promise<{ error: string; status: number } | null> {
-  if (!isDeskQrRef(reference)) return { error: "Collect QR Ph with the Generate QR code button, so the guest scans the code.", status: 400 };
-  try {
-    const st = await getPaymentStatus(reference);
-    if (st.status !== "succeeded") return { error: "That QR payment hasn't gone through yet.", status: 409 };
-    if (Math.round(st.amountCentavos) !== Math.round(amount * 100)) return { error: "The QR payment was for a different amount. Make a new code.", status: 409 };
-  } catch {
-    return { error: "Couldn't confirm the QR payment with PayMongo. Try again in a moment.", status: 502 };
-  }
-  const used = await getSupabaseAdmin().from("payments").select("id").eq("reference", reference).limit(1);
-  if (used.data && used.data.length > 0) return { error: "That QR payment is already recorded.", status: 409 };
+/** The reference as it is stored: no spaces, upper case. */
+export const cleanDeskRef = (ref: string) => ref.replace(/\s/g, "").toUpperCase().slice(0, 40);
+
+/** null when the GCash payment can be recorded; otherwise what went wrong
+ *  and the status to answer with. */
+export async function checkDeskQr(reference: string, _amount?: number): Promise<{ error: string; status: number } | null> {
+  if (!isDeskQrRef(reference)) return { error: "Type the GCash reference number from the guest's receipt.", status: 400 };
+  const used = await getSupabaseAdmin().from("payments").select("id").eq("reference", cleanDeskRef(reference)).limit(1);
+  if (used.data && used.data.length > 0) return { error: "That GCash reference is already recorded for another payment.", status: 409 };
   return null;
 }

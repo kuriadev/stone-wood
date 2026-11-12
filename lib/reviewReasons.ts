@@ -4,7 +4,7 @@
 // one "⚠ CHECK: …" line per problem in its notes (app/api/bookings POST):
 //
 //   taken    the date filled up while the guest was paying: two groups
-//            booked the same tour at the same moment (a double booking)
+//            booked the same stay at the same moment (a double booking)
 //   amount   what was paid doesn't match the down payment or the total
 //   twice    the same group seems to have booked the date twice
 //
@@ -37,8 +37,8 @@ export function reviewReasons(notes: string | null | undefined): ReviewReason[] 
         kind: "taken" as const,
         title: "Double booking",
         detail,
-        guest: "Another group booked and paid for the same tour at almost the same moment as you, so the date was taken just before your payment came through. We're checking how we can still host you.",
-        cancelText: "Another group booked and paid for the same tour at almost the same moment as you did, so that date ended up booked twice (a double booking). It stays with the booking that was completed first, so please choose a new date. Everything you paid carries over to it.",
+        guest: "Another group booked and paid for the same stay at almost the same moment as you, so the date was taken just before your payment came through. We're checking how we can still host you.",
+        cancelText: "Another group booked and paid for the same stay at almost the same moment as you did, so that date ended up booked twice (a double booking). It stays with the booking that was completed first, so please choose a new date. Everything you paid carries over to it.",
       };
     }
     if (/^paid\s/i.test(detail)) {

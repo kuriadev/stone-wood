@@ -1,6 +1,6 @@
 /* POST /api/bookings/check: Book Now asks it before the payment screen.
  *
- * The bug it fixes: a guest who already had a shared pool tour that date,
+ * The bug it fixes: a guest who already had a shared pool stay that date,
  * booking the events venue on its own, only found out on the QR screen.
  * The check refuses it first and names the step to go back to.
  */
@@ -51,7 +51,7 @@ const draft = (o: Record<string, unknown> = {}) => {
 };
 const existing = (o: Record<string, unknown>) => ({
   id: "SW-10189", name: "christian", contact: "09171234567", email: "christian@example.com",
-  date: DATE, end_date: DATE, guests: 2, package: "Night Tour", rooms: [], overtime: 0,
+  date: DATE, end_date: DATE, guests: 2, package: "Night Stay", rooms: [], overtime: 0,
   total: 400, downpayment: 200, status: "Confirmed", payment_proof: true, notes: "",
   source: "Online", resource: "Pool", tier: "Shared", slot: "Night", archived: false,
   checked_in_at: null, checked_out_at: null, created_at: "2026-10-19T10:00:00+08:00", ...o,
@@ -75,7 +75,7 @@ describe("POST /api/bookings/check", () => {
     expect(await ask(draft())).toEqual({ status: 200, body: { success: true } });
   });
 
-  it("stops the same guest booking the venue alone on top of their shared pool tour, and says to go back to the date", async () => {
+  it("stops the same guest booking the venue alone on top of their shared pool stay, and says to go back to the date", async () => {
     fresh([existing({})]);
     const r = await ask(draft({ resource: "Venue", tier: "Exclusive", guests: 30 }));
     expect(r.status).toBe(409);

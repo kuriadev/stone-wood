@@ -128,7 +128,7 @@ export function HomeCardsEditor({ mob }: { mob: boolean }) {
         <div style={{ maxWidth: 640 }}>
           <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>HOME PAGE</p>
           <h3 id="home-cards-title" style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 20 : 22, fontWeight: 400, margin: 0 }}>
-            &ldquo;Tours &amp; Room Add-ons&rdquo; cards
+            &ldquo;Stays &amp; Room Add-ons&rdquo; cards
           </h3>
           <p style={{ color: C.textS, fontSize: 13.5, margin: "8px 0 0", lineHeight: 1.6 }}>
             {custom
@@ -178,7 +178,7 @@ export function HomeCardsEditor({ mob }: { mob: boolean }) {
               </div>
               <div>
                 <Label htmlFor={`hc-title-${i}`} style={lbl}>TITLE</Label>
-                <Input id={`hc-title-${i}`} value={d.title} maxLength={L.title} onChange={(e) => edit(i, { title: e.target.value })} placeholder="Day Tour" style={inpS} />
+                <Input id={`hc-title-${i}`} value={d.title} maxLength={L.title} onChange={(e) => edit(i, { title: e.target.value })} placeholder="Day Stay" style={inpS} />
               </div>
             </div>
 
@@ -200,7 +200,7 @@ export function HomeCardsEditor({ mob }: { mob: boolean }) {
 
             <div>
               <Label htmlFor={`hc-details-${i}`} style={lbl}>WHAT&apos;S LISTED (ONE PER LINE, UP TO {L.details})</Label>
-              <Textarea id={`hc-details-${i}`} value={d.detailsText} rows={4} onChange={(e) => edit(i, { detailsText: e.target.value })} placeholder={"Shared: ₱200 per guest\nExclusive (up to 30): ₱6,000"} style={{ ...inpS }} />
+              <Textarea id={`hc-details-${i}`} value={d.detailsText} rows={4} onChange={(e) => edit(i, { detailsText: e.target.value })} placeholder={"Shared pool: ₱200 per guest\nPrivate pool (up to 30): ₱6,000"} style={{ ...inpS }} />
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 10 }}>

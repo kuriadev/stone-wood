@@ -136,7 +136,7 @@ export function MoveBookingModal({ booking, onMoved, onClose }: MoveBookingModal
               closedDates={closedDates}
               selectedDate={date}
               onSelectDate={(d) => { setDate(d); setError(""); }}
-              // Judged for this booking's own tour, so a Night booking can
+              // Judged for this booking's own stay, so a Night booking can
               // move onto a date whose Day is taken (an Exclusive Day leaves
               // the Night open). A venue-only booking keeps the plain check.
               request={usesPool(booking)

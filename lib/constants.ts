@@ -95,8 +95,8 @@ export function rateCards(rooms: { price: number }[]): RateCard[] {
       base: SHARED_PER_HEAD_RATE,
       unit: "/guest",
       details: [
-        `Shared: ${peso(SHARED_PER_HEAD_RATE)} per guest`,
-        `Exclusive (up to ${RESORT_MAX_CAPACITY}): ${peso(EXCLUSIVE_FLAT_RATE)}`,
+        `Shared pool: ${peso(SHARED_PER_HEAD_RATE)} per guest`,
+        `Private pool (up to ${RESORT_MAX_CAPACITY}): ${peso(EXCLUSIVE_FLAT_RATE)}`,
         ...(OVERTIME_MAX > 0 ? [`Overtime on request: ${peso(OVERTIME_RATE)}/hr, up to ${OVERTIME_MAX} hrs`] : []),
       ],
     },
@@ -108,8 +108,8 @@ export function rateCards(rooms: { price: number }[]): RateCard[] {
       base: SHARED_NIGHT_RATE,
       unit: "/guest",
       details: [
-        `Shared: ${peso(SHARED_NIGHT_RATE)} per guest`,
-        `Exclusive (up to ${RESORT_MAX_CAPACITY}): ${peso(EXCLUSIVE_NIGHT_RATE)}`,
+        `Shared pool: ${peso(SHARED_NIGHT_RATE)} per guest`,
+        `Private pool (up to ${RESORT_MAX_CAPACITY}): ${peso(EXCLUSIVE_NIGHT_RATE)}`,
         `Quiet hours from ${QUIET_HOURS_START}`,
       ],
     },
@@ -117,13 +117,13 @@ export function rateCards(rooms: { price: number }[]): RateCard[] {
       id: "wholeday",
       label: SLOTS.WholeDay.label,
       icon: "clock",
-      desc: `Exclusive, ${SLOTS.WholeDay.hours}.`,
+      desc: `Private pool, ${SLOTS.WholeDay.hours}.`,
       base: standardPackagePrice({ resource: "Pool", tier: "Exclusive", slotMode: "WholeDay", capacity: RESORT_MAX_CAPACITY }).price,
       unit: "",
       details: [
         `Up to ${RESORT_MAX_CAPACITY} guests, the pool to yourselves`,
-        `Exclusive: ${peso(EXCLUSIVE_STAY_RATE)} · Shared: ${peso(SHARED_STAY_RATE)} per guest`,
-        `The Day and Night Tours together, ${SLOTS.WholeDay.hours}`,
+        `Private pool: ${peso(EXCLUSIVE_STAY_RATE)} · Shared pool: ${peso(SHARED_STAY_RATE)} per guest`,
+        `The Day and Night Stays together, ${SLOTS.WholeDay.hours}`,
         "No break between Day and Night — stay through the evening",
       ],
     },
@@ -135,9 +135,9 @@ export function rateCards(rooms: { price: number }[]): RateCard[] {
       icon: "bed",
       desc: "Add a room to any booking.",
       base: low,
-      unit: "/tour",
+      unit: "/stay",
       details: [
-        `${low === high ? peso(low) : `${peso(low)}–${peso(high)}`} per room, per tour`,
+        `${low === high ? peso(low) : `${peso(low)}–${peso(high)}`} per room, per stay`,
         `${prices.length} room${prices.length === 1 ? "" : "s"} to choose from`,
       ],
     });
@@ -159,12 +159,12 @@ export const INIT_GALLERY: string[] = [
 
 
 export const INIT_BOOKINGS: Booking[] = [
-  { id: "SW-10001", name: "Maria Santos", contact: "09171234567", email: "maria@email.com", date: "2026-03-10", guests: 25, package: "Day Tour", rooms: [], overtime: 0, total: 6000, downpayment: 3000, status: "Confirmed", paymentProof: true, notes: "", source: "Online" },
-  { id: "SW-10002", name: "Jose Reyes", contact: "09281234567", email: "jose@email.com", date: "2026-03-14", guests: 35, package: "Day Tour", rooms: [1], overtime: 2, total: 11500, downpayment: 5750, status: "Pending", paymentProof: true, notes: "", source: "Online" },
-  { id: "SW-10003", name: "Ana Cruz", contact: "09391234567", email: "ana@email.com", date: "2026-03-20", guests: 20, package: "Day Tour", rooms: [], overtime: 0, total: 6000, downpayment: 3000, status: "Pending", paymentProof: false, notes: "", source: "Online" },
-  { id: "SW-10004", name: "Carlo Tan", contact: "09451234567", email: "carlo@email.com", date: "2026-02-15", guests: 15, package: "Day Tour", rooms: [], overtime: 0, total: 6000, downpayment: 3000, status: "Completed", paymentProof: true, notes: "", source: "Online" },
-  { id: "SW-10005", name: "Lea Gomez", contact: "09561234567", email: "lea@email.com", date: "2026-03-25", guests: 30, package: "Day Tour + Room", rooms: [2], overtime: 1, total: 11000, downpayment: 5500, status: "Confirmed", paymentProof: true, notes: "", source: "Online" },
-  { id: "SW-10006", name: "Ryan Dela Cruz", contact: "09671234567", email: "ryan@email.com", date: "2026-02-28", guests: 20, package: "Day Tour", rooms: [], overtime: 0, total: 6000, downpayment: 3000, status: "Completed", paymentProof: true, notes: "", source: "Online" },
+  { id: "SW-10001", name: "Maria Santos", contact: "09171234567", email: "maria@email.com", date: "2026-03-10", guests: 25, package: "Day Stay", rooms: [], overtime: 0, total: 6000, downpayment: 3000, status: "Confirmed", paymentProof: true, notes: "", source: "Online" },
+  { id: "SW-10002", name: "Jose Reyes", contact: "09281234567", email: "jose@email.com", date: "2026-03-14", guests: 35, package: "Day Stay", rooms: [1], overtime: 2, total: 11500, downpayment: 5750, status: "Pending", paymentProof: true, notes: "", source: "Online" },
+  { id: "SW-10003", name: "Ana Cruz", contact: "09391234567", email: "ana@email.com", date: "2026-03-20", guests: 20, package: "Day Stay", rooms: [], overtime: 0, total: 6000, downpayment: 3000, status: "Pending", paymentProof: false, notes: "", source: "Online" },
+  { id: "SW-10004", name: "Carlo Tan", contact: "09451234567", email: "carlo@email.com", date: "2026-02-15", guests: 15, package: "Day Stay", rooms: [], overtime: 0, total: 6000, downpayment: 3000, status: "Completed", paymentProof: true, notes: "", source: "Online" },
+  { id: "SW-10005", name: "Lea Gomez", contact: "09561234567", email: "lea@email.com", date: "2026-03-25", guests: 30, package: "Day Stay + Room", rooms: [2], overtime: 1, total: 11000, downpayment: 5500, status: "Confirmed", paymentProof: true, notes: "", source: "Online" },
+  { id: "SW-10006", name: "Ryan Dela Cruz", contact: "09671234567", email: "ryan@email.com", date: "2026-02-28", guests: 20, package: "Day Stay", rooms: [], overtime: 0, total: 6000, downpayment: 3000, status: "Completed", paymentProof: true, notes: "", source: "Online" },
 ];
 
 // ── FACILITIES ──────────────────────────────────────────────────────
@@ -252,8 +252,8 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     active: true, cover: RESORT_WIDE_PHOTO,
     gallery: [{ label: "Full Resort", src: RESORT_WIDE_PHOTO, kind: "Resort" }, { label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" }],
     blurb: "The whole pool to your group — no other bookings in your slot.",
-    includes: [`Exclusive pool for up to ${POOL_CAPACITY} guests`, DAY_OR_NIGHT, "All resort amenities", "Parking"],
-    note: "Exclusive",
+    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, DAY_OR_NIGHT, "All resort amenities", "Parking"],
+    note: "Private pool",
   },
   {
     id: 3, code: "PRIVATE-POOL-ROOM", title: "Private Pool + Room",
@@ -261,8 +261,8 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     active: true, cover: ROOM_PHOTO,
     gallery: [{ label: "Room", src: ROOM_PHOTO, kind: "Room" }, { label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" }],
     blurb: "The whole pool to your group, plus a room — pick it at checkout at a discounted rate.",
-    includes: [`Exclusive pool for up to ${POOL_CAPACITY} guests`, "1 room of your choice (8% off)", DAY_OR_NIGHT, "All resort amenities"],
-    note: "Exclusive",
+    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, "1 room of your choice (8% off)", DAY_OR_NIGHT, "All resort amenities"],
+    note: "Private pool",
   },
   {
     id: 4, code: "WHOLE-DAY", title: "Whole Day Buyout",
@@ -270,7 +270,7 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     active: true, cover: POOL_PHOTO_2,
     gallery: [{ label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" }, { label: "Second Pool", src: POOL_PHOTO_2, kind: "Pool" }],
     blurb: `The resort is yours from ${SLOTS.WholeDay.start} to ${SLOTS.WholeDay.end} — both the Day and Night slots, for less than booking them separately.`,
-    includes: [`Exclusive pool for up to ${POOL_CAPACITY} guests`, `${SLOTS.WholeDay.hours}`, "All resort amenities", "Parking"],
+    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, `${SLOTS.WholeDay.hours}`, "All resort amenities", "Parking"],
     note: "Day + Night",
   },
   {
@@ -279,7 +279,7 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     active: true, cover: ROOM_PHOTO,
     gallery: [{ label: "Room", src: ROOM_PHOTO, kind: "Room" }, { label: "Full Resort", src: RESORT_WIDE_PHOTO, kind: "Resort" }],
     blurb: "A full day and night with the resort to yourselves, and a room for the whole stay.",
-    includes: [`Exclusive pool for up to ${POOL_CAPACITY} guests`, "1 room for the whole day (8% off)", `${SLOTS.WholeDay.hours}`, "All resort amenities"],
+    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, "1 room for the whole day (8% off)", `${SLOTS.WholeDay.hours}`, "All resort amenities"],
     note: "Day + Night",
   },
   {
@@ -288,7 +288,7 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     active: true, cover: VENUE_PHOTO,
     gallery: [{ label: "Events Venue", src: VENUE_PHOTO, kind: "Venue" }],
     blurb: "Just the events hall — for parties, meetings and celebrations that don't need the pool.",
-    includes: [`Exclusive use of the venue for up to ${VENUE_CAPACITY} guests`, DAY_OR_NIGHT, "Tables & chairs setup", "Sound system access"],
+    includes: [`Private use of the venue for up to ${VENUE_CAPACITY} guests`, DAY_OR_NIGHT, "Tables & chairs setup", "Sound system access"],
     note: "No pool",
   },
   {
@@ -297,7 +297,7 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     active: true, cover: VENUE_PHOTO,
     gallery: [{ label: "Events Venue", src: VENUE_PHOTO, kind: "Venue" }],
     blurb: `The events hall from ${SLOTS.WholeDay.start} to ${SLOTS.WholeDay.end} — time to set up, celebrate and pack up.`,
-    includes: [`Exclusive use of the venue for up to ${VENUE_CAPACITY} guests`, `${SLOTS.WholeDay.hours}`, "Tables & chairs setup", "Sound system access"],
+    includes: [`Private use of the venue for up to ${VENUE_CAPACITY} guests`, `${SLOTS.WholeDay.hours}`, "Tables & chairs setup", "Sound system access"],
     note: "No pool",
   },
   {
@@ -306,7 +306,7 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     active: true, cover: RESORT_WIDE_PHOTO,
     gallery: [{ label: "Full Resort", src: RESORT_WIDE_PHOTO, kind: "Resort" }, { label: "Events Venue", src: VENUE_PHOTO, kind: "Venue" }],
     blurb: "The private pool and the events hall together, bundled for less.",
-    includes: [`Exclusive pool for up to ${POOL_CAPACITY} guests`, "Exclusive events venue", DAY_OR_NIGHT, "All resort amenities"],
+    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, "Private events venue", DAY_OR_NIGHT, "All resort amenities"],
     note: "Pool + Venue",
   },
   {
@@ -315,7 +315,7 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     active: true, cover: RESORT_WIDE_PHOTO,
     gallery: [{ label: "Full Resort", src: RESORT_WIDE_PHOTO, kind: "Resort" }, { label: "Events Venue", src: VENUE_PHOTO, kind: "Venue" }, { label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" }],
     blurb: "Everything, all day and all night: the private pool and the events hall from morning through to 5 AM the next day. Best for weddings, debuts and big celebrations.",
-    includes: [`Exclusive pool for up to ${POOL_CAPACITY} guests`, "Exclusive events venue", `${SLOTS.WholeDay.hours}`, "All resort amenities"],
+    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, "Private events venue", `${SLOTS.WholeDay.hours}`, "All resort amenities"],
     note: "Best for big events",
   },
 ];

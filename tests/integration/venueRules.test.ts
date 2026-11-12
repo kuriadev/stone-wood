@@ -71,7 +71,7 @@ describe("guest limits by what is booked", () => {
 describe("tonight's venue, late in the evening", () => {
   afterEach(() => jest.setSystemTime(new Date("2026-10-20T09:00:00+08:00")));
 
-  it("stops online bookings of tonight's venue and pool 2 hours after the Night Tour starts", async () => {
+  it("stops online bookings of tonight's venue and pool 2 hours after the Night Stay starts", async () => {
     jest.setSystemTime(new Date(`${DATE}T20:30:00+08:00`));
     expect((await ask(draft({ guests: 20 }))).status).toBe(200);
     jest.setSystemTime(new Date(`${DATE}T22:30:00+08:00`));

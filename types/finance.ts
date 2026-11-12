@@ -4,27 +4,24 @@
 // and the mappers in lib/supabase.ts, same as every other table.
 
 export type PaymentType = "Downpayment" | "Balance" | "Full" | "Penalty" | "Refund";
-export type PaymentMethod = "PayMongo" | "Cash" | "GCash";
+/** The resort takes money exactly two ways: cash, and GCash to the
+ *  resort's own account (online with an uploaded receipt that staff check,
+ *  or at the desk by scanning the resort's QR). There is no payment
+ *  gateway, no bank transfer and no other method. */
+export type PaymentMethod = "Cash" | "GCash";
 
 export const PAYMENT_TYPES: PaymentType[] = ["Downpayment", "Balance", "Full", "Penalty", "Refund"];
-export const PAYMENT_METHODS: PaymentMethod[] = ["PayMongo", "Cash", "GCash"];
-/** Methods staff can pick by hand. PayMongo payments only ever come from
- *  the online checkout, never from the admin form.
- *
- *  The resort takes money exactly two ways: cash, and QR Ph — the online
- *  checkout (stored as "PayMongo") or a QR Ph code scanned at the desk
- *  (stored as "GCash", the value older rows and the database already use).
- *  Every screen shows the stored "GCash" as "QR Ph" (lib/labels.ts). There
- *  are no bank transfers or other methods. */
-export const MANUAL_METHODS: Exclude<PaymentMethod, "PayMongo">[] = ["Cash", "GCash"];
+export const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "GCash"];
+/** Methods staff can pick by hand: every one. */
+export const MANUAL_METHODS: PaymentMethod[] = ["Cash", "GCash"];
 
-/** What the front desk can take from a guest standing there: cash, or a
- *  QR Ph code the guest scans. */
+/** What the front desk can take from a guest standing there: cash, or
+ *  GCash sent by scanning the resort's QR. */
 /** The most one expense can be: up to the millions (₱999,999,999.99). The
  *  database column holds it after 20261110120000_expense_amount_millions. */
 export const EXPENSE_MAX = 999_999_999.99;
 
-export const DESK_METHODS: Exclude<PaymentMethod, "PayMongo">[] = ["Cash", "GCash"];
+export const DESK_METHODS: PaymentMethod[] = ["Cash", "GCash"];
 
 export interface Payment {
   id: number;
@@ -50,7 +47,7 @@ export interface Expense {
   category: ExpenseCategory;
   description: string;
   amount: number;
-  method: Exclude<PaymentMethod, "PayMongo">;
+  method: PaymentMethod;
   spentOn: string;
   /** When it was entered (the timestamp shown beside the date). */
   recordedAt?: string;

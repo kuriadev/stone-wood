@@ -6,13 +6,13 @@ import { priceBooking } from "@/lib/pricing";
 const base = { resource: "Pool" as const, tier: "Shared" as const, guests: 4, overtime: 0 };
 
 describe("rooms on a booking built by hand", () => {
-  it("cost their full rate per tour, whatever else is booked", () => {
+  it("cost their full rate per stay, whatever else is booked", () => {
     for (const slot of ["Day", "Night"] as const) {
       const p = priceBooking({ ...base, slot, roomPrices: [2500, 2000] });
       expect(p.roomsFee).toBe(4500);
       expect(p.roomsOff).toBe(0);
     }
-    // A Staycation is two tours a day, for every day.
+    // A Staycation is two stays a day, for every day.
     const stay = priceBooking({ ...base, tier: "Exclusive", slot: "WholeDay", roomPrices: [2500], days: 2 });
     expect(stay.roomsFee).toBe(2500 * 2 * 2);
     expect(stay.roomsOff).toBe(0);

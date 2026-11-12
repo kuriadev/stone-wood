@@ -1,7 +1,7 @@
 /* The admin Booking Calendar -- components/sections/Admin.tsx ("Occupancy").
    One panel: month nav, weekdays, days, legend. Each day keeps its state's
    solid colour (components/common/calendarColors.ts) and shows an icon for
-   every kind of tour booked on it. Days fade in when the month changes;
+   every kind of stay booked on it. Days fade in when the month changes;
    today wears a gold ring. */
 
 .sw-bcal { border: 1px solid; border-radius: 18px; padding: 20px 22px 18px; overflow: visible; }

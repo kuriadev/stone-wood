@@ -4,7 +4,7 @@ import { priceBooking } from "@/lib/pricing";
 const base = { resource: "Pool" as const, overtime: 0, roomPrices: [] as number[] };
 afterEach(() => applySettings(DEFAULT_SETTINGS));
 
-describe("Night Tour and Staycation rates", () => {
+describe("Night Stay and Staycation rates", () => {
   it("price each booking type at its own rate", () => {
     applySettings({ ...DEFAULT_SETTINGS, rates: { ...DEFAULT_SETTINGS.rates, sharedPerHead: 200, sharedPerHeadNight: 250, sharedPerHeadStay: 380, exclusiveFlat: 6000, exclusiveNight: 7000, exclusiveStay: 11000 } });
     expect(priceBooking({ ...base, tier: "Shared", slot: "Day", guests: 10 }).total).toBe(2000);
@@ -26,6 +26,6 @@ describe("Night Tour and Staycation rates", () => {
 
   it("insist the whole pool costs more than one Shared guest, for each type", () => {
     const s = structuredClone(DEFAULT_SETTINGS); s.rates.exclusiveNight = 100;
-    expect(settingsFieldErrors(s)["rates.exclusiveNight"]).toMatch(/more than one Shared guest/);
+    expect(settingsFieldErrors(s)["rates.exclusiveNight"]).toMatch(/more than one shared-pool guest/);
   });
 });

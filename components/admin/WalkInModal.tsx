@@ -70,7 +70,7 @@ export function WalkInModal({
   const stayTooLong = stayDays > MAX_STAY_DAYS;
 
   /* The time now, refreshed each minute while the form is open, so the
-     note about today's tour (started, ended) keeps up with the clock. */
+     note about today's stay (started, ended) keeps up with the clock. */
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
@@ -86,7 +86,7 @@ export function WalkInModal({
   const bookableRooms = rooms.filter((r) => isRoomOpen(r.id, facilities));
 
   /* The walk-in desk could only ever book the pool: `resource` was the
-     literal "Pool" for a custom tour, so the events venue -- which pricing,
+     literal "Pool" for a custom stay, so the events venue -- which pricing,
      availability and the API have all handled all along -- was reachable
      online but not at the front desk. */
   const [resourceChoice, setResourceChoice] = useState<BookingResource>("Pool");
@@ -128,15 +128,15 @@ export function WalkInModal({
 
   // A Staycation includes the resort, never the hall alone (lib/pricing.ts).
   const stayVenueOnly = !isPkg && slot === "WholeDay" && resource === "Venue";
-  // Only a Staycation spans dates. The window let the desk pick a Day Tour
+  // Only a Staycation spans dates. The window let the desk pick a Day Stay
   // over three days, and the server then refused it on Save.
   const tourTooLong = multiDayProblem(slot, stayDays);
-  /* Booking today's tour after it started. Staff may (the website stops
+  /* Booking today's stay after it started. Staff may (the website stops
      2 hours before the end); the group just gets the hours that are left,
      and staying past the end is overtime. */
   const timing = wf.date ? slotTiming(wf.date, slot, now, resource) : "upcoming";
-  /* The picked tour ended (it's after 5 PM on today's Day Tour, say): move
-     to the first tour that still has time, since the ended one can't be
+  /* The picked stay ended (it's after 5 PM on today's Day Stay, say): move
+     to the first stay that still has time, since the ended one can't be
      picked. A package that is Whole Day only has nothing to move to. */
   const firstOpen = !wf.date || pkg?.slotMode === "WholeDay" ? null
     : ((isPkg ? ["Day", "Night"] : ["Day", "Night", "WholeDay"]) as BookingSlot[]).find((t) => slotTiming(wf.date, t, now, resource) !== "ended") ?? null;
@@ -173,7 +173,8 @@ export function WalkInModal({
   const [payChoice, setPayChoice] = useState<PayChoice>("Full");
   const [method, setMethod] = useState<(typeof DESK_METHODS)[number]>("Cash");
   const [reference, setReference] = useState("");
-  /* QR Ph: the guest scans a code (QrPayModal) and the walk-in saves itself
+  /* GCash: the guest scans the resort's QR (QrPayModal), staff type the
+     receipt's reference, and the walk-in saves itself
      once it's paid. Nobody types a reference. */
   const [qrOpen, setQrOpen] = useState(false);
   const payNow = payChoice === "Full" ? total : down;
@@ -194,14 +195,13 @@ export function WalkInModal({
   if (overLimit && !overCap) problems.push(`That's more than ${resource === "Venue" ? "what the events venue holds" : "the resort's capacity"} (${guestCap}). Tick "Allow more than ${guestCap} guests" to book it anyway.`);
   if (guests > OVERRIDE_GUESTS_MAX) problems.push(`The most for one booking is ${OVERRIDE_GUESTS_MAX} guests.`);
   if (!capacity.ok) problems.push(capacity.reason ?? "That date and slot is not available.");
-  if (timing === "ended") problems.push(`Today's ${SLOTS[slot].label} has already ended. Choose another tour or another date.`);
+  if (timing === "ended") problems.push(`Today's ${SLOTS[slot].label} has already ended. Choose another stay or another date.`);
   const [tried, setTried] = useState(false);
 
   const save = () => {
     setTried(true);
     if (problems.length) return;
     if (byQr) {
-      if (payNow < 20) return toast("A QR payment has to be at least ₱20. Take it in cash instead.", "warning");
       setQrOpen(true);
       return;
     }
@@ -235,7 +235,7 @@ export function WalkInModal({
       walkInPackageCode: pkg?.code,
       overCapacity: overriding || undefined,
     }]);
-    toast(`Walk-in saved for ${wf.name}. ${fmt(payNow)} ${ref.startsWith("pi_") ? "paid by QR and " : ""}recorded in Sales.`, "success");
+    toast(`Walk-in saved for ${wf.name}. ${fmt(payNow)} ${ref ? "paid by GCash and " : ""}recorded in Sales.`, "success");
     onClose();
   };
 
@@ -280,7 +280,7 @@ export function WalkInModal({
             {" · "}
             <>collecting <strong style={{ color: "#2e9e4e" }}>{fmt(payNow)}</strong> now by {payMethodLabel(method)}</>
           </div>
-          <ActionButton kind="primary" icon="check" onClick={save} disabled={stayTooLong || stayVenueOnly || !!tourTooLong}>{byQr ? "Generate QR & save" : "Save reservation"}</ActionButton>
+          <ActionButton kind="primary" icon="check" onClick={save} disabled={stayTooLong || stayVenueOnly || !!tourTooLong}>{byQr ? "Show GCash QR & save" : "Save reservation"}</ActionButton>
         </div>
       }
     >
@@ -326,7 +326,7 @@ export function WalkInModal({
             </p>
           </div>
           <div>
-            <Label>Tours</Label>
+            <Label>Stays</Label>
             {pkg?.slotMode === "WholeDay" ? (
               <p style={{ color: C.textH, fontSize: 13.5, margin: 0 }}>{SLOTS.WholeDay.label} · {slotFor("WholeDay", resource).hours}</p>
             ) : (
@@ -335,7 +335,7 @@ export function WalkInModal({
                 options={((isPkg ? ["Day", "Night"] : ["Day", "Night", "WholeDay"]) as BookingSlot[]).map((t) => {
                   const st = wf.date ? slotTiming(wf.date, t, now, resource) : "upcoming";
                   return {
-                    // A tour that has ended today can't be picked: no time left.
+                    // A stay that has ended today can't be picked: no time left.
                     value: t, label: SLOTS[t].label, disabled: st === "ended",
                     hint: (
                       <>
@@ -361,7 +361,7 @@ export function WalkInModal({
                   ) : (
                     <>
                       <strong>Today&apos;s {SLOTS[slot].label} ended at {slotFor(slot, resource).end}</strong> (it&apos;s {clock} now).
-                      The group would have no time left, so it can&apos;t be booked. Choose another tour or another date.
+                      The group would have no time left, so it can&apos;t be booked. Choose another stay or another date.
                     </>
                   )}
                 </span>
@@ -380,7 +380,7 @@ export function WalkInModal({
           <div>
             <Label>Booking type</Label>
             <ChoiceButtons value={mode} onChange={(m) => { setMode(m); if (m === "Custom") setPkgId(null); }} options={[
-              { value: "Custom", label: <><Icon name="toolbox" size={13} style={{ marginRight: 8 }} />Custom tour</> },
+              { value: "Custom", label: <><Icon name="toolbox" size={13} style={{ marginRight: 8 }} />Custom stay</> },
               { value: "Package", label: <><Icon name="gift" size={13} style={{ marginRight: 8 }} />Package</> },
             ]} />
           </div>
@@ -435,13 +435,13 @@ export function WalkInModal({
                 {usesPool && (slot === "WholeDay" || resource === "Pool+Venue") ? (
                   <p style={{ color: C.textS, fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.5 }}>
                     {resource === "Pool+Venue"
-                      ? "Exclusive. With the events venue, the whole resort is theirs."
-                      : `Exclusive. A ${SLOTS.WholeDay.label} is never shared.`}
+                      ? "Private pool. With the events venue, the whole resort is theirs."
+                      : `Private pool. A ${SLOTS.WholeDay.label} is never shared.`}
                   </p>
                 ) : usesPool ? (
                   <ChoiceButtons<BookingTier> value={tier} onChange={setTierChoice} size="sm" options={[
-                    { value: "Shared", label: "Shared" },
-                    { value: "Exclusive", label: "Exclusive" },
+                    { value: "Shared", label: "Shared pool" },
+                    { value: "Exclusive", label: "Private pool" },
                   ]} />
                 ) : (
                   <p style={{ color: C.textS, fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.5 }}>
@@ -489,7 +489,7 @@ export function WalkInModal({
                   />
                 )}
                 {price.venueFee > 0 && (
-                  <AmountRow label={`Events venue${price.slots === 2 ? " × 2 tours" : ""}`} value={fmt(price.venueFee)} />
+                  <AmountRow label={`Events venue${price.slots === 2 ? " × 2 stays" : ""}`} value={fmt(price.venueFee)} />
                 )}
               </>
             )}
@@ -523,8 +523,8 @@ export function WalkInModal({
               {byQr && (
                 <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(62,142,208,0.35)", background: "rgba(62,142,208,0.08)" }}>
                   <Icon name="cash" size={16} style={{ color: "#3e8ed0", flexShrink: 0 }} />
-                  {/* The QR comes up from "Generate QR & save" at the bottom. */}
-                  <span style={{ flex: 1, color: C.textB, fontSize: 12.5, lineHeight: 1.45 }}>Press <strong>Generate QR &amp; save</strong> below: the guest scans a QR code for {fmt(payNow)}, and it saves by itself once they pay.</span>
+                  {/* The QR comes up from "Show GCash QR & save" at the bottom. */}
+                  <span style={{ flex: 1, color: C.textB, fontSize: 12.5, lineHeight: 1.45 }}>Press <strong>Show GCash QR &amp; save</strong> below: the guest scans the resort&apos;s GCash QR and sends {fmt(payNow)}; type the reference from their receipt and it saves.</span>
                 </div>
               )}
             </>

@@ -38,5 +38,5 @@ it("refuse numbers that don't fit together", () => {
   s.hours.quietStart = 18;
   const e = settingsFieldErrors(s);
   expect(e["limits.peopleMax"]).toMatch(/capacity/);
-  expect(e["hours.quietStart"]).toMatch(/Night Tour/);
+  expect(e["hours.quietStart"]).toMatch(/Night Stay/);
 });

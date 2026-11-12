@@ -67,7 +67,7 @@ describe("the date is still bought outright", () => {
       for (const slot of ["Day", "Night", "WholeDay"] as const) {
         const r = checkPoolCapacity(d, slot, 2, "Shared", fiveGuestBuyout);
         expect(r.ok).toBe(false);
-        expect(r.reason).toContain("Exclusive");
+        expect(r.reason).toContain("private pool");
       }
     }
   });

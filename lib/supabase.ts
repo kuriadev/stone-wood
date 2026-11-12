@@ -163,7 +163,6 @@ export const rowToBooking = (b: BookingRow): Booking => ({
   tier: b.tier ?? undefined,
   archived: b.archived || undefined,
   archivedAt: b.archived_at ?? undefined,
-  paymentIntentId: b.payment_intent_id ?? undefined,
   slot: b.slot ?? undefined,
   arrivalTime: b.arrival_time ?? undefined,
   checkedInAt: b.checked_in_at ?? undefined,
@@ -213,7 +212,6 @@ export const bookingToRow = (b: Booking): Omit<BookingRow,
   tier: b.tier ?? null,
   archived: !!b.archived,
   archived_at: b.archivedAt ?? null,
-  payment_intent_id: b.paymentIntentId ?? null,
   slot: b.slot ?? null,
   arrival_time: b.arrivalTime && /^\d{2}:\d{2}$/.test(b.arrivalTime) ? b.arrivalTime : null,
 });
@@ -288,7 +286,7 @@ export const facilityToRow = (f: Facility): Omit<FacilityRow, "id" | "created_at
   active: f.active ?? true,
 });
 
-// withCurrentHours: rows saved before the Night Tour moved to 5 AM still say
+// withCurrentHours: rows saved before the Night Stay moved to 5 AM still say
 // 12:00 AM in their text; the hours are refreshed from SLOTS on the way in.
 export const rowToPackage = (p: PackageRow): ResortPackage => withCurrentHours({
   id: p.id,

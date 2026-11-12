@@ -38,7 +38,7 @@ export let GUESTS_MAX = RESORT_MAX_CAPACITY;
 
 /** Guest count at/below which a booking defaults to "Shared" (the resort's
  *  pool/venue is shared with other same-day bookings) rather than
- *  "Exclusive" (whole-resort buyout — no other booking allowed in its tour).
+ *  "Exclusive" (whole-resort buyout — no other booking allowed in its stay).
  *  Only used as a smart DEFAULT before the guest/staff explicitly picks a
  *  tier — see getPackageTier() in lib/utils.ts. */
 export let GUESTS_SHARED_MAX = RESORT_MAX_CAPACITY;
@@ -68,8 +68,8 @@ export function guestLimitFor(resource: "Pool" | "Venue" | "Pool+Venue" | undefi
 export let EVENT_VENUE_RATE = 5000;
 
 // ────────────────────────────────────────────────────────────────────
-// TOUR PRICING
-// A booking's base tour price now depends on its tier, not a flat number
+// STAY PRICING
+// A booking's base stay price now depends on its tier, not a flat number
 // for everyone: "Exclusive" buys out the whole resort for one flat fee
 // regardless of how many of the (fixed) 30 guests actually show up;
 // "Shared" bills per attending head, since the pool is being split with
@@ -101,18 +101,18 @@ export let EXCLUSIVE_DEFAULT_GUESTS = 5;
 /** Per-guest rate for a Shared booking. */
 export let SHARED_PER_HEAD_RATE = 200;
 
-/* Each kind of booking has its own rates (Rates & Settings): the Day Tour
-   is SHARED_PER_HEAD_RATE / EXCLUSIVE_FLAT_RATE above; the Night Tour and
+/* Each kind of booking has its own rates (Rates & Settings): the Day Stay
+   is SHARED_PER_HEAD_RATE / EXCLUSIVE_FLAT_RATE above; the Night Stay and
    the Staycation have these. A Staycation's rate is for the whole stay
-   (both tours), not per tour. Until the owner sets them, the Night Tour
-   costs what the Day Tour does and a Staycation twice that -- what every
+   (both stays), not per stay. Until the owner sets them, the Night Stay
+   costs what the Day Stay does and a Staycation twice that -- what every
    booking cost before they existed. */
 export let SHARED_NIGHT_RATE = 200;
 export let EXCLUSIVE_NIGHT_RATE = 6000;
 export let SHARED_STAY_RATE = 400;
 export let EXCLUSIVE_STAY_RATE = 12000;
 
-/* A child under 3 in a Shared tour (lib/children.ts): half the adult
+/* A child under 3 in a Shared stay (lib/children.ts): half the adult
    rate until the owner sets their own in Rates & Settings. Exclusive
    lets them in free, so there is no Exclusive child rate. */
 export let CHILD_DAY_RATE = 100;
@@ -140,13 +140,13 @@ export function exclusiveRateFor(slot: "Day" | "Night" | "WholeDay"): number {
 // Rates & Settings.)
 
 export const OVERTIME_MIN = 0;
-/** Day Tour overtime is admin-only and capped at 2 hours (5–7 PM): it can
+/** Day Stay overtime is admin-only and capped at 2 hours (5–7 PM): it can
  *  only use the cleaning gap before the Night slot, and only when the
  *  Night slot is free. Anyone wanting the evening books Whole Day instead —
- *  selling the night as ₱500/hr overtime would undercut the Night Tour.
- *  The Night Tour and Whole Day have no overtime. */
+ *  selling the night as ₱500/hr overtime would undercut the Night Stay.
+ *  The Night Stay and Whole Day have no overtime. */
 export let OVERTIME_MAX = 2;
-/** Per hour of Day Tour overtime. */
+/** Per hour of Day Stay overtime. */
 export let OVERTIME_RATE = 500;
 
 /** The most guests staff may put on one booking when they override the

@@ -26,7 +26,7 @@ describe("cleanPackageDeals", () => {
     });
   });
 
-  it("drops a room deal on a package without a room, and an extra-day deal on a single tour", () => {
+  it("drops a room deal on a package without a room, and an extra-day deal on a single stay", () => {
     expect(cleanPackageDeals({
       price: 5700, requiresRoom: false, slotMode: "Single",
       roomDiscount: { type: "percent", value: 8 }, extraDayDiscount: { type: "percent", value: 15 },
@@ -158,7 +158,7 @@ describe("packagePricing", () => {
     expect(packagePricing(pkg, "2026-11-12")).toEqual({ price: 9720, requiresRoom: true, roomDeal: { type: "percent", value: 8 }, extraDayDeal: null });
   });
 
-  it("ignores a room deal without a room and an extra-day deal on a single tour", () => {
+  it("ignores a room deal without a room and an extra-day deal on a single stay", () => {
     expect(packagePricing({ ...pkg, requiresRoom: false, slotMode: "Single" }, "2026-11-08")).toMatchObject({ roomDeal: null, extraDayDeal: null });
   });
 

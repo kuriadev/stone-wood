@@ -61,8 +61,8 @@ export interface BookingRow {
   tier: BookingTier | null;
   archived: boolean;
   archived_at: string | null;
-  /** The PayMongo payment intent that paid for an online booking. */
-  payment_intent_id: string | null;
+  /** Unused: from the old online payment gateway. Always null. */
+  payment_intent_id?: string | null;
   /** Added by 20260924090000_slots_and_packages.sql. NULL on rows that
    *  predate it; the app reads those from the package label. */
   slot: BookingSlot | null;

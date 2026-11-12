@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       // (a group nobody tapped through on the day) is let through.
       if (bookingEndDate(booking) >= manilaDate()) {
         // Prepared for this group, or covered by another group on the same
-        // tour; anything only this group has (its room) must be prepared.
+        // stay; anything only this group has (its room) must be prepared.
         const left = await remainingToPrepare(booking, facilities);
         if (left.length > 0) {
           return NextResponse.json({ success: false, error: `Not prepared yet: ${left.map((f) => f.name).join(", ")}. It's on the caretakers' task list; check them in once it's done.` }, { status: 409 });

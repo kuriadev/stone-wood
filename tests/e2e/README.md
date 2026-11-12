@@ -8,5 +8,4 @@ and inventory rows.
 
 Browsers are not installed by `npm i`. Run `npx playwright install` once.
 
-TC-05's last step (scanning the QR and PayMongo marking it paid) stays manual.
-Use PayMongo test mode.
+TC-05's last step (sending real money by GCash and uploading the receipt) stays manual.

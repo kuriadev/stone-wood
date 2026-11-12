@@ -48,7 +48,7 @@ export interface PriceInput {
   slot: BookingSlot;
   guests: number;
   /** Children under 3 (lib/children.ts), on top of `guests` (the adults).
-   *  In a Shared tour each pays the child rate; in an Exclusive one they
+   *  In a Shared stay each pays the child rate; in an Exclusive one they
    *  are free, so this changes nothing. */
   children?: number;
   /** Day overtime hours — only ever set by staff. */
@@ -56,7 +56,7 @@ export interface PriceInput {
   /** The chosen rooms' own per-slot prices. */
   roomPrices: number[];
   /** How many days the stay runs for. 1 (the default) is a single day.
-   *  The tour and the rooms are charged for each day; overtime is not,
+   *  The stay and the rooms are charged for each day; overtime is not,
    *  because staff add it once, on the day it actually happened. */
   days?: number;
 }
@@ -94,9 +94,9 @@ export interface PriceBreakdown {
  *  A Staycation (the WholeDay slot) is Exclusive only: it promises the
  *  resort is the group's own, right through, for up to MAX_STAY_DAYS. It
  *  was briefly offered Shared because picking a second date used to move
- *  a Day Tour there on its own, pushing small groups into a buyout they
+ *  a Day Stay there on its own, pushing small groups into a buyout they
  *  never chose. The calendar no longer switches the visit type, so a guest
- *  only reaches a Staycation by choosing it. The Day and Night Tours are
+ *  only reaches a Staycation by choosing it. The Day and Night Stays are
  *  still offered at both tiers.
  *
  *  A Staycation is a stay at the resort, so it is never the events venue
@@ -112,12 +112,12 @@ export function pricingProblem(
   isPackage = false
 ): string | null {
   if (slot === "WholeDay" && tier !== "Exclusive") {
-    return `The ${SLOTS.WholeDay.label} is Exclusive only. Choose the Day or Night Tour to share the pool.`;
+    return `A ${SLOTS.WholeDay.label} always has a private pool. Choose the Day or Night Stay to share the pool.`;
   }
   // Pool + Venue is an event with the resort to itself: a party in the
   // hall beside strangers in a shared pool is the complaint it avoids.
   if (resource === "Pool+Venue" && tier !== "Exclusive") {
-    return "Resort & pool + Events Venue is Exclusive only — the whole resort is yours for the event.";
+    return "Resort & pool + Events Venue always has a private pool — the whole resort is yours for the event.";
   }
   if (slot === "WholeDay" && resource === "Venue" && !isPackage) {
     return `A ${SLOTS.WholeDay.label} includes the resort. Choose Resort & pool, or Resort & pool + Events Venue.`;
@@ -385,8 +385,8 @@ export function packageTier(resource: BookingResource, status: BookingTier): Boo
 /** Can Shared be chosen for this setup? null when it can, else why not. */
 export function sharedNotAllowed(resource: BookingResource, slotMode: "Single" | "WholeDay"): string | null {
   if (resource === "Venue") return "The events venue is always private: one group at a time.";
-  if (resource === "Pool+Venue") return "Pool + events venue is Exclusive only: the whole resort is the group's for the event.";
-  if (slotMode === "WholeDay") return `A ${SLOTS.WholeDay.label} is Exclusive only.`;
+  if (resource === "Pool+Venue") return "Pool + events venue always has a private pool: the whole resort is the group's for the event.";
+  if (slotMode === "WholeDay") return `A ${SLOTS.WholeDay.label} always has a private pool.`;
   return null;
 }
 
@@ -427,7 +427,7 @@ export function priceBooking(input: PriceInput): PriceBreakdown {
   const exclusivePool = usesPool && tier === "Exclusive";
 
   // Each kind of booking at its own rate (Rates & Settings): a Staycation's
-  // rate already covers both tours, so it isn't doubled here.
+  // rate already covers both stays, so it isn't doubled here.
   const kids = Math.max(0, Math.floor(input.children ?? 0));
   const poolFee = !usesPool ? 0 : exclusivePool ? exclusiveRateFor(slot)
     : guests * sharedRateFor(slot) + kids * childRateFor(slot);
@@ -519,7 +519,7 @@ export function bookingLabel(opts: {
   slot: BookingSlot;
   hasRoom: boolean;
 }): string {
-  const when = SLOTS[opts.slot].label; // "Day Tour" / "Night Tour" / "Staycation"
+  const when = SLOTS[opts.slot].label; // "Day Stay" / "Night Stay" / "Staycation"
   const room = opts.hasRoom ? " + Room" : "";
   if (opts.packageTitle) return `${opts.packageTitle} (${when})`;
   if (opts.resource === "Venue") return `Event Venue Rental (${when})`;
@@ -527,24 +527,30 @@ export function bookingLabel(opts: {
   return `${when}${room}`;
 }
 
+/** Bookings saved before Day/Night "Tour" became "Stay" (2026-11-12)
+ *  still store the old words; read them as the new ones. */
+export const modernLabel = (s: string | null | undefined) =>
+  String(s ?? "").replace(/\bDay Tour\b/g, "Day Stay").replace(/\bNight Tour\b/g, "Night Stay");
+
 /** A self-built booking's label with its tier in front: "Exclusive Day
- *  Tour + Room". The venue on its own has no pool to share, so it reads
+ *  Stay + Room". The venue on its own has no pool to share, so it reads
  *  as it is. */
 export function labelWithTier(label: string, tier: BookingTier, resource: BookingResource): string {
-  return resource === "Venue" ? label : `${tier} ${label}`;
+  return resource === "Venue" ? label : `${tier === "Exclusive" ? "Private Pool" : "Shared Pool"} ${label}`;
 }
 
 /** What the guest availed, the way they read it: a package keeps its own
- *  name ("Private Pool (Day Tour)"); a booking they built themselves says
- *  Shared or Exclusive ("Exclusive Day Tour").
+ *  name ("Private Pool (Day Stay)"); a booking they built themselves says
+ *  Shared or Exclusive ("Exclusive Day Stay").
  *
  *  The stored label never carried the tier, so a 2-guest Exclusive Day
- *  Tour read "Day Tour" on a ₱5,700 receipt and looked overcharged. Worked
+ *  Stay read "Day Stay" on a ₱5,700 receipt and looked overcharged. Worked
  *  out when shown rather than stored, so older bookings read the same way
  *  and the stored label stays what /api/bookings/[id]/charge compares. */
 export function packageAvailed(b: Booking): string {
   const resource = getBookingResource(b);
   const made = bookingLabel({ resource, slot: getBookingSlot(b), hasRoom: (b.rooms?.length ?? 0) > 0 });
   // Only a name this system made up gets the tier; a package keeps its title.
-  return b.package === made ? labelWithTier(made, getBookingTier(b), resource) : String(b.package ?? "");
+  const stored = modernLabel(b.package);
+  return stored === made ? labelWithTier(made, getBookingTier(b), resource) : stored;
 }

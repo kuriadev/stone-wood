@@ -94,7 +94,7 @@ export function caretakerTasks(input: {
   today: string;
 }): CaretakerTask[] {
   const { bookings, facilities, inspections, upkeep, runs, today } = input;
-  // Prepared for this group, or covered by another group on the same tour.
+  // Prepared for this group, or covered by another group on the same stay.
   const prepared = preparedBookingIds(bookings, inspections, facilities);
   const live = bookings.filter((b) =>
     !b.archived && !b.id.startsWith("TMP-") && (b.status === "Confirmed" || b.status === "Pending"));
@@ -104,7 +104,7 @@ export function caretakerTasks(input: {
   for (const b of live) {
     if (b.status !== "Confirmed" || !b.checkedInAt || b.checkedOutAt) continue;
     const used = facilitiesForBooking(b, facilities);
-    // Late only once the day they LEAVE has passed. A Night Tour leaves at
+    // Late only once the day they LEAVE has passed. A Night Stay leaves at
     // 5 AM the morning after its date, so judging by the booking's date
     // called a group still on site "Overdue" from midnight.
     const leaves = departureDate(b) ?? bookingEndDate(b);

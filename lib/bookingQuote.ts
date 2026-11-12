@@ -25,8 +25,7 @@ import {
   GUESTS_MIN, guestLimitFor,
   isValidEmail, isValidName, isValidPHNumber,
   sanitizeName, sanitizeContact, sanitizeNotes,
-  isWithinBookingWindow, describeDateProblem, MAX_STAY_DAYS, manilaNow,
-} from "@/lib/validators";
+  isWithinBookingWindow, describeDateProblem, MAX_STAY_DAYS, manilaNow } from "@/lib/validators";
 import { bookingsOverlapping } from "@/lib/rebooking.server";
 import { multiDayProblem, slotStartedProblem } from "@/lib/resort";
 import type { FacilityRow, PackageRow, RoomRow } from "@/types/database";
@@ -77,7 +76,7 @@ export interface BookingQuote {
   /** Where in Book Now the guest fixes it, when not available. */
   unavailableStep?: QuoteStep;
   /** Another booking that date under the same name, split between the
-   *  venue and a shared pool tour. Saved for staff to check, not refused. */
+   *  venue and a shared pool stay. Saved for staff to check, not refused. */
   splitWarning?: string;
 }
 
@@ -148,10 +147,10 @@ export async function quoteBooking(raw: unknown, opts: { requireEmailProof?: boo
   }
 
   // ── What is being booked ────────────────────────────────────────
-  // Older pages sent tourType ("Night Tour"); newer ones send slot.
+  // Older pages sent tourType ("Night Stay"); newer ones send slot.
   let slot: BookingSlot = SLOTS_OK.includes(d.slot as BookingSlot)
     ? (d.slot as BookingSlot)
-    : d.tourType === "Night Tour" ? "Night" : "Day";
+    : d.tourType === "Night Stay" ? "Night" : "Day";
   const roomIds = Array.isArray(d.rooms)
     ? [...new Set(d.rooms.map(Number).filter((n) => Number.isInteger(n) && n > 0))]
     : [];
@@ -187,7 +186,7 @@ export async function quoteBooking(raw: unknown, opts: { requireEmailProof?: boo
     // Day or Night the guest picked (never Whole Day).
     if (p.slotMode === "WholeDay") slot = "WholeDay";
     else if (slot === "WholeDay") return bad("Pick the Day or Night for this package.");
-    // A single-slot package is a single-date visit, like the tour it is
+    // A single-slot package is a single-date visit, like the stay it is
     // built on. Checked here as well as for custom bookings, because the
     // package branch skips pricingProblem entirely.
     const packageStay = multiDayProblem(slot, stayDays);
@@ -257,14 +256,14 @@ export async function quoteBooking(raw: unknown, opts: { requireEmailProof?: boo
   // Everyone occupying any day of the stay, holds included.
   const sameDay = overlap.others;
 
-  // Children are capped by everyone already booked into that tour, so the
+  // Children are capped by everyone already booked into that stay, so the
   // resort is never packed (lib/children.ts).
   if (children > 0) {
     const crowd = childrenProblem(guests, children, guestLimitFor(resource), peopleOnTour(date, endDate, slot, sameDay), tier);
     if (crowd) return bad(crowd);
   }
 
-  // Today's tour, once it has started (lib/resort.ts).
+  // Today's stay, once it has started (lib/resort.ts).
   const started = slotStartedProblem(date, slot, undefined, resource);
   if (started) return bad(started, 409);
 
@@ -295,7 +294,7 @@ export async function quoteBooking(raw: unknown, opts: { requireEmailProof?: boo
     unavailableStep = "room";
   }
 
-  // The venue and a shared pool tour booked separately by the same guest
+  // The venue and a shared pool stay booked separately by the same guest
   // (lib/utils.ts splitBookingMatch). Reported as unavailable, not as an
   // error, so a guest who has already paid is still saved (as Pending).
   let splitWarning: string | undefined;
@@ -308,7 +307,7 @@ export async function quoteBooking(raw: unknown, opts: { requireEmailProof?: boo
         ? `You already have a shared pool booking that date (${split.same.id}). To have the events venue too, book "Resort & pool + Events Venue" instead, or contact us to change your booking.`
         : `You already have the events venue that date (${split.same.id}). To use the pool too, book "Resort & pool + Events Venue" instead, or contact us to change your booking.`;
     } else if (split.maybe) {
-      splitWarning = `possibly the same group as ${split.maybe.id} (same name; one has the events venue, the other a shared pool tour).`;
+      splitWarning = `possibly the same group as ${split.maybe.id} (same name; one has the events venue, the other a shared pool stay).`;
     }
   }
 

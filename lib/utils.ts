@@ -104,7 +104,7 @@ export function usesVenue(b: Booking): boolean {
 }
 
 /** Which slot a booking is in. Older records have no slot; their package
- *  label says "Night…" for night tours, and everything else was a day. */
+ *  label says "Night…" for night stays, and everything else was a day. */
 export function getBookingSlot(b: Booking): BookingSlot {
   if (b.slot) return b.slot;
   return /^night/i.test(b.package ?? "") ? "Night" : "Day";
@@ -168,7 +168,7 @@ export function datesBetween(from: string, to: string): string[] {
 export const bookingDates = (b: Pick<Booking, "date" | "endDate">): string[] =>
   datesBetween(b.date, bookingEndDate(b));
 
-/** For each date, which tours (Day, Night, Staycation) have a booking on
+/** For each date, which stays (Day, Night, Staycation) have a booking on
  *  it -- what the guest calendars mark with a sun, a moon or a beach chair.
  *  Cancelled bookings don't count; a stay marks every one of its days. */
 export function slotsBookedByDate(bookings: Booking[]): Map<string, Set<BookingSlot>> {
@@ -185,7 +185,7 @@ export function slotsBookedByDate(bookings: Booking[]): Map<string, Set<BookingS
   return out;
 }
 
-/** The icon for each tour, used wherever a tour is shown. */
+/** The icon for each stay, used wherever a stay is shown. */
 export const SLOT_ICON: Record<BookingSlot, "sun" | "moon" | "staycation"> = { Day: "sun", Night: "moon", WholeDay: "staycation" };
 
 /** How many days a stay is charged for. One for a single-day booking. */
@@ -218,7 +218,7 @@ export const daysInRange = (from: string, to: string): number => datesBetween(fr
 const liveOn = (date: string, bookings: Booking[]) =>
   bookings.filter((b) => bookingCoversDate(b, date) && holdsDate(b));
 
-/** Everyone already booked into the resort during this tour on any day of
+/** Everyone already booked into the resort during this stay on any day of
  *  the range -- adults and children under 3, every group, pool or venue --
  *  at the busiest day. Children are capped by what's left of
  *  CHILDREN_TOTAL_MAX (lib/children.ts), so the resort is never packed.
@@ -250,7 +250,7 @@ export function getSharedPoolUsage(
   return { used, max: RESORT_SHARED_CAPACITY };
 }
 
-const SLOT_WORD: Record<"Day" | "Night", string> = { Day: "Day Tour", Night: "Night Tour" };
+const SLOT_WORD: Record<"Day" | "Night", string> = { Day: "Day Stay", Night: "Night Stay" };
 
 /** Whether the pool has room for a new booking.
  *
@@ -259,12 +259,12 @@ const SLOT_WORD: Record<"Day" | "Night", string> = { Day: "Day Tour", Night: "Ni
  *  within a slot up to RESORT_SHARED_CAPACITY guests. A request with
  *  overtime also needs the Night slot completely free.
  *
- *  Exclusive is per slot too: it buys out the tour it is priced for
+ *  Exclusive is per slot too: it buys out the stay it is priced for
  *  (EXCLUSIVE_FLAT_RATE is per slot), so an Exclusive Day leaves the Night
  *  open to other groups. A Staycation holds both slots, and a Day with
  *  overtime holds the Night as well, so those still close the evening.
  *  From 2026-09-25 an Exclusive booking closed the whole date, on the
- *  owner's word at the time; the owner's rule changed to per tour on
+ *  owner's word at the time; the owner's rule changed to per stay on
  *  2026-10-24. */
 export function checkPoolCapacity(
   date: string,
@@ -289,15 +289,15 @@ export function checkPoolCapacity(
     return {
       ok: false,
       reason: runsLate
-        ? "The Exclusive Day Tour that date runs overtime into the evening, so the Night Tour isn't free."
-        : `The resort is booked Exclusive for the ${SLOT_WORD[s]} that date.`,
+        ? "The private-pool Day Stay that date runs overtime into the evening, so the Night Stay isn't free."
+        : `The resort is booked with a private pool for the ${SLOT_WORD[s]} that date.`,
     };
   }
   if (tier === "Exclusive" && overlapping.length > 0) {
     const s = clashSlot(overlapping[0])!;
     return {
       ok: false,
-      reason: `An Exclusive booking needs the pool to itself, and the ${SLOT_WORD[s]} already has bookings that date.`,
+      reason: `A private pool needs the pool to itself, and the ${SLOT_WORD[s]} already has bookings that date.`,
     };
   }
 
@@ -312,7 +312,7 @@ export function checkPoolCapacity(
 
     // Someone else's Day group stays past 5 PM, so the Night is not free.
     // This used to report "the pool is already booked Exclusive for the
-    // Night Tour", which named the wrong cause: there is no Exclusive
+    // Night Stay", which named the wrong cause: there is no Exclusive
     // booking here, and staff reading it would go looking for one.
     const runsLate = inSlot.find(
       (b) => s === "Night" && getBookingSlot(b) === "Day" && (b.overtime ?? 0) > 0
@@ -321,7 +321,7 @@ export function checkPoolCapacity(
       const hrs = runsLate.overtime ?? 0;
       return {
         ok: false,
-        reason: `The Day Tour that date runs ${hrs} ${hrs === 1 ? "hour" : "hours"} of overtime into the evening, so the Night Tour isn't free.`,
+        reason: `The Day Stay that date runs ${hrs} ${hrs === 1 ? "hour" : "hours"} of overtime into the evening, so the Night Stay isn't free.`,
       };
     }
 
@@ -330,13 +330,13 @@ export function checkPoolCapacity(
     if (s === "Night" && slot === "Day" && overtime > 0) {
       return {
         ok: false,
-        reason: `The Night Tour is booked that date — overtime isn't possible (${TURNOVER_WINDOW} is cleaning time).`,
+        reason: `The Night Stay is booked that date — overtime isn't possible (${TURNOVER_WINDOW} is cleaning time).`,
       };
     }
 
     const { used, max } = getSharedPoolUsage(date, bookings, s);
     if (used + guests > max) {
-      return { ok: false, reason: `The ${SLOT_WORD[s]}'s Shared capacity is full that date (${used}/${max}).` };
+      return { ok: false, reason: `The ${SLOT_WORD[s]}'s shared pool is full that date (${used}/${max}).` };
     }
   }
   return { ok: true };
@@ -389,7 +389,7 @@ export function isRoomOpen(roomId: number, facilities: Facility[]): boolean {
 }
 
 /** One group, two bookings: the events venue on its own plus a Shared pool
- *  tour on the same date gets them both for less than "Resort & pool +
+ *  stay on the same date gets them both for less than "Resort & pool +
  *  Events Venue", which is Exclusive only — and puts their party beside
  *  strangers in the pool, the thing that rule exists to prevent.
  *
@@ -435,7 +435,7 @@ export function checkBookingAvailability(
 ): { ok: boolean; reason?: string } {
   // The pool and the events venue are booked independently: an Exclusive
   // pool buyout keeps the pool to one group, and the hall can still go to
-  // another group's event in the same tour (owner's rule, 2026-10-27).
+  // another group's event in the same stay (owner's rule, 2026-10-27).
   // From 2026-09-25 an Exclusive buyout took the hall as well. Each part is
   // still one group's when it is booked: the pool by checkPoolCapacity, the
   // hall by checkVenueAvailability.
@@ -498,7 +498,7 @@ export function roomsTakenInRange(from: string, to: string, slot: BookingSlot, b
  *  Day guest's room is free again for the Night.
  *
  *  A MULTI-DAY stay is different, and getting it wrong sold occupied
- *  rooms. A guest on a three-day Day Tour goes home at 5 PM and comes
+ *  rooms. A guest on a three-day Day Stay goes home at 5 PM and comes
  *  back at 7 the next morning — but their things are still in the room,
  *  and they still hold the key. Matching on the booked slot alone freed
  *  that room every night of the run and let a Night group book it. So a

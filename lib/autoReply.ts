@@ -59,7 +59,7 @@ function firstName(name: string): string {
   return first && first.length <= 20 ? first : "there";
 }
 
-/** The booking named in a sentence: "your Day Tour on October 17, 2026". */
+/** The booking named in a sentence: "your Day Stay on October 17, 2026". */
 function describe(b: Booking | null): string {
   if (!b) return "";
   return `your ${SLOTS[getBookingSlot(b)].label} on ${stayLabel(b)}`;
@@ -84,7 +84,7 @@ function body(type: string, ctx: { about: string; ref: string | null }): string 
       return `Thank you for telling us${about}${ref}, and we are sorry it fell short. We are looking into what happened and will come back to you within one business day with what we have found and what we are doing about it.`;
     case "Refund":
       // `ctx.about`, not `about`: the latter already carries its own
-      // preposition, and reusing it here read "with about your Day Tour".
+      // preposition, and reusing it here read "with about your Day Stay".
       return `We have received your refund request${ref}. So you know where you stand: a refund is arranged when the resort has to cancel a booking. If that is what happened${ctx.about ? ` with ${ctx.about}` : ""}, we will sort it out with you directly — please call us on ${RESORT_CONTACT.phone} and we will go through it with you.`;
     case "Suggestion":
       return `Thank you for the suggestion${about}${ref}. We have passed it on to the owner — a good number of the things guests enjoy here started exactly this way.`;

@@ -24,9 +24,10 @@ import { T } from "@/lib/theme";
 import { getBookingWindow, bookingWindowNote, firstViewableMonth, toDateStr, MAX_STAY_DAYS, manilaNow } from "@/lib/validators";
 import { SLOTS, slotStartedProblem } from "@/lib/resort";
 import { RangeConnector } from "@/components/common/RangeConnector";
-import { CAL, CAL_LINE, GUEST_LEGEND } from "@/components/common/calendarColors";
+import { CAL, CAL_LINE } from "@/components/common/calendarColors";
+import { CalendarLegend } from "@/components/common/CalendarLegend";
 import { checkBookingAvailability, holdsDate, fmtDate, bookingDates, slotsBookedByDate } from "@/lib/utils";
-import { SlotMarks, SlotMarksKey, slotMarksLabel } from "@/components/common/SlotMarks";
+import { SlotMarks, slotMarksLabel } from "@/components/common/SlotMarks";
 import type { Booking, BookingResource, BookingSlot, BookingTier } from "@/types/booking";
 
 /** `ds` shifted by `n` days, in UTC so it cannot drift across a timezone. */
@@ -115,10 +116,10 @@ export function BookingDatePicker({
     });
     return full;
   }, [bookings, guests, resource, tier]);
-  // Which tours are booked on each date: the sun, moon and beach chair marks.
+  // Which stays are booked on each date: the sun, moon and beach chair marks.
   const slotsByDate = useMemo(() => slotsBookedByDate(bookings), [bookings]);
   const fullDates = useMemo(() => fullFor(slot), [fullFor, slot]);
-  /* Today, once online booking for this tour has closed (near its end,
+  /* Today, once online booking for this stay has closed (near its end,
      lib/resort.ts). Shown like a day gone by, not as "Booked": nobody took
      it, it is just too late. */
   const todayStr = manilaNow().date;
@@ -339,8 +340,11 @@ export function BookingDatePicker({
           let dim = false;
           if (isPast) { bg = quiet; col = quietInk; bdr = quietBdr; cur = "not-allowed"; dim = true; }
           if (isBeyond) { bg = quiet; col = quietInk; bdr = quietBdr; cur = "not-allowed"; dim = true; }
-          if (isBooked) { bg = CAL.booked.bg; col = CAL.booked.ink; bdr = `1px solid ${CAL.booked.rim}`; cur = "not-allowed"; }
-          if (isClosed) { bg = CAL.closed.bg; col = CAL.closed.ink; bdr = `1px solid ${CAL.closed.rim}`; cur = "not-allowed"; }
+          // A date that can't be picked looks like a past date: a quiet,
+          // dimmed tile (owner, 2026-11-12). A full one keeps its booked-stay
+          // marks; a closed one shows its number in red, struck through.
+          if (isBooked) { bg = quiet; col = quietInk; bdr = quietBdr; cur = "not-allowed"; dim = true; }
+          if (isClosed) { bg = quiet; col = isDark ? "#ff8a80" : CAL.closed.bg; bdr = quietBdr; cur = "not-allowed"; dim = true; }
           if (beyondStay) { cur = "not-allowed"; dim = true; }
           // Every day of the stay the guest picked is gold, first to last.
           if (inRange || isStart || isEnd) { bg = CAL.selected.bg; col = CAL.selected.ink; bdr = `1px solid ${CAL.selected.rim}`; dim = false; }
@@ -349,7 +353,7 @@ export function BookingDatePicker({
             ? " — first day of your stay"
             : isEnd ? " — last day of your stay"
             : inRange ? " — part of your stay"
-            : isBooked ? " — booked"
+            : isBooked ? " — fully booked"
             : isClosed ? " — closed"
             : isTodayClosed ? " — online booking for today has closed"
             : isPast || isBeyond ? " — unavailable"
@@ -372,7 +376,7 @@ export function BookingDatePicker({
                   : isBeyond
                   ? bookingWindowNote()
                   : isBooked
-                  ? "Booked"
+                  ? "Fully booked"
                   : isClosed
                   ? "Not available"
                   : beyondStay
@@ -390,7 +394,10 @@ export function BookingDatePicker({
                 borderRadius: 10,
                 // Dimming the whole cell, rather than just muting its ink, is
                 // what makes a past date read as "not a thing you can press".
-                opacity: dim ? 0.62 : 1,
+                opacity: dim ? (isPast && !isBooked && !isClosed ? 0.4 : 0.6) : 1,
+                // A past date is softly blurred too, so it recedes; a booked or
+                // closed one stays sharp so its marks read (owner, 2026-11-12).
+                filter: isPast && !isBooked && !isClosed ? "blur(0.8px)" : undefined,
                 background: bg,
                 border: bdr,
                 color: col,
@@ -403,10 +410,10 @@ export function BookingDatePicker({
                 lineHeight: "inherit",
               }}
             >
-              {/* The tours booked that day, above the number. */}
+              {/* The stays booked that day, above the number. */}
               <span style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, lineHeight: 1, position: "relative", zIndex: 1 }}>
                 <SlotMarks slots={slotsByDate.get(ds)} />
-                <span>{d}</span>
+                <span style={isClosed && !(inRange || isStart || isEnd) ? { textDecoration: "line-through", textDecorationThickness: 2 } : undefined}>{d}</span>
               </span>
               {/* The thread joining the first day of the stay to the
                   last. Shared with the home page's calendar so the two read
@@ -451,23 +458,9 @@ export function BookingDatePicker({
       {/* A thin line between the days and the key. */}
       <div aria-hidden="true" style={{ height: 1, margin: "16px 0 0", background: `linear-gradient(to right, transparent, ${C.border}, transparent)` }} />
       {aboveLegend}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 8,
-          marginTop: 12,
-          justifyContent: "center",
-        }}
-      >
-        {GUEST_LEGEND.map(([l, c]) => (
-          <div key={l} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div aria-hidden style={{ width: 9, height: 9, borderRadius: "50%", background: c, flexShrink: 0 }} />
-            <span style={{ color: C.textS, fontSize: 12 }}>{l}</span>
-          </div>
-        ))}
-      </div>
-      <SlotMarksKey color={C.textS} />
+      {/* The key: what each colour and each mark on a date means. */}
+      <CalendarLegend text={C.textB} muted={C.textS} line={C.border}
+        quiet={{ bg: isDark ? "rgba(255,255,255,0.05)" : "#f4f2ee", ink: isDark ? "rgba(238,232,220,0.9)" : "#4a4338", rim: isDark ? "rgba(255,255,255,0.08)" : "#eae5dc", red: isDark ? "#ff8a80" : CAL.closed.bg }} />
     </div>
   );
 }

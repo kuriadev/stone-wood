@@ -3,7 +3,7 @@
 // Browser only. exceljs is loaded when it is needed, like the Excel report
 // (lib/excelReport.ts), so nobody pays for it until they use it.
 //
-// The template is a choice wherever it can be (owner's preference): Tour,
+// The template is a choice wherever it can be (owner's preference): Stay,
 // Booking, Pool, Rooms and Paid by are dropdowns, so a line is picked
 // rather than typed, and a second sheet says what each column wants.
 
@@ -67,7 +67,7 @@ export async function buildImportTemplate(rooms: { name: string }[]): Promise<Ar
   };
   list("tour", tourChoices().map((t) => t.label), true);
   list("booking", BOOKING_CHOICES.map((c) => c.label), true);
-  list("pool", [...POOL_CHOICES], true);
+  list("pool", ["Shared pool", "Private pool"], true);
   list("method", [...METHOD_CHOICES], true);
   list("rooms", rooms.map((r) => r.name), false);
 
@@ -77,10 +77,10 @@ export async function buildImportTemplate(rooms: { name: string }[]): Promise<Ar
   help.addRow({ c: "One booking per row", w: "Bookings taken while the internet was down, for today or later. Nothing is saved until you check the list in All Bookings → Import and press Import." });
   for (const c of IMPORT_COLUMNS) help.addRow({ c: c.header, w: c.hint });
   help.addRow({});
-  help.addRow({ c: "Tour choices", w: tourChoices().map((t) => t.label).join(", ") });
+  help.addRow({ c: "Stay choices", w: tourChoices().map((t) => t.label).join(", ") });
   help.addRow({ c: "Booking choices", w: BOOKING_CHOICES.map((c) => c.label).join(", ") });
   help.addRow({ c: "Rooms", w: rooms.length ? rooms.map((r) => r.name).join("; ") : "No rooms set up." });
-  help.addRow({ c: "Example", w: "Juan Dela Cruz · 09171234567 · 2026-11-05 · Day Tour · Resort & pool · Shared · 10 guests · Amount paid 1000 · Cash" });
+  help.addRow({ c: "Example", w: "Juan Dela Cruz · 09171234567 · 2026-11-05 · Day Stay · Resort & pool · Shared pool · 10 guests · Amount paid 1000 · Cash" });
 
   return (await wb.xlsx.writeBuffer()) as ArrayBuffer;
 }

@@ -13,8 +13,8 @@ describe("pool access", () => {
   it("says why Shared can't be picked", () => {
     expect(sharedNotAllowed("Pool", "Single")).toBeNull();
     expect(sharedNotAllowed("Venue", "Single")).toMatch(/always private/);
-    expect(sharedNotAllowed("Pool+Venue", "Single")).toMatch(/Exclusive only/);
-    expect(sharedNotAllowed("Pool", "WholeDay")).toMatch(/Exclusive only/);
+    expect(sharedNotAllowed("Pool+Venue", "Single")).toMatch(/always has a private pool/);
+    expect(sharedNotAllowed("Pool", "WholeDay")).toMatch(/always has a private pool/);
   });
 });
 

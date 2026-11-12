@@ -384,7 +384,7 @@ export async function sweepExpired(force = false): Promise<void> {
        been paid and is waiting for the owner to check it. */
     const cutoff = new Date(Date.now() - UNPAID_HOLD_HOURS * 3600_000).toISOString();
     const stale = await db.from("bookings").select("*")
-      .eq("status", "Pending").neq("source", "Online").is("payment_intent_id", null).lt("created_at", cutoff);
+      .eq("status", "Pending").neq("source", "Online").lt("created_at", cutoff);
     const staleRows = (stale.data ?? []) as BookingRow[];
     if (staleRows.length) {
       const paid = await db.from("payments").select("booking_id").in("booking_id", staleRows.map((r) => r.id));

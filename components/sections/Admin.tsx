@@ -1,5 +1,6 @@
 "use client";
 
+import { GCASH_QR_DEFAULT } from "@/lib/heroMedia";
 import { imageAt } from "@/lib/img";
 import { CLOSING_BG } from "@/lib/constants";
 import { EmergencyReview } from "@/components/admin/EmergencyReview";
@@ -1276,7 +1277,7 @@ export function Admin({
               })()}
               {/* The month, in one panel: the nav, the weekdays, the days and
                   the legend. Same colours, labels, clicks and hover cards as
-                  before; each day also shows an icon for every kind of tour
+                  before; each day also shows an icon for every kind of stay
                   booked on it (sun, moon, staycation). Styles in
                   components/admin/BookingCalendar.css. */}
               {(() => {
@@ -1329,7 +1330,7 @@ export function Admin({
                         else if (status === "Confirmed") { bg = CAL.available.bg; col = CAL.available.ink; rim = CAL.available.rim; }
                         else if (status === "Completed") { bg = CAL.completed.bg; col = CAL.completed.ink; rim = CAL.completed.rim; }
                         const dayBookings = bookingsOn(ds);
-                        // Which tours are booked on this date, one icon each.
+                        // Which stays are booked on this date, one icon each.
                         const slots = SLOT_ORDER.filter((sl) => dayBookings.some((bk) => getBookingSlot(bk) === sl));
                         /* History the admin cannot act on: a date already gone by
                            whose bookings are all finished. The cell itself states
@@ -1516,6 +1517,8 @@ export function Admin({
               <MediaMover mob={mob} onMoved={() => window.location.reload()} />
               <HeroMediaEditor mob={mob} />
               <HeroMediaEditor mob={mob} slot="closing" fallback={CLOSING_BG} />
+              {/* The QR guests scan to pay (Book Now → payment step). */}
+              <HeroMediaEditor mob={mob} slot="gcash" fallback={GCASH_QR_DEFAULT} />
 
               {galleryImgs.length === 0 ? (
                 <div style={{ background: cBg, border: `1px solid ${cBr}`, borderRadius: 10, padding: "40px 24px", textAlign: "center" }}>
@@ -2071,7 +2074,7 @@ export function Admin({
               {editRoom ? "Edit Room" : "Add New Room"}
             </DialogTitle>
             <DialogDescription>
-              {editRoom ? "Update this room's photo, capacity and rate." : "Add a room guests can book alongside a tour."}
+              {editRoom ? "Update this room's photo, capacity and rate." : "Add a room guests can book alongside a stay."}
             </DialogDescription>
           </DialogHeader>
 

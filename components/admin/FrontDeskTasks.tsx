@@ -64,7 +64,7 @@ export function FrontDeskTasks({ mob, onGoTab }: { mob: boolean; onGoTab?: (t: A
   const [busy, setBusy] = useState<string | null>(null);
   const today = manilaDate();
   const live = bookings.filter((b) => !b.archived && !b.id.startsWith("TMP-"));
-  // Prepared for this group, or covered by another group on the same tour.
+  // Prepared for this group, or covered by another group on the same stay.
   const prepared = preparedBookingIds(bookings, ops.inspections, facilities);
 
   const checkIn = async (b: Booking) => {

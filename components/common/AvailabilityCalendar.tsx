@@ -5,9 +5,10 @@ import { getBookingWindow, bookingWindowNote, firstViewableMonth, toDateStr, MAX
 import { SLOTS, slotStartedProblem } from "@/lib/resort";
 import type { Booking, BookingSlot, BookingTier } from "@/types/booking";
 import { checkBookingAvailability, holdsDate, bookingDates, slotsBookedByDate } from "@/lib/utils";
-import { SlotMarks, SlotMarksKey, slotMarksLabel } from "@/components/common/SlotMarks";
+import { SlotMarks, slotMarksLabel } from "@/components/common/SlotMarks";
 import { RangeConnector } from "@/components/common/RangeConnector";
-import { CAL, CAL_LINE, GUEST_LEGEND } from "@/components/common/calendarColors";
+import { CAL, CAL_LINE } from "@/components/common/calendarColors";
+import { CalendarLegend } from "@/components/common/CalendarLegend";
 
 /** `ds` shifted by `n` days, in UTC so it cannot drift across a timezone. */
 /* Tallest a day tile gets. Tiles are square up to this, then widen
@@ -106,13 +107,13 @@ export function AvailabilityCalendar({
     });
     return full;
   }, [bookings, request]);
-  /* Today, once online booking for the requested tour has closed (near its
+  /* Today, once online booking for the requested stay has closed (near its
      end, lib/resort.ts). Shown like a day gone by, not as "Booked": nobody
      took it, it is just too late. */
   const todayStr = mounted ? manilaNow().date : "";
   const todayClosed = !!request && !!todayStr && !!slotStartedProblem(todayStr, request.slot);
   const closedSet = useMemo(() => new Set(closedDates), [closedDates]);
-  // Which tours are booked on each date: the sun, moon and beach chair marks.
+  // Which stays are booked on each date: the sun, moon and beach chair marks.
   const slotsByDate = useMemo(() => slotsBookedByDate(bookings), [bookings]);
 
   /* The furthest day this stay may reach: MAX_STAY_DAYS long at most, and
@@ -357,8 +358,11 @@ export function AvailabilityCalendar({
           let dim = false;
           if (isPast)   { bg = "rgba(255,255,255,0.05)"; col = "rgba(238,232,220,0.92)"; bdr = "1px solid rgba(255,255,255,0.08)"; cur = "default";     dim = true; }
           if (isBeyond) { bg = "rgba(255,255,255,0.05)"; col = "rgba(238,232,220,0.92)"; bdr = "1px solid rgba(255,255,255,0.08)"; cur = "not-allowed"; dim = true; }
-          if (isBooked) { bg = CAL.booked.bg; col = CAL.booked.ink; bdr = `1px solid ${CAL.booked.rim}`; cur = "not-allowed"; }
-          if (isClosed) { bg = CAL.closed.bg; col = CAL.closed.ink; bdr = `1px solid ${CAL.closed.rim}`; cur = "not-allowed"; }
+          // A date that can't be picked looks like a past date: a quiet,
+          // dimmed tile (owner, 2026-11-12). A full one keeps its booked-stay
+          // marks; a closed one shows its number in red, struck through.
+          if (isBooked) { bg = "rgba(255,255,255,0.05)"; col = "rgba(238,232,220,0.92)"; bdr = "1px solid rgba(255,255,255,0.08)"; cur = "not-allowed"; dim = true; }
+          if (isClosed) { bg = "rgba(255,255,255,0.05)"; col = "#ff8a80"; bdr = "1px solid rgba(255,255,255,0.08)"; cur = "not-allowed"; dim = true; }
           if (beyondStay) { cur = "not-allowed"; dim = true; }
           // Every day of the stay the guest picked is gold, first to last.
           if (inRange || isSel) { bg = CAL.selected.bg; col = CAL.selected.ink; bdr = `1px solid ${CAL.selected.rim}`; dim = false; }
@@ -373,7 +377,7 @@ export function AvailabilityCalendar({
                 isStart && stayEnd !== selectedDate ? " — first day of your stay"
                 : isEnd ? " — last day of your stay"
                 : inRange ? " — part of your stay"
-                : isBooked ? " — booked"
+                : isBooked ? " — fully booked"
                 : isClosed ? " — closed"
                 : isTodayClosed ? " — online booking for today has closed"
                 : isPast || isBeyond ? " — unavailable"
@@ -388,7 +392,7 @@ export function AvailabilityCalendar({
                   : isBeyond
                   ? bookingWindowNote()
                   : isBooked
-                  ? "Booked"
+                  ? "Fully booked"
                   : isClosed
                   ? "Not available"
                   : beyondStay
@@ -409,7 +413,10 @@ export function AvailabilityCalendar({
                 borderRadius: 12,
                 // Dimming the whole cell, rather than just muting its ink, is
                 // what makes a past date read as "not a thing you can press".
-                opacity: dim ? 0.62 : 1,
+                opacity: dim ? (isPast && !isBooked && !isClosed ? 0.4 : 0.6) : 1,
+                // A past date is softly blurred too, so it recedes; a booked or
+                // closed one stays sharp so its marks read (owner, 2026-11-12).
+                filter: isPast && !isBooked && !isClosed ? "blur(0.8px)" : undefined,
                 background: bg,
                 border: bdr,
                 color: col,
@@ -422,10 +429,10 @@ export function AvailabilityCalendar({
                 lineHeight: "inherit",
               }}
             >
-              {/* The tours booked that day, above the number. */}
+              {/* The stays booked that day, above the number. */}
               <span style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, lineHeight: 1, position: "relative", zIndex: 1 }}>
                 <SlotMarks slots={slotsByDate.get(ds)} />
-                <span>{d}</span>
+                <span style={isClosed && !isSel ? { textDecoration: "line-through", textDecorationThickness: 2 } : undefined}>{d}</span>
               </span>
               {/* ── The line that joins the first day to the last ──
                   One segment per day, bleeding 6px past the tile on each
@@ -459,24 +466,10 @@ export function AvailabilityCalendar({
           from the days. */}
       <div aria-hidden="true" style={{ height: 1, margin: "18px 0 0", background: "linear-gradient(to right, transparent, rgba(201,168,76,0.35), transparent)" }} />
       {aboveLegend}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 16,
-          marginTop: 14,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        {GUEST_LEGEND.map(([l, c]) => (
-          <div key={l} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div aria-hidden style={{ width: 9, height: 9, borderRadius: "50%", background: c, flexShrink: 0 }} />
-            <span style={{ color: "rgba(238,232,220,0.78)", fontSize: 12 }}>{l}</span>
-          </div>
-        ))}
-      </div>
-      <SlotMarksKey color="rgba(238,232,220,0.62)" />
+      {/* The key: what each colour and each mark on a date means. The
+          home card is narrow, so it is one column there. */}
+      <CalendarLegend text="rgba(238,232,220,0.9)" muted="rgba(238,232,220,0.6)" line="rgba(201,168,76,0.25)" narrow
+        quiet={{ bg: "rgba(255,255,255,0.05)", ink: "rgba(238,232,220,0.92)", rim: "rgba(255,255,255,0.08)", red: "#ff8a80" }} />
     </div>
   );
 }

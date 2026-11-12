@@ -34,7 +34,7 @@ function formatStay(b: { date: string; endDate?: string }) {
 
 /** When the guest actually arrives, and when they actually leave.
  *
- *  "Date of Visit: October 10 – October 12" does not tell a Night Tour
+ *  "Date of Visit: October 10 – October 12" does not tell a Night Stay
  *  guest that their stay ends at 5 AM on the 13th, a date that appears
  *  nowhere else in the email. The Check in / Check out rows say it
  *  outright, in the words a guest already knows. Plain text:
@@ -572,7 +572,7 @@ export function buildReceiptEmail(booking: Booking): { subject: string; html: st
                   // Walk-ins pay at the counter. This used to look for a
                   // package named "On-Site Reservation", which nothing
                   // creates, so every walk-in's receipt said GCash.
-                  ["Payment Method", booking.source === "Walk-In" ? "At the front desk" : "QR Ph (Online Payment)"],
+                  ["Payment Method", booking.source === "Walk-In" ? "At the front desk" : "GCash (proof of payment checked by our staff)"],
                 ].map(([label, value]) => `
                 <tr>
                   <td style="padding:9px 0;border-bottom:1px solid #f0e8d8;color:#8a6d3b;font-size:12px;width:40%;">${escapeHtml(label)}</td>

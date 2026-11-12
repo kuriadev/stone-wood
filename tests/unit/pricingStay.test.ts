@@ -1,6 +1,6 @@
 /* Who can book several dates, and what it costs.
  *
- * The rule the owner set: the Day and Night Tours are SINGLE-DATE visits.
+ * The rule the owner set: the Day and Night Stays are SINGLE-DATE visits.
  * Only the Staycation (the WholeDay slot) can span dates, because it is
  * the only slot that keeps the resort the guest's overnight. The calendar
  * never moves a booking there by itself; the guest chooses it.
@@ -28,7 +28,7 @@ describe("only the Whole Day can span dates", () => {
     expect(multiDayProblem("WholeDay", MAX_STAY_DAYS)).toBeNull();
   });
 
-  it("refuses a multi-date Day or Night Tour, and names the way out", () => {
+  it("refuses a multi-date Day or Night Stay, and names the way out", () => {
     for (const slot of ["Day", "Night"] as const) {
       expect(allowsMultiDay(slot)).toBe(false);
       const why = multiDayProblem(slot, 2)!;
@@ -75,12 +75,12 @@ describe("a Staycation is Exclusive only", () => {
     expect(pricingProblem("Pool", "Exclusive", "WholeDay")).toBeNull();
     // A package (e.g. "Events Venue — Whole Day") is the owner's to define.
     expect(pricingProblem("Venue", "Exclusive", "WholeDay", 1, true)).toBeNull();
-    // The tours can still be venue-only.
+    // The stays can still be venue-only.
     expect(pricingProblem("Venue", "Exclusive", "Day")).toBeNull();
     expect(pricingProblem("Venue", "Exclusive", "Night")).toBeNull();
   });
 
-  it("still offers the tours at both tiers", () => {
+  it("still offers the stays at both tiers", () => {
     for (const slot of ["Day", "Night"] as const) {
       expect(pricingProblem("Pool", "Shared", slot)).toBeNull();
       expect(pricingProblem("Pool", "Exclusive", slot)).toBeNull();
@@ -91,7 +91,7 @@ describe("a Staycation is Exclusive only", () => {
 describe("every day of a stay costs the same", () => {
   it("charges one day at the flat rate", () => {
     expect(pool({ slot: "WholeDay", tier: "Exclusive", days: 1 }).total).toBe(WHOLE_DAY_EXCLUSIVE);
-    // A single Exclusive tour is the plain rate too: no 5% off any more.
+    // A single Exclusive stay is the plain rate too: no 5% off any more.
     expect(pool({ slot: "Day", tier: "Exclusive", days: 1 }).total).toBe(EXCLUSIVE_FLAT_RATE);
   });
 

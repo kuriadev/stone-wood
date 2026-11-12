@@ -1258,7 +1258,7 @@ html {
 
 /* ── SPINNER ───────────────────────────────────────────────────────
    Used by the payment screen while the QR is minted and while waiting
-   for PayMongo to confirm the scan. */
+   for the payment to be confirmed. */
 @keyframes sw-spin {
   to { transform: rotate(360deg); }
 }
@@ -2124,3 +2124,17 @@ tr.sw-spot > td:first-child { box-shadow: inset 4px 0 0 #e6c76a; }
 .sw-toast__close:hover { opacity: 1; background: color-mix(in srgb, var(--sw-text-s) 14%, transparent) !important; }
 .sw-toast__close svg { width: 12px; height: 12px; }
 .sw-toast__close:focus-visible, .sw-toast__action:focus-visible { outline: 2px solid var(--sw-gold-ink); outline-offset: 2px; }
+
+/* ── Typing on a phone ──
+   iPhone browsers (and the Messenger / Facebook in-app browser a shared
+   link opens in) zoom the page into any field whose text is under 16px,
+   and leave it zoomed: the page "jumps" while the guest types (tester
+   feedback, 2026-11-12). 16px stops the zoom without blocking pinch-zoom.
+   While the keyboard is up, the bottom tab bar and the floating buttons
+   would ride up on top of it and cover the field, so they step aside. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: 16px !important; }
+  body:has(input:not([type="checkbox"]):not([type="radio"]):focus, textarea:focus, select:focus) .sw-tabbar__bar,
+  body:has(input:not([type="checkbox"]):not([type="radio"]):focus, textarea:focus, select:focus) .sw-float-bottom,
+  body:has(input:not([type="checkbox"]):not([type="radio"]):focus, textarea:focus, select:focus) .sw-dock { display: none !important; }
+}

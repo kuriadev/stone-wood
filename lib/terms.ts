@@ -15,7 +15,6 @@ import { HOLD_HOURS, NO_SHOW_CHOICE_DAYS } from "@/lib/rebooking";
 import { DETAILS_COOLDOWN_HOURS } from "@/lib/guestDetails";
 import { CHILD_FREE_AGE, CHILDREN_TOTAL_MAX } from "@/lib/children";
 import { DELETE_AFTER_MONTHS } from "@/lib/retention";
-import { QRPH_WALLETS_TEXT } from "@/lib/labels";
 import { fmt } from "@/lib/utils";
 
 export const RESORT_NAME = "Stonewood Garden Private Resort";
@@ -37,19 +36,19 @@ export function termsDocs(): TermsDoc[] {
         {
           title: "Reservations and payment",
           paras: [
-            `A booking is made online at this website or at the front desk. Online, you confirm your email with a 6-digit code, then pay by QR Ph (${QRPH_WALLETS_TEXT}) through our payment provider, PayMongo. Your booking is confirmed as soon as PayMongo confirms the payment; a screenshot alone doesn't confirm it.`,
-            "You can pay a 50% deposit or the full total. Any balance is paid at the resort before check-out, in cash or by QR Ph. Keep your booking reference: you need it, with your email, to manage your booking.",
-            `Today's tour can be booked online until ${LATE_BOOKING_GRACE_HOURS} hours after it starts. A late booking still ends at the usual time and costs the same.`,
+            "A booking is made online at this website or at the front desk. Online, you confirm your email with a 6-digit code, send the amount due to the resort's GCash (scan our QR code or use our GCash number), and upload a clear photo or screenshot of your receipt as proof of payment. Your date is held while our staff check that the payment arrived in our GCash; your booking is confirmed only when we email you the confirmation. A receipt we can't verify is turned down, and you can send a new one.",
+            "You can pay a 50% deposit or the full total. Any balance is paid at the resort before check-out, in cash or by GCash. Keep your booking reference: you need it, with your email, to manage your booking.",
+            `Today's stay can be booked online until ${LATE_BOOKING_GRACE_HOURS} hours after it starts. A late booking still ends at the usual time and costs the same.`,
           ],
         },
         {
           title: "Tours, rates and guests",
           list: [
             `${SLOTS.Day.label}: ${SLOTS.Day.start} – ${SLOTS.Day.end}. ${SLOTS.Night.label}: ${SLOTS.Night.start} – ${SLOTS.Night.end} the next morning. ${SLOTS.WholeDay.label}: day and night together, up to ${days(MAX_STAY_DAYS)} in a row.`,
-            `Shared pool: ${fmt(sharedRateFor("Day"))} per guest for a Day Tour and ${fmt(sharedRateFor("Night"))} for a Night Tour, shared with other groups, up to ${GUESTS_MAX} guests in total. Children ${CHILD_FREE_AGE} years old and below pay ${fmt(childRateFor("Day"))} each and count toward the ${GUESTS_MAX}.`,
-            `Exclusive pool: ${fmt(exclusiveRateFor("Day"))} flat for a Day Tour, ${fmt(exclusiveRateFor("Night"))} for a Night Tour and ${fmt(exclusiveRateFor("WholeDay"))} a day for a Staycation, up to ${GUESTS_MAX} guests. Children ${CHILD_FREE_AGE} years old and below are free and not counted. A Staycation is Exclusive only.`,
-            `Events venue: ${fmt(EVENT_VENUE_RATE)} per tour, one event at a time, up to ${VENUE_CAPACITY} guests. It closes at ${venueCloseText()}.`,
-            "Rooms are an add-on, priced per tour (twice for a Staycation). Without a room there are no beds; your group uses the pool and the resort's open areas.",
+            `Shared pool: ${fmt(sharedRateFor("Day"))} per guest for a Day Stay and ${fmt(sharedRateFor("Night"))} for a Night Stay, shared with other groups, up to ${GUESTS_MAX} guests in total. Children ${CHILD_FREE_AGE} years old and below pay ${fmt(childRateFor("Day"))} each and count toward the ${GUESTS_MAX}.`,
+            `Private pool: ${fmt(exclusiveRateFor("Day"))} flat for a Day Stay, ${fmt(exclusiveRateFor("Night"))} for a Night Stay and ${fmt(exclusiveRateFor("WholeDay"))} a day for a Staycation, up to ${GUESTS_MAX} guests. Children ${CHILD_FREE_AGE} years old and below are free and not counted. A Staycation is Exclusive only.`,
+            `Events venue: ${fmt(EVENT_VENUE_RATE)} per stay, one event at a time, up to ${VENUE_CAPACITY} guests. It closes at ${venueCloseText()}.`,
+            "Rooms are an add-on, priced per stay (twice for a Staycation). Without a room there are no beds; your group uses the pool and the resort's open areas.",
             `However many groups are booked, the resort holds no more than ${CHILDREN_TOTAL_MAX} people at once.`,
             "The price shown in your booking summary is what is charged. Package prices are set by the resort and may differ from the rates above.",
           ],
@@ -57,7 +56,7 @@ export function termsDocs(): TermsDoc[] {
         {
           title: "Changes on the day",
           paras: [
-            `Extra guests who arrive are added at the front desk at the per-guest rate, for each tour and day. Day Tour overtime is ${fmt(OVERTIME_RATE)} an hour, up to ${OVERTIME_MAX} hours, only when no Night group is booked. A room or the events venue can be added if they are free. These are paid at the resort.`,
+            `Extra guests who arrive are added at the front desk at the per-guest rate, for each stay and day. Day Stay overtime is ${fmt(OVERTIME_RATE)} an hour, up to ${OVERTIME_MAX} hours, only when no Night group is booked. A room or the events venue can be added if they are free. These are paid at the resort.`,
             "Damage found at the check-out inspection is charged at the resort's damage rates and added to your bill.",
           ],
         },
@@ -106,8 +105,8 @@ export function termsDocs(): TermsDoc[] {
           title: "What we collect",
           list: [
             "Your name, email address and mobile number.",
-            "Your booking: dates, tour, guests and children, rooms, package, notes and its history.",
-            "Payments: amounts, method and PayMongo's payment reference. We never see or keep your e-wallet login, PIN or card number.",
+            "Your booking: dates, stay, guests and children, rooms, package, notes and its history.",
+            "Payments: amounts, method, the GCash reference number and the receipt you upload as proof of payment (seen only by resort staff). We never see or keep your e-wallet login, PIN or card number.",
             "Messages you send us, and any proof you attach to an emergency request.",
             "A record of changes made to your booking, and which staff member made them.",
           ],
@@ -121,7 +120,7 @@ export function termsDocs(): TermsDoc[] {
         {
           title: "Who can see it",
           paras: [
-            "Only resort staff, each seeing what their role needs (owner, front desk, caretaker). The services that run the website handle data for us: our database and hosting providers, PayMongo for payments, and Gmail to send emails. We share information when the law requires it.",
+            "Only resort staff, each seeing what their role needs (owner, front desk, caretaker). The services that run the website handle data for us: our database and hosting providers, and Gmail to send emails. Payments go straight to the resort's own GCash; no payment company handles them. We share information when the law requires it.",
           ],
         },
         {

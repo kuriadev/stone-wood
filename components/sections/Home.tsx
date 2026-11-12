@@ -99,10 +99,10 @@ const SERVICES: { name: string; icon: React.ReactNode }[] = [
     name: "Videoke",
     icon: (
       <>
-        <rect x="9" y="2.5" width="6" height="11" rx="3" />
-        <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0" />
-        <path d="M12 18v3.5" />
-        <path d="M8.5 21.5h7" />
+        {/* A handheld karaoke mic (not a studio mic). */}
+        <path d="m11 7.601-5.994 8.19a1 1 0 0 0 .1 1.298l.817.818a1 1 0 0 0 1.314.087L15.09 12" />
+        <path d="M16.5 21.174C15.5 20.5 14.372 20 13 20c-2.058 0-3.928 2.356-6 2-2.072-.356-2.775-3.369-1.5-4.5" />
+        <circle cx="16" cy="7" r="5" />
       </>
     ),
   },
@@ -489,7 +489,7 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
         <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
           <Reveal>
             <p style={eyebrow}>What&rsquo;s Included</p>
-            <h2 className="sw-section-title" style={{ ...h2, marginBottom: 16 }}>Tours &amp; Room Add-ons</h2>
+            <h2 className="sw-section-title" style={{ ...h2, marginBottom: 16 }}>Stays &amp; Room Add-ons</h2>
             <p style={{ ...lede, maxWidth: 520, margin: `0 auto ${headGap}px` }}>Base pricing before package configuration. Every reservation starts here.</p>
           </Reveal>
 
@@ -543,10 +543,11 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
 
           </div>
 
-          {/* The booking rules as four short cards instead of one paragraph. */}
+          {/* The booking rules as short cards instead of one paragraph. */}
           <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 0", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12, textAlign: "left" }}>
             {([
-              ["wallet", "50% down to book", "Or pay in full. The rest is paid at the resort."],
+              ["wallet", "50% down by GCash", "Or pay in full. Send it to our GCash; the rest is paid at the resort."],
+              ["receipt", "Send your proof of payment", "Upload your GCash receipt when you book. Our staff check the payment, then email you to confirm your booking."],
               ["calendar-clock", "Move your date once", `Free, if you ask at least ${RESCHEDULE_NOTICE_DAYS} day${RESCHEDULE_NOTICE_DAYS === 1 ? "" : "s"} before your visit. Cancelling isn't refunded.`],
               ["shield-alert", "If the resort cancels", "You choose a free new date or a full refund."],
               ["moon", `Quiet from ${QUIET_HOURS_START}`, `Music, videoke and speakers off. The events venue closes at ${venueCloseText()}.`],
@@ -562,6 +563,13 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
               </li>
             ))}
           </ul>
+          {/* Times, parking, outside food, payment and cancelling: the
+              questions guests ask before booking (About → FAQ). */}
+          <p style={{ margin: "18px 0 0", textAlign: "center" }}>
+            <a href="/about#faq" className="sw-ulink" style={{ color: C.goldInk, fontSize: 14, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Icon name="info" size={15} /> Questions about check-in, parking or food? Read the FAQ <Icon name="arrow-right" size={13} />
+            </a>
+          </p>
         </div>
       </div>
 

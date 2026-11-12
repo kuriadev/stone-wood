@@ -89,17 +89,17 @@ export function cashClues({ date, difference, openingFloat, payments, expenses }
     if (!same(p.amount)) continue;
     const refund = p.type === "Refund";
     if (!p.voided && onDay(p, date)) {
-      if (over && p.method !== "Cash" && p.method !== "PayMongo" && !refund) {
+      if (over && p.method !== "Cash" && !refund) {
         clues.push({ kind: "match", bookingId: p.bookingId ?? undefined,
           text: `${fmt(p.amount)} from ${who(p)} was recorded as ${p.method}. If they paid in cash, that is the extra money in the box.` });
       }
       if (over && p.method === "Cash" && refund) {
         clues.push({ kind: "match", bookingId: p.bookingId ?? undefined,
-          text: `A ${fmt(p.amount)} cash refund to ${who(p)} was recorded. If it was never handed over, or was sent by QR Ph, the money is still in the box.` });
+          text: `A ${fmt(p.amount)} cash refund to ${who(p)} was recorded. If it was never handed over, or was sent by GCash, the money is still in the box.` });
       }
       if (!over && p.method === "Cash" && !refund) {
         clues.push({ kind: "match", bookingId: p.bookingId ?? undefined,
-          text: `${fmt(p.amount)} from ${who(p)} was recorded as cash on ${day}. If they actually paid by QR Ph, hadn't paid yet, or the cash went into the box on another day, that is the missing money.` });
+          text: `${fmt(p.amount)} from ${who(p)} was recorded as cash on ${day}. If they actually paid by GCash, hadn't paid yet, or the cash went into the box on another day, that is the missing money.` });
       }
     }
     if (over && p.voided && p.method === "Cash" && !refund && onDay(p, date)) {

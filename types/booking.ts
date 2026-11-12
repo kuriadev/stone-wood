@@ -8,10 +8,10 @@ export type BookingStatus = "Pending" | "Confirmed" | "Completed" | "Cancelled" 
 /** A refund the resort owes, then has sent. */
 export type RefundStatus = "Owed" | "Sent";
 export type BookingPackage =
-  | "Day Tour"
-  | "Day Tour + Room"
-  | "Night Tour"
-  | "Night Tour + Room"
+  | "Day Stay"
+  | "Day Stay + Room"
+  | "Night Stay"
+  | "Night Stay + Room"
   | "On-Site Reservation";
 
 /** Where the reservation was made. Older records (before this field
@@ -19,7 +19,7 @@ export type BookingPackage =
 export type BookingSource = "Online" | "Walk-In";
 
 /** Which physical resource(s) this booking actually uses. "Pool" is the
- *  original tour-style booking; "Venue" is the events hall rented on its
+ *  original stay-style booking; "Venue" is the events hall rented on its
  *  own (no pool at all — e.g. a Zumba session); "Pool+Venue" is a full
  *  buyout of both together. Undefined on legacy records ⇒ "Pool", since
  *  the events venue didn't exist yet when they were created. */
@@ -27,7 +27,7 @@ export type BookingResource = "Pool" | "Venue" | "Pool+Venue";
 
 /** "Shared" = the pool may be used by other same-day Shared bookings too;
  *  "Exclusive" = whole-resort buyout of its slot(s), no other booking
- *  allowed in them; the other tour that date stays open.
+ *  allowed in them; the other stay that date stays open.
  *  Chosen explicitly by the guest/staff rather than only inferred from
  *  guest count. Undefined on legacy records ⇒ derived from guest count via
  *  getPackageTier(). Only meaningful when resource includes "Pool" — a
@@ -133,8 +133,6 @@ export interface Booking {
   archived?: boolean;
   /** ISO timestamp of when this booking was archived. */
   archivedAt?: string;
-  /** PayMongo payment intent that paid the down payment (online only). */
-  paymentIntentId?: string;
   /** Day / Night / Whole Day. Undefined on older records ⇒ read from the
    *  package label (see getBookingSlot). */
   slot?: BookingSlot;

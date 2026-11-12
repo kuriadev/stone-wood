@@ -26,6 +26,9 @@ import { fmtDate } from "@/lib/utils";
 
 type Group = keyof BusinessSettings;
 
+/** The longest a GCash number (+63 966 254 0677) and an account name can be. */
+const GCASH_MAX = { gcashNumber: 16, gcashName: 40 } as const;
+
 export function SettingsTab({ mob }: { mob: boolean }) {
   const { C, cBr, cBg, inp } = useAdminStyle();
   const { toast } = useToast();
@@ -144,52 +147,74 @@ export function SettingsTab({ mob }: { mob: boolean }) {
       {/* No discounts section: a booking built by hand pays these rates, and
           a deal is a package's own price (owner's call, 2026-10-27). */}
       {section("Prices", "What a booking built by hand costs. For a deal, set a package's own price in Packages & Prices.", <>
-        <h3 style={{ gridColumn: "1 / -1", color: C.textH, fontSize: 13.5, fontWeight: 600, margin: "0 0 -4px", }}>Day Tour</h3>
-        {num("rates", "sharedPerHead", "Shared pool, per guest", `For one Day Tour. ${r.sharedPerHead || 0 ? `A group of 10 pays ${fmt(10 * Number(r.sharedPerHead || 0))}.` : ""}`, "₱")}
-        {num("rates", "exclusiveFlat", "Exclusive pool", "The whole pool for one Day Tour, whatever the group's size.", "₱")}
-        {num("rates", "childPerHead", `Shared pool, per child ${Number(form.limits.childFreeAge) || 3} years old and below`, "Half the adult rate to start. Free in an Exclusive booking; 0 makes them free in Shared too.", "₱")}
-        {num("rates", "overtimePerHour", "Overtime, per hour", "Added by staff on the day, only when the Night Tour is free.", "₱")}
-        <h3 style={{ gridColumn: "1 / -1", color: C.textH, fontSize: 13.5, fontWeight: 600, margin: "8px 0 -4px", paddingTop: 12, borderTop: `1px solid ${cBr}` }}>Night Tour</h3>
-        {num("rates", "sharedPerHeadNight", "Shared pool, per guest", "For one Night Tour.", "₱")}
-        {num("rates", "exclusiveNight", "Exclusive pool", "The whole pool for one Night Tour.", "₱")}
-        {num("rates", "childPerHeadNight", `Shared pool, per child ${Number(form.limits.childFreeAge) || 3} years old and below`, "For one Night Tour. Free in an Exclusive booking.", "₱")}
+        <h3 style={{ gridColumn: "1 / -1", color: C.textH, fontSize: 13.5, fontWeight: 600, margin: "0 0 -4px", }}>Day Stay</h3>
+        {num("rates", "sharedPerHead", "Shared pool, per guest", `For one Day Stay. ${r.sharedPerHead || 0 ? `A group of 10 pays ${fmt(10 * Number(r.sharedPerHead || 0))}.` : ""}`, "₱")}
+        {num("rates", "exclusiveFlat", "Private pool", "The whole pool for one Day Stay, whatever the group's size.", "₱")}
+        {num("rates", "childPerHead", `Shared pool, per child ${Number(form.limits.childFreeAge) || 3} years old and below`, "Half the adult rate to start. Free with a private pool booking; 0 makes them free in Shared too.", "₱")}
+        {num("rates", "overtimePerHour", "Overtime, per hour", "Added by staff on the day, only when the Night Stay is free.", "₱")}
+        <h3 style={{ gridColumn: "1 / -1", color: C.textH, fontSize: 13.5, fontWeight: 600, margin: "8px 0 -4px", paddingTop: 12, borderTop: `1px solid ${cBr}` }}>Night Stay</h3>
+        {num("rates", "sharedPerHeadNight", "Shared pool, per guest", "For one Night Stay.", "₱")}
+        {num("rates", "exclusiveNight", "Private pool", "The whole pool for one Night Stay.", "₱")}
+        {num("rates", "childPerHeadNight", `Shared pool, per child ${Number(form.limits.childFreeAge) || 3} years old and below`, "For one Night Stay. Free with a private pool booking.", "₱")}
         <div aria-hidden="true" />
         <h3 style={{ gridColumn: "1 / -1", color: C.textH, fontSize: 13.5, fontWeight: 600, margin: "8px 0 -4px", paddingTop: 12, borderTop: `1px solid ${cBr}` }}>Staycation</h3>
         {num("rates", "sharedPerHeadStay", "Shared pool, per guest", "Day and Night together, for each day of the stay.", "₱")}
-        {num("rates", "exclusiveStay", "Exclusive pool", "The whole pool, Day and Night together, for each day of the stay.", "₱")}
+        {num("rates", "exclusiveStay", "Private pool", "The whole pool, Day and Night together, for each day of the stay.", "₱")}
         <h3 style={{ gridColumn: "1 / -1", color: C.textH, fontSize: 13.5, fontWeight: 600, margin: "8px 0 -4px", paddingTop: 12, borderTop: `1px solid ${cBr}` }}>Events venue</h3>
-        {num("rates", "venue", "Events venue, per tour", "Always exclusive: one event per tour, whoever has the pool. A Staycation pays it for both tours.", "₱")}
+        {num("rates", "venue", "Events venue, per stay", "Always exclusive: one event per stay, whoever has the pool. A Staycation pays it for both stays.", "₱")}
       </>)}
 
       {section("Limits", "How many people, how long and how far ahead.", <>
-        {num("limits", "resortCapacity", "Most guests at once", "Caps a booking, and all Shared groups in a slot together.", "")}
+        {num("limits", "resortCapacity", "Most guests at once", "Caps a booking, and all shared-pool groups in a slot together.", "")}
         {num("limits", "venueCapacity", "Events venue capacity", "What the hall holds: the most guests for a venue-only booking or package. Anything with the pool stays at the number above.", "")}
-        {num("limits", "exclusiveDefaultGuests", "Exclusive booking starts at", "The guest count a buyout starts at; guests can raise it.", "")}
+        {num("limits", "exclusiveDefaultGuests", "Private pool booking starts at", "The guest count a buyout starts at; guests can raise it.", "")}
         {num("limits", "overtimeMaxHours", "Most overtime, hours", "0 turns overtime off.", "")}
         {num("limits", "maxStayDays", "Longest stay, days", "For Staycations over several dates.", "")}
         {num("limits", "bookingWindowMonths", "Guests can book up to, months ahead", "Dates further out are greyed out on the calendar. A short window keeps the calendars quick.", "")}
         {num("limits", "bookingHistoryMonths", "Calendar shows, months back", "Guests and staff can page back to see past dates. They can't be booked. 0 starts the calendar at this month.", "")}
         {num("limits", "rescheduleNoticeDays", "Date changes close, days before the visit", "A guest can ask to move their booking only while the visit is at least this far away. 2 means a booking for tomorrow can't be moved today. Cancelling online closes at the same time.", "")}
-        {num("limits", "peopleMax", "Most people at once", "Everyone at the resort in one tour, every group together, children included. Also the most staff can put on one booking.", "")}
-        {num("limits", "childFreeAge", "Children are, years old and below", "This age and younger counts as a child: free in an Exclusive booking, the child rate in a Shared one.", "")}
-        {num("limits", "lateBookingHours", "Same-day booking, hours after a tour starts", "Today's tour can be booked online until this long after it starts. 0 closes it when the tour starts.", "")}
+        {num("limits", "peopleMax", "Most people at once", "Everyone at the resort in one stay, every group together, children included. Also the most staff can put on one booking.", "")}
+        {num("limits", "childFreeAge", "Children are, years old and below", "This age and younger counts as a child: free with a private pool, the child rate in a Shared one.", "")}
+        {num("limits", "lateBookingHours", "Same-day booking, hours after a stay starts", "Today's stay can be booked online until this long after it starts. 0 closes it when the stay starts.", "")}
         {num("limits", "holdHours", "A new date is held for, hours", "While staff approve a guest's date change, the new date stays held for them this long.", "")}
         {num("limits", "noShowChoiceDays", "After a no-show, days to pick a new date", "The guest is emailed a link the day after and can choose a new date within this many days.", "")}
         {num("limits", "detailsCooldownHours", "Wait between guest detail changes, hours", "After a guest changes their name, email or number on Manage booking. 0 lets them change it any time.", "")}
       </>)}
 
-      {section("Hours", "The two tours. A Staycation runs from the Day Tour's start to the Night Tour's end.", <>
-        {hour("dayStart", "Day Tour starts", 4, 12)}
-        {hour("dayEnd", "Day Tour ends", 9, 21)}
-        {hour("nightStart", "Night Tour starts", 14, 23)}
-        {hour("nightEnd", "Night Tour ends", 20, 35)}
+      {section("Hours", "The two stays. A Staycation runs from the Day Stay's start to the Night Stay's end.", <>
+        {hour("dayStart", "Day Stay starts", 4, 12)}
+        {hour("dayEnd", "Day Stay ends", 9, 21)}
+        {hour("nightStart", "Night Stay starts", 14, 23)}
+        {hour("nightEnd", "Night Stay ends", 20, 35)}
         {hour("venueEnd", "Events venue closes", 16, 35)}
         {hour("quietStart", "Quiet hours start", 18, 35)}
         <p style={{ gridColumn: "1 / -1", color: C.textS, fontSize: 12.5, margin: 0 }}>
-          <Icon name="info" size={12} /> Each tour is at least 4 hours, with at least an hour between groups for cleaning — evening and morning.
-          The events venue closes at its own time at night: a venue-only booking ends then, and a group with the pool moves to the pool until the Night Tour ends.
+          <Icon name="info" size={12} /> Each stay is at least 4 hours, with at least an hour between groups for cleaning — evening and morning.
+          The events venue closes at its own time at night: a venue-only booking ends then, and a group with the pool moves to the pool until the Night Stay ends.
           Package descriptions you wrote yourself keep their own wording; update them in Packages &amp; Prices if they mention times.
         </p>
+      </>)}
+
+      {section("GCash for online payments", "Guests send their payment to this GCash, then upload the receipt. Staff confirm it in Dashboard → Pending proof of payment.", <>
+        {(["gcashNumber", "gcashName"] as const).map((k) => (
+          <div key={k}>
+            <Label htmlFor={`st-c-${k}`}>{{ gcashNumber: "GCash number", gcashName: "Name on the GCash account" }[k]}</Label>
+            {/* Capped: a mobile number is 11 digits (16 with +63 and spaces),
+                and a GCash name is short. The number takes digits, spaces
+                and a leading + only. */}
+            <div style={{ position: "relative" }}>
+              <Input id={`st-c-${k}`} value={form.contact[k] ?? ""}
+                onChange={(e) => set("contact", k, k === "gcashNumber" ? e.target.value.replace(/[^\d+ ]/g, "").replace(/(?!^)\+/g, "").slice(0, GCASH_MAX[k]) : e.target.value.slice(0, GCASH_MAX[k]))}
+                maxLength={GCASH_MAX[k]} placeholder={k === "gcashNumber" ? "0966 254 0677" : "e.g. SEAN JETHRO M."}
+                type={k === "gcashNumber" ? "tel" : "text"} inputMode={k === "gcashNumber" ? "tel" : "text"}
+                aria-invalid={!!errs[`contact.${k}`]} style={{ ...inp, width: "100%", paddingRight: 56, ...bad(`contact.${k}`) }} />
+              <span aria-hidden="true" style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 11.5, fontFamily: "monospace", color: (form.contact[k] ?? "").length >= GCASH_MAX[k] ? "#e55" : C.textS }}>
+                {(form.contact[k] ?? "").length}/{GCASH_MAX[k]}
+              </span>
+            </div>
+            {errs[`contact.${k}`] && note(`contact.${k}`, "")}
+          </div>
+        ))}
       </>)}
 
       {section("Contact details", "Shown on the website, the guest's booking page, and in every email.", <>

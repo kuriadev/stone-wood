@@ -6,7 +6,7 @@ import {
   Wrench, Image as ImageIcon, Package, TrendingUp, ChartColumn, MessageSquare,
   Check, CircleCheck, X, TriangleAlert, Users, Trash, Mail, Lock, Moon, Sun,
   Clock, Link as LinkIcon, Flag, Banknote, Download, FolderOpen, Menu, Search,
-  Waves, Flame, CircleDot, Mic, Car, Tent,
+  Waves, Flame, CircleDot, MicVocal, Car, Tent,
   Leaf, TreePalm, Sunrise, Phone, MapPin, Settings, Star, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   SunMoon, Handshake, Siren, Info, Circle, Bookmark,
   Plus, Minus, SquarePen, Pencil, LogOut, Eye, EyeOff,
@@ -94,7 +94,8 @@ const REGISTRY = {
   pool: Waves,
   flame: Flame,
   billiards: CircleDot,
-  mic: Mic,
+  // Videoke: a handheld karaoke mic.
+  mic: MicVocal,
   car: Car,
   tent: Tent,
 

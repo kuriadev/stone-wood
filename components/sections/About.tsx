@@ -70,12 +70,17 @@ export function About({
     { icon: "phone", label: "Call or text", value: RESORT_CONTACT.phone, href: `tel:${RESORT_CONTACT.phone.replace(/[^\d+]/g, "")}` },
     { icon: "mail", label: "Email", value: RESORT_CONTACT.email, href: `mailto:${RESORT_CONTACT.email}` },
   ];
+  // The questions guests ask before booking (tester feedback, 2026-11-12):
+  // times, parking, outside food, then payment and cancelling.
   const faqs: { q: string; a: string }[] = [
-    { q: "How much do I pay to book?", a: "Half of the total, paid online by QR Ph — scan the code with GCash, Maya or any e-wallet that accepts QR Ph. The other half is paid when you arrive. You can also pay the full amount at once." },
+    { q: "What time is check-in and check-out?", a: `${SLOTS.Day.label}: check in from ${SLOTS.Day.start}, check out by ${SLOTS.Day.end}. ${SLOTS.Night.label}: check in from ${SLOTS.Night.start}, check out by ${SLOTS.Night.end} the next morning. ${stay.label}: from ${stay.start} on your first day until ${stay.end} after your last night.` },
+    { q: "Is there parking?", a: "Yes. Free, secure parking is on-site for all guests, included with your booking." },
+    { q: "Can we bring our own food and drinks?", a: "Yes, free of charge. You're welcome to bring your own food and drinks, and the BBQ / grilling area is yours to use. Please keep the resort clean and take your trash with you or use the bins." },
+    { q: "How much do I pay to book?", a: "Half of the total, sent to the resort's GCash when you book (scan our QR or use our GCash number). Then upload a photo or screenshot of your receipt as proof of payment. Our staff check that the payment arrived before your booking is confirmed, and we email you once it is. The other half is paid when you arrive. You can also pay the full amount at once." },
     { q: "What if I need to cancel?", a: `If you cancel, payments are not refunded — but you can move your booking to another free date once, at no charge, if you ask at least ${notice} before your visit.` },
     { q: "What if the resort has to cancel?", a: "You choose: a free new date, or a full refund. The same goes for a PAGASA storm signal or a travel restriction. The resort contacts you." },
     { q: "Do I have to sleep over for a stay of several days?", a: `A booking of more than one date is a ${stay.label}: the resort stays yours from ${stay.start} on the first day until ${stay.end} after the last night.` },
-    { q: "Are there quiet hours?", a: `Music, videoke and speakers go off at ${QUIET_HOURS_START} so our neighbours can rest. The events venue closes at ${venueCloseText()}: a venue-only booking ends then, and a group that also booked the pool moves to the pool until the Night Tour ends.` },
+    { q: "Are there quiet hours?", a: `Music, videoke and speakers go off at ${QUIET_HOURS_START} so our neighbours can rest. The events venue closes at ${venueCloseText()}: a venue-only booking ends then, and a group that also booked the pool moves to the pool until the Night Stay ends.` },
     { q: "How many guests can we bring?", a: `Up to ${GUESTS_MAX} with the pool, which is what the pool area holds. An event in the venue only, without the pool, can have up to ${VENUE_CAPACITY}.` },
   ];
 
@@ -304,11 +309,11 @@ export function About({
           </Reveal>
         </div>
 
-        <div className="sw-about__faq">
+        <div className="sw-about__faq" id="faq" style={{ scrollMarginTop: 96 }}>
           <Reveal>
             <div>
-              <h3 className="sw-about__faqtitle" style={{ color: C.textH }}>Policies and questions</h3>
-              <p className="sw-about__faqsub" style={{ color: C.textS }}>The same rules you agree to when you book.</p>
+              <h3 className="sw-about__faqtitle" style={{ color: C.textH }}>Frequently asked questions</h3>
+              <p className="sw-about__faqsub" style={{ color: C.textS }}>Times, parking, food, payment and cancelling: the same rules you agree to when you book.</p>
             </div>
           </Reveal>
           <Reveal delay={REVEAL_STEP}>
@@ -345,7 +350,7 @@ export function About({
             <div style={{ textAlign: "center", marginBottom: 28 }}>
               <h3 className="sw-about__faqtitle" style={{ color: C.textH, fontSize: mob ? 24 : 28 }}>Rates</h3>
               <p className="sw-about__faqsub" style={{ color: C.textS }}>
-                What each tour costs. Book with a 50% deposit; the rest is paid at the resort.
+                What each stay costs. Book with a 50% deposit; the rest is paid at the resort.
               </p>
             </div>
           </Reveal>
@@ -370,7 +375,7 @@ export function About({
                       </div>
                     )}
                     <div className="sw-about__ratebox" style={{ background: isDark ? "rgba(255,255,255,0.03)" : "#ffffff", borderColor: C.border }}>
-                      <span className="sw-about__ratelabel" style={{ color: C.goldInk }}>Exclusive pool</span>
+                      <span className="sw-about__ratelabel" style={{ color: C.goldInk }}>Private pool</span>
                       <span className="sw-about__price" style={{ color: C.textH }}>{fmt(exclusiveRateFor(id))}<small style={{ color: C.textS }}>{stay ? " / day" : " flat"}</small></span>
                       <span className="sw-about__ratenote" style={{ color: C.textB }}>
                         The pool and resort are your group&rsquo;s alone, up to {GUESTS_MAX} guests. Children {CHILD_FREE_AGE} years old and below are free.
@@ -383,7 +388,7 @@ export function About({
                     )}
                     {stay && (
                       <p className="sw-about__ratenote" style={{ color: C.textS, margin: "4px 2px 0" }}>
-                        A Staycation is Exclusive only: day and night with no break between tours.
+                        A Staycation always has a private pool: day and night with no break between stays.
                       </p>
                     )}
                   </div>
@@ -397,12 +402,12 @@ export function About({
             <Reveal>
               <div className="sw-about__ratecard" style={{ background: C.bgCard, borderColor: C.border }}>
                 <p className="sw-about__ratename" style={{ color: C.goldInk }}>Events venue</p>
-                <p className="sw-about__ratehours" style={{ color: C.textB }}><Icon name="clock" size={15} style={{ color: C.goldInk }} />Open until {venueCloseText()} on a Night Tour or Staycation</p>
+                <p className="sw-about__ratehours" style={{ color: C.textB }}><Icon name="clock" size={15} style={{ color: C.goldInk }} />Open until {venueCloseText()} on a Night Stay or Staycation</p>
                 <div className="sw-about__ratebox" style={{ background: isDark ? "rgba(255,255,255,0.03)" : "#ffffff", borderColor: C.border }}>
-                  <span className="sw-about__ratelabel" style={{ color: C.goldInk }}>Per tour</span>
+                  <span className="sw-about__ratelabel" style={{ color: C.goldInk }}>Per stay</span>
                   <span className="sw-about__price" style={{ color: C.textH }}>{fmt(EVENT_VENUE_RATE)}</span>
                   <span className="sw-about__ratenote" style={{ color: C.textB }}>
-                    One event at a time, up to {VENUE_CAPACITY} guests. Book it on its own, or with the resort and pool. A Staycation pays it for both tours.
+                    One event at a time, up to {VENUE_CAPACITY} guests. Book it on its own, or with the resort and pool. A Staycation pays it for both stays.
                   </span>
                 </div>
               </div>
@@ -410,7 +415,7 @@ export function About({
             <Reveal delay={REVEAL_STEP}>
               <div className="sw-about__ratecard" style={{ background: C.bgCard, borderColor: C.border }}>
                 <p className="sw-about__ratename" style={{ color: C.goldInk }}>Rooms</p>
-                <p className="sw-about__ratehours" style={{ color: C.textB }}><Icon name="bed" size={15} style={{ color: C.goldInk }} />An add-on to any tour, priced per tour (twice for a Staycation)</p>
+                <p className="sw-about__ratehours" style={{ color: C.textB }}><Icon name="bed" size={15} style={{ color: C.goldInk }} />An add-on to any stay, priced per stay (twice for a Staycation)</p>
                 {rooms.length === 0 ? (
                   <p className="sw-about__ratenote" style={{ color: C.textS }}>Room rates are shown when you book.</p>
                 ) : (
@@ -421,7 +426,7 @@ export function About({
                           <span style={{ display: "block", color: C.textH, fontSize: 15.5, fontWeight: 600 }}>{rm.name}</span>
                           <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px 8px", marginTop: 4, color: C.textS, fontSize: 13.5 }}>{rm.beds} <GuestCapBadge n={rm.capacity} size={12} /></span>
                         </span>
-                        <span style={{ color: C.textH, fontSize: 19, fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(rm.price)}<small style={{ color: C.textS, fontSize: 13, fontWeight: 400 }}> / tour</small></span>
+                        <span style={{ color: C.textH, fontSize: 19, fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(rm.price)}<small style={{ color: C.textS, fontSize: 13, fontWeight: 400 }}> / stay</small></span>
                       </li>
                     ))}
                   </ul>
@@ -430,13 +435,13 @@ export function About({
             </Reveal>
           </div>
 
-          {/* What every tour with the pool includes: the amenities the owner
+          {/* What every stay with the pool includes: the amenities the owner
               lists in Facility Management. */}
           {amenities.length > 0 && (
             <Reveal>
               <div className="sw-about__ratecard" style={{ background: C.bgCard, borderColor: C.border, marginTop: 16, height: "auto" }}>
-                <p className="sw-about__ratename" style={{ color: C.goldInk }}>Included with your tour</p>
-                <p className="sw-about__ratehours" style={{ color: C.textB }}><Icon name="check-circle" size={15} style={{ color: C.goldInk }} />Free to use on every Day Tour, Night Tour and Staycation with the resort &amp; pool</p>
+                <p className="sw-about__ratename" style={{ color: C.goldInk }}>Included with your stay</p>
+                <p className="sw-about__ratehours" style={{ color: C.textB }}><Icon name="check-circle" size={15} style={{ color: C.goldInk }} />Free to use on every Day Stay, Night Stay and Staycation with the resort &amp; pool</p>
                 <ul className="sw-about__amen">
                   {amenities.map((a) => (
                     <li key={a.id} style={{ borderColor: C.border, background: isDark ? "rgba(255,255,255,0.03)" : "#ffffff", opacity: a.underMaintenance ? 0.6 : 1 }}>

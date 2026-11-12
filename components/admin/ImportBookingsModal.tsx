@@ -135,7 +135,7 @@ export function ImportBookingsModal({ onClose, onPrintOffline }: { onClose: () =
       {/* 1 and 2: the template, and the file. */}
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
         <div style={{ background: soft, borderRadius: 10, padding: "12px 16px", fontSize: 13, color: C.textB, lineHeight: 1.6 }}>
-          <strong style={{ color: C.textH }}>1.</strong> Fill in the template, one booking per row. Tour, Booking, Pool, Rooms and Paid by are dropdowns.
+          <strong style={{ color: C.textH }}>1.</strong> Fill in the template, one booking per row. Stay, Booking, Pool, Rooms and Paid by are dropdowns.
           {onPrintOffline && <> Printed the offline sheet? Type its bookings into the template.</>}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
             <ActionButton size="sm" icon="download" disabled={busy !== ""} onClick={() => void template()}>{busy === "template" ? "Making…" : "Download template"}</ActionButton>

@@ -5,7 +5,6 @@
   import "./BookNow.css";
   import { useWidth } from "@/hooks/useWidth";
   import { T } from "@/lib/theme";
-  import { WalletBadges } from "@/components/common/WalletBadges";
   import { gold, goldBtn, outBtn } from "@/lib/styles";
   import { peopleOnTour, fmt, fmtTimer, fmtDate, getPackageTier, checkRangeAvailability, datesBetween, daysInRange, getSharedPoolUsage, isRoomOpen, isPoolOpen, isVenueOpen, roomsTakenInRange, stayLabel, SLOT_ICON } from "@/lib/utils";
   import { roomShots } from "@/lib/gallery";
@@ -24,6 +23,8 @@
   import { GuestCapBadge } from "@/components/common/GuestCapBadge";
 import { imageAt } from "@/lib/img";
 import { Icon, type IconName } from "@/components/common/Icon";
+import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPayment";
+
   import { EmailTypoHint } from "@/components/common/EmailTypoHint";
   import { suggestEmail } from "@/lib/emailTypos";
   import { RoomCartDock } from "@/components/common/RoomCartDock";
@@ -104,7 +105,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
     clearPreselectedDate?: () => void;
     onGoHome?: () => void;
     /** Deep-link support (e.g. a Home page package card): pre-select the
-     *  resource/tier and jump straight past the Tour Type step. Undefined
+     *  resource/tier and jump straight past the Stay Type step. Undefined
      *  ⇒ ordinary flow starting at Step 1. */
     initialResource?: BookingResource;
     initialTier?: BookingTier;
@@ -179,7 +180,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
     const lastDay = endDate && endDate > date ? endDate : date;
     const stayDays = date ? Math.max(1, daysInRange(date, lastDay)) : 1;
     /* Adults (everyone 3 and older) and children under 3, counted apart:
-       an Exclusive tour lets little ones in free, a Shared one bills and
+       an Exclusive stay lets little ones in free, a Shared one bills and
        counts them (lib/children.ts). `guests`, below, is the count that is
        priced and checked against capacity. */
     const [adults, setAdults] = useState(initialPackage?.capacity ?? initialGuests ?? 2);
@@ -195,7 +196,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
     // availability call below has one shape for both sides.
     const overtime = 0;
     /* When the guest really arrives and really leaves. Not the same as the
-       first and last dates: a Night Tour booked for the 10th ends at 5 AM
+       first and last dates: a Night Stay booked for the 10th ends at 5 AM
        on the 11th, a date the booking never mentions anywhere. Guests were
        left to work that out from the hours themselves, and got it wrong. */
     // Which resource is being booked (Pool / events Venue / both), and an
@@ -205,7 +206,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
     // exclusively?" without forcing a choice on everyone.
     const [resource, setResource] = useState<BookingResource>(initialResource ?? "Pool");
     // This booking's own hours: the venue alone closes at midnight, not at
-    // the end of the Night Tour (lib/resort.ts slotFor).
+    // the end of the Night Stay (lib/resort.ts slotFor).
     const slotInfo = slotFor(slot, resource);
     const venueNote = venueClosesNote(slot, resource);
     const stayWin = date ? stayWindowLabel({ date, endDate: lastDay, slot, overtime, resource }) : null;
@@ -223,48 +224,16 @@ import { Icon, type IconName } from "@/components/common/Icon";
     const addedRooms = useRoomCart();
     const [form, setFormState] = useState({ name: "", email: "", contact: "", notes: "" });
     const [bookingId, setBookingId] = useState("");
-    // Paid online bookings are confirmed at once; only one the server
-    // flagged (the date taken while paying, say) waits for the resort.
+    // Every online booking waits for staff to check its GCash receipt, so
+    // the Done screen says "being checked" (true only if that ever changes).
     const [confirmedNow, setConfirmedNow] = useState(true);
     // Pay the 50% deposit (the default) or the whole total now.
     const [payFull, setPayFull] = useState(false);
-    const [qrSeconds, setQrSeconds] = useState(600);
-    const [qrExpired, setQrExpired] = useState(false);
-    const [qrRetryKey, setQrRetryKey] = useState(0);
-    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-    // ── Live PayMongo QRPh payment ────────────────────────────────────────
-    // qrData holds the real, per-transaction QR returned by /api/payment.
-    // Until it arrives the screen shows a loading state rather than a
-    // decorative placeholder, so nobody can be asked to scan a fake code.
-    const [qrData, setQrData] = useState<{
-      paymentIntentId: string;
-      qrImageUrl: string;
-      expiresAt: string | null;
-      expiresInSeconds: number;
-      amountCentavos: number;
-      testUrl: string | null;
-    } | null>(null);
-    const [qrLoading, setQrLoading] = useState(false);
-    const [qrError, setQrError] = useState<string | null>(null);
-    const [paid, setPaid] = useState(false);
-    // The server's own price for this booking, returned with the QR. The
-    // payment screen shows these so the amount on screen is exactly the
-    // amount on the QR, even if something changed since the guest started.
-    const [serverQuote, setServerQuote] = useState<{ total: number; down: number; dueNow: number; payFull: boolean } | null>(null);
-    // Saving the booking after payment: in progress, or failed with a message.
-    const [saving, setSaving] = useState(false);
-    const [saveError, setSaveError] = useState<string | null>(null);
-    // Held in a ref so the teardown below can void whatever intent is live
-    // without the effect having to re-run every time qrData changes.
-    const activeIntentRef = useRef<string | null>(null);
-
     // Modal states
     const [showGcashWarning, setShowGcashWarning] = useState(false);
     /** What the server refused before payment, and for which choices. */
     const [blocked, setBlocked] = useState<{ key: string; step: "date" | "room" | "contact"; reason: string } | null>(null);
     const [checking, setChecking] = useState(false);
-    const [showCancelPay, setShowCancelPay] = useState(false);
     const [roomPhoto, setRoomPhoto] = useState<Room | null>(null);
     const [policyChecked, setPolicyChecked] = useState(false);
     // The Terms and Privacy Policy scrolled to the end (TermsPolicy.tsx).
@@ -379,7 +348,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
     const kidsShown = kidsAllowed || tier === "Exclusive";
     // Adults are held to the capacity; children come on top, up to
     // CHILDREN_TOTAL_MAX people in all (lib/children.ts).
-    // Everyone already booked into that tour counts too (lib/utils.ts).
+    // Everyone already booked into that stay counts too (lib/utils.ts).
     const onTour = date ? peopleOnTour(date, lastDay, slot, bookings) : 0;
     const kidCap = kidsAllowed ? childLimit(adults, guestCap, onTour, tier) : 0;
     const kids = Math.min(children, kidCap);
@@ -452,9 +421,9 @@ import { Icon, type IconName } from "@/components/common/Icon";
     const stayDates = date ? datesBetween(date, lastDay) : [];
     const shutDay = stayDates.find((d) => closedSet.has(d));
     const outsideWindow = stayDates.find((d) => !isWithinBookingWindow(d));
-    // Today's tour, once it has started, can't be booked online.
+    // Today's stay, once it has started, can't be booked online.
     const startedProblem = date ? slotStartedProblem(date, slot, undefined, resource) : null;
-    // Booking today's tour after it started: it still ends at the usual time.
+    // Booking today's stay after it started: it still ends at the usual time.
     const lateNote = date ? lateArrivalNote(date, slot, undefined, resource) : null;
     const dateOk =
       !!date &&
@@ -562,11 +531,11 @@ import { Icon, type IconName } from "@/components/common/Icon";
       // The server's proof that this email was confirmed with a code.
       emailProof: emailVerified ? emailProof!.token : undefined,
     };
-    // What the QR charges and what is left for arrival. Once the QR exists
-    // the server's figures win, so the screen always matches the QR.
-    const dueNow = serverQuote?.dueNow ?? (payFull ? total : down);
-    const fullTotal = serverQuote?.total ?? total;
-    const paidInFull = serverQuote?.payFull ?? payFull;
+    // What the guest sends now by GCash, and what is left for arrival. The
+    // server prices the booking again when the receipt arrives.
+    const dueNow = payFull ? total : down;
+    const fullTotal = total;
+    const paidInFull = payFull;
     const roomsFree = selRooms.every((r) => !takenRooms.has(r));
     // A room is extra space, not where the whole group stays: the headcount
     // is checked against the resort's capacity, never a room's, so a group
@@ -630,189 +599,33 @@ import { Icon, type IconName } from "@/components/common/Icon";
     const handleName = (v: string) => setF("name", sanitizeName(v));
     const handleNotes = (v: string) => setF("notes", sanitizeNotes(v));
 
-    // ── 1. Mint a real QR when the guest reaches step 6 ───────────────────
-    // The booking as it stands, for the QR below: a new QR is made when the
-    // guest reaches the payment step (or retries), not each time a value in
-    // the draft changes.
-    const draftRef = useRef(draft);
-    useEffect(() => { draftRef.current = draft; });
-    // Each visit creates its own PayMongo payment intent, so every booking
-    // (and every retry) gets a genuinely unique QR rather than a shared image.
-    useEffect(() => {
-      if (step !== 6) return;
-      let cancelled = false;
-
-      setQrData(null);
-      // The last QR's figures go too: the guest may have switched between
-      // the deposit and paying in full since then.
-      setServerQuote(null);
-      setQrError(null);
-      setPaid(false);
-      setQrExpired(false);
-      setQrLoading(true);
-
-      (async () => {
-        try {
-          const res = await fetch("/api/payment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            // The booking itself, not an amount: the server prices it and
-            // decides what the QR charges.
-            body: JSON.stringify({ draft: draftRef.current }),
-          });
-          const json = await res.json();
-          if (cancelled) return;
-          if (!json.success) throw new Error(json.error ?? "Could not start payment.");
-          activeIntentRef.current = json.payment.paymentIntentId;
-          setServerQuote(json.quote ?? null);
-          setQrData(json.payment);
-        } catch (err) {
-          if (!cancelled) {
-            setQrError(err instanceof Error ? err.message : "Could not start payment.");
-          }
-        } finally {
-          if (!cancelled) setQrLoading(false);
-        }
-      })();
-
-      return () => {
-        cancelled = true;
-        // Leaving step 6 (BACK), or retrying, abandons this QR — so void it
-        // rather than leaving a payable code loose. DELETE checks the status
-        // first, so an intent that just succeeded is never cancelled; that
-        // is what makes this safe to run on the way to step 7 as well.
-        const abandoned = activeIntentRef.current;
-        activeIntentRef.current = null;
-        if (abandoned) {
-          // keepalive lets the request finish even if this unmount is part
-          // of the guest navigating away from the page entirely.
-          fetch(`/api/payment?id=${encodeURIComponent(abandoned)}`, {
-            method: "DELETE",
-            keepalive: true,
-          }).catch(() => {});
-        }
-      };
-    }, [step, qrRetryKey]);
-
-    // ── 2. Countdown, driven by PayMongo's own expiry ─────────────────────
-    // The old 600s constant was decorative — it could disagree with when the
-    // QR actually died. This reads the real expires_at instead.
-    useEffect(() => {
-      if (step !== 6 || !qrData || paid) return;
-
-      // The deadline is anchored to the moment this screen received the QR,
-      // using the server's own measurement of how long was left. Reading
-      // expires_at against Date.now() would misfire on any machine whose
-      // clock is off — a guest several minutes fast would watch a freshly
-      // minted QR expire immediately.
-      const deadline = Date.now() + qrData.expiresInSeconds * 1000;
-      let finished = false;
-
-      const expire = async () => {
-        if (finished) return;
-        finished = true;
-        if (timerRef.current) clearInterval(timerRef.current);
-
-        // Void it server-side before declaring it dead. DELETE re-checks the
-        // status first, so a payment that landed in the closing seconds is
-        // honoured instead of being cancelled out from under the guest.
-        try {
-          const res = await fetch(
-            `/api/payment?id=${encodeURIComponent(qrData.paymentIntentId)}`,
-            { method: "DELETE" }
-          );
-          const json = await res.json();
-          if (json?.paid) { setPaid(true); return; }
-        } catch {
-          // Even if the cancel call fails, the QR must stop being offered.
-        }
-        setQrExpired(true);
-      };
-
-      const sync = () => {
-        const left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
-        setQrSeconds(left);
-        if (left <= 0) void expire();
-      };
-
-      sync();
-      timerRef.current = setInterval(sync, 1000);
-      return () => { if (timerRef.current) clearInterval(timerRef.current); };
-    }, [step, qrData, paid]);
-
-    // ── 3. Poll PayMongo until the payment actually lands ─────────────────
-    // This replaces the old "I'VE COMPLETED PAYMENT" button, which simply
-    // took the guest's word for it and recorded the booking as Paid whether
-    // or not any money had moved.
-    useEffect(() => {
-      if (step !== 6 || !qrData || paid || qrExpired) return;
-      let cancelled = false;
-
-      const poll = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/payment?id=${encodeURIComponent(qrData.paymentIntentId)}`);
-          const json = await res.json();
-          if (cancelled || !json.success) return;
-          if (json.paid) {
-            clearInterval(poll);
-            setPaid(true);
-          }
-        } catch {
-          // A dropped poll is not fatal — the next tick tries again.
-        }
-      }, 3000);
-
-      return () => { cancelled = true; clearInterval(poll); };
-    }, [step, qrData, paid, qrExpired]);
-
-    // ── 4. Record the booking once payment is confirmed ───────────────────
-    useEffect(() => {
-      if (paid && step === 6) {
-        // Paid intents must never be handed to the teardown's DELETE. The
-        // endpoint would refuse to cancel one anyway, but clearing the ref
-        // avoids a pointless round trip on the way to step 7.
-        activeIntentRef.current = null;
-        const t = setTimeout(() => void confirmOnline(), 300); // brief beat so the tick lands; kept short so a guest who closes the tab right after paying is unlikely to beat the save
-        return () => clearTimeout(t);
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [paid, step]);
-
-    // Save the booking on the server once PayMongo confirms payment.
-    //
-    // This used to append the booking to a local list, which for a guest
-    // never left the browser — the admin never saw it and the date stayed
-    // open. Now the server checks the payment itself and stores the booking
-    // at the price actually paid, and the database assigns the reference.
-    // Safe to retry: the same payment can only ever create one booking.
-    const confirmOnline = async () => {
-      const paymentIntentId = qrData?.paymentIntentId;
-      if (!paymentIntentId || saving) return;
-      setSaving(true);
-      setSaveError(null);
+    // Paid by GCash: send the booking with the receipt. It is saved as
+    // Pending (the date is held) until staff confirm the money arrived.
+    const [proofBusy, setProofBusy] = useState(false);
+    const [proofError, setProofError] = useState<string | null>(null);
+    const submitProof = async (proof: string, ocr: ProofOcrResult) => {
+      if (proofBusy) return;
+      setProofBusy(true);
+      setProofError(null);
       try {
-        const res = await fetch("/api/bookings", {
+        const res = await fetch("/api/payment-proofs", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ draft, paymentIntentId }),
+          body: JSON.stringify({ draft, proof, ocr }),
         });
         const json = await res.json().catch(() => null);
-        if (!res.ok || !json?.success || !json.booking?.id) {
-          throw new Error(json?.error ?? "We couldn't save your booking.");
-        }
+        if (!res.ok || !json?.success || !json.booking?.id) throw new Error(json?.error ?? "We couldn't send your booking. Please try again.");
         setBookingId(json.booking.id);
-        setConfirmedNow(json.booking.status === "Confirmed");
+        setConfirmedNow(false);
         onBooked?.();
         clearPreselected?.(); clearPreselectedDate?.();
-        if (timerRef.current) clearInterval(timerRef.current);
         setStep(7);
       } catch (err) {
-        setSaveError(err instanceof Error ? err.message : "We couldn't save your booking.");
+        setProofError(err instanceof Error ? err.message : "We couldn't send your booking. Please try again.");
       } finally {
-        setSaving(false);
+        setProofBusy(false);
       }
     };
-
 
     /* Valid fields tint rather than announce. Kept subtle on purpose: it is
        confirmation, not an alert, and it sits behind the text the guest is
@@ -1030,7 +843,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
               lines.push([`Guests · ${guests} × ${fmt(sharedRateFor(slot))}${per}`, fmt(guests * sharedRateFor(slot) * stayDays)]);
               if (kids) lines.push([`Children · ${kids} × ${fmt(childRateFor(slot))}${per}`, fmt(kids * childRateFor(slot) * stayDays)]);
             } else {
-              lines.push([`Exclusive pool${per}`, fmt(poolFee)]);
+              lines.push([`Private pool${per}`, fmt(poolFee)]);
             }
           }
           if (venueFee > 0) lines.push([`Events venue${per}`, fmt(venueFee)]);
@@ -1088,7 +901,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
             <p className="sw-bsum__foot" style={{ color: C.textS }}>A room can be added in the next step.</p>
           )}
 
-          {/* A short note on the tour itself. */}
+          {/* A short note on the stay itself. */}
           {(venueNote || (!isPackage && stayDays > 1) || !isPackage) && (
             <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.border}`, color: C.textS, fontSize: 12, lineHeight: 1.6 }}>
               {venueNote && <>{venueNote}, then the pool and resort until {slotInfo.end}. </>}
@@ -1119,7 +932,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
           {/* How much to pay now. A radio group of two cards: the 50%
               deposit stays the default, and paying in full means nothing is
               left to settle on arrival. */}
-          <div id="pay-plan-label" style={{ color: C.textS, fontSize: 12, letterSpacing: 1.6, fontWeight: 700, marginBottom: 12 }}>HOW MUCH TO PAY NOW</div>
+          <div id="pay-plan-label" style={{ color: C.textS, fontSize: 12, letterSpacing: 1.6, fontWeight: 700, marginBottom: 12 }}>PAYMENT OPTIONS</div>
           <div role="radiogroup" aria-labelledby="pay-plan-label" style={{ display: "grid", gridTemplateColumns: mob || sideSummary ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(0, 1fr)", gap: 10 }}>
             {([
               { full: false, title: "50% deposit", amount: down, note: `${fmt(total - down)} paid at the resort` },
@@ -1155,60 +968,10 @@ import { Icon, type IconName } from "@/components/common/Icon";
           {sumRow("Package availed", availedLabel)}
           {sumRow("Guests", kids ? headcountLabel(adults, kids) : String(guests))}
           {sumHr}
-          {sumTotal("Full total", fmt(serverQuote?.total ?? total))}
-          <p className="sw-bsum__foot" style={{ color: C.textS, margin: "14px 0 16px" }}>
-            Keep this page open while you pay.
+          {sumTotal("Full total", fmt(total))}
+          <p className="sw-bsum__foot" style={{ color: C.textS, margin: "14px 0 0" }}>
+            Pay now: <strong style={{ color: C.textH }}>{fmt(dueNow)}</strong>{paidInFull ? " (in full)" : ` · ${fmt(total - dueNow)} on arrival`}. We confirm your booking by email once we see it in our GCash.
           </p>
-          {/* Live status. There is deliberately no "I've paid" button any
-              more — the old one recorded the booking as Paid on the guest's
-              say-so, whether or not any money had moved. Confirmation now
-              comes from PayMongo. */}
-          {paid ? (
-            <div style={{ background: "rgba(0,169,82,0.10)", border: "1px solid rgba(0,169,82,0.35)", borderRadius: 12, padding: "16px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontSize: 18 }}>✅</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: "#00a952", fontSize: 14.5, fontWeight: 700 }}>Payment received</div>
-                {!saveError && <div style={{ color: C.textS, fontSize: 12.5 }}>Saving your booking…</div>}
-                {saveError && (
-                  <>
-                    <div style={{ color: C.dangerInk, fontSize: 12.5, lineHeight: 1.6, margin: "4px 0 8px" }}>
-                      {saveError} Your payment is safe — retrying can&apos;t charge you twice.
-                      If this keeps failing, contact us and quote payment ref <span style={{ fontFamily: "monospace" }}>{qrData?.paymentIntentId}</span>.
-                    </div>
-                    <button onClick={() => void confirmOnline()} disabled={saving} style={{ background: "#00a952", color: "#fff", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, cursor: saving ? "wait" : "pointer", letterSpacing: 1, opacity: saving ? 0.6 : 1 }}>
-                      {saving ? "SAVING…" : "RETRY SAVING"}
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div style={{ background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 16, height: 16, border: "2px solid rgba(0,169,82,0.25)", borderTopColor: "#00a952", borderRadius: "50%", flexShrink: 0, animation: "sw-spin .8s linear infinite" }} />
-              <div>
-                <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600 }}>Waiting for your payment…</div>
-                <div style={{ color: C.textS, fontSize: 12.5 }}>This page updates by itself once the payment confirms.</div>
-              </div>
-            </div>
-          )}
-          {/* Test mode only. PayMongo hands back a test_url that simulates a
-              scan — it is absent with live keys, so this link cannot appear
-              in production. */}
-          {qrData?.testUrl && !paid && (
-            <div style={{ textAlign: "center", marginTop: 12 }}>
-              {/* A quiet pill: test mode only, so it shouldn't pull the eye
-                  away from the QR. */}
-              <a
-                href={qrData.testUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Test mode: simulates a successful payment"
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 999, border: `1px solid ${C.border}`, color: C.textS, fontSize: 11.5, textDecoration: "none", opacity: 0.75 }}
-              >
-                <Icon name="check" size={12} /> Test paid
-              </a>
-            </div>
-          )}
         </>
       ) : null;
     const summaryCard = summaryBody && (
@@ -1318,7 +1081,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
 
             {/* STEP 1 – Visit & date, on one screen.
                 The visit type and the date used to be two steps, so a guest
-                chose a Day Tour, moved on, and only then learned the date
+                chose a Day Stay, moved on, and only then learned the date
                 was full. Laid out like the home page card instead: the live
                 calendar on the left, and everything that changes what it
                 shows on the right, so each choice updates the calendar at
@@ -1415,9 +1178,14 @@ import { Icon, type IconName } from "@/components/common/Icon";
                               >
                                 <Icon name={SLOT_ICON[id]} size={18} style={{ display: "block", margin: "0 auto 4px", color: on ? goldSmall : C.textS }} />
                                 <span style={{ display: "block", color: on ? C.textH : C.textB, fontSize: 13.5, fontWeight: on ? 700 : 500 }}>{SLOTS[id].label}</span>
-                                <span style={{ display: "block", color: on ? goldSmall : C.textS, fontSize: 11, marginTop: 2, lineHeight: 1.35 }}>{slotFor(id, resource).hours}</span>
+                                {/* A Staycation runs over several days, so its line says how
+                                    many rather than an overnight time range that read
+                                    as confusing ("7 AM – 5 AM, next day"). */}
+                                <span style={{ display: "block", color: on ? goldSmall : C.textS, fontSize: 11, marginTop: 2, lineHeight: 1.35 }}>
+                                  {allowsMultiDay(id) ? `1–${MAX_STAY_DAYS} days` : slotFor(id, resource).hours}
+                                </span>
                                 <span style={{ display: "block", color: C.textS, fontSize: 10.5, marginTop: 4 }}>
-                                  {off ? "Not with Venue only" : allowsMultiDay(id) ? `1–${MAX_STAY_DAYS} days` : "One date"}
+                                  {off ? "Not with Venue only" : allowsMultiDay(id) ? "Day and night" : "One day"}
                                 </span>
                               </button>
                             );
@@ -1447,8 +1215,8 @@ import { Icon, type IconName } from "@/components/common/Icon";
                         <div role="radiogroup" aria-label="What you are booking" style={tileRow}>
                           {([
                             { id: "Pool", title: "Resort & pool", sub: "Pools · no events venue", note: "" },
-                            { id: "Pool+Venue", title: "Resort, pool & venue", sub: `Exclusive · +${fmt(EVENT_VENUE_RATE)}/tour`, note: slot !== "Day" ? `Venue until ${venueCloseText()}` : "" },
-                            { id: "Venue", title: "Events venue only", sub: `No pool · ${fmt(EVENT_VENUE_RATE)}/tour`, note: slot !== "Day" ? `Up to ${VENUE_CAPACITY} · until ${venueCloseText()}` : `Up to ${VENUE_CAPACITY} guests` },
+                            { id: "Pool+Venue", title: "Resort, pool & venue", sub: `Private pool · +${fmt(EVENT_VENUE_RATE)}/stay`, note: slot !== "Day" ? `Venue until ${venueCloseText()}` : "" },
+                            { id: "Venue", title: "Events venue only", sub: `No pool · ${fmt(EVENT_VENUE_RATE)}/stay`, note: slot !== "Day" ? `Up to ${VENUE_CAPACITY} · until ${venueCloseText()}` : `Up to ${VENUE_CAPACITY} guests` },
                           ] as const).map((opt) => {
                             const closed = resourceClosed(opt.id);
                             // Not for a Staycation, which is a stay at the resort.
@@ -1506,10 +1274,10 @@ import { Icon, type IconName } from "@/components/common/Icon";
                       selectedDate={date}
                       endDate={endDate}
                       /* The visit type decides how the calendar picks. A
-                         Day or Night Tour is one date, so a second click
+                         Day or Night Stay is one date, so a second click
                          just moves it; only a Staycation picks a range.
                          The calendar never changes the visit type itself —
-                         that used to turn a Day Tour into a Staycation when
+                         that used to turn a Day Stay into a Staycation when
                          a guest only changed their mind about the date. */
                       single={!allowsMultiDay(slot)}
                       singleHint=""
@@ -1547,7 +1315,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
                         whether they slept here — the one thing the hours never
                         answer. Now it names the pattern, and gives the real
                         arrival and departure moments. */}
-                    {/* A tour is one date. Say where a longer stay lives
+                    {/* A stay is one date. Say where a longer stay lives
                         instead of switching the guest there unasked. Not
                         for a single-slot package, which has no Staycation. */}
                     {stayDays > 1 && dateOk && (
@@ -1605,7 +1373,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
 
                     {date && resource !== "Venue" && tier === "Shared" && (
                       <p style={{ color: C.textS, fontSize: 12.5, marginTop: 8, marginBottom: 0 }}>
-                        Shared: {sharedUsage.used} of {sharedUsage.max} spots taken for this {SLOTS[slot].label}
+                        Shared pool: {sharedUsage.used} of {sharedUsage.max} spots taken for this {SLOTS[slot].label}
                         {slot === "WholeDay" ? " (the busier of its two slots)" : ""}.
                       </p>
                     )}
@@ -1627,7 +1395,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
                       <p style={{ color: C.textS, fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>
                         Fixed price of <strong style={{ color: C.goldInk }}>{fmt(initialPackage!.price)}</strong> for up to{" "}
                         <strong style={{ color: C.textH }}>{initialPackage!.capacity} guests</strong>
-                        {initialPackage!.slotMode === "WholeDay" ? <>, {slotFor("WholeDay", resource).hours}</> : " per tour"}.
+                        {initialPackage!.slotMode === "WholeDay" ? <>, {slotFor("WholeDay", resource).hours}</> : " per stay"}.
                         {requiresRoom ? " Pick your room next." : ""}
                         {roomDeal && <> Your room is <strong style={{ color: C.goldInk }}>{dealText(roomDeal)}</strong>.</>}
                         {extraDayDeal && <> Staying longer? Each extra day is <strong style={{ color: C.goldInk }}>{dealText(extraDayDeal)}</strong>.</>}
@@ -1719,17 +1487,32 @@ import { Icon, type IconName } from "@/components/common/Icon";
                                     cursor: off ? "not-allowed" : "pointer",
                                   }}
                                 >
-                                  <><Icon name={opt === "Exclusive" ? "lock" : "handshake"} size={12} style={{ marginRight: 4 }} />{opt === "Exclusive" ? "EXCLUSIVE" : "SHARED"}</>
-                                  {off ? " · NOT THIS DATE" : isDefault ? " (SUGGESTED)" : ""}
+                                  <><Icon name={opt === "Exclusive" ? "lock" : "handshake"} size={12} style={{ marginRight: 4 }} />{opt === "Exclusive" ? "PRIVATE POOL" : "SHARED POOL"}</>
+                                  {off ? " · NOT AVAILABLE" : isDefault ? " (SUGGESTED)" : ""}
                                 </button>
                               );
                             })}
                           </div>
-                          <p style={{ color: C.textS, fontSize: 11.5, marginTop: 8, opacity: 0.75, lineHeight: 1.5 }}>
-                            {tier === "Exclusive"
-                              ? `The pool and resort are your group's alone for your ${SLOTS[slot].label} — no other group, whatever your headcount, up to ${RESORT_MAX_CAPACITY} guests.`
-                              : `Pool shared with other groups in your ${SLOTS[slot].label} — billed per guest, up to ${RESORT_MAX_CAPACITY} guests in total.`}
-                          </p>
+                          {/* What the choice means, as a card that reads at a glance
+                              (it was one faint line under the buttons). */}
+                          <div role="note" style={{ display: "flex", gap: 12, alignItems: "flex-start", marginTop: 10, padding: "12px 14px", borderRadius: 12, border: `1px solid ${gold}55`, background: `${gold}12` }}>
+                            <span aria-hidden="true" style={{ width: 32, height: 32, borderRadius: 9, display: "grid", placeItems: "center", background: `${gold}24`, color: C.goldInk, flexShrink: 0 }}>
+                              <Icon name={tier === "Exclusive" ? "lock" : "handshake"} size={16} strokeWidth={2} />
+                            </span>
+                            <span style={{ minWidth: 0, lineHeight: 1.5 }}>
+                              <span style={{ display: "block", color: C.textH, fontSize: 13.5, fontWeight: 700 }}>
+                                {tier === "Exclusive" ? "The pool is all yours" : "You share the pool"}
+                              </span>
+                              <span style={{ display: "block", color: C.textB, fontSize: 13 }}>
+                                {tier === "Exclusive"
+                                  ? `No other group on your ${SLOTS[slot].label}. One flat price, up to ${RESORT_MAX_CAPACITY} guests.`
+                                  : `Other groups may swim with you on the same ${SLOTS[slot].label}. Priced per guest, up to ${RESORT_MAX_CAPACITY} guests in total.`}
+                              </span>
+                              {tier !== "Exclusive" && (
+                                <span style={{ display: "block", color: C.goldInk, fontSize: 12.5, marginTop: 4, fontWeight: 600 }}>Want it to yourselves? Choose Private pool.</span>
+                              )}
+                            </span>
+                          </div>
                         </div>
                       )}
                       </div>
@@ -1751,14 +1534,14 @@ import { Icon, type IconName } from "@/components/common/Icon";
                             })}
                             <p style={{ color: C.textS, fontSize: 12, margin: "8px 0 0" }}>
                               {tier === "Exclusive"
-                                ? `Your booking is Exclusive, so children ${CHILD_FREE_AGE} years old and below are already free and not counted. No need to add them.`
+                                ? `Your booking has a private pool, so children ${CHILD_FREE_AGE} years old and below are already free and not counted. No need to add them.`
                                 : `Children ${CHILD_FREE_AGE} years old and below pay ${fmt(childRateFor(slot))} each and count toward the ${guestCap}-guest limit.`}
                             </p>
                             {kidsAllowed && date && onTour > 0 && kidCap < (tier === "Shared" ? Math.min(guestCap, CHILDREN_TOTAL_MAX) : CHILDREN_TOTAL_MAX) - adults && (
                               <p style={{ color: C.goldInk, fontSize: 12, margin: "4px 0 0" }}>
                                 {kidCap > 0
-                                  ? `${onTour} people are already booked for this tour, so up to ${kidCap} ${kidCap === 1 ? "child" : "children"} can come with your group.`
-                                  : `The resort is full for this tour (${CHILDREN_TOTAL_MAX} people), so no children can be added.`}
+                                  ? `${onTour} people are already booked for this stay, so up to ${kidCap} ${kidCap === 1 ? "child" : "children"} can come with your group.`
+                                  : `The resort is full for this stay (${CHILDREN_TOTAL_MAX} people), so no children can be added.`}
                               </p>
                             )}
                           </div>
@@ -1767,7 +1550,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
                         <p style={{ color: C.goldInk, fontSize: 12.5, marginTop: 12 }}>
                           {/* Per day once the stay runs long: the rate is a
                               per-day idea, and the summary carries the total. */}
-                          🔒 Exclusive buyout — {fmt(tourBase / stayDays)} flat
+                          🔒 Private pool — {fmt(tourBase / stayDays)} flat
                           {stayDays > 1 ? " per day" : slotCount === 2 ? " for the whole day" : ""}, however many of you come.
                           No other group shares the pool with you. Set the count so we prepare for the right number.
                         </p>
@@ -2192,93 +1975,28 @@ import { Icon, type IconName } from "@/components/common/Icon";
             {/* STEP 6 – GCash QR */}
             {step === 6 && (
               <div style={{ position: "relative" }}>
-                {qrExpired && (
-                  <div style={{ position: "absolute", inset: 0, background: isDark ? "rgba(6,5,4,0.96)" : "rgba(250,247,242,0.97)", zIndex: 10, borderRadius: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center" }}>
-                    <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(229,85,85,0.1)", border: "1px solid rgba(229,85,85,0.3)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, fontSize: 28 }}>⏱</div>
-                    <h3 style={{ color: C.dangerInk, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 22, fontWeight: 400, marginBottom: 12 }}>QR Code Expired</h3>
-                    <p style={{ color: C.textS, fontSize: 14.5, lineHeight: 1.8, marginBottom: 28, maxWidth: 320 }}>Your payment window has expired. Please go back and try again.</p>
-                    <button className="sw-btn" onClick={() => { setQrExpired(false); setQrRetryKey((k) => k + 1); }} style={{ ...goldBtn }}>TRY AGAIN</button>
-                  </div>
-                )}
                 {/* The step used to open with a full-bleed GCash gradient bar,
                     which made this one screen look like a different site. It
                     now carries the same head as every other step, with the
                     countdown as a pill rather than a headline. */}
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 8px", fontWeight: 700 }}>SECURE PAYMENT</p>
+                    <p style={{ color: C.goldInk, letterSpacing: 2.2, fontSize: 11, margin: "0 0 8px", fontWeight: 700 }}>PAY BY GCASH</p>
                     <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 24 : 30, margin: 0, fontWeight: 400, lineHeight: 1.15 }}>
                       {paidInFull ? "Pay in full" : "Pay the 50% reservation deposit"}
                     </h3>
                   </div>
-                  <div style={{ border: `1px solid ${qrSeconds <= 60 ? "#e07a7a" : C.border}`, borderRadius: 999, padding: "8px 16px", fontSize: 12.5, color: qrSeconds <= 60 ? "#e07a7a" : C.textS, whiteSpace: "nowrap", marginTop: mob ? 0 : 20 }}>
-                    {/* The clock only means something once there is a QR to pay. */}
-                    {qrLoading ? "Preparing your QR…"
-                      : <>Session expires in <strong style={{ color: qrSeconds <= 60 ? "#e07a7a" : C.textB, fontFamily: "monospace" }}>{fmtTimer(qrSeconds)}</strong></>}
-                  </div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: mob || sideSummary ? "minmax(0, 1fr)" : "minmax(0,0.85fr) minmax(0,1.15fr)", gap: mob ? 16 : 20, alignItems: "start" }}>
-                  {/* QR */}
-                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: mob ? "20px 16px" : "24px 20px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-                    {/* Real QR from PayMongo — unique to this payment intent.
-                        Never render a placeholder here: a decorative QR that
-                        cannot be paid is worse than an honest spinner. */}
-                    <div style={{ background: "#fff", borderRadius: 16, padding: 16, boxShadow: "0 8px 32px rgba(0,169,82,0.15),0 2px 8px rgba(0,0,0,0.1)", border: "2px solid rgba(0,169,82,0.15)", width: mob ? 232 : 252, height: mob ? 232 : 252, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {qrLoading && (
-                        <div style={{ textAlign: "center" }}>
-                          <div style={{ width: 34, height: 34, border: "3px solid rgba(0,169,82,0.18)", borderTopColor: "#00a952", borderRadius: "50%", margin: "0 auto 12px", animation: "sw-spin .8s linear infinite" }} />
-                          <div style={{ color: "#666", fontSize: 12.5 }}>Generating your QR…</div>
-                        </div>
-                      )}
-                      {!qrLoading && qrError && (
-                        <div style={{ textAlign: "center", padding: 12 }}>
-                          <div style={{ fontSize: 24, marginBottom: 8 }}>⚠️</div>
-                          <div style={{ color: "#c0392b", fontSize: 12.5, lineHeight: 1.6, marginBottom: 12 }}>{qrError}</div>
-                          <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                            <button onClick={() => setQrRetryKey((k) => k + 1)} style={{ background: "#00a952", color: "#fff", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, cursor: "pointer", letterSpacing: 1 }}>RETRY</button>
-                            {/* The date or a room was taken while the guest
-                                was filling in the form. Retrying can't fix
-                                that, so take them back to choose again with
-                                the calendar re-read. Nothing was charged. */}
-                            <button onClick={() => { onRefreshAvailability?.(); setStep(showRoomPicker && /room/i.test(qrError) ? 4 : 3); }}
-                              style={{ background: "transparent", color: "#00a952", border: "1px solid #00a952", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, cursor: "pointer", letterSpacing: 1 }}>
-                              {showRoomPicker && /room/i.test(qrError) ? "CHOOSE ANOTHER ROOM" : "CHOOSE ANOTHER DATE"}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                      {!qrLoading && !qrError && qrData && (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
-                          loading="lazy" decoding="async"
-                          src={qrData.qrImageUrl}
-                          alt="QR Ph payment code"
-                          width={mob ? 200 : 220}
-                          height={mob ? 200 : 220}
-                          style={{ display: "block", width: mob ? 200 : 220, height: mob ? 200 : 220, imageRendering: "pixelated", opacity: paid ? 0.25 : 1, transition: "opacity .3s ease" }}
-                        />
-                      )}
-                    </div>
-                    <p style={{ color: C.textS, fontSize: 13, textAlign: "center", margin: 0, lineHeight: 1.6 }}>
-                      Scan this QR Ph code with your e-wallet app
-                    </p>
-                    {/* QR Ph is the gateway: any e-wallet that accepts it can pay. */}
-                    <div style={{ color: C.textB }}>
-                      <WalletBadges muted={C.textS} />
-                    </div>
-                    <div style={{ width: "100%", background: "rgba(0,169,82,0.10)", border: "1px solid rgba(0,169,82,0.35)", borderRadius: 10, padding: "12px 16px", textAlign: "center" }}>
-                      <div style={{ color: "#4caf50", fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 4 }}>PAY NOW</div>
-                      <div style={{ color: isDark ? "#fff" : "#111", fontSize: mob ? 24 : 28, fontWeight: 700, fontFamily: "'Satoshi',system-ui,sans-serif" }}>{fmt(dueNow)}</div>
-                    </div>
-                  </div>
+                  <ProofPayment due={dueNow} payFull={paidInFull} total={total} guestName={form.name} mob={mob}
+                    submitLabel="Submit booking & proof" busy={proofBusy} error={proofError} onSubmit={submitProof} />
                   {/* Order summary: on the right on wide screens. */}
                   {!sideSummary && summaryCard}
                 </div>
 
-                {/* Only while the payment is still outstanding. Once PayMongo
-                    has confirmed, there is a real payment to reconcile and
-                    this is no longer the guest's to undo. */}
-                {!paid && (
+                {/* Back to the guest's details: nothing is sent until they
+                    submit the receipt. */}
+                {(
                   <div style={{ marginTop: 24, textAlign: "center" }}>
                     {/* Hover (or keyboard focus): the button turns red and a
                         "!" pops up beside it -- the one way back from here,
@@ -2286,11 +2004,11 @@ import { Icon, type IconName } from "@/components/common/Icon";
                     <button
                       type="button"
                       className="sw-cancelpay"
-                      onClick={() => setShowCancelPay(true)}
+                      onClick={() => setStep(5)}
                       style={{ color: C.textS }}
                     >
                       <span className="sw-cancelpay__bang" aria-hidden="true">!</span>
-                      <span className="sw-cancelpay__label">CANCEL PAYMENT</span>
+                      <span className="sw-cancelpay__label">BACK TO YOUR DETAILS</span>
                     </button>
                   </div>
                 )}
@@ -2311,17 +2029,14 @@ import { Icon, type IconName } from "@/components/common/Icon";
                     whole flow worth marking landed with no more weight than
                     a bullet point. This one draws. */}
                 <SuccessCheck size={64} style={{ margin: "0 auto 24px", display: "flex" }} />
-                <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.6, fontWeight: 700, margin: "0 0 12px" }}>{confirmedNow ? "RESERVATION CONFIRMED" : "RESERVATION RECEIVED"}</p>
+                <p style={{ color: C.goldInk, fontSize: 11, letterSpacing: 2.6, fontWeight: 700, margin: "0 0 12px" }}>{confirmedNow ? "RESERVATION CONFIRMED" : "PAYMENT BEING CHECKED"}</p>
                 {/* The guest's own name, because this is the one screen that is
                     addressed to them rather than about the booking. */}
                 <h3 style={{ color: C.textH, fontSize: mob ? 28 : 36, fontWeight: 400, margin: "0 0 16px", fontFamily: "'Satoshi',system-ui,sans-serif", lineHeight: 1.15 }}>
                   Thank you{form.name ? `, ${form.name.split(" ")[0]}` : ""}.
                 </h3>
                 <p style={{ color: C.textS, fontSize: 14.5, margin: "0 auto 28px", lineHeight: 1.7, maxWidth: 520 }}>
-                  We received your {fmt(dueNow)} {paidInFull ? "payment, so your stay is fully paid" : "deposit"}.{" "}
-                  {confirmedNow
-                    ? <>Your reservation is confirmed. See you on {date ? fmtDate(date) : "your reserved date"}!</>
-                    : <>The resort needs to check one detail and will contact you within 24 hours.</>}
+                  We received your proof of payment for {fmt(dueNow)}. We&apos;ll check it in our GCash and email you the confirmation, usually within a few hours. Your date is held for you meanwhile.
                 </p>
 
                 {/* Reference ID — prominent at top */}
@@ -2449,7 +2164,7 @@ import { Icon, type IconName } from "@/components/common/Icon";
                         <span style={{ color: C.goldInk, fontSize: 24, fontWeight: 700, lineHeight: 1 }}>
                           {fmt(roomRate(roomPhoto.price))}
                         </span>
-                        <span style={{ color: C.textS, fontSize: 12.5 }}>per tour</span>
+                        <span style={{ color: C.textS, fontSize: 12.5 }}>per stay</span>
                         {/* Struck through only when the package's room deal
                             really lowers it. It used to strike the same
                             price through on every package with a room. */}
@@ -2485,40 +2200,6 @@ import { Icon, type IconName } from "@/components/common/Icon";
           </DialogContent>
         </Dialog>
 
-        {/* Cancelling the payment. Worth a confirm: the guest loses the QR
-            they are looking at, and a fresh one is minted on the way back. */}
-        <AlertDialog open={showCancelPay} onOpenChange={(o) => { if (!o) setShowCancelPay(false); }}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 24, fontWeight: 400 }}>
-                Cancel this payment?
-              </AlertDialogTitle>
-              <AlertDialogDescription style={{ color: C.textS, fontSize: 14, lineHeight: 1.7 }}>
-                Nothing has been charged and no reservation has been saved. The QR code on
-                screen will stop working, and your date is not held. You can start the
-                payment again from your details.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel style={{ ...outBtn, color: C.goldInk, minHeight: 48 }}>
-                KEEP PAYING
-              </AlertDialogCancel>
-              <Button
-                onClick={() => {
-                  setShowCancelPay(false);
-                  setQrExpired(false);
-                  // Back to guest details. The step-6 effect's cleanup voids
-                  // the payment intent on the way out, so the code cannot be
-                  // paid after this.
-                  setStep(5);
-                }}
-                style={{ minHeight: 48, border: "1px solid rgba(214,138,138,0.5)", background: "rgba(180,70,70,0.22)", color: "#f0c9c9", fontSize: 12.5, fontWeight: 700, letterSpacing: 1.4 }}
-              >
-                YES, CANCEL
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
 
         <Dialog
           open={showGcashWarning}

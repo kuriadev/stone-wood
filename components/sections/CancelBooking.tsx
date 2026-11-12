@@ -1,5 +1,6 @@
 "use client";
 
+import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPayment";
 import { reschedulePolicy, emergencyPolicy } from "@/lib/policies";
 import { rescheduleProblem, RESCHEDULE_NOTICE_DAYS, isValidEmail, isValidName, isValidPHNumber, sanitizeContact } from "@/lib/validators";
 import { DETAILS_COOLDOWN_HOURS, detailsCooldownUntil, cooldownLabel } from "@/lib/guestDetails";
@@ -94,6 +95,12 @@ export function ManageBooking(_props: ManageBookingProps) {
   });
 
   const [found, setFound] = useState<Booking | null>(null);
+  // Paid by GCash receipt: where it stands, and "Change payment picture"
+  // (/api/bookings/[id]/proof).
+  const [proofState, setProofState] = useState<{ status: "Submitted" | "Approved" | "Rejected" | "Replaced"; reason: string | null; amountDue: number; payChoice: "Downpayment" | "Full"; submittedAt: string } | null>(null);
+  const [proofOpen, setProofOpen] = useState(false);
+  const [proofBusy, setProofBusy] = useState(false);
+  const [proofError, setProofError] = useState<string | null>(null);
   const [payments, setPayments] = useState<GuestPayment[]>([]);
   /** Damage found at the check-out inspection, charged on this booking. */
   const [damages, setDamages] = useState<{ item: string; quantity: number; amount: number; facility: string }[]>([]);
@@ -157,6 +164,15 @@ export function ManageBooking(_props: ManageBookingProps) {
         setToday(String(json.today ?? ""));
         setProof(p);
         setNotFound(false);
+        // Waiting on a GCash receipt? Where it stands (and whether a new one
+        // is needed).
+        setProofState(null); setProofOpen(false);
+        if ((json.booking as Booking).status === "Pending") {
+          fetch(`/api/bookings/${encodeURIComponent(ref)}/proof`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "status", email: p.email, t: p.t, ep: p.ep }),
+          }).then((r) => r.json()).then((j) => { if (j?.success) setProofState(j.proof ?? null); }).catch(() => {});
+        }
       } else {
         setFound(null);
         setNotFound(true);
@@ -671,6 +687,38 @@ export function ManageBooking(_props: ManageBookingProps) {
               </p>
             )}
 
+            {/* ── PAID BY GCASH RECEIPT: being checked, or send a new one ──── */}
+            {found.status === "Pending" && proofState && proofState.status !== "Approved" && (
+              <div style={{ ...card, marginBottom: 20, borderColor: proofState.status === "Rejected" ? "#e5484d77" : "#f5a52477" }}>
+                <p style={{ ...eyebrow, color: proofState.status === "Rejected" ? "#e5484d" : "#f5a524", marginBottom: 10 }}>
+                  {proofState.status === "Rejected" ? "WE COULDN'T VERIFY YOUR PAYMENT" : "CHECKING YOUR PAYMENT"}
+                </p>
+                <p style={{ color: C.textB, fontSize: 14, lineHeight: 1.7, margin: "0 0 12px" }}>
+                  {proofState.status === "Rejected"
+                    ? <>Please upload a clear receipt for <strong style={{ color: C.textH }}>{fmt(proofState.amountDue)}</strong>.{proofState.reason ? <> Reason: {proofState.reason}</> : null}</>
+                    : <>We received your receipt for <strong style={{ color: C.textH }}>{fmt(proofState.amountDue)}</strong> and are checking it in our GCash. We&rsquo;ll email you once it&rsquo;s confirmed. Uploaded the wrong picture? Change it below.</>}
+                </p>
+                {proofOpen || proofState.status === "Rejected" ? (
+                  <ProofPayment due={proofState.amountDue} payFull={proofState.payChoice === "Full"} total={found.total} guestName={found.name} mob={mob}
+                    showPayDetails={proofState.status === "Rejected"} submitLabel="Send new receipt" busy={proofBusy} error={proofError}
+                    onSubmit={async (proof: string, ocr: ProofOcrResult) => {
+                      setProofBusy(true); setProofError(null);
+                      try {
+                        const j = await post("proof", { action: "upload", proof, ocr });
+                        setProofState(j.proof); setProofOpen(false);
+                        setNotice("Thank you! We got your new receipt and will check it. We'll email you once your payment is confirmed.");
+                      } catch (e) {
+                        setProofError(e instanceof Error ? e.message : "Could not send your receipt.");
+                      } finally { setProofBusy(false); }
+                    }} />
+                ) : (
+                  <button type="button" onClick={() => setProofOpen(true)} style={{ ...outBtn, color: C.goldInk, padding: "10px 16px", fontSize: 12.5 }}>
+                    CHANGE PAYMENT PICTURE
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* ── THE RESORT CANCELLED: choose a new date ──────────────────── */}
             {found.status === "ResortCancelled" && (
               <div style={{ ...card, marginBottom: 20, borderColor: "#9a7bd077" }}>
@@ -909,7 +957,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                 {payments.map((p, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "12px 0", borderTop: i ? `1px solid ${C.border}` : "none" }}>
                     <div>
-                      <div style={{ color: C.textH, fontSize: 14 }}>{PAYMENT_LABEL[p.type] ?? p.type} · {p.method === "PayMongo" ? "Online (QR Ph)" : p.method === "GCash" ? "QR Ph" : p.method}</div>
+                      <div style={{ color: C.textH, fontSize: 14 }}>{PAYMENT_LABEL[p.type] ?? p.type} · {p.method === "GCash" ? "GCash" : p.method}</div>
                       <div style={{ color: C.textS, fontSize: 12 }}>
                         {new Date(p.receivedAt).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })}
                       </div>

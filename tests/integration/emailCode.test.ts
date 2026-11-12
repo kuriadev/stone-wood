@@ -21,7 +21,7 @@ jest.mock("@/lib/mailer", () => ({
 import { POST as sendCode } from "@/app/api/email-code/route";
 import { POST as verifyCode } from "@/app/api/email-code/verify/route";
 import { POST as check } from "@/app/api/bookings/check/route";
-import { POST as pay } from "@/app/api/payment/route";
+import { POST as pay } from "@/app/api/payment-proofs/route";
 
 beforeAll(() => {
   jest.useFakeTimers({
@@ -150,8 +150,9 @@ describe("before money moves", () => {
     expect(r.status).toBe(400);
   });
 
-  it("no QR is made for an email that wasn't confirmed", async () => {
-    const r = await call(pay, "/api/payment", { draft: draft() });
+  it("no booking is saved with a receipt for an email that wasn't confirmed", async () => {
+    const proof = `data:image/jpeg;base64,${Buffer.alloc(5000, 7).toString("base64")}`;
+    const r = await call(pay, "/api/payment-proofs", { draft: draft(), proof, ocr: { reference: "1012345678901", date: "2026-11-12", amountMatch: true } });
     expect(r.status).toBe(400);
     expect(r.body).toMatchObject({ success: false });
     expect(String(r.body.error)).toMatch(/6-digit code/);

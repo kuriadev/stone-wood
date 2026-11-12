@@ -97,7 +97,7 @@
 .sw-refundnote__title { margin: 0 0 4px; color: #e5484d; font-size: 14px; font-weight: 800; letter-spacing: .3px; }
 .sw-refundnote__body { margin: 0; font-size: 12.5px; line-height: 1.6; }
 
-/* Booking today's tour after it started: ends at the usual time, overtime
+/* Booking today's stay after it started: ends at the usual time, overtime
    for longer. Amber: worth reading, not an error. */
 .sw-latenote {
   display: flex; gap: 10px; align-items: flex-start;

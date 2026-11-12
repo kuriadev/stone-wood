@@ -38,7 +38,7 @@ describe("a charge on a stay of several days", () => {
   });
 
   it("leaves a one-day booking priced as before", () => {
-    const r = priceCharge(booking({ slot: "Day", package: "Day Tour" }), { kind: "guests", guests: 1 }, []);
+    const r = priceCharge(booking({ slot: "Day", package: "Day Stay" }), { kind: "guests", guests: 1 }, []);
     expect(r.ok && r.amount).toBe(200);
   });
 });
@@ -47,7 +47,7 @@ describe("the day-before reminder", () => {
   const link = "https://stonewood.example/my-booking?booking=SW-10200&t=x";
 
   it("tells the guest the date, the hours and the balance to bring", () => {
-    const n = notices.reminder(booking({ slot: "Day", package: "Day Tour" }), link, 1500);
+    const n = notices.reminder(booking({ slot: "Day", package: "Day Stay" }), link, 1500);
     expect(n.sms).toContain("See you tomorrow");
     expect(n.sms).toContain("7:00 AM – 5:00 PM");
     expect(n.sms).toContain("₱1,500");
@@ -56,7 +56,7 @@ describe("the day-before reminder", () => {
   });
 
   it("says nothing about money when it is paid", () => {
-    const n = notices.reminder(booking({ slot: "Night", package: "Night Tour" }), link, 0);
+    const n = notices.reminder(booking({ slot: "Night", package: "Night Stay" }), link, 0);
     expect(n.sms).not.toMatch(/Balance/);
     expect(n.email.paragraphs.join(" ")).toMatch(/fully paid/);
   });
@@ -65,7 +65,7 @@ describe("the day-before reminder", () => {
 describe("staff can change the number of guests on any booking", () => {
   it("an Exclusive booking charges every extra guest, like a Shared one", () => {
     const r = priceCharge(booking({ tier: "Exclusive", guests: 2 }), { kind: "guests", guests: 20 }, []);
-    expect(r.ok && r.amount).toBe(20 * 200 * 2); // guests × rate × the Whole Day's 2 tours
+    expect(r.ok && r.amount).toBe(20 * 200 * 2); // guests × rate × the Whole Day's 2 stays
     expect(r.ok && r.next.guests).toBe(22);
   });
 

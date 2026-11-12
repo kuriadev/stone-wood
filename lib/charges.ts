@@ -2,11 +2,11 @@
 //
 // Money the resort earns at the resort, after the booking was made:
 //
-//   overtime      a Day Tour staying past 5 PM, ₱500/hr, at most
+//   overtime      a Day Stay staying past 5 PM, ₱500/hr, at most
 //                 OVERTIME_MAX hours in all, only when the Night slot is free
 //   extra guests  more people than booked, on any booking (Shared,
 //                 Exclusive or venue-only): each extra guest pays the
-//                 per-guest rate, for every tour and day of the stay. Front
+//                 per-guest rate, for every stay and day of the stay. Front
 //                 desk and the owner can always add them, and go over
 //                 capacity on purpose (with a warning), up to
 //                 OVERRIDE_GUESTS_MAX in all.
@@ -57,14 +57,14 @@ export function chargeKindsFor(b: Booking): Record<ChargeKind, string | null> {
   const slot = getBookingSlot(b);
   const pool = getBookingResource(b) !== "Venue";
   return {
-    overtime: slot !== "Day" ? "Overtime is only for the Day Tour."
+    overtime: slot !== "Day" ? "Overtime is only for the Day Stay."
       : (b.overtime ?? 0) >= OVERTIME_MAX ? `It already has the most overtime allowed (${OVERTIME_MAX} hrs).`
       : null,
     // Always possible: staff can raise the count on any booking.
     guests: null,
     room: !pool ? "A venue-only booking doesn't include rooms." : null,
     venue: getBookingResource(b) !== "Pool" ? "This booking already has the events venue."
-      : getBookingTier(b) !== "Exclusive" ? "The events venue can only be added to an Exclusive booking. A shared tour can't have it."
+      : getBookingTier(b) !== "Exclusive" ? "The events venue can only be added to an Exclusive booking. A shared stay can't have it."
       : null,
   };
 }
@@ -77,7 +77,7 @@ export function priceCharge(b: Booking, req: ChargeRequest, rooms: Room[]): Char
   const slots = SLOTS[getBookingSlot(b)].span;
   // Extra guests and a room are there for the whole stay, so a three-day
   // Whole Day pays for them three times — as the booking itself was priced.
-  // (Overtime is a Day Tour thing, and Day Tours are one date.)
+  // (Overtime is a Day Stay thing, and Day Stays are one date.)
   const days = bookingDays(b);
   const keep = { overtime: b.overtime ?? 0, guests: b.guests, rooms: b.rooms ?? [], resource: getBookingResource(b) };
 

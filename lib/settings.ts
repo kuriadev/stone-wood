@@ -36,17 +36,17 @@ export interface BusinessSettings {
     exclusiveFlat: number;
     /** Events venue, per slot. */
     venue: number;
-    /** Night Tour: Shared per guest, and the whole pool. */
+    /** Night Stay: Shared per guest, and the whole pool. */
     sharedPerHeadNight: number;
     exclusiveNight: number;
-    /** Staycation (both tours, per stay day): Shared per guest, and the whole pool. */
+    /** Staycation (both stays, per stay day): Shared per guest, and the whole pool. */
     sharedPerHeadStay: number;
     exclusiveStay: number;
-    /** A child under 3 in a Shared Day or Night Tour, per child.
+    /** A child under 3 in a Shared Day or Night Stay, per child.
      *  Exclusive (and so every Staycation) lets them in free. */
     childPerHead: number;
     childPerHeadNight: number;
-    /** Day Tour overtime, per hour. */
+    /** Day Stay overtime, per hour. */
     overtimePerHour: number;
   };
   limits: {
@@ -64,10 +64,10 @@ export interface BusinessSettings {
     bookingHistoryMonths: number;
     /** A guest's date change must be at least this many days before the visit. */
     rescheduleNoticeDays: number;
-    /** Everyone at the resort at once in a tour, every group together, and
+    /** Everyone at the resort at once in a stay, every group together, and
      *  the most staff can put on one booking (lib/children.ts). */
     peopleMax: number;
-    /** Today's tour can be booked online until this many hours after it starts. */
+    /** Today's stay can be booked online until this many hours after it starts. */
     lateBookingHours: number;
     /** A guest's new date is held this long while staff approve it. */
     holdHours: number;
@@ -98,6 +98,10 @@ export interface BusinessSettings {
     viber: string;
     email: string;
     messenger: string;
+    /** The resort's GCash: guests send their payment here and upload the
+     *  receipt (components/booking/ProofPayment.tsx). */
+    gcashNumber: string;
+    gcashName: string;
   };
 }
 
@@ -111,28 +115,30 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
     viber: "+63 912 345 6789",
     email: "stonewoodresort.ph@gmail.com",
     messenger: "https://m.me/stonewoodresort",
+    gcashNumber: "0966 254 0677",
+    gcashName: "SEAN JETHRO M.",
   },
 };
 
 type Num = { min: number; max: number; whole?: boolean; label: string };
 const NUMS: { [G in keyof Omit<BusinessSettings, "contact">]: { [K in keyof BusinessSettings[G]]: Num } } = {
   rates: {
-    sharedPerHead: { min: 1, max: 50_000, whole: true, label: "Shared rate per guest" },
-    exclusiveFlat: { min: 1, max: 1_000_000, whole: true, label: "Exclusive rate" },
+    sharedPerHead: { min: 1, max: 50_000, whole: true, label: "Shared pool rate per guest" },
+    exclusiveFlat: { min: 1, max: 1_000_000, whole: true, label: "Private pool rate" },
     venue: { min: 1, max: 1_000_000, whole: true, label: "Events venue rate" },
     overtimePerHour: { min: 0, max: 50_000, whole: true, label: "Overtime per hour" },
-    sharedPerHeadNight: { min: 1, max: 50_000, whole: true, label: "Night Tour Shared rate per guest" },
-    exclusiveNight: { min: 1, max: 1_000_000, whole: true, label: "Night Tour Exclusive rate" },
-    sharedPerHeadStay: { min: 1, max: 100_000, whole: true, label: "Staycation Shared rate per guest" },
-    exclusiveStay: { min: 1, max: 2_000_000, whole: true, label: "Staycation Exclusive rate" },
-    // 0 makes children under 3 free in a Shared tour too.
-    childPerHead: { min: 0, max: 50_000, whole: true, label: "Day Tour child rate" },
-    childPerHeadNight: { min: 0, max: 50_000, whole: true, label: "Night Tour child rate" },
+    sharedPerHeadNight: { min: 1, max: 50_000, whole: true, label: "Night Stay shared pool rate per guest" },
+    exclusiveNight: { min: 1, max: 1_000_000, whole: true, label: "Night Stay private pool rate" },
+    sharedPerHeadStay: { min: 1, max: 100_000, whole: true, label: "Staycation shared pool rate per guest" },
+    exclusiveStay: { min: 1, max: 2_000_000, whole: true, label: "Staycation private pool rate" },
+    // 0 makes children under 3 free in a Shared stay too.
+    childPerHead: { min: 0, max: 50_000, whole: true, label: "Day Stay child rate" },
+    childPerHeadNight: { min: 0, max: 50_000, whole: true, label: "Night Stay child rate" },
   },
   limits: {
     resortCapacity: { min: 1, max: 500, whole: true, label: "Capacity" },
     venueCapacity: { min: 1, max: 1000, whole: true, label: "Events venue capacity" },
-    exclusiveDefaultGuests: { min: 1, max: 500, whole: true, label: "Exclusive starting guest count" },
+    exclusiveDefaultGuests: { min: 1, max: 500, whole: true, label: "Private pool starting guest count" },
     overtimeMaxHours: { min: 0, max: 6, whole: true, label: "Most overtime hours" },
     maxStayDays: { min: 1, max: 30, whole: true, label: "Longest stay" },
     bookingWindowMonths: { min: 1, max: 24, whole: true, label: "How far ahead guests can book" },
@@ -146,10 +152,10 @@ const NUMS: { [G in keyof Omit<BusinessSettings, "contact">]: { [K in keyof Busi
     childFreeAge: { min: 1, max: 12, whole: true, label: "Child age" },
   },
   hours: {
-    dayStart: { min: 4, max: 12, whole: true, label: "Day Tour starts" },
-    dayEnd: { min: 9, max: 21, whole: true, label: "Day Tour ends" },
-    nightStart: { min: 14, max: 23, whole: true, label: "Night Tour starts" },
-    nightEnd: { min: 20, max: 35, whole: true, label: "Night Tour ends" },
+    dayStart: { min: 4, max: 12, whole: true, label: "Day Stay starts" },
+    dayEnd: { min: 9, max: 21, whole: true, label: "Day Stay ends" },
+    nightStart: { min: 14, max: 23, whole: true, label: "Night Stay starts" },
+    nightEnd: { min: 20, max: 35, whole: true, label: "Night Stay ends" },
     venueEnd: { min: 16, max: 35, whole: true, label: "Events venue closes" },
     quietStart: { min: 18, max: 35, whole: true, label: "Quiet hours start" },
   },
@@ -191,7 +197,7 @@ export function settingsFieldErrors(raw: unknown): Record<string, string> {
   const has = (...p: string[]) => p.every((k) => k in n && !(k in errs));
   // Prices that make sense together.
   for (const [ex, sh] of [["rates.exclusiveFlat", "rates.sharedPerHead"], ["rates.exclusiveNight", "rates.sharedPerHeadNight"], ["rates.exclusiveStay", "rates.sharedPerHeadStay"]]) {
-    if (has(ex, sh) && n[ex] <= n[sh]) errs[ex] = "The whole pool should cost more than one Shared guest.";
+    if (has(ex, sh) && n[ex] <= n[sh]) errs[ex] = "The private pool should cost more than one shared-pool guest.";
   }
   // A child under 3 never costs more than an adult.
   for (const [ch, sh] of [["rates.childPerHead", "rates.sharedPerHead"], ["rates.childPerHeadNight", "rates.sharedPerHeadNight"]]) {
@@ -218,21 +224,21 @@ export function settingsFieldErrors(raw: unknown): Record<string, string> {
     errs["limits.peopleMax"] = `At least the events venue capacity (${n["limits.venueCapacity"]}).`;
   }
   if (has("limits.lateBookingHours", "hours.dayStart", "hours.dayEnd") && n["limits.lateBookingHours"] >= n["hours.dayEnd"] - n["hours.dayStart"]) {
-    errs["limits.lateBookingHours"] = "Shorter than the Day Tour, or nobody could arrive in time.";
+    errs["limits.lateBookingHours"] = "Shorter than the Day Stay, or nobody could arrive in time.";
   }
   if (has("hours.quietStart", "hours.nightStart", "hours.nightEnd") && (n["hours.quietStart"] < n["hours.nightStart"] || n["hours.quietStart"] > n["hours.nightEnd"])) {
-    errs["hours.quietStart"] = "Between the Night Tour's start and end.";
+    errs["hours.quietStart"] = "Between the Night Stay's start and end.";
   }
   // The day has to work as a timetable.
-  if (has("hours.dayStart", "hours.dayEnd") && n["hours.dayEnd"] - n["hours.dayStart"] < 4) errs["hours.dayEnd"] = "The Day Tour needs at least 4 hours.";
-  if (has("hours.dayEnd", "hours.nightStart") && n["hours.nightStart"] - n["hours.dayEnd"] < 1) errs["hours.nightStart"] = "Leave at least an hour after the Day Tour, for cleaning.";
-  if (has("hours.nightStart", "hours.nightEnd") && n["hours.nightEnd"] - n["hours.nightStart"] < 4) errs["hours.nightEnd"] = "The Night Tour needs at least 4 hours.";
-  if (has("hours.dayStart", "hours.nightEnd") && n["hours.dayStart"] + 24 - n["hours.nightEnd"] < 1) errs["hours.nightEnd"] = "End at least an hour before the next Day Tour starts.";
+  if (has("hours.dayStart", "hours.dayEnd") && n["hours.dayEnd"] - n["hours.dayStart"] < 4) errs["hours.dayEnd"] = "The Day Stay needs at least 4 hours.";
+  if (has("hours.dayEnd", "hours.nightStart") && n["hours.nightStart"] - n["hours.dayEnd"] < 1) errs["hours.nightStart"] = "Leave at least an hour after the Day Stay, for cleaning.";
+  if (has("hours.nightStart", "hours.nightEnd") && n["hours.nightEnd"] - n["hours.nightStart"] < 4) errs["hours.nightEnd"] = "The Night Stay needs at least 4 hours.";
+  if (has("hours.dayStart", "hours.nightEnd") && n["hours.dayStart"] + 24 - n["hours.nightEnd"] < 1) errs["hours.nightEnd"] = "End at least an hour before the next Day Stay starts.";
   if (has("hours.dayEnd", "limits.overtimeMaxHours", "hours.nightEnd") && n["hours.dayEnd"] + n["limits.overtimeMaxHours"] > n["hours.nightEnd"]) {
-    errs["limits.overtimeMaxHours"] = "Overtime would run past the end of the Night Tour.";
+    errs["limits.overtimeMaxHours"] = "Overtime would run past the end of the Night Stay.";
   }
-  if (has("hours.nightStart", "hours.venueEnd") && n["hours.venueEnd"] - n["hours.nightStart"] < 2) errs["hours.venueEnd"] = "Give the venue at least 2 hours after the Night Tour starts.";
-  if (has("hours.nightEnd", "hours.venueEnd") && n["hours.venueEnd"] > n["hours.nightEnd"]) errs["hours.venueEnd"] = "The venue can't close after the Night Tour ends.";
+  if (has("hours.nightStart", "hours.venueEnd") && n["hours.venueEnd"] - n["hours.nightStart"] < 2) errs["hours.venueEnd"] = "Give the venue at least 2 hours after the Night Stay starts.";
+  if (has("hours.nightEnd", "hours.venueEnd") && n["hours.venueEnd"] > n["hours.nightEnd"]) errs["hours.venueEnd"] = "The venue can't close after the Night Stay ends.";
   // Contact details guests can actually use.
   const c = input.contact ?? {};
   const text = (k: string) => String(c[k] ?? "").trim();
@@ -240,6 +246,8 @@ export function settingsFieldErrors(raw: unknown): Record<string, string> {
   if (!isPhMobile(text("viber"))) errs["contact.viber"] = "A Philippine mobile number, e.g. +63 912 345 6789.";
   if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(text("email"))) errs["contact.email"] = "An email address, e.g. stonewood@gmail.com.";
   if (!/^https:\/\/(m\.me|(www\.)?facebook\.com|(www\.)?messenger\.com)\/\S+$/i.test(text("messenger"))) errs["contact.messenger"] = "A Messenger link, e.g. https://m.me/stonewoodresort.";
+  if (!isPhMobile(text("gcashNumber"))) errs["contact.gcashNumber"] = "The GCash mobile number, e.g. 0912 345 6789.";
+  if (text("gcashName").length < 2) errs["contact.gcashName"] = "The name on the GCash account, as guests see it when they send.";
   return errs;
 }
 
@@ -259,9 +267,9 @@ export function validateSettings(raw: unknown, opts: { strict?: boolean } = {}):
   const input = (raw && typeof raw === "object" ? raw : {}) as Record<string, Record<string, unknown> | undefined>;
   const out = structuredClone(DEFAULT_SETTINGS) as BusinessSettings;
 
-  // Saved before the Night Tour and Staycation had rates of their own:
+  // Saved before the Night Stay and Staycation had rates of their own:
   // they start from the owner's own Day rates (Night = Day, Staycation =
-  // both tours), so no price moves until the owner changes one.
+  // both stays), so no price moves until the owner changes one.
   const r0 = input.rates;
   if (r0 && typeof r0 === "object") {
     const day = Number(r0.sharedPerHead), ex = Number(r0.exclusiveFlat);
@@ -298,11 +306,13 @@ export function validateSettings(raw: unknown, opts: { strict?: boolean } = {}):
   }
 
   const c = input.contact ?? {};
-  for (const key of ["phone", "viber", "email", "messenger"] as const) {
+  for (const key of ["phone", "viber", "email", "messenger", "gcashNumber", "gcashName"] as const) {
     const v = c[key];
     if (v === undefined || v === null) continue;
-    const text = String(v).replace(/[<>]/g, "").trim().slice(0, 120);
-    if (!text) return { ok: false, error: `Enter the resort's ${key === "messenger" ? "Messenger link" : key}.` };
+    // The GCash fields are short (Rates & Settings caps them too).
+    const cap = key === "gcashNumber" ? 16 : key === "gcashName" ? 40 : 120;
+    const text = String(v).replace(/[<>]/g, "").trim().slice(0, cap);
+    if (!text) return { ok: false, error: `Enter the resort's ${{ messenger: "Messenger link", gcashNumber: "GCash number", gcashName: "GCash account name" }[key as string] ?? key}.` };
     out.contact[key] = text;
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(out.contact.email)) return { ok: false, error: "The contact email doesn't look right." };
@@ -312,10 +322,10 @@ export function validateSettings(raw: unknown, opts: { strict?: boolean } = {}):
   // least an hour of turnover between the groups (evening and morning),
   // and the night over by the next morning's opening.
   const h = out.hours;
-  if (h.dayEnd - h.dayStart < 4) return { ok: false, error: "The Day Tour needs to be at least 4 hours." };
-  if (h.nightStart - h.dayEnd < 1) return { ok: false, error: "Leave at least an hour between the Day Tour ending and the Night Tour starting, for cleaning." };
-  if (h.nightEnd - h.nightStart < 4) return { ok: false, error: "The Night Tour needs to be at least 4 hours." };
-  if (h.dayStart + 24 - h.nightEnd < 1) return { ok: false, error: "The Night Tour has to end at least an hour before the next Day Tour starts." };
+  if (h.dayEnd - h.dayStart < 4) return { ok: false, error: "The Day Stay needs to be at least 4 hours." };
+  if (h.nightStart - h.dayEnd < 1) return { ok: false, error: "Leave at least an hour between the Day Stay ending and the Night Stay starting, for cleaning." };
+  if (h.nightEnd - h.nightStart < 4) return { ok: false, error: "The Night Stay needs to be at least 4 hours." };
+  if (h.dayStart + 24 - h.nightEnd < 1) return { ok: false, error: "The Night Stay has to end at least an hour before the next Day Stay starts." };
   // Saved before the venue had its own closing time, or the night was moved
   // since: the venue closes with the night rather than outside it.
   if (h.venueEnd > h.nightEnd || h.venueEnd - h.nightStart < 2) h.venueEnd = h.nightEnd;

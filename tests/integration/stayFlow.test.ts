@@ -79,7 +79,7 @@ const POOL = 1, PARKING = 2, VENUE = 3;
 function bookingRow(o: Record<string, unknown>) {
   return {
     id: "SW-1", name: "Juan Dela Cruz", contact: "09171234567", email: "juan@example.com",
-    date: "2026-11-06", end_date: null, guests: 10, package: "Day Tour", rooms: [], overtime: 0,
+    date: "2026-11-06", end_date: null, guests: 10, package: "Day Stay", rooms: [], overtime: 0,
     total: 2000, downpayment: 1000, status: "Confirmed", payment_proof: true, notes: "", cancel_reason: null,
     created_at: "2026-11-01T10:00:00+08:00", source: "Online", resource: "Pool", tier: "Shared", archived: false,
     archived_at: null, payment_intent_id: null, slot: "Day", arrival_time: null, checked_in_at: null,
@@ -99,9 +99,9 @@ function freshResort(bookings: Record<string, unknown>[]) {
     facility({ id: VENUE, name: "Events Venue", icon: "tent", area: "Venue" }),
   ]);
   mockDb.seed("bookings", bookings);
-  // The online down payment, as the PayMongo flow records it.
+  // The online down payment, recorded once staff confirmed the GCash receipt.
   mockDb.seed("payments", bookings.map((b, i) => ({
-    id: 500 + i, booking_id: b.id, guest_name: b.name, type: "Downpayment", method: "PayMongo",
+    id: 500 + i, booking_id: b.id, guest_name: b.name, type: "Downpayment", method: "GCash",
     amount: b.downpayment, reference: `pi_${i}`, notes: "", received_at: "2026-11-01T10:00:00+08:00", voided: false,
   })));
   mockDb.seed("damage_records", []).seed("damage_rates", []).seed("facility_inspections", []);
@@ -255,8 +255,8 @@ describe("a group nobody checked in on the day", () => {
   });
 });
 
-describe("a Night Tour, which leaves the morning after", () => {
-  beforeAll(() => freshResort([bookingRow({ id: "SW-4", name: "Night Group", date: "2026-11-09", slot: "Night", package: "Night Tour" })]));
+describe("a Night Stay, which leaves the morning after", () => {
+  beforeAll(() => freshResort([bookingRow({ id: "SW-4", name: "Night Group", date: "2026-11-09", slot: "Night", package: "Night Stay" })]));
 
   it("isn't 'overdue' for the caretaker after midnight, while the group is still there", async () => {
     at("2026-11-09T18:00:00");
@@ -288,13 +288,13 @@ describe("a same-day walk-in", () => {
   });
 });
 
-describe("QR Ph at the desk is always a scanned code", () => {
-  beforeAll(() => freshResort([bookingRow({ id: "SW-9", name: "Typed Ref", date: "2026-11-09", slot: "Day", package: "Day Tour" })]));
+describe("GCash at the desk needs the receipt's reference number", () => {
+  beforeAll(() => freshResort([bookingRow({ id: "SW-9", name: "Typed Ref", date: "2026-11-09", slot: "Day", package: "Day Stay" })]));
 
-  it("refuses a typed QR Ph reference: staff press Generate QR code instead", async () => {
-    const res = await settle(call("FrontDesk", "/api/settle", { bookingId: "SW-9", payment: { amount: 1000, method: "GCash", reference: "1234567890" } }));
+  it("refuses a GCash payment without a proper reference", async () => {
+    const res = await settle(call("FrontDesk", "/api/settle", { bookingId: "SW-9", payment: { amount: 1000, method: "GCash", reference: "12" } }));
     expect(res.status).toBe(400);
-    expect((await json(res)).error).toMatch(/Generate QR code/);
+    expect((await json(res)).error).toMatch(/reference number/);
   });
 });
 
@@ -372,17 +372,17 @@ describe("check-out can't skip a check either", () => {
   });
 });
 
-describe("groups on the same tour share one preparation", () => {
+describe("groups on the same stay share one preparation", () => {
   beforeAll(() => {
     at("2026-11-05T09:00");
     freshResort([
       bookingRow({ id: "SW-21", name: "First Group", date: "2026-11-06" }),
       bookingRow({ id: "SW-22", name: "Second Group", date: "2026-11-06" }),
-      bookingRow({ id: "SW-23", name: "Night Group", date: "2026-11-06", slot: "Night", package: "Night Tour" }),
+      bookingRow({ id: "SW-23", name: "Night Group", date: "2026-11-06", slot: "Night", package: "Night Stay" }),
     ]);
   });
 
-  it("preparing one Day Tour group also prepares the other, but not the Night Tour", async () => {
+  it("preparing one Day Stay group also prepares the other, but not the Night Stay", async () => {
     const res = await prepare(call("Caretaker", "/api/inspections", { bookingId: "SW-21", items: allTicked([POOL, PARKING]) }));
     expect(res.status).toBe(201);
     expect((await json(res)).alsoPrepared).toEqual(["SW-22"]);
@@ -397,7 +397,7 @@ describe("groups on the same tour share one preparation", () => {
   });
 });
 
-describe("a group booked after the tour was already prepared", () => {
+describe("a group booked after the stay was already prepared", () => {
   beforeAll(() => {
     at("2026-11-05T09:00");
     freshResort([bookingRow({ id: "SW-31", name: "Early Group", date: "2026-11-06" })]);
@@ -405,7 +405,7 @@ describe("a group booked after the tour was already prepared", () => {
 
   it("needs nothing more when it uses only what was prepared", async () => {
     expect((await prepare(call("Caretaker", "/api/inspections", { bookingId: "SW-31", items: allTicked([POOL, PARKING]) }))).status).toBe(201);
-    // Booked afterwards, same date and tour.
+    // Booked afterwards, same date and stay.
     mockDb.rows("bookings").push(bookingRow({ id: "SW-32", name: "Late Group", date: "2026-11-06" }));
     const bk = mockDb.rows("bookings").map((r) => rowToBooking(r as BookingRow));
     const fs = facilities();

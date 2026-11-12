@@ -395,7 +395,7 @@ function Transactions({ payments }: { payments: Payment[] }) {
             </Cell>
             <Cell style={td}><StatusBadge color={TYPE_COLOR[p.type]}>{payTypeLabel(p.type)}</StatusBadge></Cell>
             <Cell style={{ ...td, color: C.textB }}>
-              <span className="sw-sales__method"><Icon name={p.method === "Cash" ? "cash" : p.method === "PayMongo" ? "grid" : "phone"} size={14} style={{ color: C.goldInk }} />{payMethodLabel(p.method)}</span>
+              <span className="sw-sales__method"><Icon name={p.method === "Cash" ? "cash" : "phone"} size={14} style={{ color: C.goldInk }} />{payMethodLabel(p.method)}</span>
             </Cell>
             <Cell style={{ ...td, color: p.type === "Refund" ? "#e5484d" : C.textH, fontWeight: 600, whiteSpace: "nowrap", textDecoration: p.voided ? "line-through" : "none" }}>
               {p.type === "Refund" ? "−" : ""}{fmt(p.amount)}
@@ -941,8 +941,8 @@ export function Closing({ onAct, initialDate, onSaved }: {
   const dayExp = liveExpenses(ops.expenses).filter((e) => e.spentOn === date);
   const byMethod = (m: string) => round2(dayPays.filter((p) => p.method === m).reduce((s, p) => s + signedAmount(p), 0));
   const cashIn = byMethod("Cash");
-  /* Cash and QR Ph are the only methods: everything that is not cash is
-     QR Ph (the online checkout, or a code scanned at the desk). */
+  /* Cash and GCash are the only methods: everything that is not cash is
+     GCash (online with a checked receipt, or the resort's QR at the desk). */
   const qrIn = round2(dayPays.filter((p) => p.method !== "Cash").reduce((s, p) => s + signedAmount(p), 0));
   const cashOut = round2(dayExp.filter((e) => e.method === "Cash").reduce((s, e) => s + e.amount, 0));
   const income = round2(dayPays.reduce((s, p) => s + signedAmount(p), 0));
@@ -1106,9 +1106,9 @@ export function Closing({ onAct, initialDate, onSaved }: {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 16, marginBottom: 24 }}>
         <div style={{ background: soft, borderRadius: 10, padding: "16px 20px" }}>
           <div style={{ color: C.textH, fontWeight: 600, marginBottom: 8 }}>Income and expenses</div>
-          {/* The resort takes money two ways: QR Ph (online or scanned at
+          {/* The resort takes money two ways: GCash (online or scanned at
               the desk) and cash. The two lines add up to Total received. */}
-          <AmountRow label="Received by QR Ph" value={fmt(qrIn)} />
+          <AmountRow label="Received by GCash" value={fmt(qrIn)} />
           <AmountRow label="Received by Cash" value={fmt(cashIn)} />
           <AmountRow label="Total received" value={fmt(income)} strong />
           <AmountRow label="Expenses" value={`− ${fmt(spent)}`} color="#e5484d" />

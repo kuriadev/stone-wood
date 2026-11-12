@@ -15,7 +15,7 @@ export function isEventPackage(p: ResortPackage): boolean {
 //
 // A package's blurb and "includes" lines are stored text, and the seeds wrote
 // the slot hours into them ("Day (7:00 AM – 5:00 PM) or Night (…)"). When the
-// Night Tour moved from midnight to 5 AM, the rows already in the database kept
+// Night Stay moved from midnight to 5 AM, the rows already in the database kept
 // saying 12:00 AM, so the Packages page contradicted the booking flow.
 //
 // The hours are rewritten from SLOTS whenever a package is read. Only the
@@ -27,7 +27,7 @@ const TIME = String.raw`\d{1,2}:\d{2}\s?[AP]M`;
 const RANGE = String.raw`${TIME}\s*[–—-]\s*${TIME}(?:,\s*next day)?`;
 
 // A venue-only package gets the venue's hours: it closes at midnight by
-// default, not at the end of the Night Tour (lib/resort.ts slotFor).
+// default, not at the end of the Night Stay (lib/resort.ts slotFor).
 function currentHours(text: string, wholeDay: boolean, resource: BookingResource): string {
   const day = slotFor("Day", resource), night = slotFor("Night", resource), whole = slotFor("WholeDay", resource);
   let out = text

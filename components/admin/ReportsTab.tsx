@@ -132,14 +132,14 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
   const collected = round2(pays.reduce((s, p) => s + signedAmount(p), 0));
   const spent = round2(exps.reduce((s, e) => s + e.amount, 0));
   const owed = round2(kept.reduce((s, b) => s + bookingMoney(b, ops.payments, ops.damages).due, 0));
-  // The resort takes exactly two ways to pay: cash, and QR Ph — the online
-  // checkout (stored as "PayMongo") or a QR Ph code scanned at the desk
-  // (stored as "GCash"). Everything that is not cash is QR Ph, so the two
+  // The resort takes exactly two ways to pay: cash, and GCash (online with
+  // a receipt staff check, or the resort's QR scanned at the desk).
+  // Everything that is not cash is GCash, so the two
   // lines always add up to Money received.
   const methodTotal = (match: (m: string) => boolean) =>
     round2(pays.filter((p) => match(p.method)).reduce((s, p) => s + signedAmount(p), 0));
   const byMethod: (readonly [string, number])[] = [
-    ["QR Ph", methodTotal((m) => m !== "Cash")],
+    ["GCash", methodTotal((m) => m !== "Cash")],
     ["Cash", methodTotal((m) => m === "Cash")],
   ];
 
@@ -630,7 +630,7 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
 
       {(view === "Overview" || view === "Bookings") && <>
       {/* ── Bookings ── */}
-      {section("calendar", "Bookings and guests", "Who came, how they booked, and which tours.")}
+      {section("calendar", "Bookings and guests", "Who came, how they booked, and which stays.")}
       <div className="sw-rep__kpis" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(4,minmax(0,1fr))" }}>
         {kpi({ icon: "calendar", label: "Total bookings", value: String(bks.length), note: bks.length > kept.length ? `${kept.length} going ahead · ${bks.length - kept.length} cancelled` : "None cancelled", accent: gold, cur: now.bookings, prev: before.bookings, trend: series.map((x) => x.bookings) })}
         {kpi({ icon: "users", label: "Total guests", value: String(guests), note: `In the ${kept.length} booking${kept.length === 1 ? "" : "s"} going ahead`, accent: gold, cur: now.guests, prev: before.guests, trend: series.map((x) => x.guests) })}

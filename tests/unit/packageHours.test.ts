@@ -2,7 +2,7 @@ import { withCurrentHours } from "@/lib/packages";
 import { SLOTS } from "@/lib/resort";
 import type { ResortPackage } from "@/types/package";
 
-// Rows saved while the Night Tour still ended at midnight.
+// Rows saved while the Night Stay still ended at midnight.
 const pkg = (over: Partial<ResortPackage>): ResortPackage => ({
   id: 1, code: "X", title: "X", resource: "Pool", status: "Exclusive", price: 1, capacity: 30,
   slotMode: "Single", cover: "", gallery: [], blurb: "", includes: [], active: true, ...over,

@@ -9,7 +9,7 @@
 // writing; saveWalkIn writes the booking and the money taken.
 
 import { payMethodLabel } from "@/lib/labels";
-import { checkDeskQr, isDeskQrRef } from "@/lib/deskQr.server";
+import { checkDeskQr, cleanDeskRef } from "@/lib/deskQr.server";
 import { getSupabaseAdmin, rowToBooking, bookingToRow, missingNewColumn, withoutNewColumns } from "@/lib/supabase";
 import { isValidEmail, isValidPHNumber, sanitizeName, WALKIN_NOTES_MAX, NAME_MIN, NAME_MAX, OVERTIME_MAX, MAX_STAY_DAYS, isInStaffWindow, staffDateWindow, GUESTS_MAX, OVERRIDE_GUESTS_MAX, guestLimitFor } from "@/lib/validators";
 import { logActivity } from "@/lib/activity.server";
@@ -103,10 +103,10 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
   // payment is checked against, so it has to be the real one.
   const slotIn: BookingSlot = SLOTS.includes(b.slot as BookingSlot) ? (b.slot as BookingSlot) : "Day";
   const resourceIn: BookingResource = RESOURCES.includes(b.resource as BookingResource) ? (b.resource as BookingResource) : "Pool";
-  // Today's tour that has already ended can't be booked: the group would
+  // Today's stay that has already ended can't be booked: the group would
   // have no time left. (An import of an offline booking keeps its date.)
   if (!opts.fromToday && slotTiming(startDate, slotIn, new Date(), resourceIn) === "ended") {
-    return bad(`Today's ${SLOT_INFO[slotIn].label} has already ended. Choose another tour or another date.`);
+    return bad(`Today's ${SLOT_INFO[slotIn].label} has already ended. Choose another stay or another date.`);
   }
   const tierIn: BookingTier = TIERS.includes(b.tier as BookingTier) ? (b.tier as BookingTier) : getPackageTier(Math.round(guests), slotIn, resourceIn);
   const overtimeIn = slotIn === "Day" ? Math.min(OVERTIME_MAX, Math.max(0, Math.round(Number(b.overtime) || 0))) : 0;
@@ -161,16 +161,13 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
   if (payIn && (!Number.isFinite(payAmount) || payAmount <= 0 || payAmount > total || !PAY_METHODS.includes(payIn.method))) {
     return bad(payAmount > total ? `The amount paid is more than the total of ${fmt(total)}.` : "The payment taken is not valid.");
   }
-  const reference = String(payIn?.reference ?? "").replace(/[<>]/g, "").trim().slice(0, 80);
-  if (payIn && payIn.method !== "Cash" && !reference) return bad("Enter the QR Ph reference number.");
+  const rawRef = String(payIn?.reference ?? "").replace(/[<>]/g, "").trim().slice(0, 80);
+  // GCash: the reference number from the guest's receipt, stored the same
+  // way every time so the same transfer can't be recorded twice.
+  const reference = payIn && payIn.method !== "Cash" ? cleanDeskRef(rawRef) : rawRef;
+  if (payIn && payIn.method !== "Cash" && !reference) return bad("Enter the GCash reference number.");
   const pay = payIn ? { method: payIn.method, amount: payAmount, reference } : null;
-  // Paid by the desk's QR Ph code (reference = the PayMongo payment): only
-  // if PayMongo says it went through, for exactly this amount, and it
-  // hasn't already been used for another booking.
-  // Every QR Ph payment at the desk is a scanned code (no typed references).
-  // A booking taken offline and imported later (fromToday) keeps the
-  // reference written down at the time: there was no code to scan.
-  if (pay && pay.method !== "Cash" && (!opts.fromToday || isDeskQrRef(pay.reference))) {
+  if (pay && pay.method !== "Cash") {
     const qr = await checkDeskQr(pay.reference, pay.amount);
     if (qr) return bad(qr.error, qr.status);
   }
@@ -203,7 +200,6 @@ export async function checkWalkIn(body: Record<string, unknown>, opts: { alsoHel
     slot: SLOTS.includes(b.slot as BookingSlot) ? b.slot : "Day",
     archived: false,
     archivedAt: undefined,
-    paymentIntentId: undefined,
     cancelReason: null,
   };
   return { ok: true, plan: { row: bookingToRow(booking) as unknown as Record<string, unknown>, booking: { ...booking, resource: resourceIn, tier: tierIn }, pay, total } };

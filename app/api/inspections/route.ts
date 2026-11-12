@@ -60,13 +60,13 @@ export async function POST(req: NextRequest) {
     const facilities = (fs.data as FacilityRow[]).map(rowToFacility);
     const all = facilitiesForBooking(booking, facilities);
     if (all.length === 0) return NextResponse.json({ success: false, error: "No facilities to prepare for this booking." }, { status: 400 });
-    // What's left for this group: facilities another group on the same tour
+    // What's left for this group: facilities another group on the same stay
     // already had prepared count as done. A saved preparation being updated
     // covers everything it had.
     const own = await db.from("facility_inspections").select("id").eq("booking_id", booking.id).eq("stage", "Preparation").maybeSingle();
     if (own.error) throw new Error(own.error.message);
     const used = own.data ? all : await remainingToPrepare(booking, facilities);
-    if (used.length === 0) return NextResponse.json({ success: false, error: "Everything this group uses was already prepared for another group on the same tour. Check them in." }, { status: 409 });
+    if (used.length === 0) return NextResponse.json({ success: false, error: "Everything this group uses was already prepared for another group on the same stay. Check them in." }, { status: 409 });
     const sent = cleanItems(b?.items, new Set(used.map((f) => f.id)));
     // Every facility the booking uses, with its full before-use list; an
     // item counts as done only if the screen sent it ticked.
@@ -106,9 +106,9 @@ export async function POST(req: NextRequest) {
     const otherIds = used.filter((f) => f.status !== "Needs Cleaning").map((f) => f.id);
     if (otherIds.length) await db.from("facilities").update({ last_checked_at: now }).in("id", otherIds);
 
-    /* Groups on the same tour share the same facilities: when several
-       groups book the same date and tour (two shared Day Tours, or two
-       Night Tours), the pool and the rest are prepared once, for all of
+    /* Groups on the same stay share the same facilities: when several
+       groups book the same date and stay (two shared Day Stays, or two
+       Night Stays), the pool and the rest are prepared once, for all of
        them. Every other such group that isn't prepared or checked in yet,
        and whose facilities were all just prepared, gets the same
        preparation, so it goes straight to Check in. A group that also has
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
         const theirs = facilitiesForBooking(sib, facilities);
         if (theirs.length === 0 || !theirs.every((f) => preparedIds.has(f.id))) continue;
         const sibItems = items.filter((x) => theirs.some((f) => f.id === x.facilityId));
-        const row = { booking_id: sib.id, stage: "Preparation", items: sibItems, notes: `Prepared together with ${booking.id} (same tour).` };
+        const row = { booking_id: sib.id, stage: "Preparation", items: sibItems, notes: `Prepared together with ${booking.id} (same stay).` };
         let ins = await db.from("facility_inspections").insert({ ...row, inspected_by_name: by });
         if (ins.error && /inspected_by_name/.test(ins.error.message)) ins = await db.from("facility_inspections").insert(row);
         if (ins.error) throw new Error(ins.error.message);
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
 
     await logActivity({
       actor: "Admin", action: "stay.prepared", bookingId: booking.id, entity: "inspection", entityId: (data as InspectionRow).id,
-      summary: `${existing.data ? "Updated the preparation" : "Prepared the facilities"} for ${booking.name} (${booking.id}), every item ticked.${together.length ? ` Also counts for ${together.join(", ")} (same tour, same facilities).` : ""}`,
+      summary: `${existing.data ? "Updated the preparation" : "Prepared the facilities"} for ${booking.name} (${booking.id}), every item ticked.${together.length ? ` Also counts for ${together.join(", ")} (same stay, same facilities).` : ""}`,
       details: { facilities: items.map((x) => x.facilityName), unticked },
     });
     return NextResponse.json({ success: true, inspection: rowToInspection(data as InspectionRow), alsoPrepared: together }, { status: 201 });

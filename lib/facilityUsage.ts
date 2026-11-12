@@ -86,22 +86,22 @@ export function checklistFor(f: Facility, stage: "before" | "after"): string[] {
   return (stage === "before" ? DEFAULT_BEFORE : DEFAULT_AFTER)[key(f)] ?? [];
 }
 
-// ── Preparation shared by groups on the same tour ─────────────────────
+// ── Preparation shared by groups on the same stay ─────────────────────
 //
-// Groups booked on the same date and tour (two shared Day Tours, say) use the
+// Groups booked on the same date and stay (two shared Day Stays, say) use the
 // same pool, grill, parking and so on, and those are prepared once for all of
 // them. So a booking's facilities count as prepared when ANY preparation for
-// its tour covered them, even one saved for another group before this one
+// its stay covered them, even one saved for another group before this one
 // was booked. What only this group has (its own room) is covered only once
 // someone prepares it. Its own saved preparation always means it is done.
 
 type PrepInspection = { bookingId: string; stage: string; items: { facilityId: number }[] };
 type TourBooking = Booking;
 
-/** Same date, same tour (Day / Night / Staycation), same last day. */
+/** Same date, same stay (Day / Night / Staycation), same last day. */
 const tourKey = (b: Booking) => `${b.date}|${getBookingSlot(b)}|${bookingEndDate(b)}`;
 
-/** The facilities this booking uses that no preparation for its tour has
+/** The facilities this booking uses that no preparation for its stay has
  *  covered yet ([] means it is prepared and can be checked in). */
 export function stillToPrepare(
   b: Booking, bookings: TourBooking[], inspections: PrepInspection[], facilities: Facility[],

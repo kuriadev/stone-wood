@@ -3,10 +3,10 @@
 // SERVER ONLY.
 //
 // Every API route was previously unlimited. The two that send email and the
-// one that mints PayMongo payments are the expensive ones: a script hitting
+// ones that store uploads are the expensive ones: a script hitting
 // /api/email in a loop burns the Gmail account's daily send quota and gets it
 // flagged for spam, and a loop on /api/payment creates unbounded payment
-// intents against the live PayMongo account.
+// uploads into storage.
 //
 // Caveat, deliberately written down rather than hidden: this state lives in
 // module memory. On Vercel each serverless instance has its own Map, so the

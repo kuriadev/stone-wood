@@ -16,7 +16,7 @@ import { fmt, fmtDate } from "@/lib/utils";
 import { payTypeLabel } from "@/lib/labels";
 import { MANUAL_METHODS, type PaymentType } from "@/types/finance";
 import type { Booking } from "@/types/booking";
-import { QrPayModal, QrPhHint, qrSummaryForBooking } from "@/components/admin/QrPayModal";
+import { QrPayModal, GcashHint, qrSummaryForBooking } from "@/components/admin/QrPayModal";
 import { Modal, Label, ChoiceButtons, ActionButton, AmountRow, ErrorNote, useAdminStyle } from "@/components/admin/ui";
 
 type Kind = "Stay" | "Penalty";
@@ -45,7 +45,7 @@ export function RecordPaymentModal({
   const [kind, setKind] = useState<Kind>(defaultKind);
   const [amount, setAmount] = useState<string>("");
   const [method, setMethod] = useState<(typeof MANUAL_METHODS)[number]>("Cash");
-  // Money coming in by QR Ph is a code the guest scans (QrPayModal).
+  // GCash: the guest scans the resort's QR (QrPayModal); staff type the receipt's reference.
   const [qrOpen, setQrOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -77,8 +77,7 @@ export function RecordPaymentModal({
     if (value <= 0) return setError("Enter an amount greater than zero.");
     if (value > max) return setError(`The most you can record here is ${fmt(max)}.`);
     if (byQr && !qrRef) {
-      if (value < 20) return setError("A QR payment has to be at least ₱20. Take it in cash instead.");
-      return setQrOpen(true);
+            return setQrOpen(true);
     }
     setBusy(true);
     const r = await ops.recordPayment({ bookingId: booking.id, type, amount: value, method, reference: byQr ? qrRef ?? "" : "", notes: "", ...(receivedOn ? { receivedAt: `${receivedOn}T12:00:00+08:00` } : {}) });
@@ -160,7 +159,7 @@ export function RecordPaymentModal({
 
           {byQr && value > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <QrPhHint amount={value} text="Press the button below: a QR Ph code for {amount} comes up for the guest to scan with GCash, Maya or any QR Ph e-wallet. It saves by itself once they pay." />
+              <GcashHint amount={value} text="Press the button below: the resort's GCash QR comes up for the guest to scan and send {amount}. Once it shows in the resort's GCash, type the reference number from their receipt." />
             </div>
           )}
         </>

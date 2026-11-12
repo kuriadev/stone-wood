@@ -152,7 +152,7 @@ export const COLLECTIONS = {
   bookings: {
     key: "sw_bookings",
     adminOnly: true,
-    // New online bookings and PayMongo payments arrive without the admin
+    // New online bookings and GCash receipts arrive without the admin
     // doing anything. The admin panel's live sync (OpsContext) re-reads
     // this every 15 seconds, together with facilities and the ledger.
     load: () => getJson<Booking[]>("/api/bookings", (j) => j.bookings as Booking[] | undefined),

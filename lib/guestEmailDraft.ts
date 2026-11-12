@@ -69,7 +69,7 @@ export function guestEmailDraft(b: Booking, due: number, today: string): GuestEm
     return due > 0
       ? {
           subject: `Your remaining balance for ${b.id}`,
-          placeholder: `e.g. ${hi} thank you for staying with us! There's still ${fmt(due)} left on ${b.id}. You can settle it by QR Ph or in cash, whichever is easier for you.`,
+          placeholder: `e.g. ${hi} thank you for staying with us! There's still ${fmt(due)} left on ${b.id}. You can settle it by GCash or in cash, whichever is easier for you.`,
         }
       : {
           subject: `Thank you for staying at Stonewood`,
@@ -103,7 +103,7 @@ export function guestEmailDraft(b: Booking, due: number, today: string): GuestEm
       placeholder: `e.g. ${hi} we hope you're enjoying the resort! If you need anything — extra towels, more chairs, or a little more time — just let the front desk know.`,
     };
   }
-  const balanceLine = due > 0 ? ` The balance of ${fmt(due)} is paid when you arrive, by QR Ph or in cash.` : "";
+  const balanceLine = due > 0 ? ` The balance of ${fmt(due)} is paid when you arrive, by GCash or in cash.` : "";
   if (b.date <= today && today <= bookingEndDate(b)) {
     return {
       subject: `See you today, ${firstName(b.name)}!`,

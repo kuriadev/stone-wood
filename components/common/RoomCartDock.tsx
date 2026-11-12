@@ -108,7 +108,7 @@ export function RoomCartDock({ variant = "compact", note }: {
             {/* Name and one short line; the beds are on the Room step. */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <p className="sw-dock__name" title={r.name}>{r.name}</p>
-              <p className="sw-dock__meta">Up to {r.capacity} guests · <span className="sw-dock__amt">{fmt(r.price)}</span> / tour</p>
+              <p className="sw-dock__meta">Up to {r.capacity} guests · <span className="sw-dock__amt">{fmt(r.price)}</span> / stay</p>
             </div>
             <button type="button" className="sw-dock__remove" onClick={() => roomCart.remove(r.id)} aria-label={`Remove ${r.name}`} title="Remove">
               <Icon name="x" size={14} />

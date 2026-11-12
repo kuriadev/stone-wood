@@ -9,7 +9,7 @@
 //               up to 15 children, and they take shared spots the same way.
 //   Exclusive   children are free and NOT counted: 30 adults can still
 //               bring children.
-//   Either way  everyone booked into the resort for a tour, every group
+//   Either way  everyone booked into the resort for a stay, every group
 //               together, stays within CHILDREN_TOTAL_MAX (100), so it is
 //               never packed.
 //   Exclusive   flat rate: children under 3 are free.
@@ -44,7 +44,7 @@ export function cappedHeadcount(adults: number, children: number, tier: BookingT
 
 /** The most children this many adults can bring: in Shared, adults and
  *  children together within `cap` (the booking's guest limit,
- *  guestLimitFor); always, everyone on the tour (`onTour`, lib/utils.ts
+ *  guestLimitFor); always, everyone on the stay (`onTour`, lib/utils.ts
  *  peopleOnTour) within OVERRIDE_GUESTS_MAX. */
 export function childLimit(adults: number, cap: number, onTour = 0, tier: BookingTier = "Shared"): number {
   if (adults < 1) return 0;
@@ -61,8 +61,8 @@ export function childrenProblem(adults: number, children: number, cap: number, o
   if (onTour + adults + children > OVERRIDE_GUESTS_MAX) {
     const left = Math.max(0, OVERRIDE_GUESTS_MAX - onTour - adults);
     return left > 0
-      ? `Only ${left} more child${left === 1 ? "" : "ren"} can come that tour: ${onTour} people are already booked, and the resort holds ${OVERRIDE_GUESTS_MAX} at once.`
-      : `No more children can come that tour: the resort is already at ${OVERRIDE_GUESTS_MAX} people with your group.`;
+      ? `Only ${left} more child${left === 1 ? "" : "ren"} can come that stay: ${onTour} people are already booked, and the resort holds ${OVERRIDE_GUESTS_MAX} at once.`
+      : `No more children can come that stay: the resort is already at ${OVERRIDE_GUESTS_MAX} people with your group.`;
   }
   return null;
 }

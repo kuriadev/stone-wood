@@ -15,7 +15,7 @@ import {
 const booking = (over: Partial<Booking> = {}): Booking => ({
   id: "SW-10130", name: "Juan Dela Cruz", contact: "09171234567",
   email: "juan@gmail.com", date: "2026-10-20", guests: 4,
-  package: "Day Tour", slot: "Day", rooms: [], overtime: 0, total: 0,
+  package: "Day Stay", slot: "Day", rooms: [], overtime: 0, total: 0,
   downpayment: 0, status: "Confirmed", paymentProof: true, notes: "",
   ...over,
 });
@@ -40,7 +40,7 @@ describe("what the guest receives", () => {
     const { html } = buildGuestMessageEmail(booking(), "", "hi");
     expect(html).toContain("SW-10130");
     expect(html).toContain("October 20, 2026");
-    expect(html).toContain("Day Tour");
+    expect(html).toContain("Day Stay");
   });
 
   it("greets the guest by name", () => {

@@ -6,7 +6,7 @@ import type { AdminTab } from "@/types/admin";
 /* ── What staff and guests READ for a stored value ────────────────────────
  *
  * The database keeps short, stable words ("Pending", "Forfeited",
- * "PayMongo"). Queries, filters and the API keep using them, unchanged.
+ * "Downpayment"). Queries, filters and the API keep using them, unchanged.
  * Everything a person reads goes through one of these maps instead, so the
  * wording can change here without touching a single query.
  *
@@ -45,27 +45,17 @@ export const PAYMENT_TYPE_LABEL: Record<PaymentType, string> = {
   Refund: "Refund",
 };
 
-export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
-  // The online checkout. Stored as "PayMongo", the processor; guests and
-  // staff know it as the QR Ph code they scanned.
-  PayMongo: "QR Ph",
-  Cash: "Cash",
-  // A QR Ph code scanned at the front desk. Stored as "GCash" (the value
-  // older rows use); the resort only takes cash and QR Ph.
-  GCash: "QR Ph",
-};
+/** What guests read for the pool choice. Stored as "Shared" / "Exclusive";
+ *  "Exclusive" confused guests (tester feedback, 2026-11-12). */
+export const TIER_LABEL: Record<"Shared" | "Exclusive", string> = { Shared: "Shared pool", Exclusive: "Private pool" };
+export const tierLabel = (t: string | null | undefined) => (t === "Exclusive" ? "Private pool" : t === "Shared" ? "Shared pool" : String(t ?? ""));
 
-/** QR Ph is the one online way to pay: the resort's PayMongo account shows
- *  a QR Ph code, and the guest scans it with whichever e-wallet they use.
- *  These are the e-wallets that pay a PayMongo QR Ph code (PayMongo's own
- *  list, paymongo.com/qrph). Banks are not listed: the resort takes cash
- *  and QR Ph e-wallets only. */
-export const QRPH_WALLETS = [
-  { name: "GCash", icon: "/images/wallets/gcash.png" },
-  { name: "Maya", icon: "/images/wallets/maya.png" },
-] as const;
-/** "GCash, Maya or any e-wallet that accepts QR Ph" */
-export const QRPH_WALLETS_TEXT = `${QRPH_WALLETS.map((w) => w.name).join(", ")} or any e-wallet that accepts QR Ph`;
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  Cash: "Cash",
+  // GCash to the resort's own account: online with a receipt staff check,
+  // or at the desk by scanning the resort's QR.
+  GCash: "GCash",
+};
 
 /** Label for any stored value; falls back to the value itself. */
 export function labelOf<K extends string>(map: Record<K, string>, value: string | null | undefined): string {
@@ -107,7 +97,7 @@ export const bookingStatusLabel = (b: { status: string; source?: string | null; 
 export const moneyLabel = (s: string | null | undefined) => labelOf(MONEY_STATE_LABEL, s);
 export const payTypeLabel = (s: string | null | undefined) => labelOf(PAYMENT_TYPE_LABEL, s);
 export const payMethodLabel = (s: string | null | undefined) => labelOf(PAYMENT_METHOD_LABEL, s);
-/** "Down payment · QR Ph" — the line every payment list prints. */
+/** "Down payment · GCash" — the line every payment list prints. */
 export const paymentLine = (p: { type: string; method: string }) => `${payTypeLabel(p.type)} · ${payMethodLabel(p.method)}`;
 
 /* ── Admin navigation ─────────────────────────────────────────────────────

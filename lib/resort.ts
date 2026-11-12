@@ -2,7 +2,7 @@
 //
 // Every page that shows opening hours reads them from here. Before this
 // file the site gave three different answers — 7 AM or 8 AM for the Day
-// Tour, 6 PM or 7 PM for the Night Tour — because each page typed its own.
+// Stay, 6 PM or 7 PM for the Night Stay — because each page typed its own.
 //
 // Pure data: safe to import from client components and from the server.
 
@@ -15,7 +15,7 @@ export interface SlotInfo {
   start: string;
   end: string;
   /** "7:00 AM – 5:00 PM", or "7:00 PM – 5:00 AM, next day" (no brackets of
-   *  its own: screens print it as "Night Tour (…)"). */
+   *  its own: screens print it as "Night Stay (…)"). */
   hours: string;
   /** True when the slot ends after midnight, on the following morning. */
   endsNextDay: boolean;
@@ -24,7 +24,7 @@ export interface SlotInfo {
   /** What a stay of several days in this slot actually is.
    *
    *  "returns" — the slot leaves a long gap every cycle, so the guest goes
-   *  home and comes back: three days of Day Tour is three daytime visits,
+   *  home and comes back: three days of Day Stay is three daytime visits,
    *  not one long one. "continuous" — the only gap is the 5–7 AM turnover,
    *  so a run of them is one unbroken stay and the guest never leaves. */
   stay: "returns" | "continuous";
@@ -64,13 +64,13 @@ const slot = (
 
 // The one place the resort's hours are set. Change a number here and every
 // page, the booking flow and the live occupancy count follow.
-// ── The Night Tour is an OVERNIGHT slot ──
+// ── The Night Stay is an OVERNIGHT slot ──
 //
 // It used to stop at midnight, which meant a group paid for five hours and
 // then had to leave in the dark. It now holds the resort for the whole
 // night and gives it back at 5 AM, which is what guests were asking for.
 //
-// 5 AM is not arbitrary: the Day Tour starts at 7, so ending there leaves
+// 5 AM is not arbitrary: the Day Stay starts at 7, so ending there leaves
 // the same two-hour turnover in the morning that 5–7 PM already gives
 // between the Day and Night groups. That is what keeps the night group's
 // stay from eating into the next morning's booking — the resort is empty
@@ -80,16 +80,16 @@ const slot = (
 // ── What a stay of SEVERAL days means, per slot ──
 //
 // This is the question the hours alone do not answer, and the one guests
-// kept asking: if I book a Day Tour for three days, do I sleep here?
+// kept asking: if I book a Day Stay for three days, do I sleep here?
 //
 // The answer falls out of the gap each slot leaves between its cycles:
 //
-//   Day Tour     5:00 PM → 7:00 AM next day = a 14-hour gap. The guest
+//   Day Stay     5:00 PM → 7:00 AM next day = a 14-hour gap. The guest
 //                goes home for the night and comes back in the morning.
 //                Three days is three separate daytime visits. The resort
 //                is NOT theirs overnight, and those nights stay sellable.
 //
-//   Night Tour   5:00 AM → 7:00 PM same day = a 14-hour gap. The mirror
+//   Night Stay   5:00 AM → 7:00 PM same day = a 14-hour gap. The mirror
 //                image: the guest goes home at dawn and comes back in the
 //                evening. Three days is three nights, and the stay ends
 //                at 5:00 AM on the morning AFTER the last date.
@@ -108,9 +108,9 @@ const slot = (
 // these windows; this is the same fact in words.
 export const SLOTS: Record<BookingSlot, SlotInfo> = {
   // 7:00 AM – 5:00 PM
-  Day: slot("Day", "Day Tour", 7, 17, 1, "returns", "You come back each morning"),
+  Day: slot("Day", "Day Stay", 7, 17, 1, "returns", "You come back each morning"),
   // 7:00 PM – 5:00 AM next day
-  Night: slot("Night", "Night Tour", 19, 29, 1, "returns", "You come back each evening"),
+  Night: slot("Night", "Night Stay", 19, 29, 1, "returns", "You come back each evening"),
   // 7:00 AM – 5:00 AM next day
   WholeDay: slot("WholeDay", "Staycation", 7, 29, 2, "continuous", "You stay right through"),
 };
@@ -119,10 +119,10 @@ export const SLOTS: Record<BookingSlot, SlotInfo> = {
 //
 // Events bring loud music, crowds and lights, so the hall shuts at
 // VENUE_END_HOUR (the owner's "Events venue closes", midnight by default)
-// even though the Night Tour runs on to 5 AM. A venue-only booking ends
+// even though the Night Stay runs on to 5 AM. A venue-only booking ends
 // then and goes home: it never had the pool, and isn't counted against it.
 // A pool + venue group keeps its booking to the end of the night and moves
-// to the pool once the hall shuts (owner's rule, 2026-11-08). The Day Tour
+// to the pool once the hall shuts (owner's rule, 2026-11-08). The Day Stay
 // already ends before it, so only night hours change.
 
 /** When the events venue closes at night, 24-hour clock (24 = midnight). */
@@ -157,7 +157,7 @@ export const isContinuousStay = (id: BookingSlot): boolean => SLOTS[id].stay ===
 
 /** Can a booking in this slot cover more than one date at all?
  *
- *  Only the Whole Day. The Day and Night Tours are SINGLE-DATE visits, and
+ *  Only the Whole Day. The Day and Night Stays are SINGLE-DATE visits, and
  *  this is the rule rather than an accident: a run of them would mean
  *  driving home at 5 PM and coming back at 7 the next morning, three times
  *  over. Nobody wants to buy that. A guest who wants several days wants
@@ -175,7 +175,7 @@ export function multiDayProblem(id: BookingSlot, days: number): string | null {
   return `The ${SLOTS[id].label} is for one date only. Choose the ${SLOTS[MULTI_DAY_SLOT].label} to book more than one date.`;
 }
 
-/** What a multi-day stay is counted in — nights for the Night Tour, days
+/** What a multi-day stay is counted in — nights for the Night Stay, days
  *  for the others. "3 nights" reads truer than "3 days" for a booking
  *  that starts at 7 PM and ends at dawn. */
 export function stayUnit(id: BookingSlot, days: number): string {
@@ -204,22 +204,22 @@ export function stayPatternNote(id: BookingSlot, days: number, resource?: Bookin
   return `${unit}, one after another. You arrive at ${s.start} each morning and ${s.cycleEnd} — the resort is not yours overnight. Any room you book stays locked and held for you in between, so you can leave your things.`;
 }
 
-/** How long after today's tour starts it can still be booked online. */
+/** How long after today's stay starts it can still be booked online. */
 export let LATE_BOOKING_GRACE_HOURS = 2;
 
 /** The hour (24-hour clock, Manila) at which online booking of today's
- *  tour closes: 9 AM for the 7 AM Day Tour, 9 PM for the 7 PM Night Tour. */
+ *  stay closes: 9 AM for the 7 AM Day Stay, 9 PM for the 7 PM Night Stay. */
 export const lateBookingCloses = (slot: BookingSlot): number => SLOTS[slot].startHour + LATE_BOOKING_GRACE_HOURS;
 
 /** Minutes past midnight in Manila (UTC+8 all year, no daylight saving). */
 const manilaMinutes = (at: Date): number => (at.getUTCHours() * 60 + at.getUTCMinutes() + 8 * 60) % (24 * 60);
 
-/** Today's tour can be booked online until LATE_BOOKING_GRACE_HOURS after
+/** Today's stay can be booked online until LATE_BOOKING_GRACE_HOURS after
  *  it starts (owner's rule, 2026-11-10): 9:00 AM is the last moment for
- *  the 7 AM Day Tour, so a guest still gets most of the tour. Later than
- *  that, the date is closed for that tour.
+ *  the 7 AM Day Stay, so a guest still gets most of the stay. Later than
+ *  that, the date is closed for that stay.
  *
- *  A late booking still ends at the tour's usual time and costs the same.
+ *  A late booking still ends at the stay's usual time and costs the same.
  *  Staying longer is overtime, asked for at the front desk. Only the first
  *  date matters: the later days of a stay are all in the future. Walk-ins
  *  at the front desk are not held to this; the staff can see who is
@@ -231,9 +231,9 @@ export function slotStartedProblem(date: string, slot: BookingSlot, at: Date = n
   return `Online booking for today's ${s.label} closed at ${hourLabel(lateBookingCloses(slot))}, 2 hours after it started. Choose another date, or visit the front desk.`;
 }
 
-/** The note shown when someone books today's tour after it has started:
+/** The note shown when someone books today's stay after it has started:
  *  it still ends at the usual time, and staying longer is overtime. Null
- *  when the tour hasn't started yet, or the date isn't today. */
+ *  when the stay hasn't started yet, or the date isn't today. */
 export function lateArrivalNote(date: string, slot: BookingSlot, at: Date = new Date(), resource?: BookingResource | null): string | null {
   const now = manilaNow(at);
   if (date !== now.date || now.hour < SLOTS[slot].startHour || slotStartedProblem(date, slot, at, resource)) return null;
@@ -241,10 +241,10 @@ export function lateArrivalNote(date: string, slot: BookingSlot, at: Date = new 
   return `Today's ${s.label} started at ${s.start}. You can book it until ${hourLabel(lateBookingCloses(slot))} and arrive now, but it ends at ${s.end}${s.endsNextDay ? " the next morning" : ""} as usual, at the full price. To stay longer, ask the front desk for overtime.`;
 }
 
-/** Where today's tour stands right now, for the front desk, which can book
- *  a tour at any point (lib/resort.ts slotStartedProblem only limits the
- *  website). "upcoming" for any other date, or before the tour starts;
- *  "started" while it runs; "ended" once it is over (only the Day Tour can
+/** Where today's stay stands right now, for the front desk, which can book
+ *  a stay at any point (lib/resort.ts slotStartedProblem only limits the
+ *  website). "upcoming" for any other date, or before the stay starts;
+ *  "started" while it runs; "ended" once it is over (only the Day Stay can
  *  end on the date it starts). */
 export type SlotTiming = "upcoming" | "started" | "ended";
 export function slotTiming(date: string, slot: BookingSlot, at: Date = new Date(), resource?: BookingResource | null): SlotTiming {
@@ -257,7 +257,7 @@ export function slotTiming(date: string, slot: BookingSlot, at: Date = new Date(
 export let TURNOVER_WINDOW = "5:00 – 7:00 PM";
 
 /** 5–7 AM: cleaning and turnover after the Night group leaves, before the
- *  next morning's Day Tour. The mirror of TURNOVER_WINDOW, and the reason
+ *  next morning's Day Stay. The mirror of TURNOVER_WINDOW, and the reason
  *  an overnight booking does not block the following day. */
 export let MORNING_TURNOVER_WINDOW = "5:00 – 7:00 AM";
 
@@ -288,6 +288,9 @@ export const RESORT_CONTACT = {
   email: "stonewoodresort.ph@gmail.com",
   /** The page's Messenger chat link (m.me/<page username>). */
   messenger: "https://m.me/stonewoodresort",
+  /** Where guests send their payment (Rates & Settings). */
+  gcashNumber: "0966 254 0677",
+  gcashName: "SEAN JETHRO M.",
 };
 
 export interface ContactChannel {
@@ -339,7 +342,7 @@ export interface ResortValues {
   venueEnd: number;
   /** Quiet hours start (24-hour clock, past 24 = after midnight). */
   quietStart?: number;
-  /** Same-day online booking, hours after the tour starts. */
+  /** Same-day online booking, hours after the stay starts. */
   lateBookingHours?: number;
   contact: { phone: string; viber: string; email: string; messenger: string };
 }
@@ -352,8 +355,8 @@ const twoHours = (from: number, to: number) => {
 };
 
 export function applyResortValues(v: ResortValues): void {
-  Object.assign(SLOTS.Day, slot("Day", "Day Tour", v.dayStart, v.dayEnd, 1, "returns", "You come back each morning"));
-  Object.assign(SLOTS.Night, slot("Night", "Night Tour", v.nightStart, v.nightEnd, 1, "returns", "You come back each evening"));
+  Object.assign(SLOTS.Day, slot("Day", "Day Stay", v.dayStart, v.dayEnd, 1, "returns", "You come back each morning"));
+  Object.assign(SLOTS.Night, slot("Night", "Night Stay", v.nightStart, v.nightEnd, 1, "returns", "You come back each evening"));
   Object.assign(SLOTS.WholeDay, slot("WholeDay", "Staycation", v.dayStart, v.nightEnd, 2, "continuous", "You stay right through"));
   TURNOVER_WINDOW = twoHours(v.dayEnd, v.nightStart);
   MORNING_TURNOVER_WINDOW = twoHours(v.nightEnd % 24, v.dayStart);

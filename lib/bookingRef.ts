@@ -1,6 +1,6 @@
 // ── Booking references
 //
-// A reference starts with what was booked: DT- Day Tour, NT- Night Tour,
+// A reference starts with what was booked: DT- Day Stay, NT- Night Stay,
 // SC- Staycation (migration 20261101120000_booking_ref_by_slot). Bookings
 // made before that keep SW-, so all four are recognised everywhere a
 // reference is read: guest messages, links, the refund form.

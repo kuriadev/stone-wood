@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     template: `%s · ${SITE.name}`,
   },
   description: SITE.description,
-  keywords: ["resort", "private resort", "Angono", "Rizal", "swimming pool", "day tour", "events venue", "Philippines"],
+  keywords: ["resort", "private resort", "Angono", "Rizal", "swimming pool", "day stay", "events venue", "Philippines"],
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
@@ -64,6 +64,11 @@ export const metadata: Metadata = {
 export const revalidate = 60;
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // The keyboard shrinks the page instead of sliding over it, so the field
+  // being typed in stays in view (Android Chrome and in-app browsers).
+  interactiveWidget: "resizes-content",
   themeColor: [
     { media: "(prefers-color-scheme: dark)", color: "#121212" },
     { media: "(prefers-color-scheme: light)", color: "#faf7f2" },

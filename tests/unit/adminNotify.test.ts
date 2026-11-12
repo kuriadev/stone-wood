@@ -16,7 +16,7 @@ const TODAY = "2026-10-20";
 
 const booking = (over: Partial<Booking> = {}): Booking => ({
   id: "SW-10141", name: "Juan Dela Cruz", contact: "09171234567",
-  email: "juan@gmail.com", date: TODAY, guests: 4, package: "Day Tour",
+  email: "juan@gmail.com", date: TODAY, guests: 4, package: "Day Stay",
   slot: "Day", rooms: [], overtime: 0, total: 6000, downpayment: 3000,
   status: "Confirmed", paymentProof: true, notes: "", ...over,
 });

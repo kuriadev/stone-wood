@@ -34,8 +34,8 @@ person for**, while staying inside the three capstone objectives:
 - The current admin username/password becomes the first Owner account.
 - Supabase is in the partner's control: Claude writes migration files, the
   partner applies them. The app must keep working before they are applied.
-- Package content stays the owner's ([packages-owner-controlled]); PayMongo
-  code stays the partner's.
+- Package content stays the owner's ([packages-owner-controlled]); payment
+  handling stays the partner's.
 - Multi-day bookings stay "Whole Day only, 1–3 days" unless the user decides
   Day Tours may also run several days (open question, §10).
 
@@ -47,7 +47,7 @@ counts; Settings for rates/discounts/hours/limits/contacts; the multi-day
 fixes found on 2026-10-12; arrival reminders; Excel and PDF export.
 
 **Out:** customer accounts, FAQ chatbot, AI photo analysis (photos are
-evidence only), PayMongo webhook/fees, multi-tenant, overnight per-night
+evidence only), payment-gateway webhook/fees, multi-tenant, overnight per-night
 stays, a generic resource model.
 
 ## 3. Roles and permissions

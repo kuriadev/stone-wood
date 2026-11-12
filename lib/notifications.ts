@@ -54,7 +54,7 @@ export interface Note {
 }
 
 const iso = (ms: number) => new Date(ms).toISOString();
-/** A booking's tour start in Manila, as an instant. */
+/** A booking's stay start in Manila, as an instant. */
 const startOf = (b: Booking) =>
   `${b.date}T${String(SLOTS[getBookingSlot(b)].startHour % 24).padStart(2, "0")}:00:00+08:00`;
 const who = (b: Booking) => `${b.id} · ${b.name}`;

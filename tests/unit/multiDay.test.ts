@@ -3,14 +3,14 @@
  * The three slots leave very different gaps between their cycles, so a run
  * of them means three different things (lib/resort.ts):
  *
- *   Day Tour    5 PM -> 7 AM: a 14-hour gap. The guest goes home and comes
+ *   Day Stay    5 PM -> 7 AM: a 14-hour gap. The guest goes home and comes
  *               back. Three days is three separate daytime visits.
- *   Night Tour  5 AM -> 7 PM: the mirror. Three days is three nights, and
+ *   Night Stay  5 AM -> 7 PM: the mirror. Three days is three nights, and
  *               the stay ends at 5 AM on the morning AFTER the last date.
  *   Whole Day   5 AM -> 7 AM: only the turnover. A run is ONE unbroken stay.
  *
  * The bug these tests pin: rooms were matched on the booked slot alone, so
- * a three-day Day Tour released its room every night of the run and the
+ * a three-day Day Stay released its room every night of the run and the
  * system would sell it to a Night group while the guest's things were still
  * in it and they were coming back at 7 the next morning.
  */
@@ -23,14 +23,14 @@ import { stayPatternNote, stayUnit, isContinuousStay } from "@/lib/resort";
 /** A confirmed booking with only the fields these rules read. */
 const booking = (over: Partial<Booking>): Booking => ({
   id: "B1", name: "Test", contact: "", email: "", date: "2026-10-10",
-  guests: 10, package: "Day Tour", rooms: [], overtime: 0, total: 0,
+  guests: 10, package: "Day Stay", rooms: [], overtime: 0, total: 0,
   downpayment: 0, status: "Confirmed", paymentProof: true, notes: "",
   ...over,
 });
 
 describe("roomHoldSlots — a stay keeps its room through the gaps", () => {
   it("holds a Day run's room overnight on every date but the last", () => {
-    // Oct 10-12 Day Tour. The guest leaves at 5 PM on the 10th and 11th and
+    // Oct 10-12 Day Stay. The guest leaves at 5 PM on the 10th and 11th and
     // is back at 7 AM — the room is theirs those nights. On the 12th they
     // leave for good, so that night is free again.
     const b = booking({ date: "2026-10-10", endDate: "2026-10-12", slot: "Day", rooms: [3] });
@@ -41,7 +41,7 @@ describe("roomHoldSlots — a stay keeps its room through the gaps", () => {
   });
 
   it("holds a Night run's room through the daytime on every date but the first", () => {
-    // Oct 10-12 Night Tour. They arrive at 7 PM on the 10th, so that
+    // Oct 10-12 Night Stay. They arrive at 7 PM on the 10th, so that
     // daytime is still sellable. They leave at 5 AM on the 11th and 12th
     // and come back that evening, so those daytimes are held.
     const b = booking({ date: "2026-10-10", endDate: "2026-10-12", slot: "Night", rooms: [3] });
@@ -109,7 +109,7 @@ describe("the pool is NOT held through the gaps", () => {
   });
 
   it("closes the Day of every date of an Exclusive Day run, and leaves the Nights open", () => {
-    // Exclusive is a buyout of its tour, which a multi-day run does not
+    // Exclusive is a buyout of its stay, which a multi-day run does not
     // change: every date of the run is closed in the slot it bought.
     const stay = [booking({
       date: "2026-10-10", endDate: "2026-10-12", slot: "Day",
@@ -145,7 +145,7 @@ describe("stayWindowLabel — when the guest really leaves", () => {
     expect((win.end.getTime() - win.start.getTime()) / 3_600_000).toBe(70);
   });
 
-  it("ends a single-night Night Tour the next morning", () => {
+  it("ends a single-night Night Stay the next morning", () => {
     const w = stayWindowLabel({ date: "2026-10-10", slot: "Night" });
     expect(w?.depart).toBe("October 11, 2026, 5:00 AM");
   });
@@ -175,7 +175,7 @@ describe("what the guest is told", () => {
     expect(note).toContain("the morning after the last");
   });
 
-  it("counts nights for the Night Tour and days for the others", () => {
+  it("counts nights for the Night Stay and days for the others", () => {
     expect(stayUnit("Night", 3)).toBe("3 nights");
     expect(stayUnit("Day", 3)).toBe("3 days");
     expect(stayUnit("Day", 1)).toBe("1 day");

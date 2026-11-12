@@ -34,7 +34,7 @@ export const notices = {
         paragraphs: [
           `A reminder that your ${s.label} at Stonewood Garden is tomorrow, ${visit(b)}: ${s.hours}.`,
           balance > 0
-            ? `The balance of ${fmt(balance)} is paid when you arrive — cash or QR Ph.`
+            ? `The balance of ${fmt(balance)} is paid when you arrive — cash or GCash.`
             : "Your booking is fully paid. Just bring yourselves.",
           "If anything has changed, open your booking or call us.",
         ],
@@ -118,7 +118,7 @@ export const notices = {
         name: b.name,
         paragraphs: [
           `Your booking has moved from ${fmtDate(oldDate)} to ${visit(b)}. What you paid carries over.`,
-          balance > 0 ? `The balance of ${fmt(balance)} is paid when you arrive — cash or QR Ph.` : "Your booking is fully paid.",
+          balance > 0 ? `The balance of ${fmt(balance)} is paid when you arrive — cash or GCash.` : "Your booking is fully paid.",
         ],
         rows: [["Booking", b.id], ["New date", visit(b)], ...(balance > 0 ? [["Balance on arrival", fmt(balance)] as [string, string]] : [])],
         button: button(link),
@@ -265,6 +265,46 @@ export const notices = {
         button: button(link, "View your booking"),
       },
       sms: `Stonewood Garden Private Resort: We've returned your ${fmt(amount)} refund for ${b.id}, as we agreed with you. Details: ${link}`,
+    };
+  },
+
+  /** The guest uploaded their GCash receipt: it waits for staff to check. */
+  proofReceived(b: Booking, due: number, payChoice: "Downpayment" | "Full", link: string): NoticeText {
+    return {
+      email: {
+        subject: `We got your proof of payment – ${b.id}`,
+        title: "We're checking your payment",
+        tagline: `Booking ${b.id}`,
+        name: b.name,
+        paragraphs: [
+          `Thank you! We received your receipt for ${fmt(due)}${payChoice === "Full" ? " (paid in full)" : " (the 50% down payment)"}. Our team checks that it arrived in our GCash, usually within a few hours.`,
+          "Your date is held for you meanwhile. You'll get another email as soon as your payment is confirmed. This email is not the confirmation yet.",
+          "If you uploaded the wrong picture, open your booking and change it.",
+        ],
+        rows: [["Booking ID", b.id], ["Date", visit(b)], ["Amount sent", fmt(due)], ["Booking total", fmt(b.total)]],
+        button: button(link),
+      },
+      sms: `Stonewood Garden Private Resort: We got your proof of payment for ${b.id} (${fmt(due)}). We'll confirm once we've checked it. ${link}`,
+    };
+  },
+
+  /** Staff couldn't verify the receipt: the guest uploads a new one. */
+  proofRejected(b: Booking, reason: string, link: string): NoticeText {
+    return {
+      email: {
+        subject: `We couldn't verify your payment – ${b.id}`,
+        title: "Please send your receipt again",
+        tagline: `Booking ${b.id}`,
+        name: b.name,
+        paragraphs: [
+          `We checked the receipt you sent for ${b.id} and couldn't confirm the payment.`,
+          ...(reason ? [`Reason: ${reason}`] : []),
+          "Please open your booking and upload a clear screenshot of your GCash receipt showing the reference number, date and amount. If you think this is a mistake, call or message us.",
+        ],
+        rows: [["Booking ID", b.id], ["Date", visit(b)]],
+        button: button(link, "Upload a new receipt"),
+      },
+      sms: `Stonewood Garden Private Resort: We couldn't verify the payment for ${b.id}.${reason ? ` ${reason}` : ""} Please upload a clear receipt: ${link}`,
     };
   },
 };

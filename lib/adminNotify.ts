@@ -331,6 +331,24 @@ export function buildDateChangeAlert(b: Booking, to: string, holdUntil: string):
   };
 }
 
+/** A guest uploaded a GCash receipt: someone checks the money arrived. */
+export function buildProofAlert(b: Booking, due: number, payChoice: "Downpayment" | "Full", reference: string | null): MailOut {
+  return {
+    subject: `Proof of payment to check · ${b.id} · ${fmt(due)}`,
+    html: shell(
+      "A guest sent their proof of payment",
+      `${b.name} booked ${b.id} and uploaded a GCash receipt. Check that ${fmt(due)} arrived in the resort's GCash, then confirm or reject it.`,
+      section(`Booking ${b.id}`, [
+        `${who(b)}`,
+        `${escapeHtml(fmtDate(b.date))} · ${escapeHtml(bookingSlotInfo(b).label)} · ${escapeHtml(String(b.guests))} guests`,
+        `Paid now: <strong>${escapeHtml(fmt(due))}</strong> (${payChoice === "Full" ? "in full" : "50% down"}) of ${escapeHtml(fmt(b.total))}`,
+        ...(reference ? [`Reference on the receipt: <strong>${escapeHtml(reference)}</strong>`] : []),
+      ]) + section("What to do", ["Open the Dashboard → Pending proof of payment, look at the receipt, and confirm or reject it."]),
+      "#e0a020",
+    ),
+  };
+}
+
 /** A message from the website's contact form. */
 export function buildGuestMessageAlert(m: { name: string; email: string; type: string; message: string }): MailOut {
   return {

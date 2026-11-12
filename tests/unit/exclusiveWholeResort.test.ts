@@ -2,8 +2,8 @@
  *
  * Owner's rule from 2026-10-27: an Exclusive pool buyout keeps the pool to
  * one group, and another group may still rent the events venue in the same
- * tour; a group that has the hall doesn't stop someone else buying out the
- * pool. Each part is still one group's: the hall takes one event per tour,
+ * stay; a group that has the hall doesn't stop someone else buying out the
+ * pool. Each part is still one group's: the hall takes one event per stay,
  * and an Exclusive pool takes no one else in the pool. (From 2026-09-25 an
  * Exclusive buyout took the hall too.)
  *
@@ -18,7 +18,7 @@ import { checkBookingAvailability, getPackageTier } from "@/lib/utils";
 const DATE = "2026-10-20";
 const booking = (over: Partial<Booking>): Booking => ({
   id: "B1", name: "Test", contact: "", email: "", date: DATE,
-  guests: 10, package: "Day Tour", rooms: [], overtime: 0, total: 0,
+  guests: 10, package: "Day Stay", rooms: [], overtime: 0, total: 0,
   downpayment: 0, status: "Confirmed", paymentProof: true, notes: "",
   slot: "Day", resource: "Pool", tier: "Shared",
   ...over,
@@ -40,7 +40,7 @@ describe("the pool and the events venue are booked independently", () => {
     expect(checkBookingAvailability(DATE, "WholeDay", 10, "Exclusive", "Pool", [hall]).ok).toBe(true);
   });
 
-  it("still takes one event per tour in the hall", () => {
+  it("still takes one event per stay in the hall", () => {
     expect(checkBookingAvailability(DATE, "Day", 20, "Exclusive", "Venue", [hall]).ok).toBe(false);
     expect(checkBookingAvailability(DATE, "Day", 10, "Exclusive", "Pool+Venue", [hall]).ok).toBe(false);
     expect(checkBookingAvailability(DATE, "Day", 20, "Exclusive", "Venue", [party]).ok).toBe(false);
@@ -57,14 +57,14 @@ describe("the pool and the events venue are booked independently", () => {
     expect(checkBookingAvailability(DATE, "Night", 20, "Exclusive", "Venue", [late]).ok).toBe(true);
   });
 
-  it("lets shared groups and the hall share a tour", () => {
+  it("lets shared groups and the hall share a stay", () => {
     expect(checkBookingAvailability(DATE, "Day", 20, "Exclusive", "Venue", [shared]).ok).toBe(true);
     expect(checkBookingAvailability(DATE, "Day", 5, "Shared", "Pool", [hall]).ok).toBe(true);
   });
 });
 
 describe("Resort & pool + Events Venue is Exclusive only", () => {
-  it("refuses it Shared, for tours and stays alike", () => {
+  it("refuses it Shared, for stays and stays alike", () => {
     expect(pricingProblem("Pool+Venue", "Shared", "Day")).not.toBeNull();
     expect(pricingProblem("Pool+Venue", "Shared", "Night")).not.toBeNull();
     expect(pricingProblem("Pool+Venue", "Exclusive", "Day")).toBeNull();

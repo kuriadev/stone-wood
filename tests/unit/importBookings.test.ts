@@ -40,7 +40,7 @@ describe("readImportSheet", () => {
   it("turns a filled-in line into a walk-in", () => {
     const { lines } = readImportSheet([
       header,
-      line({ name: "Juan Dela Cruz", contact: 9171234567, first: new Date(Date.UTC(2026, 10, 5)), tour: "Day Tour", booking: "Resort & pool", pool: "Exclusive", guests: 12, rooms: "Room 1, room 2", amount: "₱3,000", method: "GCash", reference: "123456" }),
+      line({ name: "Juan Dela Cruz", contact: 9171234567, first: new Date(Date.UTC(2026, 10, 5)), tour: "Day Stay", booking: "Resort & pool", pool: "Exclusive", guests: 12, rooms: "Room 1, room 2", amount: "₱3,000", method: "GCash", reference: "123456" }),
     ], rooms);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ line: 2, body: {
@@ -59,7 +59,7 @@ describe("readImportSheet", () => {
   it("finds columns by their header, in any order, and skips empty lines", () => {
     const grid = [
       ["Guests", "Tour", "First day", "Contact number", "Guest name"],
-      [5, "Night Tour", "2026-11-06", "09171234567", "Bea"],
+      [5, "Night Stay", "2026-11-06", "09171234567", "Bea"],
       [null, null, null, null, null],
     ];
     const { lines } = readImportSheet(grid, rooms);
@@ -70,16 +70,16 @@ describe("readImportSheet", () => {
   it("says why a line can't be read", () => {
     const { lines } = readImportSheet([
       header,
-      line({ contact: "09171234567", first: "2026-11-05", tour: "Day Tour", guests: 2 }),
-      line({ name: "A", contact: "09171234567", first: "tomorrow", tour: "Day Tour", guests: 2 }),
-      line({ name: "B", contact: "09171234567", first: "2026-11-05", tour: "Morning", guests: 2 }),
-      line({ name: "C", contact: "09171234567", first: "2026-11-05", tour: "Day Tour", guests: 2, rooms: "Room 9" }),
-      line({ name: "D", contact: "09171234567", first: "2026-11-05", tour: "Day Tour", guests: 0 }),
+      line({ contact: "09171234567", first: "2026-11-05", tour: "Day Stay", guests: 2 }),
+      line({ name: "A", contact: "09171234567", first: "tomorrow", tour: "Day Stay", guests: 2 }),
+      line({ name: "B", contact: "09171234567", first: "2026-11-05", stay: "Morning", guests: 2 }),
+      line({ name: "C", contact: "09171234567", first: "2026-11-05", tour: "Day Stay", guests: 2, rooms: "Room 9" }),
+      line({ name: "D", contact: "09171234567", first: "2026-11-05", tour: "Day Stay", guests: 0 }),
     ], rooms);
     expect(lines.map((l) => l.error)).toEqual([
       "Add the guest's name.",
       "First day isn't a date. Write it like 2026-11-05.",
-      "Tour must be Day Tour, Night Tour or Staycation.",
+      "Stay must be Day Stay, Night Stay or Staycation.",
       'There is no room called "room 9".',
       "Guests must be a whole number, 1 or more.",
     ]);
@@ -87,7 +87,7 @@ describe("readImportSheet", () => {
   });
 
   it("refuses a sheet without the columns it needs", () => {
-    expect(readImportSheet([["Name", "Date"]], rooms).missing).toEqual(["Contact number", "Tour", "Guests"]);
+    expect(readImportSheet([["Name", "Date"]], rooms).missing).toEqual(["Contact number", "Stay", "Guests"]);
   });
 });
 

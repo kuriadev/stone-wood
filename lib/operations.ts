@@ -144,7 +144,7 @@ export function opsStage(b: Booking, today: string): OpsStage | null {
 }
 
 /** `facilities` lets a group count as prepared when another group on the
- *  same tour already had everything it uses prepared (stillToPrepare). */
+ *  same stay already had everything it uses prepared (stillToPrepare). */
 export function opsBoard(bookings: Booking[], inspections: Inspection[], now: Date, facilities?: Facility[]): OpsCard[] {
   const today = manilaDate(now);
   const prepared = facilities ? preparedBookingIds(bookings, inspections, facilities) : new Set(inspections.filter((i) => i.stage === "Preparation").map((i) => i.bookingId));
@@ -297,7 +297,7 @@ export function closingBlockers(bookings: Booking[], date: string): CloseBlocker
 // ── Days nobody closed ───────────────────────────────────────────────
 //
 // Closing the day (counting the cash drawer) is a step the owner has to
-// remember. The Night Tour ends at midnight, so the natural time to close a
+// remember. The Night Stay ends at midnight, so the natural time to close a
 // day is the next morning, which is exactly when it's easy to forget. Every
 // PAST day that needed a count and has none is chased in "Needs your
 // attention" (and the sidebar badge) until it is closed.

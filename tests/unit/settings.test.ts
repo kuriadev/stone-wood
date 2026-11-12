@@ -49,7 +49,7 @@ describe("a saved record changes what the app uses", () => {
     expect(after).toBe(2500);
   });
 
-  it("prices an Exclusive tour at the owner's flat rate, with no discount", () => {
+  it("prices an Exclusive stay at the owner's flat rate, with no discount", () => {
     applySettings(withChanges({ rates: { exclusiveFlat: 7000 } }));
     expect(priceBooking({ resource: "Pool", tier: "Exclusive", slot: "Day", guests: 5, overtime: 0, roomPrices: [] }).total).toBe(7000);
   });
@@ -66,7 +66,7 @@ describe("a saved record changes what the app uses", () => {
     expect(day.desc).toContain("8:00 AM – 4:00 PM");
     expect(day.details.join(" ")).toContain("₱7,000");
     const room = rateCards([{ price: 1800 }, { price: 2600 }]).find((c) => c.id === "room")!;
-    expect(room.details[0]).toBe("₱1,800–₱2,600 per room, per tour");
+    expect(room.details[0]).toBe("₱1,800–₱2,600 per room, per stay");
   });
 
   it("moves the capacity everywhere it is read", () => {
@@ -94,7 +94,7 @@ describe("a bad record is refused with a reason", () => {
   it("refuses an Exclusive rate of zero", () => {
     const v = validateSettings({ rates: { exclusiveFlat: 0 } });
     expect(v.ok).toBe(false);
-    expect(!v.ok && v.error).toMatch(/Exclusive rate/);
+    expect(!v.ok && v.error).toMatch(/Private pool rate/);
   });
 
   it("refuses a fractional capacity", () => {
@@ -108,10 +108,10 @@ describe("a bad record is refused with a reason", () => {
 
   it("refuses a night that runs into the next morning's opening", () => {
     const v = validateSettings({ hours: { dayStart: 7, nightEnd: 31 } });
-    expect(!v.ok && v.error).toMatch(/before the next Day Tour/);
+    expect(!v.ok && v.error).toMatch(/before the next Day Stay/);
   });
 
-  it("refuses a tour shorter than four hours", () => {
+  it("refuses a stay shorter than four hours", () => {
     expect(validateSettings({ hours: { dayStart: 9, dayEnd: 12 } }).ok).toBe(false);
   });
 
