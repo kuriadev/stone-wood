@@ -63,7 +63,7 @@ export async function PUT(req: NextRequest) {
     revalidatePath("/");
     await logActivity({
       actor: "Admin", action: "site.home_cards", entity: "site_content", entityId: KEY,
-      summary: `Updated the "Tours & Room Add-ons" cards on the home page (${v.cards.length} card${v.cards.length === 1 ? "" : "s"}: ${v.cards.map((c) => c.title).join(", ")}).`,
+      summary: `Updated the "Stays & Room Rates" cards on the home page (${v.cards.length} card${v.cards.length === 1 ? "" : "s"}: ${v.cards.map((c) => c.title).join(", ")}).`,
     });
     return NextResponse.json({ success: true, cards: v.cards });
   } catch (err) {
@@ -84,7 +84,7 @@ export async function DELETE(req: NextRequest) {
     revalidatePath("/");
     await logActivity({
       actor: "Admin", action: "site.home_cards", entity: "site_content", entityId: KEY,
-      summary: `Reset the "Tours & Room Add-ons" cards on the home page to the automatic ones from Rates & Settings.`,
+      summary: `Reset the "Stays & Room Rates" cards on the home page to the automatic ones from Rates & Settings.`,
     });
     return NextResponse.json({ success: true, cards: null });
   } catch (err) {

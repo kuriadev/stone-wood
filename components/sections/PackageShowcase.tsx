@@ -1,6 +1,8 @@
 "use client";
 
+import { MAX_STAY_DAYS } from "@/lib/validators";
 import { imageAt } from "@/lib/img";
+import { AMENITIES_INCLUDED_LINE } from "@/lib/constants";
 import { useEffect, useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useWidth } from "@/hooks/useWidth";
@@ -47,9 +49,9 @@ export type TierKey = "SHARED" | "EXCLUSIVE" | "EVENTS";
 
 export const TIERS: { key: TierKey; label: string; icon: IconName; tagline: string; blurb: string }[] = [
   { key: "SHARED", label: "Shared pool", icon: "pool", tagline: "Come together",
-    blurb: "Share the pool with other groups and pay per guest." },
+    blurb: "Share the pool with other guests." },
   { key: "EXCLUSIVE", label: "Private pool", icon: "lock", tagline: "Make it entirely yours",
-    blurb: "The whole resort for your group alone — no other groups during your stay." },
+    blurb: "Exclusive: the pool is your group's alone — no other group shares it on your stay." },
   { key: "EVENTS", label: "Events", icon: "gift", tagline: "Celebrate beautifully",
     blurb: "The events hall for parties, birthdays and celebrations." },
 ];
@@ -65,15 +67,15 @@ export const TIERS: { key: TierKey; label: string; icon: IconName; tagline: stri
 function packageMeaning(p: ResortPackage): string {
   const whole = p.slotMode === "WholeDay";
   if (p.resource === "Venue") {
-    return "The events venue on its own — the pool isn't part of this package.";
+    return "The events venue on its own. The pool isn't included, and other groups may be using it.";
   }
   if (p.resource === "Pool+Venue") {
     return `The pool and the events venue together, for your group alone${whole ? " from morning through the night" : ""}.`;
   }
   if (p.status === "Exclusive") {
     return whole
-      ? "The whole resort is your group's from morning through the night, with no other bookings that day."
-      : "The whole pool is your group's — no other group books your stay.";
+      ? "The pool is your group's alone, from morning through the night."
+      : "The pool is your group's alone — no other group shares it on your stay.";
   }
   return "You share the pool with other groups booked on the same stay, and pay per guest.";
 }
@@ -338,6 +340,13 @@ function TierCarousel({
   );
 }
 
+/** How many days a stay covers: a small gold tag ("1 day", "1–3 days"). */
+function DayTag({ text }: { text: string }) {
+  return (
+    <span className="whitespace-nowrap rounded-full border px-2 text-[10.5px] font-bold" style={{ borderColor: "rgba(201,168,76,0.35)", background: "rgba(201,168,76,0.10)", color: "var(--sw-gold-ink)", lineHeight: "18px" }}>{text}</span>
+  );
+}
+
 /** One package as a guest sees it. Exported for the admin form's guest
  *  view, which renders it with the form's unsaved values. */
 export function PackageCard({
@@ -352,14 +361,28 @@ export function PackageCard({
 }) {
   const shots = p.gallery?.length ? p.gallery : [{ src: p.cover, label: p.title, kind: "" }];
   const exclusive = p.status === "Exclusive";
-  // The tab or wheel already names the tier: a "SHARED" badge on a Shared
-  // package says it twice. Kept where it adds something (Exclusive in Events).
-  const tierSaysIt = tierOf(p) === p.status.toUpperCase();
+  // What kind of booking it is. A private pool says EXCLUSIVE; the venue on
+  // its own doesn't, because the pool can still go to other groups that day
+  // (the venue and the pool are booked separately). A shared one needs no
+  // badge: its tab already says Shared pool.
+  const badge = p.resource === "Venue" ? "EVENTS VENUE ONLY"
+    : p.resource === "Pool+Venue" ? "EXCLUSIVE · POOL + VENUE"
+    : exclusive ? "EXCLUSIVE · PRIVATE POOL" : null;
   // A venue-only package ends when the venue closes at night.
-  const slots = (p.slotMode === "WholeDay" ? (["WholeDay"] as const) : (["Day", "Night"] as const)).map((id) => slotFor(id, p.resource));
+  const slots = (p.slotMode === "WholeDay" ? (["WholeDay"] as const) : (["Day", "Night"] as const)).map((id) => slotFor(id, p.resource))
+    // A Staycation says how long it can be (1 to MAX_STAY_DAYS days, picked
+    // when booking) rather than just "Staycation".
+    .map((sl) => ({ ...sl, span: sl.id === "WholeDay" ? `1–${MAX_STAY_DAYS} days` : "1 day" }));
   // "Day (7:00 AM – 5:00 PM) or Night (…)" in the inclusions says what the
   // hours list under it already says. Shown once, there.
-  const includes = p.includes.filter((inc) => ![SLOTS.Day.hours, SLOTS.Night.hours, SLOTS.WholeDay.hours, ...slots.map((sl) => sl.hours)].some((h) => inc.includes(h)));
+  const includes = p.includes.filter((inc) => ![SLOTS.Day.hours, SLOTS.Night.hours, SLOTS.WholeDay.hours, ...slots.map((sl) => sl.hours)].some((h) => inc.includes(h)))
+    // "(8% off)" typed into the text could disagree with the package's real
+    // room discount; the real one is shown as a chip under the price.
+    .map((inc) => inc.replace(/\s*\(\d+(\.\d+)?% off\)/i, ""))
+    // Packages saved before 2026-11-12 say "All resort amenities" (and list
+    // parking on its own): read them with the line every package now uses.
+    .map((inc) => (/^all resort amenities$/i.test(inc.trim()) ? AMENITIES_INCLUDED_LINE : inc))
+    .filter((inc, i, all) => !(/^parking$/i.test(inc.trim()) && all.includes(AMENITIES_INCLUDED_LINE)));
   // A promo the owner set (Packages & Prices): what is charged today.
   const promo = packagePriceToday(p, manilaNow().date);
   // Money off the room or each extra day, running today.
@@ -429,7 +452,7 @@ export function PackageCard({
       <div className="flex flex-col">
         <div className="flex min-w-0 flex-col gap-3 p-4 min-[380px]:p-5 md:gap-4 md:p-7">
           <div className="flex flex-wrap gap-2 empty:hidden">
-            {!tierSaysIt && (
+            {badge && (
             <Badge
               variant="outline"
               className="rounded-full px-3 py-1 text-[11px] tracking-[1.5px]"
@@ -439,14 +462,14 @@ export function PackageCard({
                 borderColor: exclusive ? `${gold}44` : C.border,
               }}
             >
-              {p.status.toUpperCase()}
+              {badge}
             </Badge>
             )}
             {promo.badge && (
               <Badge
                 variant="outline"
                 className="rounded-full px-3 py-1 text-[11px] font-semibold tracking-[1.5px]"
-                style={{ background: "rgba(226,87,76,0.12)", color: "#e2574c", borderColor: "rgba(226,87,76,0.45)" }}
+                style={{ background: "rgba(76,175,80,0.12)", color: "#4caf50", borderColor: "rgba(76,175,80,0.45)" }}
               >
                 {promo.badge}
               </Badge>
@@ -477,7 +500,7 @@ export function PackageCard({
               saving it used to show is still on the SAVE badge above, so
               nothing is lost by dropping the second number. */}
           <div className="md:pt-1">
-            <p className="mb-1.5 text-[11px] tracking-[2.5px] md:mb-2" style={{ color: promo.badge ? "#e2574c" : C.textS }}>
+            <p className="mb-1.5 text-[11px] tracking-[2.5px] md:mb-2" style={{ color: promo.badge ? "#4caf50" : C.textS }}>
               {promo.badge ? "PROMO PRICE" : "STARTING AT"}
             </p>
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -495,14 +518,35 @@ export function PackageCard({
                 You save {fmt(promo.off)}{promo.until ? `, ${promoUntilLabel(promo.until)}` : ""}.
               </p>
             )}
+            {/* Why take the package: what the same thing costs booked by
+                hand in Book Now (at today's rates), and the saving. Shown
+                only when the package really is cheaper. */}
+            {(() => {
+              const diy = packageValue(p).diy;
+              const save = diy - promo.pay;
+              if (save <= 0) return null;
+              const pct = Math.round((save / diy) * 100);
+              const perGuest = p.resource !== "Venue" && p.capacity > 1 ? Math.round(promo.pay / p.capacity) : 0;
+              return (
+                <div className="mt-3 rounded-xl border px-3 py-2.5 text-[13px] leading-relaxed" style={{ borderColor: "rgba(76,175,80,0.35)", background: "rgba(76,175,80,0.08)" }}>
+                  <span style={{ color: C.textS }}>Booked on your own: </span>
+                  <span className="line-through" style={{ color: C.textS }}>{fmt(diy)}</span>
+                  <span style={{ color: "#4caf50", fontWeight: 700 }}> · You save {fmt(save)} ({pct}%)</span>
+                  {perGuest > 0 && (
+                    <span className="block" style={{ color: C.textB }}>That&apos;s about {fmt(perGuest)} per guest for {p.capacity} guests.</span>
+                  )}
+                </div>
+              );
+            })()}
             {extraDeals.length > 0 && (
               <ul className="m-0 mt-3 flex list-none flex-wrap gap-2 p-0">
                 {extraDeals.map((d) => (
                   <li
                     key={d.part}
                     className="rounded-full border px-3 py-1 text-[12px] font-semibold"
-                    style={{ background: "rgba(226,87,76,0.08)", color: "#e2574c", borderColor: "rgba(226,87,76,0.4)" }}
+                    style={{ background: "rgba(76,175,80,0.10)", color: "#4caf50", borderColor: "rgba(76,175,80,0.4)", display: "inline-flex", alignItems: "center", gap: 6 }}
                   >
+                    <Icon name="tag" size={12} strokeWidth={2.2} />
                     {d.text}{d.until ? `, ${promoUntilLabel(d.until)}` : ""}
                   </li>
                 ))}
@@ -535,12 +579,17 @@ export function PackageCard({
             <p className="mb-1.5 text-[11px] tracking-[2.5px] md:mb-3" style={{ color: C.textXS }}>
               {p.slotMode === "WholeDay" ? "DURATION" : "CHOOSE WHEN YOU BOOK"}
             </p>
+            {p.slotMode === "WholeDay" && (
+              <p className="mb-2 text-[12.5px]" style={{ color: C.textS }}>
+                Each day runs on these hours. Choose how many days when you book.
+              </p>
+            )}
             {/* Phones: the stays as chips side by side, two lines instead of a
                 table. Wider screens keep the table. */}
             <ul className="m-0 flex list-none flex-wrap gap-2 p-0 md:hidden">
               {slots.map((sl) => (
-                <li key={sl.label} className="flex min-w-0 flex-[1_1_130px] flex-col rounded-xl border px-3 py-2" style={{ borderColor: C.borderLight, background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.025)" }}>
-                  <span className="text-[13px] font-medium" style={{ color: C.textB }}>{sl.label}</span>
+                <li key={sl.label} className="flex min-w-0 flex-[1_1_130px] flex-col gap-1.5 rounded-xl border px-3.5 py-2.5" style={{ borderColor: C.borderLight, background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.025)" }}>
+                  <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] font-medium" style={{ color: C.textB }}>{sl.label}<DayTag text={sl.span} /></span>
                   <span className="text-[12px]" style={{ color: C.goldInk }}>{sl.hours}</span>
                 </li>
               ))}
@@ -552,7 +601,7 @@ export function PackageCard({
                   className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b py-2 last:border-0"
                   style={{ borderColor: C.borderLight }}
                 >
-                  <span className="text-[14.5px]" style={{ color: C.textB }}>{sl.label}</span>
+                  <span className="flex items-center gap-2.5 text-[14.5px]" style={{ color: C.textB }}>{sl.label}<DayTag text={sl.span} /></span>
                   <span className="ml-auto text-right text-[13.5px] font-medium" style={{ color: C.goldInk }}>{sl.hours}</span>
                 </li>
               ))}
@@ -568,7 +617,7 @@ export function PackageCard({
             <p className="flex items-start gap-2 text-[12.5px]" style={{ color: C.textXS, lineHeight: 1.55 }}>
               <Icon name="info" size={12} style={{ marginTop: 4, flexShrink: 0 }} />
               <span>
-                <span style={{ color: C.textB, fontWeight: 600 }}>{p.note}.</span>{" "}
+                <span style={{ color: C.textB, fontWeight: 600 }}>{p.note.replace(/^Day \+ Night$/i, "Day and night")}.</span>{" "}
                 {packageMeaning(p)}
               </span>
             </p>

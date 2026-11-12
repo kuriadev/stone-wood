@@ -728,14 +728,22 @@ export function PackagesTab({ packages, setPackages, rooms = [], mob }: Packages
                           for the same setup, plus the extras it includes. A
                           cheaper copy of a Book Now setup only lowers the real
                           price, because guests would take it every time. */}
+                      {/* A package sells when it is clearly cheaper than building
+                          the same booking in Book Now (tester feedback,
+                          2026-11-12): say what guests save, or warn when they
+                          save nothing and suggest a price that does. */}
                       <p style={{ color: C.textS, margin: 0 }}>
                         The same setup in Book Now costs <strong style={{ color: C.goldInk }}>{fmt(v.diy)}</strong>.
-                        {priced && price > v.diy && <> This package adds <strong style={{ color: C.textH }}>{fmt(price - v.diy)}</strong> for its extras; list them under Includes.</>}
-                        {form.requiresRoom && <> The room the guest picks is added at its own rate, less any room discount below.</>}
+                        {form.requiresRoom && <> The room the guest picks is added at its own rate, less the room discount below.</>}
                       </p>
                       {priced && v.save > 0 && (
+                        <p style={{ color: "#4caf50", margin: "4px 0 0" }}>
+                          Guests save {fmt(v.save)} ({Math.round((v.save / v.diy) * 100)}%) against booking it themselves. The card shows them this.
+                        </p>
+                      )}
+                      {priced && v.save <= 0 && (
                         <p style={{ color: "#f5a524", margin: "4px 0 0" }}>
-                          This is {fmt(v.save)} cheaper than booking the same thing in Book Now, so guests may pick it just for the discount. Price it at {fmt(v.diy)} or more and add extras instead, unless the discount is a deliberate promo.
+                          Guests save nothing with this package{price > v.diy ? ` (it costs ${fmt(price - v.diy)} more)` : ""}, so most will book it themselves. Try {fmt(Math.floor((v.diy * 0.9) / 100) * 100)} (10% off){form.requiresRoom ? " and a room discount" : ""}{form.slotMode === "WholeDay" ? " and an extra-day discount" : ""}.
                         </p>
                       )}
                       {priced && price === v.diy && !form.requiresRoom && (
@@ -848,7 +856,7 @@ export function PackagesTab({ packages, setPackages, rooms = [], mob }: Packages
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* The price cards on Home ("Tours & Room Add-ons"). */}
+      {/* The price cards on Home ("Stays & Room Rates"). */}
       <HomeCardsEditor mob={mob} />
     </div>
   );

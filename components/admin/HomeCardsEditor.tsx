@@ -1,6 +1,6 @@
 "use client";
 
-// ── Home page price cards ("Tours & Room Add-ons"), as staff edit them
+// ── Home page price cards ("Stays & Room Rates"), as staff edit them
 //
 // Starts from what Home shows now: the saved cards, or the automatic ones
 // built from Rates & Settings. Edit, add, remove and reorder, then Save.
@@ -128,7 +128,7 @@ export function HomeCardsEditor({ mob }: { mob: boolean }) {
         <div style={{ maxWidth: 640 }}>
           <p style={{ color: C.textXS, fontSize: 11.5, letterSpacing: 3, marginBottom: 8 }}>HOME PAGE</p>
           <h3 id="home-cards-title" style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: mob ? 20 : 22, fontWeight: 400, margin: 0 }}>
-            &ldquo;Stays &amp; Room Add-ons&rdquo; cards
+            &ldquo;Stays &amp; Room Rates&rdquo; cards
           </h3>
           <p style={{ color: C.textS, fontSize: 13.5, margin: "8px 0 0", lineHeight: 1.6 }}>
             {custom

@@ -55,6 +55,21 @@ export const INIT_ROOMS: Room[] = [
   },
 ];
 
+/** What every stay with the resort & pool includes, said the same way on
+ *  Home, About and the packages (owner's rule, 2026-11-12). The events venue
+ *  is not one of them: it is booked and paid for on its own. */
+export const AMENITIES_INCLUDED_NOTE = "Free to use on every Day Stay, Night Stay and Staycation with the resort & pool";
+/** The package "includes" line for the same thing. */
+export const AMENITIES_INCLUDED_LINE = "Free BBQ area, billiards, videoke & parking";
+
+/** Amenity descriptions saved in the database before the pool could be
+ *  shared still say so; they read with today's words until the owner edits
+ *  them in Facility Management. Keyed by the old text exactly. */
+const STALE_AMENITY_TEXT: Record<string, string> = {
+  "Private pool for whole-day rental, up to 30 guests.": "Share it with other groups, or book it for your group alone.",
+};
+export const freshAmenityText = (t: string): string => STALE_AMENITY_TEXT[t.trim()] ?? t;
+
 export const AMENITIES = [
   { icon: "pool", name: "Swimming Pool", desc: "Share it with other groups, or book it for your group alone." },
   { icon: "flame", name: "BBQ / Grilling Area", desc: "Open-air grilling stations for group cookouts." },
@@ -63,7 +78,7 @@ export const AMENITIES = [
   { icon: "car", name: "Parking Area", desc: "Secure on-site parking for all guests." },
 ] as const;
 
-// The "Tours & Room Add-ons" rate cards on Home.
+// The "Stays & Room Rates" rate cards on Home.
 //
 // Built when the page renders, from the rates, hours and capacity the
 // owner set in Rates & Settings and from the real rooms. These used to be
@@ -117,7 +132,7 @@ export function rateCards(rooms: { price: number }[]): RateCard[] {
       id: "wholeday",
       label: SLOTS.WholeDay.label,
       icon: "clock",
-      desc: `Private pool, ${SLOTS.WholeDay.hours}.`,
+      desc: `Private pool, ${SLOTS.WholeDay.hours} each day.`,
       base: standardPackagePrice({ resource: "Pool", tier: "Exclusive", slotMode: "WholeDay", capacity: RESORT_MAX_CAPACITY }).price,
       unit: "",
       details: [
@@ -224,98 +239,110 @@ const RESORT_WIDE_PHOTO = "https://images.unsplash.com/photo-1571003123894-1f059
 export const CLOSING_BG = RESORT_WIDE_PHOTO;
 const VENUE_PHOTO = "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?q=80&w=1200&auto=format&fit=crop";
 
-type PackageSeed = Omit<ResortPackage, "price" | "listPrice">;
+type PackageSeed = Omit<ResortPackage, "price" | "listPrice"> & {
+  /** How much of the Book Now price the package costs: 0.85 = 15% off. */
+  deal: number;
+};
 
-/** Fill in price (and the struck-through list price when discounted). */
-function priced(p: PackageSeed): ResortPackage {
-  const { price, listPrice } = standardPackagePrice({
+/** A package priced as a real deal: `deal` of what the same booking costs
+ *  in Book Now, rounded down to the hundred, so the card can show the
+ *  saving. A package with a room also gets 15% off the room, and a whole-day
+ *  one 15% off each extra day. The owner changes any of it in Packages &
+ *  Prices. */
+function priced({ deal, ...p }: PackageSeed): ResortPackage {
+  const { listPrice } = standardPackagePrice({
     resource: p.resource, tier: p.status, slotMode: p.slotMode, capacity: p.capacity,
   });
-  return { ...p, price, listPrice: listPrice > price ? listPrice : undefined };
+  const price = Math.max(100, Math.floor((listPrice * deal) / 100) * 100);
+  return {
+    ...p, price,
+    ...(p.requiresRoom ? { roomDiscount: { type: "percent" as const, value: 15 } } : {}),
+    ...(p.slotMode === "WholeDay" ? { extraDayDiscount: { type: "percent" as const, value: 15 } } : {}),
+  };
 }
 
 const DAY_OR_NIGHT = `Day (${SLOTS.Day.hours}) or Night (${SLOTS.Night.hours})`;
 
 const PACKAGE_SEEDS: PackageSeed[] = [
   {
-    id: 1, code: "BARKADA-ROOM", title: "Barkada Pool + Room",
+    id: 1, code: "BARKADA-ROOM", deal: 0.85, title: "Barkada Pool + Room",
     resource: "Pool", status: "Shared", slotMode: "Single", capacity: BARKADA_CAPACITY, requiresRoom: true,
     active: true, cover: ROOM_PHOTO,
     gallery: [{ label: "Room", src: ROOM_PHOTO, kind: "Room" }, { label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" }],
-    blurb: "Pool access shared with other groups, plus a room to rest and change in — pick your room at checkout at a discounted rate.",
-    includes: [`Pool access for up to ${BARKADA_CAPACITY} guests`, "1 room of your choice (8% off)", DAY_OR_NIGHT, "BBQ area, billiards & videoke", "Parking"],
+    blurb: "Pool access for your barkada, plus a room to rest and change in, for less than booking them separately.",
+    includes: [`Shared pool for up to ${BARKADA_CAPACITY} guests`, "1 room of your choice, discounted", DAY_OR_NIGHT, AMENITIES_INCLUDED_LINE],
     note: "Shared pool",
   },
   {
-    id: 2, code: "PRIVATE-POOL", title: "Private Pool",
+    id: 2, code: "PRIVATE-POOL", deal: 0.9, title: "Private Pool",
     resource: "Pool", status: "Exclusive", slotMode: "Single", capacity: POOL_CAPACITY,
     active: true, cover: RESORT_WIDE_PHOTO,
     gallery: [{ label: "Full Resort", src: RESORT_WIDE_PHOTO, kind: "Resort" }, { label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" }],
-    blurb: "The whole pool to your group — no other bookings in your slot.",
-    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, DAY_OR_NIGHT, "All resort amenities", "Parking"],
+    blurb: "The whole pool to your group — no other guests during your stay.",
+    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, DAY_OR_NIGHT, AMENITIES_INCLUDED_LINE],
     note: "Private pool",
   },
   {
-    id: 3, code: "PRIVATE-POOL-ROOM", title: "Private Pool + Room",
+    id: 3, code: "PRIVATE-POOL-ROOM", deal: 0.9, title: "Private Pool + Room",
     resource: "Pool", status: "Exclusive", slotMode: "Single", capacity: POOL_CAPACITY, requiresRoom: true,
     active: true, cover: ROOM_PHOTO,
     gallery: [{ label: "Room", src: ROOM_PHOTO, kind: "Room" }, { label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" }],
     blurb: "The whole pool to your group, plus a room — pick it at checkout at a discounted rate.",
-    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, "1 room of your choice (8% off)", DAY_OR_NIGHT, "All resort amenities"],
+    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, "1 room of your choice, discounted", DAY_OR_NIGHT, AMENITIES_INCLUDED_LINE],
     note: "Private pool",
   },
   {
-    id: 4, code: "WHOLE-DAY", title: "Whole Day Buyout",
+    id: 4, code: "WHOLE-DAY", deal: 0.9, title: "Private Staycation",
     resource: "Pool", status: "Exclusive", slotMode: "WholeDay", capacity: POOL_CAPACITY,
     active: true, cover: POOL_PHOTO_2,
     gallery: [{ label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" }, { label: "Second Pool", src: POOL_PHOTO_2, kind: "Pool" }],
-    blurb: `The resort is yours from ${SLOTS.WholeDay.start} to ${SLOTS.WholeDay.end} — both the Day and Night slots, for less than booking them separately.`,
-    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, `${SLOTS.WholeDay.hours}`, "All resort amenities", "Parking"],
-    note: "Day + Night",
+    blurb: `The resort is yours from ${SLOTS.WholeDay.start} to ${SLOTS.WholeDay.end}, day and night, for less than booking a Day Stay and a Night Stay separately.`,
+    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, `${SLOTS.WholeDay.hours}`, AMENITIES_INCLUDED_LINE],
+    note: "Day and night",
   },
   {
-    id: 5, code: "WHOLE-DAY-STAY", title: "Whole Day Staycation",
+    id: 5, code: "WHOLE-DAY-STAY", deal: 0.9, title: "Staycation + Room",
     resource: "Pool", status: "Exclusive", slotMode: "WholeDay", capacity: POOL_CAPACITY, requiresRoom: true,
     active: true, cover: ROOM_PHOTO,
     gallery: [{ label: "Room", src: ROOM_PHOTO, kind: "Room" }, { label: "Full Resort", src: RESORT_WIDE_PHOTO, kind: "Resort" }],
     blurb: "A full day and night with the resort to yourselves, and a room for the whole stay.",
-    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, "1 room for the whole day (8% off)", `${SLOTS.WholeDay.hours}`, "All resort amenities"],
-    note: "Day + Night",
+    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, "1 room for the whole stay, discounted", `${SLOTS.WholeDay.hours}`, AMENITIES_INCLUDED_LINE],
+    note: "Day and night",
   },
   {
-    id: 6, code: "VENUE", title: "Events Venue",
+    id: 6, code: "VENUE", deal: 0.9, title: "Events Venue",
     resource: "Venue", status: "Exclusive", slotMode: "Single", capacity: VENUE_CAPACITY,
     active: true, cover: VENUE_PHOTO,
     gallery: [{ label: "Events Venue", src: VENUE_PHOTO, kind: "Venue" }],
     blurb: "Just the events hall — for parties, meetings and celebrations that don't need the pool.",
-    includes: [`Private use of the venue for up to ${VENUE_CAPACITY} guests`, DAY_OR_NIGHT, "Tables & chairs setup", "Sound system access"],
+    includes: [`Private use of the venue for up to ${VENUE_CAPACITY} guests`, DAY_OR_NIGHT, "Tables & chairs setup", "Sound system access", "Free parking"],
     note: "No pool",
   },
   {
-    id: 7, code: "VENUE-WHOLE-DAY", title: "Events Venue — Whole Day",
+    id: 7, code: "VENUE-WHOLE-DAY", deal: 0.9, title: "Events Venue — Staycation",
     resource: "Venue", status: "Exclusive", slotMode: "WholeDay", capacity: VENUE_CAPACITY,
     active: true, cover: VENUE_PHOTO,
     gallery: [{ label: "Events Venue", src: VENUE_PHOTO, kind: "Venue" }],
     blurb: `The events hall from ${SLOTS.WholeDay.start} to ${SLOTS.WholeDay.end} — time to set up, celebrate and pack up.`,
-    includes: [`Private use of the venue for up to ${VENUE_CAPACITY} guests`, `${SLOTS.WholeDay.hours}`, "Tables & chairs setup", "Sound system access"],
+    includes: [`Private use of the venue for up to ${VENUE_CAPACITY} guests`, `${SLOTS.WholeDay.hours}`, "Tables & chairs setup", "Sound system access", "Free parking"],
     note: "No pool",
   },
   {
-    id: 8, code: "PARTY", title: "Party Package",
+    id: 8, code: "PARTY", deal: 0.85, title: "Party Package",
     resource: "Pool+Venue", status: "Exclusive", slotMode: "Single", capacity: POOL_CAPACITY,
     active: true, cover: RESORT_WIDE_PHOTO,
     gallery: [{ label: "Full Resort", src: RESORT_WIDE_PHOTO, kind: "Resort" }, { label: "Events Venue", src: VENUE_PHOTO, kind: "Venue" }],
     blurb: "The private pool and the events hall together, bundled for less.",
-    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, "Private events venue", DAY_OR_NIGHT, "All resort amenities"],
+    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, "Private events venue", DAY_OR_NIGHT, AMENITIES_INCLUDED_LINE],
     note: "Pool + Venue",
   },
   {
-    id: 9, code: "GRAND", title: "Grand Celebration",
+    id: 9, code: "GRAND", deal: 0.85, title: "Grand Celebration",
     resource: "Pool+Venue", status: "Exclusive", slotMode: "WholeDay", capacity: POOL_CAPACITY,
     active: true, cover: RESORT_WIDE_PHOTO,
     gallery: [{ label: "Full Resort", src: RESORT_WIDE_PHOTO, kind: "Resort" }, { label: "Events Venue", src: VENUE_PHOTO, kind: "Venue" }, { label: "Main Pool", src: POOL_PHOTO_1, kind: "Pool" }],
-    blurb: "Everything, all day and all night: the private pool and the events hall from morning through to 5 AM the next day. Best for weddings, debuts and big celebrations.",
-    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, "Private events venue", `${SLOTS.WholeDay.hours}`, "All resort amenities"],
+    blurb: `Everything, day and night: the private pool and the events hall from ${SLOTS.WholeDay.start} to ${SLOTS.WholeDay.end}. Best for weddings, debuts and big celebrations.`,
+    includes: [`Private pool for up to ${POOL_CAPACITY} guests`, "Private events venue", `${SLOTS.WholeDay.hours}`, AMENITIES_INCLUDED_LINE],
     note: "Best for big events",
   },
 ];

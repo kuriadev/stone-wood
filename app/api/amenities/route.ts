@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import type { PublicAmenity } from "@/types/facility";
 import { FACILITY_PHOTO_PREFIX, facilityIdFromKey, facilityPhotoUrl } from "@/lib/facilityPhotos";
+import { freshAmenityText } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export async function GET() {
       if (id) photos.set(id, facilityPhotoUrl(id, r.updated_at));
     }
     const amenities: PublicAmenity[] = (data ?? []).map((r) => ({
-      id: Number(r.id), name: String(r.name), icon: String(r.icon ?? ""), description: String(r.description ?? ""),
+      id: Number(r.id), name: String(r.name), icon: String(r.icon ?? ""), description: freshAmenityText(String(r.description ?? "")),
       underMaintenance: r.status === "Under Maintenance",
       photo: photos.get(Number(r.id)) ?? null,
     }));

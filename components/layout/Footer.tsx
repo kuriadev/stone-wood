@@ -67,7 +67,7 @@ export function Footer({ setPage }: FooterProps) {
             STONEWOOD
           </div>
           <p style={{ color: "#9a8d7a", fontSize: 14.5, lineHeight: 2, maxWidth: 300 }}>
-            A private resort experience in Angono, Rizal. Exclusive, intimate, and unforgettable.
+            A private resort experience in Angono, Rizal. Private, relaxed, and unforgettable.
           </p>
         </div>
 

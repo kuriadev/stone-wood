@@ -161,12 +161,12 @@ export function EventPackages({ kind, packages, mob, onBook }: EventPackagesProp
                     <span style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
                       <span style={{ color: C.goldInk, fontSize: 18, fontWeight: 700 }}>{fmt(t.pay)}</span>
                       {t.badge && <span style={{ color: C.textXS, fontSize: 13, textDecoration: "line-through" }}>{fmt(t.regular)}</span>}
-                      {t.badge && <span style={{ color: "#e2574c", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>{t.badge}</span>}
+                      {t.badge && <span style={{ color: "#4caf50", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>{t.badge}</span>}
                     </span>
                   );
                 })()}
                 {packageExtraDeals(p, manilaNow().date).map((d) => (
-                  <span key={d.part} style={{ display: "block", color: "#e2574c", fontSize: 11.5, fontWeight: 600, marginTop: 4 }}>{d.text}</span>
+                  <span key={d.part} style={{ display: "block", color: "#4caf50", fontSize: 11.5, fontWeight: 600, marginTop: 4 }}>{d.text}</span>
                 ))}
               </span>
             </button>

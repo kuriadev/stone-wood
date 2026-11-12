@@ -6,7 +6,9 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { logActivity } from "@/lib/activity.server";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdmin, rowToBooking } from "@/lib/supabase";
+import { bookingCoversDate } from "@/lib/utils";
+import type { BookingRow } from "@/types/database";
 import { requirePermission } from "@/lib/auth";
 import { parseDateStr, isInStaffWindow, staffDateWindow } from "@/lib/validators";
 import { closeDateInput, parseInput } from "@/lib/schemas";
@@ -38,6 +40,21 @@ export async function POST(req: NextRequest) {
     const { date, reason } = parsed.data;
     if (!isInStaffWindow(date)) {
       return NextResponse.json({ success: false, error: `Only dates up to ${staffDateWindow().last} can be closed — as far ahead as guests can book.` }, { status: 400 });
+    }
+
+    // Guests still coming that date: the resort cancels their bookings first
+    // (Cancel, resort can't host), so each one is told and can pick a new
+    // date or a refund. Closing the date alone would leave them coming to a
+    // closed resort with no word.
+    const active = await getSupabaseAdmin().from("bookings").select("*").in("status", ["Pending", "Confirmed"]).lte("date", date);
+    if (active.error) throw new Error(active.error.message);
+    const coming = ((active.data ?? []) as BookingRow[]).map(rowToBooking).filter((b) => bookingCoversDate(b, date));
+    if (coming.length) {
+      return NextResponse.json({
+        success: false,
+        error: `${coming.length === 1 ? `${coming[0].name} (${coming[0].id}) is` : `${coming.length} bookings are`} booked that date. Cancel ${coming.length === 1 ? "it" : "them"} first with Cancel (resort can't host), so the guest${coming.length === 1 ? " is" : "s are"} told and can pick a new date or a refund. Then close the date.`,
+        bookings: coming.map((b) => b.id),
+      }, { status: 409 });
     }
 
     const { error } = await getSupabaseAdmin()

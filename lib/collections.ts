@@ -241,10 +241,13 @@ export const COLLECTIONS = {
       for (const d of prev) {
         if (!after.has(d)) await send("/api/closed-dates?date=" + encodeURIComponent(d), "DELETE");
       }
+      // A date the server wouldn't close (guests are still booked on it)
+      // comes back off the calendar instead of looking closed.
+      const refused = new Set<string>();
       for (const d of next) {
-        if (!before.has(d)) await send("/api/closed-dates", "POST", { date: d });
+        if (!before.has(d) && !(await send("/api/closed-dates", "POST", { date: d }))) refused.add(d);
       }
-      return next;
+      return refused.size ? next.filter((d) => !refused.has(d)) : next;
     },
   } satisfies Collection<string>,
 };

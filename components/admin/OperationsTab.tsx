@@ -1061,9 +1061,17 @@ export function OperationsTab({
         badgeColor: readyToArrive === arrivingNow.length ? "#2e9e4e" : "#f5a524",
         // The number is guests not yet checked in; the note says how that
         // compares with everyone booked for today.
+        // As chips, not a sentence: checked in (green), still coming (amber),
+        // and the day's total, readable at a glance.
         note: !dueToday.length ? "No bookings today"
-          : guestsToCome === 0 ? `All ${plural(expectedGuests, "guest")} booked for today have checked in ✓`
-          : `${plural(expectedGuests, "guest")} booked for today: ${expectedGuests - guestsToCome} checked in, ${guestsToCome} still coming (${plural(notArrived.length, "group")})`,
+          : guestsToCome === 0 ? <span style={{ color: "#2e9e4e", fontWeight: 600 }}>✓ All {plural(expectedGuests, "guest")} checked in</span>
+          : (
+            <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+              <span style={{ padding: "2px 8px", borderRadius: 999, background: "rgba(46,158,78,0.14)", color: "#2e9e4e", fontWeight: 600, whiteSpace: "nowrap" }}>✓ {expectedGuests - guestsToCome} checked in</span>
+              <span style={{ padding: "2px 8px", borderRadius: 999, background: "rgba(245,165,36,0.14)", color: "#f5a524", fontWeight: 600, whiteSpace: "nowrap" }}>{guestsToCome} coming · {plural(notArrived.length, "group")}</span>
+              <span style={{ whiteSpace: "nowrap" }}>of {expectedGuests} today</span>
+            </span>
+          ),
         onOpen: () => goStat("today", ["ops-col-arriving"]), openLabel: "Show the arriving groups",
       })}
       {dashStat({

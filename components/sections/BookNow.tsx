@@ -15,7 +15,7 @@
   import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
   import { TermsPolicy } from "@/components/booking/TermsPolicy";
   import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
-  import { SLOTS, QUIET_HOURS_POLICY, stayPatternNote, stayUnit, allowsMultiDay, MULTI_DAY_SLOT, slotStartedProblem, lateArrivalNote, slotFor, venueClosesNote, venueCloseText } from "@/lib/resort";
+  import { SLOTS, QUIET_HOURS_POLICY, stayPatternNote, stayUnit, allowsMultiDay, MULTI_DAY_SLOT, slotStartedProblem, lateArrivalNote, slotFor, venueClosesNote, venueCloseText, RESORT_CONTACT } from "@/lib/resort";
   import { SuccessCheck } from "@/components/common/SuccessCheck";
   import { stayWindowLabel } from "@/lib/occupancy";
   import type { Room } from "@/types/room";
@@ -917,7 +917,7 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
         <>
           {/* An itemized liquidation rather than one lump total, so a guest
               can see exactly what each peso is for before paying. */}
-          <p className="sw-bsum__eyebrow" style={{ color: C.goldInk }}>RESERVATION SUMMARY</p>
+          <p className="sw-bsum__eyebrow" style={{ color: C.goldInk }}>BILLING SUMMARY</p>
           {sumRow(stayDays > 1 ? "Dates" : "Date", date ? stayLabel({ date, endDate: lastDay }) : "\u2014")}
           {sumRow("Check in", stayWin ? stayWin.arrive : "\u2014")}
           {sumRow("Check out", stayWin ? stayWin.depart : "\u2014")}
@@ -960,7 +960,7 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
         </>
       ) : summaryKind === "order" ? (
         <>
-          <p className="sw-bsum__eyebrow" style={{ color: C.goldInk }}>ORDER SUMMARY</p>
+          <p className="sw-bsum__eyebrow" style={{ color: C.goldInk }}>BILLING SUMMARY</p>
           {sumRow("Guest", form.name || "\u2014")}
           {sumRow(stayDays > 1 ? "Dates" : "Date", date ? stayLabel({ date, endDate: lastDay }) : "\u2014")}
           {sumRow("Check in", stayWin ? stayWin.arrive : "\u2014")}
@@ -1371,12 +1371,30 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
                       </p>
                     )}
 
-                    {date && resource !== "Venue" && tier === "Shared" && (
-                      <p style={{ color: C.textS, fontSize: 12.5, marginTop: 8, marginBottom: 0 }}>
-                        Shared pool: {sharedUsage.used} of {sharedUsage.max} spots taken for this {SLOTS[slot].label}
-                        {slot === "WholeDay" ? " (the busier of its two slots)" : ""}.
-                      </p>
-                    )}
+                    {/* How full the shared pool is that stay: a card with a bar,
+                        green while there's room, amber when filling, red when
+                        nearly full, so nobody misses it. */}
+                    {date && resource !== "Venue" && tier === "Shared" && (() => {
+                      const { used, max } = sharedUsage;
+                      const left = Math.max(0, max - used);
+                      const pct = max > 0 ? Math.min(100, (used / max) * 100) : 0;
+                      const tone = pct >= 85 ? "#e5484d" : pct >= 60 ? "#f5a524" : "#2e9e4e";
+                      return (
+                        <div role="status" style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, border: `1px solid ${tone}55`, background: `${tone}12` }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                            <Icon name="users" size={16} style={{ color: tone, flexShrink: 0 }} />
+                            <span style={{ color: C.textH, fontSize: 13.5, fontWeight: 700 }}>Shared pool</span>
+                            <span style={{ marginLeft: "auto", color: tone, fontSize: 13.5, fontWeight: 700, whiteSpace: "nowrap" }}>{left} of {max} spots left</span>
+                          </div>
+                          <div aria-hidden="true" style={{ height: 6, borderRadius: 999, background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", overflow: "hidden" }}>
+                            <div style={{ width: `${pct}%`, height: "100%", background: tone, borderRadius: 999, transition: "width .4s ease" }} />
+                          </div>
+                          <p style={{ color: C.textS, fontSize: 12, margin: "6px 0 0" }}>
+                            {used} already booked for this {SLOTS[slot].label}{slot === "WholeDay" ? " (the busier of its two stays)" : ""}.
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Your reservation */}
@@ -1439,7 +1457,7 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
                       {tierFixed ? (
                         <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 12px", borderRadius: 20, background: "rgba(201,168,76,0.15)", border: `1px solid ${gold}66` }}>
                           <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 1, color: C.goldInk }}>
-                            {resource === "Venue" ? "🔒 EXCLUSIVE — VENUE RENTAL" : resource === "Pool+Venue" ? "🔒 EXCLUSIVE — RESORT + VENUE" : `🔒 EXCLUSIVE — ${SLOTS.WholeDay.label.toUpperCase()}`}
+                            {resource === "Venue" ? "🔒 PRIVATE — EVENTS VENUE" : resource === "Pool+Venue" ? "🔒 PRIVATE POOL + EVENTS VENUE" : `🔒 PRIVATE POOL — ${SLOTS.WholeDay.label.toUpperCase()}`}
                           </span>
                         </div>
                       ) : (
@@ -1551,16 +1569,29 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
                           {/* Per day once the stay runs long: the rate is a
                               per-day idea, and the summary carries the total. */}
                           🔒 Private pool — {fmt(tourBase / stayDays)} flat
-                          {stayDays > 1 ? " per day" : slotCount === 2 ? " for the whole day" : ""}, however many of you come.
+                          {stayDays > 1 ? " per day" : slotCount === 2 ? " for the day and night" : ""}, however many of you come.
                           No other group shares the pool with you. Set the count so we prepare for the right number.
                         </p>
                       )}
+                      {/* At the most guests online: a friendly note, not a warning.
+                          A bigger group is welcome; they just arrange it with us. */}
                       {!guestsLocked && headcount >= guestCap && (
-                        <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 8 }}>
-                          {resource === "Venue"
-                            ? `Maximum ${guestCap} guests — what the events venue holds. Please call us for larger groups.`
-                            : `Maximum ${guestCap} guests with the pool — please call us for larger groups.${VENUE_CAPACITY > GUESTS_MAX ? ` For an event without the pool, Events venue only takes up to ${VENUE_CAPACITY}.` : ""}`}
-                        </p>
+                        <div role="note" style={{ display: "flex", gap: 12, alignItems: "flex-start", marginTop: 10, padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(62,142,208,0.4)", background: "rgba(62,142,208,0.08)" }}>
+                          <span aria-hidden="true" style={{ width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", background: "rgba(62,142,208,0.16)", color: "#5b9bd5", flexShrink: 0 }}>
+                            <Icon name="users" size={15} strokeWidth={2} />
+                          </span>
+                          <span style={{ minWidth: 0, lineHeight: 1.5 }}>
+                            <span style={{ display: "block", color: C.textH, fontSize: 13.5, fontWeight: 700 }}>Coming with more than {guestCap} guests?</span>
+                            <span style={{ display: "block", color: C.textB, fontSize: 13 }}>
+                              {guestCap} is the most we can book online{resource === "Venue" ? " for the events venue" : " with the pool"}. For a bigger group, call or message us and we&apos;ll arrange it:{" "}
+                              <a href={`tel:${RESORT_CONTACT.phone.replace(/[^\d+]/g, "")}`} style={{ color: "#5b9bd5", fontWeight: 600, whiteSpace: "nowrap" }}>{RESORT_CONTACT.phone}</a>
+                              {" "}or <a href="/customer" style={{ color: "#5b9bd5", fontWeight: 600 }}>send a message</a>.
+                            </span>
+                            {resource !== "Venue" && VENUE_CAPACITY > GUESTS_MAX && (
+                              <span style={{ display: "block", color: C.textS, fontSize: 12, marginTop: 4 }}>For an event without the pool, Events venue only takes up to {VENUE_CAPACITY}.</span>
+                            )}
+                          </span>
+                        </div>
                       )}
                       </div>
 

@@ -803,8 +803,8 @@ export function buildNoticeEmail(n: Notice): { subject: string; html: string } {
 /** What a 6-digit code is for, so its email says the right thing. */
 export type EmailCodePurpose = "booking" | "manage" | "staff" | "reset";
 const CODE_COPY: Record<EmailCodePurpose, { name: string; use: string; ignore: string }> = {
-  booking: { name: "booking code", use: "Type this code in Book Now to confirm this is your email address:", ignore: "Didn't try to book with us? You can ignore this email; nothing goes ahead without the code." },
-  manage: { name: "booking code", use: "Type this code on Manage booking to open your reservation:", ignore: "Didn't try to open a booking? You can ignore this email; nothing opens without the code." },
+  booking: { name: "6 digit code", use: "Type this code in Book Now to confirm this is your email address:", ignore: "Didn't try to book with us? You can ignore this email; nothing goes ahead without the code." },
+  manage: { name: "6 digit code", use: "Type this code on Manage booking to open your reservation:", ignore: "Didn't try to open a booking? You can ignore this email; nothing opens without the code." },
   staff: { name: "staff email code", use: "Type this code in Staff Accounts to confirm this email for a Stonewood staff account:", ignore: "Not setting up a staff account? You can ignore this email; nothing is saved without the code." },
   reset: { name: "sign-in code", use: "Type this code on the admin sign-in page to reset your password:", ignore: "Didn't ask to reset your password? Ignore this email; your password stays the same. If this keeps happening, tell the resort owner." },
 };
@@ -835,7 +835,8 @@ export function buildEmailCodeEmail(code: string, minutes: number, purpose: Emai
             <td style="background:#ffffff;padding:30px 36px;text-align:center;">
               <p style="margin:0 0 18px;color:#5a4a35;font-size:14px;line-height:1.8;">${copy.use}</p>
               <p style="margin:0 0 18px;color:#2a1f0e;font-size:34px;font-weight:700;letter-spacing:10px;font-family:'Courier New',monospace;">${safe}</p>
-              <p style="margin:0 0 6px;color:#8a6d3b;font-size:13px;line-height:1.7;">It works for ${minutes} minutes. If you asked for more than one code, use the one in the newest email.</p>
+              <p style="margin:0;color:#8a6d3b;font-size:13px;line-height:1.7;">It works for ${minutes} minutes. If you asked for more than one code, use the one in the newest email.</p>
+              <hr style="border:none;border-top:1px solid #eadfc8;margin:14px auto;width:80%;" />
               <p style="margin:0;color:#8a6d3b;font-size:12px;line-height:1.7;">${copy.ignore}</p>
             </td>
           </tr>

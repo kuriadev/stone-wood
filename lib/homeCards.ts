@@ -1,4 +1,4 @@
-// ── The "Tours & Room Add-ons" cards on Home, as staff edit them
+// ── The "Stays & Room Rates" cards on Home, as staff edit them
 //
 // Until staff save their own, the cards are AUTOMATIC: built from the
 // rates, hours and rooms in Rates & Settings (rateCards in lib/constants),
@@ -10,6 +10,7 @@
 
 import type { IconName } from "@/components/common/Icon";
 import { rateCards } from "@/lib/constants";
+import { MAX_STAY_DAYS } from "@/lib/validators";
 
 /** Where a card's button can take a guest: the site's own pages. */
 export const HOME_CARD_LINKS = ["Rooms", "Packages", "Gallery", "Book Now", "About Us"] as const;
@@ -60,7 +61,31 @@ export function automaticHomeCards(rooms: { price: number }[]): HomeCard[] {
 /** One line of card text: no control characters or angle brackets, single
  *  spaces, trimmed and cut to length. */
 const line = (v: unknown, max: number) =>
-  String(v ?? "").replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+  freshenCardText(String(v ?? "").replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim()).slice(0, max);
+
+/** Cards saved before the renames (2026-11-12) read with today's words:
+ *  "Day Tour" is "Day Stay", "Exclusive" is "Private pool", "Shared" is
+ *  "Shared pool". Saving them again in the editor keeps the new words. */
+export function freshenCardText(t: string): string {
+  return t
+    .replace(/\bDay Tours\b/g, "Day Stays").replace(/\bNight Tours\b/g, "Night Stays")
+    .replace(/\bDay Tour\b/g, "Day Stay").replace(/\bNight Tour\b/g, "Night Stay")
+    .replace(/\bTours\b/g, "Stays").replace(/\btours\b/g, "stays")
+    .replace(/\/tour\b/g, "/stay").replace(/\bper tour\b/g, "per stay")
+    .replace(/\bExclusive pool\b/g, "Private pool").replace(/\bExclusive\b/g, "Private pool")
+    .replace(/\bShared:/g, "Shared pool:");
+}
+
+/** How many days a card's stay covers, for the tag beside its title:
+ *  "1 day" for a Day or Night Stay, "1–3 days" for a Staycation, nothing
+ *  for anything else (a room follows the stay it's added to). Read from the
+ *  card's id or title, so saved cards get it too. */
+export function homeCardDays(c: Pick<HomeCard, "id" | "title">): string | null {
+  const t = `${c.id} ${c.title}`.toLowerCase();
+  if (/staycation|wholeday|whole day/.test(t)) return `1–${MAX_STAY_DAYS} days`;
+  if (/day stay|night stay|\b(day|night)\b/.test(t) && !/room/.test(t)) return "1 day";
+  return null;
+}
 
 export type HomeCardsResult = { ok: true; cards: HomeCard[] } | { ok: false; error: string };
 
@@ -95,9 +120,12 @@ export function validateHomeCards(raw: unknown): HomeCardsResult {
         button = { label, link: link as HomeCardLink };
       }
     }
+    // How many days the card covers is shown as a tag beside its title
+    // (homeCardDays), so the text itself is left as written.
+    const description = line(c.description, L.description);
     cards.push({
       id, icon, title,
-      description: line(c.description, L.description),
+      description,
       price: line(c.price, L.price),
       unit: line(c.unit, L.unit),
       details,

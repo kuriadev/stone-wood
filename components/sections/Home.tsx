@@ -6,13 +6,13 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useWidth } from "@/hooks/useWidth";
 import { THEME_COLORS } from "@/lib/theme";
 import { gold, goldBtn } from "@/lib/styles";
-import { HERO_BG } from "@/lib/constants";
-import { automaticHomeCards } from "@/lib/homeCards";
+import { HERO_BG, AMENITIES_INCLUDED_NOTE } from "@/lib/constants";
+import { automaticHomeCards, homeCardDays } from "@/lib/homeCards";
 import { useHomeCards } from "@/hooks/useHomeCards";
 import { TiltedCard } from "@/components/common/TiltedCard";
 import { PackagesSkeleton } from "@/components/common/PageSkeletons";
 import { SLOTS, QUIET_HOURS_START, venueCloseText } from "@/lib/resort";
-import { RESCHEDULE_NOTICE_DAYS } from "@/lib/validators";
+import { RESCHEDULE_NOTICE_DAYS, MAX_STAY_DAYS } from "@/lib/validators";
 import { HeroReservation } from "@/components/sections/HeroReservation";
 import { PackageTierScroll } from "@/components/sections/PackageTierScroll";
 import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
@@ -134,8 +134,11 @@ const RESORT_WIDE = "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d
 
 // Day, Night and Whole Day — times from lib/resort.ts, the one place the
 // resort's hours are set.
-const DURATIONS = ([[SLOTS.Day, "sun"], [SLOTS.Night, "moon"], [SLOTS.WholeDay, "staycation"]] as const)
-  .map(([s, icon]) => ({ label: s.label, window: s.hours, icon }));
+// Read when drawn, so Rates & Settings' hours and stay length are current.
+// Each says how many days it covers: a Day or Night Stay is 1 day, a
+// Staycation 1 to MAX_STAY_DAYS.
+const durations = () => ([[SLOTS.Day, "sun", "1 day"], [SLOTS.Night, "moon", "1 day"], [SLOTS.WholeDay, "staycation", `1–${MAX_STAY_DAYS} days`]] as const)
+  .map(([s, icon, span]) => ({ label: s.label, window: s.hours, icon, span }));
 
 // Packages themselves now come from the admin-editable `packages` prop (see
 // types/package.ts and the admin Packages tab) — grouping them by Shared vs
@@ -170,7 +173,7 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
   // after THIS page has hydrated or it mutates un-hydrated DOM.
 
   const C = THEME_COLORS;
-  // The "Tours & Room Add-ons" cards: the ones staff saved, else the
+  // The "Stays & Room Rates" cards: the ones staff saved, else the
   // automatic ones built from Rates & Settings and the real rooms.
   const savedRateCards = useHomeCards().cards;
   const rateCardsShown = savedRateCards ?? automaticHomeCards(rooms);
@@ -451,13 +454,16 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
           <Reveal
             style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(3,minmax(0,1fr))", gap: mob ? 10 : 0, maxWidth: mob ? "100%" : 1020, margin: `0 auto ${mob ? 28 : 56}px` }}
           >
-            {DURATIONS.map((d, i) => (
+            {durations().map((d, i) => (
               <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 14, justifyContent: mob ? "flex-start" : "center", padding: mob ? "14px 16px" : "6px 20px", borderLeft: !mob && i > 0 ? `1px solid ${C.border}` : undefined, border: mob ? `1px solid ${C.border}` : undefined, borderRadius: mob ? 12 : undefined }}>
                 <span style={{ flexShrink: 0, width: 40, height: 40, borderRadius: "50%", display: "grid", placeItems: "center", color: C.goldInk, background: "rgba(201,168,76,0.10)", border: "1px solid rgba(201,168,76,0.28)" }}>
                   <Icon name={d.icon} size={18} strokeWidth={1.6} />
                 </span>
                 <span style={{ minWidth: 0, textAlign: "left" }}>
-                  <span style={{ display: "block", color: C.textXS, fontSize: 11, letterSpacing: 2.5, marginBottom: 4 }}>{d.label.toUpperCase()}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                    <span style={{ color: C.textXS, fontSize: 11, letterSpacing: 2.5 }}>{d.label.toUpperCase()}</span>
+                    {d.span && <span style={{ padding: "1px 8px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.35)", background: "rgba(201,168,76,0.10)", color: C.goldInk, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{d.span}</span>}
+                  </span>
                   <span style={{ display: "block", color: C.goldInk, fontSize: mob ? 14.5 : 15, fontWeight: 500, letterSpacing: 0.2, whiteSpace: "nowrap" }}>{d.window}</span>
                 </span>
               </div>
@@ -489,7 +495,7 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
         <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
           <Reveal>
             <p style={eyebrow}>What&rsquo;s Included</p>
-            <h2 className="sw-section-title" style={{ ...h2, marginBottom: 16 }}>Stays &amp; Room Add-ons</h2>
+            <h2 className="sw-section-title" style={{ ...h2, marginBottom: 16 }}>Stays &amp; Room Rates</h2>
             <p style={{ ...lede, maxWidth: 520, margin: `0 auto ${headGap}px` }}>Base pricing before package configuration. Every reservation starts here.</p>
           </Reveal>
 
@@ -518,7 +524,13 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
               >
                 <div style={{ padding: mob ? "24px 20px" : "28px 24px", textAlign: "left", display: "flex", flexDirection: "column", height: "100%", boxSizing: "border-box" }}>
                   <div style={{ marginBottom: 12, color: C.goldInk }}><Icon name={p.icon} size={28} strokeWidth={1.5} /></div>
-                  <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18, marginBottom: 8 }}>{p.title}</h3>
+                  <h3 style={{ color: C.textH, fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 18, marginBottom: 8, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                    {p.title}
+                    {/* How many days it covers (lib/homeCards.ts homeCardDays). */}
+                    {homeCardDays(p) && (
+                      <span style={{ padding: "1px 9px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.35)", background: "rgba(201,168,76,0.10)", color: C.goldInk, fontSize: 11, fontWeight: 700, letterSpacing: 0.3, lineHeight: "19px", whiteSpace: "nowrap" }}>{homeCardDays(p)}</span>
+                    )}
+                  </h3>
                   {p.description && <p style={{ color: C.textS, fontSize: 14.5, marginBottom: 16, lineHeight: 1.6 }}>{p.description}</p>}
                   {p.price && (
                     <div style={{ color: C.goldInk, fontSize: 24, fontWeight: 700, marginBottom: 16 }}>
@@ -543,23 +555,22 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
 
           </div>
 
-          {/* The booking rules as short cards instead of one paragraph. */}
-          <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 0", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12, textAlign: "left" }}>
+          {/* The booking rules as short cards: the icon on top, a clear
+              title, two short lines, so each reads at a glance. */}
+          <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 0", display: "grid", gridTemplateColumns: mob ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(190px, 1fr))", gap: mob ? 10 : 14, textAlign: "left" }}>
             {([
-              ["wallet", "50% down by GCash", "Or pay in full. Send it to our GCash; the rest is paid at the resort."],
-              ["receipt", "Send your proof of payment", "Upload your GCash receipt when you book. Our staff check the payment, then email you to confirm your booking."],
-              ["calendar-clock", "Move your date once", `Free, if you ask at least ${RESCHEDULE_NOTICE_DAYS} day${RESCHEDULE_NOTICE_DAYS === 1 ? "" : "s"} before your visit. Cancelling isn't refunded.`],
+              ["wallet", "50% down by GCash", "Pay half now, or the full amount. The rest is paid at the resort."],
+              ["receipt", "Send your proof of payment", "Upload your GCash receipt. We check it, then email your confirmation."],
+              ["calendar-clock", "Move your date once", `Free if you ask ${RESCHEDULE_NOTICE_DAYS}+ day${RESCHEDULE_NOTICE_DAYS === 1 ? "" : "s"} ahead. Cancelling isn't refunded.`],
               ["shield-alert", "If the resort cancels", "You choose a free new date or a full refund."],
-              ["moon", `Quiet from ${QUIET_HOURS_START}`, `Music, videoke and speakers off. The events venue closes at ${venueCloseText()}.`],
+              ["moon", `Quiet from ${QUIET_HOURS_START}`, `Music and videoke off. The events venue closes at ${venueCloseText()}.`],
             ] as const).map(([icon, title, text]) => (
-              <li key={title} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "14px 16px", borderRadius: 14, border: `1px solid ${C.border}`, background: C.bgCard }}>
-                <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center", background: `${gold}1f`, color: C.goldInk }}>
-                  <Icon name={icon} size={16} strokeWidth={1.75} />
+              <li key={title} style={{ display: "flex", flexDirection: "column", gap: 10, padding: mob ? "16px 14px" : "20px 18px", borderRadius: 16, border: `1px solid ${C.border}`, background: C.bgCard }}>
+                <span aria-hidden="true" style={{ width: 40, height: 40, borderRadius: 12, display: "grid", placeItems: "center", background: `${gold}1f`, color: C.goldInk }}>
+                  <Icon name={icon} size={19} strokeWidth={1.75} />
                 </span>
-                <span style={{ minWidth: 0 }}>
-                  <span style={{ display: "block", color: C.textH, fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{title}</span>
-                  <span style={{ display: "block", color: C.textS, fontSize: 12.5, lineHeight: 1.5 }}>{text}</span>
-                </span>
+                <span style={{ display: "block", color: C.textH, fontSize: 15, fontWeight: 650, lineHeight: 1.3 }}>{title}</span>
+                <span style={{ display: "block", color: C.textB, fontSize: 13.5, lineHeight: 1.55 }}>{text}</span>
               </li>
             ))}
           </ul>
@@ -604,6 +615,9 @@ export function Home({ setPage, initialHero, onBookWithDate, bookings, closedDat
           <Reveal style={{ textAlign: "center", marginBottom: headGap }}>
             <p style={eyebrow}>Our Services</p>
             <h2 style={h2}>Resort Facilities</h2>
+            <p style={{ color: C.textB, fontSize: 14.5, lineHeight: 1.6, maxWidth: 560, margin: "12px auto 0" }}>
+              {AMENITIES_INCLUDED_NOTE}. The events venue is booked separately.
+            </p>
           </Reveal>
 
           <Reveal

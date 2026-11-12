@@ -1,5 +1,6 @@
 "use client";
 
+import { AMENITIES_INCLUDED_NOTE } from "@/lib/constants";
 import { imageAt } from "@/lib/img";
 import { useEffect, useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -361,9 +362,15 @@ export function About({
               return (
                 <Reveal key={id} delay={i * REVEAL_STEP}>
                   <div className="sw-about__ratecard" style={{ background: C.bgCard, borderColor: C.border }}>
-                    <p className="sw-about__ratename" style={{ color: C.goldInk }}>{SLOTS[id].label}</p>
+                    <p className="sw-about__ratename" style={{ color: C.goldInk, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                      {SLOTS[id].label}
+                      {/* How many days it covers. */}
+                      <span style={{ padding: "1px 9px", borderRadius: 999, border: "1px solid rgba(201,168,76,0.35)", background: "rgba(201,168,76,0.10)", color: C.goldInk, fontSize: 11, fontWeight: 700, letterSpacing: 0.3, lineHeight: "19px", whiteSpace: "nowrap", fontFamily: "inherit" }}>
+                        {stay ? `1–${MAX_STAY_DAYS} days` : "1 day"}
+                      </span>
+                    </p>
                     <p className="sw-about__ratehours" style={{ color: C.textB }}>
-                      <Icon name="clock" size={15} style={{ color: C.goldInk }} />{slotFor(id).hours}{stay ? ` · up to ${MAX_STAY_DAYS} days` : ""}
+                      <Icon name="clock" size={15} style={{ color: C.goldInk }} />{slotFor(id).hours}
                     </p>
                     {!stay && (
                       <div className="sw-about__ratebox" style={{ background: isDark ? "rgba(255,255,255,0.03)" : "#ffffff", borderColor: C.border }}>
@@ -441,7 +448,7 @@ export function About({
             <Reveal>
               <div className="sw-about__ratecard" style={{ background: C.bgCard, borderColor: C.border, marginTop: 16, height: "auto" }}>
                 <p className="sw-about__ratename" style={{ color: C.goldInk }}>Included with your stay</p>
-                <p className="sw-about__ratehours" style={{ color: C.textB }}><Icon name="check-circle" size={15} style={{ color: C.goldInk }} />Free to use on every Day Stay, Night Stay and Staycation with the resort &amp; pool</p>
+                <p className="sw-about__ratehours" style={{ color: C.textB }}><Icon name="check-circle" size={15} style={{ color: C.goldInk }} />{AMENITIES_INCLUDED_NOTE}</p>
                 <ul className="sw-about__amen">
                   {amenities.map((a) => (
                     <li key={a.id} style={{ borderColor: C.border, background: isDark ? "rgba(255,255,255,0.03)" : "#ffffff", opacity: a.underMaintenance ? 0.6 : 1 }}>

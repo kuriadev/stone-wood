@@ -6,11 +6,11 @@ import {
   Wrench, Image as ImageIcon, Package, TrendingUp, ChartColumn, MessageSquare,
   Check, CircleCheck, X, TriangleAlert, Users, Trash, Mail, Lock, Moon, Sun,
   Clock, Link as LinkIcon, Flag, Banknote, Download, FolderOpen, Menu, Search,
-  Waves, Flame, CircleDot, MicVocal, Car, Tent,
+  Waves, Flame, CircleDot, MicVocal, Car, Tent, Tag,
   Leaf, TreePalm, Sunrise, Phone, MapPin, Settings, Star, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   SunMoon, Handshake, Siren, Info, Circle, Bookmark,
   Plus, Minus, SquarePen, Pencil, LogOut, Eye, EyeOff,
-  Wallet, Receipt, ClipboardCheck, LogIn, ShieldAlert, Printer, History, UserRound, UserRoundX, CalendarClock,
+  Wallet, ReceiptText, ClipboardCheck, LogIn, ShieldAlert, Printer, History, UserRound, UserRoundX, CalendarClock,
   RefreshCw, Ellipsis, CloudOff, ArrowRight, Upload, SlidersHorizontal, Bell, BellOff,
   createLucideIcon,
   type LucideIcon,
@@ -123,7 +123,7 @@ const REGISTRY = {
   circle: Circle,        // neutral "Other" option
   bookmark: Bookmark,    // booking reference
   wallet: Wallet,        // sales
-  receipt: Receipt,      // payment / transaction
+  receipt: ReceiptText,  // payment / transaction (lines, not a $: the resort is in pesos)
   "clipboard-check": ClipboardCheck, // preparation / inspection
   "log-in": LogIn,       // arriving
   "shield-alert": ShieldAlert, // damage
@@ -140,6 +140,7 @@ const REGISTRY = {
   filter: SlidersHorizontal, // the Filters button on admin lists
   bell: Bell,            // the admin notification bell
   "bell-off": BellOff,   // its sound switched off
+  tag: Tag,              // money off: a package's room or extra-day deal
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof REGISTRY;

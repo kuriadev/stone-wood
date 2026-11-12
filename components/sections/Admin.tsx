@@ -520,7 +520,11 @@ export function Admin({
   const getDateStatus = (d: number) => {
     const ds = `${calMonth.getFullYear()}-${String(calMonth.getMonth() + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     if (closedDates.includes(ds)) return "Closed";
-    return bookings.find((x) => bookingCoversDate(x, ds))?.status || null;
+    const on = bookings.filter((x) => bookingCoversDate(x, ds)).map((x) => x.status);
+    // Every booking on the date counts, the one that matters most first: a
+    // cancelled booking listed first used to hide a confirmed one, and the
+    // date could then be closed with guests still coming.
+    return (["Pending", "Confirmed", "Completed"] as const).find((st) => on.includes(st)) ?? on[0] ?? null;
   };
   /* Closing or reopening a date changes what guests can book, and a date
      cell is one mis-tap wide, so the click asks first. */
@@ -1269,7 +1273,7 @@ export function Admin({
                     </ActionButton>}>
                     <p style={{ color: C.textS, fontSize: 14, margin: 0, lineHeight: 1.6 }}>
                       {closing
-                        ? "Guests will not be able to book it. Bookings already made for it are not touched."
+                        ? "Guests will not be able to book it. A date with guests booked can't be closed: cancel those bookings first with Cancel (resort can't host), so each guest is told and can pick a new date or a refund."
                         : "Guests will be able to book it again."}
                     </p>
                   </ConfirmDialog>

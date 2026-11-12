@@ -474,7 +474,7 @@ export function HeroReservation({
                  everything below it up by the difference. */
               <div style={{ minHeight: 44, display: "flex", alignItems: "center" }}>
                 <p style={{ display: "inline-flex", alignItems: "center", gap: 6, margin: 0, padding: "6px 12px", borderRadius: 20, background: `${gold}22`, border: `1px solid ${gold}66`, color: gold, fontSize: 11.5, fontWeight: 700, letterSpacing: 1 }}>
-                  <Icon name="lock" size={12} /> EXCLUSIVE — {SLOTS.WholeDay.label.toUpperCase()}
+                  <Icon name="lock" size={12} /> PRIVATE POOL — {SLOTS.WholeDay.label.toUpperCase()}
                 </p>
               </div>
             ) : (

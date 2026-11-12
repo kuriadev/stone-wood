@@ -27,7 +27,8 @@ export class FakeDb {
 }
 
 class Query implements PromiseLike<Result> {
-  private op: "select" | "insert" | "update" | "delete" = "select";
+  private op: "select" | "insert" | "update" | "delete" | "upsert" = "select";
+  private conflict?: string;
   private filters: Filter[] = [];
   private payload: any;
   private wantRows = false;
@@ -45,6 +46,8 @@ class Query implements PromiseLike<Result> {
     return this;
   }
   insert(p: Row | Row[]) { this.op = "insert"; this.payload = p; return this; }
+  /** Insert, or replace the row with the same `onConflict` value. */
+  upsert(p: Row | Row[], o?: { onConflict?: string }) { this.op = "upsert"; this.payload = p; this.conflict = o?.onConflict ?? "id"; return this; }
   update(p: Row) { this.op = "update"; this.payload = p; return this; }
   delete() { this.op = "delete"; return this; }
 
@@ -87,6 +90,16 @@ class Query implements PromiseLike<Result> {
           row.id = table === "bookings" ? `SW-${String(db.nextId(table)).padStart(5, "0")}` : db.nextId(table);
         }
         row.created_at ??= new Date().toISOString();
+        t.push(row);
+        return row;
+      });
+    } else if (this.op === "upsert") {
+      const key = this.conflict ?? "id";
+      const list = Array.isArray(this.payload) ? this.payload : [this.payload];
+      out = list.map((p) => {
+        const hit = t.find((r) => r[key] === p[key]);
+        if (hit) { Object.assign(hit, p); return hit; }
+        const row = { ...(db.defaults[table] ?? {}), ...p };
         t.push(row);
         return row;
       });
