@@ -59,11 +59,12 @@ export function PackageTierScroll(props: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const pinRef = useRef<HTMLDivElement>(null);
   const [pin, setPin] = useState({ h: 0, top: 96, step: 600 });
-  /* Sized and placed by the tallest card seen, and held at that height.
-     The cards differ (Events is shorter than Barkada Pool + Room), and when
-     the track followed the card on screen it resized with every turn: the
-     footer slid up and down mid-scroll, and the shift could turn the wheel
-     again. Now the track only ever grows, once, to the tallest kind. */
+  /* Sized and placed by the tallest kind's card. The cards differ (Events
+     is shorter than Barkada Pool + Room), and when the track followed the
+     card on screen it resized with every turn: the footer slid up and down
+     mid-scroll, and the shift could turn the wheel again. All the kinds'
+     cards share one grid cell, so its height is the tallest's and holds
+     still as the wheel turns. */
   const tallest = useRef(0);
   /* A kind picked on the wheel, while the page glides to its place. The
      scroll would otherwise re-pick the kind under the glide on the way
@@ -76,9 +77,18 @@ export function PackageTierScroll(props: Props) {
     if (!wheelOn) return;
     const el = pinRef.current;
     if (!el) return;
+    /* The block's own height, read from its parts rather than from `el`:
+       el carries the held min-height, so a reading taken while the page was
+       still settling (756px, against 699px once loaded) held itself in place
+       and could switch the wheel off for good. The stacked cards cell is
+       already the tallest kind's height, so it does not change on a turn. */
+    const natural = () => Math.max(
+      el.querySelector<HTMLElement>(".sw-pkgscroll__cards")?.offsetHeight ?? 0,
+      el.querySelector<HTMLElement>(".sw-pkgwheel")?.offsetHeight ?? 0,
+    );
     const measure = () => {
       const vh = window.innerHeight;
-      tallest.current = Math.max(tallest.current, el.offsetHeight);
+      tallest.current = natural() || el.offsetHeight;
       const t = tallest.current;
       fitH.current = t;
       if (t > vh - NAV_H - 24) { setTooShort(true); return; }
@@ -89,14 +99,25 @@ export function PackageTierScroll(props: Props) {
       const step = Math.round(vh * 0.7);
       setPin((p) => (p.h === t && p.top === top && p.step === step ? p : { h: t, top, step }));
     };
-    // A new window size changes every card's height: start over from the
-    // one on screen (the hold is lifted first, or it would keep the old size).
-    const onResize = () => { tallest.current = 0; el.style.minHeight = "0px"; measure(); el.style.minHeight = `${tallest.current}px`; };
-    measure();
+    /* Not judged until the page has loaded and its fonts are in: read any
+       sooner, before this file's stylesheet and the web fonts apply, the
+       block came out 740px instead of 699px, too tall for a 1349x803
+       screen, and the wheel was switched off for the tabs on every visit. */
     const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    window.addEventListener("resize", onResize);
-    return () => { ro.disconnect(); window.removeEventListener("resize", onResize); };
+    let live = true;
+    const start = () => {
+      if (!live) return;
+      measure();
+      ro.observe(el);
+      // el never shrinks below its min-height; its parts do.
+      el.querySelectorAll(".sw-pkgscroll__cards, .sw-pkgwheel").forEach((part) => ro.observe(part));
+      window.addEventListener("resize", measure);
+    };
+    const loaded = document.readyState === "complete"
+      ? Promise.resolve()
+      : new Promise<void>((res) => window.addEventListener("load", () => res(), { once: true }));
+    void Promise.all([loaded, document.fonts.ready]).then(start);
+    return () => { live = false; ro.disconnect(); window.removeEventListener("resize", measure); };
   }, [wheelOn]);
 
   useEffect(() => {

@@ -79,3 +79,21 @@
    than a laptop screen, and the top of the card slid under the nav. Here
    the stacked cells already keep the kinds level. */
 .sw-pkgscroll__cards article { min-height: 0 !important; }
+
+/* Pinned, the card column is ~340px narrower than in the tabbed layout, so
+   its text wraps more. Since the "Booked on your own · You save" box was
+   added (Nov 12), the block (tallest card, Grand Celebration, plus the dots)
+   came to 771px at 1349x803 against 705px of room, and the fit check in
+   PackageTierScroll.tsx switched the wheel off for the tabs. Here, and only
+   here: the details get a wider column (fewer wrapped lines), a tighter
+   rhythm, the description clamps to two lines as it does on phones (its
+   full text is on hover), and the dots sit closer. The tabbed layout is
+   unchanged. */
+.sw-pkgscroll__cards article { grid-template-columns: minmax(0, 0.78fr) minmax(0, 1fr) !important; }
+.sw-pkgscroll__cards article > div:last-child > div:first-child { gap: 10px; padding: 18px 26px 14px; }
+.sw-pkgscroll__cards article > div:last-child > div:last-child { padding: 0 26px 22px; }
+.sw-pkgscroll__cards article > div:last-child p.md\:mb-3 { margin-bottom: 8px; }
+.sw-pkgscroll__cards article > div:last-child .md\:pt-1 { padding-top: 0; }
+.sw-pkgscroll__cards article p.md\:line-clamp-none { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.sw-pkgscroll__cards [role="tablist"].mt-6 { margin-top: 10px; }
+.sw-pkgscroll__cards [role="tablist"].mt-6 > button { height: 32px; }
