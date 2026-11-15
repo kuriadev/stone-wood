@@ -1,0 +1,64 @@
+name: Tests
+
+# Every merge into main, and every pull request, runs the checks.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Lint, type check, Jest tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run check:chars
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      # The Jest suite uses fake keys (tests/helpers/env.ts); it never
+      # reaches a real database or mailbox.
+      - run: npm test -- --ci
+
+  e2e:
+    name: Playwright browser tests
+    runs-on: ubuntu-latest
+    needs: unit
+    # The browser tests need a running copy of the site. Set the repository
+    # secret E2E_BASE_URL (Settings → Secrets and variables → Actions) to the
+    # staging or live URL. The suite in tests/e2e/smoke.spec.ts is read-only:
+    # it never signs in, books or pays.
+    env:
+      E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+    steps:
+      - name: Skip when no site URL is set
+        if: env.E2E_BASE_URL == ''
+        run: echo "::notice::E2E_BASE_URL is not set, so the Playwright tests were skipped."
+      - uses: actions/checkout@v4
+        if: env.E2E_BASE_URL != ''
+      - uses: actions/setup-node@v4
+        if: env.E2E_BASE_URL != ''
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+        if: env.E2E_BASE_URL != ''
+      - run: npx playwright install --with-deps chromium webkit
+        if: env.E2E_BASE_URL != ''
+      - run: npm run test:e2e
+        if: env.E2E_BASE_URL != ''
+      - uses: actions/upload-artifact@v4
+        if: failure() && env.E2E_BASE_URL != ''
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

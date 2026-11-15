@@ -395,7 +395,9 @@ Each guest notice also has a short text message that staff can send from their o
 |---|---|---|
 | Unit | `tests/unit/` (39 files: pricing, availability, slots, rebooking, no-shows, permissions, retention, labels and more) | `npm test` |
 | Integration | `tests/integration/` (booking check, import, a full stay) against an in-memory database helper | `npm test` |
-| End-to-end | `tests/e2e/` with Playwright | `npm run test:e2e` |
+| End-to-end | `tests/e2e/smoke.spec.ts` with Playwright: pages load, guest data stays private, staff routes are locked. Read-only | `npm run test:e2e` |
+
+`.github/workflows/test.yml` runs the checks, lint, type check and Jest on every merge into `main` and every pull request. The Playwright tests also run there once the repository secret `E2E_BASE_URL` is set to the site's URL.
 
 At the time of writing, all 42 Jest suites (386 tests) pass, and the production build and typecheck are clean.
 
