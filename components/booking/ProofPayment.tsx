@@ -324,10 +324,14 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
         ) : (
           <button type="button" onClick={pick}
             style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, padding: "18px 16px", borderRadius: 10, border: `1.5px dashed ${dragging ? gold : `${gold}88`}`, background: dragging ? `${gold}22` : `${gold}0d`, color: C.goldInk, fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "background .15s ease, border-color .15s ease" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+            {/* The same two lines whether or not a file is over it, so the
+                box never changes height mid-drag (it used to drop the hint
+                line and make the page jump). pointer-events: none keeps the
+                drag over the box itself, not flickering between its parts. */}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 10, pointerEvents: "none" }}>
               <Icon name="upload" size={18} /> {dragging ? "Drop your receipt here" : "Choose your receipt"}
             </span>
-            {!dragging && !mob && <span style={{ color: C.textS, fontSize: 12, fontWeight: 400 }}>or drag and drop the picture here</span>}
+            {!mob && <span style={{ color: C.textS, fontSize: 12, fontWeight: 400, pointerEvents: "none" }}>{dragging ? "Release to upload it" : "or drag and drop the picture here"}</span>}
           </button>
         )}
         </div>
