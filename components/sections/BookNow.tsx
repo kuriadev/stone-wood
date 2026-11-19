@@ -2289,6 +2289,18 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
               </div>
             </div>
 
+            {/* Pay the exact amount (owner, 2026-11-19): amber, beside the
+                refund rule, so it is read before agreeing. */}
+            <div role="note" style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "14px 16px", borderRadius: 12, border: "1.5px solid #f5a524", background: isDark ? "rgba(245,165,36,0.12)" : "rgba(245,165,36,0.14)" }}>
+              <span aria-hidden="true" style={{ width: 30, height: 30, borderRadius: "50%", background: "#f5a524", color: "#1a1108", display: "grid", placeItems: "center", flexShrink: 0, fontWeight: 800 }}>!</span>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ margin: "0 0 4px", color: C.textH, fontSize: 15, fontWeight: 700 }}>Pay the exact amount</p>
+                <p style={{ margin: 0, color: C.textB, fontSize: 13.5, lineHeight: 1.65 }}>
+                  Send exactly the amount shown, not more and not less, and upload the receipt for that payment. It must show the exact amount, the reference number and the date. A different amount can&apos;t be verified and delays your booking. Sent the wrong amount by mistake? Don&apos;t send again: contact the resort on {RESORT_CONTACT.phone} and our staff will fix it.
+                </p>
+              </div>
+            </div>
+
             {/* The Terms and Privacy Policy (lib/terms.ts), in a scrolling
                 box. The guest scrolls to the end before the box below can be
                 ticked. */}

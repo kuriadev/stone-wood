@@ -36,7 +36,7 @@ export function termsDocs(): TermsDoc[] {
         {
           title: "Reservations and payment",
           paras: [
-            "A booking is made online at this website or at the front desk. Online, you confirm your email with a 6-digit code, send the amount due to the resort's GCash (scan our QR code or use our GCash number), and upload a clear photo or screenshot of your receipt as proof of payment. Your date is held while our staff check that the payment arrived in our GCash; your booking is confirmed only when we email you the confirmation. A receipt we can't verify is turned down, and you can send a new one.",
+            "A booking is made online at this website or at the front desk. Online, you confirm your email with a 6-digit code, send exactly the amount due to the resort's GCash (scan our QR code or use our GCash number), and upload a clear photo or screenshot of your receipt as proof of payment. The receipt must show that exact amount, its reference number and the date; if you send a different amount by mistake, contact the resort so staff can fix it instead of sending again. Your date is held while our staff check that the payment arrived in our GCash; your booking is confirmed only when we email you the confirmation. A receipt we can't verify is turned down, and you can send a new one.",
             "You can pay a 50% deposit or the full total. Any balance is paid at the resort before check-out, in cash or by GCash. Keep your booking reference: you need it, with your email, to manage your booking.",
             `Today's stay can be booked online until ${LATE_BOOKING_GRACE_HOURS} hours after it starts. A late booking still ends at the usual time and costs the same.`,
           ],

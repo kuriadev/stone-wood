@@ -190,6 +190,51 @@ export function ManageBooking(_props: ManageBookingProps) {
     }
   }, []);
 
+  /* Live: while a booking is open, it is re-read every 15 seconds (and when
+     the guest comes back to the tab), so what staff do shows up without a
+     reload: a confirmed payment, an approved or declined request, a
+     cancellation. Quiet: nothing the guest is doing is reset, and a failed
+     read just keeps what is on screen. */
+  const foundId = found?.id ?? null;
+  useEffect(() => {
+    if (!foundId || (!proof.email && !proof.t)) return;
+    let live = true;
+    const refresh = async () => {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const qs = new URLSearchParams();
+        if (proof.email) qs.set("email", proof.email.trim().toLowerCase());
+        if (proof.t) qs.set("t", proof.t);
+        if (proof.ep) qs.set("ep", proof.ep);
+        const res = await fetch(`/api/bookings/${encodeURIComponent(foundId)}?${qs}`, { cache: "no-store" });
+        const json = await res.json().catch(() => null);
+        if (!live || !res.ok || !json?.booking) return;
+        const b = json.booking as Booking;
+        setFound(b);
+        setPayments((json.payments ?? []) as GuestPayment[]);
+        setDamages(Array.isArray(json.damages) ? json.damages : []);
+        setDateChanges((json.dateChanges ?? []) as DateChange[]);
+        setChangesLeft(Number(json.changesLeft) || 0);
+        setCancelReq((json.cancelRequest ?? null) as CancelRequestState);
+        setToday(String(json.today ?? ""));
+        if (b.status === "Pending") {
+          const r = await fetch(`/api/bookings/${encodeURIComponent(foundId)}/proof`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "status", email: proof.email, t: proof.t, ep: proof.ep }),
+          });
+          const j = await r.json().catch(() => null);
+          if (live && j?.success) setProofState(j.proof ?? null);
+        } else {
+          setProofState(null);
+        }
+      } catch { /* offline: keep what is showing */ }
+    };
+    const t = setInterval(() => void refresh(), 15_000);
+    const onShow = () => { if (document.visibilityState === "visible") void refresh(); };
+    document.addEventListener("visibilitychange", onShow);
+    return () => { live = false; clearInterval(t); document.removeEventListener("visibilitychange", onShow); };
+  }, [foundId, proof.email, proof.t, proof.ep]);
+
   // Links from the resort: ?booking=SW-10105&email=… (confirmation email)
   // or ?booking=SW-10105&t=… (a text or notice; opens the booking at once).
   useEffect(() => {
@@ -1135,7 +1180,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                                 {daysLeft > 0 && <> Send a cancellation request below and the resort will reply by email.</>}
                                 {paymentChecking
                                   ? <> If it&rsquo;s approved, the {fmt(proofState!.amountDue)} you sent is not refunded.</>
-                                  : <> If it&rsquo;s approved, you can cancel or move to another free date. Payments are not refunded when you cancel.</>}
+                                  : <> If it&rsquo;s approved, your booking is cancelled. Payments are not refunded.</>}
                               </span>
                             </p>
                           </div>
@@ -1145,7 +1190,7 @@ export function ManageBooking(_props: ManageBookingProps) {
                               <span aria-hidden="true" style={{ color: "#6ec071", lineHeight: 0, marginTop: 3 }}><Icon name="check" size={18} strokeWidth={2} /></span>
                               <span style={{ color: C.textB, fontSize: 13.5, lineHeight: 1.65 }}>
                                 <strong style={{ display: "block", color: C.textH, marginBottom: 4 }}>Your cancellation request was sent.</strong>
-                                The resort will look at your reason and proof and email their answer to {found.email}. If it&rsquo;s approved, you can cancel your booking here, or move it to another free date.
+                                The resort will look at your reason and proof and email their answer to {found.email}. If it&rsquo;s approved, your booking is cancelled. This page updates by itself.
                               </span>
                             </div>
                           ) : (

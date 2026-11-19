@@ -38,7 +38,8 @@ export function checkoutPolicy(payFull: boolean, quietHours: string): [string, s
   return [
     ["Cancellations", "If the resort has to cancel (including for a storm signal), you choose a free new date or a full refund. If you cancel, payments aren't refunded — move your booking to another date instead."],
     [payFull ? "Paying in full" : "50% reservation deposit", payFull ? "The whole total is paid now; nothing is due on arrival." : "Half of the total is due now; the balance is paid on arrival."],
-    ["Proof of payment", "Send the amount to the resort's GCash, then upload your receipt. Your date is held while our staff check the payment; your booking is confirmed only when we email you."],
+    ["Exact amount", "Send exactly the amount shown, not more and not less, and upload the receipt for that payment. A different amount can't be verified and delays your booking. Sent the wrong amount by mistake? Don't send again: contact the resort and our staff will fix it."],
+    ["Proof of payment", "Send the amount to the resort's GCash, then upload your receipt. It must show the exact amount, the reference number and the date. Your date is held while our staff check the payment; your booking is confirmed only when we email you."],
     ["Rescheduling", `Free, once, if you ask at least ${days(RESCHEDULE_NOTICE_DAYS)} before your visit. The new date must be free.`],
     ["Emergencies", "Illness, injury or a death in the family: contact the resort, even on the day. With proof, your date is moved at no charge."],
     ["Quiet hours and the events venue", quietHours],

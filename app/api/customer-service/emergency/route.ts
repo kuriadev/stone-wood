@@ -66,11 +66,13 @@ export async function PATCH(req: NextRequest) {
 
     let bookingDate = "";
     let link = "";
+    type BookingBits = { id: string; date: string; email: string; status: string; checked_in_at: string | null };
+    let bookingRow: BookingBits | null = null;
     if (m.booking_id) {
-      const bk = await db.from("bookings").select("id,date,email").eq("id", m.booking_id).maybeSingle();
-      const row = bk.data as { id?: string; date?: string; email?: string } | null;
-      bookingDate = row?.date ?? "";
-      if (row?.id && row.email) link = guestLinkFor({ id: row.id, email: row.email });
+      const bk = await db.from("bookings").select("id,date,email,status,checked_in_at").eq("id", m.booking_id).maybeSingle();
+      bookingRow = bk.data as BookingBits | null;
+      bookingDate = bookingRow?.date ?? "";
+      if (bookingRow?.id && bookingRow.email) link = guestLinkFor({ id: bookingRow.id, email: bookingRow.email });
     }
 
     const session = sessionOf(req);
@@ -83,10 +85,26 @@ export async function PATCH(req: NextRequest) {
     if (error) throw new Error(error.message);
     if (!updated) return no("Someone else just answered this request.", 409);
 
+    /* Approving a cancellation request cancels the booking at once (owner,
+       2026-11-19): it is what the guest asked for, and the date opens for
+       others. Payments are not refunded; a receipt still waiting to be
+       checked stays in Pending proof of payment to be settled (kept / no
+       payment). Not once the guest has checked in. */
+    let cancelled = false;
+    if (decision === "Approved" && bookingRow && (bookingRow.status === "Pending" || bookingRow.status === "Confirmed") && !bookingRow.checked_in_at) {
+      const reason = (await db.from("customer_messages").select("message").eq("id", id).maybeSingle()).data as { message?: string } | null;
+      const why = String(reason?.message ?? "").replace(/^(Cancellation|Emergency) request for [^\n]*:\s*/i, "").trim().slice(0, 200);
+      const up = await db.from("bookings")
+        .update({ status: "Cancelled", cancel_reason: why ? `Cancellation request approved: ${why}`.slice(0, 200) : "Cancellation request approved", cancelled_at: at })
+        .eq("id", bookingRow.id).eq("status", bookingRow.status).select("id").maybeSingle();
+      if (up.error) console.error("[/api/customer-service/emergency] cancel:", up.error.message);
+      cancelled = !!up.data;
+    }
+
     const ref = m.booking_id ?? "your booking";
     const when = bookingDate ? ` on ${fmtDate(bookingDate)}` : "";
     const text = decision === "Approved"
-      ? `Hello ${m.name},\n\nWe've reviewed your cancellation request for ${ref}${when}, and it's approved. We're sorry for what happened.\n\nYou can now do either of these from Manage booking:\n• Cancel your booking. Payments already made are not refunded.\n• Or move it to another free date at no charge, and everything you paid carries over.${link ? `\n\nOpen your booking: ${link}` : ""}${note ? `\n\n${note}` : ""}\n\nTake care,\nStonewood Garden Private Resort`
+      ? `Hello ${m.name},\n\nWe've reviewed your cancellation request for ${ref}${when}, and it's approved. We're sorry for what happened.\n\n${cancelled ? "Your booking is now cancelled." : "Your booking can now be cancelled from Manage booking."} As our booking policy says, payments already made aren't refunded when a booking is cancelled by the guest. We'd be glad to welcome you on another date.${link ? `\n\nYour booking: ${link}` : ""}${note ? `\n\n${note}` : ""}\n\nTake care,\nStonewood Garden Private Resort`
       : `Hello ${m.name},\n\nWe've reviewed your cancellation request for ${ref}${when}. We're sorry, but we couldn't approve it.\n\n${note}\n\nYour booking stays as it is. If you have more proof to share, reply to this email.\n\nStonewood Garden Private Resort`;
     const mail = buildMessageReplyEmail(`Your cancellation request – ${ref}: ${decision.toLowerCase()}`, text);
     const emailed = await trySendMail({ to: m.email, subject: mail.subject, html: mail.html }, `emergency ${decision.toLowerCase()}`);
@@ -94,9 +112,9 @@ export async function PATCH(req: NextRequest) {
     await logActivity({
       actor: "Admin", action: decision === "Approved" ? "message.emergency_approved" : "message.emergency_declined",
       bookingId: m.booking_id ?? undefined, entity: "customer_message", entityId: id,
-      summary: `${by} ${decision.toLowerCase()} ${m.name}'s cancellation request for ${ref}.${note ? ` Note: ${note}` : ""}`,
+      summary: `${by} ${decision.toLowerCase()} ${m.name}'s cancellation request for ${ref}.${cancelled ? " The booking is cancelled." : ""}${note ? ` Note: ${note}` : ""}`,
     });
-    return NextResponse.json({ success: true, resolution: decision, resolutionNote: note || undefined, resolvedAt: at, resolvedBy: by, emailed });
+    return NextResponse.json({ success: true, resolution: decision, resolutionNote: note || undefined, resolvedAt: at, resolvedBy: by, emailed, cancelled });
   } catch (err) {
     console.error("[/api/customer-service/emergency PATCH]", err instanceof Error ? err.message : err);
     return no("Couldn't save the decision. Try again.", 500);

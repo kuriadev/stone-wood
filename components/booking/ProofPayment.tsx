@@ -132,7 +132,7 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
           r.problem === "sample"
             ? { title: "That's the sample receipt", body: "Please upload the receipt from your own GCash payment, not the sample shown on this page." }
             : r.problem === "wrong-amount"
-            ? { title: "The amount doesn't match", body: `Your receipt shows ${r.amounts.map(fmt).join(" / ")}, but the amount to pay now is ${fmt(due)}. Please send exactly ${fmt(due)} and upload that receipt.` }
+            ? { title: "The amount doesn't match", body: `Your receipt shows ${r.amounts.map(fmt).join(" / ")}, but the amount to pay now is ${fmt(due)}. If this was an honest mistake, please don't send again: contact the resort on ${RESORT_CONTACT.phone} or ${RESORT_CONTACT.email} with your receipt, and our staff will fix it for you.` }
             : r.problem === "old-date"
               ? { title: "This receipt is too old", body: `The date on this receipt (${r.date ? fmtDate(r.date) : "unknown"}) isn't from this week. Please upload the receipt for the payment you just made.` }
               : { title: "Please check your proof of payment", body: `This doesn't look like a payment receipt: we couldn't find ${r.missing.join(", ").replace(/, ([^,]*)$/, " and $1")} on it. Please upload a clear photo or screenshot of your receipt that shows the reference number, the date and the amount or name.` },
@@ -164,6 +164,20 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
   const stepNo = (n: number) => (
     <span aria-hidden="true" style={{ width: 24, height: 24, borderRadius: "50%", display: "inline-grid", placeItems: "center", background: `${gold}26`, color: C.goldInk, fontSize: 12.5, fontWeight: 700, flexShrink: 0 }}>{n}</span>
   );
+  /** An amber note box the guest can't miss: icon, bold title, readable text. */
+  const warnNote = (title: string, body: React.ReactNode, id?: string) => (
+    <div id={id} role="note" style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "14px 16px", borderRadius: 12, border: "1.5px solid #f5a524", background: isDark ? "rgba(245,165,36,0.12)" : "rgba(245,165,36,0.14)" }}>
+      <span aria-hidden="true" style={{ width: 30, height: 30, borderRadius: "50%", background: "#f5a524", color: "#1a1108", display: "grid", placeItems: "center", flexShrink: 0 }}>
+        <Icon name="alert" size={16} strokeWidth={2.2} />
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <p style={{ margin: "0 0 4px", color: C.textH, fontSize: 14.5, fontWeight: 700 }}>{title}</p>
+        <div style={{ color: C.textB, fontSize: 13.5, lineHeight: 1.65 }}>{body}</div>
+      </div>
+    </div>
+  );
+  const phoneLink = <a href={`tel:${RESORT_CONTACT.phone.replace(/[^\d+]/g, "")}`} style={{ color: C.goldInk, fontWeight: 700 }}>{RESORT_CONTACT.phone}</a>;
+
   const tick = (ok: boolean, label: string, value: string) => (
     <li style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
       <Icon name={ok ? "check-circle" : "info"} size={15} style={{ color: ok ? "#2e9e4e" : C.textS, flexShrink: 0 }} />
@@ -216,8 +230,14 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
             </div>
           </div>
           <p style={{ color: C.textS, fontSize: 12.5, margin: "12px 0 0", lineHeight: 1.6 }}>
-            Scan the QR or send to the number above. Send exactly <strong style={{ color: C.textH }}>{fmt(due)}</strong>, then take a screenshot of the GCash receipt.
+            Scan the QR or send to the number above, then take a screenshot of the GCash receipt.
           </p>
+          {/* Before paying: the exact amount (owner, 2026-11-19). */}
+          <div style={{ marginTop: 14 }}>
+            {warnNote(`Send the exact amount: ${fmt(due)}`, <>
+              Not more and not less, including any extra change. Your receipt is checked against this amount, so a different amount can&apos;t be verified and your booking is delayed.
+            </>)}
+          </div>
           </div>
           </div>
         </div>
@@ -232,6 +252,13 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
             See a sample receipt
           </button>
         </p>
+        {/* After paying: what the receipt must show, and what to do after an honest mistake. */}
+        <div style={{ marginBottom: 16 }}>
+          {warnNote("Your receipt must show the exact amount", <>
+            Upload the receipt for the <strong style={{ color: C.textH }}>{fmt(due)}</strong> you sent, with its reference number and date.
+            {" "}Sent a different amount by mistake? Please don&apos;t send again. Contact the resort on {phoneLink} or by email at {RESORT_CONTACT.email}, and our staff will fix it for you.
+          </>)}
+        </div>
         <div style={{ display: "grid", gap: 14, marginBottom: 16 }}>
           {([
             ["name", "Sender Name", "Use letters and name punctuation. No numbers or emojis.", { autoComplete: "name", maxLength: 60 }],

@@ -132,14 +132,25 @@ it("isn't needed outside the window", async () => {
   expect((await emergency(guest("emergency", { email: "ana@example.com", message: story, files: [photo] }), ctx)).status).toBe(409);
 });
 
-it("once approved, the guest can cancel inside the window", async () => {
+it("approving the request cancels the booking at once", async () => {
   await emergency(guest("emergency", { email: "ana@example.com", message: story }), ctx);
   const id = mockDb.tables.customer_messages[0].id as number;
   expect((await cancel(guest("cancel", { email: "ana@example.com" }), ctx)).status).toBe(409);
-  expect((await decide(staff("PATCH", id, "FrontDesk", { decision: "Approved" }))).status).toBe(200);
-  const res = await cancel(guest("cancel", { email: "ana@example.com" }), ctx);
+  const res = await decide(staff("PATCH", id, "FrontDesk", { decision: "Approved" }));
   expect(res.status).toBe(200);
-  expect(mockDb.tables.bookings[0].status).toBe("Cancelled");
+  expect((await res.json()).cancelled).toBe(true);
+  expect(mockDb.tables.bookings[0]).toMatchObject({ status: "Cancelled" });
+  expect(String(mockDb.tables.bookings[0].cancel_reason)).toMatch(/^Cancellation request approved/);
+  expect(mails.some((m) => /now cancelled/.test(m.html))).toBe(true);
+});
+
+it("approving doesn't cancel a booking the guest has checked in to", async () => {
+  await emergency(guest("emergency", { email: "ana@example.com", message: story }), ctx);
+  const id = mockDb.tables.customer_messages[0].id as number;
+  mockDb.tables.bookings[0].checked_in_at = "2026-11-10T08:00:00+08:00";
+  const res = await decide(staff("PATCH", id, "FrontDesk", { decision: "Approved" }));
+  expect((await res.json()).cancelled).toBe(false);
+  expect(mockDb.tables.bookings[0].status).toBe("Confirmed");
 });
 
 it("a declined request keeps the booking", async () => {
@@ -163,7 +174,7 @@ it("lets staff see the proof and approve it, emailing the guest what they can do
   expect(mails[0].to).toBe("ana@example.com");
   expect(mails[0].html).toContain("approved");
   expect(mails[0].subject).toMatch(/Your cancellation request/);
-  expect(mails[0].html).toContain("Cancel your booking");
+  expect(mails[0].html).toContain("now cancelled");
   expect((await decide(staff("PATCH", id, "FrontDesk", { decision: "Declined", note: "Too late" }))).status).toBe(409);
 });
 

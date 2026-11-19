@@ -7,12 +7,12 @@
 // so an emergency is sent from Manage booking with proof (lib/emergency.ts).
 // Here staff see the proof (loaded only now: it can be a few MB), open the
 // booking, and approve or decline. The guest is emailed the answer.
-// Approving doesn't cancel or move the booking by itself: it opens both on
-// the guest's Manage booking page (cancel, or one free move to another
-// date), even inside the notice window (owner, 2026-11-19).
+// Approving cancels the booking at once (owner, 2026-11-19); the guest is
+// emailed. Payments are not refunded.
 
 import { useEffect, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
+import { useApp } from "@/contexts/AppContext";
 import { ActionButton, ErrorNote, Modal, useAdminStyle } from "@/components/admin/ui";
 import { Textarea } from "@/components/ui/textarea";
 import { Icon } from "@/components/common/Icon";
@@ -31,6 +31,7 @@ export function EmergencyReview({ message, booking, onOpenBooking, onDecided }: 
 }) {
   const { C, cBr, soft } = useAdminStyle();
   const { toast } = useToast();
+  const { reloadBookings } = useApp();
   const [files, setFiles] = useState<ProofFile[] | null>(null);
   const [loadError, setLoadError] = useState("");
   const [view, setView] = useState<ProofFile | null>(null);
@@ -60,6 +61,7 @@ export function EmergencyReview({ message, booking, onOpenBooking, onDecided }: 
       const j = await res.json().catch(() => null);
       if (!res.ok || !j?.success) throw new Error(j?.error ?? "Couldn't save the decision.");
       onDecided({ resolution: j.resolution, resolutionNote: j.resolutionNote, resolvedAt: j.resolvedAt, resolvedBy: j.resolvedBy });
+      if (j.cancelled) void reloadBookings();
       toast(j.emailed ? `Request ${ask.toLowerCase()}. ${message.name} was emailed.` : `Request ${ask.toLowerCase()}, but the email couldn't be sent. Let ${message.name} know.`, j.emailed ? "success" : "warning");
       setAsk(null);
       setNote("");
@@ -119,7 +121,7 @@ export function EmergencyReview({ message, booking, onOpenBooking, onDecided }: 
         <p style={{ color: C.textS, fontSize: 12.5, margin: "12px 0 0" }}>
           {done} by {message.resolvedBy ?? "staff"}{message.resolvedAt ? ` on ${fmtDate(message.resolvedAt.slice(0, 10))}` : ""}.
           {message.resolutionNote ? ` “${message.resolutionNote}”` : ""}
-          {done === "Approved" && " The guest can now cancel or move the date themselves from Manage booking."}
+          {done === "Approved" && " The booking was cancelled."}
         </p>
       )}
 
@@ -146,15 +148,15 @@ export function EmergencyReview({ message, booking, onOpenBooking, onDecided }: 
         <Modal
           title={ask === "Approved" ? "Approve this cancellation request?" : "Decline this cancellation request?"}
           subtitle={ask === "Approved"
-            ? `${message.name} is emailed that it's approved. They can then cancel the booking, or move it once to a free date at no charge, from Manage booking. Payments are not refunded if they cancel.`
+            ? `The booking is cancelled now and the date opens for other guests. ${message.name} is emailed that it's approved. Payments are not refunded.`
             : `${message.name} is emailed that it couldn't be approved, with your reason. The booking stays as it is.`}
           onClose={() => !busy && setAsk(null)}
-          footer={<>
+          footer={<div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
             <ActionButton onClick={() => setAsk(null)} disabled={busy}>Back</ActionButton>
             <ActionButton kind={ask === "Approved" ? "green" : "red"} icon={ask === "Approved" ? "check" : "x"} disabled={busy || (ask === "Declined" && note.trim().length < 5)} onClick={() => void decide()}>
               {busy ? "Saving…" : ask === "Approved" ? "Approve & email" : "Decline & email"}
             </ActionButton>
-          </>}>
+          </div>}>
           <label htmlFor="sw-emerg-note" style={{ display: "block", color: C.textH, fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
             {ask === "Approved" ? "Add a note for the guest (optional)" : "Why it was declined"}
           </label>
