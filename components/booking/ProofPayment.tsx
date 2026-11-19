@@ -73,6 +73,8 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
   const [confirming, setConfirming] = useState(false);
   const [copied, setCopied] = useState(false);
   const [sampleOpen, setSampleOpen] = useState(false);
+  /** A file is being dragged over the upload area. */
+  const [dragging, setDragging] = useState(false);
   const [sender, setSender] = useState({ name: "", account: "", reference: "" });
   const [touched, setTouched] = useState({ name: false, account: false, reference: false });
   const fieldErr = {
@@ -90,6 +92,26 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
   useEffect(() => { warmUpReceiptReader(); }, []);
 
   const pick = () => fileRef.current?.click();
+
+  /* Drag a screenshot from the desktop or a folder straight onto the upload
+     area, as well as clicking to choose one. Only one picture is read: the
+     first image dropped. */
+  const dropProps = {
+    onDragEnter: (e: React.DragEvent) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setDragging(true); } },
+    onDragOver: (e: React.DragEvent) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } },
+    onDragLeave: (e: React.DragEvent) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false); },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragging(false);
+      if (reading || busy) return;
+      const file = Array.from(e.dataTransfer.files).find((f) => RECEIPT_TYPES.includes(f.type));
+      if (!file) {
+        setProblem({ title: "That file can't be used", body: "Drop a picture of your receipt: a JPG, PNG or WebP screenshot or photo." });
+        return;
+      }
+      void onFile(file);
+    },
+  };
 
   const onFile = async (file: File | undefined) => {
     if (!file) return;
@@ -237,6 +259,13 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
         </div>
         <input ref={fileRef} type="file" accept={RECEIPT_TYPES.join(",")} hidden onChange={(e) => void onFile(e.target.files?.[0])} />
 
+        <div {...dropProps} style={{ position: "relative", borderRadius: 10, outline: dragging ? `2px dashed ${gold}` : "none", outlineOffset: 4, transition: "outline-color .15s ease" }}>
+        {/* Over a picture already read: drop a new one to replace it. */}
+        {dragging && photo && (
+          <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 2, borderRadius: 10, background: isDark ? "rgba(20,16,10,0.85)" : "rgba(255,252,245,0.9)", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: C.goldInk, fontSize: 14, fontWeight: 600, pointerEvents: "none" }}>
+            <Icon name="upload" size={18} /> Drop to replace your receipt
+          </div>
+        )}
         {reading ? (
           <div role="status" style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 10, border: `1px dashed ${C.border}` }}>
             <span aria-hidden="true" style={{ width: 20, height: 20, border: "2px solid rgba(201,168,76,0.25)", borderTopColor: gold, borderRadius: "50%", animation: "sw-spin .8s linear infinite", flexShrink: 0 }} />
@@ -267,10 +296,14 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
           </div>
         ) : (
           <button type="button" onClick={pick}
-            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "18px 16px", borderRadius: 10, border: `1.5px dashed ${gold}88`, background: `${gold}0d`, color: C.goldInk, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
-            <Icon name="upload" size={18} /> Choose your receipt
+            style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, padding: "18px 16px", borderRadius: 10, border: `1.5px dashed ${dragging ? gold : `${gold}88`}`, background: dragging ? `${gold}22` : `${gold}0d`, color: C.goldInk, fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "background .15s ease, border-color .15s ease" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+              <Icon name="upload" size={18} /> {dragging ? "Drop your receipt here" : "Choose your receipt"}
+            </span>
+            {!dragging && !mob && <span style={{ color: C.textS, fontSize: 12, fontWeight: 400 }}>or drag and drop the picture here</span>}
           </button>
         )}
+        </div>
       </div>
 
       {error && <p role="alert" style={{ color: C.dangerInk, fontSize: 13, margin: 0 }}>{error}</p>}

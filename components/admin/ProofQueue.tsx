@@ -160,7 +160,14 @@ export function ProofQueue({ mob }: { mob: boolean }) {
               <article key={p.id} style={{ border: `1px solid ${cBr}`, borderLeft: "3px solid #f5a524", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ color: C.textH, fontSize: 15, fontWeight: 600 }}>{b.name}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ color: C.textH, fontSize: 15, fontWeight: 600 }}>{b.name}</span>
+                      <span style={{ padding: "2px 9px", whiteSpace: "nowrap", borderRadius: 999, fontSize: 11.5, fontWeight: 700,
+                        border: `1px solid ${getBookingTier(b) === "Exclusive" ? `${gold}88` : "#3e8ed088"}`, color: getBookingTier(b) === "Exclusive" ? C.goldInk : "#3e8ed0",
+                        background: getBookingTier(b) === "Exclusive" ? `${gold}18` : "rgba(62,142,208,0.12)" }}>
+                        {getBookingResource(b) === "Venue" ? "Events venue only" : tierLabel(getBookingTier(b))}{getBookingResource(b) === "Pool+Venue" ? " + events venue" : ""}
+                      </span>
+                    </div>
                     <div style={{ color: C.goldInk, fontFamily: "monospace", fontSize: 12 }}>{b.id}</div>
                   </div>
                   <span style={{ color: C.textS, fontSize: 11.5, whiteSpace: "nowrap" }}>{ago(p.submittedAt)}</span>
@@ -186,16 +193,11 @@ export function ProofQueue({ mob }: { mob: boolean }) {
                       </div>
                     </div>
                   ))}
-                  <span style={{ justifySelf: "start", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700,
-                    border: `1px solid ${getBookingTier(b) === "Exclusive" ? `${gold}88` : "#3e8ed088"}`, color: getBookingTier(b) === "Exclusive" ? C.goldInk : "#3e8ed0",
-                    background: getBookingTier(b) === "Exclusive" ? `${gold}18` : "rgba(62,142,208,0.12)" }}>
-                    {getBookingResource(b) === "Venue" ? "Events venue only" : tierLabel(getBookingTier(b))}{getBookingResource(b) === "Pool+Venue" ? " + events venue" : ""}
-                  </span>
                 </dl>
 
                 <div style={{ background: soft, borderRadius: 10, padding: "10px 12px", display: "grid", gap: 4, fontSize: 13 }}>
                   <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textS }}>Amount to be paid</span><strong style={{ color: C.textH, fontSize: 16 }}>{fmt(p.amountDue)}</strong></div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textS }}>Guest chose</span><span style={{ color: C.textB }}>{p.payChoice === "Full" ? "Full payment" : "50% down payment"}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textS }}>Payment option</span><span style={{ color: C.textB }}>{p.payChoice === "Full" ? "Full payment" : "50% down payment"}</span></div>
                   <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textS }}>Booking total</span><span style={{ color: C.textB }}>{fmt(b.total)}</span></div>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><span style={{ color: C.textS }}>Sender name</span><span style={{ color: C.textH, textAlign: "right", overflowWrap: "anywhere" }}>{read.senderName ?? "—"}</span></div>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><span style={{ color: C.textS }}>Sender account</span><span style={{ color: C.textH, fontFamily: "monospace" }}>{read.senderAccount ?? "—"}</span></div>
