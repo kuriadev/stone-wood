@@ -68,13 +68,22 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }
     if ((open.data ?? []).length) return no("You already sent a cancellation request for this booking. The resort will email you their answer.", 409);
 
-    const { error } = await db.from("customer_messages").insert({
+    const { data: savedMsg, error } = await db.from("customer_messages").insert({
       name: b.name, email: b.email, type: EMERGENCY_TYPE,
       message: `Cancellation request for ${b.id} (${fmtDate(b.date)}):\n\n${message}`,
       date: new Date().toISOString().slice(0, 10),
       booking_id: b.id, attachments: files, attachment_count: files.length,
-    });
+    }).select("id").single();
     if (error) throw new Error(error.message);
+    // Sent several times at once (a double tap): keep only the first.
+    const mine = Number((savedMsg as { id: number }).id);
+    const firsts = await db.from("customer_messages").select("id")
+      .eq("booking_id", b.id).eq("type", EMERGENCY_TYPE).is("resolution", null).is("archived_at", null).order("id").limit(1);
+    const first = Number((firsts.data as { id: number }[] | null)?.[0]?.id ?? mine);
+    if (first !== mine) {
+      await db.from("customer_messages").delete().eq("id", mine);
+      return no("You already sent a cancellation request for this booking. The resort will email you their answer.", 409);
+    }
 
     await logActivity({
       actor: "Guest", action: "message.emergency_request", bookingId: b.id, entity: "booking", entityId: b.id,

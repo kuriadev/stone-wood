@@ -27,6 +27,7 @@ import { bookingEndDate } from "@/lib/utils";
 import type { BookingRow } from "@/types/database";
 
 import { readJson } from "@/lib/readJson";
+import { fmtDate } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
@@ -51,6 +52,12 @@ export async function POST(req: NextRequest) {
 
     if (!undo) {
       if (booking.checkedInAt) return NextResponse.json({ success: false, error: "This group is already checked in." }, { status: 409 });
+      // Not before the stay's first day: a tap on a future booking's card
+      // used to mark that group as on site days early (stress test,
+      // 2026-11-19). Late check-ins of a past stay are still allowed.
+      if (booking.date > manilaDate()) {
+        return NextResponse.json({ success: false, error: `This booking is for ${fmtDate(booking.date)}. Check-in opens on that day.` }, { status: 409 });
+      }
       // Checking a group in says the resort is ready for them, so until
       // their stay is over the preparation has to be saved first. The
       // screens always asked for it; the server now does too. A stay whose

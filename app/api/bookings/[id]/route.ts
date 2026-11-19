@@ -15,7 +15,7 @@ import { requirePermission, requireAdmin, ownerGate } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { sanitizeNotes } from "@/lib/validators";
 import * as schemas from "@/lib/schemas";
-import { loadGuestBooking, sweepExpired } from "@/lib/rebooking.server";
+import { loadGuestBooking, sweepExpired, checkFits, confirmedOrHeld } from "@/lib/rebooking.server";
 import { GUEST_CHANGES_ALLOWED } from "@/lib/rebooking";
 import { manilaDate } from "@/lib/finance";
 import { logActivity, changes } from "@/lib/activity.server";
@@ -167,7 +167,14 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
           const gate = await ownerGate(req, body.noShow === true ? "bookings.noshow" : "bookings.cancel", { status: "Cancelled", cancelReason: body.cancelReason ?? null, ...(body.noShow === true ? { noShow: true } : {}) });
           if (gate) return gate;
         }
-        if (body.status === "Confirmed") patch.confirmed_at = new Date().toISOString();
+        if (body.status === "Confirmed") {
+          // Never on top of a confirmed booking (see /api/payment-proofs/[id]).
+          if (before.status === "Pending") {
+            const fits = await checkFits(rowToBooking(before), [], { only: confirmedOrHeld });
+            if (!fits.ok) return NextResponse.json({ success: false, error: `Can't confirm: ${fits.error} Another confirmed booking already holds this. Decline it, or move it to a free date first.` }, { status: 409 });
+          }
+          patch.confirmed_at = new Date().toISOString();
+        }
         if (body.status === "Cancelled") patch.cancelled_at = new Date().toISOString();
       }
       patch.status = body.status;

@@ -26,7 +26,7 @@ import { requirePermission, sessionOf, currentIdentity } from "@/lib/auth";
 import { loadBookingLedger } from "@/lib/ledger.server";
 import { buildNoticeEmail, buildReceiptEmail } from "@/lib/emailTemplate";
 import { notices } from "@/lib/notices";
-import { guestLinkFor } from "@/lib/rebooking.server";
+import { guestLinkFor, checkFits, confirmedOrHeld } from "@/lib/rebooking.server";
 import { trySendMail } from "@/lib/mailer";
 import { logActivity } from "@/lib/activity.server";
 import { alertCaretakerIfSoon } from "@/lib/staffNotify.server";
@@ -103,6 +103,15 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }
 
     if (b.status === "Cancelled" || b.status === "ResortCancelled") return no("This booking was cancelled.", 409);
+
+    // Confirming must not put this booking on top of one already confirmed
+    // (a private pool sold twice, a full shared pool, a taken room).
+    // Rejecting is always allowed.
+    if (action !== "Reject" && b.status === "Pending") {
+      const fits = await checkFits(b, [], { only: confirmedOrHeld });
+      if (!fits.ok) return no(`Can't confirm: ${fits.error} Another confirmed booking already holds this. Reject this receipt, or move the booking to a free date first.`, 409);
+    }
+
     // Claim it, so two staff can't both decide.
     const claim = await db.from("payment_proofs")
       .update({ status: action === "Reject" ? "Rejected" : "Approved", reviewed_at: now, reviewed_by: by, approved_as: action === "Reject" ? null : action, reject_reason: action === "Reject" ? reason : null })

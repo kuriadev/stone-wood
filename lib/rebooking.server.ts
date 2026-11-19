@@ -194,7 +194,7 @@ export async function checkMove(b: Booking, date: string): Promise<{ ok: true } 
  *  charge added on the day (the booking with its extra guests, overtime or
  *  room), so neither can overbook the pool, take the Night slot or
  *  double-book a room. */
-export async function checkFits(b: Booking, alsoHeld: Booking[] = [], opts: { overCapacity?: boolean } = {}): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function checkFits(b: Booking, alsoHeld: Booking[] = [], opts: { overCapacity?: boolean; only?: (other: Booking) => boolean } = {}): Promise<{ ok: true } | { ok: false; error: string }> {
   const no = (error: string) => ({ ok: false as const, error });
   await ensureSettings();
   const db = getSupabaseAdmin();
@@ -210,7 +210,9 @@ export async function checkFits(b: Booking, alsoHeld: Booking[] = [], opts: { ov
 
   // `alsoHeld`: bookings not saved yet that this one must fit beside too
   // (the earlier rows of an import being checked).
-  const others = [...overlap.others, ...alsoHeld];
+  // `only`: compare against some of them (those saved earlier, or only the
+  // confirmed ones); see bookedBefore / confirmedOrHeld below.
+  const others = [...overlap.others, ...alsoHeld].filter((o) => !opts.only || opts.only(o));
   const facilities = (fac.data as FacilityRow[]).map(rowToFacility);
   const slot = getBookingSlot(b);
   const overtime = b.overtime ?? 0;
@@ -225,6 +227,17 @@ export async function checkFits(b: Booking, alsoHeld: Booking[] = [], opts: { ov
   if ((b.rooms ?? []).some((r) => !isRoomOpen(r, facilities))) return no("A room in your booking is closed for maintenance.");
   return { ok: true };
 }
+
+/** Saved before `b` (or at the same moment with a lower reference), or a
+ *  held date. Two bookings sent at the same moment both pass the check made
+ *  before saving; checking again after saving against only the earlier ones
+ *  flags the later booking, and only that one (stress test, 2026-11-19). */
+export const bookedBefore = (b: Booking) => (o: Booking) =>
+  o.id.startsWith("HOLD-") || (o.createdAt ?? 0) < (b.createdAt ?? 0) || ((o.createdAt ?? 0) === (b.createdAt ?? 0) && o.id < b.id);
+
+/** A confirmed booking or a held date: what a booking being confirmed must
+ *  fit beside. Pending ones are still waiting for staff themselves. */
+export const confirmedOrHeld = (o: Booking) => o.status === "Confirmed" || o.id.startsWith("HOLD-");
 
 /** Put a booking on its new date. Its preparation checklist belonged to
  *  the old date, so it goes; the facilities are prepared again for the

@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       money?: RejectionMoney;
       subject?: string;
       message?: string;
-    } = await readJson(req);
+    } = (await readJson(req).catch(() => ({}))) ?? {};
 
     if (!booking?.email || !isValidEmail(booking.email)) {
       return NextResponse.json({ error: "A valid booking email is required." }, { status: 400 });

@@ -14,7 +14,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToDateChange } from "@/lib/supabase";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
-import { loadGuestBooking, checkMove, guestLinkFor, sweepExpired } from "@/lib/rebooking.server";
+import { loadGuestBooking, checkMove, checkFits, shiftStay, guestLinkFor, sweepExpired } from "@/lib/rebooking.server";
 import { HOLD_HOURS, GUEST_CHANGES_ALLOWED } from "@/lib/rebooking";
 import { rescheduleProblem } from "@/lib/validators";
 import { cancelRequestFor } from "@/lib/emergency.server";
@@ -77,6 +77,18 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       throw new Error(error.message);
     }
     const request = rowToDateChange(data as DateChangeRow);
+
+    // Two guests asking for the same free date at the same moment both pass
+    // checkMove. Check again now that this hold is saved, against every
+    // booking and only the holds made before it: the later one gives way
+    // (stress test, 2026-11-19).
+    const again = await checkFits({ ...b, ...shiftStay(b, date) }, [], {
+      only: (o) => !o.id.startsWith("HOLD-") || Number(o.id.slice(5)) < Number(request.id),
+    });
+    if (!again.ok) {
+      await db.from("date_change_requests").delete().eq("id", request.id);
+      return no("Someone else just asked for that date. Please pick another free date.");
+    }
 
     if (b.email) {
       const n = notices.dateChangeRequested(b, date, holdUntil, guestLinkFor(b));

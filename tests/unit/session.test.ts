@@ -39,7 +39,7 @@ describe("admin session", () => {
 
   it("expires at 8 hours however active the admin is", () => {
     const now = Date.now();
-    let token = createSessionToken("admin");,, 
+    let token = createSessionToken("admin");
 
     // Touched every 20 minutes for nine hours.
     for (let t = 20 * MIN; t < 9 * HOUR; t += 20 * MIN) {

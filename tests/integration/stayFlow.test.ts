@@ -140,7 +140,8 @@ describe("a normal stay, day by day", () => {
 
     const tooSoon = await checkIn(call("FrontDesk", "/api/checkin", { bookingId: "SW-1" }));
     expect(tooSoon.status).toBe(409);
-    expect((await json(tooSoon)).error).toMatch(/Not prepared yet/);
+    // Not before the stay's first day (and not before it's prepared).
+    expect((await json(tooSoon)).error).toMatch(/Check-in opens on/);
   });
 
   it("the day before: the caretaker gets the task and prepares; front desk can't", async () => {

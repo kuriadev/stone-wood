@@ -637,11 +637,11 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
   return (
     <div>
       <p style={{ color: C.textS, fontSize: 13, marginTop: 0 }}>
-        Each booking settled on the Dashboard: the stay and any damage penalties, against what was paid. The daily cash count is under Daily liquidation.
+        Every closed booking. <strong>Booking price</strong> is what the stay cost, <strong>Damage fees</strong> were added at check-out, and <strong>Paid</strong> is everything the guest paid in total. The daily cash count is under Daily liquidation.
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginBottom: 16 }}>
-        <StatCard label="Settled bookings" value={settled.length} />
-        <StatCard label="Charges" value={fmt(charges)} />
+        <StatCard label="Closed bookings" value={settled.length} />
+        <StatCard label="Total charged" value={fmt(charges)} />
         <StatCard label="Paid" value={fmt(paid)} color="#2e9e4e" />
         <StatCard label="Closed unpaid" value={fmt(unpaid)} color={unpaid > 0 ? "#f5a524" : undefined} />
       </div>
@@ -659,7 +659,7 @@ function Settlements({ rows, onInvoice }: { rows: { b: Booking; m: BookingMoney 
           </label>
         </FilterField>
       </FilterBar>
-      <TableShell head={["Settled", "Booking", "Guest", "Stay", "Penalties", "Paid", "Unpaid", ""]} minWidth={940}
+      <TableShell head={["Closed on", "Booking", "Guest", "Booking price", "Damage fees", "Paid", "Unpaid", ""]} minWidth={940}
         empty={settled.length === 0 ? "No settled bookings match." : undefined}>
         {pagedSet.rows.map(({ b, m, on }, i) => (
           <Row key={b.id} style={{ background: rowBg(i) }}>

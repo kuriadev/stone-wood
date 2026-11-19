@@ -31,6 +31,7 @@ import { fmt, fmtDate } from "@/lib/utils";
 import type { BookingRow } from "@/types/database";
 
 import { readJson } from "@/lib/readJson";
+import { checkFits, bookedBefore } from "@/lib/rebooking.server";
 export const dynamic = "force-dynamic";
 
 const no = (error: string, status = 400) => NextResponse.json({ success: false, error }, { status });
@@ -90,7 +91,20 @@ export async function POST(req: NextRequest) {
     let ins = await db.from("bookings").insert(row).select().single();
     if (ins.error && missingNewColumn(ins.error)) ins = await db.from("bookings").insert(withoutNewColumns(row)).select().single();
     if (ins.error) throw new Error(ins.error.message);
-    const saved = rowToBooking(ins.data as BookingRow);
+    let saved = rowToBooking(ins.data as BookingRow);
+
+    // Two guests paying for the same slot at the same moment both pass the
+    // check above. Now that this one is saved, check it again against the
+    // bookings saved before it: the later one is flagged for staff.
+    if (!flags.length) {
+      const again = await checkFits(saved, [], { only: bookedBefore(saved) });
+      if (!again.ok) {
+        const flag = `⚠ CHECK: ${again.error} (taken while the guest was paying).`;
+        const up = await db.from("bookings").update({ notes: [saved.notes, flag].filter(Boolean).join(" ") }).eq("id", saved.id).select().maybeSingle();
+        if (up.data) saved = rowToBooking(up.data as BookingRow);
+        flags.push(flag);
+      }
+    }
 
     let path: string;
     try {

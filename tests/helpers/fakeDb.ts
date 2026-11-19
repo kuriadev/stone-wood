@@ -40,8 +40,13 @@ class Query implements PromiseLike<Result> {
 
   private cols?: string[];
   /** Honours a plain column list (as PostgREST does); "*" and embedded joins return whole rows. */
+  /** An embedded parent row, e.g. "bookings(*)" on date_change_requests:
+   *  attached by its `<table singular>_id` column, like PostgREST does. */
+  private embed?: string;
   select(cols?: string) {
     this.wantRows = true;
+    const m = cols?.match(/(\w+)\(\*\)/);
+    if (m) this.embed = m[1];
     if (cols && cols !== "*" && !cols.includes("(") && !cols.includes("*")) this.cols = cols.split(",").map((c) => c.trim());
     return this;
   }
@@ -119,7 +124,13 @@ class Query implements PromiseLike<Result> {
     if (this.max !== undefined) out = out.slice(0, this.max);
     const writes = this.op === "insert" || this.op === "update" || this.op === "delete";
     if (writes && !this.wantRows) return { data: null, error: null };
-    const pick = (r: Row) => (this.cols ? Object.fromEntries(this.cols.map((c) => [c, r[c]])) : { ...r });
+    const embed = this.embed;
+    const fk = embed ? `${embed.replace(/s$/, "")}_id` : "";
+    const pick = (r: Row) => {
+      const base = this.cols ? Object.fromEntries(this.cols.map((c) => [c, r[c]])) : { ...r };
+      if (embed) base[embed] = (db.tables[embed] ?? []).find((p) => p.id === r[fk]) ?? null;
+      return base;
+    };
     const copy = out.map(pick);
     if (this.mode === "many") return { data: copy, error: null };
     if (this.mode === "maybe") return { data: copy[0] ?? null, error: null };
