@@ -238,6 +238,7 @@ export const rowToCustomerMessage = (m: CustomerMessageRow): CustomerMessage => 
   createdAt: m.created_at,
   archivedAt: m.archived_at ?? undefined,
   bookingId: m.booking_id ?? undefined,
+  contact: m.contact ?? undefined,
   attachmentCount: m.attachment_count ?? undefined,
   resolution: m.resolution ?? undefined,
   resolutionNote: m.resolution_note ?? undefined,

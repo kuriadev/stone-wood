@@ -16,6 +16,8 @@ import { gold, goldBtn } from "@/lib/styles";
 import {
   isValidEmail,
   isValidName,
+  isValidPHNumber,
+  sanitizeContact,
   sanitizeName,
   NAME_MAX,
 } from "@/lib/validators";
@@ -53,17 +55,18 @@ export function CustomerService({ onSubmitMessage }: CustomerServiceProps) {
   } = useForm<CustomerServiceForm>({
     resolver: zodResolver(customerServiceForm),
     mode: "onBlur",
-    defaultValues: { name: "", email: "", type: "Inquiry", message: "" },
+    defaultValues: { name: "", email: "", contact: "", type: "Inquiry", message: "" },
   });
 
 
   // Watched values keep the per-field hints below working unchanged — they
   // read `form.x` exactly as before, so only the plumbing moved.
   const watched = useWatch({ control });
-  const form: CustomerServiceForm = { name: "", email: "", type: "Inquiry", message: "", ...watched } as CustomerServiceForm;
+  const form: CustomerServiceForm = { name: "", email: "", contact: "", type: "Inquiry", message: "", ...watched } as CustomerServiceForm;
   const touched = {
     name: Boolean(touchedFields.name),
     email: Boolean(touchedFields.email),
+    contact: Boolean(touchedFields.contact),
     message: Boolean(touchedFields.message),
   };
 
@@ -76,18 +79,23 @@ export function CustomerService({ onSubmitMessage }: CustomerServiceProps) {
   // nothing about them needs Gmail.
   const emailOk   = isValidEmail(form.email ?? "");
   const messageOk = (form.message ?? "").trim().length >= 10 && (form.message ?? "").length <= MESSAGE_MAX;
-  const formOk    = nameOk && emailOk && messageOk;
+  const contactOk = isValidPHNumber(form.contact ?? "");
+  const formOk    = nameOk && emailOk && contactOk && messageOk;
+  /** A filled-in, valid field: a green border instead of a "Looks good" line. */
+  const okStyle = (ok: boolean) => (ok ? { borderColor: "#4caf50", boxShadow: "0 0 0 1px rgba(76,175,80,0.45)" } : undefined);
 
   // Live sanitisation as the guest types: the field silently refuses digits
   // and symbols instead of accepting them and complaining afterwards.
   const nameField = register("name");
   const messageField = register("message");
+  const contactField = register("contact");
 
 const submit = handleSubmit(async (values) => {
   const msg: CustomerMessage = {
     id: Date.now(),
     name: values.name,
     email: values.email,
+    contact: values.contact,
     type: values.type,
     message: values.message,
     date: new Date().toLocaleDateString("en-PH", {
@@ -186,6 +194,7 @@ const submit = handleSubmit(async (values) => {
                   autoComplete="name"
                   placeholder="Your full name"
                   aria-invalid={touched.name && !nameOk}
+                  style={okStyle(nameOk)}
                 />
                 {/* No message for the name. The field already refuses digits
                     and symbols as they are typed, so the only way to fail is
@@ -193,9 +202,6 @@ const submit = handleSubmit(async (values) => {
                     border, `aria-invalid` and the line under the disabled
                     Send button all already say. A sentence spelling out the
                     rule was noise on a field that cannot be got wrong. */}
-                {touched.name && nameOk && (
-                  <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Looks good</p>
-                )}
               </div>
 
               {/* ── EMAIL ADDRESS ── */}
@@ -211,6 +217,7 @@ const submit = handleSubmit(async (values) => {
                   autoComplete="email"
                   placeholder="you@example.com"
                   aria-invalid={touched.email && !emailOk}
+                  style={okStyle(emailOk)}
                 />
                 {touched.email && form.email.length > 0 && !emailOk && (
                   <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 4 }}>⚠ Enter a valid email address</p>
@@ -218,8 +225,34 @@ const submit = handleSubmit(async (values) => {
                 {touched.email && form.email.length === 0 && (
                   <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 4 }}>⚠ Email address is required</p>
                 )}
-                {touched.email && emailOk && (
-                  <p style={{ color: "#4caf50", fontSize: 12.5, marginTop: 4 }}>✓ Looks good</p>
+              </div>
+
+              {/* ── CONTACT NUMBER ── so the resort can call back. Digits
+                  only, as typed (pasted spaces and dashes are dropped). */}
+              <div>
+                <Label htmlFor="cs-contact" className="mb-2 block text-[11.5px] tracking-[2px] text-accent-ink">
+                  CONTACT NUMBER
+                </Label>
+                <Input
+                  id="cs-contact"
+                  type="tel"
+                  inputMode="numeric"
+                  {...contactField}
+                  onChange={(e) => {
+                    e.target.value = sanitizeContact(e.target.value);
+                    void contactField.onChange(e);
+                  }}
+                  maxLength={11}
+                  autoComplete="tel"
+                  placeholder="09XXXXXXXXX"
+                  aria-invalid={touched.contact && !contactOk}
+                  style={okStyle(contactOk)}
+                />
+                {touched.contact && (form.contact ?? "").length > 0 && !contactOk && (
+                  <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 4 }}>⚠ Enter an 11-digit mobile number starting with 09</p>
+                )}
+                {touched.contact && (form.contact ?? "").length === 0 && (
+                  <p style={{ color: C.dangerInk, fontSize: 12.5, marginTop: 4 }}>⚠ Contact number is required</p>
                 )}
               </div>
 
@@ -285,6 +318,7 @@ const submit = handleSubmit(async (values) => {
                   rows={5}
                   className="resize-none"
                   aria-invalid={touched.message && !messageOk}
+                  style={okStyle(messageOk)}
                   placeholder="Tell us how we can help..."
                 />
                 {/* Character counter */}
@@ -292,9 +326,6 @@ const submit = handleSubmit(async (values) => {
                   <span>
                     {touched.message && !messageOk && (
                       <span style={{ color: C.dangerInk, fontSize: 12.5 }}>⚠ Please write at least 10 characters</span>
-                    )}
-                    {touched.message && messageOk && (
-                      <span style={{ color: "#4caf50", fontSize: 12.5 }}>✓ Good to go</span>
                     )}
                   </span>
                   <span style={{ color: form.message.length >= MESSAGE_MAX ? "#e55" : form.message.trim().length >= 10 ? "#4caf50" : C.textXS, fontSize: 11.5, fontFamily: "monospace" }}>
@@ -316,7 +347,7 @@ const submit = handleSubmit(async (values) => {
                 <p style={{ color: C.textS, fontSize: 12, textAlign: "center", marginTop: 12 }}>
                   {!formOk && Object.values(touched).some(Boolean)
                     ? "Please fill in all fields correctly before sending."
-                    : "Please include at least 10 characters so we can assist you effectively."}
+                    : "What can we help you with?"}
                 </p>
               </div>
             </div>

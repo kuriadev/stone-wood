@@ -33,6 +33,8 @@ export interface CustomerMessage {
   /** An emergency request (lib/emergency.ts): the booking it is about, how
    *  many proof files it has (loaded on open), and staff's answer. */
   bookingId?: string;
+  /** The guest's mobile number, from the Customer Service form. */
+  contact?: string;
   attachmentCount?: number;
   resolution?: "Approved" | "Declined";
   resolutionNote?: string;

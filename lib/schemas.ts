@@ -132,6 +132,8 @@ export const CUSTOMER_MESSAGE_MAX = 1000;
 
 export const customerServiceForm = z.object({
   name: guestName,
+  // So the resort can call back (owner, 2026-11-19).
+  contact: phoneNumber,
   email: z
     .string({ message: "An email address is required." })
     .transform((v) => v.trim())

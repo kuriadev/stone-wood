@@ -11,7 +11,7 @@ import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin, rowToCustomerMessage } from "@/lib/supabase";
 import { requirePermission } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
-import { sanitizeName, sanitizeNotes, isValidEmail, NAME_MIN, NAME_MAX } from "@/lib/validators";
+import { sanitizeName, sanitizeNotes, isValidEmail, isValidPHNumber, sanitizeContact, NAME_MIN, NAME_MAX } from "@/lib/validators";
 import type { CustomerMessageRow } from "@/types/database";
 import { ensureSettings } from "@/lib/settings.server";
 import { notifyStaff } from "@/lib/staffNotify.server";
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     // without the emergency columns yet falls back to the plain list.
     const db = getSupabaseAdmin();
     let { data, error } = await db.from("customer_messages")
-      .select("id,name,email,type,message,date,archived_at,created_at,booking_id,attachment_count,resolution,resolution_note,resolved_at,resolved_by")
+      .select("id,name,email,type,message,date,archived_at,created_at,booking_id,attachment_count,resolution,resolution_note,resolved_at,resolved_by,contact")
       .order("created_at", { ascending: false });
     if (error && /column/i.test(error.message)) {
       ({ data, error } = await db.from("customer_messages").select("*").order("created_at", { ascending: false }));
@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
 
   const name = sanitizeName(String(body.name ?? ""));
   const email = String(body.email ?? "").trim().toLowerCase();
+  const contact = sanitizeContact(String(body.contact ?? ""));
   const message = sanitizeNotes(String(body.message ?? "")).slice(0, MESSAGE_MAX);
   const type = VALID_TYPES.includes(String(body.type)) ? String(body.type) : "Other";
 
@@ -71,6 +72,9 @@ export async function POST(req: NextRequest) {
   if (!isValidEmail(email)) {
     return NextResponse.json({ success: false, error: "A valid email address is required." }, { status: 400 });
   }
+  if (!isValidPHNumber(contact)) {
+    return NextResponse.json({ success: false, error: "A valid PH mobile number (09XXXXXXXXX) is required." }, { status: 400 });
+  }
   if (message.trim().length < 10) {
     return NextResponse.json({ success: false, error: "A message of at least 10 characters is required." }, { status: 400 });
   }
@@ -78,13 +82,18 @@ export async function POST(req: NextRequest) {
   try {
     // Built from validated fields rather than spreading the body, so a caller
     // cannot smuggle in archived_at or a forged created_at.
-    const { error } = await getSupabaseAdmin().from("customer_messages").insert({
-      name, email, type, message,
-      date: new Date().toISOString().slice(0, 10),
-    });
+    const row = { name, email, contact, type, message, date: new Date().toISOString().slice(0, 10) };
+    let { error } = await getSupabaseAdmin().from("customer_messages").insert(row);
+    // Before 20261119120000_message_contact.sql: keep the number in the
+    // message itself, so staff still see it.
+    if (error && /contact|column/i.test(error.message)) {
+      const { contact: _c, ...plain } = row;
+      void _c;
+      ({ error } = await getSupabaseAdmin().from("customer_messages").insert({ ...plain, message: `${message}\n\nMobile: ${contact}` }));
+    }
     if (error) throw new Error(error.message);
     await logActivity({ actor: "Guest", action: "message.received", entity: "customer_message", summary: `${name} sent a ${type.toLowerCase()} message from the website.` });
-    void notifyStaff(["Owner", "FrontDesk"], buildGuestMessageAlert({ name, email, type, message }), "guest-message");
+    void notifyStaff(["Owner", "FrontDesk"], buildGuestMessageAlert({ name, email, contact, type, message }), "guest-message");
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[/api/customer-service POST]", err);

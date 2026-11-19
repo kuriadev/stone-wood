@@ -136,6 +136,8 @@ export interface CustomerMessageRow {
   created_at: string;
   /** 20261112120000_emergency_requests.sql */
   booking_id?: string | null;
+  /** 20261119120000_message_contact.sql: the guest's mobile number. */
+  contact?: string | null;
   attachment_count?: number | null;
   resolution?: "Approved" | "Declined" | null;
   resolution_note?: string | null;

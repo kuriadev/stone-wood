@@ -153,7 +153,7 @@ export function GuestMessagesPanel({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ color: C.textH, fontSize: 13.5, fontWeight: 600, overflowWrap: "anywhere" }}>{m.name}</div>
                   <div style={{ color: C.textXS, fontSize: 11.5, overflowWrap: "anywhere" }}>
-                    {m.email}{m.date ? ` · ${m.date}` : ""}
+                    {m.email}{m.contact ? ` · ${m.contact}` : ""}{m.date ? ` · ${m.date}` : ""}
                   </div>
                 </div>
                 <span style={{

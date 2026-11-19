@@ -350,12 +350,12 @@ export function buildProofAlert(b: Booking, due: number, payChoice: "Downpayment
 }
 
 /** A message from the website's contact form. */
-export function buildGuestMessageAlert(m: { name: string; email: string; type: string; message: string }): MailOut {
+export function buildGuestMessageAlert(m: { name: string; email: string; contact?: string; type: string; message: string }): MailOut {
   return {
     subject: `Guest message · ${m.type} · ${m.name}`,
     html: shell(
       "A guest sent a message",
-      `${m.name} (${m.email}) wrote in from the website.`,
+      `${m.name} (${m.email}${m.contact ? ` · ${m.contact}` : ""}) wrote in from the website.`,
       section(m.type, [escapeHtml(m.message.slice(0, 600)).replace(/\n/g, "<br />")]) +
         section("What to do", ["Open Guest Messages to reply. The reply is emailed to them from there."]),
     ),

@@ -875,7 +875,7 @@ export function Admin({
                                 from the same morning; the clock time is shown
                                 when the record carries one. */}
                             <div className="sw-msgs__meta" style={{ color: C.textXS }}>
-                              {open.email} · {when(open)}
+                              {open.email}{open.contact ? <> · <a href={`tel:${open.contact}`} style={{ color: "inherit" }}>{open.contact}</a></> : null} · {when(open)}
                             </div>
                             {/* If this person has a booking, open it straight
                                 from the message. */}
