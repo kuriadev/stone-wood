@@ -60,7 +60,7 @@ export const OPS_STAGES: { id: OpsStage; label: string; hint: string; color: str
   { id: "prepare", label: "To prepare", hint: "Confirmed and coming up. Preparation opens the day before each booking.", color: "#9a7bd0" },
   { id: "arriving", label: "Arriving", hint: "Due today. Check them in when the group arrives.", color: "#3a8fc4" },
   { id: "onsite", label: "On site", hint: "Checked in. Inspect the facilities, collect what's owed and check them out when they leave.", color: "#2e9e4e" },
-  { id: "settle", label: "Balance to collect", hint: "Checked out without paying everything. Collect the rest, then close the booking.", color: "#e07a3a" },
+  { id: "settle", label: "Ready to close", hint: "Checked out. Collect any balance or damage fee, then close the booking.", color: "#e07a3a" },
   { id: "done", label: "Done today", hint: "Settled and completed today.", color: "#4a9fd4" },
 ];
 
@@ -124,7 +124,7 @@ export type TodayColumn = "arriving" | "onsite" | "settle";
 export const TODAY_COLUMNS: { id: TodayColumn; label: string; hint: string; empty: string; color: string }[] = [
   { id: "arriving", label: "Arriving", hint: "Check each group in when they arrive.", empty: "No one waiting to arrive.", color: "#3a8fc4" },
   { id: "onsite", label: "On site", hint: "As they leave: inspect, collect what's owed, done.", empty: "No groups on site.", color: "#2e9e4e" },
-  { id: "settle", label: "Balance to collect", hint: "Checked out but not fully paid. Collect the rest to close it.", empty: "No balances to collect.", color: "#e07a3a" },
+  { id: "settle", label: "Ready to close", hint: "Checked out. Collect any balance or damage fee, then close the booking.", empty: "No bookings waiting to be closed.", color: "#e07a3a" },
 ];
 
 function placeOf(stage: OpsStage, date: string, today: string): { view: OpsView; column: TodayColumn | null } {
@@ -196,7 +196,7 @@ export function opsBoard(bookings: Booking[], inspections: Inspection[], now: Da
 // ── The clock on each card ───────────────────────────────────────────
 //
 // One glance should tell the admin what needs doing, so each card in
-// Arriving / On site / Balance to collect carries a coloured timer:
+// Arriving / On site / Ready to close carries a coloured timer:
 //
 //   Arriving          blue    their arrival time has not come yet
 //                     red     it has passed and they are not checked in: late
@@ -204,7 +204,7 @@ export function opsBoard(bookings: Booking[], inspections: Inspection[], now: Da
 //                     orange  the last 30 minutes, up to the end time:
 //                             check-out is pending
 //                     red     past the end time (a minute after, e.g. 5:01 AM)
-//   Balance to collect orange checked out and waiting to pay
+//   Ready to close     orange checked out and waiting to be closed
 //                     red     waiting 2 hours or more, or since another day
 //
 // Pure, so the thresholds are tested rather than remembered.
@@ -222,7 +222,7 @@ export interface CardTimer {
 export const CHECKOUT_SOON_MS = 30 * 60_000;
 /** On site: how far past the end time before it reads overdue (5:01 AM). */
 export const OVERDUE_AFTER_MS = 60_000;
-/** Balance to collect: how long a checked-out group may wait before red. */
+/** Ready to close: how long a checked-out group may wait before red. */
 export const COLLECT_RED_AFTER_MS = 2 * 60 * 60_000;
 
 export const clockTime = (d: Date) => d.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });

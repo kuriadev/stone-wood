@@ -264,7 +264,7 @@ export function ProofQueue({ mob }: { mob: boolean }) {
                       <Icon name="check-circle" size={13} style={{ color: "#2e9e4e" }} />
                       {as === "Full" ? "Paid in full" : "50% down payment"}{read.amountMatch ? ", the amount on the receipt matches" : `, as the guest chose`}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: other.has(p.id) ? "1fr 1fr" : "1fr", gap: 8 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: other.has(p.id) ? "repeat(auto-fit, minmax(min(100%, 170px), 1fr))" : "minmax(0, 1fr)", gap: 8 }}>
                       {(as === "Downpayment" || other.has(p.id)) && <ActionButton kind="primary" icon={as === "Downpayment" ? "check" : undefined} disabled={busy === p.id} onClick={() => setConfirm({ p, as: "Downpayment" })}>Confirm partial ({fmt(p.payChoice === "Downpayment" ? p.amountDue : Math.ceil(b.total / 2))})</ActionButton>}
                       {(as === "Full" || other.has(p.id)) && <ActionButton kind="green" icon="check" disabled={busy === p.id} onClick={() => setConfirm({ p, as: "Full" })}>Confirm full ({fmt(b.total)})</ActionButton>}
                     </div>

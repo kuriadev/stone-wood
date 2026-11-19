@@ -372,6 +372,22 @@ describe("check-out can't skip a check either", () => {
   });
 });
 
+describe("a fully paid group closes at check-out", () => {
+  beforeAll(() => {
+    at("2026-11-06T16:00");
+    // Paid in full online: downpayment = total.
+    freshResort([bookingRow({ id: "SW-12", name: "Paid Group", date: "2026-11-06", checked_in_at: "2026-11-06T08:00:00+08:00", total: 2000, downpayment: 2000 })]);
+  });
+
+  it("is completed by the caretaker's inspection, not left under Ready to close", async () => {
+    const res = await checkOut(call("Caretaker", "/api/checkout", { bookingId: "SW-12", items: allTicked([POOL, PARKING], "after") }));
+    expect(await json(res)).toMatchObject({ toSettle: 0, completed: true });
+    expect(booking("SW-12").status).toBe("Completed");
+    // Front desk pressing Close booking afterwards is harmless.
+    expect((await settle(call("FrontDesk", "/api/settle", { bookingId: "SW-12" }))).status).toBe(200);
+  });
+});
+
 describe("groups on the same stay share one preparation", () => {
   beforeAll(() => {
     at("2026-11-05T09:00");

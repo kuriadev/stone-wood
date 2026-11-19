@@ -196,6 +196,10 @@ export async function DELETE(req: NextRequest) {
       if (!row) return NextResponse.json({ success: false, error: "Item not found." }, { status: 404 });
       if (!row.deleted_at) return NextResponse.json({ success: false, error: "Archive the item first; only archived items can be deleted for good." }, { status: 409 });
       const { error } = await db.from("inventory").delete().eq("id", id);
+      // The stock-history guard before 20261119130000_inventory_delete_with_history.sql.
+      if (error && /append-only/i.test(error.message)) {
+        return NextResponse.json({ success: false, error: "This item can't be deleted yet: its stock history is protected. Run the latest database update (inventory_delete_with_history), then try again." }, { status: 409 });
+      }
       if (error) throw new Error(error.message);
       await logActivity({ actor: "Admin", action: "inventory.deleted", entity: "inventory", entityId: id, summary: `Deleted "${row.name}" from the archive for good, with its stock history.` });
       return NextResponse.json({ success: true });

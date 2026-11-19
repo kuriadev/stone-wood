@@ -53,7 +53,7 @@ describe("On site", () => {
   });
 });
 
-describe("Balance to collect", () => {
+describe("Ready to close", () => {
   const out = (h: number, m = 0) => booking({ checkedOutAt: at(h, m).toISOString() });
   it("is orange while they have only just left, red after two hours", () => {
     expect(cardTimer(card("settle", out(17, 0)), at(17, 40))).toMatchObject({ tone: "orange" });

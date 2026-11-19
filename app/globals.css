@@ -606,6 +606,12 @@
 /* ── GLOBAL RESET ── */
 *, *::before, *::after { box-sizing: border-box; }
 html { font-size: 17px; }
+/* No grey/black box flashing behind a tapped button or link on a phone
+   (Android Chrome's default tap highlight, which looked like a dark panel
+   sliding behind the Day/Night/Staycation buttons on Home). Every control
+   has its own pressed or selected look instead. */
+html { -webkit-tap-highlight-color: transparent; }
+button, a, [role="button"], [role="radio"], label { -webkit-tap-highlight-color: transparent; }
 body {
   /* Dark is the default so the server-rendered HTML matches the app's
      default theme, and there is no flash before ThemeContext puts

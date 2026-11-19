@@ -222,15 +222,30 @@ export async function POST(req: NextRequest) {
       try { await recordMovements(broken); } catch (e) { console.error(`[/api/checkout] breakage for ${booking.id} not taken off stock:`, e); }
     }
 
+    /* Nothing left to pay (fully paid, no damage): the booking is complete
+       now, whoever did the inspection. It used to wait under "Balance to
+       collect" for someone to press Close booking, though nothing was owed
+       (owner, 2026-11-19). A balance or a damage fee still goes there. */
+    const toSettle = round2(money.balance + money.penaltyDue + newPenalty);
+    let completed = false;
+    if (toSettle <= 0) {
+      const fin = await db.from("bookings")
+        .update({ status: "Completed", payment_proof: true, settled_at: now, settlement_note: "" })
+        .eq("id", booking.id).eq("status", "Confirmed").select("id").maybeSingle();
+      if (fin.error) console.error(`[/api/checkout] closing ${booking.id}:`, fin.error.message);
+      completed = !!fin.data;
+    }
+
     await logActivity({
       actor: "Admin", action: "stay.checked_out", bookingId: booking.id, entity: "booking", entityId: booking.id,
-      summary: `Checked out ${booking.name} (${booking.id}) after inspecting ${used.length} facilit${used.length === 1 ? "y" : "ies"}.${damages.length ? ` ${damages.length} damaged item${damages.length === 1 ? "" : "s"}, ${fmt(newPenalty)} in penalties.` : " No damage."}`,
+      summary: `Checked out ${booking.name} (${booking.id}) after inspecting ${used.length} facilit${used.length === 1 ? "y" : "ies"}.${damages.length ? ` ${damages.length} damaged item${damages.length === 1 ? "" : "s"}, ${fmt(newPenalty)} in penalties.` : " No damage."}${completed ? " Fully paid, so the booking is complete." : ""}`,
       details: { damages: damages.map((d) => ({ item: d.item_name, qty: d.quantity, amount: d.amount, facility: d.facility_name })), outOfService: [...outOfService] },
     });
     return NextResponse.json({
       success: true,
       penalty: newPenalty,
-      toSettle: round2(money.balance + money.penaltyDue + newPenalty),
+      toSettle,
+      completed,
     });
   } catch (err) {
     console.error("[/api/checkout POST]", err);

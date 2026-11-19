@@ -131,6 +131,8 @@
   z-index: 40;
   width: var(--gs-menu-w);
   min-width: 100%;
+  /* Never wider than the screen, whatever menu width was asked for. */
+  max-width: calc(100vw - 16px);
   padding: 4px;
   border: 1px solid var(--gs-border);
   border-radius: var(--gs-radius);

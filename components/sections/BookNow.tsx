@@ -2041,8 +2041,37 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
                     </h3>
                   </div>
                 </div>
+                {/* The payment option, changeable here too (owner, 2026-11-19).
+                    Changing it changes the amount to send, so the receipt
+                    step below starts again for the new amount. */}
+                <div style={{ marginBottom: 20 }}>
+                  <div id="pay-plan-label-6" style={{ color: C.textS, fontSize: 12, letterSpacing: 1.6, fontWeight: 700, marginBottom: 10 }}>PAYMENT OPTION</div>
+                  <div role="radiogroup" aria-labelledby="pay-plan-label-6" style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(0, 1fr)", gap: 10 }}>
+                    {([
+                      { full: false, title: "50% down payment", amount: down, note: `${fmt(total - down)} paid at the resort on arrival` },
+                      { full: true, title: "Pay in full", amount: total, note: "Nothing to pay on arrival" },
+                    ] as const).map((o) => {
+                      const on = payFull === o.full;
+                      return (
+                        <button key={o.title} type="button" role="radio" aria-checked={on} className="sw-choice" disabled={proofBusy} onClick={() => setPayFull(o.full)}
+                          style={{ textAlign: "left", padding: "14px 16px", borderRadius: 12, cursor: proofBusy ? "wait" : "pointer", background: on ? "rgba(201,168,76,0.12)" : "transparent", border: `1.5px solid ${on ? gold : C.border}`, display: "flex", gap: 12, alignItems: "flex-start" }}>
+                          <span aria-hidden="true" style={{ width: 18, height: 18, borderRadius: "50%", border: `1.5px solid ${on ? gold : C.textS}`, marginTop: 2, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            {on && <span style={{ width: 9, height: 9, borderRadius: "50%", background: gold }} />}
+                          </span>
+                          <span style={{ minWidth: 0 }}>
+                            <span style={{ display: "block", color: C.textH, fontSize: 14.5, fontWeight: 700 }}>{o.title} · {fmt(o.amount)}</span>
+                            <span style={{ display: "block", color: C.textS, fontSize: 12.5, marginTop: 4 }}>{o.note}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p style={{ color: C.textS, fontSize: 12, margin: "8px 0 0", lineHeight: 1.55 }}>
+                    Choose before you send the payment. Changing it after uploading a receipt clears the upload, so you can upload the receipt for the new amount.
+                  </p>
+                </div>
                 <div style={{ display: "grid", gridTemplateColumns: mob || sideSummary ? "minmax(0, 1fr)" : "minmax(0,0.85fr) minmax(0,1.15fr)", gap: mob ? 16 : 20, alignItems: "start" }}>
-                  <ProofPayment due={dueNow} payFull={paidInFull} total={total} guestName={form.name} mob={mob}
+                  <ProofPayment key={paidInFull ? "full" : "down"} due={dueNow} payFull={paidInFull} total={total} guestName={form.name} mob={mob}
                     submitLabel="Submit booking & proof" busy={proofBusy} error={proofError} onSubmit={submitProof} />
                   {/* Order summary: on the right on wide screens. */}
                   {!sideSummary && summaryCard}

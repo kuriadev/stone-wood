@@ -623,7 +623,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
         {([
           ["arriving", "Arriving", "calendar", "#3e8ed0", "Guests today, not checked in"],
           ["onsite", "On site", "users", "#2e9e4e", "Checked in now"],
-          ["settle", "Balance to collect", "cash", "#e07a3a", "Checked out, still owing"],
+          ["settle", "Ready to close", "cash", "#e07a3a", "Checked out, to close"],
         ] as const).map(([k, label, icon, color, hint]) => {
           const on = stage === k;
           return (

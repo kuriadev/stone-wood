@@ -183,7 +183,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
   booking: Booking; facilities: Facility[]; onClose: () => void;
   mob: boolean;
   /** The caretaker's version (My Tasks): the inspection, damage and photos
-   *  only. Collecting the balance is front desk's, under Balance to collect. */
+   *  only. Collecting the balance is front desk's, under Ready to close. */
   inspectOnly?: boolean;
 }) {
   const { C, cBr, soft, inp } = useAdminStyle();
@@ -305,7 +305,8 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
     if (!r.ok) { setBusy(false); return setError(r.error); }
     if (!handlesMoney) {
       setBusy(false);
-      toast(`Inspection saved for ${booking.name}.${newPenalty > 0 ? ` ${fmt(newPenalty)} in damage added to their bill.` : " No damage."} Front desk collects the balance.`, "success");
+      const closed = (r as { data?: { completed?: boolean } }).data?.completed === true;
+      toast(`Inspection saved for ${booking.name}.${newPenalty > 0 ? ` ${fmt(newPenalty)} in damage added to their bill.` : " No damage."}${closed ? " Fully paid, so the stay is complete." : " Front desk collects the balance."}`, "success");
       return onClose();
     }
 
@@ -314,7 +315,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
     // To settle, as checked out, until the guest pays.
     if (paying <= 0 && !completes) {
       setBusy(false);
-      toast(`${booking.name} checked out.${damageNote} ${fmt(left)} is still to collect under Balance to collect.`, "warning");
+      toast(`${booking.name} checked out.${damageNote} ${fmt(left)} is still to collect under Ready to close.`, "warning");
       return onClose();
     }
     const s = await ops.settle({
@@ -331,10 +332,10 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
     if (!s.ok) {
       // The check-out is saved; only the money is missing, and Settle
       // under To settle picks it up from there.
-      toast(`${booking.name} is checked out, but the payment wasn't saved: ${s.error} Collect it under Balance to collect.`, "error");
+      toast(`${booking.name} is checked out, but the payment wasn't saved: ${s.error} Collect it under Ready to close.`, "error");
       return onClose();
     }
-    if (!completes) toast(`${booking.name} checked out.${damageNote} ${fmt(paying)} recorded; ${fmt(left)} still to collect under Balance to collect.`, "warning");
+    if (!completes) toast(`${booking.name} checked out.${damageNote} ${fmt(paying)} recorded; ${fmt(left)} still to collect under Ready to close.`, "warning");
     else if (left > 0) toast(`${booking.name} completed with ${fmt(left)} unpaid. It stays under Payments & Expenses → Receivables.`, "warning");
     else toast(`${booking.name}'s stay is complete.${damageNote}${paying > 0 ? ` ${fmt(paying)} recorded in Payments & Expenses.` : " Nothing was owed."}`, "success");
     onClose();
@@ -517,7 +518,7 @@ export function CheckoutModal({ booking, facilities, onClose, mob, inspectOnly =
               {left > 0 && (
                 <>
                   <p style={{ color: C.textS, fontSize: 12.5, margin: 0 }}>
-                    {fmt(left)} will still be owed. The booking waits under <strong style={{ color: C.textB }}>Balance to collect</strong> until it&apos;s paid.
+                    {fmt(left)} will still be owed. The booking waits under <strong style={{ color: C.textB }}>Ready to close</strong> until it&apos;s paid.
                   </p>
                   <label style={{ color: C.textS, fontSize: 13, display: "flex", gap: 8, alignItems: "flex-start" }}>
                     <Checkbox checked={closeUnpaid} onCheckedChange={(v) => setCloseUnpaid(v === true)} style={{ marginTop: 4 }} />

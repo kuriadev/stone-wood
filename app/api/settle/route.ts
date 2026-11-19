@@ -64,6 +64,10 @@ export async function POST(req: NextRequest) {
     const ledger = await loadBookingLedger(bookingId);
     if (!ledger) return NextResponse.json({ success: false, error: "That booking no longer exists." }, { status: 404 });
     const { booking, money } = ledger;
+    // Check-out already closed it (fully paid): nothing to do.
+    if (booking.status === "Completed" && !pay && round2(money.balance + money.penaltyDue) <= 0) {
+      return NextResponse.json({ success: true, alreadyClosed: true });
+    }
     if (booking.status !== "Confirmed") {
       return NextResponse.json({ success: false, error: `This booking is already ${booking.status.toLowerCase()}.` }, { status: 409 });
     }

@@ -612,7 +612,7 @@ function Inspections({ bookings, facilities }: { bookings: Booking[]; facilities
               </Cell>
               <Cell style={td}>{m.penaltyTotal > 0 ? <StatusBadge color="#e5484d">{fmt(m.penaltyTotal)} penalty</StatusBadge> : <span style={{ color: C.textS, fontSize: 12.5 }}>None</span>}</Cell>
               <Cell style={{ ...td, color: m.due > 0 ? "#f5a524" : C.textS, whiteSpace: "nowrap" }}>
-                {b.status === "Completed" ? (m.due > 0 ? `${fmt(m.due)} unpaid` : "Closed") : "Balance to collect"}
+                {b.status === "Completed" ? (m.due > 0 ? `${fmt(m.due)} unpaid` : "Closed") : "Ready to close"}
               </Cell>
               <Cell style={{ ...td, textAlign: "right" }}><IconAction icon="eye" label="View inspection" /></Cell>
             </Row>

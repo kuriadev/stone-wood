@@ -264,7 +264,7 @@ export function OperationsTab({
     if ((kind === "checkout" || kind === "prep") && !staff.can("facilities.inspect")) {
       toast(kind === "prep"
         ? `Preparing for ${b.name} is on the caretakers' task list.`
-        : `${b.name}'s check-out inspection is on the caretakers' task list. Once it's done, the balance shows here under Balance to collect.`, "info");
+        : `${b.name}'s check-out inspection is on the caretakers' task list. Once it's done, the booking shows here under Ready to close.`, "info");
       return;
     }
     if (kind === "reject" || kind === "noshow") setReason("");

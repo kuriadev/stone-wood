@@ -102,6 +102,10 @@ export function GlideSelect<V extends string = string>({
   const [phase, setPhase] = useState<Phase>("closed");
   const [active, setActive] = useState<number | null>(null);
   const [side, setSide] = useState(placement);
+  /* Which edge the menu lines up with. The asked-for one, unless that would
+     run the menu off the screen: a chip on the right half of a phone opened
+     its menu off the right edge (Supplies & Equipment, 2026-11-19). */
+  const [edge, setEdge] = useState(align);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -121,6 +125,12 @@ export function GlideSelect<V extends string = string>({
     if (!el || !root) return;
     const r = root.getBoundingClientRect();
     const need = el.offsetHeight + MENU_GAP;
+    const w = el.offsetWidth;
+    setEdge(
+      align === "left" && r.left + w > window.innerWidth - 8 && r.right - w >= 8 ? "right"
+        : align === "right" && r.right - w < 8 && r.left + w <= window.innerWidth - 8 ? "left"
+          : align,
+    );
     setSide(
       placement === "bottom" && r.bottom + need > window.innerHeight
         ? "top"
@@ -270,7 +280,7 @@ export function GlideSelect<V extends string = string>({
     if (i !== active) setActive(i);
   };
 
-  const origin = `${side === "bottom" ? "top" : "bottom"} ${align}`;
+  const origin = `${side === "bottom" ? "top" : "bottom"} ${edge}`;
   return (
     <div
       ref={rootRef}
@@ -329,7 +339,7 @@ export function GlideSelect<V extends string = string>({
         </span>
       </button>
       {phase !== "closed" ? (
-        <div ref={menuRef} className="glide-select__menu" data-state="open" data-side={side} data-align={align}>
+        <div ref={menuRef} className="glide-select__menu" data-state="open" data-side={side} data-align={edge}>
           <div
             id={`${id}-list`}
             role="listbox"
