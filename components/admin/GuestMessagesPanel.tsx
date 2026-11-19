@@ -28,16 +28,20 @@ const TYPE_LABEL: Record<string, string> = {
   Feedback: "Feedback",
   Complaint: "Concern",
   Refund: "Refund request",
+  Cancellation: "Booking cancelled",
+  Emergency: "Emergency request",
   Suggestion: "Suggestion",
   Other: "Other",
 };
 
 /** The chips, in the order the owner asked for them. These four always show,
  *  even at zero, so the row does not jump about as messages arrive. */
-const CHIPS = ["Refund", "Inquiry", "Feedback", "Complaint"] as const;
+const CHIPS = ["Cancellation", "Refund", "Inquiry", "Feedback", "Complaint"] as const;
 
 const TYPE_COLOR: Record<string, string> = {
   Refund: "#e07a3a",
+  Cancellation: "#e5484d",
+  Emergency: "#e0a020",
   Inquiry: "#3e8ed0",
   Feedback: "#2e9e4e",
   Complaint: "#e5484d",

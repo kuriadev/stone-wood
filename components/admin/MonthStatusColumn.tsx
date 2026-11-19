@@ -15,6 +15,7 @@
 import { useState } from "react";
 import { ActionButton, useAdminStyle } from "@/components/admin/ui";
 import { fmtDate } from "@/lib/utils";
+import { Icon } from "@/components/common/Icon";
 import type { Booking } from "@/types/booking";
 
 /** Rows visible before "View all". */
@@ -23,12 +24,15 @@ const PREVIEW = 5;
 const ROW = 57;
 
 export function MonthStatusColumn({
-  label, tone, rows,
+  label, tone, rows, why,
 }: {
   label: string;
   /** The status colour, for the dot and the dates. */
   tone: string;
   rows: Booking[];
+  /** Why a booking is in this column, e.g. "Double booking" (Awaiting
+   *  approval). Shown as small tags under the booking. */
+  why?: (b: Booking) => string[];
 }) {
   const { C, cBg, cBr } = useAdminStyle();
   const [expanded, setExpanded] = useState(false);
@@ -74,6 +78,15 @@ export function MonthStatusColumn({
                   {bk.guests} guest{bk.guests === 1 ? "" : "s"} ·{" "}
                   <span style={{ fontFamily: "monospace", fontWeight: 700 }}>{bk.id}</span>
                 </div>
+                {why && why(bk).length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                    {why(bk).map((t) => (
+                      <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, border: `1px solid ${tone}66`, color: tone, background: `${tone}14` }}>
+                        <Icon name="alert" size={11} /> {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>

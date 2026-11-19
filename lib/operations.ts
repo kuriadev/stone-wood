@@ -32,6 +32,20 @@ import { getOccupancyWindow } from "@/lib/occupancy";
 import { fmtDate, bookingEndDate } from "@/lib/utils";
 import { preparedBookingIds } from "@/lib/facilityUsage";
 import type { Facility } from "@/types/facility";
+import type { CustomerMessage } from "@/types/admin";
+
+/** How long a guest's own cancellation stays in Reminders. Archiving the
+ *  message in Guest Messages clears it sooner. */
+export const GUEST_CANCEL_NOTICE_HOURS = 72;
+
+/** Guests who cancelled their booking themselves (a "Cancellation" message,
+ *  /api/bookings/[id]/cancel), still in the inbox and recent. A notice only:
+ *  the booking is cancelled already. */
+export function guestCancelNotices(messages: CustomerMessage[], now: Date): CustomerMessage[] {
+  const since = now.getTime() - GUEST_CANCEL_NOTICE_HOURS * 3_600_000;
+  return messages.filter((m) => m.type === "Cancellation" && !m.archivedAt
+    && Date.parse(m.createdAt ?? `${m.date}T12:00:00+08:00`) >= since);
+}
 
 export type OpsStage = "confirm" | "prepare" | "arriving" | "onsite" | "settle" | "done";
 
@@ -367,8 +381,10 @@ export function attentionTally(args: {
   closings: DailyClosing[];
   /** For the "buy more" reminder (lowStock). Omitted: no such row. */
   inventory?: Pick<InventoryItem, "qty" | "minQty" | "deletedAt">[];
+  /** For the "guest cancelled" reminders (guestCancelNotices). */
+  messages?: CustomerMessage[];
 }): AttentionTally {
-  const { bookings, inspections, dateChanges, now, usedBy, payments, expenses, closings, inventory = [] } = args;
+  const { bookings, inspections, dateChanges, now, usedBy, payments, expenses, closings, inventory = [], messages = [] } = args;
   const today = manilaDate(now);
   const cards = opsBoard(bookings, inspections, now);
   let total = 0;
@@ -409,6 +425,9 @@ export function attentionTally(args: {
 
   // One reminder for everything at or under its minimum.
   if (lowStock(inventory).length > 0) add(false);
+
+  // One per guest who cancelled their own booking.
+  for (let i = guestCancelNotices(messages, now).length; i > 0; i--) add(false);
 
   return { total, urgent };
 }

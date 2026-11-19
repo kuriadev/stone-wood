@@ -941,12 +941,19 @@ export function Closing({ onAct, initialDate, onSaved }: {
   const dayExp = liveExpenses(ops.expenses).filter((e) => e.spentOn === date);
   const byMethod = (m: string) => round2(dayPays.filter((p) => p.method === m).reduce((s, p) => s + signedAmount(p), 0));
   const cashIn = byMethod("Cash");
-  /* Cash and GCash are the only methods: everything that is not cash is
-     GCash (online with a checked receipt, or the resort's QR at the desk). */
-  const qrIn = round2(dayPays.filter((p) => p.method !== "Cash").reduce((s, p) => s + signedAmount(p), 0));
   const cashOut = round2(dayExp.filter((e) => e.method === "Cash").reduce((s, e) => s + e.amount, 0));
   const income = round2(dayPays.reduce((s, p) => s + signedAmount(p), 0));
   const spent = round2(dayExp.reduce((s, e) => s + e.amount, 0));
+  /* Refunds sent on this day, shown on their own line so "Received" never
+     goes negative and the owner sees where the deduction came from. A
+     refund counts on the day the money left (owner's choice, 2026-11-19),
+     even for a booking from an earlier day: that is what the GCash balance
+     and the cash box show. */
+  const refundsOut = dayPays.filter((p) => p.type === "Refund");
+  const refundTotal = round2(refundsOut.reduce((s, p) => s + p.amount, 0));
+  const grossIn = (cash: boolean) => round2(dayPays.filter((p) => p.type !== "Refund" && (p.method === "Cash") === cash).reduce((s, p) => s + p.amount, 0));
+  const qrInGross = grossIn(false);
+  const cashInGross = grossIn(true);
   /* Where the drawer's cash came from (and went): every cash payment, cash
      refund and cash expense recorded for the day, so the owner can match
      the count to real entries. Money only counts as cash when it was
@@ -1108,9 +1115,20 @@ export function Closing({ onAct, initialDate, onSaved }: {
           <div style={{ color: C.textH, fontWeight: 600, marginBottom: 8 }}>Income and expenses</div>
           {/* The resort takes money two ways: GCash (online or scanned at
               the desk) and cash. The two lines add up to Total received. */}
-          <AmountRow label="Received by GCash" value={fmt(qrIn)} />
-          <AmountRow label="Received by Cash" value={fmt(cashIn)} />
-          <AmountRow label="Total received" value={fmt(income)} strong />
+          <AmountRow label="Received by GCash" value={fmt(qrInGross)} />
+          <AmountRow label="Received by Cash" value={fmt(cashInGross)} />
+          <AmountRow label="Total received" value={fmt(round2(qrInGross + cashInGross))} strong />
+          {/* Each refund sent this day, with the booking it was for. */}
+          <AmountRow label="Refunds sent" value={`− ${fmt(refundTotal)}`} color={refundTotal > 0 ? "#e5484d" : undefined} />
+          {refundsOut.map((p) => (
+            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "0 0 4px 14px", fontSize: 12.5, color: C.textS }}>
+              <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                ↳ {p.guestName}{p.bookingId ? ` · ${p.bookingId}` : ""} · by {payMethodLabel(p.method)}
+                {(() => { const bk = p.bookingId ? bookings.find((x) => x.id === p.bookingId) : undefined; return bk && bk.date !== date ? ` · booking for ${fmtDate(bk.date)}` : ""; })()}
+              </span>
+              <span style={{ color: "#e5484d", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>− {fmt(p.amount)}</span>
+            </div>
+          ))}
           <AmountRow label="Expenses" value={`− ${fmt(spent)}`} color="#e5484d" />
           <div style={{ borderTop: "1px solid rgba(150,130,100,0.25)", marginTop: 8, paddingTop: 4 }}>
             <AmountRow label="Net for the day" value={fmt(round2(income - spent))} strong color={income - spent < 0 ? "#e5484d" : "#2e9e4e"} />

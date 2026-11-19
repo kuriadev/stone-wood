@@ -287,7 +287,7 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
               <div className="sw-shop__head" style={{ marginTop: 22 }}><Icon name="filter" size={14} /> Stock filter</div>
               <div className="sw-shop__group">
                 <div className="sw-shop__label">Status</div>
-                {([["low", "Low stock", lowStock], ["ok", "OK", items.length - lowStock]] as const).map(([k, label, n]) => (
+                {([["low", "Low stock", lowStock], ["ok", "Available", items.length - lowStock]] as const).map(([k, label, n]) => (
                   <label key={k} className="sw-shop__check">
                     <Checkbox checked={statusPick.includes(k)} onCheckedChange={(v) => setStatusPick((p) => v === true ? [...p, k] : p.filter((x) => x !== k))} />
                     <span style={{ flex: 1 }}>{label}</span><span className="sw-shop__count">{n}</span>
@@ -375,7 +375,7 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
                       <Icon name={CAT_ICON[item.category] ?? "package"} size={mob ? 34 : 44} strokeWidth={1.3} style={{ color: cc }} />
                       <span className="sw-shop__chip" style={{ color: cc, borderColor: `${cc}66`, background: isDark ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.75)" }}>{item.category}</span>
                       {/* The corner tag, like a shop's discount tag. */}
-                      <span className={`sw-shop__tag${low ? " is-low" : ""}`}>{low ? "LOW STOCK" : "OK"}</span>
+                      <span className={`sw-shop__tag${low ? " is-low" : ""}`}>{low ? "LOW STOCK" : "AVAILABLE"}</span>
                     </div>
                     <div className="sw-shop__body">
                       <div className="sw-shop__name" style={{ color: C.textH }} title={item.name}>{item.name}</div>

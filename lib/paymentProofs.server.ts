@@ -6,7 +6,7 @@
 // The table is supabase/migrations/20261115120000_payment_proofs.sql.
 
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { cleanAccount, cleanReference, isSampleReceipt, validAccount, validReference, validSenderName } from "@/lib/receiptOcr";
+import { cleanAccount, cleanReference, isSampleReceipt, sameReference, validAccount, validReference, validSenderName } from "@/lib/receiptOcr";
 
 export const PROOF_BUCKET = "payment-proofs";
 /** A JPEG made by the browser (lib/receiptImage.ts) is well under this. */
@@ -96,6 +96,9 @@ export function senderProblem(o: ProofOcr): string | null {
   if (!o.senderAccount) return "Enter the GCash number you paid from (11 digits, starting with 09).";
   if (!o.reference) return "Enter the reference number from your receipt (8–20 digits).";
   if (isSampleReceipt(o.reference) || isSampleReceipt(o.ocrReference)) return "That's the sample receipt. Please upload the receipt from your own GCash payment.";
+  // The receipt reader found a reference and the guest typed a different
+  // one: they must fix it (the button is off in the browser too).
+  if (o.ocrReference && !sameReference(o.ocrReference, o.reference)) return "The reference number you typed isn't the one on your receipt. Please check it and type it exactly as shown.";
   return null;
 }
 

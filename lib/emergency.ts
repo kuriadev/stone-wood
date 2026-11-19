@@ -12,6 +12,12 @@
 
 export const EMERGENCY_TYPE = "Emergency";
 
+/** A guest cancelled their booking from Manage booking (owner's rule,
+ *  2026-11-19): the booking is cancelled straight away, no approval, and
+ *  this message tells staff it happened and why. Notification only: Guest
+ *  Messages shows it as "Booking Cancelled", with nothing to approve. */
+export const CANCELLATION_TYPE = "Cancellation";
+
 /** Proof files per request. */
 export const PROOF_MAX_FILES = 3;
 /** A PDF as picked (photos are compressed in the browser first). */

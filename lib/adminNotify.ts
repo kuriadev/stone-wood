@@ -362,6 +362,20 @@ export function buildGuestMessageAlert(m: { name: string; email: string; type: s
   };
 }
 
+/** A guest cancelled their own booking (no approval needed). */
+export function buildGuestCancelAlert(m: { id: string; name: string; email: string; date: string; reason: string | null }): MailOut {
+  return {
+    subject: `Booking cancelled · ${m.id} · ${fmtDate(m.date)}`,
+    html: shell(
+      "A guest cancelled their booking",
+      `${m.name} (${m.email}) cancelled ${m.id} on ${fmtDate(m.date)} from their booking page. It is cancelled already and the date is free again.`,
+      section("Their reason", [escapeHtml(m.reason || "No reason given.")]) +
+        section("What to do", ["Nothing is needed. Payments are not refunded when a guest cancels. The notice is in Guest Messages and on the Dashboard."]),
+      "#e5484d",
+    ),
+  };
+}
+
 /** An emergency request with proof, from Manage booking. */
 export function buildEmergencyAlert(m: { id: string; name: string; email: string; date: string; message: string; files: number }): MailOut {
   return {

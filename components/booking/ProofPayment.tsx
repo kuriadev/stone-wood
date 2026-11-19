@@ -275,12 +275,21 @@ export function ProofPayment({ due, payFull, total, guestName, mob, submitLabel 
 
       {error && <p role="alert" style={{ color: C.dangerInk, fontSize: 13, margin: 0 }}>{error}</p>}
 
-      <button type="button" className="sw-btn" disabled={!photo || !check || busy || reading}
+      {/* The receipt reader found a reference and the typed one differs:
+          the button stays off until the guest types it as on the receipt. */}
+      {refMismatch && photo && check && (
+        <p role="alert" style={{ display: "flex", gap: 8, alignItems: "flex-start", color: C.dangerInk, fontSize: 13, margin: 0, lineHeight: 1.55 }}>
+          <Icon name="alert" size={15} style={{ flexShrink: 0, marginTop: 2 }} />
+          <span>The reference number doesn&apos;t match your receipt ({check.reference}). Type it exactly as it appears on the receipt to submit.</span>
+        </p>
+      )}
+      <button type="button" className="sw-btn" disabled={!photo || !check || busy || reading || refMismatch}
         onClick={() => {
           if (!fieldsOk) { setTouched({ name: true, account: true, reference: true }); document.getElementById(`pp-${fieldErr.name ? "name" : fieldErr.account ? "account" : "reference"}`)?.focus(); return; }
           setConfirming(true);
         }}
-        style={{ ...goldBtn, width: "100%", opacity: !photo || !check || busy || reading ? 0.45 : 1, cursor: !photo || !check || busy ? "not-allowed" : "pointer" }}>
+        title={refMismatch ? "The reference number doesn't match your receipt" : undefined}
+        style={{ ...goldBtn, width: "100%", opacity: !photo || !check || busy || reading || refMismatch ? 0.45 : 1, cursor: !photo || !check || busy || refMismatch ? "not-allowed" : "pointer" }}>
         {busy ? "SENDING…" : submitLabel.toUpperCase()}
       </button>
 

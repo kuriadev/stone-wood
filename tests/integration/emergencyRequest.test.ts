@@ -1,6 +1,8 @@
-/* Inside the date-change window a guest can't cancel online; they send an
- * emergency request with proof instead, and staff approve or decline it
- * from Guest Messages (lib/emergency.ts). */
+/* A guest cancels their own booking any time before check-in, even on the
+ * day, with no proof and no approval; staff get a "Booking Cancelled"
+ * notice in Guest Messages (owner's rule, 2026-11-19). Emergency requests
+ * that were already sent can still be approved or declined
+ * (lib/emergency.ts). */
 
 import { NextRequest } from "next/server";
 import { FakeDb } from "../helpers/fakeDb";
@@ -66,10 +68,32 @@ beforeEach(() => {
   mails.length = 0;
 });
 
-it("won't let the guest cancel online inside the window", async () => {
+it("cancels at once inside the window, and leaves staff a Booking Cancelled notice", async () => {
+  mockDb.seed("payment_proofs", [{ id: 1, booking_id: "NT-1", status: "Submitted" }]);
+  const res = await cancel(guest("cancel", { email: "ana@example.com", reason: "Change of plans" }), ctx);
+  expect(res.status).toBe(200);
+  expect(mockDb.tables.bookings[0]).toMatchObject({ status: "Cancelled", cancel_reason: "Change of plans" });
+  // Notification only: nothing for staff to approve.
+  expect(mockDb.tables.customer_messages).toHaveLength(1);
+  expect(mockDb.tables.customer_messages[0]).toMatchObject({ type: "Cancellation", booking_id: "NT-1", email: "ana@example.com" });
+  expect(String(mockDb.tables.customer_messages[0].message)).toContain("Reason: Change of plans");
+  // The receipt waiting to be checked leaves the queue.
+  expect(mockDb.tables.payment_proofs[0].status).toBe("Replaced");
+  // A second click finds it cancelled already.
+  expect((await cancel(guest("cancel", { email: "ana@example.com" }), ctx)).status).toBe(409);
+});
+
+it("doesn't need a reason", async () => {
   const res = await cancel(guest("cancel", { email: "ana@example.com" }), ctx);
-  expect(res.status).toBe(409);
-  expect((await res.json()).error).toMatch(/can't be cancelled online/);
+  expect(res.status).toBe(200);
+  expect(String(mockDb.tables.customer_messages[0].message)).toContain("No reason given.");
+});
+
+it("can't cancel once checked in, or after the date", async () => {
+  mockDb.tables.bookings = [row({ date: "2026-11-10", checked_in_at: "2026-11-10T07:30:00+08:00" })];
+  expect((await cancel(guest("cancel", { email: "ana@example.com" }), ctx)).status).toBe(409);
+  mockDb.tables.bookings = [row({ date: "2026-11-09" })];
+  expect((await cancel(guest("cancel", { email: "ana@example.com" }), ctx)).status).toBe(409);
 });
 
 it("saves an emergency request with proof to Guest Messages, once", async () => {
@@ -114,9 +138,9 @@ it("needs a reason to decline", async () => {
   expect(mockDb.tables.customer_messages[0].resolution).toBe("Declined");
 });
 
-it("lets the guest cancel online only 2 or more days before the visit", async () => {
-  // Today is Nov 10. The visit is Nov 11 (tomorrow), Nov 12 (2 days) or Nov 20.
-  for (const [date, status] of [["2026-11-10", 409], ["2026-11-11", 409], ["2026-11-12", 200], ["2026-11-20", 200]] as const) {
+it("lets the guest cancel online on any day up to the visit, today included", async () => {
+  // Today is Nov 10. The visit is today, tomorrow, in 2 days or on Nov 20.
+  for (const [date, status] of [["2026-11-10", 200], ["2026-11-11", 200], ["2026-11-12", 200], ["2026-11-20", 200]] as const) {
     mockDb.tables.bookings = [row({ date })];
     const res = await cancel(guest("cancel", { email: "ana@example.com" }), ctx);
     expect([date, res.status]).toEqual([date, status]);

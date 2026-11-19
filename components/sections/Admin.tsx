@@ -68,6 +68,7 @@ import { GALLERY_MAX, staffDateWindow } from "@/lib/validators";
 import type { Booking } from "@/types/booking";
 import type { Room } from "@/types/room";
 import type { AdminTab, CustomerMessage } from "@/types/admin";
+import { reviewReasons } from "@/lib/reviewReasons";
 import type { RejectionMoney } from "@/lib/emailTemplate";
 import type { Facility } from "@/types/facility";
 import type { InventoryItem } from "@/types/inventory";
@@ -275,14 +276,14 @@ export function Admin({
      /api/customer-service stores; "Question" on the guest form is saved as
      "Inquiry", and anything it does not recognise falls back to "Other", so
      Other is kept as a bucket rather than dropping those messages. */
-  const CS_TYPES = ["Inquiry", "Feedback", "Complaint", "Emergency", "Refund", "Suggestion", "Other"] as const;
+  const CS_TYPES = ["Inquiry", "Feedback", "Complaint", "Cancellation", "Emergency", "Refund", "Suggestion", "Other"] as const;
   /* The stored values are what /api/customer-service writes; these are what
      the owner reads. "Inquiry" is what the guest form saves for "Question",
      and "Complaint" for "Concern", so the admin never sees a word the guest
      was not shown. */
   const CS_LABELS: Record<string, string> = {
     Inquiry: "Question", Feedback: "Feedback", Complaint: "Concern",
-    Refund: "Request for Refund", Emergency: "Emergency request", Suggestion: "Suggestion", Other: "Other",
+    Refund: "Request for Refund", Emergency: "Emergency request", Cancellation: "Booking Cancelled", Suggestion: "Suggestion", Other: "Other",
   };
   /* The three a guest can send from the Customer Service form. These always
      show, even at zero, so the row reads as a set of filters rather than
@@ -324,7 +325,16 @@ export function Admin({
         if (!res.ok) return; // 401 after session expiry, or a server error
         const data = await res.json();
         // Only an array may reach state. Anything else is an error payload.
-        if (!stopped && Array.isArray(data)) setCustomerMessages(data);
+        if (!stopped && Array.isArray(data)) {
+          setCustomerMessages(data);
+          // A guest who cancelled from Manage booking: their booking is
+          // cancelled already, so today's arrivals and the rooms to prepare
+          // drop it now rather than at the next full reload.
+          const gone = new Set((data as CustomerMessage[]).filter((m) => m.type === "Cancellation" && m.bookingId).map((m) => m.bookingId!));
+          if (gone.size) setBookings((bs) => bs.some((b) => gone.has(b.id) && b.status !== "Cancelled")
+            ? bs.map((b) => (gone.has(b.id) && b.status !== "Cancelled" ? { ...b, status: "Cancelled" as const } : b))
+            : bs);
+        }
       } catch {
         // Offline or a dropped request: keep what is already on screen.
       }
@@ -337,7 +347,7 @@ export function Admin({
       stopped = true;
       clearInterval(interval);
     };
-  }, [setCustomerMessages]);
+  }, [setCustomerMessages, setBookings]);
 
 
     // Moves messages a month old or more into the archive when auto-archive
@@ -468,7 +478,7 @@ export function Admin({
   const attention = attentionTally({
     bookings, inspections: ops.inspections, dateChanges: ops.dateChanges,
     now: opsNow, usedBy: (b) => facilitiesForBooking(b, facilities),
-    payments: ops.payments, expenses: ops.expenses, closings: ops.closings, inventory,
+    payments: ops.payments, expenses: ops.expenses, closings: ops.closings, inventory, messages: customerMessages,
   });
   /* Requests from front desk waiting on the owner count too, and always as
      urgent: someone is usually standing at the counter with the guest. */
@@ -901,6 +911,16 @@ export function Admin({
                         </header>
 
                         <p className="sw-msgs__body" style={{ color: C.textB }}>{open.message}</p>
+
+                        {open.type === "Cancellation" && (
+                          <div role="note" style={{ display: "flex", gap: 10, alignItems: "flex-start", border: "1px solid rgba(229,72,77,0.4)", background: "rgba(229,72,77,0.08)", borderRadius: 12, padding: "12px 14px", margin: "0 0 18px" }}>
+                            <Icon name="info" size={16} style={{ color: "#e5484d", flexShrink: 0, marginTop: 2 }} />
+                            <span style={{ color: C.textB, fontSize: 13.5, lineHeight: 1.6 }}>
+                              <strong style={{ display: "block", color: C.textH }}>The guest cancelled this booking themselves.</strong>
+                              It is cancelled already{linked ? <> ({linked.id} shows as Cancelled in All Bookings)</> : null} and the date is free again. Nothing to approve: this is a notice. Payments are not refunded when a guest cancels.
+                            </span>
+                          </div>
+                        )}
 
                         {open.type === "Emergency" && (
                           <EmergencyReview
@@ -1461,6 +1481,15 @@ export function Admin({
                   // started in the previous one.
                   .filter((b) => holdsDate(b) && bookingDates(b).some((d) => d.startsWith(key)))
                   .sort((a, b) => a.date.localeCompare(b.date));
+                /* Why a booking awaits approval: the server's "⚠ CHECK:" notes
+                   (lib/reviewReasons: double booking, amount doesn't match,
+                   possibly booked twice), else its payment still has to be
+                   checked against the GCash. */
+                const pendingWhy = (b: Booking) => {
+                  const flags = [...new Set(reviewReasons(b.notes).map((r) => r.title))];
+                  if (flags.length) return flags;
+                  return [b.paymentProof ? "Payment proof to check" : "Pending payment"];
+                };
                 const groups: { label: string; match: string }[] = [
                   { label: statusLabel("Confirmed"), match: "Confirmed" },
                   { label: statusLabel("Pending"), match: "Pending" },
@@ -1478,6 +1507,7 @@ export function Admin({
                         label={g.label}
                         tone={statusTone(g.match)}
                         rows={inMonth.filter((b) => b.status === g.match)}
+                        why={g.match === "Pending" ? pendingWhy : undefined}
                       />
                     ))}
                   </div>

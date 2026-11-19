@@ -26,7 +26,10 @@ import { useApp } from "@/contexts/AppContext";
 import { useOps } from "@/contexts/OpsContext";
 import { useStaff } from "@/contexts/StaffContext";
 import { useToast } from "@/contexts/ToastContext";
-import { fmt, fmtDate, bookingSlotInfo } from "@/lib/utils";
+import { fmt, fmtDate, bookingSlotInfo, getBookingTier, getBookingResource } from "@/lib/utils";
+import { tierLabel } from "@/lib/labels";
+import { useFold } from "@/components/admin/FoldHeader";
+import { paidAs } from "@/lib/proofPaid";
 import { headcountLabel } from "@/lib/children";
 import { reviewReasons } from "@/lib/reviewReasons";
 import { sameReference } from "@/lib/receiptOcr";
@@ -73,6 +76,9 @@ export function ProofQueue({ mob }: { mob: boolean }) {
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const canDecide = staff.can("payments.record");
+  const [open, toggleOpen] = useFold("proofs");
+  /** Cards where staff asked to see the other confirm button. */
+  const [other, setOther] = useState<Set<number>>(new Set());
 
   const load = useCallback(async () => {
     try {
@@ -124,24 +130,32 @@ export function ProofQueue({ mob }: { mob: boolean }) {
 
   return (
     <section aria-labelledby="dash-proofs" style={{ border: `1px solid ${n ? "rgba(245,165,36,0.5)" : cBr}`, borderRadius: 12, background: cBg, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: `1px solid ${cBr}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: open ? `1px solid ${cBr}` : "none" }}>
         <Icon name="receipt" size={16} style={{ color: n ? "#f5a524" : C.goldInk, flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3 id="dash-proofs" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Pending proof of payment</h3>
           <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>Check each receipt against your GCash, then confirm or reject it</div>
         </div>
         {n > 0 && <span style={{ padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: "#f5a524", color: "#000" }}>{n}</span>}
+        {/* Folds away (remembered per person); the count stays in view. */}
+        <button type="button" className="sw-hit" onClick={toggleOpen} aria-expanded={open} aria-controls="dash-proofs-list"
+          aria-label={open ? "Fold away Pending proof of payment" : "Show Pending proof of payment"}
+          style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${cBr}`, background: "transparent", color: C.textB, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+          <Icon name={open ? "chevron-up" : "chevron-down"} size={16} />
+        </button>
       </div>
 
-      {n === 0 ? (
+      {!open ? null : n === 0 ? (
         <p style={{ color: C.textS, fontSize: 13, margin: 0, padding: 16 }}>No receipts waiting. New ones show up here on their own.</p>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(auto-fill, minmax(300px, 1fr))", gap: 12, padding: 16 }}>
+        <div id="dash-proofs-list" className="sw-thinscroll" tabIndex={0} aria-label={`${n} receipt${n === 1 ? "" : "s"} to check`}
+          style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(auto-fill, minmax(300px, 1fr))", gap: 12, padding: 16, maxHeight: mob ? "75dvh" : 760, overflowY: "auto", overscrollBehavior: "contain", alignItems: "start" }}>
           {proofs.map((p) => {
             const b = p.booking;
             const slot = bookingSlotInfo(b);
             const flags = reviewReasons(b.notes);
             const read = p.ocr ?? {};
+            const as = paidAs(p);
             return (
               <article key={p.id} style={{ border: `1px solid ${cBr}`, borderLeft: "3px solid #f5a524", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
@@ -155,6 +169,11 @@ export function ProofQueue({ mob }: { mob: boolean }) {
                 <div style={{ color: C.textB, fontSize: 12.5, lineHeight: 1.6 }}>
                   {fmtDate(b.date)} · {slot.label} ({slot.hours})<br />
                   {headcountLabel(b.guests, b.children ?? 0)} · {b.package || "Booking"}<br />
+                  <span style={{ display: "inline-block", margin: "4px 0", padding: "2px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 700,
+                    border: `1px solid ${getBookingTier(b) === "Exclusive" ? `${gold}88` : "#3e8ed088"}`, color: getBookingTier(b) === "Exclusive" ? C.goldInk : "#3e8ed0",
+                    background: getBookingTier(b) === "Exclusive" ? `${gold}18` : "rgba(62,142,208,0.12)" }}>
+                    {getBookingResource(b) === "Venue" ? "Events venue only" : tierLabel(getBookingTier(b))}{getBookingResource(b) === "Pool+Venue" ? " + events venue" : ""}
+                  </span><br />
                   {b.contact}{b.email ? ` · ${b.email}` : ""}
                 </div>
 
@@ -199,10 +218,23 @@ export function ProofQueue({ mob }: { mob: boolean }) {
 
                 {canDecide ? (
                   <div style={{ display: "grid", gap: 8 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      <ActionButton kind="primary" disabled={busy === p.id} onClick={() => setConfirm({ p, as: "Downpayment" })}>Confirm partial</ActionButton>
-                      <ActionButton kind="green" icon="check" disabled={busy === p.id} onClick={() => setConfirm({ p, as: "Full" })}>Confirm full</ActionButton>
+                    {/* Only the button for what was paid (paidAs): 50% or the
+                        whole total. The other stays behind a small link in
+                        case the receipt says otherwise. */}
+                    <div style={{ color: C.textS, fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                      <Icon name="check-circle" size={13} style={{ color: "#2e9e4e" }} />
+                      {as === "Full" ? "Paid in full" : "50% down payment"}{read.amountMatch ? ", the amount on the receipt matches" : `, as the guest chose`}
                     </div>
+                    <div style={{ display: "grid", gridTemplateColumns: other.has(p.id) ? "1fr 1fr" : "1fr", gap: 8 }}>
+                      {(as === "Downpayment" || other.has(p.id)) && <ActionButton kind="primary" icon={as === "Downpayment" ? "check" : undefined} disabled={busy === p.id} onClick={() => setConfirm({ p, as: "Downpayment" })}>Confirm partial ({fmt(p.payChoice === "Downpayment" ? p.amountDue : Math.ceil(b.total / 2))})</ActionButton>}
+                      {(as === "Full" || other.has(p.id)) && <ActionButton kind="green" icon="check" disabled={busy === p.id} onClick={() => setConfirm({ p, as: "Full" })}>Confirm full ({fmt(b.total)})</ActionButton>}
+                    </div>
+                    {!other.has(p.id) && (
+                      <button type="button" onClick={() => setOther((s) => new Set(s).add(p.id))}
+                        style={{ background: "none", border: "none", padding: 0, color: C.textS, fontSize: 12, textDecoration: "underline", cursor: "pointer", justifySelf: "start" }}>
+                        {as === "Full" ? "Only 50% arrived?" : "The whole amount arrived?"}
+                      </button>
+                    )}
                     <ActionButton kind="red" disabled={busy === p.id} onClick={() => { setRejecting(p); setReason(""); setError(""); }}>Reject payment</ActionButton>
                   </div>
                 ) : <p style={{ color: C.textS, fontSize: 12, margin: 0 }}>A super admin or the front desk confirms payments.</p>}

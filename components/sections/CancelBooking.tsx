@@ -20,7 +20,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useApp } from "@/contexts/AppContext";
 import { useWidth } from "@/hooks/useWidth";
@@ -34,8 +33,6 @@ import type { Booking, BookingSlot } from "@/types/booking";
 import type { DateChange } from "@/types/finance";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { ResortContact } from "@/components/common/ResortContact";
-import { compressImage } from "@/lib/image";
-import { PROOF_MAX_FILES, PROOF_PDF_MAX_BYTES, EMERGENCY_MESSAGE_MIN, EMERGENCY_MESSAGE_MAX, proofProblem, type ProofFile } from "@/lib/emergency";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
@@ -117,12 +114,6 @@ export function ManageBooking(_props: ManageBookingProps) {
   const [cancelDone, setCancelDone] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  // An emergency request, inside the notice window (lib/emergency.ts).
-  const [emText, setEmText] = useState("");
-  const [emFiles, setEmFiles] = useState<ProofFile[]>([]);
-  const [emBusy, setEmBusy] = useState(false);
-  const [emError, setEmError] = useState<string | null>(null);
-  const [emDone, setEmDone] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
   const [action, setAction] = useState<ActionKey | null>(null);
@@ -354,52 +345,6 @@ export function ManageBooking(_props: ManageBookingProps) {
     }
   };
 
-  /** Proof for an emergency request: photos are shrunk like gallery
-   *  uploads; a PDF is sent as it is, if it's small enough. */
-  const addProof = async (list: FileList | null) => {
-    setEmError(null);
-    const picked = Array.from(list ?? []);
-    const room = PROOF_MAX_FILES - emFiles.length;
-    if (picked.length > room) setEmError(`You can attach up to ${PROOF_MAX_FILES} files.`);
-    for (const f of picked.slice(0, Math.max(0, room))) {
-      try {
-        if (f.type === "application/pdf") {
-          if (f.size > PROOF_PDF_MAX_BYTES) { setEmError(`${f.name} is too large. A PDF can be up to 1.5 MB; a photo of it works too.`); continue; }
-          const data = await new Promise<string>((res, rej) => { const rd = new FileReader(); rd.onload = () => res(String(rd.result)); rd.onerror = () => rej(new Error("read")); rd.readAsDataURL(f); });
-          setEmFiles((xs) => [...xs, { name: f.name, type: "application/pdf", data }]);
-        } else if (f.type.startsWith("image/")) {
-          const data = await compressImage(f, 1600);
-          const type = data.slice(5, data.indexOf(";"));
-          setEmFiles((xs) => [...xs, { name: f.name, type, data }]);
-        } else {
-          setEmError("Attach a photo (JPG, PNG or WebP) or a PDF.");
-        }
-      } catch {
-        setEmError(`${f.name} couldn't be read. Try another file.`);
-      }
-    }
-  };
-
-  const sendEmergency = async () => {
-    if (!found || emBusy) return;
-    const problem = emText.trim().length < EMERGENCY_MESSAGE_MIN
-      ? `Tell the resort what happened (at least ${EMERGENCY_MESSAGE_MIN} characters).`
-      : proofProblem(emFiles);
-    if (problem) { setEmError(problem); return; }
-    setEmBusy(true);
-    setEmError(null);
-    try {
-      await post("emergency", { message: emText.trim(), files: emFiles });
-      setEmDone(true);
-      setEmText("");
-      setEmFiles([]);
-    } catch (err) {
-      setEmError(err instanceof Error ? err.message : "Your request couldn't be sent.");
-    } finally {
-      setEmBusy(false);
-    }
-  };
-
   /** Change the name, email and number on the booking (POST .../details).
    *  A new email becomes how the guest finds the booking from now on. */
   const openDetails = () => {
@@ -491,11 +436,6 @@ export function ManageBooking(_props: ManageBookingProps) {
   const canMove = !!found && found.status === "Confirmed" && !found.checkedInAt && !!today && !noticeProblem;
   const moveInstead = canMove && changesLeft > 0 && !pendingChange;
   const noticeDays = RESCHEDULE_NOTICE_DAYS;
-  /** Inside the notice window the guest can't cancel online either: an
-   *  emergency is emailed to the resort with proof (the cancel API refuses
-   *  it too). */
-  const cancelClosed = !!found && !!today && !!noticeProblem && !found.checkedInAt
-    && found.status !== "Cancelled" && found.status !== "Completed" && found.status !== "ResortCancelled";
   const closed = !!found && (found.status === "Cancelled" || found.status === "Completed" || found.status === "ResortCancelled");
   const detLockedUntil = found ? detailsCooldownUntil(found.detailsUpdatedAt) : null;
 
@@ -511,7 +451,7 @@ export function ManageBooking(_props: ManageBookingProps) {
       sub: detLockedUntil ? `You can change them again after ${cooldownLabel(detLockedUntil)}` : "Your name, email and mobile number",
       disabled: closed ? "This booking is closed." : undefined,
     },
-    { key: "cancel", icon: "shield-alert", title: "Cancel booking", sub: cancelClosed ? "Closed online — contact the resort" : "Subject to the booking policy" },
+    { key: "cancel", icon: "shield-alert", title: "Cancel booking", sub: "Any time before you check in" },
   ];
 
   /** The free-date calendar for this booking's own package and time slot. */
@@ -1109,78 +1049,6 @@ export function ManageBooking(_props: ManageBookingProps) {
                           </span>
                         </p>
                       )}
-                      {/* Inside the notice window the booking can't be moved or
-                          cancelled online. An emergency is emailed to the
-                          resort with proof, and staff take it from there. */}
-                      {cancelClosed ? (
-                        emDone ? (
-                          <div role="status" style={{ border: "1px solid #2e9e4e66", borderRadius: 12, padding: 18, display: "flex", gap: 12, alignItems: "flex-start" }}>
-                            <span aria-hidden="true" style={{ color: "#6ec071", lineHeight: 0, marginTop: 3 }}><Icon name="check" size={18} strokeWidth={2} /></span>
-                            <span style={{ color: C.textB, fontSize: 13.5, lineHeight: 1.65 }}>
-                              <strong style={{ display: "block", color: C.textH, marginBottom: 4 }}>Your emergency request was sent.</strong>
-                              The resort will look at your proof and email their answer to {found.email}. If it&rsquo;s approved, your booking moves to a free date at no charge.
-                            </span>
-                          </div>
-                        ) : (
-                        <>
-                          <div role="note" style={{ border: `1px solid ${gold}66`, borderRadius: 12, padding: "18px 18px", margin: "0 0 18px", background: `${gold}0d` }}>
-                            <p style={{ display: "flex", gap: 12, alignItems: "flex-start", color: C.textB, fontSize: 13, lineHeight: 1.65, margin: 0 }}>
-                              <span aria-hidden="true" style={{ color: C.goldInk, lineHeight: 0, flexShrink: 0, marginTop: 4 }}><Icon name="shield-alert" size={16} strokeWidth={1.5} /></span>
-                              <span>
-                                <strong style={{ display: "block", color: C.textH, fontSize: 14, marginBottom: 4 }}>Your visit is too close to cancel online.</strong>
-                                Bookings can&rsquo;t be cancelled or moved within {noticeDays} day{noticeDays === 1 ? "" : "s"} of the visit. Something serious came up, such as illness, injury or a death in the family? Send the resort what happened with your proof (a medical certificate, hospital record or death certificate). If it&rsquo;s approved, they move your booking to a free date at no charge.
-                              </span>
-                            </p>
-                          </div>
-
-                          <p style={{ ...eyebrow, color: C.goldInk, marginBottom: 10 }}>EMERGENCY REQUEST</p>
-                          <Label htmlFor="mb-emergency" style={{ display: "block", color: C.textH, fontSize: 13, marginBottom: 6 }}>What happened?</Label>
-                          <Textarea id="mb-emergency" value={emText} onChange={(e) => setEmText(e.target.value)} rows={4} maxLength={EMERGENCY_MESSAGE_MAX} />
-
-                          <p style={{ color: C.textH, fontSize: 13, margin: "16px 0 6px" }}>Your proof</p>
-                          <p style={{ color: C.textS, fontSize: 12, margin: "0 0 10px" }}>Up to {PROOF_MAX_FILES} photos or PDFs. Only the resort&rsquo;s staff can see them.</p>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
-                            {emFiles.map((f, i) => (
-                              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 6px 6px 8px", borderRadius: 10, border: `1px solid ${C.border}`, maxWidth: "100%" }}>
-                                {f.type.startsWith("image/")
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  ? <img src={f.data} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }} />
-                                  : <span aria-hidden="true" style={{ width: 40, height: 40, display: "grid", placeItems: "center", color: C.goldInk }}><Icon name="clipboard" size={18} /></span>}
-                                <span style={{ color: C.textB, fontSize: 12.5, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
-                                <button type="button" aria-label={`Remove ${f.name}`} onClick={() => setEmFiles((xs) => xs.filter((_, j) => j !== i))}
-                                  style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "transparent", color: C.textS, cursor: "pointer", display: "grid", placeItems: "center" }}>
-                                  <Icon name="x" size={14} />
-                                </button>
-                              </span>
-                            ))}
-                            {emFiles.length < PROOF_MAX_FILES && (
-                              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, minHeight: 54, padding: "0 16px", borderRadius: 10, border: `1px dashed ${gold}88`, color: C.goldInk, fontSize: 12.5, fontWeight: 700, letterSpacing: 1, cursor: "pointer" }}>
-                                <Icon name="plus" size={14} /> ADD PHOTO OR PDF
-                                <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple hidden
-                                  onChange={(e) => { void addProof(e.target.files); e.target.value = ""; }} />
-                              </label>
-                            )}
-                          </div>
-                          {emError && <p style={{ color: "#e07a7a", fontSize: 13, margin: "10px 0 0" }}>{emError}</p>}
-
-                          <details style={{ margin: "18px 0 20px" }}>
-                            <summary style={{ cursor: "pointer", color: C.textS, fontSize: 12.5 }}>Other ways to reach the resort</summary>
-                            <div style={{ marginTop: 10 }}><ResortContact mailSubject={`Emergency – ${found.id}`} /></div>
-                          </details>
-                          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                            <button type="button" disabled title="Not available this close to your visit"
-                              style={{ minHeight: 48, borderRadius: 8, padding: "0 20px", border: `1px solid ${C.border}`, background: "transparent", color: C.textS, fontSize: 12, fontWeight: 700, letterSpacing: 1.4, cursor: "not-allowed", opacity: 0.5 }}>
-                              CANCEL MY BOOKING
-                            </button>
-                            <button className="sw-btn" type="button" onClick={() => void sendEmergency()} disabled={emBusy}
-                              style={{ ...goldBtn, minHeight: 48, display: "inline-flex", alignItems: "center", gap: 8, opacity: emBusy ? 0.6 : 1, cursor: emBusy ? "wait" : "pointer" }}>
-                              {emBusy ? "SENDING…" : <>SEND TO THE RESORT <span aria-hidden="true">&rarr;</span></>}
-                            </button>
-                          </div>
-                        </>
-                        )
-                      ) : (
-                        <>
                       <p style={{ color: C.textS, fontSize: 13, margin: "0 0 16px" }}>
                         Help us understand why your plans changed. This step is optional.
                       </p>
@@ -1215,8 +1083,6 @@ export function ManageBooking(_props: ManageBookingProps) {
                           CANCEL MY BOOKING <span aria-hidden="true">&rarr;</span>
                         </button>
                       </div>
-                        </>
-                      )}
                     </>
                   )}
 
@@ -1349,7 +1215,7 @@ export function ManageBooking(_props: ManageBookingProps) {
               ] },
               { icon: "shield-alert", title: "Cancellation", tag: "No refunds", tone: "#e5484d", ink: C.dangerInk, mark: "alert", lines: [
                 ["If you cancel, payments aren't refunded.", "Moving your date instead keeps them."],
-                [`No online cancelling within ${noticeDays} day${noticeDays === 1 ? "" : "s"} of the visit.`, "For an emergency, send the resort your proof from here."],
+                ["Cancel any time before you check in,", "even on the day. A reason is optional."],
                 ["If the resort cancels, you choose:", "a free new date or a full refund."],
               ] },
               { icon: "user", title: "Your details", tag: `Every ${DETAILS_COOLDOWN_HOURS} hrs`, tone: "#5b9bd5", ink: "#5b9bd5", mark: "check", lines: [

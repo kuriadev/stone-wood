@@ -14,7 +14,11 @@ import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin, rowToBooking, missingNewColumn, withoutNewColumns } from "@/lib/supabase";
 import { loadGuestBooking } from "@/lib/rebooking.server";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
-import { sanitizeNotes, startOfToday, toDateStr, rescheduleProblem, RESCHEDULE_NOTICE_DAYS } from "@/lib/validators";
+import { sanitizeNotes, startOfToday, toDateStr } from "@/lib/validators";
+import { CANCELLATION_TYPE } from "@/lib/emergency";
+import { buildGuestCancelAlert } from "@/lib/adminNotify";
+import { notifyStaff } from "@/lib/staffNotify.server";
+import { fmtDate } from "@/lib/utils";
 import type { BookingRow } from "@/types/database";
 import { ensureSettings } from "@/lib/settings.server";
 
@@ -60,15 +64,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (b.date < toDateStr(startOfToday())) {
       return NextResponse.json({ success: false, error: "This booking's date has already passed." }, { status: 409 });
     }
-    // Inside the notice window (Rates & Settings) the guest can neither
-    // move nor cancel online: an emergency goes to the resort by email,
-    // with proof, and staff decide (owner's rule, 2026-11-10).
-    if (rescheduleProblem(b.date)) {
-      return NextResponse.json({
-        success: false,
-        error: `Bookings can't be cancelled online within ${RESCHEDULE_NOTICE_DAYS} day${RESCHEDULE_NOTICE_DAYS === 1 ? "" : "s"} of the visit. If it's an emergency, email the resort with proof.`,
-      }, { status: 409 });
-    }
+    // A guest may cancel any time before they check in, even on the day or
+    // straight after booking: no proof, no approval, the reason optional
+    // (owner's rule, 2026-11-19). It used to be closed inside the date-change
+    // notice window and sent to an emergency request instead, so a booking
+    // for today could never be cancelled. Payments are not refunded.
 
     // The status guard in the WHERE clause means two cancel clicks, or a
     // cancel racing an admin action, can't both "win".
@@ -83,6 +83,33 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (!updated) {
       return NextResponse.json({ success: false, error: "This booking changed just now — please search again." }, { status: 409 });
     }
+
+    // A receipt still waiting in "Pending proof of payment" has nothing left
+    // to confirm.
+    try {
+      await db.from("payment_proofs").update({ status: "Replaced" }).eq("booking_id", b.id).eq("status", "Submitted");
+    } catch { /* no proofs table yet */ }
+
+    // The notice for staff: Guest Messages ("Booking Cancelled"), the
+    // Dashboard's live messages and Reminders. Nothing to approve.
+    const notice = {
+      name: b.name, email: b.email, type: CANCELLATION_TYPE,
+      message: `${b.id} · ${fmtDate(b.date)} was cancelled by the guest.\nReason: ${reason ?? "No reason given."}`,
+      date: new Date().toISOString().slice(0, 10),
+      booking_id: b.id,
+    };
+    try {
+      let ins = await db.from("customer_messages").insert(notice);
+      if (ins.error && /booking_id|column/i.test(ins.error.message)) {
+        const { booking_id: _drop, ...plain } = notice;
+        void _drop;
+        ins = await db.from("customer_messages").insert(plain);
+      }
+      if (ins.error) console.error("[/api/bookings/[id]/cancel] notice:", ins.error.message);
+    } catch (e) {
+      console.error("[/api/bookings/[id]/cancel] notice:", e instanceof Error ? e.message : e);
+    }
+    await notifyStaff(["Owner", "FrontDesk"], buildGuestCancelAlert({ id: b.id, name: b.name, email: b.email, date: b.date, reason }), `guest-cancel ${b.id}`);
 
     await logActivity({
       actor: "Guest", action: "booking.cancelled_by_guest", bookingId: b.id, entity: "booking", entityId: b.id,

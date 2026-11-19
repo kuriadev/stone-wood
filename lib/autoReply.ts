@@ -86,6 +86,8 @@ function body(type: string, ctx: { about: string; ref: string | null }): string 
       // `ctx.about`, not `about`: the latter already carries its own
       // preposition, and reusing it here read "with about your Day Stay".
       return `We have received your refund request${ref}. So you know where you stand: a refund is arranged when the resort has to cancel a booking. If that is what happened${ctx.about ? ` with ${ctx.about}` : ""}, we will sort it out with you directly — please call us on ${RESORT_CONTACT.phone} and we will go through it with you.`;
+    case "Cancellation":
+      return `We've received your cancellation${ctx.about ? ` of ${ctx.about}` : ""}${ref}, and the booking is now cancelled. As our booking policy says, payments already made aren't refunded when a booking is cancelled by the guest. We're sorry we won't see you this time, and we'd be glad to welcome you on another date. You can book again any time on our website.`;
     case "Suggestion":
       return `Thank you for the suggestion${about}${ref}. We have passed it on to the owner — a good number of the things guests enjoy here started exactly this way.`;
     case "Other":

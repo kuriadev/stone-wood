@@ -21,6 +21,7 @@
 
 import { SIGNAL } from "@/components/admin/signals";
 import { useState } from "react";
+import { useFold } from "@/components/admin/FoldHeader";
 import { useOps } from "@/contexts/OpsContext";
 import { useStaff } from "@/contexts/StaffContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -47,8 +48,9 @@ export function OwnerRequestsPanel({ reschedules = 0, onReviewReschedules, inRow
   const { toast } = useToast();
   const isOwner = can("requests.decide");
   const [busy, setBusy] = useState<number | null>(null);
-  // Always open: it sits beside Reminders, which doesn't fold either.
-  const open = true;
+  // Folds away like Reminders beside it (remembered per person); the count
+  // stays in the title while it is folded.
+  const [open, toggleOpen] = useFold("owner-requests");
   const [declining, setDeclining] = useState<OwnerRequest | null>(null);
   /* Approving carries out a refund, a void or a cancellation, so it asks. */
   const [approving, setApproving] = useState<OwnerRequest | null>(null);
@@ -122,6 +124,11 @@ export function OwnerRequestsPanel({ reschedules = 0, onReviewReschedules, inRow
         <h2 id="owner-requests" style={{ margin: 0, fontSize: 15, fontWeight: 600, color: C.textH, flex: 1, minWidth: 0 }}>
           {isOwner ? `Waiting for your approval${waiting ? ` (${waiting})` : ""}` : "Your requests to the super admin"}
         </h2>
+        <button type="button" className="sw-hit" onClick={toggleOpen} aria-expanded={open} aria-controls="owner-requests-body"
+          aria-label={open ? "Fold away Waiting for your approval" : "Show Waiting for your approval"}
+          style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${cBr}`, background: "transparent", color: C.textB, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+          <Icon name={open ? "chevron-up" : "chevron-down"} size={16} />
+        </button>
       </div>
       {!open ? null : isOwner && waiting === 0 ? (
         <p style={{ color: C.textS, fontSize: 13, margin: "6px 0 0" }}>Nothing waiting for your approval.</p>

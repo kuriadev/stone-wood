@@ -140,7 +140,9 @@ export async function GET(req: NextRequest) {
     const byId = new Map((books.data as BookingRow[]).map((b) => [b.id, rowToBooking(b)]));
     // Earlier receipts for the same booking that were turned down, for context.
     const history = ids.length ? await db.from("payment_proofs").select("booking_id, status, reject_reason, submitted_at").in("booking_id", ids).eq("status", "Rejected") : { data: [] };
-    const proofs = await Promise.all(rows.filter((r) => byId.has(r.booking_id)).map(async (r) => ({
+    // A booking cancelled meanwhile has nothing left to confirm.
+    const live = (id: string) => { const b = byId.get(id); return !!b && b.status !== "Cancelled" && b.status !== "ResortCancelled"; };
+    const proofs = await Promise.all(rows.filter((r) => live(r.booking_id)).map(async (r) => ({
       id: r.id,
       bookingId: r.booking_id,
       booking: byId.get(r.booking_id)!,

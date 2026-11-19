@@ -47,7 +47,7 @@ import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { EmailGuestModal } from "@/components/admin/EmailGuestModal";
 import { ManilaClock } from "@/components/admin/ManilaClock";
-import { opsBoard, closingBlockers, attentionTally, unclosedDays, lowStock, prepBlocked, prepOpensOn, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, cardTimer, type OpsCard, type OpsView, type TimerTone } from "@/lib/operations";
+import { opsBoard, closingBlockers, attentionTally, unclosedDays, lowStock, prepBlocked, prepOpensOn, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, cardTimer, type OpsCard, type OpsView, type TimerTone, guestCancelNotices } from "@/lib/operations";
 import { useApp } from "@/contexts/AppContext";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { bookingMoney, collectedBetween, expensesBetween, livePayments, manilaDate, manilaTime, monthRange, round2, type BookingMoney } from "@/lib/finance";
@@ -231,6 +231,10 @@ export function OperationsTab({
   const onSite = cards.filter((c) => c.stage === "onsite");
   const headcount = onSite.reduce((n, c) => n + (c.b.guests || 0), 0);
   const collectedToday = collectedBetween(ops.payments, today);
+  // Refunds sent today count today (the day the money left), whichever day
+  // the booking was for; the tile says so, so a minus has a reason.
+  const refundsToday = livePayments(ops.payments).filter((p) => p.type === "Refund" && manilaDate(p.receivedAt) === today);
+  const refundTodayTotal = round2(refundsToday.reduce((s, p) => s + p.amount, 0));
   const spentToday = expensesBetween(ops.expenses, today);
   const closedToday = ops.closings.find((c) => c.closingDate === today);
   /** What still has to be finished before today can be closed. */
@@ -428,6 +432,14 @@ export function OperationsTab({
       text: <>Buy more: {toBuy.slice(0, 3).map((i) => `${i.name} (${i.qty} ${i.unit} left)`).join(", ")}{toBuy.length > 3 ? `, and ${toBuy.length - 3} more` : ""}.</>,
       actions: <ActionButton size="sm" onClick={() => onGoTab?.("Inventory")}>Supplies</ActionButton> });
   }
+  // Guests who cancelled their own booking (Manage booking): a notice, the
+  // booking is cancelled already. Archive the message to clear it.
+  for (const m of guestCancelNotices(customerMessages, now)) {
+    const why = /Reason: ([\s\S]*)$/.exec(m.message)?.[1]?.trim();
+    attention.push({ key: `gcancel-${m.id}`, kind: "reminder", tone: "amber", icon: "info",
+      text: <><strong style={{ color: C.textH }}>{m.name}</strong> cancelled {m.bookingId ? ref(m.bookingId) : "their booking"}<em style={{ fontStyle: "normal", fontWeight: 700 }}> (booking cancelled by the guest)</em>.{why && why !== "No reason given." ? <> Reason: {why}</> : <> No reason given.</>} The date is free again.</>,
+      actions: <ActionButton size="sm" icon="message" onClick={() => onReplyMessage?.(m)}>View message</ActionButton> });
+  }
   const waitingConfirm = upcoming.filter((c) => c.stage === "confirm");
   if (waitingConfirm.length > 0) {
     attention.push({ key: "confirm-upcoming", kind: "reminder", tone: "blue", icon: "info",
@@ -442,7 +454,7 @@ export function OperationsTab({
     const tally = attentionTally({
       bookings, inspections: ops.inspections, dateChanges: ops.dateChanges,
       now, usedBy: (b) => facilitiesForBooking(b, facilities),
-      payments: ops.payments, expenses: ops.expenses, closings: ops.closings, inventory,
+      payments: ops.payments, expenses: ops.expenses, closings: ops.closings, inventory, messages: customerMessages,
     });
     if (tally.total !== attention.length) {
       console.warn(
@@ -462,6 +474,7 @@ export function OperationsTab({
   const reminders = allReminderRows.filter((a) => !dismissed.has(a.key));
   const hiddenReminders = allReminderRows.length - reminders.length;
   const [urgentOpen, toggleUrgent] = useFold("urgent");
+  const [remindersOpen, toggleReminders] = useFold("reminders");
 
   /* The pinned bar (top of the dashboard) shows once the "Do these first"
      panel has scrolled up past the top of the screen. */
@@ -754,7 +767,9 @@ export function OperationsTab({
       <div>
         <div style={{ color: C.textH, fontWeight: 600, fontSize: 15 }}>End of day</div>
         <div style={{ color: C.textS, fontSize: 13, marginTop: 4 }}>
-          {fmt(collectedToday)} received − {fmt(spentToday)} spent = <strong style={{ color: C.textH }}>{fmt(round2(collectedToday - spentToday))}</strong> net today.
+          {refundTodayTotal > 0
+            ? <>{fmt(round2(collectedToday + refundTodayTotal))} received − {fmt(refundTodayTotal)} refunded − {fmt(spentToday)} spent</>
+            : <>{fmt(collectedToday)} received − {fmt(spentToday)} spent</>} = <strong style={{ color: C.textH }}>{fmt(round2(collectedToday - spentToday))}</strong> net today.
           {closedToday
             ? ` Cash counted at ${manilaTime(closedToday.closedAt)}.`
             : !cashToday
@@ -1093,7 +1108,9 @@ export function OperationsTab({
         icon: "cash", label: "Net money today", value: fmt(netToday),
         color: netToday < 0 ? "#e5484d" : "#2e9e4e",
         badge: netToday < 0 ? "More spent" : "More received", badgeColor: netToday < 0 ? "#e5484d" : "#2e9e4e",
-        note: null,
+        note: refundTodayTotal > 0
+          ? `Includes ${fmt(refundTodayTotal)} refunded (${refundsToday.map((p) => p.bookingId ?? p.guestName).join(", ")})`
+          : null,
         onOpen: () => goStat("today", ["dash-endofday"]), openLabel: "Show today's money",
       })}
     </div>
@@ -1154,7 +1171,7 @@ export function OperationsTab({
   // ── Reminders: true, but nothing breaks if they wait ───────────────
   const reminderPanel = (
     <section aria-labelledby="dash-reminders" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: `1px solid ${cBr}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: remindersOpen ? `1px solid ${cBr}` : "none" }}>
         <Icon name="flag" size={16} style={{ color: C.goldInk, flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3 id="dash-reminders" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Reminders</h3>
@@ -1166,13 +1183,19 @@ export function OperationsTab({
         {reminders.length > 0 && (
           <span style={{ padding: "4px 8px", borderRadius: 10, fontSize: 11.5, background: `${gold}22`, color: C.goldInk }}>{reminders.length}</span>
         )}
+        {/* Folds away (remembered per person); the count stays in view. */}
+        <button type="button" className="sw-hit" onClick={toggleReminders} aria-expanded={remindersOpen} aria-controls="dash-reminders-list"
+          aria-label={remindersOpen ? "Fold away Reminders" : "Show Reminders"}
+          style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${cBr}`, background: "transparent", color: C.textB, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+          <Icon name={remindersOpen ? "chevron-up" : "chevron-down"} size={16} />
+        </button>
       </div>
-      {reminders.length === 0 ? (
+      {!remindersOpen ? null : reminders.length === 0 ? (
         <p style={{ color: C.textS, fontSize: 13, margin: 0, padding: 16 }}>
           {hiddenReminders > 0 ? "All of today's notes have been set aside." : "No notes for today."}
         </p>
       ) : (
-        <ul className={reminders.length > ATTENTION_SHOWN ? "sw-list-scroll" : undefined} tabIndex={reminders.length > ATTENTION_SHOWN ? 0 : undefined}
+        <ul id="dash-reminders-list" className={reminders.length > ATTENTION_SHOWN ? "sw-list-scroll" : undefined} tabIndex={reminders.length > ATTENTION_SHOWN ? 0 : undefined}
           aria-label={reminders.length > ATTENTION_SHOWN ? `${reminders.length} reminders, scroll for more` : undefined}
           style={{ listStyle: "none", margin: 0, padding: 0 }}>
           {reminders.map((a, i) => (
@@ -1193,8 +1216,8 @@ export function OperationsTab({
           ))}
         </ul>
       )}
-      {reminders.length > ATTENTION_SHOWN && scrollHint(reminders.length - ATTENTION_SHOWN)}
-      {hiddenReminders > 0 && showMore(`Bring back ${hiddenReminders} set aside`, () => setDismissed(new Set()))}
+      {remindersOpen && reminders.length > ATTENTION_SHOWN && scrollHint(reminders.length - ATTENTION_SHOWN)}
+      {remindersOpen && hiddenReminders > 0 && showMore(`Bring back ${hiddenReminders} set aside`, () => setDismissed(new Set()))}
     </section>
   );
 
