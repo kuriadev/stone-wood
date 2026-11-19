@@ -35,11 +35,14 @@ import type { AdminTab, OwnerRequest } from "@/types/admin";
 import type { Booking } from "@/types/booking";
 import type { Activity, DailyClosing, DateChange } from "@/types/finance";
 
+import type { CustomerMessage } from "@/types/admin";
+import { CancelRequestModal, requestReason } from "@/components/admin/CancelRequestModal";
+import { openCancelRequests } from "@/lib/operations";
 type Group = "approvals" | "money" | "supplies";
 /* `stat` and `note` are the summary cards at the top: what the number
    counts, and in a few words what is in it. */
 const GROUP: Record<Group, { title: string; hint: string; color: string; stat: string; note: string }> = {
-  approvals: { title: "Approvals", hint: "Front desk's requests and guests' new dates. Nothing happens until you answer.", color: "#f5a524", stat: "Waiting for your approval", note: "Front desk requests and guests' new dates" },
+  approvals: { title: "Approvals", hint: "Front desk's requests, guests' new dates and cancellation requests. Nothing happens until you answer.", color: "#f5a524", stat: "Waiting for your approval", note: "Front desk requests, new dates and cancellation requests" },
   money: { title: "Money", hint: "Refunds to send, cash counts that were off, bookings to check.", color: "#e5484d", stat: "Money to sort out", note: "Refunds to send and cash counts that were off" },
   supplies: { title: "Supplies", hint: "At or under the minimum you set.", color: "#3e8ed0", stat: "Supplies running low", note: "At or under the minimum you set" },
 };
@@ -61,7 +64,9 @@ export function OwnerTasks({ mob, onGoTab, onOpenBooking }: {
   onOpenBooking?: (id: string) => void;
 }) {
   const { C, cBr, cBg } = useAdminStyle();
-  const { bookings, inventory } = useApp();
+  const { bookings, inventory, customerMessages } = useApp();
+  /** The cancellation request open in the View window. */
+  const [viewReq, setViewReq] = useState<CustomerMessage | null>(null);
   const ops = useOps();
   const { toast } = useToast();
   const [busy, setBusy] = useState<number | null>(null);
@@ -121,6 +126,19 @@ export function OwnerTasks({ mob, onGoTab, onOpenBooking }: {
       detail: `${fmtDate(r.fromDate)} → ${fmtDate(r.toDate)}`,
       meta: b.id,
       actions: <ActionButton size="sm" kind="primary" onClick={() => setReviewing(r)}>Review</ActionButton>,
+    });
+  }
+
+  // Cancellation requests: last-minute, treated as emergencies.
+  for (const m of openCancelRequests(customerMessages)) {
+    const b = find(m.bookingId ?? null);
+    tasks.push({
+      key: `creq-${m.id}`, group: "approvals", icon: "shield-alert",
+      title: `Cancellation request from ${m.name}`,
+      detail: requestReason(m).slice(0, 140) || "No reason given.",
+      meta: b ? `${b.id} · ${fmtDate(b.date)}` : m.bookingId ?? m.email,
+      badge: { text: "Emergency", color: "#e5484d" },
+      actions: <ActionButton size="sm" kind="primary" icon="eye" onClick={() => setViewReq(m)}>View</ActionButton>,
     });
   }
 
@@ -286,6 +304,7 @@ export function OwnerTasks({ mob, onGoTab, onOpenBooking }: {
             }}>Decline</ActionButton>
           } />
       )}
+      {viewReq && <CancelRequestModal message={viewReq} onClose={() => setViewReq(null)} onOpenBooking={onOpenBooking} />}
       {reviewing && find(reviewing.bookingId) && (
         <DateChangeReview request={reviewing} booking={find(reviewing.bookingId)!} onClose={() => setReviewing(null)} />
       )}

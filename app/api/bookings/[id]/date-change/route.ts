@@ -17,6 +17,8 @@ import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { loadGuestBooking, checkMove, guestLinkFor, sweepExpired } from "@/lib/rebooking.server";
 import { HOLD_HOURS, GUEST_CHANGES_ALLOWED } from "@/lib/rebooking";
 import { rescheduleProblem } from "@/lib/validators";
+import { cancelRequestFor } from "@/lib/emergency.server";
+import { manilaDate } from "@/lib/finance";
 import { notices } from "@/lib/notices";
 import { buildNoticeEmail } from "@/lib/emailTemplate";
 import { trySendMail } from "@/lib/mailer";
@@ -50,8 +52,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (b.status !== "Confirmed") return no("Only a confirmed booking can be moved.");
     if (b.checkedInAt) return no("Date changes close on your reserved date. Please contact the resort.");
     // The notice rule (Rates & Settings): not within a few days of the visit.
+    // An approved cancellation request (an emergency) opens it even inside
+    // the window, until the visit day itself.
     const tooLate = rescheduleProblem(b.date);
-    if (tooLate) return no(tooLate);
+    if (tooLate && !((await cancelRequestFor(b.id))?.status === "Approved" && b.date > manilaDate())) return no(tooLate);
 
     const db = getSupabaseAdmin();
     const { data: past, error: pastErr } = await db.from("date_change_requests").select("*").eq("booking_id", b.id);

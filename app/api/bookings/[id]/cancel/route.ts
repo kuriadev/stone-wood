@@ -14,7 +14,8 @@ import { logActivity } from "@/lib/activity.server";
 import { getSupabaseAdmin, rowToBooking, missingNewColumn, withoutNewColumns } from "@/lib/supabase";
 import { loadGuestBooking } from "@/lib/rebooking.server";
 import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
-import { sanitizeNotes, startOfToday, toDateStr } from "@/lib/validators";
+import { sanitizeNotes, startOfToday, toDateStr, rescheduleProblem, RESCHEDULE_NOTICE_DAYS } from "@/lib/validators";
+import { cancelRequestFor } from "@/lib/emergency.server";
 import { CANCELLATION_TYPE } from "@/lib/emergency";
 import { buildGuestCancelAlert } from "@/lib/adminNotify";
 import { notifyStaff } from "@/lib/staffNotify.server";
@@ -64,11 +65,20 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (b.date < toDateStr(startOfToday())) {
       return NextResponse.json({ success: false, error: "This booking's date has already passed." }, { status: 409 });
     }
-    // A guest may cancel any time before they check in, even on the day or
-    // straight after booking: no proof, no approval, the reason optional
-    // (owner's rule, 2026-11-19). It used to be closed inside the date-change
-    // notice window and sent to an emergency request instead, so a booking
-    // for today could never be cancelled. Payments are not refunded.
+    // Online cancelling closes RESCHEDULE_NOTICE_DAYS before the visit (owner,
+    // 2026-11-19: "2 days before the booking"). Closer than that the guest
+    // sends a cancellation request with a reason and proof; once the resort
+    // approves it, they can cancel here (or move the date). Payments are not
+    // refunded either way.
+    if (rescheduleProblem(b.date)) {
+      const req = await cancelRequestFor(b.id);
+      if (req?.status !== "Approved") {
+        return NextResponse.json({
+          success: false,
+          error: `Online cancellation closes ${RESCHEDULE_NOTICE_DAYS} day${RESCHEDULE_NOTICE_DAYS === 1 ? "" : "s"} before your visit. Send a cancellation request to the resort instead.`,
+        }, { status: 409 });
+      }
+    }
 
     // The status guard in the WHERE clause means two cancel clicks, or a
     // cancel racing an admin action, can't both "win".
@@ -84,11 +94,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       return NextResponse.json({ success: false, error: "This booking changed just now — please search again." }, { status: 409 });
     }
 
-    // A receipt still waiting in "Pending proof of payment" has nothing left
-    // to confirm.
-    try {
-      await db.from("payment_proofs").update({ status: "Replaced" }).eq("booking_id", b.id).eq("status", "Submitted");
-    } catch { /* no proofs table yet */ }
+    // A receipt still waiting in "Pending proof of payment" stays there,
+    // marked "Guest cancelled": the money may already be in the resort's
+    // GCash, so staff check it and record it as kept (no refund), or close
+    // it if nothing arrived (/api/payment-proofs/[id], "Kept" / "NoPayment").
 
     // The notice for staff: Guest Messages ("Booking Cancelled"), the
     // Dashboard's live messages and Reminders. Nothing to approve.

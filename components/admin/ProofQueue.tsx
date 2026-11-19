@@ -47,6 +47,8 @@ interface PendingProof {
   submittedAt: string;
   imageUrl: string | null;
   rejectedBefore: string[];
+  /** The guest cancelled before the receipt was checked. */
+  cancelled?: boolean;
 }
 
 const REJECT_PRESETS = [
@@ -72,6 +74,8 @@ export function ProofQueue({ mob }: { mob: boolean }) {
   const [busy, setBusy] = useState<number | null>(null);
   const [zoom, setZoom] = useState<PendingProof | null>(null);
   const [confirm, setConfirm] = useState<{ p: PendingProof; as: "Downpayment" | "Full" } | null>(null);
+  /** Settling a cancelled booking's receipt: kept, or nothing arrived. */
+  const [settle, setSettle] = useState<{ p: PendingProof; as: "Kept" | "NoPayment" } | null>(null);
   const [rejecting, setRejecting] = useState<PendingProof | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
@@ -97,7 +101,7 @@ export function ProofQueue({ mob }: { mob: boolean }) {
     return () => { live = false; clearInterval(t); };
   }, [load]);
 
-  const decide = async (p: PendingProof, action: "Downpayment" | "Full" | "Reject", why = "") => {
+  const decide = async (p: PendingProof, action: "Downpayment" | "Full" | "Reject" | "Kept" | "NoPayment", why = "") => {
     setBusy(p.id); setError("");
     try {
       const res = await fetch(`/api/payment-proofs/${p.id}`, {
@@ -107,8 +111,12 @@ export function ProofQueue({ mob }: { mob: boolean }) {
       const j = await res.json().catch(() => null);
       if (!res.ok || !j?.success) throw new Error(j?.error ?? "Could not save the decision.");
       setProofs((list) => (list ?? []).filter((x) => x.id !== p.id));
-      setConfirm(null); setRejecting(null); setReason("");
-      if (j.emailed === false) {
+      setConfirm(null); setRejecting(null); setReason(""); setSettle(null);
+      if (action === "Kept" || action === "NoPayment") {
+        toast(action === "Kept"
+          ? `${fmt(j.amount ?? 0)} recorded for ${p.booking.id} and kept (the guest cancelled, no refund).`
+          : `Closed. No payment recorded for ${p.booking.id}.`, "success");
+      } else if (j.emailed === false) {
         toast(action === "Reject"
           ? `Payment rejected, but the email to ${p.booking.name} didn't send. Tell them by phone (${p.booking.contact}) or email them from the booking.`
           : `${fmt(j.amount ?? 0)} confirmed and ${p.booking.id} is confirmed, but the confirmation email to ${p.booking.name} didn't send. Use "Email guest" on the booking.`, "warning");
@@ -157,7 +165,7 @@ export function ProofQueue({ mob }: { mob: boolean }) {
             const read = p.ocr ?? {};
             const as = paidAs(p);
             return (
-              <article key={p.id} style={{ border: `1px solid ${cBr}`, borderLeft: "3px solid #f5a524", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+              <article key={p.id} style={{ border: `1px solid ${cBr}`, borderLeft: `3px solid ${p.cancelled ? "#e5484d" : "#f5a524"}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -169,6 +177,11 @@ export function ProofQueue({ mob }: { mob: boolean }) {
                       </span>
                     </div>
                     <div style={{ color: C.goldInk, fontFamily: "monospace", fontSize: 12 }}>{b.id}</div>
+                    {p.cancelled && (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 6, padding: "2px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 700, color: "#e5484d", border: "1px solid #e5484d66", background: "rgba(229,72,77,0.10)" }}>
+                        <Icon name="x" size={11} /> Guest cancelled
+                      </span>
+                    )}
                   </div>
                   <span style={{ color: C.textS, fontSize: 11.5, whiteSpace: "nowrap" }}>{ago(p.submittedAt)}</span>
                 </div>
@@ -234,7 +247,15 @@ export function ProofQueue({ mob }: { mob: boolean }) {
                   </button>
                 ) : <p style={{ color: C.dangerInk, fontSize: 12.5, margin: 0 }}>The receipt image couldn&apos;t be loaded.</p>}
 
-                {canDecide ? (
+                {canDecide && p.cancelled ? (
+                  <div style={{ display: "grid", gap: 8 }}>
+                    <p style={{ color: C.textB, fontSize: 12.5, margin: 0, lineHeight: 1.55 }}>
+                      The guest cancelled before this was checked. The booking stays cancelled. Check your GCash for {fmt(p.amountDue)}:
+                    </p>
+                    <ActionButton kind="green" icon="check" disabled={busy === p.id} onClick={() => setSettle({ p, as: "Kept" })}>Payment arrived (kept, no refund)</ActionButton>
+                    <ActionButton disabled={busy === p.id} onClick={() => setSettle({ p, as: "NoPayment" })}>No payment found</ActionButton>
+                  </div>
+                ) : canDecide ? (
                   <div style={{ display: "grid", gap: 8 }}>
                     {/* Only the button for what was paid (paidAs): 50% or the
                         whole total. The other stays behind a small link in
@@ -292,6 +313,25 @@ export function ProofQueue({ mob }: { mob: boolean }) {
           </ConfirmDialog>
         );
       })()}
+
+      {settle && (
+        <ConfirmDialog
+          title={settle.as === "Kept" ? "Record the payment as kept?" : "No payment arrived?"}
+          description={`${settle.p.booking.name} · ${settle.p.booking.id} · cancelled by the guest`}
+          onCancel={() => setSettle(null)} cancelLabel="Go back" width={500}
+          confirm={<ActionButton kind={settle.as === "Kept" ? "green" : "primary"} icon="check" disabled={busy === settle.p.id} onClick={() => void decide(settle.p, settle.as)}>
+            {busy === settle.p.id ? "Saving…" : settle.as === "Kept" ? `Yes, ${fmt(settle.p.amountDue)} arrived` : "Yes, nothing arrived"}
+          </ActionButton>}>
+          <div style={{ display: "grid", gap: 10 }}>
+            <p style={{ color: C.textS, fontSize: 13, margin: 0, lineHeight: 1.6 }}>
+              {settle.as === "Kept"
+                ? <>{fmt(settle.p.amountDue)} is recorded as received by GCash today and kept under the no-refund policy. It shows in Daily liquidation, and the booking shows as a non-refundable cancellation. The booking stays cancelled.</>
+                : <>The receipt is closed and nothing is recorded. The booking stays cancelled.</>}
+            </p>
+            <ErrorNote>{error}</ErrorNote>
+          </div>
+        </ConfirmDialog>
+      )}
 
       {rejecting && (
         <ConfirmDialog title="Reject this payment?" description={`${rejecting.booking.name} · ${rejecting.booking.id} · ${fmt(rejecting.amountDue)}`}

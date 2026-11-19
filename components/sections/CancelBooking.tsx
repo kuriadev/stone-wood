@@ -33,6 +33,10 @@ import type { Booking, BookingSlot } from "@/types/booking";
 import type { DateChange } from "@/types/finance";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { ResortContact } from "@/components/common/ResortContact";
+import { Textarea } from "@/components/ui/textarea";
+import { compressImage } from "@/lib/image";
+import { RESORT_CONTACT } from "@/lib/resort";
+import { PROOF_MAX_FILES, PROOF_PDF_MAX_BYTES, EMERGENCY_MESSAGE_MIN, EMERGENCY_MESSAGE_MAX, proofProblem, type ProofFile, type CancelRequestState } from "@/lib/emergency";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
@@ -115,6 +119,13 @@ export function ManageBooking(_props: ManageBookingProps) {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  // A cancellation request, inside the notice window (lib/emergency.ts):
+  // where the latest one stands, and the form for a new one.
+  const [cancelReq, setCancelReq] = useState<CancelRequestState>(null);
+  const [crText, setCrText] = useState("");
+  const [crFiles, setCrFiles] = useState<ProofFile[]>([]);
+  const [crBusy, setCrBusy] = useState(false);
+  const [crError, setCrError] = useState<string | null>(null);
 
   const [action, setAction] = useState<ActionKey | null>(null);
   // Updating the guest's own details (lib/guestDetails.ts).
@@ -152,6 +163,7 @@ export function ManageBooking(_props: ManageBookingProps) {
         setDamages(Array.isArray(json.damages) ? json.damages : []);
         setDateChanges((json.dateChanges ?? []) as DateChange[]);
         setChangesLeft(Number(json.changesLeft) || 0);
+        setCancelReq((json.cancelRequest ?? null) as CancelRequestState);
         setToday(String(json.today ?? ""));
         setProof(p);
         setNotFound(false);
@@ -328,6 +340,51 @@ export function ManageBooking(_props: ManageBookingProps) {
     }
   };
 
+  // ── Cancellation request (inside the notice window) ─────────────────
+  /** Proof: photos are shrunk like gallery uploads; a PDF is sent as it is,
+   *  if it's small enough. */
+  const addProof = async (list: FileList | File[] | null) => {
+    setCrError(null);
+    const picked = Array.from(list ?? []);
+    const room = PROOF_MAX_FILES - crFiles.length;
+    if (picked.length > room) setCrError(`You can attach up to ${PROOF_MAX_FILES} files.`);
+    for (const f of picked.slice(0, Math.max(0, room))) {
+      try {
+        if (f.type === "application/pdf") {
+          if (f.size > PROOF_PDF_MAX_BYTES) { setCrError(`${f.name} is too large. A PDF can be up to 1.5 MB; a photo of it works too.`); continue; }
+          const data = await new Promise<string>((res, rej) => { const rd = new FileReader(); rd.onload = () => res(String(rd.result)); rd.onerror = () => rej(new Error("read")); rd.readAsDataURL(f); });
+          setCrFiles((xs) => [...xs, { name: f.name, type: "application/pdf", data }]);
+        } else if (f.type.startsWith("image/")) {
+          const data = await compressImage(f, 1600);
+          setCrFiles((xs) => [...xs, { name: f.name, type: data.slice(5, data.indexOf(";")), data }]);
+        } else {
+          setCrError("Attach a photo (JPG, PNG or WebP) or a PDF.");
+        }
+      } catch {
+        setCrError(`${f.name} couldn't be read. Try another file.`);
+      }
+    }
+  };
+  const sendCancelRequest = async () => {
+    if (!found || crBusy) return;
+    const problem = crText.trim().length < EMERGENCY_MESSAGE_MIN
+      ? `Tell the resort why you need to cancel (at least ${EMERGENCY_MESSAGE_MIN} characters).`
+      : proofProblem(crFiles);
+    if (problem) { setCrError(problem); return; }
+    setCrBusy(true);
+    setCrError(null);
+    try {
+      await post("emergency", { message: crText.trim(), files: crFiles });
+      setCancelReq({ status: "Pending", note: null, sentAt: new Date().toISOString() });
+      setCrText("");
+      setCrFiles([]);
+    } catch (err) {
+      setCrError(err instanceof Error ? err.message : "Your request couldn't be sent.");
+    } finally {
+      setCrBusy(false);
+    }
+  };
+
   // ── Cancel ───────────────────────────────────────────────────────────
   const confirmCancel = async () => {
     if (!found || cancelling) return;
@@ -433,16 +490,25 @@ export function ManageBooking(_props: ManageBookingProps) {
   // The notice rule (Rates & Settings): date changes close a few days
   // before the visit, so the resort can still offer the date to someone.
   const noticeProblem = found && today ? rescheduleProblem(found.date) : null;
-  const canMove = !!found && found.status === "Confirmed" && !found.checkedInAt && !!today && !noticeProblem;
+  /** The resort approved a cancellation request: cancelling and moving the
+   *  date open online, even inside the window (moving until the day before). */
+  const reqApproved = cancelReq?.status === "Approved";
+  const canMove = !!found && found.status === "Confirmed" && !found.checkedInAt && !!today
+    && (!noticeProblem || (reqApproved && found.date > today));
   const moveInstead = canMove && changesLeft > 0 && !pendingChange;
   const noticeDays = RESCHEDULE_NOTICE_DAYS;
   const closed = !!found && (found.status === "Cancelled" || found.status === "Completed" || found.status === "ResortCancelled");
+  /** Inside the notice window, online cancelling is closed until the resort
+   *  approves a cancellation request (the cancel API refuses it too). */
+  const cancelClosed = !!found && !!today && !!noticeProblem && !found.checkedInAt && !closed && !reqApproved;
+  const daysLeft = found && today ? Math.round((Date.parse(`${found.date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000) : 0;
+  const paymentChecking = found?.status === "Pending" && proofState?.status === "Submitted";
   const detLockedUntil = found ? detailsCooldownUntil(found.detailsUpdatedAt) : null;
 
   const actions: { key: ActionKey; icon: IconName; title: string; sub: string; disabled?: string }[] = [
     {
       key: "reschedule", icon: "calendar", title: "Change the date", sub: "Pick another free date",
-      disabled: !canMove ? (found?.status === "Confirmed" && !found.checkedInAt && noticeProblem ? noticeProblem : "Only a confirmed booking can be moved, before its reserved date.")
+      disabled: !canMove ? (found?.status === "Confirmed" && !found.checkedInAt && noticeProblem ? `${noticeProblem} It opens if the resort approves a cancellation request.` : "Only a confirmed booking can be moved, before its reserved date.")
         : pendingChange ? "You already have a request waiting."
           : changesLeft <= 0 ? "This booking's date has already been changed once." : undefined,
     },
@@ -451,7 +517,9 @@ export function ManageBooking(_props: ManageBookingProps) {
       sub: detLockedUntil ? `You can change them again after ${cooldownLabel(detLockedUntil)}` : "Your name, email and mobile number",
       disabled: closed ? "This booking is closed." : undefined,
     },
-    { key: "cancel", icon: "shield-alert", title: "Cancel booking", sub: "Any time before you check in" },
+    { key: "cancel", icon: "shield-alert", title: "Cancel booking",
+      sub: cancelClosed ? (cancelReq?.status === "Pending" ? "Cancellation request sent" : "Closed online · send a cancellation request")
+        : reqApproved ? "Request approved · you can cancel" : `Up to ${RESCHEDULE_NOTICE_DAYS} days before your visit` },
   ];
 
   /** The free-date calendar for this booking's own package and time slot. */
@@ -1049,6 +1117,95 @@ export function ManageBooking(_props: ManageBookingProps) {
                           </span>
                         </p>
                       )}
+                      {cancelClosed ? (
+                        <>
+                          {/* Locked, with the reason right under it (owner, 2026-11-19). */}
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10, marginBottom: 20 }}>
+                            <button type="button" disabled aria-describedby="mb-cancel-closed"
+                              style={{ minHeight: 48, borderRadius: 8, padding: "0 24px", border: `1px solid ${C.border}`, background: "transparent", color: C.textS, fontSize: 12.5, fontWeight: 700, letterSpacing: 1.4, cursor: "not-allowed", opacity: 0.55 }}>
+                              CANCEL MY BOOKING
+                            </button>
+                            <p id="mb-cancel-closed" role="note" style={{ display: "flex", gap: 10, alignItems: "flex-start", alignSelf: "stretch", margin: 0, padding: "12px 14px", borderRadius: 10, border: "1px solid #f5a52466", background: "rgba(245,165,36,0.08)", color: C.textB, fontSize: 13, lineHeight: 1.6 }}>
+                              <Icon name="alert" size={15} style={{ color: "#f5a524", flexShrink: 0, marginTop: 3 }} />
+                              <span>
+                                {daysLeft <= 0
+                                  ? <>Your visit is today, so online cancellation is closed. Send a cancellation request below, or call the resort on <a href={`tel:${RESORT_CONTACT.phone.replace(/[^\d+]/g, "")}`} style={{ color: C.goldInk }}>{RESORT_CONTACT.phone}</a>.</>
+                                  : <>Online cancellation closes {noticeDays} day{noticeDays === 1 ? "" : "s"} before your visit, and your visit is {daysLeft === 1 ? "tomorrow" : `in ${daysLeft} days`}.</>}
+                                {paymentChecking && <> Your payment is still being checked.</>}
+                                {daysLeft > 0 && <> Send a cancellation request below and the resort will reply by email.</>}
+                                {paymentChecking
+                                  ? <> If it&rsquo;s approved, the {fmt(proofState!.amountDue)} you sent is not refunded.</>
+                                  : <> If it&rsquo;s approved, you can cancel or move to another free date. Payments are not refunded when you cancel.</>}
+                              </span>
+                            </p>
+                          </div>
+
+                          {cancelReq?.status === "Pending" ? (
+                            <div role="status" style={{ border: "1px solid #2e9e4e66", borderRadius: 12, padding: 18, display: "flex", gap: 12, alignItems: "flex-start" }}>
+                              <span aria-hidden="true" style={{ color: "#6ec071", lineHeight: 0, marginTop: 3 }}><Icon name="check" size={18} strokeWidth={2} /></span>
+                              <span style={{ color: C.textB, fontSize: 13.5, lineHeight: 1.65 }}>
+                                <strong style={{ display: "block", color: C.textH, marginBottom: 4 }}>Your cancellation request was sent.</strong>
+                                The resort will look at your reason and proof and email their answer to {found.email}. If it&rsquo;s approved, you can cancel your booking here, or move it to another free date.
+                              </span>
+                            </div>
+                          ) : (
+                            <>
+                              {cancelReq?.status === "Declined" && (
+                                <p role="status" style={{ display: "flex", gap: 10, alignItems: "flex-start", margin: "0 0 16px", padding: "12px 14px", borderRadius: 10, border: "1px solid #e5484d66", background: "rgba(229,72,77,0.08)", color: C.textB, fontSize: 13, lineHeight: 1.6 }}>
+                                  <Icon name="x" size={15} style={{ color: "#e5484d", flexShrink: 0, marginTop: 3 }} />
+                                  <span><strong style={{ color: C.textH }}>Your last request was declined.</strong>{cancelReq.note ? <> {cancelReq.note}</> : null} You can send a new one with more proof.</span>
+                                </p>
+                              )}
+                              <p style={{ ...eyebrow, color: C.goldInk, marginBottom: 10 }}>CANCELLATION REQUEST</p>
+                              <Label htmlFor="mb-cancel-request" style={{ display: "block", color: C.textH, fontSize: 13, marginBottom: 6 }}>Why do you need to cancel?</Label>
+                              <Textarea id="mb-cancel-request" value={crText} onChange={(e) => setCrText(e.target.value)} rows={4} maxLength={EMERGENCY_MESSAGE_MAX}
+                                placeholder="e.g. My son was taken to the hospital last night." />
+
+                              <p style={{ color: C.textH, fontSize: 13, margin: "16px 0 6px" }}>Your proof <span style={{ color: C.textS, fontWeight: 400 }}>(optional, but it helps)</span></p>
+                              <p style={{ color: C.textS, fontSize: 12, margin: "0 0 10px" }}>A medical certificate, hospital record or similar. Up to {PROOF_MAX_FILES} photos or PDFs. Only the resort&rsquo;s staff can see them.</p>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+                                {crFiles.map((f, i) => (
+                                  <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 6px 6px 8px", borderRadius: 10, border: `1px solid ${C.border}`, maxWidth: "100%" }}>
+                                    {f.type.startsWith("image/")
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      ? <img src={f.data} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }} />
+                                      : <span aria-hidden="true" style={{ width: 40, height: 40, display: "grid", placeItems: "center", color: C.goldInk }}><Icon name="clipboard" size={18} /></span>}
+                                    <span style={{ color: C.textB, fontSize: 12.5, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+                                    <button type="button" aria-label={`Remove ${f.name}`} onClick={() => setCrFiles((xs) => xs.filter((_, j) => j !== i))}
+                                      style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "transparent", color: C.textS, cursor: "pointer", display: "grid", placeItems: "center" }}>
+                                      <Icon name="x" size={14} />
+                                    </button>
+                                  </span>
+                                ))}
+                                {crFiles.length < PROOF_MAX_FILES && (
+                                  <label
+                                    onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) e.preventDefault(); }}
+                                    onDrop={(e) => { e.preventDefault(); void addProof(Array.from(e.dataTransfer.files)); }}
+                                    style={{ display: "inline-flex", alignItems: "center", gap: 8, minHeight: 54, padding: "0 16px", borderRadius: 10, border: `1px dashed ${gold}88`, color: C.goldInk, fontSize: 12.5, fontWeight: 700, letterSpacing: 1, cursor: "pointer" }}>
+                                    <Icon name="plus" size={14} /> ADD PHOTO OR PDF
+                                    <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple hidden
+                                      onChange={(e) => { void addProof(e.target.files); e.target.value = ""; }} />
+                                  </label>
+                                )}
+                              </div>
+                              {crError && <p style={{ color: "#e07a7a", fontSize: 13, margin: "10px 0 0" }}>{crError}</p>}
+                              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+                                <button className="sw-btn" type="button" onClick={() => void sendCancelRequest()} disabled={crBusy}
+                                  style={{ ...goldBtn, minHeight: 48, display: "inline-flex", alignItems: "center", gap: 8, opacity: crBusy ? 0.6 : 1, cursor: crBusy ? "wait" : "pointer" }}>
+                                  {crBusy ? "SENDING…" : <>SEND CANCELLATION REQUEST <span aria-hidden="true">&rarr;</span></>}
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                      {reqApproved && !!noticeProblem && (
+                        <p role="status" style={{ display: "flex", gap: 10, alignItems: "flex-start", margin: "0 0 16px", padding: "12px 14px", borderRadius: 10, border: "1px solid #2e9e4e66", background: "rgba(46,158,78,0.08)", color: C.textB, fontSize: 13, lineHeight: 1.6 }}>
+                          <Icon name="check-circle" size={15} style={{ color: "#2e9e4e", flexShrink: 0, marginTop: 3 }} />
+                          <span><strong style={{ color: C.textH }}>Your cancellation request was approved.</strong> You can cancel your booking below{canMove ? <>, or <button className="sw-ulink" type="button" onClick={() => setAction("reschedule")} style={{ background: "none", border: "none", padding: 0, color: C.goldInk, textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>move it to another free date</button> instead</> : null}.</span>
+                        </p>
+                      )}
                       <p style={{ color: C.textS, fontSize: 13, margin: "0 0 16px" }}>
                         Help us understand why your plans changed. This step is optional.
                       </p>
@@ -1069,7 +1226,9 @@ export function ManageBooking(_props: ManageBookingProps) {
                         <span style={{ fontSize: 12.5, lineHeight: 1.6 }}>
                           <strong style={{ display: "block", color: dangerInk, fontSize: 13, letterSpacing: 0.3, marginBottom: 4 }}>No refunds when you cancel</strong>
                           <span style={{ color: C.textS }}>
-                            {paidNet > 0 ? <>The {fmt(paidNet)} already paid on this booking is not returned if you cancel.</> : <>Anything paid on this booking is not returned if you cancel.</>}
+                            {found.status === "Pending" && proofState?.status === "Submitted"
+                              ? <>We&rsquo;re still checking your payment. If you cancel, the {fmt(proofState.amountDue)} you sent is not refunded, even though your booking isn&rsquo;t confirmed yet.</>
+                              : paidNet > 0 ? <>The {fmt(paidNet)} already paid on this booking is not returned if you cancel.</> : <>Anything paid on this booking is not returned if you cancel.</>}
                             {" "}If the resort ever has to cancel, we move you to another date of your choosing.
                           </span>
                         </span>
@@ -1083,6 +1242,8 @@ export function ManageBooking(_props: ManageBookingProps) {
                           CANCEL MY BOOKING <span aria-hidden="true">&rarr;</span>
                         </button>
                       </div>
+                        </>
+                      )}
                     </>
                   )}
 
@@ -1215,7 +1376,7 @@ export function ManageBooking(_props: ManageBookingProps) {
               ] },
               { icon: "shield-alert", title: "Cancellation", tag: "No refunds", tone: "#e5484d", ink: C.dangerInk, mark: "alert", lines: [
                 ["If you cancel, payments aren't refunded.", "Moving your date instead keeps them."],
-                ["Cancel any time before you check in,", "even on the day. A reason is optional."],
+                [`Cancel online up to ${noticeDays} day${noticeDays === 1 ? "" : "s"} before your visit.`, "Closer than that, send a cancellation request with proof."],
                 ["If the resort cancels, you choose:", "a free new date or a full refund."],
               ] },
               { icon: "user", title: "Your details", tag: `Every ${DETAILS_COOLDOWN_HOURS} hrs`, tone: "#5b9bd5", ink: "#5b9bd5", mark: "check", lines: [
@@ -1308,7 +1469,10 @@ export function ManageBooking(_props: ManageBookingProps) {
               Cancel this reservation?
             </AlertDialogTitle>
             <AlertDialogDescription style={{ color: C.textS, fontSize: 14, lineHeight: 1.7 }}>
-              Booking {found?.id} for {found ? fmtDate(found.date) : ""} will be cancelled. Payments already made are not refunded.
+              Booking {found?.id} for {found ? fmtDate(found.date) : ""} will be cancelled.{" "}
+              {found?.status === "Pending" && proofState?.status === "Submitted"
+                ? <>Your payment is still being checked: the {fmt(proofState.amountDue)} you sent is not refunded, even though the booking isn&rsquo;t confirmed yet.</>
+                : <>Payments already made are not refunded.</>}
               {moveInstead && <> You can still move your date for free instead.</>}
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -44,10 +44,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const token = String(body.t ?? "").trim();
   const message = sanitizeNotes(String(body.message ?? "")).slice(0, EMERGENCY_MESSAGE_MAX).trim();
   if (!email && !token) return no("An email address is required.");
-  if (message.length < EMERGENCY_MESSAGE_MIN) return no(`Tell the resort what happened (at least ${EMERGENCY_MESSAGE_MIN} characters).`);
+  if (message.length < EMERGENCY_MESSAGE_MIN) return no(`Tell the resort why you need to cancel (at least ${EMERGENCY_MESSAGE_MIN} characters).`);
   const bad = proofProblem(body.files);
   if (bad) return no(bad);
-  const files: ProofFile[] = (body.files as ProofFile[]).map((f, i) => ({ name: cleanProofName(f.name, i), type: f.type, data: f.data }));
+  const files: ProofFile[] = ((body.files ?? []) as ProofFile[]).map((f, i) => ({ name: cleanProofName(f.name, i), type: f.type, data: f.data }));
 
   try {
     const b = await loadGuestBooking(id, { email, token, emailProof: String(body?.ep ?? "") });
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (b.checkedInAt) return no("You're already checked in. Please speak to the front desk.", 409);
     if (b.date < toDateStr(startOfToday())) return no("This booking's date has already passed.", 409);
     // Outside the window the guest can move or cancel online themselves.
-    if (!rescheduleProblem(b.date)) return no("Your visit isn't that close yet: you can change the date yourself from Manage booking.", 409);
+    if (!rescheduleProblem(b.date)) return no("Your visit isn't that close yet: you can cancel or change the date yourself from Manage booking.", 409);
 
     const db = getSupabaseAdmin();
     // One open request per booking: a second one waits for the first answer.
@@ -66,11 +66,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       if (/booking_id|resolution|column/i.test(open.error.message)) return no("Emergency requests aren't switched on yet. Please contact the resort directly.", 503);
       throw new Error(open.error.message);
     }
-    if ((open.data ?? []).length) return no("You already sent an emergency request for this booking. The resort will email you their answer.", 409);
+    if ((open.data ?? []).length) return no("You already sent a cancellation request for this booking. The resort will email you their answer.", 409);
 
     const { error } = await db.from("customer_messages").insert({
       name: b.name, email: b.email, type: EMERGENCY_TYPE,
-      message: `Emergency request for ${b.id} (${fmtDate(b.date)}):\n\n${message}`,
+      message: `Cancellation request for ${b.id} (${fmtDate(b.date)}):\n\n${message}`,
       date: new Date().toISOString().slice(0, 10),
       booking_id: b.id, attachments: files, attachment_count: files.length,
     });
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
     await logActivity({
       actor: "Guest", action: "message.emergency_request", bookingId: b.id, entity: "booking", entityId: b.id,
-      summary: `${b.name} sent an emergency request for ${b.id} (${b.date}) with ${files.length} proof file${files.length === 1 ? "" : "s"}.`,
+      summary: `${b.name} sent a cancellation request for ${b.id} (${b.date}) with ${files.length} proof file${files.length === 1 ? "" : "s"}.`,
     });
     // A heads-up to the resort's inbox; the request itself is in Guest Messages.
     await notifyStaff(["Owner", "FrontDesk"], buildEmergencyAlert({ id: b.id, name: b.name, email: b.email, date: b.date, message, files: files.length }), `emergency ${b.id}`);

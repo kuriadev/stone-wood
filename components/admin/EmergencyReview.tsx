@@ -1,14 +1,15 @@
 "use client";
 
-// ── An emergency request, in Guest Messages
+// ── A cancellation request (stored as "Emergency"), in Guest Messages
+//    and in the View window on the Dashboard and My Tasks
 //
 // A guest inside the date-change notice window can't cancel or move online,
 // so an emergency is sent from Manage booking with proof (lib/emergency.ts).
 // Here staff see the proof (loaded only now: it can be a few MB), open the
 // booking, and approve or decline. The guest is emailed the answer.
-// Approving doesn't move the booking: staff then move it, at no charge, to
-// the free date agreed with the guest (Bookings → Move), which runs the
-// usual availability checks.
+// Approving doesn't cancel or move the booking by itself: it opens both on
+// the guest's Manage booking page (cancel, or one free move to another
+// date), even inside the notice window (owner, 2026-11-19).
 
 import { useEffect, useState } from "react";
 import { useToast } from "@/contexts/ToastContext";
@@ -73,13 +74,13 @@ export function EmergencyReview({ message, booking, onOpenBooking, onDecided }: 
   const ref = message.bookingId ?? booking?.id;
 
   return (
-    <section aria-label="Emergency request" style={{ border: `1px solid ${cBr}`, borderRadius: 12, padding: 16, margin: "0 0 18px", background: soft }}>
+    <section aria-label="Cancellation request" style={{ border: `1px solid ${cBr}`, borderRadius: 12, padding: 16, margin: "0 0 18px", background: soft }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
         <div>
-          <p style={{ margin: 0, color: C.textH, fontWeight: 700, fontSize: 14 }}>Emergency request{ref ? ` · ${ref}` : ""}</p>
+          <p style={{ margin: 0, color: C.textH, fontWeight: 700, fontSize: 14 }}>Cancellation request{ref ? ` · ${ref}` : ""}</p>
           <p style={{ margin: "2px 0 0", color: C.textS, fontSize: 12.5 }}>
             {booking ? `${booking.name} · visit on ${fmtDate(booking.date)}. ` : ""}
-            Too close to the visit to cancel or move online. Check the proof, then decide.
+            A last-minute cancellation, treated as an emergency: too close to the visit to cancel or move online. Read the reason, check the proof, then decide.
           </p>
         </div>
         {done ? (
@@ -118,7 +119,7 @@ export function EmergencyReview({ message, booking, onOpenBooking, onDecided }: 
         <p style={{ color: C.textS, fontSize: 12.5, margin: "12px 0 0" }}>
           {done} by {message.resolvedBy ?? "staff"}{message.resolvedAt ? ` on ${fmtDate(message.resolvedAt.slice(0, 10))}` : ""}.
           {message.resolutionNote ? ` “${message.resolutionNote}”` : ""}
-          {done === "Approved" && " Move the booking to the date agreed with the guest, at no charge."}
+          {done === "Approved" && " The guest can now cancel or move the date themselves from Manage booking."}
         </p>
       )}
 
@@ -143,9 +144,9 @@ export function EmergencyReview({ message, booking, onOpenBooking, onDecided }: 
 
       {ask && (
         <Modal
-          title={ask === "Approved" ? "Approve this emergency request?" : "Decline this emergency request?"}
+          title={ask === "Approved" ? "Approve this cancellation request?" : "Decline this cancellation request?"}
           subtitle={ask === "Approved"
-            ? `${message.name} is emailed that it's approved and that the booking moves to a free date at no charge. Then move it from the booking.`
+            ? `${message.name} is emailed that it's approved. They can then cancel the booking, or move it once to a free date at no charge, from Manage booking. Payments are not refunded if they cancel.`
             : `${message.name} is emailed that it couldn't be approved, with your reason. The booking stays as it is.`}
           onClose={() => !busy && setAsk(null)}
           footer={<>

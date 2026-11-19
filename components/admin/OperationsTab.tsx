@@ -47,7 +47,7 @@ import { useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { EmailGuestModal } from "@/components/admin/EmailGuestModal";
 import { ManilaClock } from "@/components/admin/ManilaClock";
-import { opsBoard, closingBlockers, attentionTally, unclosedDays, lowStock, prepBlocked, prepOpensOn, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, cardTimer, type OpsCard, type OpsView, type TimerTone, guestCancelNotices } from "@/lib/operations";
+import { opsBoard, closingBlockers, attentionTally, unclosedDays, lowStock, prepBlocked, prepOpensOn, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, cardTimer, type OpsCard, type OpsView, type TimerTone, guestCancelNotices, openCancelRequests } from "@/lib/operations";
 import { useApp } from "@/contexts/AppContext";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
 import { bookingMoney, collectedBetween, expensesBetween, livePayments, manilaDate, manilaTime, monthRange, round2, type BookingMoney } from "@/lib/finance";
@@ -74,6 +74,7 @@ import { Closing } from "@/components/admin/SalesTab";
 import { ActionButton, StatusBadge, Modal, ConfirmDialog, Label, AmountRow, ViewSwitcherTabs, useAdminStyle } from "@/components/admin/ui";
 import { BarChart } from "@/components/admin/charts";
 import { GuestMessagesPanel } from "@/components/admin/GuestMessagesPanel";
+import { CancelRequestModal } from "@/components/admin/CancelRequestModal";
 import type { CustomerMessage } from "@/types/admin";
 import { TAP_MIN } from "@/lib/spacing";
 import type { AdminTab } from "@/types/admin";
@@ -204,6 +205,8 @@ export function OperationsTab({
   const [emailing, setEmailing] = useState<Booking | null>(null);
   const [reason, setReason] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  /** The cancellation request open in the View window. */
+  const [viewReq, setViewReq] = useState<CustomerMessage | null>(null);
   /* Reminders the admin has waved away. Session-only and never persisted:
      a reminder describes a live condition, so hiding it must not outlive
      the screen or it would quietly bury something still true. */
@@ -432,6 +435,14 @@ export function OperationsTab({
       text: <>Buy more: {toBuy.slice(0, 3).map((i) => `${i.name} (${i.qty} ${i.unit} left)`).join(", ")}{toBuy.length > 3 ? `, and ${toBuy.length - 3} more` : ""}.</>,
       actions: <ActionButton size="sm" onClick={() => onGoTab?.("Inventory")}>Supplies</ActionButton> });
   }
+  // Cancellation requests (last-minute, treated as emergencies): staff
+  // approve or decline from the View window.
+  for (const m of openCancelRequests(customerMessages)) {
+    const bk = m.bookingId ? bookings.find((x) => x.id === m.bookingId) : undefined;
+    attention.push({ key: `creq-${m.id}`, kind: "urgent", tone: "red", icon: "shield-alert",
+      text: <><strong style={{ color: C.textH }}>{m.name}</strong> sent a <em style={{ fontStyle: "normal", fontWeight: 700 }}>cancellation request</em> for {m.bookingId ? ref(m.bookingId) : "their booking"}{bk ? <> ({bk.date === today ? "today" : fmtDate(bk.date)})</> : null}. Approve or decline it.</>,
+      actions: <ActionButton size="sm" kind="primary" icon="eye" onClick={() => setViewReq(m)}>View</ActionButton> });
+  }
   // Guests who cancelled their own booking (Manage booking): a notice, the
   // booking is cancelled already. Archive the message to clear it.
   for (const m of guestCancelNotices(customerMessages, now)) {
@@ -488,6 +499,13 @@ export function OperationsTab({
     io.observe(el);
     return () => io.disconnect();
   }, [hasUrgent]);
+  /* The admin can hide the pinned bar. It stays hidden for the tasks it
+     showed then, and comes back on its own when a new urgent task appears,
+     so a new one is never missed. The full list is still in the panel. */
+  const urgentKeys = urgent.map((a) => a.key).join("|");
+  const [pinHiddenFor, setPinHiddenFor] = useState<string | null>(null);
+  const pinHidden = pinHiddenFor !== null && urgent.every((a) => pinHiddenFor.split("|").includes(a.key));
+  const pinShown = urgentOff && !pinHidden;
 
 
   /** Under a scrolling list: how many more are below. */
@@ -1327,7 +1345,7 @@ export function OperationsTab({
           Zero height in the page, so it never pushes anything down. */}
       {urgent.length > 0 && (
         <div style={{ position: "sticky", top: 8, height: 0, zIndex: 60 }}>
-          <div className={`sw-pin${urgentOff ? " is-on" : ""}`} aria-hidden={!urgentOff} inert={!urgentOff}
+          <div className={`sw-pin${pinShown ? " is-on" : ""}`} aria-hidden={!pinShown} inert={!pinShown}
             style={{ background: cBg, border: "1px solid #e5484d66", borderLeft: `3px solid ${TONE.red}`, borderRadius: 12 }}>
             <Icon name={urgent[0].icon} size={15} style={{ color: TONE.red, flexShrink: 0 }} />
             <span style={{ color: TONE.red, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>Do these first · {urgent.length}</span>
@@ -1336,6 +1354,10 @@ export function OperationsTab({
             <button type="button" className="sw-pin__up" aria-label="Back to Do these first"
               onClick={() => urgentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
               <Icon name="chevron-up" size={18} />
+            </button>
+            <button type="button" className="sw-pin__up" aria-label="Hide this bar" title="Hide this bar (it comes back when a new urgent task appears)"
+              onClick={() => setPinHiddenFor(urgentKeys)}>
+              <Icon name="x" size={16} />
             </button>
           </div>
         </div>
@@ -1462,7 +1484,7 @@ export function OperationsTab({
             inside the rail instead of running off the bottom of it. */}
         {/* While the pinned "Do these first" bar is showing, the inbox sits
             below it (the bar is 52px + 8px off the top) instead of under it. */}
-        <aside style={{ minWidth: 0, position: mob ? "static" : "sticky", top: urgentOff && !mob ? 72 : 0, alignSelf: "start", maxHeight: mob ? undefined : urgentOff ? "calc(100dvh - 212px)" : "calc(100dvh - 140px)", display: "flex", flexDirection: "column", gap: 20, transition: "top .35s cubic-bezier(.22, 1, .36, 1), max-height .35s cubic-bezier(.22, 1, .36, 1)" }}>
+        <aside style={{ minWidth: 0, position: mob ? "static" : "sticky", top: pinShown && !mob ? 72 : 0, alignSelf: "start", maxHeight: mob ? undefined : pinShown ? "calc(100dvh - 212px)" : "calc(100dvh - 140px)", display: "flex", flexDirection: "column", gap: 20, transition: "top .35s cubic-bezier(.22, 1, .36, 1), max-height .35s cubic-bezier(.22, 1, .36, 1)" }}>
           <GuestMessagesPanel
             messages={customerMessages}
             mob={mob}
@@ -1479,6 +1501,7 @@ export function OperationsTab({
       </div>
 
       {/* ── The module tools each button opens ── */}
+      {viewReq && <CancelRequestModal message={viewReq} onClose={() => setViewReq(null)} onOpenBooking={(id) => { const bk = bookings.find((x) => x.id === id); if (bk) go("details", bk); }} />}
       {open?.kind === "move" && current && (
         <MoveBookingModal
           booking={current}

@@ -158,4 +158,40 @@ describe("booking with a GCash receipt", () => {
     expect(sample.status).toBe(400);
     expect(mockDb.rows("bookings")).toHaveLength(1);
   });
+
+  it("a guest who cancels before the check leaves the receipt for staff to settle", async () => {
+    const r = await json(await book(req("http://localhost/api/payment-proofs", { draft: draft(), proof: IMG, ocr: OCR("1012345678902") })));
+    const id = r.body.booking.id;
+    mockDb.rows("bookings")[0].status = "Cancelled";
+    const proofId = mockDb.rows("payment_proofs")[0].id;
+    const ctx = { params: Promise.resolve({ id: String(proofId) }) };
+
+    // Still in the queue, flagged.
+    const q = await json(await queue(new NextRequest("http://localhost/api/payment-proofs", { headers: { cookie: admin() } })));
+    expect(q.body.proofs[0]).toMatchObject({ bookingId: id, cancelled: true });
+
+    // Confirming isn't possible; settling is.
+    expect((await decide(req(`http://localhost/api/payment-proofs/${proofId}`, { action: "Downpayment" }, admin()), ctx)).status).toBe(409);
+    const d = await json(await decide(req(`http://localhost/api/payment-proofs/${proofId}`, { action: "Kept" }, admin()), ctx));
+    expect(d.status).toBe(200);
+    expect(d.body.amount).toBe(200);
+    expect(mockDb.rows("payments")[0]).toMatchObject({ booking_id: id, method: "GCash", amount: 200, type: "Downpayment" });
+    expect(mockDb.rows("payment_proofs")[0]).toMatchObject({ status: "Approved", approved_as: "Downpayment" });
+    // The booking stays cancelled.
+    expect(mockDb.rows("bookings")[0].status).toBe("Cancelled");
+  });
+
+  it("no payment found closes the receipt and records nothing", async () => {
+    await book(req("http://localhost/api/payment-proofs", { draft: draft(), proof: IMG, ocr: OCR("1012345678903") }));
+    mockDb.rows("bookings")[0].status = "Cancelled";
+    const proofId = mockDb.rows("payment_proofs")[0].id;
+    const d = await decide(req(`http://localhost/api/payment-proofs/${proofId}`, { action: "NoPayment" }, admin()), { params: Promise.resolve({ id: String(proofId) }) });
+    expect(d.status).toBe(200);
+    expect(mockDb.rows("payments")).toHaveLength(0);
+    expect(mockDb.rows("payment_proofs")[0].status).toBe("Rejected");
+    // Settling only applies to a cancelled booking.
+    mockDb.rows("bookings")[0].status = "Pending";
+    mockDb.rows("payment_proofs")[0].status = "Submitted";
+    expect((await decide(req(`http://localhost/api/payment-proofs/${proofId}`, { action: "Kept" }, admin()), { params: Promise.resolve({ id: String(proofId) }) })).status).toBe(409);
+  });
 });

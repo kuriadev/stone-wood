@@ -12,6 +12,13 @@
 // Confirming records the money in the payments ledger (method GCash, the
 // receipt's reference), confirms the booking and emails the guest their
 // confirmation with the Booking ID.
+//
+// When the guest cancelled before staff checked the receipt, the booking
+// stays Cancelled and only the money is settled (owner's rule, 2026-11-19):
+//
+//   Kept         the money arrived: it is recorded as received and kept
+//                under the no-refund policy (the booking reads "Forfeited")
+//   NoPayment    nothing arrived: the receipt is closed, nothing recorded
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin, rowToBooking } from "@/lib/supabase";
@@ -41,7 +48,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const { id } = await params;
   const body = (await readJson(req).catch(() => null)) as Record<string, unknown> | null;
   const action = String(body?.action ?? "");
-  if (!["Downpayment", "Full", "Reject"].includes(action)) return no("Choose confirm partial, confirm full or reject.");
+  if (!["Downpayment", "Full", "Reject", "Kept", "NoPayment"].includes(action)) return no("Choose confirm partial, confirm full or reject.");
   const reason = String(body?.reason ?? "").replace(/[<>]/g, "").trim().slice(0, 300);
   if (action === "Reject" && reason.length < 3) return no("Tell the guest why the payment couldn't be verified.");
 
@@ -60,9 +67,42 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (bRow.error) throw new Error(bRow.error.message);
     if (!bRow.data) return no("The booking for this receipt no longer exists.", 404);
     const b = rowToBooking(bRow.data as BookingRow);
-    if (b.status === "Cancelled" || b.status === "ResortCancelled") return no("This booking was cancelled.", 409);
-
     const now = new Date().toISOString();
+
+    // ── The guest cancelled before the receipt was checked ──
+    if (action === "Kept" || action === "NoPayment") {
+      if (b.status !== "Cancelled") return no("Only a receipt for a booking the guest cancelled is settled this way.", 409);
+      const kept = action === "Kept";
+      const claim = await db.from("payment_proofs")
+        .update({ status: kept ? "Approved" : "Rejected", reviewed_at: now, reviewed_by: by, approved_as: kept ? proof.pay_choice : null, reject_reason: kept ? null : "Guest cancelled; no payment found in GCash." })
+        .eq("id", proof.id).eq("status", "Submitted").select("id").maybeSingle();
+      if (claim.error) throw new Error(claim.error.message);
+      if (!claim.data) return no("Someone already decided on this receipt.", 409);
+      const amount = round2(Number(proof.amount_due));
+      if (kept && amount > 0) {
+        const pay = await db.from("payments").insert({
+          booking_id: b.id, guest_name: b.name,
+          type: proof.pay_choice === "Full" ? "Full" : "Downpayment",
+          method: "GCash", amount,
+          reference: proof.reference ?? `proof-${proof.id}`,
+          notes: `GCash receipt checked by ${by}. The guest cancelled, so it is kept under the no-refund policy.`,
+        });
+        if (pay.error) {
+          await db.from("payment_proofs").update({ status: "Submitted", reviewed_at: null, reviewed_by: null, approved_as: null, reject_reason: null }).eq("id", proof.id);
+          throw new Error(pay.error.message);
+        }
+      }
+      await logActivity({
+        actor: "Admin", action: kept ? "booking.proof_kept_after_cancel" : "booking.proof_none_after_cancel", bookingId: b.id, entity: "booking", entityId: b.id,
+        summary: kept
+          ? `${by} found ${fmt(amount)} by GCash for ${b.id}, which the guest cancelled. Recorded as received and kept (no refund).`
+          : `${by} found no GCash payment for ${b.id}, which the guest cancelled. Nothing recorded.`,
+        details: { proofId: proof.id, amount: kept ? amount : 0, reference: proof.reference },
+      });
+      return NextResponse.json({ success: true, amount: kept ? amount : 0 });
+    }
+
+    if (b.status === "Cancelled" || b.status === "ResortCancelled") return no("This booking was cancelled.", 409);
     // Claim it, so two staff can't both decide.
     const claim = await db.from("payment_proofs")
       .update({ status: action === "Reject" ? "Rejected" : "Approved", reviewed_at: now, reviewed_by: by, approved_as: action === "Reject" ? null : action, reject_reason: action === "Reject" ? reason : null })

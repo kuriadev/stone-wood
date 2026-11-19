@@ -1,8 +1,8 @@
-/* A guest cancels their own booking any time before check-in, even on the
- * day, with no proof and no approval; staff get a "Booking Cancelled"
- * notice in Guest Messages (owner's rule, 2026-11-19). Emergency requests
- * that were already sent can still be approved or declined
- * (lib/emergency.ts). */
+/* Online cancelling closes 2 days before the visit (owner, 2026-11-19).
+ * Two or more days ahead it is instant and staff get a "Booking Cancelled"
+ * notice. Closer than that the guest sends a cancellation request (stored
+ * as "Emergency") with a reason and optional proof; once staff approve it,
+ * the guest can cancel online (lib/emergency.ts). */
 
 import { NextRequest } from "next/server";
 import { FakeDb } from "../helpers/fakeDb";
@@ -68,7 +68,15 @@ beforeEach(() => {
   mails.length = 0;
 });
 
-it("cancels at once inside the window, and leaves staff a Booking Cancelled notice", async () => {
+it("won't cancel online inside the window without an approved request", async () => {
+  const res = await cancel(guest("cancel", { email: "ana@example.com" }), ctx);
+  expect(res.status).toBe(409);
+  expect((await res.json()).error).toMatch(/cancellation request/);
+  expect(mockDb.tables.bookings[0].status).toBe("Confirmed");
+});
+
+it("cancels at once 2 or more days ahead, and leaves staff a Booking Cancelled notice", async () => {
+  mockDb.tables.bookings = [row({ date: "2026-11-20" })];
   mockDb.seed("payment_proofs", [{ id: 1, booking_id: "NT-1", status: "Submitted" }]);
   const res = await cancel(guest("cancel", { email: "ana@example.com", reason: "Change of plans" }), ctx);
   expect(res.status).toBe(200);
@@ -77,37 +85,46 @@ it("cancels at once inside the window, and leaves staff a Booking Cancelled noti
   expect(mockDb.tables.customer_messages).toHaveLength(1);
   expect(mockDb.tables.customer_messages[0]).toMatchObject({ type: "Cancellation", booking_id: "NT-1", email: "ana@example.com" });
   expect(String(mockDb.tables.customer_messages[0].message)).toContain("Reason: Change of plans");
-  // The receipt waiting to be checked leaves the queue.
-  expect(mockDb.tables.payment_proofs[0].status).toBe("Replaced");
+  // The receipt stays in the queue: staff still settle the money.
+  expect(mockDb.tables.payment_proofs[0].status).toBe("Submitted");
   // A second click finds it cancelled already.
   expect((await cancel(guest("cancel", { email: "ana@example.com" }), ctx)).status).toBe(409);
 });
 
 it("doesn't need a reason", async () => {
+  mockDb.tables.bookings = [row({ date: "2026-11-20" })];
   const res = await cancel(guest("cancel", { email: "ana@example.com" }), ctx);
   expect(res.status).toBe(200);
   expect(String(mockDb.tables.customer_messages[0].message)).toContain("No reason given.");
 });
 
 it("can't cancel once checked in, or after the date", async () => {
-  mockDb.tables.bookings = [row({ date: "2026-11-10", checked_in_at: "2026-11-10T07:30:00+08:00" })];
+  mockDb.tables.bookings = [row({ date: "2026-11-20", checked_in_at: "2026-11-10T07:30:00+08:00" })];
   expect((await cancel(guest("cancel", { email: "ana@example.com" }), ctx)).status).toBe(409);
   mockDb.tables.bookings = [row({ date: "2026-11-09" })];
   expect((await cancel(guest("cancel", { email: "ana@example.com" }), ctx)).status).toBe(409);
 });
 
-it("saves an emergency request with proof to Guest Messages, once", async () => {
-  expect((await emergency(guest("emergency", { email: "ana@example.com", message: story, files: [] }), ctx)).status).toBe(400);
+it("saves a cancellation request to Guest Messages, once; proof is optional", async () => {
+  // A reason is required.
+  expect((await emergency(guest("emergency", { email: "ana@example.com", message: "too short", files: [] }), ctx)).status).toBe(400);
   const res = await emergency(guest("emergency", { email: "ana@example.com", message: story, files: [photo] }), ctx);
   expect(res.status).toBe(200);
   const saved = mockDb.tables.customer_messages;
   expect(saved).toHaveLength(1);
   expect(saved[0]).toMatchObject({ type: "Emergency", booking_id: "NT-1", attachment_count: 1, email: "ana@example.com" });
-  expect(mails.some((m) => /Emergency request · NT-1/.test(m.subject))).toBe(true);
+  expect(String(saved[0].message)).toMatch(/^Cancellation request for NT-1/);
+  expect(mails.some((m) => /Cancellation request · NT-1/.test(m.subject))).toBe(true);
   // A second one waits for the first answer.
   expect((await emergency(guest("emergency", { email: "ana@example.com", message: story, files: [photo] }), ctx)).status).toBe(409);
   // A wrong email finds nothing.
   expect((await emergency(guest("emergency", { email: "x@example.com", message: story, files: [photo] }), ctx)).status).toBe(404);
+});
+
+it("takes a request with no proof attached", async () => {
+  const res = await emergency(guest("emergency", { email: "ana@example.com", message: story }), ctx);
+  expect(res.status).toBe(200);
+  expect(mockDb.tables.customer_messages[0]).toMatchObject({ type: "Emergency", attachment_count: 0 });
 });
 
 it("isn't needed outside the window", async () => {
@@ -115,7 +132,25 @@ it("isn't needed outside the window", async () => {
   expect((await emergency(guest("emergency", { email: "ana@example.com", message: story, files: [photo] }), ctx)).status).toBe(409);
 });
 
-it("lets staff see the proof and approve it, emailing the guest", async () => {
+it("once approved, the guest can cancel inside the window", async () => {
+  await emergency(guest("emergency", { email: "ana@example.com", message: story }), ctx);
+  const id = mockDb.tables.customer_messages[0].id as number;
+  expect((await cancel(guest("cancel", { email: "ana@example.com" }), ctx)).status).toBe(409);
+  expect((await decide(staff("PATCH", id, "FrontDesk", { decision: "Approved" }))).status).toBe(200);
+  const res = await cancel(guest("cancel", { email: "ana@example.com" }), ctx);
+  expect(res.status).toBe(200);
+  expect(mockDb.tables.bookings[0].status).toBe("Cancelled");
+});
+
+it("a declined request keeps the booking", async () => {
+  await emergency(guest("emergency", { email: "ana@example.com", message: story }), ctx);
+  const id = mockDb.tables.customer_messages[0].id as number;
+  expect((await decide(staff("PATCH", id, "FrontDesk", { decision: "Declined", note: "No proof of the emergency." }))).status).toBe(200);
+  expect((await cancel(guest("cancel", { email: "ana@example.com" }), ctx)).status).toBe(409);
+  expect(mockDb.tables.bookings[0].status).toBe("Confirmed");
+});
+
+it("lets staff see the proof and approve it, emailing the guest what they can do now", async () => {
   await emergency(guest("emergency", { email: "ana@example.com", message: story, files: [photo] }), ctx);
   const id = mockDb.tables.customer_messages[0].id as number;
   const got = await (await proofOf(staff("GET", id, "FrontDesk"))).json();
@@ -127,6 +162,8 @@ it("lets staff see the proof and approve it, emailing the guest", async () => {
   expect(mockDb.tables.customer_messages[0]).toMatchObject({ resolution: "Approved", resolved_by: "Bea" });
   expect(mails[0].to).toBe("ana@example.com");
   expect(mails[0].html).toContain("approved");
+  expect(mails[0].subject).toMatch(/Your cancellation request/);
+  expect(mails[0].html).toContain("Cancel your booking");
   expect((await decide(staff("PATCH", id, "FrontDesk", { decision: "Declined", note: "Too late" }))).status).toBe(409);
 });
 
@@ -138,9 +175,9 @@ it("needs a reason to decline", async () => {
   expect(mockDb.tables.customer_messages[0].resolution).toBe("Declined");
 });
 
-it("lets the guest cancel online on any day up to the visit, today included", async () => {
+it("lets the guest cancel online only 2 or more days before the visit", async () => {
   // Today is Nov 10. The visit is today, tomorrow, in 2 days or on Nov 20.
-  for (const [date, status] of [["2026-11-10", 200], ["2026-11-11", 200], ["2026-11-12", 200], ["2026-11-20", 200]] as const) {
+  for (const [date, status] of [["2026-11-10", 409], ["2026-11-11", 409], ["2026-11-12", 200], ["2026-11-20", 200]] as const) {
     mockDb.tables.bookings = [row({ date })];
     const res = await cancel(guest("cancel", { email: "ana@example.com" }), ctx);
     expect([date, res.status]).toEqual([date, status]);

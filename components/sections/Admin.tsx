@@ -283,7 +283,7 @@ export function Admin({
      was not shown. */
   const CS_LABELS: Record<string, string> = {
     Inquiry: "Question", Feedback: "Feedback", Complaint: "Concern",
-    Refund: "Request for Refund", Emergency: "Emergency request", Cancellation: "Booking Cancelled", Suggestion: "Suggestion", Other: "Other",
+    Refund: "Request for Refund", Emergency: "Cancellation request", Cancellation: "Booking Cancelled", Suggestion: "Suggestion", Other: "Other",
   };
   /* The three a guest can send from the Customer Service form. These always
      show, even at zero, so the row reads as a set of filters rather than

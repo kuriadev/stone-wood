@@ -107,7 +107,7 @@ export function termsDocs(): TermsDoc[] {
             "Your name, email address and mobile number.",
             "Your booking: dates, stay, guests and children, rooms, package, notes and its history.",
             "Payments: amounts, method, the GCash reference number and the receipt you upload as proof of payment (seen only by resort staff). We never see or keep your e-wallet login, PIN or card number.",
-            "Messages you send us, and any proof you attach to an emergency request.",
+            "Messages you send us, and any proof you attach to a cancellation request.",
             "A record of changes made to your booking, and which staff member made them.",
           ],
         },

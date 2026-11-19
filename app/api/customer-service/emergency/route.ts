@@ -19,6 +19,7 @@ import { sanitizeNotes } from "@/lib/validators";
 import { ensureSettings } from "@/lib/settings.server";
 import { fmtDate } from "@/lib/utils";
 import { EMERGENCY_TYPE } from "@/lib/emergency";
+import { guestLinkFor } from "@/lib/rebooking.server";
 
 import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
@@ -60,13 +61,16 @@ export async function PATCH(req: NextRequest) {
     if (cur.error) throw new Error(cur.error.message);
     const m = cur.data as { id: number; name: string; email: string; type: string; booking_id: string | null; resolution: string | null } | null;
     if (!m) return no("That message no longer exists.", 404);
-    if (m.type !== EMERGENCY_TYPE) return no("Only an emergency request can be approved or declined.");
+    if (m.type !== EMERGENCY_TYPE) return no("Only a cancellation request can be approved or declined.");
     if (m.resolution) return no(`This request was already ${m.resolution.toLowerCase()}.`, 409);
 
     let bookingDate = "";
+    let link = "";
     if (m.booking_id) {
-      const bk = await db.from("bookings").select("date").eq("id", m.booking_id).maybeSingle();
-      bookingDate = (bk.data as { date?: string } | null)?.date ?? "";
+      const bk = await db.from("bookings").select("id,date,email").eq("id", m.booking_id).maybeSingle();
+      const row = bk.data as { id?: string; date?: string; email?: string } | null;
+      bookingDate = row?.date ?? "";
+      if (row?.id && row.email) link = guestLinkFor({ id: row.id, email: row.email });
     }
 
     const session = sessionOf(req);
@@ -82,15 +86,15 @@ export async function PATCH(req: NextRequest) {
     const ref = m.booking_id ?? "your booking";
     const when = bookingDate ? ` on ${fmtDate(bookingDate)}` : "";
     const text = decision === "Approved"
-      ? `Hello ${m.name},\n\nWe've reviewed your emergency request for ${ref}${when}, and it's approved. We're sorry for what happened.\n\nYour booking will be moved to another free date at no charge, and everything you paid carries over. Reply to this email with the dates that work for you, or we'll contact you to agree on one.${note ? `\n\n${note}` : ""}\n\nTake care,\nStonewood Garden Private Resort`
-      : `Hello ${m.name},\n\nWe've reviewed your emergency request for ${ref}${when}. We're sorry, but we couldn't approve it.\n\n${note}\n\nYour booking stays as it is. If you have more proof to share, reply to this email.\n\nStonewood Garden Private Resort`;
-    const mail = buildMessageReplyEmail(`Your emergency request – ${ref}: ${decision.toLowerCase()}`, text);
+      ? `Hello ${m.name},\n\nWe've reviewed your cancellation request for ${ref}${when}, and it's approved. We're sorry for what happened.\n\nYou can now do either of these from Manage booking:\n• Cancel your booking. Payments already made are not refunded.\n• Or move it to another free date at no charge, and everything you paid carries over.${link ? `\n\nOpen your booking: ${link}` : ""}${note ? `\n\n${note}` : ""}\n\nTake care,\nStonewood Garden Private Resort`
+      : `Hello ${m.name},\n\nWe've reviewed your cancellation request for ${ref}${when}. We're sorry, but we couldn't approve it.\n\n${note}\n\nYour booking stays as it is. If you have more proof to share, reply to this email.\n\nStonewood Garden Private Resort`;
+    const mail = buildMessageReplyEmail(`Your cancellation request – ${ref}: ${decision.toLowerCase()}`, text);
     const emailed = await trySendMail({ to: m.email, subject: mail.subject, html: mail.html }, `emergency ${decision.toLowerCase()}`);
 
     await logActivity({
       actor: "Admin", action: decision === "Approved" ? "message.emergency_approved" : "message.emergency_declined",
       bookingId: m.booking_id ?? undefined, entity: "customer_message", entityId: id,
-      summary: `${by} ${decision.toLowerCase()} ${m.name}'s emergency request for ${ref}.${note ? ` Note: ${note}` : ""}`,
+      summary: `${by} ${decision.toLowerCase()} ${m.name}'s cancellation request for ${ref}.${note ? ` Note: ${note}` : ""}`,
     });
     return NextResponse.json({ success: true, resolution: decision, resolutionNote: note || undefined, resolvedAt: at, resolvedBy: by, emailed });
   } catch (err) {

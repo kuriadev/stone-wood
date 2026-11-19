@@ -28,18 +28,19 @@ import { SettleModal } from "@/components/admin/InspectionModals";
 import { RecordPaymentModal } from "@/components/admin/RecordPaymentModal";
 import { Closing } from "@/components/admin/SalesTab";
 import { Icon, type IconName } from "@/components/common/Icon";
-import { unclosedDays } from "@/lib/operations";
+import { unclosedDays, openCancelRequests } from "@/lib/operations";
+import { CancelRequestModal, requestReason } from "@/components/admin/CancelRequestModal";
 import { bookingMoney, manilaDate, livePayments, liveExpenses } from "@/lib/finance";
 import { fmt, fmtDate, getBookingSlot, bookingEndDate } from "@/lib/utils";
 import { SLOTS } from "@/lib/resort";
-import type { AdminTab } from "@/types/admin";
+import type { AdminTab, CustomerMessage } from "@/types/admin";
 import type { Booking } from "@/types/booking";
 
 type Group = "money" | "counter" | "guests";
 const GROUP: Record<Group, { title: string; hint: string; color: string; stat: string }> = {
   money: { title: "Money", hint: "Balances to collect and days to close. The super admin sees every peso you record.", color: "#f5a524", stat: "Money" },
   counter: { title: "At the counter", hint: "Arrivals to check in and walk-ins still to pay.", color: "#3e8ed0", stat: "Counter" },
-  guests: { title: "Guests", hint: "Messages waiting for an answer.", color: "#2e9e4e", stat: "Messages" },
+  guests: { title: "Guests", hint: "Cancellation requests to answer, and messages waiting for a reply.", color: "#2e9e4e", stat: "Messages" },
 };
 
 interface Task {
@@ -56,6 +57,8 @@ interface Task {
 export function FrontDeskTasks({ mob, onGoTab }: { mob: boolean; onGoTab?: (t: AdminTab) => void }) {
   const { C, cBr, cBg } = useAdminStyle();
   const { bookings, customerMessages, facilities } = useApp();
+  /** The cancellation request open in the View window. */
+  const [viewReq, setViewReq] = useState<CustomerMessage | null>(null);
   const ops = useOps();
   const { toast } = useToast();
   const [settling, setSettling] = useState<Booking | null>(null);
@@ -140,8 +143,17 @@ export function FrontDeskTasks({ mob, onGoTab }: { mob: boolean; onGoTab?: (t: A
     });
   }
 
-  // ── Guests: the inbox ──
-  const inbox = customerMessages.filter((m) => !m.archivedAt);
+  // ── Guests: cancellation requests first (urgent), then the inbox ──
+  for (const m of openCancelRequests(customerMessages)) {
+    const b = bookings.find((x) => x.id === m.bookingId);
+    tasks.push({
+      key: `creq-${m.id}`, group: "guests", icon: "shield-alert",
+      title: `Cancellation request from ${m.name}`,
+      detail: `${b ? `${b.id} · ${fmtDate(b.date)} · ` : ""}${requestReason(m).slice(0, 120) || "No reason given."}`,
+      action: <ActionButton size="sm" kind="primary" icon="eye" onClick={() => setViewReq(m)}>View</ActionButton>,
+    });
+  }
+  const inbox = customerMessages.filter((m) => !m.archivedAt && !(m.type === "Emergency" && !m.resolution));
   if (inbox.length) {
     tasks.push({
       key: "inbox", group: "guests", icon: "message",
@@ -177,6 +189,7 @@ export function FrontDeskTasks({ mob, onGoTab }: { mob: boolean; onGoTab?: (t: A
 
   return (
     <div>
+      {viewReq && <CancelRequestModal message={viewReq} onClose={() => setViewReq(null)} />}
       <AdminPageHeader title="My Tasks" mob={mob}
         subtitle="The counter's work: money to collect, days to close, arrivals to check in. Preparing and inspecting are the caretakers'." />
 

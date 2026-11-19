@@ -12,6 +12,18 @@
 
 export const EMERGENCY_TYPE = "Emergency";
 
+/** What guests and staff read for an "Emergency" message (owner, 2026-11-19).
+ *  Inside the notice window a guest can't cancel online; a last-minute
+ *  "Cancellation request" goes to the resort instead, with a reason and
+ *  proof, and is treated as an emergency. The stored type stays "Emergency"
+ *  so older messages keep working. */
+export const CANCEL_REQUEST_LABEL = "Cancellation request";
+
+/** Where a booking's latest cancellation request stands, for Manage booking.
+ *  "Approved" unlocks cancelling and changing the date online, even inside
+ *  the notice window. */
+export type CancelRequestState = { status: "Pending" | "Approved" | "Declined"; note: string | null; sentAt: string } | null;
+
 /** A guest cancelled their booking from Manage booking (owner's rule,
  *  2026-11-19): the booking is cancelled straight away, no approval, and
  *  this message tells staff it happened and why. Notification only: Guest
@@ -32,9 +44,11 @@ export type ProofFile = { name: string; type: string; data: string };
 
 const OK_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
-/** Why these files can't be sent, or null. */
+/** Why these files can't be sent, or null. Proof is optional (owner,
+ *  2026-11-19): a reason is required, a picture helps staff decide. */
 export function proofProblem(files: unknown): string | null {
-  if (!Array.isArray(files) || files.length === 0) return "Attach at least one photo or PDF of your proof.";
+  if (files === undefined || files === null || (Array.isArray(files) && files.length === 0)) return null;
+  if (!Array.isArray(files)) return "One of the files couldn't be read. Attach it again.";
   if (files.length > PROOF_MAX_FILES) return `Attach at most ${PROOF_MAX_FILES} files.`;
   let total = 0;
   for (const f of files as Partial<ProofFile>[]) {

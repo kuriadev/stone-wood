@@ -38,6 +38,12 @@ import type { CustomerMessage } from "@/types/admin";
  *  message in Guest Messages clears it sooner. */
 export const GUEST_CANCEL_NOTICE_HOURS = 72;
 
+/** Cancellation requests waiting for staff (an "Emergency" message with no
+ *  decision, still in the inbox): urgent, the visit is days away at most. */
+export function openCancelRequests(messages: CustomerMessage[]): CustomerMessage[] {
+  return messages.filter((m) => m.type === "Emergency" && !m.resolution && !m.archivedAt);
+}
+
 /** Guests who cancelled their booking themselves (a "Cancellation" message,
  *  /api/bookings/[id]/cancel), still in the inbox and recent. A notice only:
  *  the booking is cancelled already. */
@@ -425,6 +431,9 @@ export function attentionTally(args: {
 
   // One reminder for everything at or under its minimum.
   if (lowStock(inventory).length > 0) add(false);
+
+  // One per cancellation request waiting for an answer (urgent).
+  for (let i = openCancelRequests(messages).length; i > 0; i--) add(true);
 
   // One per guest who cancelled their own booking.
   for (let i = guestCancelNotices(messages, now).length; i > 0; i--) add(false);

@@ -376,15 +376,15 @@ export function buildGuestCancelAlert(m: { id: string; name: string; email: stri
   };
 }
 
-/** An emergency request with proof, from Manage booking. */
+/** A last-minute cancellation request (an emergency) with proof, from Manage booking. */
 export function buildEmergencyAlert(m: { id: string; name: string; email: string; date: string; message: string; files: number }): MailOut {
   return {
-    subject: `Emergency request · ${m.id} · ${fmtDate(m.date)}`,
+    subject: `Cancellation request · ${m.id} · ${fmtDate(m.date)}`,
     html: shell(
-      "A guest sent an emergency request",
+      "A guest sent a cancellation request",
       `${m.name} (${m.email}) can't make ${m.id} on ${fmtDate(m.date)} and sent ${m.files} proof file${m.files === 1 ? "" : "s"}.`,
       section("What happened", [escapeHtml(m.message.slice(0, 600))]) +
-        section("What to do", ["Open Guest Messages: look at the proof, then approve or decline it."]),
+        section("What to do", ["Open the Dashboard (Do these first) or Guest Messages: look at the reason and the proof, then approve or decline it."]),
       "#e0a020",
     ),
   };

@@ -34,3 +34,15 @@ describe("paidAs (Pending proof of payment)", () => {
     expect(paidAs(p("Downpayment", []))).toBe("Downpayment");
   });
 });
+
+describe("openCancelRequests (Do these first, My Tasks)", () => {
+  it("lists cancellation requests still waiting for an answer", () => {
+    const { openCancelRequests } = jest.requireActual("@/lib/operations") as typeof import("@/lib/operations");
+    expect(openCancelRequests([
+      msg({ id: 1, type: "Emergency" }),
+      msg({ id: 2, type: "Emergency", resolution: "Approved" }),
+      msg({ id: 3, type: "Emergency", archivedAt: "2026-11-19T11:00:00+08:00" }),
+      msg({ id: 4, type: "Inquiry" }),
+    ]).map((m) => m.id)).toEqual([1]);
+  });
+});

@@ -25,6 +25,7 @@ import type { BookingRow, PaymentRow, DateChangeRow } from "@/types/database";
 import type { Booking } from "@/types/booking";
 
 import { readJson } from "@/lib/readJson";
+import { cancelRequestFor } from "@/lib/emergency.server";
 export const dynamic = "force-dynamic";
 
 const STATUSES = ["Pending", "Confirmed", "Completed", "Cancelled", "ResortCancelled"] as const;
@@ -110,6 +111,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
         .filter((d) => !d.voided)
         .map((d) => ({ item: d.item_name, quantity: d.quantity, amount: Number(d.amount), facility: d.facility_name })),
       changesLeft: Math.max(0, GUEST_CHANGES_ALLOWED - used),
+      cancelRequest: await cancelRequestFor(booking.id),
       today: manilaDate(),
     });
   } catch (err) {
