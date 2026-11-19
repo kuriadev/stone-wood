@@ -21,7 +21,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAdminStyle, ActionButton, ErrorNote, Label, Modal, ConfirmDialog } from "@/components/admin/ui";
 import { Textarea } from "@/components/ui/textarea";
-import { Icon } from "@/components/common/Icon";
+import { Icon, type IconName } from "@/components/common/Icon";
 import { useApp } from "@/contexts/AppContext";
 import { useOps } from "@/contexts/OpsContext";
 import { useStaff } from "@/contexts/StaffContext";
@@ -166,16 +166,32 @@ export function ProofQueue({ mob }: { mob: boolean }) {
                   <span style={{ color: C.textS, fontSize: 11.5, whiteSpace: "nowrap" }}>{ago(p.submittedAt)}</span>
                 </div>
 
-                <div style={{ color: C.textB, fontSize: 12.5, lineHeight: 1.6 }}>
-                  {fmtDate(b.date)} · {slot.label} ({slot.hours})<br />
-                  {headcountLabel(b.guests, b.children ?? 0)} · {b.package || "Booking"}<br />
-                  <span style={{ display: "inline-block", margin: "4px 0", padding: "2px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 700,
+                {/* The booking at a glance: one labelled row each, readable
+                    from arm's length (they were three small grey lines). */}
+                <dl style={{ margin: 0, display: "grid", gap: 8 }}>
+                  {([
+                    ["calendar", "Date", fmtDate(b.date)],
+                    ["clock", slot.label, slot.hours],
+                    ["users", "Guests", `${headcountLabel(b.guests, b.children ?? 0)} · ${b.package || "Booking"}`],
+                    ["phone", "Mobile", <a key="t" href={`tel:${b.contact}`} style={{ color: "inherit", textDecoration: "none" }}>{b.contact}</a>],
+                    ...(b.email ? [["mail", "Email", <a key="m" href={`mailto:${b.email}`} style={{ color: "inherit", textDecoration: "none" }}>{b.email}</a>]] : []),
+                  ] as [IconName, string, React.ReactNode][]).map(([icon, label, value]) => (
+                    <div key={label} style={{ display: "grid", gridTemplateColumns: "28px minmax(0, 1fr)", gap: 10, alignItems: "center" }}>
+                      <span aria-hidden style={{ width: 28, height: 28, borderRadius: 8, background: soft, display: "inline-flex", alignItems: "center", justifyContent: "center", color: C.goldInk }}>
+                        <Icon name={icon} size={14} />
+                      </span>
+                      <div style={{ minWidth: 0 }}>
+                        <dt style={{ color: C.textS, fontSize: 11, letterSpacing: 0.4, textTransform: "uppercase" }}>{label}</dt>
+                        <dd style={{ margin: 0, color: C.textH, fontSize: 14, fontWeight: 600, lineHeight: 1.4, overflowWrap: "anywhere" }}>{value}</dd>
+                      </div>
+                    </div>
+                  ))}
+                  <span style={{ justifySelf: "start", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700,
                     border: `1px solid ${getBookingTier(b) === "Exclusive" ? `${gold}88` : "#3e8ed088"}`, color: getBookingTier(b) === "Exclusive" ? C.goldInk : "#3e8ed0",
                     background: getBookingTier(b) === "Exclusive" ? `${gold}18` : "rgba(62,142,208,0.12)" }}>
                     {getBookingResource(b) === "Venue" ? "Events venue only" : tierLabel(getBookingTier(b))}{getBookingResource(b) === "Pool+Venue" ? " + events venue" : ""}
-                  </span><br />
-                  {b.contact}{b.email ? ` · ${b.email}` : ""}
-                </div>
+                  </span>
+                </dl>
 
                 <div style={{ background: soft, borderRadius: 10, padding: "10px 12px", display: "grid", gap: 4, fontSize: 13 }}>
                   <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textS }}>Amount to be paid</span><strong style={{ color: C.textH, fontSize: 16 }}>{fmt(p.amountDue)}</strong></div>
