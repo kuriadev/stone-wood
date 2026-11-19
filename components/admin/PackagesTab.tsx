@@ -365,7 +365,9 @@ export function PackagesTab({ packages, setPackages, rooms = [], mob }: Packages
     border: `1px solid ${on ? gold : cBr}`, background: on ? `${gold}14` : "transparent", color: on ? C.goldInk : C.textS,
   });
   const smallBadge: React.CSSProperties = { fontSize: 10.5, borderRadius: 20, padding: "4px 8px" };
-  const hotBadge: React.CSSProperties = { ...smallBadge, color: "#e2574c", border: "1px solid rgba(226,87,76,0.45)" };
+  /* Discounts read as a saving, in green (like the deal chips guests see on
+     the package cards), not red, which reads as a problem. */
+  const hotBadge: React.CSSProperties = { ...smallBadge, color: "#3fa65a", border: "1px solid rgba(76,175,80,0.5)", background: "rgba(76,175,80,0.10)" };
 
   /** One discount row: which part, % or ₱, how much, until when. */
   const dealRow = (part: PackageDealPart) => {

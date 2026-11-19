@@ -60,7 +60,7 @@ export const OPS_STAGES: { id: OpsStage; label: string; hint: string; color: str
   { id: "prepare", label: "To prepare", hint: "Confirmed and coming up. Preparation opens the day before each booking.", color: "#9a7bd0" },
   { id: "arriving", label: "Arriving", hint: "Due today. Check them in when the group arrives.", color: "#3a8fc4" },
   { id: "onsite", label: "On site", hint: "Checked in. Inspect the facilities, collect what's owed and check them out when they leave.", color: "#2e9e4e" },
-  { id: "settle", label: "Ready to close", hint: "Checked out. Collect any balance or damage fee, then close the booking.", color: "#e07a3a" },
+  { id: "settle", label: "Ready to close", hint: "Checked out. Collect any balance or damage fee.", color: "#e07a3a" },
   { id: "done", label: "Done today", hint: "Settled and completed today.", color: "#4a9fd4" },
 ];
 
@@ -124,7 +124,7 @@ export type TodayColumn = "arriving" | "onsite" | "settle";
 export const TODAY_COLUMNS: { id: TodayColumn; label: string; hint: string; empty: string; color: string }[] = [
   { id: "arriving", label: "Arriving", hint: "Check each group in when they arrive.", empty: "No one waiting to arrive.", color: "#3a8fc4" },
   { id: "onsite", label: "On site", hint: "As they leave: inspect, collect what's owed, done.", empty: "No groups on site.", color: "#2e9e4e" },
-  { id: "settle", label: "Ready to close", hint: "Checked out. Collect any balance or damage fee, then close the booking.", empty: "No bookings waiting to be closed.", color: "#e07a3a" },
+  { id: "settle", label: "Ready to close", hint: "Checked out. Collect any balance or damage fee.", empty: "No bookings waiting to be closed.", color: "#e07a3a" },
 ];
 
 function placeOf(stage: OpsStage, date: string, today: string): { view: OpsView; column: TodayColumn | null } {
