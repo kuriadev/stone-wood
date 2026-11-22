@@ -173,7 +173,7 @@ export function About({
   About{" "}
 </span>
 
-{/* STONEWOOD (gold shimmer reveal) */}
+{/* STONEWOOD: still, in gold (owner, 2026-11-22: don't animate it). */}
 <span
   style={{
     display: "inline-block",
@@ -184,15 +184,9 @@ export function About({
     // element's box, so without a little room on the right the lean of the
     // final "d" gets no paint even once the parent stops clipping it.
     paddingRight: "0.14em",
-    background:
-      "linear-gradient(120deg, #c9a84c 0%, #e8c97a 40%, #fff3c4 50%, #c9a84c 60%, #c9a84c 100%)",
-    backgroundSize: "200% auto",
+    background: "linear-gradient(120deg, #c9a84c 0%, #e8c97a 50%, #c9a84c 100%)",
     WebkitBackgroundClip: "text",
     WebkitTextFillColor: "transparent",
-    opacity: 0,
-    transform: "translateY(20px)",
-    animation:
-      "fadeSlideUp 0.8s ease forwards 0.25s, shimmer 2.5s linear 1s infinite",
   }}
 >
   Stonewood Garden
