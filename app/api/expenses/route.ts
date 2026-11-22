@@ -17,6 +17,14 @@ import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  // Expenses are not part of the system any more (owner, 2026-11-22: the
+  // title and objectives cover sales monitoring only). Ones recorded before
+  // stay, for past cash counts, and can still be undone.
+  void req;
+  return NextResponse.json({ success: false, error: "Expenses are no longer recorded in this system." }, { status: 410 });
+}
+
+async function _formerPost(req: NextRequest) {
   const denied = await requirePermission(req, "expenses.record");
   if (denied) return denied;
 

@@ -804,7 +804,7 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                     <div style={{ color: p.type === "Refund" ? "#e5484d" : C.textH, fontWeight: 600, textDecoration: p.voided ? "line-through" : "none" }}>{p.type === "Refund" ? "−" : ""}{fmt(p.amount)}</div>
                   </div>
                 ))}
-                {livePayments(pays).length > 0 && <p style={{ color: C.textS, fontSize: 12, marginTop: 8 }}>To correct a payment, undo it in Payments &amp; Expenses → Transactions.</p>}
+                {livePayments(pays).length > 0 && <p style={{ color: C.textS, fontSize: 12, marginTop: 8 }}>To correct a payment, undo it in Payments → Transactions.</p>}
 
                 {/* What the caretaker found and photographed. These used to
                     be only under Facilities & Inspections → Inspection

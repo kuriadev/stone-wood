@@ -38,12 +38,12 @@ import type { Booking, BookingSlot, BookingTier } from "@/types/booking";
 const SLOT_ORDER: BookingSlot[] = ["Day", "Night", "WholeDay"];
 
 /** The pool-access description, for one tier and one reservation type. */
-const poolNote = (exclusive: boolean, slotLabel: string): string =>
+const poolNote = (exclusive: boolean, _slotLabel: string): string =>
   exclusive
-    ? `The pool and resort are your group's alone for your ${slotLabel} — no other group, up to ${GUESTS_MAX} guests.`
-    : `Pool shared with other groups in your ${slotLabel} — billed per guest, up to ${GUESTS_MAX} guests in total.`;
+    ? `Just your group · flat price · up to ${GUESTS_MAX} guests`
+    : `Shared with other groups · per guest · up to ${GUESTS_MAX} guests`;
 
-const poolNoteStyle: CSSProperties = { fontSize: 12, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.5 * var(--hr-k, 1))))", margin: 0, lineHeight: 1.5 };
+const poolNoteStyle: CSSProperties = { fontSize: 13, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.72 * var(--hr-k, 1))))", margin: 0, lineHeight: 1.5 };
 
 /** Every description the pool-access block can show, to hold its height. */
 const POOL_SIZERS: string[] = SLOT_ORDER.flatMap((k) => [poolNote(true, SLOTS[k].label), poolNote(false, SLOTS[k].label)]);
@@ -160,13 +160,13 @@ export function HeroReservation({
     : "Choose a date";
 
   const rule = { height: 1, background: `rgba(201,168,76,${isDark ? "0.14" : "0.2"})` };
-  const label = { fontSize: 11, letterSpacing: 2.5, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.6 * var(--hr-k, 1))))" };
+  const label = { fontSize: 12, letterSpacing: 2, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.6 * var(--hr-k, 1))))" };
 
   const counter = (o: { title: string; sub: string; value: number; min: number; max: number; onChange: (n: number) => void; noun: string; locked?: boolean }) => (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
       <div>
         <p style={{ ...label, margin: "0 0 4px" }}>{o.title}</p>
-        <p style={{ fontSize: 12, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.55 * var(--hr-k, 1))))", margin: 0 }}>{o.sub}</p>
+        <p style={{ fontSize: 13, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.72 * var(--hr-k, 1))))", margin: 0 }}>{o.sub}</p>
       </div>
       <div
         role="group"
@@ -408,16 +408,18 @@ export function HeroReservation({
                       border: on ? `1px solid ${gold}55` : "1px solid transparent",
                       background: on ? `${gold}1f` : "transparent",
                       color: on ? "var(--hr-strong, #fff)" : "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.62 * var(--hr-k, 1))))",
-                      padding: "8px 4px", textAlign: "center",
+                      padding: "10px 4px", textAlign: "center",
                       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
                     }}
                   >
-                    <Icon name={SLOT_ICON[k]} size={17} style={{ color: on ? "var(--hr-gold, #c9a84c)" : "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.55 * var(--hr-k, 1))))" }} />
-                    <span style={{ fontSize: 13, fontWeight: on ? 600 : 400, lineHeight: 1.1 }}>
+                    {/* Icon, name, one word; the hours are in the line under
+                        the tiles (2026-11-22: "not cluttered"). */}
+                    <Icon name={SLOT_ICON[k]} size={22} style={{ color: on ? "var(--hr-gold, #c9a84c)" : "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.6 * var(--hr-k, 1))))" }} />
+                    <span style={{ fontSize: 14.5, fontWeight: on ? 700 : 500, lineHeight: 1.15 }}>
                       {SLOTS[k].label}
                     </span>
-                    <span style={{ fontSize: 11, color: on ? "var(--hr-gold, #c9a84c)" : "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.45 * var(--hr-k, 1))))", lineHeight: 1.1 }}>
-                      {SLOTS[k].hours}
+                    <span style={{ fontSize: 12, color: on ? "var(--hr-gold, #c9a84c)" : "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.6 * var(--hr-k, 1))))", lineHeight: 1.15 }}>
+                      {allowsMultiDay(k) ? `1–${MAX_STAY_DAYS} days` : k === "Day" ? "Daytime" : "Overnight"}
                     </span>
                   </button>
                 );
@@ -466,8 +468,8 @@ export function HeroReservation({
           {counter({
             title: "CHILDREN",
             sub: goesExclusive
-              ? `Private pool: children ${CHILD_FREE_AGE} years old and below are already free, no need to add them`
-              : `${CHILD_FREE_AGE} years old and below · ${fmt(childRateFor(slot))} each, counted in the ${GUESTS_MAX}`,
+              ? `${CHILD_FREE_AGE} and below · free with a private pool`
+              : `${CHILD_FREE_AGE} and below · ${fmt(childRateFor(slot))} each`,
             value: kids, min: 0, max: kidCap, onChange: setChildren, noun: "children", locked: goesExclusive,
           })}
 
@@ -479,8 +481,8 @@ export function HeroReservation({
                  its own is ~29px, so switching to a Staycation used to pull
                  everything below it up by the difference. */
               <div style={{ minHeight: 44, display: "flex", alignItems: "center" }}>
-                <p style={{ display: "inline-flex", alignItems: "center", gap: 6, margin: 0, padding: "6px 12px", borderRadius: 20, background: `${gold}22`, border: `1px solid ${gold}66`, color: "var(--hr-gold, #c9a84c)", fontSize: 11.5, fontWeight: 700, letterSpacing: 1 }}>
-                  <Icon name="lock" size={12} /> PRIVATE POOL — {SLOTS.WholeDay.label.toUpperCase()}
+                <p style={{ display: "inline-flex", alignItems: "center", gap: 6, margin: 0, padding: "7px 14px", borderRadius: 20, background: `${gold}22`, border: `1px solid ${gold}66`, color: "var(--hr-gold, #c9a84c)", fontSize: 14, fontWeight: 700 }}>
+                  <Icon name="lock" size={14} /> Private pool · {SLOTS.WholeDay.label}
                 </p>
               </div>
             ) : (
@@ -506,12 +508,17 @@ export function HeroReservation({
                         color: on ? "var(--hr-gold, #c9a84c)" : "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.85 * var(--hr-k, 1))))",
                         opacity: unavailable && !on ? 0.4 : 1,
                         cursor: unavailable && !on ? "not-allowed" : "pointer",
-                        fontSize: 11.5, fontWeight: 700, letterSpacing: 0.8,
-                        display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "6px 8px",
+                        fontSize: 14, fontWeight: 700, letterSpacing: 0.1,
+                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, padding: "8px 8px",
                       }}
                     >
-                      <Icon name={opt === "Exclusive" ? "lock" : "handshake"} size={12} />
-                      {opt === "Exclusive" ? "PRIVATE POOL" : "SHARED POOL"}{unavailable && !on ? " · NOT AVAILABLE" : tierChoice === null && opt === suggested ? " (SUGGESTED)" : ""}
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <Icon name={opt === "Exclusive" ? "lock" : "handshake"} size={15} />
+                        {opt === "Exclusive" ? "Private pool" : "Shared pool"}
+                      </span>
+                      {(unavailable && !on) || (tierChoice === null && opt === suggested) ? (
+                        <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.85 }}>{unavailable && !on ? "Not available" : "Suggested"}</span>
+                      ) : null}
                     </button>
                   );
                 })}

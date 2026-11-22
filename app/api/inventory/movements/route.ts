@@ -21,7 +21,6 @@
 // Without a cost (a delivery already paid for, a donation, stock found in
 // the storeroom) only the count goes up.
 
-import { payMethodLabel } from "@/lib/labels";
 import { NextResponse, type NextRequest } from "next/server";
 import { requirePermission } from "@/lib/auth";
 import { getSupabaseAdmin, rowToInventoryItem } from "@/lib/supabase";
@@ -29,13 +28,11 @@ import { recordMovements, rowToMovement, missingStockTable, type MovementRow } f
 import { logActivity } from "@/lib/activity.server";
 import { cleanText, parseAmount } from "@/lib/money";
 import { fmt } from "@/lib/utils";
-import { manilaDate } from "@/lib/finance";
-import type { InventoryRow, ExpenseRow } from "@/types/database";
+import type { InventoryRow } from "@/types/database";
 
 import { readJson } from "@/lib/readJson";
 export const dynamic = "force-dynamic";
 
-const METHODS = ["Cash", "GCash"] as const;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export async function GET(req: NextRequest) {
@@ -83,7 +80,7 @@ export async function POST(req: NextRequest) {
 
     let delta = 0;
     let summary = "";
-    let expenseId: number | null = null;
+    const expenseId: number | null = null;
     let unitCost: number | null = null;
 
     if (kind === "Counted") {
@@ -116,17 +113,10 @@ export async function POST(req: NextRequest) {
         } else {
           const cost = parseAmount(b.cost);
           if (cost === null) return NextResponse.json({ success: false, error: "The cost should be an amount greater than zero, or left blank." }, { status: 400 });
-          if (!METHODS.includes(b.method as (typeof METHODS)[number])) return NextResponse.json({ success: false, error: "Choose how it was paid." }, { status: 400 });
-          const reference = cleanText(b.reference, 80);
-          const description = `Bought ${qty} ${item.unit} ${item.name}${reference ? ` (ref ${reference})` : ""}`.slice(0, 200);
-          const exp = await db.from("expenses").insert({
-            category: item.category === "Pool & Chemicals" ? "Pool Maintenance" : "Supplies",
-            description, amount: cost, method: b.method, spent_on: manilaDate(),
-          }).select().single();
-          if (exp.error) throw new Error(exp.error.message);
-          expenseId = (exp.data as ExpenseRow).id;
+          // The price is kept on the stock line (cost each); no expense is
+          // recorded (expenses are not part of the system, 2026-11-22).
           unitCost = round2(cost / qty);
-          summary = `Added ${qty} ${item.unit} of ${item.name}, bought for ${fmt(cost)} (${payMethodLabel(String(b.method))}); recorded as an expense.`;
+          summary = `Added ${qty} ${item.unit} of ${item.name}, bought for ${fmt(cost)}.`;
         }
       }
     }

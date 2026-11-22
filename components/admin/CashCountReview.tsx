@@ -26,7 +26,6 @@ import { call, useOps } from "@/contexts/OpsContext";
 import { useToast } from "@/contexts/ToastContext";
 import { Modal, Label, ActionButton, AmountRow, ErrorNote, StatusBadge, useAdminStyle } from "@/components/admin/ui";
 import { RecordPaymentModal } from "@/components/admin/RecordPaymentModal";
-import { ExpenseModal } from "@/components/admin/SalesTab";
 import { Icon } from "@/components/common/Icon";
 import { cashClues, dayCash } from "@/lib/cashReview";
 import { manilaTime, round2 } from "@/lib/finance";
@@ -131,7 +130,7 @@ export function CashCountReview({ closing: given, closedBy, onClose, onReviewed,
         <div style={{ background: soft, borderRadius: 8, padding: "12px 16px" }}>
           <AmountRow label="Opening float (change money at the start)" value={fmt(c.openingFloat)} />
           <AmountRow label={`Cash taken in (${day.payments} ${day.payments === 1 ? "entry" : "entries"})`} value={`+ ${fmt(day.cashIn)}`} />
-          <AmountRow label={`Cash paid out (${day.expenses} ${day.expenses === 1 ? "expense" : "expenses"})`} value={`− ${fmt(day.cashOut)}`} />
+          {day.cashOut > 0 && <AmountRow label={`Cash paid out (${day.expenses} ${day.expenses === 1 ? "expense" : "expenses"}, recorded earlier)`} value={`− ${fmt(day.cashOut)}`} />}
           <div style={{ borderTop: `1px solid ${cBr}`, margin: "6px 0" }} />
           <AmountRow label="Should be in the box" value={fmt(expected)} strong />
           <AmountRow label="Counted" value={fmt(c.countedCash)} strong />
@@ -191,7 +190,6 @@ export function CashCountReview({ closing: given, closedBy, onClose, onReviewed,
         <h3 style={h3}>Fix it</h3>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
           <ActionButton size="sm" icon="plus" kind={diff > 0 ? "primary" : "ghost"} onClick={() => setAdding("payment")}>Record a missed cash payment</ActionButton>
-          <ActionButton size="sm" icon="plus" kind={diff < 0 ? "primary" : "ghost"} onClick={() => setAdding("expense")}>Record a missed cash expense</ActionButton>
         </div>
         <p style={{ color: C.textS, fontSize: 12.5, margin: "0 0 14px" }}>Either one is dated {fmtDate(date)}, so it lands in this day&apos;s count.</p>
 
@@ -241,7 +239,6 @@ export function CashCountReview({ closing: given, closedBy, onClose, onReviewed,
       {adding === "payment" && (
         <RecordPaymentModal bookings={bookings} receivedOn={date} onClose={() => setAdding(null)} />
       )}
-      {adding === "expense" && <ExpenseModal initialDate={date} onClose={() => setAdding(null)} />}
     </>
   );
 }

@@ -1377,12 +1377,6 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
                       </p>
                     )}
 
-                    {date && dateOk && (
-                      <p style={{ color: "#6ec071", fontSize: 13, marginTop: 16, marginBottom: 0 }}>
-                        Available on {fmtDate(date)}. Your date is held only after payment.
-                      </p>
-                    )}
-
                     {date && dateOk && lateNote && (
                       <p className="sw-latenote" role="note">
                         <span className="sw-latenote__ico" aria-hidden>!</span>

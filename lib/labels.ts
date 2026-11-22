@@ -113,7 +113,7 @@ export const ADMIN_TAB_LABEL: Record<AdminTab, string> = {
   Occupancy: "Booking Calendar",
   Facilities: "Facilities & Inspections",
   Inventory: "Supplies & Equipment",
-  Sales: "Payments & Expenses",
+  Sales: "Payments",
   Reports: "Reports",
   Rooms: "Rooms",
   Packages: "Packages & Prices",

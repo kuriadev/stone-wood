@@ -4,7 +4,7 @@
 //
 // The look Bookings started with: a ghost button with a download icon, the
 // word "Export" and a chevron, opening a short menu (Excel, CSV, print /
-// PDF, and sometimes more). Reports, Payments & Expenses and Activity
+// PDF, and sometimes more). Reports, Payments and Activity
 // History use the same, so staff find their exports in the same place.
 
 import { Fragment, type CSSProperties } from "react";

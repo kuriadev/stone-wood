@@ -84,7 +84,7 @@ export function AddChargeModal({ booking, onClose, initialKind }: { booking: Boo
       </div>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <p style={{ color: C.textS, fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-          For anything the group takes on top of what they booked. It&apos;s added to the booking&apos;s total and collected with the balance, so it shows in Payments &amp; Expenses and in the day&apos;s cash count.
+          For anything the group takes on top of what they booked. It&apos;s added to the booking&apos;s total and collected with the balance, so it shows in Payments and in the day&apos;s cash count.
         </p>
 
         <div>

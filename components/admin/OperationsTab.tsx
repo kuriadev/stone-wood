@@ -50,7 +50,7 @@ import { ManilaClock } from "@/components/admin/ManilaClock";
 import { opsBoard, closingBlockers, attentionTally, unclosedDays, lowStock, prepBlocked, prepOpensOn, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, cardTimer, type OpsCard, type OpsView, type TimerTone, guestCancelNotices, openCancelRequests } from "@/lib/operations";
 import { useApp } from "@/contexts/AppContext";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
-import { bookingMoney, collectedBetween, expensesBetween, livePayments, manilaDate, manilaTime, round2, type BookingMoney } from "@/lib/finance";
+import { bookingMoney, collectedBetween, livePayments, manilaDate, manilaTime, round2, type BookingMoney } from "@/lib/finance";
 import { fmt, fmtDate, bookingSlotInfo, holdsDate, bookingDays, bookingEndDate } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
 import { gold } from "@/lib/styles";
@@ -89,7 +89,7 @@ interface OperationsTabProps {
   updateStatus: UpdateStatus;
   mob: boolean;
   /** Send the admin to another admin screen. The dashboard links out to
-   *  Reports, Payments & Expenses and the rest rather than duplicating
+   *  Reports, Payments and the rest rather than duplicating
    *  them. */
   onGoTab?: (t: AdminTab) => void;
   /* ── Guest messages, shown in the rail beside the day's work ──
@@ -235,7 +235,6 @@ export function OperationsTab({
   // the booking was for; the tile says so, so a minus has a reason.
   const refundsToday = livePayments(ops.payments).filter((p) => p.type === "Refund" && manilaDate(p.receivedAt) === today);
   const refundTodayTotal = round2(refundsToday.reduce((s, p) => s + p.amount, 0));
-  const spentToday = expensesBetween(ops.expenses, today);
   const closedToday = ops.closings.find((c) => c.closingDate === today);
   /** What still has to be finished before today can be closed. */
   const toFinish = closingBlockers(bookings, today).length;
@@ -785,8 +784,8 @@ export function OperationsTab({
         <div style={{ color: C.textH, fontWeight: 600, fontSize: 15 }}>End of day</div>
         <div style={{ color: C.textS, fontSize: 13, marginTop: 4 }}>
           {refundTodayTotal > 0
-            ? <>{fmt(round2(collectedToday + refundTodayTotal))} received − {fmt(refundTodayTotal)} refunded − {fmt(spentToday)} spent</>
-            : <>{fmt(collectedToday)} received − {fmt(spentToday)} spent</>} = <strong style={{ color: C.textH }}>{fmt(round2(collectedToday - spentToday))}</strong> net today.
+            ? <>{fmt(round2(collectedToday + refundTodayTotal))} received − {fmt(refundTodayTotal)} refunded = <strong style={{ color: C.textH }}>{fmt(collectedToday)}</strong> today.</>
+            : <><strong style={{ color: C.textH }}>{fmt(collectedToday)}</strong> received today.</>}
           {closedToday
             ? ` Cash counted at ${manilaTime(closedToday.closedAt)}.`
             : !cashToday
@@ -1011,7 +1010,7 @@ export function OperationsTab({
   const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
   const owedToday = round2(todayCards.reduce((n, c) => n + money(c.b).due, 0));
   const owedTodayCount = todayCards.filter((c) => money(c.b).due > 0).length;
-  const netToday = round2(collectedToday - spentToday);
+  const netToday = collectedToday;
 
 
   /** One headline figure: icon tile, label, and a badge for its state.
@@ -1105,9 +1104,8 @@ export function OperationsTab({
         openLabel: "Show the bookings that still owe",
       })}
       {dashStat({
-        icon: "cash", label: "Net money today", value: fmt(netToday),
+        icon: "cash", label: "Received today", value: fmt(netToday),
         color: netToday < 0 ? "#e5484d" : "#2e9e4e",
-        badge: netToday < 0 ? "More spent" : "More received", badgeColor: netToday < 0 ? "#e5484d" : "#2e9e4e",
         note: refundTodayTotal > 0
           ? `Includes ${fmt(refundTodayTotal)} refunded (${refundsToday.map((p) => p.bookingId ?? p.guestName).join(", ")})`
           : null,

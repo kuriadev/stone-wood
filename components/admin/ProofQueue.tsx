@@ -15,7 +15,7 @@
  *                             new receipt from their booking page
  *
  * Confirming moves the booking to Confirmed (All Bookings), records the
- * money in Payments & Expenses and emails the guest their confirmation.
+ * money in Payments and emails the guest their confirmation.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -307,7 +307,7 @@ export function ProofQueue({ mob }: { mob: boolean }) {
               {as === "Full" && p.payChoice === "Downpayment" && (
                 <p style={{ color: "#f5a524", fontSize: 12.5, margin: 0 }}>The guest chose the 50% down payment ({fmt(p.amountDue)}). Only confirm full if the whole {fmt(p.booking.total)} is in your GCash.</p>
               )}
-              <p style={{ color: C.textS, fontSize: 13, margin: 0 }}>The booking is confirmed, the payment is recorded in Payments &amp; Expenses, and {p.booking.email ? `a confirmation goes to ${p.booking.email}` : "the guest has no email"}.</p>
+              <p style={{ color: C.textS, fontSize: 13, margin: 0 }}>The booking is confirmed, the payment is recorded in Payments, and {p.booking.email ? `a confirmation goes to ${p.booking.email}` : "the guest has no email"}.</p>
               <ErrorNote>{error}</ErrorNote>
             </div>
           </ConfirmDialog>

@@ -31,12 +31,12 @@ import { closingBlockers, unclosedDays, CLOSE_NEED } from "@/lib/operations";
 import { Icon, type IconName } from "@/components/common/Icon";
 import { useToast } from "@/contexts/ToastContext";
 import {
-  bookingMoney, collectedBetween, expensesBetween, manilaDate, manilaTime, monthRange,
+  bookingMoney, collectedBetween, manilaDate, manilaTime, monthRange,
   livePayments, liveExpenses, signedAmount, clientKey, round2, downloadCsv,
 } from "@/lib/finance";
 import { fmt, fmtDate } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
-import { EXPENSE_CATEGORIES, EXPENSE_MAX, PAYMENT_TYPES, PAYMENT_METHODS, type Payment, type Expense } from "@/types/finance";
+import { PAYMENT_TYPES, PAYMENT_METHODS, type Payment } from "@/types/finance";
 import type { BookingMoney } from "@/lib/finance";
 import type { Booking } from "@/types/booking";
 import { gold } from "@/lib/styles";
@@ -78,13 +78,11 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
   const [view, setView] = useState<View>("Transactions");
   const [payFor, setPayFor] = useState<{ bookingId?: string } | null>(null);
   const [refundFor, setRefundFor] = useState<string | null>(null);
-  const [addExpense, setAddExpense] = useState(false);
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
   const invoiceOf = invoiceId ? bookings.find((b) => b.id === invoiceId) ?? null : null;
 
   const collectedToday = collectedBetween(ops.payments, today);
   const collectedMonth = collectedBetween(ops.payments, month.from, month.to);
-  const spentMonth = expensesBetween(ops.expenses, month.from, month.to);
   /* Costed once and shared: Receivables and Payments both need every
      booking's money, and bookingMoney() walks the whole ledger per booking. */
   const withMoney = useMemo(
@@ -104,30 +102,21 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
   const [exporting, setExporting] = useState(false);
   const monthPays = livePayments(ops.payments).filter((p) => { const d = manilaDate(p.receivedAt); return d >= month.from && d <= month.to; })
     .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
-  const monthExps = liveExpenses(ops.expenses).filter((e) => e.spentOn >= month.from && e.spentOn <= month.to)
-    .sort((a, b) => a.spentOn.localeCompare(b.spentOn));
   const tag = month.from.slice(0, 7);
   const exportPaymentsCsv = () => downloadCsv(`Stonewood_Payments_${tag}.csv`, [
     ["Date", "Time", "Booking", "Guest", "Type", "Payment method", "Amount (PHP)"],
     ...monthPays.map((p) => [manilaDate(p.receivedAt), manilaTime(p.receivedAt), p.bookingId ?? "", p.guestName, payTypeLabel(p.type), payMethodLabel(p.method), signedAmount(p)]),
     [], ["", "", "", "", "", "Total received", collectedMonth],
   ]);
-  const exportExpensesCsv = () => downloadCsv(`Stonewood_Expenses_${tag}.csv`, [
-    ["Date", "Category", "Description", "Amount (PHP)"],
-    ...monthExps.map((e) => [e.spentOn, e.category, e.description, e.amount]),
-    [], ["", "", "Total spent", spentMonth],
-  ]);
   const exportExcel = async () => {
     setExporting(true);
     try {
-      await downloadWorkbook(`Stonewood_Payments_and_Expenses_${tag}`, `Stonewood Garden · Payments & Expenses · ${monthName}`, [
+      await downloadWorkbook(`Stonewood_Payments_${tag}`, `Stonewood Garden · Payments · ${monthName}`, [
         {
           name: "Summary",
           columns: [{ header: "What", key: "k", width: 30 }, { header: "Amount", key: "v", width: 18, money: true }],
           rows: [
             { k: "Money received", v: collectedMonth },
-            { k: "Expenses", v: -spentMonth },
-            { k: "Net income", v: round2(collectedMonth - spentMonth) },
             { k: "Still to collect (all bookings)", v: owed },
           ],
         },
@@ -142,12 +131,6 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
           footer: [["Total received", collectedMonth]],
         },
         {
-          name: "Expenses",
-          columns: [{ header: "Date", key: "d", width: 12 }, { header: "Category", key: "c", width: 16 }, { header: "Description", key: "desc", width: 36 }, { header: "Amount", key: "amt", width: 14, money: true }],
-          rows: monthExps.map((e) => ({ d: e.spentOn, c: e.category, desc: e.description, amt: e.amount })),
-          footer: [["Total spent", spentMonth]],
-        },
-        {
           name: "Still to collect",
           columns: [{ header: "Booking", key: "b", width: 12 }, { header: "Guest", key: "g", width: 24 }, { header: "Date", key: "d", width: 12 }, { header: "Owed", key: "due", width: 14, money: true }],
           rows: receivables.map(({ b, m }) => ({ b: b.id, g: b.name, d: b.date, due: m.due })),
@@ -160,19 +143,16 @@ export function SalesTab({ bookings, mob }: { bookings: Booking[]; mob: boolean 
   };
   const printPage = () => {
     const e = (v: unknown) => escapeHtml(String(v ?? ""));
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Payments & Expenses · ${e(monthName)}</title>
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Payments · ${e(monthName)}</title>
 <style>body{font:13px/1.5 system-ui,sans-serif;color:#2a2a2a;margin:32px}h1{font:400 26px Georgia,serif;margin:0}h2{font-size:15px;margin:22px 0 6px;border-bottom:1px solid #ccc;padding-bottom:4px}
 table{border-collapse:collapse;width:100%}td,th{padding:4px 6px;border-bottom:1px solid #eee;text-align:left}.n{text-align:right;font-variant-numeric:tabular-nums}.muted{color:#777}</style></head><body>
-<h1>Stonewood Garden Private Resort</h1><div class="muted">Payments &amp; Expenses · ${e(monthName)} · printed ${e(fmtDate(today))}</div>
+<h1>Stonewood Garden Private Resort</h1><div class="muted">Payments · ${e(monthName)} · printed ${e(fmtDate(today))}</div>
 <h2>Summary</h2><table>
 <tr><td>Money received</td><td class="n">${e(fmt(collectedMonth))}</td></tr>
-<tr><td>Expenses</td><td class="n">${e(fmt(spentMonth))}</td></tr>
-<tr><td><strong>Net income</strong></td><td class="n"><strong>${e(fmt(round2(collectedMonth - spentMonth)))}</strong></td></tr>
 <tr><td>Still to collect (all bookings)</td><td class="n">${e(fmt(owed))}</td></tr></table>
 <h2>Payments</h2><table><tr><th>Date</th><th>Booking</th><th>Guest</th><th>Type</th><th>Method</th><th class="n">Amount</th></tr>
 ${monthPays.map((p) => `<tr><td>${e(manilaDate(p.receivedAt))}</td><td>${e(p.bookingId ?? "")}</td><td>${e(p.guestName)}</td><td>${e(payTypeLabel(p.type))}</td><td>${e(payMethodLabel(p.method))}</td><td class="n">${e((p.type === "Refund" ? "−" : "") + fmt(p.amount))}</td></tr>`).join("") || "<tr><td class='muted' colspan='6'>No payments this month.</td></tr>"}</table>
-<h2>Expenses</h2><table><tr><th>Date</th><th>Category</th><th>Description</th><th class="n">Amount</th></tr>
-${monthExps.map((x) => `<tr><td>${e(x.spentOn)}</td><td>${e(x.category)}</td><td>${e(x.description)}</td><td class="n">${e(fmt(x.amount))}</td></tr>`).join("") || "<tr><td class='muted' colspan='4'>No expenses this month.</td></tr>"}</table>
+
 <script>window.onload=()=>window.print()</script></body></html>`;
     const w = window.open("", "_blank");
     if (!w) return;
@@ -194,17 +174,15 @@ ${monthExps.map((x) => `<tr><td>${e(x.spentOn)}</td><td>${e(x.category)}</td><td
     <div className="sw-sales">
       <AdminPageHeader
         title={adminTabLabel("Sales")}
-        subtitle="Money actually received and spent, from the payment records."
+        subtitle="Money received from guests, from the payment records."
         mob={mob}
         action={
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <ExportMenu busy={exporting} ariaLabel={`Export ${monthName}'s payments and expenses`} items={[
+            <ExportMenu busy={exporting} ariaLabel={`Export ${monthName}'s payments`} items={[
               { label: `Excel (.xlsx) · ${monthName}`, onSelect: () => void exportExcel() },
               { label: "Payments CSV", onSelect: exportPaymentsCsv },
-              { label: "Expenses CSV", onSelect: exportExpensesCsv },
               { label: "Print / Save as PDF", icon: "printer", divider: true, onSelect: printPage },
             ]} />
-            <ActionButton icon="minus" onClick={() => setAddExpense(true)}>Add expense</ActionButton>
             <ActionButton kind="primary" icon="plus" onClick={() => setPayFor({})}>Record payment</ActionButton>
           </div>
         }
@@ -215,34 +193,10 @@ ${monthExps.map((x) => `<tr><td>${e(x.spentOn)}</td><td>${e(x.category)}</td><td
       <div className="sw-sales__kpis" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(4,minmax(0,1fr))" }}>
         {kpi("cash", "Collected today", fmt(collectedToday), `${todayCount} payment${todayCount === 1 ? "" : "s"}`, "#2e9e4e")}
         {kpi("calendar", "Collected this month", fmt(collectedMonth), monthName, gold)}
-        {kpi("trending-up", "Net income this month", fmt(round2(collectedMonth - spentMonth)), `after ${fmt(spentMonth)} in expenses`, collectedMonth - spentMonth < 0 ? "#e5484d" : gold)}
+        {kpi("receipt", "Payments this month", String(monthPays.length), monthName, gold)}
         {kpi("wallet", "Still to collect", fmt(owed), `${receivables.length} booking${receivables.length === 1 ? "" : "s"} with a balance or penalty`, owed > 0 ? "#f5a524" : "#9a8f80")}
       </div>
 
-      {/* This month's money in one line: what came in, what went out, and
-          the share each takes, as a split bar. */}
-      {(() => {
-        const total = collectedMonth + spentMonth;
-        const inPct = total > 0 ? (collectedMonth / total) * 100 : 50;
-        return (
-          <div className="sw-sales__flow" style={{ background: cBg, borderColor: cBr }}>
-            <div className="sw-sales__flowhead">
-              <span style={{ color: C.textH }}><Icon name="bar-chart" size={15} style={{ color: C.goldInk }} /> Money flow · {monthName}</span>
-              <span style={{ color: C.textS }}>Net <strong style={{ color: collectedMonth - spentMonth < 0 ? "#e5484d" : C.textH }}>{fmt(round2(collectedMonth - spentMonth))}</strong></span>
-            </div>
-            <div className="sw-sales__split" role="img" aria-label={`In ${fmt(collectedMonth)}, out ${fmt(spentMonth)}`}>
-              {total > 0 ? <>
-                {collectedMonth > 0 && <i className="is-in" style={{ width: `${inPct}%` }} />}
-                {spentMonth > 0 && <i className="is-out" style={{ width: `${100 - inPct}%` }} />}
-              </> : <i className="is-empty" style={{ width: "100%" }} />}
-            </div>
-            <div className="sw-sales__flowlegend">
-              <span style={{ color: C.textS }}><b className="is-in" />In <strong style={{ color: C.textH }}>{fmt(collectedMonth)}</strong></span>
-              <span style={{ color: C.textS }}><b className="is-out" />Out <strong style={{ color: C.textH }}>{fmt(spentMonth)}</strong></span>
-            </div>
-          </div>
-        );
-      })()}
 
       {!ops.loaded && ops.loading && <p style={{ color: "#8a7a66", fontSize: 13 }}>Loading payment records…</p>}
 
@@ -255,7 +209,6 @@ ${monthExps.map((x) => `<tr><td>${e(x.spentOn)}</td><td>${e(x.category)}</td><td
           { value: "Receivables", label: "Receivables", icon: "wallet", count: receivables.length, content: <Receivables rows={receivables} refunds={bookings.filter((b) => b.refundStatus === "Owed")} onPay={(id) => setPayFor({ bookingId: id })} onRefund={setRefundFor} onInvoice={setInvoiceId} /> },
           { value: "Settlements", label: "Settlements", icon: "check-circle", content: <Settlements rows={withMoney} onInvoice={setInvoiceId} /> },
           { value: "Clients", label: "Clients", icon: "users", content: <Clients bookings={bookings} /> },
-          { value: "Expenses", label: "Expenses", icon: "minus", content: <Expenses expenses={ops.expenses} onAdd={() => setAddExpense(true)} /> },
           { value: "Closing", label: "Daily liquidation", icon: "calendar-clock", content: <Closing /> },
         ];
         const current = views.find((v) => v.value === view) ?? views[0];
@@ -282,7 +235,6 @@ ${monthExps.map((x) => `<tr><td>${e(x.spentOn)}</td><td>${e(x.category)}</td><td
       {refundFor && bookings.find((b) => b.id === refundFor) && (
         <MarkRefundedModal booking={bookings.find((b) => b.id === refundFor)!} onClose={() => setRefundFor(null)} />
       )}
-      {addExpense && <ExpenseModal onClose={() => setAddExpense(false)} />}
       {invoiceOf && <InvoiceModal booking={invoiceOf} onClose={() => setInvoiceId(null)} />}
     </div>
   );
@@ -771,133 +723,6 @@ function Clients({ bookings }: { bookings: Booking[] }) {
   );
 }
 
-// ── Expenses ──────────────────────────────────────────────────────────
-function Expenses({ expenses, onAdd }: { expenses: Expense[]; onAdd: () => void }) {
-  const { C, rowBg, soft, inp } = useAdminStyle();
-  const [monthStr, setMonthStr] = useState(manilaDate().slice(0, 7));
-  const [voiding, setVoiding] = useState<Expense | null>(null);
-  /* Voided expenses are hidden by default, the same way the Payments table
-     already hides voided payments. The row is never deleted — an expense
-     ledger you can delete from is not evidence of anything — but a mistake
-     from last week should not sit in the list forever. Tick the box to audit
-     what was voided and why. */
-  const [showVoided, setShowVoided] = useState(false);
-  const { from, to } = monthRange(`${monthStr}-01`);
-  const inMonth = expenses.filter((e) => e.spentOn >= from && e.spentOn <= to);
-  const rows = showVoided ? inMonth : inMonth.filter((e) => !e.voided);
-  const voidedCount = inMonth.length - inMonth.filter((e) => !e.voided).length;
-  const live = liveExpenses(inMonth);
-  const byCat = EXPENSE_CATEGORIES.map((c) => [c, round2(live.filter((e) => e.category === c).reduce((s, e) => s + e.amount, 0))] as const).filter(([, v]) => v > 0);
-  const total = round2(live.reduce((s, e) => s + e.amount, 0));
-
-  const pagedExp = usePaged(rows);
-  return (
-    <div>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-        <DateField mode="month" value={monthStr} onChange={(v) => v && setMonthStr(v)} aria-label="Month" style={{ ...inp, width: "auto", padding: "8px 12px" }} />
-        <ActionButton size="sm" icon="plus" onClick={onAdd}>Add expense</ActionButton>
-        {voidedCount > 0 && (
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 8, color: C.textS, fontSize: 12.5, cursor: "pointer", marginLeft: "auto" }}>
-            <Checkbox checked={showVoided} onCheckedChange={(v) => setShowVoided(v === true)} />
-            Show voided ({voidedCount})
-          </label>
-        )}
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
-        <div style={{ flex: "3 1 520px", minWidth: 0 }}>
-        <TableShell head={["Date", "Category", "Description", "Payment method", "Amount", ""]} minWidth={640}
-          empty={rows.length === 0 ? "No expenses recorded for this month." : undefined}>
-          {pagedExp.rows.map((e, i) => (
-            <Row key={e.id} style={{ background: rowBg(i), opacity: e.voided ? 0.5 : 1 }}>
-              <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{fmtDate(e.spentOn)}{e.recordedAt && <div style={{ color: C.textS, fontSize: 11.5 }}>Entered {manilaDate(e.recordedAt) === e.spentOn ? "" : `${fmtDate(manilaDate(e.recordedAt))}, `}{manilaTime(e.recordedAt)}</div>}</Cell>
-              <Cell style={{ ...td, color: C.textB }}>{e.category}</Cell>
-              <Cell style={{ ...td, color: C.textH }}>{e.description}</Cell>
-              <Cell style={{ ...td, color: C.textS }}>{e.method}</Cell>
-              <Cell style={{ ...td, color: C.textH, fontWeight: 600, textDecoration: e.voided ? "line-through" : "none" }}>{fmt(e.amount)}</Cell>
-              <Cell style={{ ...td, textAlign: "right" }}>
-                {e.voided ? <span title={e.voidReason} style={{ color: C.textS, fontSize: 12 }}>Undone</span> : <IconAction icon="history" label="Undo expense" kind="red" onClick={() => setVoiding(e)} />}
-              </Cell>
-            </Row>
-          ))}
-        </TableShell>
-        <Pager {...pagedExp} noun="expenses" />
-        </div>
-        <div style={{ background: soft, borderRadius: 10, padding: "12px 16px", flex: "1 1 240px" }}>
-          <div style={{ color: C.textS, fontSize: 12.5, marginBottom: 8 }}>By category</div>
-          {byCat.map(([c, v]) => <AmountRow key={c} label={c} value={fmt(v)} />)}
-          {byCat.length === 0 && <p style={{ color: C.textS, fontSize: 13, margin: "4px 0" }}>Nothing spent yet.</p>}
-          <div style={{ borderTop: "1px solid rgba(150,130,100,0.25)", marginTop: 8, paddingTop: 4 }}>
-            <AmountRow label="Total" value={fmt(total)} strong />
-          </div>
-        </div>
-      </div>
-      {voiding && <VoidModal what={`${voiding.description} · ${fmt(voiding.amount)}`} kind="expense" id={voiding.id} onClose={() => setVoiding(null)} />}
-    </div>
-  );
-}
-
-export function ExpenseModal({ onClose, initialDate }: { onClose: () => void; initialDate?: string }) {
-  const { C, inp } = useAdminStyle();
-  const ops = useOps();
-  const { toast } = useToast();
-  // Every expense comes out of the cash box (method "Cash"), so there is no
-  // "Paid with" choice.
-  const [f, setF] = useState({ category: "Supplies", description: "", amount: "", method: "Cash" as const, spentOn: initialDate ?? manilaDate() });
-  const [capped, setCapped] = useState(false);
-  /** Digits and one decimal point (2 places), never more than EXPENSE_MAX. */
-  const onAmount = (raw: string) => {
-    let v = raw.replace(/[^\d.]/g, "");
-    const dot = v.indexOf(".");
-    if (dot >= 0) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, "").slice(0, 2);
-    const over = Number(v) > EXPENSE_MAX;
-    setCapped(over);
-    setF({ ...f, amount: over ? String(EXPENSE_MAX) : v });
-  };
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const save = async () => {
-    setBusy(true); setError("");
-    const r = await ops.addExpense({ ...f, amount: Number(f.amount) });
-    setBusy(false);
-    if (!r.ok) return setError(r.error);
-    toast(`Expense of ${fmt(Number(f.amount))} saved.`, "success");
-    onClose();
-  };
-  return (
-    <Modal title="Add expense" subtitle="Money spent on running the resort" onClose={onClose} width={560}
-      footer={<div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-        <ActionButton onClick={onClose}>Cancel</ActionButton>
-        <ActionButton kind="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save expense"}</ActionButton>
-      </div>}>
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
-        <div style={{ gridColumn: "1/-1" }}>
-          <Label htmlFor="ex-desc">What was it for?</Label>
-          <Input id="ex-desc" value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="e.g. Chlorine tablets, 2 kg" style={inp} />
-        </div>
-        <div>
-          <Label htmlFor="ex-cat">Category</Label>
-          <FullSelect id="ex-cat" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} style={inp}>
-            {EXPENSE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-          </FullSelect>
-        </div>
-        <div>
-          <Label htmlFor="ex-amt">Amount (₱)</Label>
-          <Input id="ex-amt" inputMode="decimal" value={f.amount} onChange={(e) => onAmount(e.target.value)} placeholder="0.00" style={inp}
-            aria-invalid={capped || undefined} aria-describedby="ex-amt-max" />
-          <p id="ex-amt-max" role={capped ? "alert" : undefined} style={{ color: capped ? C.dangerInk : C.textS, fontSize: 11.5, margin: "4px 0 0" }}>
-            {capped ? `The most for one expense is ${fmt(EXPENSE_MAX)}.` : `Up to ${fmt(EXPENSE_MAX)}.`}
-          </p>
-        </div>
-        <div>
-          <Label htmlFor="ex-date">Date</Label>
-          <DateField id="ex-date" value={f.spentOn} onChange={(v) => setF({ ...f, spentOn: v })} style={inp} />
-        </div>
-      </div>
-      <ErrorNote>{error}</ErrorNote>
-    </Modal>
-  );
-}
-
 // ── Daily closing (liquidation) ───────────────────────────────────────
 /** What a money field keeps of what was typed: digits and one decimal point
  *  with at most 2 places (no spinner arrows, no letters). */
@@ -1129,7 +954,8 @@ export function Closing({ onAct, initialDate, onSaved }: {
               <span style={{ color: "#e5484d", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>− {fmt(p.amount)}</span>
             </div>
           ))}
-          <AmountRow label="Expenses" value={`− ${fmt(spent)}`} color="#e5484d" />
+          {/* Expenses are no longer recorded; one entered before still counts. */}
+          {spent > 0 && <AmountRow label="Expenses (recorded earlier)" value={`− ${fmt(spent)}`} color="#e5484d" />}
           <div style={{ borderTop: "1px solid rgba(150,130,100,0.25)", marginTop: 8, paddingTop: 4 }}>
             <AmountRow label="Net for the day" value={fmt(round2(income - spent))} strong color={income - spent < 0 ? "#e5484d" : "#2e9e4e"} />
           </div>
@@ -1221,16 +1047,14 @@ export function Closing({ onAct, initialDate, onSaved }: {
 
       <h4 style={{ color: C.textH, fontSize: 14, margin: "0 0 4px" }}>Daily reports</h4>
       <p style={{ color: C.textS, fontSize: 12.5, margin: "0 0 8px" }}>
-        Built automatically from every payment and expense as it&apos;s recorded. The only step left to a person is counting the cash on days cash changed hands.
+        Built automatically from every payment as it&apos;s recorded. The only step left to a person is counting the cash on days cash changed hands.
       </p>
-      <TableShell head={["Day", "Received", "Expenses", "Net", "Cash check", "Notes"]} minWidth={760}
+      <TableShell head={["Day", "Received", "Cash check", "Notes"]} minWidth={600}
         empty={days.length === 0 ? "No money has been recorded yet." : undefined}>
         {pagedDays.rows.map((d, i) => (
           <Row key={d.date} className="sw-click-row" style={{ background: rowBg(i) }} onClick={() => pick(d.date)}>
             <Cell style={{ ...td, color: C.textH, whiteSpace: "nowrap" }}>{d.date === today ? "Today" : fmtDate(d.date)}</Cell>
-            <Cell style={{ ...td, color: C.textB }}>{fmt(d.income)}</Cell>
-            <Cell style={{ ...td, color: C.textB }}>{fmt(d.spent)}</Cell>
-            <Cell style={{ ...td, color: C.textH, fontWeight: 600 }}>{fmt(round2(d.income - d.spent))}</Cell>
+            <Cell style={{ ...td, color: C.textH, fontWeight: 600 }}>{fmt(d.income)}</Cell>
             <Cell style={{ ...td, fontWeight: 600, color: cashCheck(d).color }}>{cashCheck(d).text}</Cell>
             <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{d.closing?.notes || "—"}</Cell>
           </Row>
