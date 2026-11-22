@@ -127,6 +127,27 @@ export const ADMIN_TAB_LABEL: Record<AdminTab, string> = {
 
 export const adminTabLabel = (t: AdminTab) => ADMIN_TAB_LABEL[t] ?? t;
 
+/** The sidebar's own names: one or two words, so the menu scans at a glance
+ *  (panel review, 2026-11-22: "crowded"). Page titles keep the full names. */
+export const ADMIN_SIDE_LABEL: Record<AdminTab, string> = {
+  Operations: "Dashboard",
+  Tasks: "My Tasks",
+  Bookings: "Bookings",
+  Occupancy: "Calendar",
+  Facilities: "Facilities",
+  Inventory: "Supplies",
+  Sales: "Payments",
+  Reports: "Reports",
+  Rooms: "Rooms",
+  Packages: "Packages",
+  Gallery: "Photos",
+  "Customer Service": "Messages",
+  Maintenance: "Site Status",
+  Activity: "History",
+  Staff: "Staff",
+  Settings: "Settings",
+};
+
 /** Sidebar sections, top to bottom. */
 // Six sections, one per kind of work. Each role sees only the screens it can
 // open (canOpenTab), so a section with none of them disappears: a caretaker
@@ -140,5 +161,5 @@ export const ADMIN_NAV_GROUPS: { label: string; tabs: AdminTab[] }[] = [
   { label: "FACILITIES", tabs: ["Facilities", "Inventory"] },
   { label: "WEBSITE", tabs: ["Rooms", "Packages", "Gallery", "Maintenance"] },
   // Who works here, the rates they work to, and the record of what was done.
-  { label: "SETUP & HISTORY", tabs: ["Staff", "Settings", "Activity"] },
+  { label: "SETUP", tabs: ["Staff", "Settings", "Activity"] },
 ];

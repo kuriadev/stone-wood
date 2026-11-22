@@ -10,10 +10,10 @@ import { Icon, type IconName } from "@/components/common/Icon";
 import { useAdminStyle } from "@/components/admin/ui";
 import { useStaff } from "@/contexts/StaffContext";
 
-export function useFold(name: string): [boolean, () => void] {
+export function useFold(name: string, startOpen = true): [boolean, () => void] {
   const { me } = useStaff();
   const key = `sw_fold:${name}:${me?.id ?? "me"}`;
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(startOpen);
   useEffect(() => {
     try { const v = localStorage.getItem(key); if (v !== null) setOpen(v === "1"); } catch { /* storage off */ }
   }, [key]);

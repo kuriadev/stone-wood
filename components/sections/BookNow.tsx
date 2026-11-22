@@ -15,7 +15,7 @@
   import { BookingDatePicker } from "@/components/booking/BookingDatePicker";
   import { TermsPolicy } from "@/components/booking/TermsPolicy";
   import type { Booking, BookingResource, BookingSlot, BookingTier, PackageDeepLink } from "@/types/booking";
-  import { SLOTS, QUIET_HOURS_POLICY, stayPatternNote, stayUnit, allowsMultiDay, MULTI_DAY_SLOT, slotStartedProblem, lateArrivalNote, slotFor, venueClosesNote, venueCloseText, RESORT_CONTACT } from "@/lib/resort";
+  import { SLOTS, QUIET_HOURS_POLICY, stayPatternNote, stayUnit, allowsMultiDay, MULTI_DAY_SLOT, slotStartedProblem, lateArrivalNote, slotFor, venueClosesNote, RESORT_CONTACT } from "@/lib/resort";
   import { SuccessCheck } from "@/components/common/SuccessCheck";
   import { stayWindowLabel } from "@/lib/occupancy";
   import type { Room } from "@/types/room";
@@ -1199,16 +1199,12 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
                                 className="sw-choice"
                                 style={{ ...tileStyle(on), ...tileBox, ...(off ? { opacity: 0.45, cursor: "not-allowed" } : null) }}
                               >
-                                <Icon name={SLOT_ICON[id]} size={18} style={{ display: "block", margin: "0 auto 4px", color: on ? goldSmall : C.textS }} />
-                                <span style={{ display: "block", color: on ? C.textH : C.textB, fontSize: 13.5, fontWeight: on ? 700 : 500 }}>{SLOTS[id].label}</span>
-                                {/* A Staycation runs over several days, so its line says how
-                                    many rather than an overnight time range that read
-                                    as confusing ("7 AM – 5 AM, next day"). */}
-                                <span style={{ display: "block", color: on ? goldSmall : C.textS, fontSize: 11, marginTop: 2, lineHeight: 1.35 }}>
-                                  {allowsMultiDay(id) ? `1–${MAX_STAY_DAYS} days` : slotFor(id, resource).hours}
-                                </span>
-                                <span style={{ display: "block", color: C.textS, fontSize: 10.5, marginTop: 4 }}>
-                                  {off ? "Not with Venue only" : allowsMultiDay(id) ? "Day and night" : "One day"}
+                                {/* Icon, name, one short line (panel review, 2026-11-22:
+                                    "crowded"). The hours are in the billing summary. */}
+                                <Icon name={SLOT_ICON[id]} size={24} style={{ display: "block", margin: "0 auto 6px", color: on ? goldSmall : C.textS }} />
+                                <span style={{ display: "block", color: on ? C.textH : C.textB, fontSize: 15, fontWeight: on ? 700 : 600 }}>{SLOTS[id].label}</span>
+                                <span style={{ display: "block", color: on ? goldSmall : C.textS, fontSize: 12.5, marginTop: 3, lineHeight: 1.35 }}>
+                                  {off ? "Not with venue" : allowsMultiDay(id) ? `1–${MAX_STAY_DAYS} days` : id === "Day" ? "Daytime" : "Overnight"}
                                 </span>
                               </button>
                             );
@@ -1237,9 +1233,9 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
                             their own. */}
                         <div role="radiogroup" aria-label="What you are booking" style={tileRow}>
                           {([
-                            { id: "Pool", title: "Resort & pool", sub: "Pools · no events venue", note: "" },
-                            { id: "Pool+Venue", title: "Resort, pool & venue", sub: `Private pool · +${fmt(EVENT_VENUE_RATE)}/stay`, note: slot !== "Day" ? `Venue until ${venueCloseText()}` : "" },
-                            { id: "Venue", title: "Events venue only", sub: `No pool · ${fmt(EVENT_VENUE_RATE)}/stay`, note: slot !== "Day" ? `Up to ${VENUE_CAPACITY} · until ${venueCloseText()}` : `Up to ${VENUE_CAPACITY} guests` },
+                            { id: "Pool", icon: "pool", title: "Resort & pool", sub: "Pool only" },
+                            { id: "Pool+Venue", icon: "gift", title: "Pool & venue", sub: `+${fmt(EVENT_VENUE_RATE)}` },
+                            { id: "Venue", icon: "tent", title: "Venue only", sub: `No pool · ${VENUE_CAPACITY} max` },
                           ] as const).map((opt) => {
                             const closed = resourceClosed(opt.id);
                             // Not for a Staycation, which is a stay at the resort.
@@ -1258,11 +1254,11 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
                                 className="sw-choice"
                                 style={{ ...tileStyle(on), ...tileBox, ...(closed || notStay ? { opacity: 0.5, cursor: "not-allowed" } : null) }}
                               >
-                                <span style={{ display: "block", color: on ? C.textH : C.textB, fontSize: 13.5, fontWeight: on ? 700 : 500, lineHeight: 1.25 }}>{opt.title}</span>
-                                <span style={{ display: "block", color: closed ? (isDark ? "#e8a070" : "#a8481a") : on ? goldSmall : C.textS, fontSize: 11, marginTop: 2, lineHeight: 1.35 }}>
-                                  {closed ? "Under maintenance" : notStay ? `Not for a ${SLOTS.WholeDay.label}` : opt.sub}
+                                <Icon name={opt.icon} size={24} style={{ display: "block", margin: "0 auto 6px", color: on ? goldSmall : C.textS }} />
+                                <span style={{ display: "block", color: on ? C.textH : C.textB, fontSize: 15, fontWeight: on ? 700 : 600, lineHeight: 1.25 }}>{opt.title}</span>
+                                <span style={{ display: "block", color: closed ? (isDark ? "#e8a070" : "#a8481a") : on ? goldSmall : C.textS, fontSize: 12.5, marginTop: 3, lineHeight: 1.35 }}>
+                                  {closed ? "Under repair" : notStay ? "Not for Staycation" : opt.sub}
                                 </span>
-                                {!closed && !notStay && opt.note && <span style={{ display: "block", color: C.textS, fontSize: 10.5, marginTop: 4 }}>{opt.note}</span>}
                               </button>
                             );
                           })}
@@ -1504,11 +1500,11 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
                                   onClick={() => setTierChoice(opt)}
                                   style={{
                                     flex: 1,
-                                    padding: "8px 8px",
-                                    borderRadius: 8,
-                                    fontSize: 11.5,
+                                    padding: "12px 10px",
+                                    borderRadius: 10,
+                                    fontSize: 14,
                                     fontWeight: 700,
-                                    letterSpacing: 0.8,
+                                    letterSpacing: 0.2,
                                     // Selected is gold, for both options. This used to fork
                                     // on the option — gold for Exclusive, #4caf50 for Shared —
                                     // so "chosen" had two encodings in one control and could
@@ -1528,32 +1524,19 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
                                     cursor: off ? "not-allowed" : "pointer",
                                   }}
                                 >
-                                  <><Icon name={opt === "Exclusive" ? "lock" : "handshake"} size={12} style={{ marginRight: 4 }} />{opt === "Exclusive" ? "PRIVATE POOL" : "SHARED POOL"}</>
-                                  {off ? " · NOT AVAILABLE" : isDefault ? " (SUGGESTED)" : ""}
+                                  <><Icon name={opt === "Exclusive" ? "lock" : "handshake"} size={16} style={{ marginRight: 6, verticalAlign: "-3px" }} />{opt === "Exclusive" ? "Private pool" : "Shared pool"}</>
+                                  {off ? <span style={{ display: "block", fontSize: 12, fontWeight: 500 }}>Not available</span> : isDefault ? <span style={{ display: "block", fontSize: 12, fontWeight: 500 }}>Suggested</span> : null}
                                 </button>
                               );
                             })}
                           </div>
                           {/* What the choice means, as a card that reads at a glance
                               (it was one faint line under the buttons). */}
-                          <div role="note" style={{ display: "flex", gap: 12, alignItems: "flex-start", marginTop: 10, padding: "12px 14px", borderRadius: 12, border: `1px solid ${gold}55`, background: `${gold}12` }}>
-                            <span aria-hidden="true" style={{ width: 32, height: 32, borderRadius: 9, display: "grid", placeItems: "center", background: `${gold}24`, color: C.goldInk, flexShrink: 0 }}>
-                              <Icon name={tier === "Exclusive" ? "lock" : "handshake"} size={16} strokeWidth={2} />
-                            </span>
-                            <span style={{ minWidth: 0, lineHeight: 1.5 }}>
-                              <span style={{ display: "block", color: C.textH, fontSize: 13.5, fontWeight: 700 }}>
-                                {tier === "Exclusive" ? "The pool is all yours" : "You share the pool"}
-                              </span>
-                              <span style={{ display: "block", color: C.textB, fontSize: 13 }}>
-                                {tier === "Exclusive"
-                                  ? `No other group on your ${SLOTS[slot].label}. One flat price, up to ${RESORT_MAX_CAPACITY} guests.`
-                                  : `Other groups may swim with you on the same ${SLOTS[slot].label}. Priced per guest, up to ${RESORT_MAX_CAPACITY} guests in total.`}
-                              </span>
-                              {tier !== "Exclusive" && (
-                                <span style={{ display: "block", color: C.goldInk, fontSize: 12.5, marginTop: 4, fontWeight: 600 }}>Want it to yourselves? Choose Private pool.</span>
-                              )}
-                            </span>
-                          </div>
+                          {/* What the choice means, in one line. */}
+                          <p role="note" style={{ display: "flex", gap: 8, alignItems: "center", margin: "10px 0 0", color: C.textB, fontSize: 14 }}>
+                            <Icon name={tier === "Exclusive" ? "lock" : "users"} size={16} style={{ color: C.goldInk, flexShrink: 0 }} />
+                            {tier === "Exclusive" ? `Just your group · flat price · up to ${RESORT_MAX_CAPACITY}` : `Shared with other groups · per guest · up to ${RESORT_MAX_CAPACITY}`}
+                          </p>
                         </div>
                       )}
                       </div>
@@ -1573,10 +1556,8 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
                               value: kids, min: 0, max: kidCap, onChange: setChildren,
                               fewer: holdFewerKids, more: holdMoreKids, locked: !kidsAllowed, noun: "children",
                             })}
-                            <p style={{ color: C.textS, fontSize: 12, margin: "8px 0 0" }}>
-                              {tier === "Exclusive"
-                                ? `Your booking has a private pool, so children ${CHILD_FREE_AGE} years old and below are already free and not counted. No need to add them.`
-                                : `Children ${CHILD_FREE_AGE} years old and below pay ${fmt(childRateFor(slot))} each and count toward the ${guestCap}-guest limit.`}
+                            <p style={{ color: C.textS, fontSize: 13, margin: "8px 0 0" }}>
+                              {tier === "Exclusive" ? "Free with a private pool" : `${fmt(childRateFor(slot))} each`}
                             </p>
                             {kidsAllowed && date && onTour > 0 && kidCap < (tier === "Shared" ? Math.min(guestCap, CHILDREN_TOTAL_MAX) : CHILDREN_TOTAL_MAX) - adults && (
                               <p style={{ color: C.goldInk, fontSize: 12, margin: "4px 0 0" }}>
@@ -1591,9 +1572,7 @@ import { ProofPayment, type ProofOcrResult } from "@/components/booking/ProofPay
                         <p style={{ color: C.goldInk, fontSize: 12.5, marginTop: 12 }}>
                           {/* Per day once the stay runs long: the rate is a
                               per-day idea, and the summary carries the total. */}
-                          🔒 Private pool — {fmt(tourBase / stayDays)} flat
-                          {stayDays > 1 ? " per day" : slotCount === 2 ? " for the day and night" : ""}, however many of you come.
-                          No other group shares the pool with you. Set the count so we prepare for the right number.
+                          {fmt(tourBase / stayDays)} flat{stayDays > 1 ? " per day" : ""}, however many come.
                         </p>
                       )}
                       {/* At the most guests online: a friendly note, not a warning.

@@ -45,6 +45,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { StockHistoryPanel } from "@/components/admin/StockSetup";
 interface InventoryTabProps {
   inventory: InventoryItem[];
   setInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
@@ -76,6 +77,9 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
     name: "", qty: "", unit: "pcs", minQty: "", notes: "",
   });
   const [showArchive, setShowArchive] = useState(false);
+  /* Every change to a count: used, broken, bought, counted (panel review,
+     2026-11-22: "history of supplies movement"). Also under Facilities. */
+  const [showHistory, setShowHistory] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<InventoryItem | null>(null);
   /** An archived item to delete for good (after the confirmation). */
   const [purging, setPurging] = useState<InventoryItem | null>(null);
@@ -253,14 +257,15 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
                   options={cats.map((c) => ({ value: c, label: c === "All" ? "All categories" : c, count: countIn(c) }))}
                 />
               )}
-              <FilterSelect<"active" | "archived">
+              <FilterSelect<"active" | "archived" | "history">
                 label="Showing"
                 hideLabel
-                value={showArchive ? "archived" : "active"}
-                onChange={(v) => setShowArchive(v === "archived")}
+                value={showHistory ? "history" : showArchive ? "archived" : "active"}
+                onChange={(v) => { setShowHistory(v === "history"); setShowArchive(v === "archived"); }}
                 options={[
                   { value: "active", label: "Active", count: items.length },
                   { value: "archived", label: "Archived", count: deleted.length },
+                  { value: "history", label: "History" },
                 ]}
               />
             </div>
@@ -298,10 +303,14 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
                 <div className="sw-shop__label">Showing</div>
                 {([[false, "Active items", items.length], [true, "Archived items", deleted.length]] as const).map(([arch, label, n]) => (
                   <label key={label} className="sw-shop__check">
-                    <input type="radio" name="inv-showing" checked={showArchive === arch} onChange={() => setShowArchive(arch)} />
+                    <input type="radio" name="inv-showing" checked={!showHistory && showArchive === arch} onChange={() => { setShowHistory(false); setShowArchive(arch); }} />
                     <span style={{ flex: 1 }}>{label}</span><span className="sw-shop__count">{n}</span>
                   </label>
                 ))}
+                <label className="sw-shop__check">
+                  <input type="radio" name="inv-showing" checked={showHistory} onChange={() => { setShowHistory(true); setShowArchive(false); }} />
+                  <span style={{ flex: 1 }}>History</span>
+                </label>
               </div>
               {(statusPick.length > 0 || filterCat !== "All" || search) && !showArchive && (
                 <button type="button" className="sw-shop__clear" onClick={() => { setStatusPick([]); setFilterCat("All"); setSearch(""); }}>Clear all</button>
@@ -310,8 +319,16 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
           )}
         </aside>
 
-        {/* ── Right: search, sort, the cards ── */}
+        {/* ── Right: search, sort, the cards ── or the stock history */}
         <div style={{ minWidth: 0 }}>
+          {showHistory && (
+            <section aria-label="Stock history">
+              <h3 style={{ margin: "0 0 4px", color: C.textH, fontSize: 18, fontWeight: 600 }}>Stock history</h3>
+              <p style={{ margin: "0 0 14px", color: C.textS, fontSize: 14.5 }}>Every change to a supply or equipment count, newest first: what was used, broken, bought or counted, when, and by whom.</p>
+              <StockHistoryPanel mob={mob} />
+            </section>
+          )}
+          <div hidden={showHistory}>
           <div style={{ display: "flex", gap: mob ? 8 : 12, marginBottom: 12, alignItems: "stretch" }}>
             <div style={{ flex: "1", minWidth: 0, position: "relative", display: showArchive ? "none" : "block" }}>
               <Icon name="search" size={14}
@@ -483,6 +500,7 @@ export function InventoryTab({ inventory: all, setInventory: setItems }: Invento
           </div>
         </div>
       )}
+          </div>
 
         </div>
       </div>

@@ -25,7 +25,7 @@ import { fmt, fmtDate, getBookingSlot, holdsDate, bookingEndDate, stayRange, boo
 import { packageAvailed } from "@/lib/pricing";
 import { SLOTS } from "@/lib/resort";
 import { escapeHtml } from "@/lib/escapeHtml";
-import { EXPENSE_CATEGORIES, type PaymentType } from "@/types/finance";
+import type { PaymentType } from "@/types/finance";
 import type { Booking, BookingSlot } from "@/types/booking";
 import type { Room } from "@/types/room";
 import { gold } from "@/lib/styles";
@@ -130,7 +130,6 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
   const before = figures(slice(prevRange.from, prevRange.to));
 
   const collected = round2(pays.reduce((s, p) => s + signedAmount(p), 0));
-  const spent = round2(exps.reduce((s, e) => s + e.amount, 0));
   const owed = round2(kept.reduce((s, b) => s + bookingMoney(b, ops.payments, ops.damages).due, 0));
   // The resort takes exactly two ways to pay: cash, and GCash (online with
   // a receipt staff check, or the resort's QR scanned at the desk).
@@ -153,7 +152,6 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
     ["Penalties", typeTotal("Penalty")],
     ["Refunds", -typeTotal("Refund")],
   ] as const).filter(([, v]) => v !== 0);
-  const byCat = EXPENSE_CATEGORIES.map((c) => [c, round2(exps.filter((e) => e.category === c).reduce((s, e) => s + e.amount, 0))] as const).filter(([, v]) => v > 0);
   const statusCount = (["Pending", "Confirmed", "Completed", "Cancelled", REFUNDED, NO_SHOW, "ResortCancelled"] as const).map((s) => [s, bks.filter((b) => statusKey(b) === s).length] as const);
   const guests = kept.reduce((s, b) => s + b.guests, 0);
   const slotCount = (["Day", "Night", "WholeDay"] as BookingSlot[]).map((s) => [s, kept.filter((b) => getBookingSlot(b) === s).length] as const);
@@ -205,12 +203,7 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
     ["Date", "Time", "Booking", "Guest", "Type", "Payment method", "Amount (PHP)"],
     ...pays.map((p) => [manilaDate(p.receivedAt), manilaTime(p.receivedAt), p.bookingId ?? "", p.guestName, p.type, payMethodLabel(p.method), signedAmount(p)]),
     [],
-    ["Date", "Category", "Description", "Payment method", "", "", "Amount (PHP)"],
-    ...exps.map((e) => [e.spentOn, e.category, e.description, payMethodLabel(e.method), "", "", -e.amount]),
-    [],
     ["", "", "", "", "", "Money received", collected],
-    ["", "", "", "", "", "Expenses", -spent],
-    ["", "", "", "", "", "Net income", round2(collected - spent)],
   ]);
 
   const print = () => {
@@ -221,11 +214,10 @@ export function ReportsTab({ bookings, rooms, mob }: { bookings: Booking[]; room
 table{border-collapse:collapse;width:100%}td,th{padding:4px 6px;border-bottom:1px solid #eee;text-align:left}.n{text-align:right;font-variant-numeric:tabular-nums}.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
 .muted{color:#777}</style></head><body>
 <h1>Stonewood Garden Private Resort</h1><div class="muted">Sales and bookings report · ${escapeHtml(label)} · generated ${escapeHtml(fmtDate(today))}</div>
-<h2>Summary</h2><table>${rows([["Money received", collected], ["Expenses", spent], ["Net income", round2(collected - spent)], ["Still owed on these bookings", owed]])}</table>
+<h2>Summary</h2><table>${rows([["Money received", collected], ["Still owed on these bookings", owed]])}</table>
 <div class="grid"><div><h2>Received</h2><table>${rows([...summary, ["Total received", collected]])}</table>
 <h2>Payment Method</h2><table>${rows(byMethod)}</table></div>
-<div><h2>Expenses by category</h2><table>${byCat.length ? rows(byCat) : "<tr><td class='muted'>None</td></tr>"}</table>
-<h2>Bookings</h2><table>${rows([["Total bookings", String(bks.length)], ["Guests (not cancelled)", String(guests)], ...statusCount.map(([s, n]) => [statusLabel(s), String(n)] as const)])}</table></div></div>
+<div><h2>Bookings</h2><table>${rows([["Total bookings", String(bks.length)], ["Guests (not cancelled)", String(guests)], ...statusCount.map(([s, n]) => [statusLabel(s), String(n)] as const)])}</table></div></div>
 <h2>Reservations (${bks.length})</h2><table><tr><th>Booking</th><th>Guest</th><th>Contact</th><th>Date</th><th>Time</th><th>Package</th><th class="n">Guests</th><th class="n">Total</th><th class="n">Paid</th><th class="n">Owed</th><th>Status</th></tr>
 ${bks.map((b) => {
       const m = bookingMoney(b, ops.payments, ops.damages);
@@ -259,9 +251,6 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
             { k: "Money received", v: collected },
             ...summary.map(([k, v]) => ({ k: `  ${k}`, v })),
             ...byMethod.map(([k, v]) => ({ k: `  by ${k}`, v })),
-            { k: "Expenses", v: -spent },
-            ...byCat.map(([k, v]) => ({ k: `  ${k}`, v: -v })),
-            { k: "Net income", v: round2(collected - spent) },
             { k: "Still owed on these bookings", v: owed },
           ],
           footer: [["Period", label], ["Bookings", bks.length], ["Guests (not cancelled)", guests]],
@@ -298,15 +287,6 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
             type: payTypeLabel(p.type), m: payMethodLabel(p.method), amt: signedAmount(p),
           })),
           footer: [["Money received", collected]],
-        },
-        {
-          name: "Expenses",
-          columns: [
-            { header: "Date", key: "d", width: 12 }, { header: "Category", key: "c", width: 18 }, { header: "Description", key: "desc", width: 36 },
-            { header: "Payment method", key: "m", width: 17 }, { header: "Amount", key: "amt", width: 13, money: true },
-          ],
-          rows: exps.map((e) => ({ d: e.spentOn, c: e.category, desc: e.description, m: e.method, amt: e.amount })),
-          footer: [["Expenses", spent]],
         },
         {
           name: "Stock",
@@ -524,7 +504,7 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
           </label>
           {source !== "All" && (
             <span className="sw-rep__range" style={{ color: C.textS, borderColor: cBr }}>
-              <Icon name="info" size={13} /> Payments follow their booking; expenses always count.
+              <Icon name="info" size={13} /> Payments follow their booking.
             </span>
           )}
         </div>
@@ -558,7 +538,7 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
             <div className="sw-rep__summarygrid" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(4,minmax(0,1fr))" }}>
               {([
                 ["Money received", fmt(now.collected), now.collected, before.collected, true],
-                ["Net income", fmt(now.net), now.net, before.net, true],
+                ["Still owed", fmt(now.owed), now.owed, before.owed, false],
                 ["Total bookings", String(now.bookings), now.bookings, before.bookings, true],
                 ["Total guests", String(now.guests), now.guests, before.guests, true],
               ] as const).map(([l, v, cur, prev, up]) => (
@@ -577,13 +557,13 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
 
       {(view === "Overview" || view === "Money") && <>
       {/* ── Money ── */}
-      {section("cash", "Financial Overview", "What came in, what went out, and what is still owed.")}
-      <div className="sw-rep__kpis" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(4,minmax(0,1fr))" }}>
+      {/* Sales monitoring only (adviser's review, 2026-11-22): the money
+          received and what is still owed. Expenses stay in Payments &
+          Expenses, not in the report. */}
+      {section("cash", "Sales", "What the resort received, and what is still owed.")}
+      <div className="sw-rep__kpis" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(3,minmax(0,1fr))" }}>
         {kpi({ icon: "cash", label: "Money received", value: fmt(collected), note: `${pays.length} payment${pays.length === 1 ? "" : "s"}`, accent: "#2e9e4e", cur: now.collected, prev: before.collected, trend: series.map((x) => x.money) })}
-        {kpi({ icon: "receipt", label: "Expenses", value: fmt(spent), note: `${exps.length} expense${exps.length === 1 ? "" : "s"}`, accent: "#9a8f80", cur: now.spent, prev: before.spent, up: false, trend: series.map((x) => x.spent),
-          meter: collected > 0 ? { pct: spent / collected, text: `${Math.round((spent / collected) * 100)}% of money received` } : undefined })}
-        {kpi({ icon: "trending-up", label: "Net income", value: fmt(round2(collected - spent)), accent: collected - spent < 0 ? "#e5484d" : gold, cur: now.net, prev: before.net, trend: series.map((x) => round2(x.money - x.spent)),
-          note: collected - spent < 0 ? "Spent more than came in" : undefined })}
+        {kpi({ icon: "receipt", label: "Payments", value: String(pays.length), note: kept.length ? `About ${fmt(Math.round(collected / Math.max(1, kept.length)))} per booking` : undefined, accent: gold, cur: now.payments, prev: before.payments })}
         {kpi({ icon: "wallet", label: "Still owed", value: fmt(owed), note: "on bookings in this period", accent: owed > 0 ? "#f5a524" : "#9a8f80", cur: now.owed, prev: before.owed, up: false })}
       </div>
 
@@ -608,7 +588,7 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
         );
       })()}
 
-      <div className="sw-rep__grid3" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(3,minmax(0,1fr))" }}>
+      <div className="sw-rep__grid3" style={{ gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(2,minmax(0,1fr))" }}>
         {breakdown({
           icon: "receipt", title: "Summary", hint: "Money in, by what it paid for",
           rows: summary.map(([t, v]) => [t, v, v < 0 ? `−${fmt(-v)}` : fmt(v)] as const),
@@ -618,11 +598,6 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
         {breakdown({
           icon: "wallet", title: "Payment Method", hint: "How guests paid",
           rows: byMethod.map(([m, v]) => [m, v, fmt(v)] as const),
-        })}
-        {breakdown({
-          icon: "folder", title: "Expenses by category", hint: "Where the money went",
-          rows: byCat.map(([c, v]) => [c, v, fmt(v)] as const),
-          empty: "No expenses in this period.",
         })}
       </div>
 
@@ -678,8 +653,6 @@ ${pays.map((p) => `<tr><td>${escapeHtml(manilaDate(p.receivedAt))}</td><td>${esc
                 {([
                   ["Money received", now.collected, before.collected, fmt, true],
                   ["Payments", now.payments, before.payments, String, true],
-                  ["Expenses", now.spent, before.spent, fmt, false],
-                  ["Net income", now.net, before.net, fmt, true],
                   ["Still owed", now.owed, before.owed, fmt, false],
                   ["Bookings", now.bookings, before.bookings, String, true],
                   ["Not cancelled", now.kept, before.kept, String, true],

@@ -61,10 +61,7 @@ export function CalendarLegend({ text, muted, line, quiet, narrow = false }: {
             <li key={d.label} style={row}>
               {/* A tiny date tile in the state's own colour. */}
               <span aria-hidden="true" style={{ width: 26, height: 26, borderRadius: 7, background: d.bg, border: `1px solid ${d.rim}`, color: d.ink, fontSize: 11, fontWeight: 700, display: "grid", placeItems: "center", flexShrink: 0, opacity: d.dim ? 0.6 : 1, textDecoration: d.strike ? "line-through" : undefined, textDecorationThickness: d.strike ? 2 : undefined }}>12</span>
-              <span style={{ minWidth: 0, lineHeight: 1.25 }}>
-                <span style={{ display: "block", color: text, fontSize: 12.5, fontWeight: 600 }}>{d.label}</span>
-                <span style={{ display: "block", color: muted, fontSize: 11 }}>{d.note}</span>
-              </span>
+              <span title={d.note} style={{ minWidth: 0, lineHeight: 1.25, color: text, fontSize: 13.5, fontWeight: 600 }}>{d.label}</span>
             </li>
           ))}
         </ul>

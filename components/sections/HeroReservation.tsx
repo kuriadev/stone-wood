@@ -43,7 +43,7 @@ const poolNote = (exclusive: boolean, slotLabel: string): string =>
     ? `The pool and resort are your group's alone for your ${slotLabel} — no other group, up to ${GUESTS_MAX} guests.`
     : `Pool shared with other groups in your ${slotLabel} — billed per guest, up to ${GUESTS_MAX} guests in total.`;
 
-const poolNoteStyle: CSSProperties = { fontSize: 12, color: "rgba(238,232,220,0.5)", margin: 0, lineHeight: 1.5 };
+const poolNoteStyle: CSSProperties = { fontSize: 12, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.5 * var(--hr-k, 1))))", margin: 0, lineHeight: 1.5 };
 
 /** Every description the pool-access block can show, to hold its height. */
 const POOL_SIZERS: string[] = SLOT_ORDER.flatMap((k) => [poolNote(true, SLOTS[k].label), poolNote(false, SLOTS[k].label)]);
@@ -65,7 +65,7 @@ const stayNoteStyle: CSSProperties = {
   margin: 0,
   fontSize: 11.5,
   lineHeight: 1.55,
-  color: "rgba(238,232,220,0.62)",
+  color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.62 * var(--hr-k, 1))))",
 };
 
 interface HeroReservationProps {
@@ -160,20 +160,20 @@ export function HeroReservation({
     : "Choose a date";
 
   const rule = { height: 1, background: `rgba(201,168,76,${isDark ? "0.14" : "0.2"})` };
-  const label = { fontSize: 11, letterSpacing: 2.5, color: "rgba(238,232,220,0.6)" };
+  const label = { fontSize: 11, letterSpacing: 2.5, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.6 * var(--hr-k, 1))))" };
 
   const counter = (o: { title: string; sub: string; value: number; min: number; max: number; onChange: (n: number) => void; noun: string; locked?: boolean }) => (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
       <div>
         <p style={{ ...label, margin: "0 0 4px" }}>{o.title}</p>
-        <p style={{ fontSize: 12, color: "rgba(238,232,220,0.55)", margin: 0 }}>{o.sub}</p>
+        <p style={{ fontSize: 12, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.55 * var(--hr-k, 1))))", margin: 0 }}>{o.sub}</p>
       </div>
       <div
         role="group"
         aria-label={`Number of ${o.noun}`}
         style={{
           display: "flex", alignItems: "center", gap: 4, flexShrink: 0,
-          background: "rgba(255,255,255,0.04)",
+          background: "rgba(var(--hr-tile, 255,255,255), 0.04)",
           border: `1px solid rgba(201,168,76,${isDark ? "0.18" : "0.26"})`,
           borderRadius: 999, padding: 4,
         }}
@@ -181,7 +181,7 @@ export function HeroReservation({
         <Stepper label={`Fewer ${o.noun}`} glyph="−" disabled={o.locked || o.value <= o.min}
           step={() => o.onChange(Math.max(o.min, Math.min(o.value, o.max) - 1))} />
         <GuestInput value={o.value} onChange={o.onChange} min={o.min} max={o.max} label={`Number of ${o.noun}`} disabled={o.locked}
-          style={{ width: 36, fontSize: 16, color: "#fff", fontWeight: 500 }} />
+          style={{ width: 36, fontSize: 16, color: "var(--hr-strong, #fff)", fontWeight: 500 }} />
         <Stepper label={`More ${o.noun}`} glyph="+" disabled={o.locked || o.value >= o.max}
           step={() => o.onChange(Math.min(o.max, o.value + 1))} />
       </div>
@@ -198,16 +198,22 @@ export function HeroReservation({
         marginTop: mob ? 28 : 36,
         width: "100%",
         maxWidth: 1060,
-        /* Dark in BOTH themes. Everything inside therefore uses fixed light
-           inks and the SURFACE gold -- never C.goldInk, which follows the
-           theme and turns dark olive here in light mode. Same rule as the
-           footer and the gallery lightbox. */
-        background: isDark ? "rgba(6,5,3,0.72)" : "rgba(10,7,3,0.72)",
-        border: `1px solid rgba(201,168,76,${isDark ? "0.28" : "0.4"})`,
+        /* Follows the theme (owner, 2026-11-22): dark glass in dark mode,
+           warm cream in light mode. The inks inside read these variables
+           (the calendar's too), so one switch here turns the whole card;
+           elsewhere the calendar keeps its dark defaults. */
+        ["--hr-ink" as string]: isDark ? "238,232,220" : "38,28,14",
+        ["--hr-k" as string]: isDark ? "1" : "1.25",
+        ["--hr-tile" as string]: isDark ? "255,255,255" : "120,90,40",
+        ["--hr-strong" as string]: isDark ? "#fff" : "#1f160a",
+        ["--hr-gold" as string]: isDark ? gold : "#8a6a1f",
+        ["--hr-gold-strong" as string]: isDark ? "#e8c56a" : "#7a5a12",
+        background: isDark ? "rgba(6,5,3,0.72)" : "rgba(255,251,243,0.94)",
+        border: `1px solid rgba(201,168,76,${isDark ? "0.28" : "0.45"})`,
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
         borderRadius: 18,
-        boxShadow: "0 32px 80px rgba(0,0,0,0.55)",
+        boxShadow: isDark ? "0 32px 80px rgba(0,0,0,0.55)" : "0 24px 60px rgba(70,48,12,0.18)",
         overflow: "hidden",
       }}
     >
@@ -221,11 +227,11 @@ export function HeroReservation({
         }}
       >
         <div>
-          <p style={{ ...label, color: gold, fontWeight: 500, marginBottom: 8 }}>RESERVATIONS</p>
+          <p style={{ ...label, color: "var(--hr-gold, #c9a84c)", fontWeight: 500, marginBottom: 8 }}>RESERVATIONS</p>
           <h2
             style={{
               fontFamily: "'Satoshi',system-ui,sans-serif",
-              fontSize: mob ? 26 : 30, color: "#fff", fontWeight: 400, margin: 0, lineHeight: 1.1,
+              fontSize: mob ? 26 : 30, color: "var(--hr-strong, #fff)", fontWeight: 400, margin: 0, lineHeight: 1.1,
             }}
           >
             Find your perfect date
@@ -233,7 +239,7 @@ export function HeroReservation({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#4caf50", flexShrink: 0 }} />
-          <span style={{ ...label, color: "rgba(238,232,220,0.72)" }}>LIVE AVAILABILITY</span>
+          <span style={{ ...label, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.72 * var(--hr-k, 1))))" }}>LIVE AVAILABILITY</span>
         </div>
       </div>
 
@@ -272,13 +278,13 @@ export function HeroReservation({
                   marginBottom: 16,
                 }}
               >
-                <span aria-hidden="true" style={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center", background: "rgba(201,168,76,0.16)", color: gold }}>
+                <span aria-hidden="true" style={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center", background: "rgba(201,168,76,0.16)", color: "var(--hr-gold, #c9a84c)" }}>
                   <Icon name="users" size={18} strokeWidth={1.75} />
                 </span>
-                <span style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 28, lineHeight: 1, color: "#fff", fontWeight: 500, fontVariantNumeric: "tabular-nums", minWidth: 18 }}>{date ? onTour : "–"}</span>
+                <span style={{ fontFamily: "'Satoshi',system-ui,sans-serif", fontSize: 28, lineHeight: 1, color: "var(--hr-strong, #fff)", fontWeight: 500, fontVariantNumeric: "tabular-nums", minWidth: 18 }}>{date ? onTour : "–"}</span>
                 <span style={{ minWidth: 0 }}>
-                  <span style={{ display: "block", fontSize: 13, color: "rgba(238,232,220,0.9)", fontWeight: 600 }}>Number of guests reserved</span>
-                  <span style={{ display: "block", fontSize: 11.5, color: "rgba(238,232,220,0.55)", marginTop: 2 }}>
+                  <span style={{ display: "block", fontSize: 13, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.9 * var(--hr-k, 1))))", fontWeight: 600 }}>Number of guests reserved</span>
+                  <span style={{ display: "block", fontSize: 11.5, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.55 * var(--hr-k, 1))))", marginTop: 2 }}>
                     {!date ? "Pick a date to see it"
                       : <>{onTour === 0 ? "No one booked yet · " : ""}{SLOTS[slot].label} · {lastDay > date ? `${fmtDate(date)} – ${fmtDate(lastDay)}, busiest day` : fmtDate(date)}</>}
                   </span>
@@ -287,10 +293,10 @@ export function HeroReservation({
             </div>
           )}
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
-            <p style={{ fontSize: 14, color: "rgba(238,232,220,0.88)", margin: 0, fontWeight: 500 }}>
+            <p style={{ fontSize: 14, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.88 * var(--hr-k, 1))))", margin: 0, fontWeight: 500 }}>
               Choose an available date
             </p>
-            <p style={{ fontSize: 12, color: "rgba(238,232,220,0.5)", margin: 0 }}>
+            <p style={{ fontSize: 12, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.5 * var(--hr-k, 1))))", margin: 0 }}>
               Open dates are shown in green
             </p>
           </div>
@@ -314,14 +320,14 @@ export function HeroReservation({
             aboveLegend={
             <p
               aria-hidden={allowsMultiDay(slot) || undefined}
-              style={{ fontSize: 12.5, color: "rgba(238,232,220,0.6)", margin: "12px 0 0", textAlign: "center", visibility: allowsMultiDay(slot) ? "hidden" : "visible" }}
+              style={{ fontSize: 12.5, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.6 * var(--hr-k, 1))))", margin: "12px 0 0", textAlign: "center", visibility: allowsMultiDay(slot) ? "hidden" : "visible" }}
             >
               Staying more than one day?{" "}
               <button className="sw-ulink"
                 type="button"
                 tabIndex={allowsMultiDay(slot) ? -1 : undefined}
                 onClick={() => setSlot(MULTI_DAY_SLOT)}
-                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: gold, fontSize: 12.5 }}
+                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--hr-gold, #c9a84c)", fontSize: 12.5 }}
               >
                 Choose {SLOTS[MULTI_DAY_SLOT].label}
               </button>
@@ -346,20 +352,20 @@ export function HeroReservation({
             <span
               style={{
                 width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-                background: `${gold}18`, border: `1px solid ${gold}44`, color: gold,
+                background: `${gold}18`, border: `1px solid ${gold}44`, color: "var(--hr-gold, #c9a84c)",
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}
             >
               <Icon name="calendar" size={19} />
             </span>
             <div style={{ minWidth: 0 }}>
-              <p style={{ fontSize: 12, color: "rgba(238,232,220,0.6)", margin: "0 0 4px" }}>
+              <p style={{ fontSize: 12, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.6 * var(--hr-k, 1))))", margin: "0 0 4px" }}>
                 {stayDays > 1 ? "Selected dates" : "Selected date"}
               </p>
               <p
                 style={{
                   fontFamily: "'Satoshi',system-ui,sans-serif",
-                  fontSize: stayDays > 1 ? 17 : 22, color: date ? "#fff" : "rgba(238,232,220,0.55)",
+                  fontSize: stayDays > 1 ? 17 : 22, color: date ? "var(--hr-strong, #fff)" : "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.55 * var(--hr-k, 1))))",
                   margin: 0, lineHeight: 1.15, fontWeight: 400,
                 }}
               >
@@ -378,7 +384,7 @@ export function HeroReservation({
               aria-label="Reservation type"
               style={{
                 display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 4,
-                background: "rgba(255,255,255,0.04)",
+                background: "rgba(var(--hr-tile, 255,255,255), 0.04)",
                 border: `1px solid rgba(201,168,76,${isDark ? "0.18" : "0.26"})`,
                 borderRadius: 12, padding: 4,
               }}
@@ -401,16 +407,16 @@ export function HeroReservation({
                       minHeight: 44, borderRadius: 9, cursor: "pointer",
                       border: on ? `1px solid ${gold}55` : "1px solid transparent",
                       background: on ? `${gold}1f` : "transparent",
-                      color: on ? "#fff" : "rgba(238,232,220,0.62)",
+                      color: on ? "var(--hr-strong, #fff)" : "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.62 * var(--hr-k, 1))))",
                       padding: "8px 4px", textAlign: "center",
                       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
                     }}
                   >
-                    <Icon name={SLOT_ICON[k]} size={17} style={{ color: on ? gold : "rgba(238,232,220,0.55)" }} />
+                    <Icon name={SLOT_ICON[k]} size={17} style={{ color: on ? "var(--hr-gold, #c9a84c)" : "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.55 * var(--hr-k, 1))))" }} />
                     <span style={{ fontSize: 13, fontWeight: on ? 600 : 400, lineHeight: 1.1 }}>
                       {SLOTS[k].label}
                     </span>
-                    <span style={{ fontSize: 11, color: on ? gold : "rgba(238,232,220,0.45)", lineHeight: 1.1 }}>
+                    <span style={{ fontSize: 11, color: on ? "var(--hr-gold, #c9a84c)" : "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.45 * var(--hr-k, 1))))", lineHeight: 1.1 }}>
                       {SLOTS[k].hours}
                     </span>
                   </button>
@@ -473,7 +479,7 @@ export function HeroReservation({
                  its own is ~29px, so switching to a Staycation used to pull
                  everything below it up by the difference. */
               <div style={{ minHeight: 44, display: "flex", alignItems: "center" }}>
-                <p style={{ display: "inline-flex", alignItems: "center", gap: 6, margin: 0, padding: "6px 12px", borderRadius: 20, background: `${gold}22`, border: `1px solid ${gold}66`, color: gold, fontSize: 11.5, fontWeight: 700, letterSpacing: 1 }}>
+                <p style={{ display: "inline-flex", alignItems: "center", gap: 6, margin: 0, padding: "6px 12px", borderRadius: 20, background: `${gold}22`, border: `1px solid ${gold}66`, color: "var(--hr-gold, #c9a84c)", fontSize: 11.5, fontWeight: 700, letterSpacing: 1 }}>
                   <Icon name="lock" size={12} /> PRIVATE POOL — {SLOTS.WholeDay.label.toUpperCase()}
                 </p>
               </div>
@@ -497,7 +503,7 @@ export function HeroReservation({
                         minHeight: 44, borderRadius: 9,
                         border: `1px solid ${on ? gold : `rgba(201,168,76,${isDark ? "0.18" : "0.26"})`}`,
                         background: on ? `${gold}26` : "transparent",
-                        color: on ? gold : "rgba(238,232,220,0.85)",
+                        color: on ? "var(--hr-gold, #c9a84c)" : "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.85 * var(--hr-k, 1))))",
                         opacity: unavailable && !on ? 0.4 : 1,
                         cursor: unavailable && !on ? "not-allowed" : "pointer",
                         fontSize: 11.5, fontWeight: 700, letterSpacing: 0.8,
@@ -529,10 +535,10 @@ export function HeroReservation({
           {/* What it comes to */}
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
             <div>
-              <p style={{ fontSize: 14, color: "#fff", margin: "0 0 4px", fontWeight: 500 }}>
+              <p style={{ fontSize: 14, color: "var(--hr-strong, #fff)", margin: "0 0 4px", fontWeight: 500 }}>
                 {goesExclusive ? "Private pool" : "Shared pool"}
               </p>
-              <p style={{ fontSize: 12, color: "rgba(238,232,220,0.55)", margin: 0 }}>
+              <p style={{ fontSize: 12, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.55 * var(--hr-k, 1))))", margin: 0 }}>
                 {goesExclusive ? "Private resort access" : `${guests} guest${guests === 1 ? "" : "s"}, pool shared`}
                 {stayDays > 1 ? ` · ${stayDays} days` : ""}
               </p>
@@ -540,7 +546,7 @@ export function HeroReservation({
             <p
               style={{
                 fontFamily: "'Satoshi',system-ui,sans-serif",
-                fontSize: 24, color: gold, margin: 0, whiteSpace: "nowrap", fontWeight: 400,
+                fontSize: 24, color: "var(--hr-gold, #c9a84c)", margin: 0, whiteSpace: "nowrap", fontWeight: 400,
               }}
             >
               from {fmt(goesExclusive ? exclusiveTotal : sharedTotal)}
@@ -565,7 +571,7 @@ export function HeroReservation({
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, flexWrap: "wrap" }}>
             <Linkish onClick={onBrowseRooms}>Browse rooms</Linkish>
-            <span aria-hidden="true" style={{ color: "rgba(238,232,220,0.25)" }}>|</span>
+            <span aria-hidden="true" style={{ color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.25 * var(--hr-k, 1))))" }}>|</span>
             <Linkish onClick={onManageBooking}>Manage booking</Linkish>
           </div>
         </div>
@@ -590,9 +596,9 @@ function Stepper({
         // 44x44, the HIG default control size.
         width: 44, height: 44, borderRadius: "50%",
         // Highlighted like Book Now's: gold circle and sign; grey at the limit.
-        background: disabled ? "rgba(255,255,255,0.04)" : "rgba(201,168,76,0.18)",
+        background: disabled ? "rgba(var(--hr-tile, 255,255,255), 0.04)" : "rgba(201,168,76,0.18)",
         border: `1px solid ${disabled ? "transparent" : "rgba(201,168,76,0.45)"}`,
-        color: disabled ? "rgba(238,232,220,0.3)" : "#e8c56a",
+        color: disabled ? "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.3 * var(--hr-k, 1))))" : "var(--hr-gold-strong, #e8c56a)",
         fontSize: 20, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer",
         transition: "background .2s ease, color .2s ease",
         display: "flex", alignItems: "center", justifyContent: "center",
@@ -610,7 +616,7 @@ function Linkish({ onClick, children }: { onClick: () => void; children: React.R
       onClick={onClick}
       style={{
         minHeight: 44, background: "none", border: "none", cursor: "pointer",
-        color: "rgba(238,232,220,0.72)", fontSize: 13, padding: "0 4px",
+        color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.72 * var(--hr-k, 1))))", fontSize: 13, padding: "0 4px",
       }}
     >
       <span className="sw-ulink">{children}</span>

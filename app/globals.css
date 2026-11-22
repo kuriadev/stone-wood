@@ -132,12 +132,15 @@
   --sw-border: #e4ddd1;
   --sw-border-light: #ede8df;
   --sw-text-h: #1a1614;
-  --sw-text-b: #3d3229;
-  --sw-text-s: #6b5d4f;
+  /* Darkened (panel review, 2026-11-22: text must read from a distance;
+     no faint grey on light surfaces). Body 12.3:1, secondary 8.1:1,
+     captions 6.9:1 on the cream card. */
+  --sw-text-b: #2e251d;
+  --sw-text-s: #4f4337;
   /* The faintest text. #7d7062 cleared the page background but came out at
      4.24:1 on the cream card (#f5f0e8), which is where most of it is used --
      eyebrows and helper lines inside panels. */
-  --sw-text-xs: #736758;
+  --sw-text-xs: #5c4f41;
   /* Gold for TEXT and ICONS. The brand gold collapses to 2.14:1 on the cream
      background, so this is the same hue darkened to clear 4.5:1. The SURFACE
      gold (lib/styles.ts) is unchanged.
@@ -174,9 +177,9 @@
   --sw-border: #2a2a2a;
   --sw-border-light: #242424;
   --sw-text-h: #f2ede6;
-  --sw-text-b: #c4b99a;
-  --sw-text-s: #9b8e79;
-  --sw-text-xs: #968a78;
+  --sw-text-b: #d8ceb6;
+  --sw-text-s: #b8ab94;
+  --sw-text-xs: #aa9d87;
   --sw-gold-ink: #c9a84c;
   --sw-danger-ink: #ff7b7b;
   --sw-input-bg: #1a1a1a;
@@ -2148,4 +2151,17 @@ tr.sw-spot > td:first-child { box-shadow: inset 4px 0 0 #e6c76a; }
   body:has(input:not([type="checkbox"]):not([type="radio"]):focus, textarea:focus, select:focus) .sw-tabbar__bar,
   body:has(input:not([type="checkbox"]):not([type="radio"]):focus, textarea:focus, select:focus) .sw-float-bottom,
   body:has(input:not([type="checkbox"]):not([type="radio"]):focus, textarea:focus, select:focus) .sw-dock { display: none !important; }
+}
+
+
+/* ── Legibility (panel review, 2026-11-22) ─────────────────────────────
+   Digits all the same width, so dates, booking IDs, guest counts and peso
+   amounts line up in columns and don't jitter as they change. */
+.sw-admin-main, table, .sw-stat, .sw-bsum { font-variant-numeric: tabular-nums; }
+/* Every admin module's content a step larger on laptop and desktop
+   screens, where there is room: the many small captions and labels across
+   the modules grow with it (panel review: "most modules in the admin UI,
+   not only the dashboard"). Phones keep their size. */
+@media (min-width: 1100px) {
+  .sw-admin-main { zoom: 1.08; }
 }

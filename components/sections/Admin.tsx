@@ -6,7 +6,7 @@ import { CLOSING_BG } from "@/lib/constants";
 import { EmergencyReview } from "@/components/admin/EmergencyReview";
 import { findRef } from "@/lib/bookingRef";
 import { ActionButton, ConfirmDialog, FilterSelect } from "@/components/admin/ui";
-import { statusLabel, bookingStatusLabel, ADMIN_NAV_GROUPS, ADMIN_TAB_LABEL } from "@/lib/labels";
+import { statusLabel, bookingStatusLabel, ADMIN_NAV_GROUPS, ADMIN_TAB_LABEL, ADMIN_SIDE_LABEL } from "@/lib/labels";
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -222,10 +222,12 @@ export function Admin({
     }
   };
   /* Sidebar sections folded by this person, remembered on this device. */
-  const [foldedGroups, setFoldedGroups] = useState<Set<string>>(() => new Set());
+  const [foldedGroups, setFoldedGroups] = useState<Set<string>>(() => new Set(["WEBSITE", "SETUP"]));
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem("sw_side_folded") ?? "[]") as string[];
+      const raw = localStorage.getItem("sw_side_folded");
+      if (raw === null) return;   // never chosen: Website and Setup start folded
+      const saved = JSON.parse(raw) as string[];
       // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from storage after mount
       if (Array.isArray(saved)) setFoldedGroups(new Set(saved));
     } catch { /* nothing saved, or private mode */ }
@@ -434,7 +436,7 @@ export function Admin({
     onLogout();
   });
 
-  const tabLabels: Record<string, string> = ADMIN_TAB_LABEL;
+  const tabLabels: Record<string, string> = ADMIN_SIDE_LABEL;
 
   const tabIcons: Record<AdminTab, IconName> = {
     Operations: "clipboard-check", Bookings: "clipboard", Sales: "wallet",
@@ -754,11 +756,11 @@ export function Admin({
   const cBr = isDark ? "var(--sw-border)" : "#e4ddd1";
   const inpS: React.CSSProperties = { ...C.inp, borderRadius: 6 };
   const sideS = (t: AdminTab): React.CSSProperties => ({
-    padding: "12px 20px 12px 24px", cursor: "pointer", fontSize: 12.5, letterSpacing: 1.5,
+    padding: "11px 20px 11px 24px", margin: "2px 0", cursor: "pointer", fontSize: 14.5, letterSpacing: 0.1, fontWeight: tab === t ? 600 : 500,
     borderLeft: `2px solid ${tab === t ? gold : "transparent"}`,
     background: tab === t ? (isDark ? "rgba(201,168,76,0.08)" : "rgba(201,168,76,0.1)") : "transparent",
-    color: tab === t ? C.goldInk : (isDark ? "#8d8378" : "#7e6c5c"),
-    display: "flex", alignItems: "flex-start", gap: 12, transition: "all .15s",
+    color: tab === t ? C.goldInk : (isDark ? "#c9bfae" : "#3f3429"),
+    display: "flex", alignItems: "center", gap: 12, transition: "all .15s",
   });
 
   // The inbox and the archive share one layout and differ only in which
@@ -1092,8 +1094,8 @@ export function Admin({
                         }}
                       >
                         <span className="sw-side-group__label" style={{
-                          fontSize: 10.5,
-                          letterSpacing: 3.5,
+                          fontSize: 11.5,
+                          letterSpacing: 2.4,
                           fontWeight: 600,
                           whiteSpace: "nowrap",
                           textTransform: "uppercase" as const,
@@ -1129,8 +1131,8 @@ export function Admin({
                     >
                       <Icon
                         name={tabIcons[t as AdminTab]}
-                        size={16}
-                        style={{ opacity: tab === t ? 1 : 0.55, transition: "opacity .15s" }}
+                        size={18}
+                        style={{ opacity: tab === t ? 1 : 0.75, transition: "opacity .15s" }}
                       />
                       <span
                         className="sw-side__label"
@@ -1152,8 +1154,8 @@ export function Admin({
                              leaves every one of them untouched and catches
                              only DAILY OPERATIONS (135px) and CUSTOMER
                              SERVICE (144px). */
-                          maxWidth: 120,
-                          lineHeight: "16px",
+                          lineHeight: "20px",
+                          whiteSpace: "nowrap",
                           /* Wrap between words, never inside one. With
                              `break-word` a two-digit badge took enough of the
                              146px slot to push DASHBOARD over its cap, and it
@@ -1165,7 +1167,7 @@ export function Admin({
                           hyphens: "none",
                         }}
                       >
-                        {(tabLabels[t] ?? t).toUpperCase()}
+                        {tabLabels[t] ?? t}
                       </span>
 
                       {/* Bookings badge */}
@@ -1259,7 +1261,7 @@ export function Admin({
             the bottom-right corner. Without it the last row of any admin
             table sits under the button with no way to scroll it clear. */}
         {/* Keyed on the page: each one opens at the top and fades in. */}
-        <div key={tab} ref={mainRef} className="sw-main-in" style={{ flex: 1, padding: mob ? "20px 16px" : "40px", paddingBottom: mob ? 96 : 104, overflowY: "auto", minHeight: 0, minWidth: 0, background: adminBg }}>
+        <div key={tab} ref={mainRef} className="sw-main-in sw-admin-main" style={{ flex: 1, padding: mob ? "20px 16px" : "40px", paddingBottom: mob ? 96 : 104, overflowY: "auto", minHeight: 0, minWidth: 0, background: adminBg }}>
 
           {/* About to be signed out. Any click, key or scroll cancels it —
               the same events that keep the session alive. */}

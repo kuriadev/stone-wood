@@ -145,6 +145,10 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
      selection is held as ids rather than bookings so it survives the list
      re-sorting or refreshing underneath it. */
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  /* Essentials only, unless asked (panel review, 2026-11-22: "crowded"):
+     package, source, the email line and the second status line come back
+     with Show details. */
+  const [details, setDetails] = useState(false);
   const [bulk, setBulk] = useState<null | "archive" | "delete">(null);
   const [typed, setTyped] = useState("");
   const [working, setWorking] = useState(false);
@@ -439,7 +443,13 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
         )}
       </div>
 
-      <TableShell head={[selectAllBox, "ID", "Guest", "Date", "Package", "Source", "Total", "Paid", "Status", ""]} minWidth={1060}
+      <div style={{ display: "flex", justifyContent: "flex-end", margin: "0 0 10px" }}>
+        <button type="button" onClick={() => setDetails((v) => !v)} aria-pressed={details}
+          style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 10, border: `1px solid ${details ? gold : cBr}`, background: details ? `${gold}14` : "transparent", color: details ? C.goldInk : C.textB, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+          <Icon name={details ? "eye" : "eye"} size={16} /> {details ? "Hide details" : "Show details"}
+        </button>
+      </div>
+      <TableShell head={details ? [selectAllBox, "ID", "Guest", "Date", "Package", "Source", "Total", "Paid", "Status", ""] : [selectAllBox, "ID", "Guest", "Date", "Total", "Paid", "Status", ""]} minWidth={details ? 1060 : 820}
         empty={rows.length === 0 ? (filtersOn ? <span>No bookings match these filters. <ActionButton size="sm" onClick={clear}>Clear all filters</ActionButton></span> : "No bookings yet.") : undefined}>
         {paged.rows.map((b, i) => {
           const m = bookingMoney(b, ops.payments, ops.damages);
@@ -460,16 +470,16 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
               <Cell style={{ ...td, color: C.goldInk, fontFamily: "monospace", fontWeight: 700, whiteSpace: "nowrap" }}>{b.id.startsWith("TMP-") ? "Saving…" : b.id}</Cell>
               {/* The email identifies the guest (clientKey), so it is the line
                   under the name. The phone is on the detail panel. */}
-              <Cell style={{ ...td, color: C.textH }}>{b.name}<div style={{ color: C.textS, fontSize: 11.5 }}>{b.email || b.contact}</div></Cell>
-              <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{stayRange(b)}<div style={{ color: C.textS, fontSize: 11.5 }}>{s.label}{bookingDays(b) > 1 ? ` · ${bookingDays(b)} days` : ""}</div></Cell>
-              <Cell style={{ ...td, color: C.textS, fontSize: 12.5 }}>{packageAvailed(b)}</Cell>
-              <Cell style={td}><StatusBadge color={b.source === "Walk-In" ? "#3e8ed0" : gold}>{b.source ?? "Online"}</StatusBadge></Cell>
+              <Cell style={{ ...td, color: C.textH, fontWeight: 600 }}>{b.name}{details && <div style={{ color: C.textS, fontSize: 13, fontWeight: 400 }}>{b.email || b.contact}</div>}</Cell>
+              <Cell style={{ ...td, color: C.textB, whiteSpace: "nowrap" }}>{stayRange(b)}<div style={{ color: C.textS, fontSize: 13 }}>{s.label}{bookingDays(b) > 1 ? ` · ${bookingDays(b)} days` : ""}</div></Cell>
+              {details && <Cell style={{ ...td, color: C.textS }}>{packageAvailed(b)}</Cell>}
+              {details && <Cell style={td}><StatusBadge color={b.source === "Walk-In" ? "#3e8ed0" : gold}>{b.source ?? "Online"}</StatusBadge></Cell>}
               <Cell style={{ ...td, color: C.textH, fontWeight: 600, whiteSpace: "nowrap" }}>{fmt(b.total)}</Cell>
               <Cell style={{ ...td, whiteSpace: "nowrap" }}>
                 <span style={{ color: C.textB }}>{fmt(m.paid)}</span>
                 {/* The money line, unless it only repeats the status ("Refunded"). */}
-                {moneyLabel(m.state) !== bookingStatusLabel(b) && (
-                <div><span className="sw-ink" style={{ ["--ink-c" as string]: MONEY_COLOR[m.state], fontSize: 11.5 }}>{moneyLabel(m.state)}{m.due > 0 && b.status !== "Cancelled" ? ` · ${fmt(m.due)} owed` : ""}{b.refundStatus === "Owed" ? ` · ${fmt(b.refundAmount ?? 0)}` : ""}</span></div>
+                {moneyLabel(m.state) !== bookingStatusLabel(b) && (details || (m.due > 0 && b.status !== "Cancelled") || b.refundStatus === "Owed") && (
+                <div><span className="sw-ink" style={{ ["--ink-c" as string]: MONEY_COLOR[m.state], fontSize: 13 }}>{moneyLabel(m.state)}{m.due > 0 && b.status !== "Cancelled" ? ` · ${fmt(m.due)} owed` : ""}{b.refundStatus === "Owed" ? ` · ${fmt(b.refundAmount ?? 0)}` : ""}</span></div>
                 )}
               </Cell>
               <Cell style={td}>
@@ -479,8 +489,8 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                   const ind = bookingIndicator(b, manilaDate(), m.due, ops.dateChanges.some((r) => r.bookingId === b.id && r.status === "Pending"));
                   const tone = SIGNAL[ind.signal];
                   return (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px 4px 8px", borderRadius: 999, background: `${tone}1f`, border: `1px solid ${tone}55`, fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>
-                      <Icon name={ind.icon} size={13} style={{ color: tone }} />
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px 5px 10px", borderRadius: 999, background: `${tone}1f`, border: `1px solid ${tone}55`, fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap" }}>
+                      <Icon name={ind.icon} size={14} style={{ color: tone }} />
                       <span className="sw-ink" style={{ ["--ink-c" as string]: tone }}>{ind.label}</span>
                     </span>
                   );
@@ -490,11 +500,11 @@ export function BookingsTab({ bookings, setBookings, updateStatus, mob, rooms, p
                 {(() => {
                   const ind = bookingIndicator(b, manilaDate(), m.due, ops.dateChanges.some((r) => r.bookingId === b.id && r.status === "Pending"));
                   const sub = bookingStatusLabel(b);
-                  return sub.toLowerCase() === ind.label.toLowerCase() ? null : <div style={{ color: C.textS, fontSize: 11.5, marginTop: 4 }}>{sub}</div>;
+                  return !details || sub.toLowerCase() === ind.label.toLowerCase() ? null : <div style={{ color: C.textS, fontSize: 13, marginTop: 4 }}>{sub}</div>;
                 })()}
                 {/* Awaiting approval: why, in a word or two (lib/reviewReasons.ts). */}
                 {b.status === "Pending" && reviewReasons(b.notes).length > 0 && (
-                  <div style={{ color: "#f5a524", fontSize: 11.5, fontWeight: 600, marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                  <div style={{ color: "#f5a524", fontSize: 13, fontWeight: 600, marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
                     <Icon name="alert" size={12} strokeWidth={2.2} />
                     {[...new Set(reviewReasons(b.notes).map((r) => r.title))].join(" · ")}
                   </div>

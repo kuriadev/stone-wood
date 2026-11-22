@@ -65,6 +65,9 @@ export function OwnerRequestsPanel({ reschedules = 0, onReviewReschedules, inRow
     .slice(0, 5);
   const waiting = pending.length + (isOwner ? reschedules : 0);
   if (!isOwner && pending.length === 0 && answered.length === 0) return null;
+  // Nothing to decide: no empty panel on the dashboard (panel review,
+  // 2026-11-22: "at first glance, it looks crowded").
+  if (isOwner && waiting === 0) return null;
 
   const approve = async (r: OwnerRequest) => {
     setBusy(r.id);

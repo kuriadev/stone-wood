@@ -190,9 +190,9 @@ export function AvailabilityCalendar({
     });
 
   const navBtn = (enabled: boolean) => ({
-    background: enabled ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)",
+    background: enabled ? "rgba(var(--hr-tile, 255,255,255), 0.08)" : "rgba(var(--hr-tile, 255,255,255), 0.04)",
     border: "none",
-    color: enabled ? "rgba(238,232,220,0.85)" : "rgba(238,232,220,0.38)",
+    color: enabled ? "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.85 * var(--hr-k, 1))))" : "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.38 * var(--hr-k, 1))))",
     cursor: enabled ? "pointer" : "not-allowed",
     // Round, to read as part of the card's own language rather than as a
     // boxed widget dropped into it.
@@ -260,7 +260,7 @@ export function AvailabilityCalendar({
         </button>
         <span
           style={{
-            color: "#f5f1ea",
+            color: "var(--hr-strong, #f5f1ea)",
             fontSize: 19,
             fontWeight: 400,
             fontFamily: "'Satoshi',system-ui,sans-serif",
@@ -292,7 +292,7 @@ export function AvailabilityCalendar({
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
           <div
             key={d}
-            style={{ textAlign: "center", fontSize: 12, color: "rgba(238,232,220,0.45)", padding: "4px 0 8px" }}
+            style={{ textAlign: "center", fontSize: 12, color: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.45 * var(--hr-k, 1))))", padding: "4px 0 8px" }}
           >
             {d}
           </div>
@@ -356,13 +356,13 @@ export function AvailabilityCalendar({
           let bdr = `1px solid ${CAL.available.rim}`;
           let cur: string = "pointer";
           let dim = false;
-          if (isPast)   { bg = "rgba(255,255,255,0.05)"; col = "rgba(238,232,220,0.92)"; bdr = "1px solid rgba(255,255,255,0.08)"; cur = "default";     dim = true; }
-          if (isBeyond) { bg = "rgba(255,255,255,0.05)"; col = "rgba(238,232,220,0.92)"; bdr = "1px solid rgba(255,255,255,0.08)"; cur = "not-allowed"; dim = true; }
+          if (isPast)   { bg = "rgba(var(--hr-tile, 255,255,255), 0.05)"; col = "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.92 * var(--hr-k, 1))))"; bdr = "1px solid rgba(var(--hr-tile, 255,255,255), 0.08)"; cur = "default";     dim = true; }
+          if (isBeyond) { bg = "rgba(var(--hr-tile, 255,255,255), 0.05)"; col = "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.92 * var(--hr-k, 1))))"; bdr = "1px solid rgba(var(--hr-tile, 255,255,255), 0.08)"; cur = "not-allowed"; dim = true; }
           // A date that can't be picked looks like a past date: a quiet,
           // dimmed tile (owner, 2026-11-12). A full one keeps its booked-stay
           // marks; a closed one shows its number in red, struck through.
-          if (isBooked) { bg = "rgba(255,255,255,0.05)"; col = "rgba(238,232,220,0.92)"; bdr = "1px solid rgba(255,255,255,0.08)"; cur = "not-allowed"; dim = true; }
-          if (isClosed) { bg = "rgba(255,255,255,0.05)"; col = "#ff8a80"; bdr = "1px solid rgba(255,255,255,0.08)"; cur = "not-allowed"; dim = true; }
+          if (isBooked) { bg = "rgba(var(--hr-tile, 255,255,255), 0.05)"; col = "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.92 * var(--hr-k, 1))))"; bdr = "1px solid rgba(var(--hr-tile, 255,255,255), 0.08)"; cur = "not-allowed"; dim = true; }
+          if (isClosed) { bg = "rgba(var(--hr-tile, 255,255,255), 0.05)"; col = "#ff8a80"; bdr = "1px solid rgba(var(--hr-tile, 255,255,255), 0.08)"; cur = "not-allowed"; dim = true; }
           if (beyondStay) { cur = "not-allowed"; dim = true; }
           // Every day of the stay the guest picked is gold, first to last.
           if (inRange || isSel) { bg = CAL.selected.bg; col = CAL.selected.ink; bdr = `1px solid ${CAL.selected.rim}`; dim = false; }
@@ -468,8 +468,8 @@ export function AvailabilityCalendar({
       {aboveLegend}
       {/* The key: what each colour and each mark on a date means. The
           home card is narrow, so it is one column there. */}
-      <CalendarLegend text="rgba(238,232,220,0.9)" muted="rgba(238,232,220,0.6)" line="rgba(201,168,76,0.25)" narrow
-        quiet={{ bg: "rgba(255,255,255,0.05)", ink: "rgba(238,232,220,0.92)", rim: "rgba(255,255,255,0.08)", red: "#ff8a80" }} />
+      <CalendarLegend text="rgba(var(--hr-ink, 238,232,220), min(1, calc(0.9 * var(--hr-k, 1))))" muted="rgba(var(--hr-ink, 238,232,220), min(1, calc(0.6 * var(--hr-k, 1))))" line="rgba(201,168,76,0.25)" narrow
+        quiet={{ bg: "rgba(var(--hr-tile, 255,255,255), 0.05)", ink: "rgba(var(--hr-ink, 238,232,220), min(1, calc(0.92 * var(--hr-k, 1))))", rim: "rgba(var(--hr-tile, 255,255,255), 0.08)", red: "#ff8a80" }} />
     </div>
   );
 }

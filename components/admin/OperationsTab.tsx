@@ -50,7 +50,7 @@ import { ManilaClock } from "@/components/admin/ManilaClock";
 import { opsBoard, closingBlockers, attentionTally, unclosedDays, lowStock, prepBlocked, prepOpensOn, OPS_STAGES, TODAY_COLUMNS, PREPARE_HORIZON_DAYS, cardTimer, type OpsCard, type OpsView, type TimerTone, guestCancelNotices, openCancelRequests } from "@/lib/operations";
 import { useApp } from "@/contexts/AppContext";
 import { facilitiesForBooking } from "@/lib/facilityUsage";
-import { bookingMoney, collectedBetween, expensesBetween, livePayments, manilaDate, manilaTime, monthRange, round2, type BookingMoney } from "@/lib/finance";
+import { bookingMoney, collectedBetween, expensesBetween, livePayments, manilaDate, manilaTime, round2, type BookingMoney } from "@/lib/finance";
 import { fmt, fmtDate, bookingSlotInfo, holdsDate, bookingDays, bookingEndDate } from "@/lib/utils";
 import { packageAvailed } from "@/lib/pricing";
 import { gold } from "@/lib/styles";
@@ -72,14 +72,11 @@ import { MoveBookingModal } from "@/components/admin/MoveBookingModal";
 import { choiceOpen, choiceExpired, fmtDeadline, holdActive, isRebookRequest, withHolds, isNoShowRebook, NO_SHOW_CHOICE_DAYS } from "@/lib/rebooking";
 import { Closing } from "@/components/admin/SalesTab";
 import { ActionButton, StatusBadge, Modal, ConfirmDialog, Label, AmountRow, ViewSwitcherTabs, useAdminStyle } from "@/components/admin/ui";
-import { BarChart } from "@/components/admin/charts";
-import { GuestMessagesPanel } from "@/components/admin/GuestMessagesPanel";
 import { CancelRequestModal } from "@/components/admin/CancelRequestModal";
 import type { CustomerMessage } from "@/types/admin";
 import { TAP_MIN } from "@/lib/spacing";
 import type { AdminTab } from "@/types/admin";
 import { OwnerRequestsPanel } from "@/components/admin/OwnerRequestsPanel";
-import { TomorrowPanel } from "@/components/admin/TomorrowPanel";
 import { useStaff } from "@/contexts/StaffContext";
 import { call } from "@/contexts/OpsContext";
 
@@ -164,7 +161,7 @@ function dayHeading(date: string, today: string): string {
 
 export function OperationsTab({
   bookings, setBookings, rooms, packages, facilities, updateStatus, mob, onGoTab,
-  customerMessages = [], onArchiveMessage, onRestoreMessage, onReplyMessage, bookingForMessage, focus,
+  customerMessages = [], onArchiveMessage, onReplyMessage, focus,
 }: OperationsTabProps) {
   const { C, cBg, cBr, soft, inp } = useAdminStyle();
   const ops = useOps();
@@ -485,7 +482,9 @@ export function OperationsTab({
   const reminders = allReminderRows.filter((a) => !dismissed.has(a.key));
   const hiddenReminders = allReminderRows.length - reminders.length;
   const [urgentOpen, toggleUrgent] = useFold("urgent");
-  const [remindersOpen, toggleReminders] = useFold("reminders");
+  const [remindersOpen, toggleReminders] = useFold("reminders", false);
+  /** Quick tasks beyond the four essentials. */
+  const [moreTasks, setMoreTasks] = useState(false);
 
   /* The pinned bar (top of the dashboard) shows once the "Do these first"
      panel has scrolled up past the top of the screen. */
@@ -1014,23 +1013,6 @@ export function OperationsTab({
   const owedTodayCount = todayCards.filter((c) => money(c.b).due > 0).length;
   const netToday = round2(collectedToday - spentToday);
 
-  const month = monthRange(today);
-  const receivedMonth = collectedBetween(ops.payments, month.from, month.to);
-  const spentMonth = expensesBetween(ops.expenses, month.from, month.to);
-  /* One bar per day of the month so far. It stops at today, so the chart is
-     not a row of empty future days.
-     The dates are built from `today`'s own string rather than by stepping a
-     Date object: `today` is already a Manila date, and local Date arithmetic
-     on a machine in another timezone slides the first and last bar by a
-     day. */
-  const monthChart = useMemo(() => {
-    const prefix = today.slice(0, 8);
-    const dayOfMonth = Number(today.slice(8, 10));
-    return Array.from({ length: dayOfMonth }, (_, i) => {
-      const iso = `${prefix}${String(i + 1).padStart(2, "0")}`;
-      return { label: String(i + 1), value: collectedBetween(ops.payments, iso) };
-    });
-  }, [today, ops.payments]);
 
   /** One headline figure: icon tile, label, and a badge for its state.
    *
@@ -1059,15 +1041,15 @@ export function OperationsTab({
           <span aria-hidden style={{ width: mob ? 28 : 32, height: mob ? 28 : 32, borderRadius: 9, background: soft, border: `1px solid ${cBr}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: o.color ?? C.goldInk, flexShrink: 0 }}>
             <Icon name={o.icon} size={mob ? 14 : 16} />
           </span>
-          <span style={{ flex: 1, minWidth: 0, color: C.textS, fontSize: 12.5 }}>{o.label}</span>
+          <span style={{ flex: 1, minWidth: 0, color: C.textB, fontSize: 14, fontWeight: 600 }}>{o.label}</span>
           {!mob && chip}
         </div>
-        <div style={{ color: o.color ?? C.textH, fontSize: mob ? 20 : 27, fontWeight: 600, lineHeight: 1.15, overflowWrap: "anywhere" }}>{o.value}</div>
+        <div style={{ color: o.color ?? C.textH, fontSize: mob ? 28 : 36, fontWeight: 600, lineHeight: 1.1, overflowWrap: "anywhere", fontVariantNumeric: "tabular-nums" }}>{o.value}</div>
         {mob ? (
           /* A phone's half-width card: the note gets its own lines, then
              the tag and the arrow share one row, so nothing is squeezed. */
           <>
-            {o.note && <span style={{ color: C.textXS, fontSize: 12, lineHeight: 1.4 }}>{o.note}</span>}
+            {o.note && <span style={{ color: C.textS, fontSize: 13, lineHeight: 1.4 }}>{o.note}</span>}
             {(chip || o.onOpen) && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", marginTop: "auto" }}>
                 {chip}
@@ -1077,7 +1059,7 @@ export function OperationsTab({
           </>
         ) : (
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0, width: "100%" }}>
-            <span style={{ flex: 1, minWidth: 0, color: C.textXS, fontSize: 12 }}>{o.note}</span>
+            <span style={{ flex: 1, minWidth: 0, color: C.textS, fontSize: 13 }}>{o.note}</span>
             {o.onOpen && <span className="sw-stat__go" aria-hidden="true"><Icon name="arrow-right" size={13} /></span>}
           </div>
         )}
@@ -1155,7 +1137,7 @@ export function OperationsTab({
         <Icon name="alert" size={16} style={{ color: TONE.red, flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3 id="dash-urgent" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Do these first</h3>
-          <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>These tasks must be done before other work</div>
+
         </div>
         <span style={{ padding: "4px 8px", borderRadius: 10, fontSize: 11.5, whiteSpace: "nowrap", background: `${TONE.red}22`, color: TONE.red }}>
           {urgent.length} to do
@@ -1196,7 +1178,7 @@ export function OperationsTab({
           {/* What lands here: who arrives today, a facility under repair, guests
               still to pick a new date, supplies running low, bookings to
               confirm. Worth knowing, not urgent (that's "Do these first"). */}
-          <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>Not urgent, but good to know today: arrivals, repairs, low supplies and bookings to check</div>
+          <div style={{ color: C.textS, fontSize: 13, marginTop: 2 }}>Good to know, not urgent</div>
         </div>
         {reminders.length > 0 && (
           <span style={{ padding: "4px 8px", borderRadius: 10, fontSize: 11.5, background: `${gold}22`, color: C.goldInk }}>{reminders.length}</span>
@@ -1242,13 +1224,12 @@ export function OperationsTab({
   // ── Quick tasks ────────────────────────────────────────────────────
   const quickTask = (icon: IconName, title: string, sub: string, onClick: () => void) => (
     <button type="button" onClick={onClick} className="sw-gold-hover"
-      style={{ display: "flex", alignItems: "center", gap: 10, minHeight: TAP_MIN, padding: "10px 12px", borderRadius: 10, border: `1px solid ${cBr}`, background: "transparent", cursor: "pointer", textAlign: "left", minWidth: 0 }}>
-      <span aria-hidden style={{ width: 30, height: 30, borderRadius: 8, background: soft, display: "inline-flex", alignItems: "center", justifyContent: "center", color: C.goldInk, flexShrink: 0 }}>
-        <Icon name={icon} size={15} />
+      style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 60, padding: "10px 14px", borderRadius: 12, border: `1px solid ${cBr}`, background: "transparent", cursor: "pointer", textAlign: "left", minWidth: 0 }}>
+      <span aria-hidden style={{ width: 38, height: 38, borderRadius: 10, background: soft, display: "inline-flex", alignItems: "center", justifyContent: "center", color: C.goldInk, flexShrink: 0 }}>
+        <Icon name={icon} size={19} />
       </span>
-      <span style={{ minWidth: 0 }}>
-        <span style={{ display: "block", color: C.textH, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</span>
-        <span style={{ display: "block", color: C.textS, fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</span>
+      <span style={{ minWidth: 0 }} title={sub}>
+        <span style={{ display: "block", color: C.textH, fontSize: 15, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</span>
       </span>
     </button>
   );
@@ -1266,70 +1247,38 @@ export function OperationsTab({
         <span aria-hidden style={{ width: 30, height: 30, borderRadius: 9, background: soft, border: `1px solid ${cBr}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: C.goldInk, flexShrink: 0 }}>
           <Icon name="star" size={15} />
         </span>
-        <div style={{ minWidth: 0 }}>
-          <h3 id="dash-quick" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Quick tasks</h3>
-          <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>Start a common task</div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <h3 id="dash-quick" style={{ margin: 0, fontSize: 15.5, fontWeight: 600, color: C.textH }}>Quick tasks</h3>
         </div>
+        <button type="button" className="sw-hit" onClick={() => setMoreTasks((v) => !v)} aria-expanded={moreTasks}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: `1px solid ${cBr}`, background: "transparent", color: C.textB, fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}>
+          {moreTasks ? "Less" : "More"} <Icon name={moreTasks ? "chevron-up" : "chevron-down"} size={15} />
+        </button>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(auto-fit,minmax(190px,1fr))", gap: 10, padding: 16 }}>
-        {quickTask("plus", "Walk-in", "Create booking", () => setOpen({ kind: "walkin" }))}
-        {quickTask("cash", "Payment", "Add guest payment", () => setOpen({ kind: "paynew" }))}
-        {quickTask("receipt", "Cost", "Add money spent", () => onGoTab?.("Sales"))}
-        {quickTask("clipboard-check", "Facility check-in", "Get ready for arrivals", () => {
+      {/* The four essentials (panel review, 2026-11-22); the rest under More. */}
+      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr) minmax(0, 1fr)" : "repeat(4,minmax(0,1fr))", gap: 12, padding: 16 }}>
+        {quickTask("plus", "Walk-in", "Create a booking at the desk", () => setOpen({ kind: "walkin" }))}
+        {quickTask("cash", "Payment", "Record a guest payment", () => setOpen({ kind: "paynew" }))}
+        {quickTask("clipboard-check", "Check-in prep", "Get the facilities ready for arrivals", () => {
           if (nextToPrepare) go("prep", nextToPrepare.b);
           else toast("Nobody is waiting to be prepared for.", "info");
         })}
-        {quickTask("logout", "Facility check-out", "Look for damage after stays", () => {
-          if (nextToCheckOut) go("checkout", nextToCheckOut.b);
-          else toast("No group is on site to check out.", "info");
-        })}
-        {quickTask("calendar", "Booking calendar", "View the calendar", () => onGoTab?.("Occupancy"))}
-        {/* On paper before the internet drops: today's and tomorrow's
-            bookings, the caretaker's to-dos and blank forms to import
-            later (components/admin/offlineSheet.ts). */}
-        {quickTask("printer", "Offline sheet", "Print in case the internet drops", () =>
-          printOfflineSheet({ bookings, payments: ops.payments, damages: ops.damages, inspections: ops.inspections, facilities, rooms }))}
+        {quickTask("calendar", "Calendar", "Open the booking calendar", () => onGoTab?.("Occupancy"))}
+        {moreTasks && <>
+          {quickTask("logout", "Check-out", "Look for damage after a stay", () => {
+            if (nextToCheckOut) go("checkout", nextToCheckOut.b);
+            else toast("No group is on site to check out.", "info");
+          })}
+          {/* On paper before the internet drops: today's and tomorrow's
+              bookings, the caretaker's to-dos and blank forms to import
+              later (components/admin/offlineSheet.ts). */}
+          {quickTask("printer", "Offline sheet", "Print in case the internet drops", () =>
+            printOfflineSheet({ bookings, payments: ops.payments, damages: ops.damages, inspections: ops.inspections, facilities, rooms }))}
+        </>}
       </div>
     </section>
   );
 
-  // ── Financial Overview ────────────────────────────────────────────
-  const monthName = new Date(`${today}T00:00:00`).toLocaleDateString("en-PH", { month: "long", year: "numeric" });
-  const leftMonth = round2(receivedMonth - spentMonth);
-  const moneyFigure = (label: string, value: string, note: ReactNode, color?: string) => (
-    <div style={{ minWidth: 0 }}>
-      <div style={{ color: C.textS, fontSize: 12 }}>{label}</div>
-      <div style={{ color: color ?? C.textH, fontSize: mob ? 20 : 24, fontWeight: 600, marginTop: 2 }}>{value}</div>
-      <div style={{ color: C.textXS, fontSize: 11.5, marginTop: 2 }}>{note}</div>
-    </div>
-  );
-  const moneyPanel = (
-    <section aria-labelledby="dash-money" style={{ border: `1px solid ${cBr}`, borderRadius: 12, background: cBg, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 16px", borderBottom: `1px solid ${cBr}` }}>
-        <Icon name="bar-chart" size={16} style={{ color: C.goldInk, flexShrink: 0 }} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h3 id="dash-money" style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: C.textH }}>Financial Overview</h3>
-          <div style={{ color: C.textS, fontSize: 12.5, marginTop: 2 }}>{monthName} · includes today&apos;s money</div>
-        </div>
-        {onGoTab && (
-          <button className="sw-ulink" type="button" onClick={() => onGoTab("Reports")}
-            style={{ background: "none", border: "none", padding: 4, color: C.goldInk, fontSize: 12.5, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, minHeight: TAP_MIN, flex: mob ? "1 0 100%" : "0 0 auto", justifyContent: mob ? "flex-start" : undefined }}>
-            View full report <Icon name="arrow-right" size={13} />
-          </button>
-        )}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "repeat(3,minmax(0,1fr))", gap: mob ? 12 : 16, padding: 16 }}>
-        {moneyFigure("Money received this month", fmt(receivedMonth), "Includes today's payments", "#2e9e4e")}
-        {moneyFigure("Money spent this month", fmt(spentMonth), receivedMonth > 0 ? `${Math.round((spentMonth / receivedMonth) * 100)}% of the money received` : "No income yet this month")}
-        {moneyFigure("Money left this month", fmt(leftMonth),
-          leftMonth < 0 ? "More was spent than received" : "Money received is higher than money spent",
-          leftMonth < 0 ? "#e5484d" : "#2e9e4e")}
-      </div>
-      <div style={{ padding: "0 16px 16px" }}>
-        <BarChart data={monthChart} color={gold} formatValue={fmt} height={mob ? 130 : 170} mob={mob} />
-      </div>
-    </section>
-  );
 
   // ── Search ─────────────────────────────────────────────────────────
   const needle = q.trim().toLowerCase();
@@ -1393,21 +1342,16 @@ export function OperationsTab({
           six is not ticked off yet" made every row look equally late. */}
       {/* "Do these first" alone across the top: the reason to open the
           dashboard. */}
-      {ops.loaded && <div style={{ marginBottom: 20 }}>{urgentPanel}</div>}
-
-      {/* The day at a glance. */}
+      {/* 1. The day at a glance: four numbers. */}
       {statsRow}
 
-      {/* Front desk's requests waiting on the owner, with the day's
-          reminders beside them; both stretched to one height so their
-          bottoms line up. */}
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0,1fr) minmax(0,1fr)", gap: mob ? 20 : 16, alignItems: "stretch", marginBottom: 20 }}>
-        <OwnerRequestsPanel mob={mob} inRow reschedules={canDecideMoves ? pendingMoves.length : 0} onReviewReschedules={() => {
-          setView("reschedule");
-          document.getElementById("dash-bookings")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }} />
-        {ops.loaded && reminderPanel}
-      </div>
+      {/* 2. What needs doing now: the urgent tasks, then anything waiting
+          for approval (shown only when something is). */}
+      {ops.loaded && <div style={{ marginBottom: 20 }}>{urgentPanel}</div>}
+      <OwnerRequestsPanel mob={mob} reschedules={canDecideMoves ? pendingMoves.length : 0} onReviewReschedules={() => {
+        setView("reschedule");
+        document.getElementById("dash-bookings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }} />
 
 
       {quickPanel}
@@ -1421,7 +1365,11 @@ export function OperationsTab({
           screen. `alignSelf: start` is what lets the rail stick at all: a
           stretched grid item is as tall as its row and has nothing to stick
           inside. */}
-      <div style={{ display: "grid", gridTemplateColumns: mob ? "minmax(0, 1fr)" : "minmax(0,1fr) minmax(320px,380px)", gap: 16, alignItems: "start" }}>
+      {/* One column: the guest inbox, tomorrow's arrivals and the financial
+          overview were taken off the dashboard (adviser's review, 2026-11-22:
+          "too crowded"). Messages are in Guest Messages, money in Payments
+          & Reports. */}
+      <div>
         <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
 
           {/* ── GCash receipts waiting to be checked (ProofQueue.tsx) ── */}
@@ -1477,27 +1425,9 @@ export function OperationsTab({
         </div>
       </section>
 
-          {moneyPanel}
+          {/* Secondary: reminders, folded until opened. */}
+          {ops.loaded && reminderPanel}
         </div>
-
-        {/* Pinned, and bounded by the viewport so a long inbox scrolls
-            inside the rail instead of running off the bottom of it. */}
-        {/* While the pinned "Do these first" bar is showing, the inbox sits
-            below it (the bar is 52px + 8px off the top) instead of under it. */}
-        <aside style={{ minWidth: 0, position: mob ? "static" : "sticky", top: pinShown && !mob ? 72 : 0, alignSelf: "start", maxHeight: mob ? undefined : pinShown ? "calc(100dvh - 212px)" : "calc(100dvh - 140px)", display: "flex", flexDirection: "column", gap: 20, transition: "top .35s cubic-bezier(.22, 1, .36, 1), max-height .35s cubic-bezier(.22, 1, .36, 1)" }}>
-          <GuestMessagesPanel
-            messages={customerMessages}
-            mob={mob}
-            bookingFor={(m) => bookingForMessage?.(m) ?? null}
-            onArchive={(m) => setArchiveMsg(m)}
-            onRestore={(m) => onRestoreMessage?.(m)}
-            onReply={(m) => onReplyMessage?.(m)}
-            onOpenAll={() => onGoTab?.("Customer Service")}
-          />
-          {/* Tomorrow's guests, under the inbox: the day-before email goes
-              by itself, the text from here with one tap. */}
-          <div style={{ flexShrink: 0, marginBottom: -20 }}><TomorrowPanel bookings={bookings} /></div>
-        </aside>
       </div>
 
       {/* ── The module tools each button opens ── */}
