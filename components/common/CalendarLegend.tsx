@@ -7,7 +7,7 @@
  * which testers found cramped (2026-11-12). Now it is two short lists on
  * the left: what each COLOUR of a date means, drawn as a mini date tile in
  * that colour, and what each MARK on a date means. Side by side on a wide
- * screen, one under the other on a phone.
+ * screen and in the narrow home card, one under the other on a small phone.
  *
  * Dates that can't be picked (past, full, closed) all look like a past
  * date: a quiet, dimmed tile, so "can't press this" reads the same
@@ -39,11 +39,13 @@ export function CalendarLegend({ text, muted, line, quiet, narrow = false }: {
   /** The calendar's own "can't pick" tile: past, full and closed dates. */
   quiet: { bg: string; ink: string; rim: string; red: string };
 }) {
-  // One column in a narrow card, or on a phone.
+  // "Dates" and "Icons on a date" side by side (owner, 2026-11-23), also in
+  // the narrow home card; one under the other only on a small phone.
   const w = useWidth();
-  const one = narrow || w < 640;
+  const one = w < 420;
+  const pad = narrow ? 14 : 20;
   const head = (t: string) => (
-    <p style={{ margin: "0 0 8px", color: muted, fontSize: 10.5, fontWeight: 700, letterSpacing: 1.6, textTransform: "uppercase" }}>{t}</p>
+    <p style={{ margin: "0 0 10px", color: muted, fontSize: 11.5, fontWeight: 700, letterSpacing: 1.6, textTransform: "uppercase" }}>{t}</p>
   );
   const row = { display: "flex", alignItems: "center", gap: 10, minWidth: 0 } as const;
   // Can't be picked: drawn exactly like the calendar's past dates.
@@ -53,7 +55,7 @@ export function CalendarLegend({ text, muted, line, quiet, narrow = false }: {
     { label: "Closed", note: "The resort is closed", bg: quiet.bg, ink: quiet.red, rim: quiet.rim, dim: true, strike: true },
   ];
   return (
-    <div className="sw-callegend" style={{ display: "grid", gridTemplateColumns: one ? "minmax(0, 1fr)" : "minmax(0, 1.2fr) minmax(0, 1fr)", gap: one ? 14 : 20, marginTop: 14, textAlign: "left" }}>
+    <div className="sw-callegend" style={{ display: "grid", gridTemplateColumns: one ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(0, 1fr)", gap: one ? 14 : pad, marginTop: 14, textAlign: "left" }}>
       <div>
         {head("Dates")}
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gridTemplateColumns: one ? "minmax(0, 1fr) minmax(0, 1fr)" : "minmax(0, 1fr)", gap: 8 }}>
@@ -66,7 +68,7 @@ export function CalendarLegend({ text, muted, line, quiet, narrow = false }: {
           ))}
         </ul>
       </div>
-      <div style={one ? undefined : { borderLeft: `1px solid ${line}`, paddingLeft: 20 }}>
+      <div style={one ? undefined : { borderLeft: `1px solid ${line}`, paddingLeft: pad }}>
         {head("Icons on a date")}
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
           {MARKS.map((s) => (
@@ -74,7 +76,7 @@ export function CalendarLegend({ text, muted, line, quiet, narrow = false }: {
               <span aria-hidden="true" style={{ width: 26, height: 26, borderRadius: 7, border: `1px solid ${line}`, color: text, display: "grid", placeItems: "center", flexShrink: 0 }}>
                 <Icon name={SLOT_ICON[s]} size={14} />
               </span>
-              <span style={{ color: text, fontSize: 12.5 }}>{SLOTS[s].label} booked</span>
+              <span style={{ color: text, fontSize: 13.5, fontWeight: 600 }}>{SLOTS[s].label} booked</span>
             </li>
           ))}
         </ul>
